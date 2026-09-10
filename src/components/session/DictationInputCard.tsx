@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useId,
   useRef,
   useState,
@@ -50,6 +51,10 @@ export function DictationInputCard({
   const [uncontrolledValue, setUncontrolledValue] = useState("");
   const isControlled = controlledValue !== undefined;
   const value = isControlled ? controlledValue : uncontrolledValue;
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const setValue = (next: string) => {
     if (!isControlled) setUncontrolledValue(next);
