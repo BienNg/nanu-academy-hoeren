@@ -17,17 +17,16 @@ export default async function Home() {
     slug,
   }));
 
-  // Continue-learning targets the only available profession with clips.
-  const continueBeruf = berufe[0];
-  const interviewTotalClips = continueBeruf
-    ? getSessionClips(continueBeruf.slug).length
-    : 0;
+  const interviewClipTotals: Record<string, number> = {};
+  for (const beruf of berufe) {
+    interviewClipTotals[beruf.slug] = getSessionClips(beruf.slug).length;
+  }
 
   return (
     <HomeScreen
       berufe={berufe}
       levels={levels}
-      interviewTotalClips={interviewTotalClips}
+      interviewClipTotals={interviewClipTotals}
     />
   );
 }

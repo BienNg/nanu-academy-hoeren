@@ -3,7 +3,7 @@
 export const STORAGE_KEY = "nanu-horen-progress";
 export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 
-/** Only real interview content available in MVP. */
+/** Fallback continue target when no totals / progress are available. */
 export const CONTINUE_BERUF_SLUG = "restaurantfachkraft";
 
 export type InterviewProgress = {
@@ -25,14 +25,16 @@ export type StoredProgress = {
   lastPracticeDate?: string;
 };
 
-export type ContinueLearning = {
-  berufSlug: typeof CONTINUE_BERUF_SLUG;
-  href: `/interview/${typeof CONTINUE_BERUF_SLUG}`;
+export type BerufProgressSummary = {
+  berufSlug: string;
+  href: `/interview/${string}`;
   currentClipIndex: number;
   completedCount: number;
   totalClips: number;
   percent: number;
 };
+
+export type ContinueLearning = BerufProgressSummary;
 
 export const DEFAULT_PROGRESS: StoredProgress = {
   interview: {
@@ -214,13 +216,16 @@ export function catalogCompletedCount<T extends { id: string }>(
   return completedClipIds.filter((id) => catalog.has(id)).length;
 }
 
-export function toContinueLearning(
+/** Progress summary for a single Ausbildung slug. */
+export function toBerufProgress(
   progress: StoredProgress,
+  berufSlug: string,
   totalClips: number,
-): ContinueLearning {
-  const entry =
-    progress.interview[CONTINUE_BERUF_SLUG] ??
-    DEFAULT_PROGRESS.interview[CONTINUE_BERUF_SLUG]!;
+): BerufProgressSummary {
+  const entry = progress.interview[berufSlug] ?? {
+    currentClipIndex: 0,
+    completedClipIds: [],
+  };
   const safeTotal = Math.max(0, totalClips);
   const completedCount = entry.completedClipIds.length;
   const percent =
@@ -229,13 +234,44 @@ export function toContinueLearning(
       : Math.min(100, Math.round((completedCount / safeTotal) * 100));
 
   return {
-    berufSlug: CONTINUE_BERUF_SLUG,
-    href: `/interview/${CONTINUE_BERUF_SLUG}`,
+    berufSlug,
+    href: `/interview/${berufSlug}`,
     currentClipIndex: completedCount,
     completedCount,
     totalClips: safeTotal,
     percent,
   };
+}
+
+/**
+ * Pick the beruf to surface as "continue learning".
+ * Prefers an in-progress (incomplete) track with the most completions;
+ * otherwise the furthest along; otherwise the first available slug.
+ */
+export function toContinueLearning(
+  progress: StoredProgress,
+  totalsBySlug: Record<string, number> = {},
+): ContinueLearning {
+  const slugs = Object.keys(totalsBySlug);
+  const fallbackSlug = slugs[0] ?? CONTINUE_BERUF_SLUG;
+  const candidates = (slugs.length > 0 ? slugs : [CONTINUE_BERUF_SLUG]).map(
+    (slug) => toBerufProgress(progress, slug, totalsBySlug[slug] ?? 0),
+  );
+
+  const inProgress = candidates
+    .filter((c) => c.completedCount > 0 && c.percent < 100)
+    .sort((a, b) => b.completedCount - a.completedCount);
+  if (inProgress[0]) return inProgress[0];
+
+  const started = candidates
+    .filter((c) => c.completedCount > 0)
+    .sort((a, b) => b.completedCount - a.completedCount);
+  if (started[0]) return started[0];
+
+  return (
+    candidates[0] ??
+    toBerufProgress(progress, fallbackSlug, totalsBySlug[fallbackSlug] ?? 0)
+  );
 }
 
 /** Pull legacy per-beruf keys into the unified store once. */

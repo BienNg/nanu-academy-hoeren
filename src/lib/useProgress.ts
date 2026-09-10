@@ -11,7 +11,9 @@ import {
   migrateLegacyProgress,
   normalizeProgress,
   parseProgress,
+  toBerufProgress,
   toContinueLearning,
+  type BerufProgressSummary,
   type StoredProgress,
 } from "@/lib/progress";
 
@@ -117,11 +119,13 @@ function getServerSnapshot(): StoredProgress {
   return DEFAULT_PROGRESS;
 }
 
+const EMPTY_TOTALS: Record<string, number> = {};
+
 /**
  * Unified localStorage + cloud-synced learning progress (requires login).
- * Continue-learning always targets Restaurantfachkraft for MVP.
+ * Pass `totalsBySlug` so continue-learning and per-beruf cards get correct totals.
  */
-export function useProgress(totalClips = 0) {
+export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS) {
   const { status } = useSession();
   const progress = useSyncExternalStore(
     subscribeProgress,
@@ -161,11 +165,18 @@ export function useProgress(totalClips = 0) {
     [persist],
   );
 
-  const continueLearning = toContinueLearning(progress, totalClips);
+  const continueLearning = toContinueLearning(progress, totalsBySlug);
+
+  const progressFor = useCallback(
+    (berufSlug: string): BerufProgressSummary =>
+      toBerufProgress(progress, berufSlug, totalsBySlug[berufSlug] ?? 0),
+    [progress, totalsBySlug],
+  );
 
   return {
     progress,
     continueLearning,
+    progressFor,
     streakDays: progress.streakDays,
     markClipDone,
     setStreakDays: (streakDays: number) => {

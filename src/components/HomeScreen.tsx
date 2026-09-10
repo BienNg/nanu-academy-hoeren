@@ -14,7 +14,7 @@ export type LevelMeta = {
 type HomeScreenProps = {
   berufe: Ausbildungsberuf[];
   levels: LevelMeta[];
-  interviewTotalClips: number;
+  interviewClipTotals: Record<string, number>;
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -50,12 +50,14 @@ function MaterialIcon({
 
 function ContinueCard({
   label,
+  icon,
   totalClips,
   percent,
   currentClipIndex,
   href,
 }: {
   label: string;
+  icon: string;
   totalClips: number;
   percent: number;
   currentClipIndex: number;
@@ -81,7 +83,7 @@ function ContinueCard({
             </p>
           </div>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface-container text-primary-container">
-            <MaterialIcon name="room_service" className="text-[24px]" />
+            <MaterialIcon name={icon} className="text-[24px]" />
           </div>
         </div>
 
@@ -152,13 +154,11 @@ function BerufCard({
   completedCount,
   totalClips,
   percent,
-  isContinue = false,
 }: {
   beruf: Ausbildungsberuf;
   completedCount: number;
   totalClips: number;
   percent: number;
-  isContinue?: boolean;
 }) {
   const icon = BERUF_ICON[beruf.slug] ?? "work";
   const href = `/interview/${beruf.slug}`;
@@ -171,33 +171,14 @@ function BerufCard({
     <Link
       href={href}
       title={beruf.label}
-      className={`relative flex w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl border p-4 transition-opacity hover:opacity-95 active:scale-[0.98] ${
-        isContinue
-          ? "border-2 border-primary-container bg-surface-container-lowest shadow-[0_4px_16px_rgba(0,113,227,0.12)]"
-          : "border-surface-container bg-surface-container-lowest shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
-      }`}
+      className="relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl border border-surface-container bg-surface-container-lowest p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-opacity hover:opacity-95 active:scale-[0.98]"
     >
-      {isContinue ? (
-        <div className="absolute -top-2.5 right-3 rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary shadow-sm">
-          Đang học
-        </div>
-      ) : null}
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
-          <span
-            className={`text-[11px] font-semibold uppercase tracking-wider ${
-              isContinue ? "text-primary-container" : "text-outline"
-            }`}
-          >
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-outline">
             Ausbildung
           </span>
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-              isContinue
-                ? "bg-primary-fixed/60 text-primary-container"
-                : "bg-surface-container-high text-on-surface-variant"
-            }`}
-          >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant">
             <MaterialIcon name={icon} className="text-[18px]" />
           </div>
         </div>
@@ -206,14 +187,10 @@ function BerufCard({
         </h3>
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-surface-container-low pt-2 text-[12px] font-medium">
-        <span
-          className={`min-w-0 truncate ${
-            isContinue ? "font-semibold text-on-surface" : "text-on-surface-variant"
-          }`}
-        >
+        <span className="min-w-0 truncate text-on-surface-variant">
           {lessonLabel}
         </span>
-        {isContinue || percent > 0 ? (
+        {percent > 0 ? (
           <span className="shrink-0 font-semibold text-primary-container">
             {percent}%
           </span>
@@ -231,12 +208,17 @@ function BerufCard({
 export function HomeScreen({
   berufe,
   levels,
-  interviewTotalClips,
+  interviewClipTotals,
 }: HomeScreenProps) {
   const { data: session } = useSession();
-  const { continueLearning, streakDays } = useProgress(interviewTotalClips);
+  const { continueLearning, progressFor, streakDays } =
+    useProgress(interviewClipTotals);
   const continueBeruf =
     berufe.find((b) => b.slug === continueLearning.berufSlug) ?? berufe[0];
+  const continueIcon =
+    BERUF_ICON[continueLearning.berufSlug] ??
+    (continueBeruf ? BERUF_ICON[continueBeruf.slug] : undefined) ??
+    "work";
   const firstName =
     session?.user?.name?.trim().split(/\s+/)[0] ?? "bạn";
   const greeting = `Chào ${firstName} 👋`;
@@ -292,6 +274,7 @@ export function HomeScreen({
           {continueBeruf ? (
             <ContinueCard
               label={continueBeruf.label}
+              icon={continueIcon}
               totalClips={continueLearning.totalClips}
               percent={continueLearning.percent}
               currentClipIndex={continueLearning.currentClipIndex}
@@ -320,17 +303,14 @@ export function HomeScreen({
             </div>
             <div className="-mx-space-16 flex flex-nowrap gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {berufe.map((beruf) => {
-                const isContinue = beruf.slug === continueLearning.berufSlug;
+                const summary = progressFor(beruf.slug);
                 return (
                   <BerufCard
                     key={beruf.id}
                     beruf={beruf}
-                    completedCount={
-                      isContinue ? continueLearning.completedCount : 0
-                    }
-                    totalClips={isContinue ? continueLearning.totalClips : 0}
-                    percent={isContinue ? continueLearning.percent : 0}
-                    isContinue={isContinue}
+                    completedCount={summary.completedCount}
+                    totalClips={summary.totalClips}
+                    percent={summary.percent}
                   />
                 );
               })}

@@ -38,11 +38,15 @@ function GoogleIcon({ className }: { className?: string }) {
 
 type AccountScreenProps = {
   callbackUrl: string;
+  interviewClipTotals: Record<string, number>;
 };
 
-export function AccountScreen({ callbackUrl }: AccountScreenProps) {
+export function AccountScreen({
+  callbackUrl,
+  interviewClipTotals,
+}: AccountScreenProps) {
   const { data: session, status } = useSession();
-  const { continueLearning, streakDays } = useProgress();
+  const { continueLearning, streakDays } = useProgress(interviewClipTotals);
   const loading = status === "loading";
   const user = session?.user;
 
