@@ -4,6 +4,57 @@
       "filename": "refa-wieso.mp3",
       "script": "Wieso möchtest du eine Ausbildung zum Restaurantfachkraft machen?",
       "translationVi": "Tại sao bạn muốn học đào tạo nghề nghiệp làm việc trong nhà hàng?"
+    },
+
+    {
+      "filename": "refa-was-macht-man.mp3",
+      "script": "Was macht eine Restaurantfachkraft im Restaurant?",
+      "translationVi": "Nhân viên phục vụ nhà hàng làm những công việc gì?"
+    },
+    {
+      "filename": "refa-tisch-decken.mp3",
+      "script": "Weißt du, wie man einen Tisch deckt?",
+      "translationVi": "Bạn có biết cách sắp bàn ăn không?"
+    },
+    {
+      "filename": "refa-essen-bringen.mp3",
+      "script": "Kannst du mehrere Teller gleichzeitig tragen?",
+      "translationVi": "Bạn có thể bưng nhiều đĩa cùng một lúc không?"
+    },
+    {
+      "filename": "refa-gaeste-freundlich.mp3",
+      "script": "Warum ist es wichtig, freundlich zu den Gästen zu sein?",
+      "translationVi": "Tại sao việc thân thiện với khách lại quan trọng?"
+    },
+    {
+      "filename": "refa-bestellung.mp3",
+      "script": "Was machst du, wenn ein Gast etwas bestellen möchte?",
+      "translationVi": "Bạn làm gì khi một vị khách muốn gọi món?"
+    },
+    {
+      "filename": "refa-fehler.mp3",
+      "script": "Was machst du, wenn du einen Fehler bei der Arbeit machst?",
+      "translationVi": "Bạn sẽ làm gì khi mắc lỗi trong công việc?"
+    },
+    {
+      "filename": "refa-sauber.mp3",
+      "script": "Warum muss man in der Küche und im Restaurant sauber arbeiten?",
+      "translationVi": "Tại sao phải giữ sạch sẽ khi làm việc trong bếp và nhà hàng?"
+    },
+    {
+      "filename": "refa-stehen.mp3",
+      "script": "Ist es für dich in Ordnung, den ganzen Tag zu stehen und zu laufen?",
+      "translationVi": "Bạn có ổn không khi phải đứng và đi lại cả ngày?"
+    },
+    {
+      "filename": "refa-abends-arbeiten.mp3",
+      "script": "Kannst du auch abends oder am Wochenende arbeiten?",
+      "translationVi": "Bạn có thể làm việc vào buổi tối hoặc cuối tuần không?"
+    },
+    {
+      "filename": "refa-warum-diesen-beruf.mp3",
+      "script": "Warum möchtest du in einem Restaurant arbeiten?",
+      "translationVi": "Tại sao bạn muốn làm việc trong nhà hàng?"
     }
   ]
 }
