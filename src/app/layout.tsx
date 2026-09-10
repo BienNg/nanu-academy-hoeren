@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
+import { auth } from "@/auth";
 import { colors } from "@/lib/tokens";
 import "./globals.css";
 
@@ -31,11 +32,13 @@ export const viewport: Viewport = {
   themeColor: colors.surface,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html
       lang="vi"
@@ -50,7 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-dvh flex-col bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-fixed">
-        <AuthSessionProvider>
+        <AuthSessionProvider session={session}>
           <AppShell>{children}</AppShell>
         </AuthSessionProvider>
       </body>

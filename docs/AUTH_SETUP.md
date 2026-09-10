@@ -4,12 +4,11 @@ Auth and progress sync stay on the free Hobby stack: **Auth.js + Google OAuth** 
 
 ## What you get
 
-- `/account` — sign in / out with Google, see local progress summary
+- Login is required: unauthenticated visits redirect to `/account`
+- `/account` — sign in / out with Google, see progress summary
 - Home greeting + avatar from the Google session
 - Progress unified in one `localStorage` key (`nanu-horen-progress`)
 - When signed in, progress merges with and syncs to Supabase so devices stay in sync
-
-Anonymous practice still works offline; login merges device progress into the cloud copy.
 
 Login stays on Auth.js (not Supabase Auth). Supabase is only the database.
 
@@ -62,7 +61,9 @@ You do **not** need `AUTH_URL` on Vercel; `trustHost` is enabled.
 
 ## 5. Smoke test
 
-1. `npm run dev` → open `/account` → **Đăng nhập với Google**
-2. Complete a clip in an interview session
-3. Confirm home “continue learning” / streak update
-4. Sign in on another browser/device and confirm merged progress
+1. `npm run dev` → open `/` while signed out → you should land on `/account`
+2. **Đăng nhập với Google**, then confirm you reach home
+3. Complete a clip in an interview session
+4. Confirm home “continue learning” / streak update
+5. Sign in on another browser/device and confirm merged progress
+6. Sign out → you should be returned to `/account` and cannot open lessons until you sign in again

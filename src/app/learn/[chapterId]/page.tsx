@@ -1,3 +1,5 @@
+import { requireUser } from "@/lib/auth-guard";
+
 type LearnChapterPageProps = {
   params: Promise<{ chapterId: string }>;
 };
@@ -5,6 +7,7 @@ type LearnChapterPageProps = {
 export default async function LearnChapterPage({
   params,
 }: LearnChapterPageProps) {
+  await requireUser();
   const { chapterId } = await params;
 
   return (

@@ -118,7 +118,7 @@ function getServerSnapshot(): StoredProgress {
 }
 
 /**
- * Unified localStorage + optional cloud-synced learning progress.
+ * Unified localStorage + cloud-synced learning progress (requires login).
  * Continue-learning always targets Restaurantfachkraft for MVP.
  */
 export function useProgress(totalClips = 0) {

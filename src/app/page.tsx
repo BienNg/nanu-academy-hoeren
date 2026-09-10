@@ -1,5 +1,6 @@
 import chaptersFile from "@/data/chapters.json";
 import { HomeScreen } from "@/components/HomeScreen";
+import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 
 type ChapterLevel = {
@@ -8,7 +9,8 @@ type ChapterLevel = {
   chapters: unknown[];
 };
 
-export default function Home() {
+export default async function Home() {
+  await requireUser();
   const berufe = getAvailableBerufe();
   const levels = (chaptersFile as ChapterLevel[]).map(({ level, slug }) => ({
     level,

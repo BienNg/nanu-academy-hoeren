@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Ausbildungsberuf, SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
@@ -93,19 +93,22 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
 
   const { completedClipIdsFor, markClipDone } = useProgress();
   const completedIds = completedClipIdsFor(beruf.slug);
-  const completedIdsRef = useRef(completedIds);
-  completedIdsRef.current = completedIds;
   const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
   const catalogTotal = clips.length;
 
   useEffect(() => {
-    const ids = completedIdsRef.current;
-    setQueue(practiceQueue(clips, ids));
-    setStartingCompleted(catalogCompletedCount(clips, ids));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQueue(practiceQueue(clips, completedIds));
+     
+    setStartingCompleted(catalogCompletedCount(clips, completedIds));
+     
     setClipIndex(0);
+     
     setScoreResult(null);
+     
     setDraft("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beruf.slug, clips]);
 
   const remaining = queue ?? [];

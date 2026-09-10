@@ -13,6 +13,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/account",
   },
   callbacks: {
+    authorized({ auth, request }) {
+      const { pathname } = request.nextUrl;
+      if (pathname === "/account" || pathname.startsWith("/account/")) {
+        return true;
+      }
+      return !!auth;
+    },
     async jwt({ token, account, profile }) {
       if (account && profile) {
         token.sub = profile.sub ?? token.sub;
