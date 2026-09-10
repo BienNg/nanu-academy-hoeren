@@ -292,6 +292,22 @@ export function toContinueLearning(
   );
 }
 
+/** Remove every locally cached progress key, including legacy per-beruf ones. */
+export function clearStoredProgress(storage: Storage): void {
+  storage.removeItem(STORAGE_KEY);
+
+  const legacyKeys: string[] = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const key = storage.key(i);
+    if (key?.startsWith(LEGACY_PROGRESS_PREFIX)) {
+      legacyKeys.push(key);
+    }
+  }
+  for (const key of legacyKeys) {
+    storage.removeItem(key);
+  }
+}
+
 /** Pull legacy per-beruf keys into the unified store once. */
 export function migrateLegacyProgress(
   progress: StoredProgress,

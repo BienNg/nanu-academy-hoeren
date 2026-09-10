@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
   STORAGE_KEY,
+  clearStoredProgress,
   markClipCompleted,
   resetBerufProgress,
   mergeProgress,
@@ -75,13 +76,30 @@ function writeProgress(progress: StoredProgress): void {
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }
 
+let revocationHandled = false;
+
+/** An admin deleted this account: drop on-device progress and sign out. */
+function handleRevokedAccount(): void {
+  if (revocationHandled || typeof window === "undefined") return;
+  revocationHandled = true;
+
+  clearStoredProgress(window.localStorage);
+  cachedSnapshot = DEFAULT_PROGRESS;
+  cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
+  window.dispatchEvent(new Event("nanu-horen-progress"));
+  void signOut({ callbackUrl: "/account" });
+}
+
 async function pushCloudProgress(progress: StoredProgress): Promise<void> {
   try {
-    await fetch("/api/progress", {
+    const response = await fetch("/api/progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(progress),
     });
+    if (response.status === 410) {
+      handleRevokedAccount();
+    }
   } catch (error) {
     console.error("Failed to sync progress to cloud", error);
   }
@@ -92,6 +110,10 @@ async function pullAndMergeCloudProgress(
 ): Promise<StoredProgress> {
   try {
     const response = await fetch("/api/progress");
+    if (response.status === 410) {
+      handleRevokedAccount();
+      return DEFAULT_PROGRESS;
+    }
     if (response.status === 401) return local;
     if (!response.ok) return local;
     const data = (await response.json()) as {

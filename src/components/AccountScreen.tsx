@@ -39,11 +39,13 @@ function GoogleIcon({ className }: { className?: string }) {
 type AccountScreenProps = {
   callbackUrl: string;
   interviewClipTotals: Record<string, number>;
+  isAdmin?: boolean;
 };
 
 export function AccountScreen({
   callbackUrl,
   interviewClipTotals,
+  isAdmin = false,
 }: AccountScreenProps) {
   const { data: session, status } = useSession();
   const { continueLearning, streakDays } = useProgress(interviewClipTotals);
@@ -171,6 +173,16 @@ export function AccountScreen({
                 </div>
               </div>
             </div>
+
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="flex h-[48px] w-full items-center justify-center gap-space-8 rounded-2xl bg-primary-fixed font-label-lg text-[15px] font-semibold text-on-primary-fixed transition-all hover:opacity-90 active:scale-[0.98]"
+              >
+                <MaterialIcon name="admin_panel_settings" className="text-[20px]" />
+                Admin dashboard
+              </Link>
+            ) : null}
 
             <button
               type="button"

@@ -1,4 +1,6 @@
 import { AccountScreen } from "@/components/AccountScreen";
+import { isAdminUser } from "@/lib/admins";
+import { auth } from "@/auth";
 import { safeCallbackUrl } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 
@@ -14,10 +16,13 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     interviewClipTotals[beruf.slug] = getSessionClips(beruf.slug).length;
   }
 
+  const session = await auth();
+
   return (
     <AccountScreen
       callbackUrl={safeCallbackUrl(params.callbackUrl)}
       interviewClipTotals={interviewClipTotals}
+      isAdmin={session?.user ? isAdminUser(session.user) : false}
     />
   );
 }

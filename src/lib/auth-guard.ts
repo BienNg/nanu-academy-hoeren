@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { isAdminUser } from "@/lib/admins";
+import { resolveAccountAccess } from "@/lib/progress-store";
 
 /** Allow only same-origin relative paths after Google sign-in. */
 export function safeCallbackUrl(value: string | string[] | undefined): string {
@@ -33,6 +35,24 @@ export async function requireUser() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/account");
+  }
+
+  const access = await resolveAccountAccess(
+    session.user.id,
+    session.user.authAt,
+  );
+  if (access === "revoked") {
+    redirect("/session-ended");
+  }
+
+  return session;
+}
+
+/** Signed-in admins only. Non-admins get a 404 — no admin UI or data. */
+export async function requireAdmin() {
+  const session = await requireUser();
+  if (!isAdminUser(session.user)) {
+    notFound();
   }
   return session;
 }

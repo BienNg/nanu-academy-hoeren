@@ -31,7 +31,7 @@ Login stays on Auth.js (not Supabase Auth). Supabase is only the database.
    - `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`)
    - often also `POSTGRES_URL` / anon key — we only need URL + service/secret key
-3. Open the linked Supabase project → **SQL Editor** → run `supabase/user_progress.sql`
+3. Open the linked Supabase project → **SQL Editor** → run `supabase/user_progress.sql` (re-run after pulls — the script is idempotent and adds `email` / `name` / `last_login_at` used by `/admin`)
 4. For local dev, pull Vercel env into `.env.local`:
 
 ```bash
