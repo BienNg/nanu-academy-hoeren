@@ -144,6 +144,9 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
     });
 
     howlRef.current = howl;
+    // Auto-play when the page or a new question loads (component remounts via key).
+    // Browsers may block this without a prior user gesture; UI stays idle if so.
+    howl.play();
 
     return () => {
       stopLocalRaf();

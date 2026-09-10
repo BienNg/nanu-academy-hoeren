@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { ScoreResult, WordScore } from "@/lib/scoring";
 import { SessionClip } from "@/lib/content";
 
@@ -59,6 +59,20 @@ export function FeedbackResultCard({
   onNext,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
+
+  useEffect(() => {
+    if (!isPerfect) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onNext();
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [isPerfect, onNext]);
 
   if (isPerfect) {
     return (

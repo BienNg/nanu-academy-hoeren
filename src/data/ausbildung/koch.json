@@ -1,3 +1,9 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "koch-warum-diesen-beruf.mp3",
+      "script": "Warum möchtest du Koch werden?",
+      "translationVi": "Tại sao bạn muốn trở thành đầu bếp?"
+    }
+  ]
 }

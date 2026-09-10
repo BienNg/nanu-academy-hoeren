@@ -302,18 +302,23 @@ export function HomeScreen({
               </h2>
             </div>
             <div className="-mx-space-16 flex flex-nowrap gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {berufe.map((beruf) => {
-                const summary = progressFor(beruf.slug);
-                return (
-                  <BerufCard
-                    key={beruf.id}
-                    beruf={beruf}
-                    completedCount={summary.completedCount}
-                    totalClips={summary.totalClips}
-                    percent={summary.percent}
-                  />
-                );
-              })}
+              {[...berufe]
+                .sort(
+                  (a, b) =>
+                    progressFor(b.slug).percent - progressFor(a.slug).percent,
+                )
+                .map((beruf) => {
+                  const summary = progressFor(beruf.slug);
+                  return (
+                    <BerufCard
+                      key={beruf.id}
+                      beruf={beruf}
+                      completedCount={summary.completedCount}
+                      totalClips={summary.totalClips}
+                      percent={summary.percent}
+                    />
+                  );
+                })}
             </div>
           </section>
         </div>
