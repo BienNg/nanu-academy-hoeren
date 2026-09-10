@@ -72,13 +72,15 @@ function SessionComplete({
 export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
-  
+  const [draft, setDraft] = useState("");
+
   const { completedClipIdsFor, markClipDone } = useProgress();
   const completedClips = new Set(completedClipIdsFor(beruf.slug));
 
   const total = clips.length;
   const complete = clipIndex >= total;
   const currentClip = clips[clipIndex];
+  const isPerfect = scoreResult?.accuracy === 100;
 
   const progressSegments = useMemo(() => {
     return Array.from({ length: total }, (_, index) => {
@@ -90,6 +92,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
 
   const handleSubmit = (value: string) => {
     if (!currentClip) return;
+    setDraft(value);
     const result = scoreAttempt(value, currentClip.script);
     setScoreResult(result);
   };
@@ -99,11 +102,13 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
       markClipDone(beruf.slug, currentClip.id, clipIndex);
     }
     setScoreResult(null);
+    setDraft("");
     setClipIndex((index) => index + 1);
   };
 
   const handleRetry = () => {
     setScoreResult(null);
+    setDraft("");
   };
 
   return (
@@ -202,7 +207,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
               subtitle="Câu hỏi phỏng vấn Ausbildung"
             />
 
-            {scoreResult ? (
+            {isPerfect && scoreResult ? (
               <FeedbackResultCard
                 result={scoreResult}
                 clip={currentClip}
@@ -210,10 +215,22 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
                 onRetry={handleRetry}
               />
             ) : (
-              <DictationInputCard
-                key={`dictation-${currentClip.id}`}
-                onSubmit={handleSubmit}
-              />
+              <>
+                {scoreResult ? (
+                  <FeedbackResultCard
+                    result={scoreResult}
+                    clip={currentClip}
+                    onNext={handleNext}
+                    onRetry={handleRetry}
+                  />
+                ) : null}
+                <DictationInputCard
+                  key={`dictation-${currentClip.id}`}
+                  value={draft}
+                  onChange={setDraft}
+                  onSubmit={handleSubmit}
+                />
+              </>
             )}
           </div>
         </main>

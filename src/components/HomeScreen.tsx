@@ -140,81 +140,88 @@ function LevelCard({ level }: { level: LevelMeta }) {
   );
 }
 
+function berufDisplayLabel(label: string) {
+  return label.split(" / ")[0]?.trim() || label;
+}
+
 function BerufCard({
   beruf,
   completedCount,
   totalClips,
   percent,
+  isContinue = false,
 }: {
   beruf: Ausbildungsberuf;
   completedCount: number;
   totalClips: number;
   percent: number;
+  isContinue?: boolean;
 }) {
   const icon = BERUF_ICON[beruf.slug] ?? "work";
   const href = `/interview/${beruf.slug}`;
-  const safeTotal = Math.max(totalClips, 1);
+  const safeTotal = Math.max(totalClips, 0);
+  const lessonLabel =
+    safeTotal > 0 ? `${completedCount}/${safeTotal} bài` : "Phỏng vấn";
+  const title = berufDisplayLabel(beruf.label);
 
   return (
-    <div className="flex flex-col gap-space-16 rounded-3xl border border-surface-container bg-surface-container-lowest p-space-20 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-      <div className="flex items-start justify-between gap-space-12">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-fixed/60 text-primary-container">
-            <MaterialIcon name={icon} className="text-[24px]" />
-          </div>
-          <div className="flex min-w-0 flex-col">
-            <div className="inline-flex items-center gap-2">
-              <span className="rounded-full bg-primary-fixed px-2 py-0.5 font-caption text-[11px] font-semibold text-primary">
-                Mục tiêu Ausbildung
-              </span>
-            </div>
-            <h3 className="mt-1 font-headline-sm text-[18px] font-bold tracking-tight text-on-surface">
-              {beruf.label}
-            </h3>
-            <p className="font-body-sm text-[13px] text-on-surface-variant">
-              Luyện nghe phỏng vấn
-            </p>
-          </div>
+    <Link
+      href={href}
+      title={beruf.label}
+      className={`relative flex w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl border p-4 transition-opacity hover:opacity-95 active:scale-[0.98] ${
+        isContinue
+          ? "border-2 border-primary-container bg-surface-container-lowest shadow-[0_4px_16px_rgba(0,113,227,0.12)]"
+          : "border-surface-container bg-surface-container-lowest shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+      }`}
+    >
+      {isContinue ? (
+        <div className="absolute -top-2.5 right-3 rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary shadow-sm">
+          Đang học
         </div>
-        <div className="shrink-0 rounded-full bg-surface-container px-2.5 py-1 font-label-sm text-[12px] font-semibold text-on-surface-variant">
-          {percent}%
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-space-4">
-        <div className="flex items-center justify-between font-caption text-caption text-on-surface-variant">
-          <span>Tiến độ phỏng vấn</span>
-          <span className="font-semibold text-on-surface">
-            {completedCount} / {safeTotal} bài học · {percent}%
+      ) : null}
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <span
+            className={`text-[11px] font-semibold uppercase tracking-wider ${
+              isContinue ? "text-primary-container" : "text-outline"
+            }`}
+          >
+            Ausbildung
           </span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
           <div
-            className="h-full rounded-full bg-primary-container"
-            style={{ width: `${percent}%` }}
-          />
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+              isContinue
+                ? "bg-primary-fixed/60 text-primary-container"
+                : "bg-surface-container-high text-on-surface-variant"
+            }`}
+          >
+            <MaterialIcon name={icon} className="text-[18px]" />
+          </div>
         </div>
+        <h3 className="line-clamp-2 break-words font-headline-sm text-[16px] font-bold leading-snug text-on-surface [overflow-wrap:anywhere]">
+          {title}
+        </h3>
       </div>
-
-      <div className="flex items-center justify-between gap-3 border-t border-surface-container-low pt-2">
-        <div className="flex min-w-0 items-center gap-2 text-[13px] text-on-surface-variant">
-          <MaterialIcon
-            name="play_circle"
-            className="shrink-0 text-[16px] text-primary-container"
-          />
-          <span className="truncate font-medium text-on-surface">
-            Bài tiếp: Câu hỏi phỏng vấn
-          </span>
-        </div>
-        <Link
-          href={href}
-          className="flex shrink-0 items-center gap-1 rounded-xl bg-primary-container px-3.5 py-2 font-label-sm text-label-sm font-semibold text-on-primary shadow-[0_2px_8px_rgba(0,113,227,0.25)] transition-all hover:opacity-95 active:scale-[0.98]"
+      <div className="flex items-center justify-between gap-2 border-t border-surface-container-low pt-2 text-[12px] font-medium">
+        <span
+          className={`min-w-0 truncate ${
+            isContinue ? "font-semibold text-on-surface" : "text-on-surface-variant"
+          }`}
         >
-          <span>Vào bài học</span>
-          <MaterialIcon name="arrow_forward" className="text-[16px]" />
-        </Link>
+          {lessonLabel}
+        </span>
+        {isContinue || percent > 0 ? (
+          <span className="shrink-0 font-semibold text-primary-container">
+            {percent}%
+          </span>
+        ) : (
+          <span className="flex shrink-0 items-center gap-0.5 font-semibold text-primary-container">
+            Vào
+            <MaterialIcon name="arrow_forward" className="text-[14px]" />
+          </span>
+        )}
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -308,7 +315,7 @@ export function HomeScreen({
                 Luyện phỏng vấn theo nghề
               </h2>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="-mx-space-16 flex flex-nowrap gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {berufe.map((beruf) => {
                 const isContinue = beruf.slug === continueLearning.berufSlug;
                 return (
@@ -320,6 +327,7 @@ export function HomeScreen({
                     }
                     totalClips={isContinue ? continueLearning.totalClips : 0}
                     percent={isContinue ? continueLearning.percent : 0}
+                    isContinue={isContinue}
                   />
                 );
               })}

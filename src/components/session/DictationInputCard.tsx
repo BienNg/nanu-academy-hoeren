@@ -13,6 +13,9 @@ const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 type DictationInputCardProps = {
   onSubmit: (value: string) => void;
   disabled?: boolean;
+  /** Controlled value — keeps the draft when feedback is shown above. */
+  value?: string;
+  onChange?: (value: string) => void;
 };
 
 function MaterialIcon({
@@ -47,10 +50,20 @@ function countWordsAndChars(value: string): { words: number; chars: number } {
 export function DictationInputCard({
   onSubmit,
   disabled = false,
+  value: controlledValue,
+  onChange,
 }: DictationInputCardProps) {
   const inputId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [value, setValue] = useState("");
+  const [uncontrolledValue, setUncontrolledValue] = useState("");
+  const isControlled = controlledValue !== undefined;
+  const value = isControlled ? controlledValue : uncontrolledValue;
+
+  const setValue = (next: string) => {
+    if (!isControlled) setUncontrolledValue(next);
+    onChange?.(next);
+  };
+
   const { words, chars } = countWordsAndChars(value);
   const canSubmit = value.trim().length > 0 && !disabled;
 

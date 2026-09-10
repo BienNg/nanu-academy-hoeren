@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ScoreResult } from "@/lib/scoring";
+import { ScoreResult, WordScore } from "@/lib/scoring";
 import { SessionClip } from "@/lib/content";
 
 interface FeedbackResultCardProps {
@@ -11,6 +11,47 @@ interface FeedbackResultCardProps {
   onNext: () => void;
 }
 
+function censorWord(word: string): string {
+  return Array.from(word)
+    .map((char) => (/\s/.test(char) ? char : "*"))
+    .join("");
+}
+
+/** Reveal the script only up to the first mistake; censor everything after. */
+function renderProgressiveAnswer(words: WordScore[]) {
+  const scriptWords = words.filter((w) => w.status !== "extra");
+  const firstMistakeIndex = scriptWords.findIndex(
+    (w) => w.status === "incorrect" || w.status === "missing",
+  );
+
+  return scriptWords.map((w, i) => {
+    if (firstMistakeIndex === -1) {
+      return <span key={i}>{w.word} </span>;
+    }
+
+    if (i < firstMistakeIndex) {
+      return <span key={i}>{w.word} </span>;
+    }
+
+    if (i === firstMistakeIndex) {
+      return (
+        <React.Fragment key={i}>
+          <strong className="text-error font-semibold underline decoration-error decoration-solid underline-offset-4">
+            {w.word}
+          </strong>
+          <span> </span>
+        </React.Fragment>
+      );
+    }
+
+    return (
+      <span key={i} className="text-secondary tracking-wide">
+        {censorWord(w.word)}{" "}
+      </span>
+    );
+  });
+}
+
 export function FeedbackResultCard({
   result,
   clip,
@@ -18,8 +59,8 @@ export function FeedbackResultCard({
   onNext,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
-  const correctWordsCount = result.words.filter(w => w.status === "correct").length;
-  const totalScriptWords = result.words.filter(w => w.status !== "extra").length;
+  const correctWordsCount = result.words.filter((w) => w.status === "correct").length;
+  const totalScriptWords = result.words.filter((w) => w.status !== "extra").length;
 
   if (isPerfect) {
     return (
@@ -35,7 +76,7 @@ export function FeedbackResultCard({
               Đúng {correctWordsCount}/{totalScriptWords} từ
             </span>
           </div>
-          
+
           <p className="text-secondary font-body-sm text-body-sm -mt-space-4">
             Rất tốt! Bạn đã nghe và viết đúng toàn bộ chính tả, ngữ pháp và danh từ viết hoa.
           </p>
@@ -67,7 +108,6 @@ export function FeedbackResultCard({
           </div>
         </div>
 
-        {/* Bottom Evaluation Action */}
         <div className="flex flex-col gap-space-12 pt-space-24">
           <div className="grid grid-cols-2 gap-space-12">
             <button
@@ -96,92 +136,37 @@ export function FeedbackResultCard({
     );
   }
 
-  // Partial State
+  // Partial: show first mistake only; student must fix and re-check via the input below.
   return (
     <div className="w-full flex flex-col gap-space-16 mt-space-16">
       <section className="bg-surface-container-lowest rounded-[24px] shadow-sm p-space-20 flex flex-col gap-space-16">
         <div className="flex items-center justify-between pb-space-4">
-          <div className="flex items-center gap-space-8"></div>
+          <p className="font-body-sm text-body-sm text-secondary">
+            Sửa từ lỗi đầu tiên, rồi kiểm tra lại.
+          </p>
           <div className="flex items-center gap-space-4 bg-primary/10 text-primary px-space-8 py-space-2 rounded-full font-label-sm text-label-sm font-semibold">
-            <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            <span
+              className="material-symbols-outlined text-[16px]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              verified
+            </span>
             <span>Độ chính xác: {result.accuracy}%</span>
-          </div>
-        </div>
-        
-        <div className="flex flex-col gap-space-8">
-          <div className="bg-surface-container-low rounded-2xl p-space-16 text-on-surface font-body-lg text-body-lg leading-relaxed">
-            {result.words.map((w, i) => {
-              if (w.status === "missing") return null;
-              
-              if (w.status === "incorrect" || w.status === "extra") {
-                return (
-                  <React.Fragment key={i}>
-                    <span className="relative inline-block text-error font-medium underline decoration-error decoration-solid underline-offset-4 bg-error-container/40 px-space-4 rounded">
-                      {w.typed}
-                    </span>
-                    <span> </span>
-                  </React.Fragment>
-                );
-              }
-              
-              return <span key={i}>{w.typed} </span>;
-            })}
           </div>
         </div>
 
         <div className="border-t border-surface-container-high pt-space-16 flex flex-col gap-space-8">
           <div className="flex items-center justify-between">
             <span className="font-caption text-caption text-primary uppercase tracking-wider font-semibold flex items-center gap-space-4">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span> Đáp án chuẩn ngữ pháp
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              Đáp án (từng bước)
             </span>
           </div>
           <div className="bg-primary-fixed/30 rounded-2xl p-space-16 font-body-lg text-body-lg leading-relaxed text-on-surface">
-            <p>
-              {result.words.map((w, i) => {
-                if (w.status === "extra") return null;
-                
-                if (w.status === "incorrect" || w.status === "missing") {
-                  return (
-                    <React.Fragment key={i}>
-                      <strong className="text-error font-semibold underline decoration-error decoration-solid underline-offset-4">{w.word}</strong>
-                      <span> </span>
-                    </React.Fragment>
-                  );
-                }
-
-                return <span key={i}>{w.word} </span>;
-              })}
-            </p>
-            {clip.translationVi && (
-              <p className="font-body-sm text-body-sm text-secondary pt-space-4 border-t border-surface-container mt-space-8">
-                {clip.translationVi}
-              </p>
-            )}
+            <p>{renderProgressiveAnswer(result.words)}</p>
           </div>
         </div>
       </section>
-
-      {/* 4. BOTTOM ACTION ANCHOR: CHECK BUTTON & STATUS */}
-      <footer className="mt-space-8 flex flex-col items-center gap-space-8 pb-space-24">
-        <div className="grid grid-cols-2 gap-space-12 w-full">
-          <button
-            onClick={onRetry}
-            className="w-full h-13 py-space-12 px-space-16 bg-surface-container-lowest text-primary border-2 border-primary font-label-lg text-label-lg rounded-2xl hover:bg-surface-container active:scale-[0.98] transition-all flex items-center justify-center gap-space-6 shadow-sm"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[20px]">replay</span>
-            <span>Thử lại · Nochmal</span>
-          </button>
-          <button
-            onClick={onNext}
-            className="w-full h-13 py-space-12 px-space-16 bg-primary text-on-primary font-label-lg text-label-lg rounded-2xl shadow-md hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-space-6"
-            type="button"
-          >
-            <span>Tiếp theo · Weiter</span>
-            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }
