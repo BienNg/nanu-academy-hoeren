@@ -59,22 +59,16 @@ export function FeedbackResultCard({
   onNext,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
-  const correctWordsCount = result.words.filter((w) => w.status === "correct").length;
-  const totalScriptWords = result.words.filter((w) => w.status !== "extra").length;
 
   if (isPerfect) {
     return (
-      <div className="w-full">
+      <div className="w-full mt-space-16">
         <div className="w-full bg-surface-container-lowest rounded-3xl p-space-20 shadow-[0_4px_24px_-2px_rgba(0,0,0,0.04),0_2px_8px_-1px_rgba(0,0,0,0.02)] flex flex-col gap-space-16 border border-emerald-100">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <div className="inline-flex items-center gap-space-4 px-space-12 py-space-4 rounded-full bg-emerald-50 text-emerald-700 font-label-sm text-label-sm font-semibold">
               <span className="material-symbols-outlined text-[18px] text-[#34C759]">check_circle</span>
               <span>Chính xác 100% · Hoàn hảo</span>
             </div>
-            <span className="font-caption text-caption text-secondary flex items-center gap-space-2">
-              <span className="material-symbols-outlined text-[14px] text-emerald-600">verified</span>
-              Đúng {correctWordsCount}/{totalScriptWords} từ
-            </span>
           </div>
 
           <p className="text-secondary font-body-sm text-body-sm -mt-space-4">
@@ -98,13 +92,6 @@ export function FeedbackResultCard({
                 </div>
               </>
             )}
-          </div>
-
-          <div className="flex items-center justify-between pt-space-2">
-            <div className="flex items-center gap-space-4 text-emerald-700 font-caption text-caption">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Đã chuẩn hóa chính tả & danh từ viết hoa</span>
-            </div>
           </div>
         </div>
 
