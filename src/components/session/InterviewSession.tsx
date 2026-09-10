@@ -6,7 +6,7 @@ import type { Ausbildungsberuf, SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
-import { useProgress } from "@/hooks/useProgress";
+import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 
@@ -73,7 +73,8 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   
-  const { completedClips, markClipDone } = useProgress(beruf.slug);
+  const { completedClipIdsFor, markClipDone } = useProgress();
+  const completedClips = new Set(completedClipIdsFor(beruf.slug));
 
   const total = clips.length;
   const complete = clipIndex >= total;
@@ -95,7 +96,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
 
   const handleNext = () => {
     if (currentClip) {
-      markClipDone(currentClip.id);
+      markClipDone(beruf.slug, currentClip.id, clipIndex);
     }
     setScoreResult(null);
     setClipIndex((index) => index + 1);

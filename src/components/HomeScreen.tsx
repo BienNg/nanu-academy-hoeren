@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
 import type { Ausbildungsberuf } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -230,9 +232,13 @@ export function HomeScreen({
   levels,
   interviewTotalClips,
 }: HomeScreenProps) {
+  const { data: session } = useSession();
   const { continueLearning, streakDays } = useProgress(interviewTotalClips);
   const continueBeruf =
     berufe.find((b) => b.slug === continueLearning.berufSlug) ?? berufe[0];
+  const firstName =
+    session?.user?.name?.trim().split(/\s+/)[0] ?? "bạn";
+  const greeting = `Chào ${firstName} 👋`;
 
   return (
     <>
@@ -244,7 +250,7 @@ export function HomeScreen({
             </div>
             <div className="flex flex-col">
               <h1 className="font-headline-sm text-headline-sm leading-none tracking-tight text-on-surface">
-                Chào Linh 👋
+                {greeting}
               </h1>
               <span className="mt-1 font-caption text-caption leading-none text-on-surface-variant">
                 {continueBeruf
@@ -266,10 +272,20 @@ export function HomeScreen({
             </div>
             <Link
               href="/account"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
+              className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
               aria-label="Tài khoản"
             >
-              <MaterialIcon name="person" className="text-[18px]" />
+              {session?.user?.image ? (
+                <Image
+                  src={session.user.image}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 object-cover"
+                />
+              ) : (
+                <MaterialIcon name="person" className="text-[18px]" />
+              )}
             </Link>
           </div>
         </div>

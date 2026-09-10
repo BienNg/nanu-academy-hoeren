@@ -1,87 +1,47 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useSession } from "next-auth/react";
+import {
+  CONTINUE_BERUF_SLUG,
+  DEFAULT_PROGRESS,
+  STORAGE_KEY,
+  markClipCompleted,
+  mergeProgress,
+  migrateLegacyProgress,
+  normalizeProgress,
+  parseProgress,
+  toContinueLearning,
+  type StoredProgress,
+} from "@/lib/progress";
 
-const STORAGE_KEY = "nanu-horen-progress";
-
-/** Only real interview content available in MVP. */
-export const CONTINUE_BERUF_SLUG = "restaurantfachkraft";
-
-export type InterviewProgress = {
-  /** 0-based index of the next clip to practice. */
-  currentClipIndex: number;
-  /** Clip ids already completed in this profession session track. */
-  completedClipIds: string[];
-};
-
-export type StoredProgress = {
-  interview: Record<string, InterviewProgress>;
-  /** Day streak for header display; defaults when unset. */
-  streakDays: number;
-};
-
-export type ContinueLearning = {
-  berufSlug: typeof CONTINUE_BERUF_SLUG;
-  href: `/interview/${typeof CONTINUE_BERUF_SLUG}`;
-  currentClipIndex: number;
-  completedCount: number;
-  totalClips: number;
-  percent: number;
-};
-
-const DEFAULT_PROGRESS: StoredProgress = {
-  interview: {
-    [CONTINUE_BERUF_SLUG]: {
-      currentClipIndex: 0,
-      completedClipIds: [],
-    },
-  },
-  streakDays: 0,
-};
-
-function isInterviewProgress(value: unknown): value is InterviewProgress {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.currentClipIndex === "number" &&
-    Array.isArray(record.completedClipIds)
-  );
-}
-
-function parseProgress(raw: string | null): StoredProgress {
-  if (!raw) return DEFAULT_PROGRESS;
-  try {
-    const parsed = JSON.parse(raw) as Partial<StoredProgress>;
-    const interview: Record<string, InterviewProgress> = {
-      ...DEFAULT_PROGRESS.interview,
-    };
-    if (parsed.interview && typeof parsed.interview === "object") {
-      for (const [slug, entry] of Object.entries(parsed.interview)) {
-        if (isInterviewProgress(entry)) {
-          interview[slug] = {
-            currentClipIndex: Math.max(0, entry.currentClipIndex),
-            completedClipIds: entry.completedClipIds.filter(
-              (id): id is string => typeof id === "string",
-            ),
-          };
-        }
-      }
-    }
-    return {
-      interview,
-      streakDays:
-        typeof parsed.streakDays === "number" && parsed.streakDays >= 0
-          ? parsed.streakDays
-          : DEFAULT_PROGRESS.streakDays,
-    };
-  } catch {
-    return DEFAULT_PROGRESS;
-  }
-}
+/** Cached so useSyncExternalStore gets a stable reference when data is unchanged. */
+let cachedSnapshot: StoredProgress = DEFAULT_PROGRESS;
+let cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
 
 function readProgressSnapshot(): StoredProgress {
   if (typeof window === "undefined") return DEFAULT_PROGRESS;
-  return parseProgress(window.localStorage.getItem(STORAGE_KEY));
+  const progress = parseProgress(window.localStorage.getItem(STORAGE_KEY));
+  const serialized = JSON.stringify(progress);
+  if (serialized === cachedSerialized) {
+    return cachedSnapshot;
+  }
+  cachedSerialized = serialized;
+  cachedSnapshot = progress;
+  return cachedSnapshot;
+}
+
+function runLegacyMigrationOnce(): void {
+  if (typeof window === "undefined") return;
+  const before = readProgressSnapshot();
+  const migrated = migrateLegacyProgress(
+    before,
+    (key) => window.localStorage.getItem(key),
+    (key) => window.localStorage.removeItem(key),
+  );
+  if (JSON.stringify(migrated) !== JSON.stringify(before)) {
+    writeProgress(migrated);
+  }
 }
 
 function subscribeProgress(onStoreChange: () => void): () => void {
@@ -105,48 +65,106 @@ function subscribeProgress(onStoreChange: () => void): () => void {
 }
 
 function writeProgress(progress: StoredProgress): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  const serialized = JSON.stringify(progress);
+  cachedSerialized = serialized;
+  cachedSnapshot = progress;
+  window.localStorage.setItem(STORAGE_KEY, serialized);
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }
 
-function toContinueLearning(
-  progress: StoredProgress,
-  totalClips: number,
-): ContinueLearning {
-  const entry =
-    progress.interview[CONTINUE_BERUF_SLUG] ??
-    DEFAULT_PROGRESS.interview[CONTINUE_BERUF_SLUG]!;
-  const safeTotal = Math.max(0, totalClips);
-  const completedCount = entry.completedClipIds.length;
-  const percent =
-    safeTotal === 0
-      ? 0
-      : Math.min(100, Math.round((completedCount / safeTotal) * 100));
+async function pushCloudProgress(progress: StoredProgress): Promise<void> {
+  try {
+    await fetch("/api/progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(progress),
+    });
+  } catch (error) {
+    console.error("Failed to sync progress to cloud", error);
+  }
+}
 
-  return {
-    berufSlug: CONTINUE_BERUF_SLUG,
-    href: `/interview/${CONTINUE_BERUF_SLUG}`,
-    currentClipIndex: entry.currentClipIndex,
-    completedCount,
-    totalClips: safeTotal,
-    percent,
-  };
+async function pullAndMergeCloudProgress(
+  local: StoredProgress,
+): Promise<StoredProgress> {
+  try {
+    const response = await fetch("/api/progress");
+    if (response.status === 401) return local;
+    if (!response.ok) return local;
+    const data = (await response.json()) as {
+      progress?: unknown;
+      configured?: boolean;
+    };
+    if (data.configured === false || data.progress == null) {
+      return local;
+    }
+    const remote = normalizeProgress(
+      data.progress as Partial<StoredProgress> | null,
+    );
+    const merged = mergeProgress(local, remote);
+    writeProgress(merged);
+    if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+      await pushCloudProgress(merged);
+    }
+    return merged;
+  } catch (error) {
+    console.error("Failed to load cloud progress", error);
+    return local;
+  }
+}
+
+function getServerSnapshot(): StoredProgress {
+  return DEFAULT_PROGRESS;
 }
 
 /**
- * localStorage-backed learning progress. Continue-learning always targets
- * Restaurantfachkraft — the only profession with real content today.
+ * Unified localStorage + optional cloud-synced learning progress.
+ * Continue-learning always targets Restaurantfachkraft for MVP.
  */
-export function useProgress(totalClips: number) {
+export function useProgress(totalClips = 0) {
+  const { status } = useSession();
   const progress = useSyncExternalStore(
     subscribeProgress,
     readProgressSnapshot,
-    () => DEFAULT_PROGRESS,
+    getServerSnapshot,
+  );
+  const syncStarted = useRef(false);
+  const migrated = useRef(false);
+
+  useEffect(() => {
+    if (migrated.current) return;
+    migrated.current = true;
+    runLegacyMigrationOnce();
+  }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated" || syncStarted.current) return;
+    syncStarted.current = true;
+    void pullAndMergeCloudProgress(readProgressSnapshot());
+  }, [status]);
+
+  const persist = useCallback(
+    (next: StoredProgress, syncCloud: boolean) => {
+      writeProgress(next);
+      if (syncCloud && status === "authenticated") {
+        void pushCloudProgress(next);
+      }
+    },
+    [status],
   );
 
-  const persist = useCallback((next: StoredProgress) => {
-    writeProgress(next);
-  }, []);
+  const markClipDone = useCallback(
+    (berufSlug: string, clipId: string, clipIndex: number) => {
+      const next = markClipCompleted(
+        readProgressSnapshot(),
+        berufSlug,
+        clipId,
+        clipIndex,
+      );
+      persist(next, true);
+    },
+    [persist],
+  );
 
   const continueLearning = toContinueLearning(progress, totalClips);
 
@@ -154,8 +172,13 @@ export function useProgress(totalClips: number) {
     progress,
     continueLearning,
     streakDays: progress.streakDays,
+    markClipDone,
     setStreakDays: (streakDays: number) => {
-      persist({ ...progress, streakDays });
+      persist({ ...progress, streakDays }, true);
     },
+    completedClipIdsFor: (berufSlug: string) =>
+      progress.interview[berufSlug]?.completedClipIds ?? [],
   };
 }
+
+export { CONTINUE_BERUF_SLUG };

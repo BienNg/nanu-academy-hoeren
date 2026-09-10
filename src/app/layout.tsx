@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
+import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { colors } from "@/lib/tokens";
 import "./globals.css";
 
@@ -49,7 +50,9 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-dvh flex-col bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-fixed">
-        <AppShell>{children}</AppShell>
+        <AuthSessionProvider>
+          <AppShell>{children}</AppShell>
+        </AuthSessionProvider>
       </body>
     </html>
   );
