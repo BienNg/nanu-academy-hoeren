@@ -50,23 +50,17 @@ function MaterialIcon({
 function ContinueCard({
   label,
   totalClips,
-  completedCount,
   percent,
   currentClipIndex,
   href,
 }: {
   label: string;
   totalClips: number;
-  completedCount: number;
   percent: number;
   currentClipIndex: number;
   href: string;
 }) {
   const displayIndex = Math.min(currentClipIndex + 1, Math.max(totalClips, 1));
-  const remainingHint =
-    totalClips > 0
-      ? `${Math.max(totalClips - completedCount, 0)} câu còn lại`
-      : "Bắt đầu luyện";
 
   return (
     <section className="flex flex-col gap-space-8 pt-space-4">
@@ -76,9 +70,6 @@ function ContinueCard({
             <div className="inline-flex items-center gap-space-6">
               <span className="rounded-full bg-primary-fixed px-space-8 py-0.5 font-label-sm text-label-sm font-semibold text-on-primary-fixed">
                 Đang học dở
-              </span>
-              <span className="font-caption text-caption text-on-surface-variant">
-                {remainingHint}
               </span>
             </div>
             <h2 className="mt-space-2 font-headline-sm text-headline-sm tracking-tight text-on-surface">
@@ -125,7 +116,7 @@ function LevelCard({ level }: { level: LevelMeta }) {
   return (
     <div
       aria-disabled="true"
-      className="flex min-w-[160px] flex-1 flex-col justify-between gap-4 rounded-2xl border border-outline-variant/40 bg-surface-container-low/60 p-4 opacity-75"
+      className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-2xl border border-outline-variant/40 bg-surface-container-low/60 p-4 opacity-75"
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
@@ -135,7 +126,6 @@ function LevelCard({ level }: { level: LevelMeta }) {
           <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-on-surface/70">
             Trình độ {level.level}
           </h3>
-          <span className="text-[12px] text-on-surface-variant">CEFR</span>
         </div>
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-high text-outline">
           <MaterialIcon name="lock" className="text-[18px]" />
@@ -242,8 +232,8 @@ export function HomeScreen({
 
   return (
     <>
-      <header className="fixed top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full items-center justify-between px-space-16 md:max-w-[680px]">
+      <header className="sticky top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+        <div className="flex h-16 w-full items-center justify-between px-space-16">
           <div className="flex items-center gap-space-8">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-container text-on-primary shadow-[0_2px_8px_rgba(0,113,227,0.25)]">
               <MaterialIcon name="hearing" className="text-[20px]" />
@@ -252,11 +242,6 @@ export function HomeScreen({
               <h1 className="font-headline-sm text-headline-sm leading-none tracking-tight text-on-surface">
                 {greeting}
               </h1>
-              <span className="mt-1 font-caption text-caption leading-none text-on-surface-variant">
-                {continueBeruf
-                  ? `Ausbildung · ${continueBeruf.label}`
-                  : "NaNu Academy Hören"}
-              </span>
             </div>
           </div>
           <div className="flex items-center gap-space-8">
@@ -291,13 +276,12 @@ export function HomeScreen({
         </div>
       </header>
 
-      <main className="relative flex w-full flex-1 flex-col bg-surface pt-16">
+      <main className="relative flex w-full flex-1 flex-col bg-surface">
         <div className="flex w-full flex-col gap-space-24 px-space-16 pb-space-32">
           {continueBeruf ? (
             <ContinueCard
               label={continueBeruf.label}
               totalClips={continueLearning.totalClips}
-              completedCount={continueLearning.completedCount}
               percent={continueLearning.percent}
               currentClipIndex={continueLearning.currentClipIndex}
               href={continueLearning.href}
@@ -309,11 +293,8 @@ export function HomeScreen({
               <h2 className="font-headline-sm text-headline-sm text-on-surface">
                 Luyện tập theo trình độ
               </h2>
-              <span className="font-caption text-caption text-on-surface-variant">
-                Khung CEFR
-              </span>
             </div>
-            <div className="-mx-space-16 flex gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 md:grid md:grid-cols-4 md:overflow-visible">
+            <div className="-mx-space-16 flex flex-nowrap gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {levels.map((level) => (
                 <LevelCard key={level.slug} level={level} />
               ))}
@@ -325,9 +306,6 @@ export function HomeScreen({
               <h2 className="font-headline-sm text-headline-sm text-on-surface">
                 Luyện phỏng vấn theo nghề
               </h2>
-              <span className="font-caption text-caption text-on-surface-variant">
-                Ausbildung
-              </span>
             </div>
             <div className="flex flex-col gap-3">
               {berufe.map((beruf) => {

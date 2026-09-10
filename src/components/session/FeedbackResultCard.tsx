@@ -116,7 +116,7 @@ export function FeedbackResultCard({
               if (w.status === "incorrect" || w.status === "extra") {
                 return (
                   <React.Fragment key={i}>
-                    <span className="relative inline-block text-error font-medium underline decoration-error decoration-wavy underline-offset-4 bg-error-container/40 px-space-4 rounded">
+                    <span className="relative inline-block text-error font-medium underline decoration-error decoration-solid underline-offset-4 bg-error-container/40 px-space-4 rounded">
                       {w.typed}
                     </span>
                     <span> </span>
@@ -143,7 +143,7 @@ export function FeedbackResultCard({
                 if (w.status === "incorrect" || w.status === "missing") {
                   return (
                     <React.Fragment key={i}>
-                      <strong className="text-primary font-semibold">{w.word}</strong>
+                      <strong className="text-error font-semibold underline decoration-error decoration-solid underline-offset-4">{w.word}</strong>
                       <span> </span>
                     </React.Fragment>
                   );

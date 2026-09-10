@@ -33,8 +33,8 @@ export function AccountScreen() {
 
   return (
     <>
-      <header className="fixed top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full items-center justify-between px-space-16 md:max-w-[680px]">
+      <header className="sticky top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+        <div className="flex h-16 w-full items-center justify-between px-space-16">
           <div className="flex items-center gap-space-8">
             <Link
               href="/"
@@ -50,7 +50,7 @@ export function AccountScreen() {
         </div>
       </header>
 
-      <main className="relative flex w-full flex-1 flex-col bg-surface pt-16">
+      <main className="relative flex w-full flex-1 flex-col bg-surface">
         <div className="flex w-full flex-col gap-space-24 px-space-16 pb-space-32">
           <section className="flex flex-col gap-space-16 rounded-3xl bg-surface-container-lowest p-space-20 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
             {loading ? (

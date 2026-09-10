@@ -45,8 +45,8 @@ function SessionComplete({
   completedCount: number;
 }) {
   return (
-    <main className="relative flex w-full flex-1 flex-col bg-surface pt-14">
-      <div className="mx-auto flex w-full max-w-[680px] flex-1 flex-col items-center justify-center gap-space-16 px-margin-mobile pb-space-32 text-center lg:max-w-[720px]">
+    <main className="relative flex w-full flex-1 flex-col bg-surface">
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-space-16 px-margin-mobile pb-space-32 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-fixed text-primary">
           <MaterialIcon name="check_circle" className="text-[32px]" filled />
         </div>
@@ -108,8 +108,8 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
 
   return (
     <>
-      <header className="fixed top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
-        <div className="mx-auto flex h-14 w-full max-w-[680px] items-center justify-between px-margin-mobile lg:max-w-[720px]">
+      <header className="sticky top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+        <div className="flex h-14 w-full items-center justify-between px-margin-mobile">
           <Link
             href="/"
             aria-label="Quay lại"
@@ -148,8 +148,8 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
           completedCount={completedClips.size}
         />
       ) : (
-        <main className="relative flex w-full flex-1 flex-col bg-surface pt-14">
-          <div className="mx-auto flex w-full max-w-[680px] flex-col px-margin-mobile pb-space-24 lg:max-w-[720px] lg:pb-space-32">
+        <main className="relative flex w-full flex-1 flex-col bg-surface">
+          <div className="flex w-full flex-col px-margin-mobile pb-space-24">
             <header className="flex flex-col gap-space-12 pt-space-12 pb-space-8">
               <div className="flex items-center justify-between gap-space-8">
                 <div className="flex min-w-0 items-center gap-space-8">
