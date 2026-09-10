@@ -2,27 +2,33 @@
   "clips": [
     {
       "filename": "common-deutsche_ausbildung.mp3",
-      "script": "Was weißt du über die deutsche Ausbildung?"
+      "script": "Was weißt du über die deutsche Ausbildung?",
+      "translationVi": "Bạn biết gì về hệ thống giáo dục Đức?"
     },
     {
       "filename": "common-hobbies.mp3",
-      "script": "Was sind deine Hobbys?"
+      "script": "Was sind deine Hobbys?",
+      "translationVi": "Sở thích của bạn là gì?"
     },
     {
       "filename": "common-lieblingsessen.mp3",
-      "script": "Was ist dein Lieblingsessen?"
+      "script": "Was ist dein Lieblingsessen?",
+      "translationVi": "Món ăn yêu thích của bạn là gì?"
     },
     {
       "filename": "common-was_machst_du.mp3",
-      "script": "Was machst du gerade außer Deutsch lernen?"
+      "script": "Was machst du gerade außer Deutsch lernen?",
+      "translationVi": "Bạn đang làm gì khác không khi học tiếng Đức?"
     },
     {
       "filename": "common-wie_lange_deutsch.mp3",
-      "script": "Wie lange lernst du schon Deutsch?"
+      "script": "Wie lange lernst du schon Deutsch?",
+      "translationVi": "Bạn đã học tiếng Đức bao lâu rồi?"
     },
     {
       "filename": "common-wieso_deutschland.mp3",
-      "script": "Wieso möchtest du nach Deutschland kommen? Was gefällt die an Deutschland?"
+      "script": "Wieso möchtest du nach Deutschland kommen? Was gefällt die an Deutschland?",
+      "translationVi": "Tại sao bạn muốn đến Đức? Bạn thích điều gì ở Đức?"
     }
   ]
 }
