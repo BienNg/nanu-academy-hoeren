@@ -6,6 +6,10 @@ import type { Ausbildungsberuf, SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
+import { useProgress } from "@/hooks/useProgress";
+import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
+import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
+
 type InterviewSessionProps = {
   beruf: Ausbildungsberuf;
   clips: SessionClip[];
@@ -34,9 +38,11 @@ function MaterialIcon({
 function SessionComplete({
   berufLabel,
   clipCount,
+  completedCount,
 }: {
   berufLabel: string;
   clipCount: number;
+  completedCount: number;
 }) {
   return (
     <main className="relative flex w-full flex-1 flex-col bg-surface pt-14">
@@ -48,9 +54,8 @@ function SessionComplete({
           Session complete
         </h2>
         <p className="max-w-md font-body-md text-body-md text-on-surface-variant">
-          Bạn đã luyện hết {clipCount} câu cho{" "}
+          Bạn đã luyện {completedCount} / {clipCount} câu cho{" "}
           <span className="font-semibold text-on-surface">{berufLabel}</span>.
-          Scoring và lưu tiến độ sẽ có ở ticket tiếp theo.
         </p>
         <Link
           href="/"
@@ -66,6 +71,10 @@ function SessionComplete({
 
 export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   const [clipIndex, setClipIndex] = useState(0);
+  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  
+  const { completedClips, markClipDone } = useProgress(beruf.slug);
+
   const total = clips.length;
   const complete = clipIndex >= total;
   const currentClip = clips[clipIndex];
@@ -79,14 +88,21 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   }, [clipIndex, total]);
 
   const handleSubmit = (value: string) => {
-    // Scoring lands in the next ticket — for now just log and advance.
-    console.log("[dictation]", {
-      berufId: beruf.slug,
-      clipId: currentClip?.id,
-      clipIndex,
-      value,
-    });
+    if (!currentClip) return;
+    const result = scoreAttempt(value, currentClip.script);
+    setScoreResult(result);
+  };
+
+  const handleNext = () => {
+    if (currentClip) {
+      markClipDone(currentClip.id);
+    }
+    setScoreResult(null);
     setClipIndex((index) => index + 1);
+  };
+
+  const handleRetry = () => {
+    setScoreResult(null);
   };
 
   return (
@@ -125,7 +141,11 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
       </header>
 
       {complete || !currentClip ? (
-        <SessionComplete berufLabel={beruf.label} clipCount={total} />
+        <SessionComplete 
+          berufLabel={beruf.label} 
+          clipCount={total} 
+          completedCount={completedClips.size}
+        />
       ) : (
         <main className="relative flex w-full flex-1 flex-col bg-surface pt-14">
           <div className="mx-auto flex w-full max-w-[680px] flex-col px-margin-mobile pb-space-24 lg:max-w-[720px] lg:pb-space-32">
@@ -181,10 +201,19 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
               subtitle="Câu hỏi phỏng vấn Ausbildung"
             />
 
-            <DictationInputCard
-              key={`dictation-${currentClip.id}`}
-              onSubmit={handleSubmit}
-            />
+            {scoreResult ? (
+              <FeedbackResultCard
+                result={scoreResult}
+                clip={currentClip}
+                onNext={handleNext}
+                onRetry={handleRetry}
+              />
+            ) : (
+              <DictationInputCard
+                key={`dictation-${currentClip.id}`}
+                onSubmit={handleSubmit}
+              />
+            )}
           </div>
         </main>
       )}

@@ -6,6 +6,7 @@ import commonFile from "@/data/ausbildung/common.json";
 type StoredClip = {
   filename: string;
   script: string;
+  translationVi?: string;
 };
 
 type StoredAusbildungFile = {
@@ -16,6 +17,7 @@ export type SessionClip = {
   id: string;
   filename: string;
   script: string;
+  translationVi: string;
   audioPath: string;
 };
 
@@ -79,6 +81,7 @@ function toSessionClip(clip: StoredClip, folder: string): SessionClip {
     id: stripExtension(clip.filename),
     filename: clip.filename,
     script: clip.script,
+    translationVi: clip.translationVi ?? "",
     audioPath: `ausbildung/${folder}/${clip.filename}`,
   };
 }
