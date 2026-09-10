@@ -1,0 +1,7 @@
+# NaNu Academy Hören — Cursor rules
+
+Amend an existing file in this structure before creating a new one.
+
+If a change would create a new top-level "helper" file or folder, stop and ask which existing file it belongs in instead.
+
+Do not add Firebase, paid services, or anything outside Vercel's free Hobby tier.

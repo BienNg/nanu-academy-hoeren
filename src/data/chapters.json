@@ -1,0 +1,42 @@
+[
+  {
+    "level": "A1.1",
+    "slug": "a1-1",
+    "chapters": []
+  },
+  {
+    "level": "A1.2",
+    "slug": "a1-2",
+    "chapters": []
+  },
+  {
+    "level": "A2.1",
+    "slug": "a2-1",
+    "chapters": []
+  },
+  {
+    "level": "A2.2",
+    "slug": "a2-2",
+    "chapters": []
+  },
+  {
+    "level": "B1.1",
+    "slug": "b1-1",
+    "chapters": []
+  },
+  {
+    "level": "B1.2",
+    "slug": "b1-2",
+    "chapters": []
+  },
+  {
+    "level": "B2.1",
+    "slug": "b2-1",
+    "chapters": []
+  },
+  {
+    "level": "B2.2",
+    "slug": "b2-2",
+    "chapters": []
+  }
+]

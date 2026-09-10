@@ -1,0 +1,27 @@
+[
+  {
+    "id": "koch",
+    "label": "Koch / Köchin",
+    "slug": "koch"
+  },
+  {
+    "id": "hotelfachkraft",
+    "label": "Hotelfachkraft",
+    "slug": "hotelfachkraft"
+  },
+  {
+    "id": "restaurantfachkraft",
+    "label": "Restaurantfachkraft",
+    "slug": "restaurantfachkraft"
+  },
+  {
+    "id": "baecker",
+    "label": "Bäcker / Bäckerin",
+    "slug": "baecker"
+  },
+  {
+    "id": "metzgerei",
+    "label": "Metzgerei",
+    "slug": "metzgerei"
+  }
+]
