@@ -5,3 +5,9 @@ Amend an existing file in this structure before creating a new one.
 If a change would create a new top-level "helper" file or folder, stop and ask which existing file it belongs in instead.
 
 Do not add Firebase, paid services, or anything outside Vercel's free Hobby tier.
+
+## Design fidelity
+
+- `design-reference/` files are the exact visual target — match spacing, colors, typography, icons, and component states pixel-for-pixel, not "inspired by."
+- `code.html` files are a mobile mockup, but the actual app is a responsive web app, not mobile-only. Build mobile-first: the mockup's layout IS the base (unprefixed) Tailwind classes. Add `sm:`/`md:`/`lg:` breakpoints on top to adapt for wider viewports — center content, add max-width, adjust nav placement, etc. Never make a component that only works at mobile width.
+- If a wider-viewport treatment isn't shown in `code.html`, make a reasonable choice consistent with the mockup's visual language, and note the assumption in the ticket.
