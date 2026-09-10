@@ -71,10 +71,6 @@ export function FeedbackResultCard({
             </div>
           </div>
 
-          <p className="text-secondary font-body-sm text-body-sm -mt-space-4">
-            Rất tốt! Bạn đã nghe và viết đúng toàn bộ chính tả, ngữ pháp và danh từ viết hoa.
-          </p>
-
           <div className="bg-surface-container-low/70 rounded-2xl p-space-16 flex flex-col gap-space-12 border border-surface-container-high">
             <div className="flex items-start justify-between gap-space-8">
               <p className="text-on-surface font-body-lg text-[18px] leading-relaxed font-medium">
@@ -113,10 +109,6 @@ export function FeedbackResultCard({
               <span>Tiếp theo</span>
               <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </button>
-          </div>
-          <div className="flex items-center justify-center gap-space-4 text-secondary text-center">
-            <span className="material-symbols-outlined text-[15px] text-[#34C759]">check_circle</span>
-            <p className="font-body-sm text-body-sm text-secondary">Đã lưu kết quả bài nghe vào hồ sơ học tập</p>
           </div>
         </div>
       </div>

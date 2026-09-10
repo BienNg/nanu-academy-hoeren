@@ -84,10 +84,9 @@ export function DictationInputCard({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-      event.preventDefault();
-      handleSubmit();
-    }
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    handleSubmit();
   };
 
   return (

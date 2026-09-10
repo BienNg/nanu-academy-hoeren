@@ -179,13 +179,6 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
             </h1>
           </div>
           <div className="flex items-center gap-space-4">
-            <button
-              type="button"
-              aria-label="Ngữ pháp và cài đặt phát âm"
-              className="flex h-11 w-11 items-center justify-center rounded-full text-secondary transition-colors hover:bg-surface-container hover:text-on-surface"
-            >
-              <MaterialIcon name="tune" className="text-[22px]" />
-            </button>
             <Link
               href="/account"
               className="ml-space-4 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary"
