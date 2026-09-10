@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Ausbildungsberuf, SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
+import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -44,6 +45,8 @@ function SessionComplete({
   clipCount: number;
   completedCount: number;
 }) {
+  const allDone = clipCount > 0 && completedCount >= clipCount;
+
   return (
     <main className="relative flex w-full flex-1 flex-col bg-surface">
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-space-16 px-margin-mobile pb-space-32 text-center">
@@ -51,11 +54,13 @@ function SessionComplete({
           <MaterialIcon name="check_circle" className="text-[32px]" filled />
         </div>
         <h2 className="font-headline-md text-headline-md text-on-surface">
-          Session complete
+          {allDone ? "Đã hoàn thành" : "Session complete"}
         </h2>
         <p className="max-w-md font-body-md text-body-md text-on-surface-variant">
-          Bạn đã luyện {completedCount} / {clipCount} câu cho{" "}
-          <span className="font-semibold text-on-surface">{berufLabel}</span>.
+          Bạn đã luyện {Math.min(completedCount, clipCount)} / {clipCount} câu
+          cho{" "}
+          <span className="font-semibold text-on-surface">{berufLabel}</span>
+          {allDone ? ". Những câu đúng sẽ không xuất hiện lại." : "."}
         </p>
         <Link
           href="/"
@@ -69,41 +74,84 @@ function SessionComplete({
   );
 }
 
+function SessionLoading() {
+  return (
+    <main className="relative flex w-full flex-1 flex-col items-center justify-center bg-surface px-margin-mobile pb-space-32">
+      <p className="font-body-md text-body-md text-on-surface-variant">
+        Đang tải tiến độ…
+      </p>
+    </main>
+  );
+}
+
 export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
+  const [queue, setQueue] = useState<SessionClip[] | null>(null);
+  const [startingCompleted, setStartingCompleted] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
 
   const { completedClipIdsFor, markClipDone } = useProgress();
-  const completedClips = new Set(completedClipIdsFor(beruf.slug));
+  const completedIds = completedClipIdsFor(beruf.slug);
+  const completedIdsRef = useRef(completedIds);
+  completedIdsRef.current = completedIds;
+  const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
-  const total = clips.length;
-  const complete = clipIndex >= total;
-  const currentClip = clips[clipIndex];
+  const catalogTotal = clips.length;
+
+  useEffect(() => {
+    const ids = completedIdsRef.current;
+    setQueue(practiceQueue(clips, ids));
+    setStartingCompleted(catalogCompletedCount(clips, ids));
+    setClipIndex(0);
+    setScoreResult(null);
+    setDraft("");
+  }, [beruf.slug, clips]);
+
+  const remaining = queue ?? [];
+  const currentClip = remaining[clipIndex];
+  const ready = queue !== null;
+  const complete = ready && clipIndex >= remaining.length;
   const isPerfect = scoreResult?.accuracy === 100;
+  const displayNumber = Math.min(startingCompleted + clipIndex + 1, catalogTotal);
 
   const progressSegments = useMemo(() => {
-    return Array.from({ length: total }, (_, index) => {
-      if (index < clipIndex) return "done";
-      if (index === clipIndex) return "current";
+    const doneCount = startingCompleted + clipIndex;
+    return Array.from({ length: catalogTotal }, (_, index) => {
+      if (index < doneCount) return "done";
+      if (index === doneCount && currentClip) return "current";
       return "todo";
     });
-  }, [clipIndex, total]);
+  }, [catalogTotal, startingCompleted, clipIndex, currentClip]);
+
+  const rememberClip = (clip: SessionClip) => {
+    markClipDone(beruf.slug, clip.id);
+  };
 
   const handleSubmit = (value: string) => {
     if (!currentClip) return;
     setDraft(value);
     const result = scoreAttempt(value, currentClip.script);
     setScoreResult(result);
+    if (result.accuracy === 100) {
+      rememberClip(currentClip);
+    }
   };
 
   const handleNext = () => {
     if (currentClip) {
-      markClipDone(beruf.slug, currentClip.id, clipIndex);
+      rememberClip(currentClip);
     }
     setScoreResult(null);
     setDraft("");
-    setClipIndex((index) => index + 1);
+    setClipIndex((index) => {
+      if (!queue) return index + 1;
+      let next = index + 1;
+      while (next < queue.length && completedClips.has(queue[next]!.id)) {
+        next += 1;
+      }
+      return next;
+    });
   };
 
   const handleRetry = () => {
@@ -146,11 +194,13 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
         </div>
       </header>
 
-      {complete || !currentClip ? (
-        <SessionComplete 
-          berufLabel={beruf.label} 
-          clipCount={total} 
-          completedCount={completedClips.size}
+      {!ready ? (
+        <SessionLoading />
+      ) : complete || !currentClip ? (
+        <SessionComplete
+          berufLabel={beruf.label}
+          clipCount={catalogTotal}
+          completedCount={catalogCompletedCount(clips, completedIds)}
         />
       ) : (
         <main className="relative flex w-full flex-1 flex-col bg-surface">
@@ -172,7 +222,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
                     filled
                   />
                   <span className="font-label-sm text-label-sm text-on-surface">
-                    Câu {clipIndex + 1} / {total}
+                    Câu {displayNumber} / {catalogTotal}
                   </span>
                 </div>
               </div>
@@ -181,7 +231,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
                 aria-label="Tiến độ bài học"
                 className="grid w-full gap-space-4"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.max(total, 1)}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(${Math.max(catalogTotal, 1)}, minmax(0, 1fr))`,
                 }}
               >
                 {progressSegments.map((segment, index) => (
@@ -204,7 +254,6 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
             <AudioPlayerCard
               key={currentClip.id}
               audioPath={currentClip.audioPath}
-              subtitle="Câu hỏi phỏng vấn Ausbildung"
             />
 
             {isPerfect && scoreResult ? (

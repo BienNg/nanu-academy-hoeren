@@ -24,8 +24,6 @@ export type AudioPlayerVisualState = "idle" | "playing" | "finished";
 
 type AudioPlayerCardProps = {
   audioPath: string;
-  title?: string;
-  subtitle?: string;
 };
 
 function MaterialIcon({
@@ -51,11 +49,7 @@ function MaterialIcon({
 /**
  * Remount this component (via `key={clipId}`) when the active clip changes.
  */
-export function AudioPlayerCard({
-  audioPath,
-  title = "Phát âm chuẩn Hannover",
-  subtitle = "Câu hỏi phỏng vấn Ausbildung",
-}: AudioPlayerCardProps) {
+export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
   const howlRef = useRef<Howl | null>(null);
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
   const pulseCleanupRef = useRef<(() => void) | null>(null);
@@ -198,20 +192,7 @@ export function AudioPlayerCard({
 
   return (
     <section className="mt-space-12 flex flex-col gap-space-16 rounded-[24px] bg-surface-container-lowest p-space-20 shadow-sm transition-all duration-200 md:p-space-24">
-      <div className="flex items-center justify-between gap-space-8">
-        <div className="flex min-w-0 items-center gap-space-8">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
-            <MaterialIcon name="record_voice_over" className="text-[18px]" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="font-label-md text-label-md text-on-surface">
-              {title}
-            </h2>
-            <p className="truncate font-caption text-caption text-secondary">
-              {subtitle}
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center justify-end">
         <button
           type="button"
           aria-label="Đổi tốc độ phát"

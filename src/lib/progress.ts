@@ -7,9 +7,13 @@ export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 export const CONTINUE_BERUF_SLUG = "restaurantfachkraft";
 
 export type InterviewProgress = {
-  /** 0-based index of the next clip to practice. */
+  /**
+   * 0-based catalog position of the next unseen clip.
+   * Kept in sync with `completedClipIds.length` so resume UI stays accurate
+   * even when the practice queue is reshuffled.
+   */
   currentClipIndex: number;
-  /** Clip ids already completed in this profession session track. */
+  /** Clip ids already answered correctly — skipped when the student continues. */
   completedClipIds: string[];
 };
 
@@ -108,12 +112,14 @@ export function mergeProgress(
       ...(left?.completedClipIds ?? []),
       ...(right?.completedClipIds ?? []),
     ]);
+    const completedClipIds = Array.from(completed);
     interview[slug] = {
       currentClipIndex: Math.max(
         left?.currentClipIndex ?? 0,
         right?.currentClipIndex ?? 0,
+        completedClipIds.length,
       ),
-      completedClipIds: Array.from(completed),
+      completedClipIds,
     };
   }
 
@@ -156,7 +162,6 @@ export function markClipCompleted(
   progress: StoredProgress,
   berufSlug: string,
   clipId: string,
-  clipIndex: number,
 ): StoredProgress {
   const entry = progress.interview[berufSlug] ?? {
     currentClipIndex: 0,
@@ -171,13 +176,42 @@ export function markClipCompleted(
     interview: {
       ...progress.interview,
       [berufSlug]: {
-        currentClipIndex: Math.max(entry.currentClipIndex, clipIndex + 1),
+        currentClipIndex: completedClipIds.length,
         completedClipIds,
       },
     },
   };
 
   return bumpStreak(next);
+}
+
+function shuffleItems<T>(items: readonly T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const current = shuffled[i];
+    shuffled[i] = shuffled[j] as T;
+    shuffled[j] = current as T;
+  }
+  return shuffled;
+}
+
+/** Clips the student has not yet answered correctly, in a fresh random order. */
+export function practiceQueue<T extends { id: string }>(
+  clips: readonly T[],
+  completedClipIds: readonly string[],
+): T[] {
+  const done = new Set(completedClipIds);
+  return shuffleItems(clips.filter((clip) => !done.has(clip.id)));
+}
+
+/** Completed ids that still exist in the current catalog. */
+export function catalogCompletedCount<T extends { id: string }>(
+  clips: readonly T[],
+  completedClipIds: readonly string[],
+): number {
+  const catalog = new Set(clips.map((clip) => clip.id));
+  return completedClipIds.filter((id) => catalog.has(id)).length;
 }
 
 export function toContinueLearning(
@@ -197,7 +231,7 @@ export function toContinueLearning(
   return {
     berufSlug: CONTINUE_BERUF_SLUG,
     href: `/interview/${CONTINUE_BERUF_SLUG}`,
-    currentClipIndex: entry.currentClipIndex,
+    currentClipIndex: completedCount,
     completedCount,
     totalClips: safeTotal,
     percent,

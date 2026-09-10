@@ -86,17 +86,6 @@ function toSessionClip(clip: StoredClip, folder: string): SessionClip {
   };
 }
 
-function shuffle<T>(items: readonly T[]): T[] {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const current = shuffled[i];
-    shuffled[i] = shuffled[j] as T;
-    shuffled[j] = current as T;
-  }
-  return shuffled;
-}
-
 /**
  * Professions that appear in ausbildungsberufe.json AND have a real
  * src/data/ausbildung/<slug>.json with a non-empty clips array.
@@ -126,5 +115,5 @@ export function getSessionClips(berufSlug: string): SessionClip[] {
     toSessionClip(clip, berufSlug),
   );
 
-  return shuffle([...commonClips, ...professionClips]);
+  return [...commonClips, ...professionClips];
 }

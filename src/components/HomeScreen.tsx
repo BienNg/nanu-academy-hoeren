@@ -88,7 +88,10 @@ function ContinueCard({
         <div className="flex flex-col gap-space-4">
           <div className="flex items-center justify-between font-caption text-caption text-on-surface-variant">
             <span>
-              Câu {displayIndex} / {Math.max(totalClips, 1)} · Nghe chép chính tả
+              Câu {displayIndex} / {Math.max(totalClips, 1)}
+              {percent >= 100
+                ? " · Đã hoàn thành"
+                : " · Nghe chép chính tả"}
             </span>
             <span className="font-semibold text-on-surface">{percent}%</span>
           </div>

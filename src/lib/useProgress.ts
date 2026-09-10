@@ -154,13 +154,8 @@ export function useProgress(totalClips = 0) {
   );
 
   const markClipDone = useCallback(
-    (berufSlug: string, clipId: string, clipIndex: number) => {
-      const next = markClipCompleted(
-        readProgressSnapshot(),
-        berufSlug,
-        clipId,
-        clipIndex,
-      );
+    (berufSlug: string, clipId: string) => {
+      const next = markClipCompleted(readProgressSnapshot(), berufSlug, clipId);
       persist(next, true);
     },
     [persist],

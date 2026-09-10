@@ -35,14 +35,6 @@ function MaterialIcon({
   );
 }
 
-function countWordsAndChars(value: string): { words: number; chars: number } {
-  const trimmed = value.trim();
-  return {
-    words: trimmed ? trimmed.split(/\s+/).length : 0,
-    chars: value.length,
-  };
-}
-
 /**
  * Remount via parent `key={clipId}` when the active clip changes so the
  * textarea resets without an effect-driven setState.
@@ -64,7 +56,6 @@ export function DictationInputCard({
     onChange?.(next);
   };
 
-  const { words, chars } = countWordsAndChars(value);
   const canSubmit = value.trim().length > 0 && !disabled;
 
   const insertChar = (char: string) => {
@@ -85,11 +76,6 @@ export function DictationInputCard({
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(event.target.value);
-  };
-
-  const handleClear = () => {
-    setValue("");
-    textareaRef.current?.focus();
   };
 
   const handleSubmit = () => {
@@ -126,21 +112,6 @@ export function DictationInputCard({
             placeholder="Gõ câu tiếng Đức bạn vừa nghe được vào đây..."
             className="w-full resize-none bg-transparent font-body-lg text-body-lg leading-relaxed text-on-surface placeholder:text-secondary focus:outline-none disabled:opacity-60"
           />
-        </div>
-
-        <div className="flex items-center justify-between pt-space-4 text-secondary">
-          <span className="font-caption text-caption">
-            {words} từ · {chars} ký tự
-          </span>
-          <button
-            type="button"
-            onClick={handleClear}
-            disabled={!value || disabled}
-            className="flex items-center gap-space-2 font-caption text-caption text-secondary transition-colors hover:text-error disabled:opacity-40"
-          >
-            <MaterialIcon name="clear_all" className="text-[14px]" />
-            Xóa văn bản
-          </button>
         </div>
 
         <div className="pt-space-8">
