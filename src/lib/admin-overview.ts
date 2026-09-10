@@ -3,7 +3,7 @@ import type { UserProgressListItem } from "@/lib/progress-store";
 
 export const ADMIN_PAGE_SIZE = 25;
 
-export type AdminSortKey = "lastLogin" | "progress" | "name";
+export type AdminSortKey = "lastLogin" | "name";
 export type AdminSortDir = "asc" | "desc";
 
 export type AdminTrackColumn = {
@@ -28,10 +28,6 @@ export type AdminUserRow = {
   displayName: string;
   lastLoginAt: string | null;
   lastLoginMs: number;
-  overallCompleted: number;
-  overallTotal: number;
-  overallPercent: number;
-  overallStarted: boolean;
   tracks: AdminTrackProgress[];
 };
 
@@ -80,19 +76,6 @@ export function toAdminUserRow(
     };
   });
 
-  const overallCompleted = trackRows.reduce(
-    (sum, track) => sum + track.completedCount,
-    0,
-  );
-  const overallTotal = trackRows.reduce(
-    (sum, track) => sum + track.totalClips,
-    0,
-  );
-  const overallPercent =
-    overallTotal === 0
-      ? 0
-      : Math.min(100, Math.round((overallCompleted / overallTotal) * 100));
-
   return {
     userId: item.userId,
     name: item.name,
@@ -100,10 +83,6 @@ export function toAdminUserRow(
     displayName: displayNameFor(item),
     lastLoginAt,
     lastLoginMs: Number.isNaN(lastLoginMs) ? 0 : lastLoginMs,
-    overallCompleted,
-    overallTotal,
-    overallPercent,
-    overallStarted: overallCompleted > 0,
     tracks: trackRows,
   };
 }
@@ -118,13 +97,6 @@ function compareRows(
   if (sort === "lastLogin") {
     if (a.lastLoginMs !== b.lastLoginMs) {
       return (a.lastLoginMs - b.lastLoginMs) * sign;
-    }
-  } else if (sort === "progress") {
-    if (a.overallPercent !== b.overallPercent) {
-      return (a.overallPercent - b.overallPercent) * sign;
-    }
-    if (a.overallCompleted !== b.overallCompleted) {
-      return (a.overallCompleted - b.overallCompleted) * sign;
     }
   } else {
     const byName = a.displayName.localeCompare(b.displayName, "en", {

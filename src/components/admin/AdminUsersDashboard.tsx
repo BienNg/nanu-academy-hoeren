@@ -106,35 +106,6 @@ function TrackCell({ track }: { track: AdminTrackProgress }) {
   );
 }
 
-function OverallCell({ row }: { row: AdminUserRow }) {
-  if (!row.overallStarted) {
-    return (
-      <span className="font-body-sm text-body-sm text-outline">Not started</span>
-    );
-  }
-
-  return (
-    <div className="flex min-w-[8rem] flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-space-8">
-        <span className="font-label-md text-label-md font-semibold text-on-surface">
-          {row.overallPercent}%
-        </span>
-        <span className="font-caption text-caption text-on-surface-variant">
-          {row.overallCompleted}/{row.overallTotal}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
-        <div
-          className={`h-full rounded-full ${
-            row.overallPercent >= 100 ? "bg-[#34C759]" : "bg-primary-container"
-          }`}
-          style={{ width: `${row.overallPercent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function formatAbsoluteTime(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);
@@ -320,13 +291,6 @@ export function AdminUsersDashboard({
                     dir={dir}
                     onSort={handleSort}
                   />
-                  <SortHeader
-                    label="Overall"
-                    column="progress"
-                    sort={sort}
-                    dir={dir}
-                    onSort={handleSort}
-                  />
                   {tracks.map((track) => (
                     <th
                       key={track.slug}
@@ -349,7 +313,7 @@ export function AdminUsersDashboard({
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4 + tracks.length}
+                      colSpan={3 + tracks.length}
                       className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                     >
                       {visibleRows.length === 0
@@ -376,9 +340,6 @@ export function AdminUsersDashboard({
                         </div>
                       </td>
                       <LastLoginCell iso={row.lastLoginAt} />
-                      <td className="px-space-16 py-space-16">
-                        <OverallCell row={row} />
-                      </td>
                       {row.tracks.map((track) => (
                         <td key={track.slug} className="px-space-16 py-space-16">
                           <TrackCell track={track} />
