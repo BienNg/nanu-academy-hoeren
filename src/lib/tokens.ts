@@ -51,8 +51,6 @@ export const colors = {
   background: "#fcf8fb",
   "on-background": "#1b1b1d",
   "surface-variant": "#e4e2e4",
-  // Mockup nav inactive (code.html). Not in DESIGN.md YAML.
-  "nav-inactive": "#8E8E93",
 } as const;
 
 export const fontFamily = {
