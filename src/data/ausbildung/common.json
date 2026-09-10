@@ -1,0 +1,28 @@
+{
+  "clips": [
+    {
+      "filename": "common-deutsche_ausbildung.mp3",
+      "script": "Was weißt du über die deutsche Ausbildung?"
+    },
+    {
+      "filename": "common-hobbies.mp3",
+      "script": "Was sind deine Hobbys?"
+    },
+    {
+      "filename": "common-lieblingsessen.mp3",
+      "script": "Was ist dein Lieblingsessen?"
+    },
+    {
+      "filename": "common-was_machst_du.mp3",
+      "script": "Was machst du gerade außer Deutsch lernen?"
+    },
+    {
+      "filename": "common-wie_lange_deutsch.mp3",
+      "script": "Wie lange lernst du schon Deutsch?"
+    },
+    {
+      "filename": "common-wieso_deutschland.mp3",
+      "script": "Wieso möchtest du nach Deutschland kommen? Was gefällt die an Deutschland?"
+    }
+  ]
+}

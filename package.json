@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "check:content": "node scripts/check-content-integrity.mjs",
+    "build": "node scripts/check-content-integrity.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
