@@ -22,6 +22,7 @@ const BERUF_ICON: Record<string, string> = {
   koch: "soup_kitchen",
   hotelfachkraft: "hotel",
   baecker: "bakery_dining",
+  baeckereifachverkaeufer: "storefront",
   metzgerei: "kebab_dining",
 };
 

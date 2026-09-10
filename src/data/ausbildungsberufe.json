@@ -20,6 +20,11 @@
     "slug": "baecker"
   },
   {
+    "id": "baeckereifachverkaeufer",
+    "label": "Bäckereifachverkäufer / Bäckereifachverkäuferin",
+    "slug": "baeckereifachverkaeufer"
+  },
+  {
     "id": "metzgerei",
     "label": "Metzgerei",
     "slug": "metzgerei"

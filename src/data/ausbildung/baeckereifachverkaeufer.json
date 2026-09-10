@@ -1,0 +1,64 @@
+{
+  "clips": [
+    {
+      "filename": "bfv-was-macht-man.mp3",
+      "script": "Was macht eine Verkäuferin in einer Bäckerei?",
+      "translationVi": "Nhân viên bán hàng trong tiệm bánh làm những công việc gì?"
+    },
+    {
+      "filename": "bfv-brot-verkaufen.mp3",
+      "script": "Weißt du, wie man Brot und Brötchen richtig verkauft?",
+      "translationVi": "Bạn có biết cách bán bánh mì đúng cách không?"
+    },
+    {
+      "filename": "bfv-kunden-bedienen.mp3",
+      "script": "Wie bedienst du einen Kunden, der gerade in den Laden kommt?",
+      "translationVi": "Bạn phục vụ một khách hàng vừa bước vào cửa hàng như thế nào?"
+    },
+    {
+      "filename": "bfv-freundlich.mp3",
+      "script": "Warum ist es wichtig, freundlich zu den Kunden zu sein?",
+      "translationVi": "Tại sao việc thân thiện với khách hàng lại quan trọng?"
+    },
+    {
+      "filename": "bfv-kasse.mp3",
+      "script": "Hast du schon einmal an einer Kasse gearbeitet?",
+      "translationVi": "Bạn đã từng làm việc ở quầy thu ngân chưa?"
+    },
+    {
+      "filename": "bfv-fehler.mp3",
+      "script": "Was machst du, wenn du dich beim Kassieren verrechnest?",
+      "translationVi": "Bạn sẽ làm gì nếu tính tiền sai cho khách?"
+    },
+    {
+      "filename": "bfv-sauber.mp3",
+      "script": "Warum muss man im Verkaufsraum sauber und ordentlich arbeiten?",
+      "translationVi": "Tại sao phải giữ khu vực bán hàng sạch sẽ và gọn gàng?"
+    },
+    {
+      "filename": "bfv-fruh-aufstehen.mp3",
+      "script": "Ist es für dich in Ordnung, sehr früh am Morgen zu arbeiten?",
+      "translationVi": "Bạn có ổn không khi phải đi làm rất sớm vào buổi sáng?"
+    },
+    {
+      "filename": "bfv-team.mp3",
+      "script": "Arbeitest du gern mit anderen Menschen zusammen?",
+      "translationVi": "Bạn có thích làm việc cùng với người khác không?"
+    },
+    {
+      "filename": "bfv-stehen.mp3",
+      "script": "Ist es für dich in Ordnung, den ganzen Tag zu stehen?",
+      "translationVi": "Bạn có ổn không khi phải đứng cả ngày?"
+    },
+    {
+      "filename": "bfv-lernen.mp3",
+      "script": "Bist du bereit, neue Dinge in der Ausbildung zu lernen?",
+      "translationVi": "Bạn có sẵn sàng học những điều mới trong khóa đào tạo không?"
+    },
+    {
+      "filename": "bfv-warum-diesen-beruf.mp3",
+      "script": "Warum möchtest du in einer Bäckerei arbeiten?",
+      "translationVi": "Tại sao bạn muốn làm việc trong tiệm bánh?"
+    }
+  ]
+}
