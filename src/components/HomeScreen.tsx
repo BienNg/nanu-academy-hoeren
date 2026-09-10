@@ -163,6 +163,7 @@ function BerufCard({
   const icon = BERUF_ICON[beruf.slug] ?? "work";
   const href = `/interview/${beruf.slug}`;
   const safeTotal = Math.max(totalClips, 0);
+  const isComplete = safeTotal > 0 && percent >= 100;
   const lessonLabel =
     safeTotal > 0 ? `${completedCount}/${safeTotal} bài` : "Phỏng vấn";
   const title = berufDisplayLabel(beruf.label);
@@ -171,18 +172,38 @@ function BerufCard({
     <Link
       href={href}
       title={beruf.label}
-      className="relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl border border-surface-container bg-surface-container-lowest p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-opacity hover:opacity-95 active:scale-[0.98]"
+      aria-label={
+        isComplete ? `${beruf.label} · Đã hoàn thành` : beruf.label
+      }
+      className={`relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-2xl border p-5 transition-all hover:opacity-95 active:scale-[0.98] ${
+        isComplete
+          ? "border-[#34C759]/20 bg-gradient-to-b from-[#34C759]/[0.08] to-[#34C759]/[0.01] shadow-[0_8px_24px_rgba(52,199,89,0.08)]"
+          : "border-surface-container bg-surface-container-lowest shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+      }`}
     >
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-outline">
-            Ausbildung
-          </span>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant">
+          {isComplete ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#34C759] ring-1 ring-inset ring-[#34C759]/20">
+              <MaterialIcon name="check_circle" className="text-[12px]" filled />
+              Hoàn thành
+            </span>
+          ) : (
+            <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-outline">
+              Ausbildung
+            </span>
+          )}
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+              isComplete
+                ? "bg-gradient-to-br from-[#34C759] to-[#2EAD4F] text-white shadow-[0_2px_8px_rgba(52,199,89,0.3)]"
+                : "bg-surface-container-high text-on-surface-variant"
+            }`}
+          >
             <MaterialIcon name={icon} className="text-[18px]" />
           </div>
         </div>
-        <h3 className="line-clamp-2 break-words font-headline-sm text-[16px] font-bold leading-snug text-on-surface [overflow-wrap:anywhere]">
+        <h3 className="mt-1 line-clamp-2 break-words font-headline-sm text-[16px] font-bold leading-snug text-on-surface [overflow-wrap:anywhere]">
           {title}
         </h3>
       </div>
@@ -190,7 +211,11 @@ function BerufCard({
         <span className="min-w-0 truncate text-on-surface-variant">
           {lessonLabel}
         </span>
-        {percent > 0 ? (
+        {isComplete ? (
+          <span className="shrink-0 font-bold text-[#34C759]">
+            100%
+          </span>
+        ) : percent > 0 ? (
           <span className="shrink-0 font-semibold text-primary-container">
             {percent}%
           </span>

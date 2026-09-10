@@ -7,6 +7,7 @@ import {
   DEFAULT_PROGRESS,
   STORAGE_KEY,
   markClipCompleted,
+  resetBerufProgress,
   mergeProgress,
   migrateLegacyProgress,
   normalizeProgress,
@@ -165,6 +166,14 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const resetProgress = useCallback(
+    (berufSlug: string) => {
+      const next = resetBerufProgress(readProgressSnapshot(), berufSlug);
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const continueLearning = toContinueLearning(progress, totalsBySlug);
 
   const progressFor = useCallback(
@@ -179,6 +188,7 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     progressFor,
     streakDays: progress.streakDays,
     markClipDone,
+    resetProgress,
     setStreakDays: (streakDays: number) => {
       persist({ ...progress, streakDays }, true);
     },

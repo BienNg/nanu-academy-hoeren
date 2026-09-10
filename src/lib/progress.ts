@@ -187,6 +187,24 @@ export function markClipCompleted(
   return bumpStreak(next);
 }
 
+export function resetBerufProgress(
+  progress: StoredProgress,
+  berufSlug: string,
+): StoredProgress {
+  const next: StoredProgress = {
+    ...progress,
+    interview: {
+      ...progress.interview,
+      [berufSlug]: {
+        currentClipIndex: 0,
+        completedClipIds: [],
+      },
+    },
+  };
+
+  return next;
+}
+
 function shuffleItems<T>(items: readonly T[]): T[] {
   const shuffled = [...items];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {

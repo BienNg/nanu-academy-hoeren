@@ -4,6 +4,11 @@
       "filename": "koch-warum-diesen-beruf.mp3",
       "script": "Warum möchtest du Koch werden?",
       "translationVi": "Tại sao bạn muốn trở thành đầu bếp?"
+    },
+    {
+      "filename": "koch-hygiene.mp3",
+      "script": "Warum ist Sauberkeit in der Küche so wichtig?",
+      "translationVi": "Tại sao sự sạch sẽ trong bếp lại quan trọng?"
     }
   ]
 }

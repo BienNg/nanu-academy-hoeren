@@ -40,35 +40,55 @@ function SessionComplete({
   berufLabel,
   clipCount,
   completedCount,
+  onReset,
 }: {
   berufLabel: string;
   clipCount: number;
   completedCount: number;
+  onReset: () => void;
 }) {
   const allDone = clipCount > 0 && completedCount >= clipCount;
 
   return (
     <main className="relative flex w-full flex-1 flex-col bg-surface">
-      <div className="flex w-full flex-1 flex-col items-center justify-center gap-space-16 px-margin-mobile pb-space-32 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-fixed text-primary">
-          <MaterialIcon name="check_circle" className="text-[32px]" filled />
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-space-24 px-margin-mobile pb-space-32 text-center">
+        {/* Animated Success Badge */}
+        <div className="relative mb-space-8 flex h-24 w-24 items-center justify-center">
+          <div className="absolute inset-0 animate-ping rounded-full bg-[#34C759]/20" style={{ animationDuration: '3s' }} />
+          <div className="absolute inset-2 rounded-full bg-[#34C759]/20" />
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#34C759] to-[#2EAD4F] text-white shadow-[0_8px_32px_rgba(52,199,89,0.4)]">
+            <MaterialIcon name="check" className="text-[32px]" filled />
+          </div>
         </div>
-        <h2 className="font-headline-md text-headline-md text-on-surface">
-          {allDone ? "Đã hoàn thành" : "Session complete"}
-        </h2>
-        <p className="max-w-md font-body-md text-body-md text-on-surface-variant">
-          Bạn đã luyện {Math.min(completedCount, clipCount)} / {clipCount} câu
-          cho{" "}
-          <span className="font-semibold text-on-surface">{berufLabel}</span>
-          {allDone ? ". Những câu đúng sẽ không xuất hiện lại." : "."}
-        </p>
-        <Link
-          href="/"
-          className="mt-space-8 inline-flex h-[52px] items-center justify-center gap-space-8 rounded-2xl bg-primary-container px-space-24 font-label-lg text-label-lg text-on-primary shadow-[0_2px_8px_rgba(0,113,227,0.25)] transition-all hover:opacity-95 active:scale-[0.98]"
-        >
-          Về trang chủ
-          <MaterialIcon name="arrow_forward" className="text-[18px]" />
-        </Link>
+
+        {/* Text Content */}
+        <div className="flex flex-col gap-space-12">
+          <h2 className="font-display text-display-mobile tracking-tight text-on-surface sm:text-display">
+            {allDone ? "Hoàn thành xuất sắc!" : "Session complete"}
+          </h2>
+          <p className="mx-auto max-w-[280px] font-body-lg text-body-lg leading-relaxed text-on-surface-variant sm:max-w-sm">
+            Bạn đã chinh phục {Math.min(completedCount, clipCount)} / {clipCount} câu phỏng vấn cho <span className="font-semibold text-on-surface">{berufLabel}</span>.
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-space-16 flex w-full flex-col gap-space-12 sm:flex-row-reverse sm:px-space-24">
+          <Link
+            href="/"
+            className="group relative flex h-[56px] w-full items-center justify-center gap-space-8 overflow-hidden rounded-2xl bg-on-surface px-space-24 font-label-lg text-[17px] font-semibold text-surface transition-transform hover:scale-[1.02] active:scale-[0.98] sm:flex-1"
+          >
+            <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
+            Về trang chủ
+          </Link>
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex h-[56px] w-full items-center justify-center gap-space-8 rounded-2xl bg-surface-container-high px-space-24 font-label-lg text-[17px] font-semibold text-on-surface transition-all hover:bg-surface-container-highest active:scale-[0.98] sm:flex-1"
+          >
+            <MaterialIcon name="replay" className="text-[20px]" />
+            Luyện lại
+          </button>
+        </div>
       </div>
     </main>
   );
@@ -91,7 +111,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
 
-  const { completedClipIdsFor, markClipDone } = useProgress();
+  const { completedClipIdsFor, markClipDone, resetProgress } = useProgress();
   const completedIds = completedClipIdsFor(beruf.slug);
   const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
@@ -197,6 +217,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
           berufLabel={beruf.label}
           clipCount={catalogTotal}
           completedCount={catalogCompletedCount(clips, completedIds)}
+          onReset={() => resetProgress(beruf.slug)}
         />
       ) : (
         <main className="relative flex w-full flex-1 flex-col bg-surface">
