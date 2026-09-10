@@ -1,22 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
+import { colors } from "@/lib/tokens";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
   subsets: ["latin", "vietnamese"],
   weight: ["500", "600", "700"],
+  display: "swap",
 });
 
 const beVietnamPro = Be_Vietnam_Pro({
   variable: "--font-be-vietnam-pro",
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "NaNu Academy Hören",
   description: "German listening and dictation practice for Vietnamese learners",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: colors.surface,
 };
 
 export default function RootLayout({
@@ -29,8 +40,8 @@ export default function RootLayout({
       lang="vi"
       className={`${plusJakartaSans.variable} ${beVietnamPro.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-surface text-on-surface font-body-md text-body-md">
-        {children}
+      <body className="flex min-h-dvh flex-col bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-fixed">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

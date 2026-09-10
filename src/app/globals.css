@@ -1,8 +1,21 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
+html,
 body {
   background-color: theme("colors.surface");
+}
+
+body {
   color: theme("colors.on-surface");
   font-family: theme("fontFamily.body-md");
+  overscroll-behavior: none;
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
