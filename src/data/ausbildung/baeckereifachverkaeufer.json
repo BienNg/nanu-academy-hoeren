@@ -59,6 +59,76 @@
       "filename": "bfv-warum-diesen-beruf.mp3",
       "script": "Warum möchtest du in einer Bäckerei arbeiten?",
       "translationVi": "Tại sao bạn muốn làm việc trong tiệm bánh?"
+    },
+    {
+      "filename": "bfv-tag1-schuerze.mp3",
+      "script": "Hier ist deine Schürze, die trägst du während der Arbeit.",
+      "translationVi": "Đây là tạp dề của bạn, hãy mặc nó trong lúc làm việc."
+    },
+    {
+      "filename": "bfv-tag1-hygiene.mp3",
+      "script": "Wasch dir bitte immer die Hände, bevor du die Backwaren anfasst.",
+      "translationVi": "Hãy luôn rửa tay trước khi chạm vào các loại bánh."
+    },
+    {
+      "filename": "bfv-tag1-verkaufsraum.mp3",
+      "script": "Das ist der Verkaufsraum, hier bedienst du die Kunden.",
+      "translationVi": "Đây là khu vực bán hàng, nơi bạn phục vụ khách."
+    },
+    {
+      "filename": "bfv-tag1-theke.mp3",
+      "script": "Die Theke muss immer sauber und ordentlich aussehen.",
+      "translationVi": "Quầy bán hàng phải luôn sạch sẽ và gọn gàng."
+    },
+    {
+      "filename": "bfv-tag1-ware-auffuellen.mp3",
+      "script": "Wenn ein Fach leer ist, füllst du die Ware wieder auf.",
+      "translationVi": "Khi một ngăn hết hàng, bạn hãy bổ sung thêm bánh vào."
+    },
+    {
+      "filename": "bfv-tag1-mhd.mp3",
+      "script": "Achte immer auf das Mindesthaltbarkeitsdatum der Produkte.",
+      "translationVi": "Luôn chú ý đến hạn sử dụng của sản phẩm."
+    },
+    {
+      "filename": "bfv-tag1-kuehlraum.mp3",
+      "script": "Im Kühlraum lagern wir Sahne, Milch und andere frische Waren.",
+      "translationVi": "Trong phòng lạnh, chúng tôi bảo quản kem tươi, sữa và các nguyên liệu tươi khác."
+    },
+    {
+      "filename": "bfv-tag1-kasse-erklaerung.mp3",
+      "script": "Ich zeige dir gleich, wie die Kasse funktioniert.",
+      "translationVi": "Tôi sẽ chỉ cho bạn ngay cách sử dụng máy thu ngân."
+    },
+    {
+      "filename": "bfv-tag1-fragen.mp3",
+      "script": "Wenn du etwas nicht verstehst, frag einfach nach.",
+      "translationVi": "Nếu bạn không hiểu điều gì, cứ hỏi thoải mái."
+    },
+    {
+      "filename": "bfv-tag1-pause.mp3",
+      "script": "Deine Pause machst du um zehn Uhr, das sage ich dir noch mal.",
+      "translationVi": "Bạn nghỉ giải lao lúc mười giờ, tôi sẽ nhắc lại sau."
+    },
+    {
+      "filename": "bfv-tag1-fruehschicht.mp3",
+      "script": "Morgen beginnt deine Frühschicht schon um sechs Uhr.",
+      "translationVi": "Ngày mai ca sáng của bạn bắt đầu lúc sáu giờ."
+    },
+    {
+      "filename": "bfv-tag1-kollegen.mp3",
+      "script": "Das sind deine Kollegen, sie helfen dir am Anfang gern.",
+      "translationVi": "Đây là các đồng nghiệp của bạn, họ sẵn lòng giúp bạn lúc đầu."
+    },
+    {
+      "filename": "bfv-tag1-geduld.mp3",
+      "script": "Am Anfang läuft nicht immer alles perfekt, das ist normal.",
+      "translationVi": "Lúc đầu không phải lúc nào cũng hoàn hảo, điều đó là bình thường."
+    },
+    {
+      "filename": "bfv-tag1-freundlich-sein.mp3",
+      "script": "Sei immer freundlich, auch wenn ein Kunde ungeduldig ist.",
+      "translationVi": "Hãy luôn thân thiện, kể cả khi khách hàng có vẻ nóng vội."
     }
   ]
 }
