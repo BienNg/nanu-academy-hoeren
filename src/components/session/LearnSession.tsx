@@ -235,11 +235,6 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     setClipIndex((index) => index + 1);
   };
 
-  const handleRetry = () => {
-    setScoreResult(null);
-    setDraft("");
-  };
-
   const beginReplay = () => {
     resetLearnProgress(chapterProgressKey);
     const nextQueue = learnQueue(clips, [], true);
@@ -375,7 +370,6 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
                 result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
-                onRetry={handleRetry}
               />
             ) : (
               <>
@@ -384,7 +378,6 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
                     result={scoreResult}
                     clip={currentClip}
                     onNext={handleNext}
-                    onRetry={handleRetry}
                   />
                 ) : null}
                 <DictationInputCard

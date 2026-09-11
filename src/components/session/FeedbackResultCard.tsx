@@ -7,7 +7,6 @@ import { SessionClip } from "@/lib/content";
 interface FeedbackResultCardProps {
   result: ScoreResult;
   clip: SessionClip;
-  onRetry: () => void;
   onNext: () => void;
 }
 
@@ -55,7 +54,6 @@ function renderProgressiveAnswer(words: WordScore[]) {
 export function FeedbackResultCard({
   result,
   clip,
-  onRetry,
   onNext,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
@@ -106,24 +104,14 @@ export function FeedbackResultCard({
         </div>
 
         <div className="flex flex-col gap-3 pt-6">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={onRetry}
-              className="h-[56px] rounded-[16px] bg-white border border-black/[0.05] text-[#1d1d1f] text-[17px] font-semibold flex items-center justify-center gap-2 hover:bg-[#f5f5f7] transition-all active:scale-[0.98] shadow-[0_2px_8px_rgb(0,0,0,0.04)]"
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[20px]">replay</span>
-              <span>Luyện lại</span>
-            </button>
-            <button
-              onClick={onNext}
-              className="group h-[56px] rounded-[16px] bg-[#0066cc] text-white text-[17px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-              type="button"
-            >
-              <span>Tiếp theo</span>
-              <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
-            </button>
-          </div>
+          <button
+            onClick={onNext}
+            className="group h-[56px] w-full rounded-[16px] bg-[#0066cc] text-white text-[17px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
+            type="button"
+          >
+            <span>Tiếp theo</span>
+            <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
+          </button>
         </div>
       </div>
     );

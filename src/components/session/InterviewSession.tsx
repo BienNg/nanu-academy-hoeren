@@ -177,11 +177,6 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
     });
   };
 
-  const handleRetry = () => {
-    setScoreResult(null);
-    setDraft("");
-  };
-
   const beginReplay = () => {
     resetProgress(beruf.slug);
     setQueue(practiceQueue(clips, []));
@@ -289,7 +284,6 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
                 result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
-                onRetry={handleRetry}
               />
             ) : (
               <>
@@ -298,7 +292,6 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
                     result={scoreResult}
                     clip={currentClip}
                     onNext={handleNext}
-                    onRetry={handleRetry}
                   />
                 ) : null}
                 <DictationInputCard
