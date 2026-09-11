@@ -126,6 +126,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
   const runCountSavedRef = useRef(false);
+  const initializedSourceRef = useRef<string>("");
 
   const {
     completedLearnClipIdsFor,
@@ -150,13 +151,19 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   // The queue is built once per session so it never reorders mid-practice:
   // catalog order on the first pass, shuffled once the chapter is completed.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const sessionPristine = clipIndex === 0 && scoreResult === null && draft.length === 0;
+    if (!sessionPristine) return;
+
+    const sourceIds = chapterCompleted ? runCompletedIds : completedIds;
+    const sourceSignature = `${chapterProgressKey}|${chapterCompleted ? "review" : "first"}|${sourceIds.join(",")}|${clips.length}`;
+    if (initializedSourceRef.current === sourceSignature) return;
+
     setReview(chapterCompleted);
 
     setQueue(
       learnQueue(
         clips,
-        chapterCompleted ? runCompletedIds : completedIds,
+        sourceIds,
         chapterCompleted,
       ),
     );
@@ -165,12 +172,23 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
 
     setClipIndex(0);
     runCountSavedRef.current = false;
+    initializedSourceRef.current = sourceSignature;
 
     setScoreResult(null);
 
     setDraft("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterProgressKey, clips]);
+  }, [
+    chapterProgressKey,
+    chapterCompleted,
+    clips,
+    completedIds,
+    runCompletedIds,
+    catalogCompleted,
+    runCompleted,
+    clipIndex,
+    scoreResult,
+    draft,
+  ]);
 
   // First full pass through the chapter marks it as completed for good.
   useEffect(() => {
@@ -231,6 +249,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     setStartingCompleted(0);
     setClipIndex(0);
     runCountSavedRef.current = false;
+    initializedSourceRef.current = "";
     setScoreResult(null);
     setDraft("");
   };
