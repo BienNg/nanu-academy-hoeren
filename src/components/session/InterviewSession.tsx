@@ -9,6 +9,7 @@ import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
+import { playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { ProfileButton } from "@/components/ProfileButton";
 
@@ -157,6 +158,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
     const result = scoreAttempt(value, currentClip.script);
     setScoreResult(result);
     if (result.accuracy === 100) {
+      playSuccessSound();
       rememberClip(currentClip);
     }
   };
