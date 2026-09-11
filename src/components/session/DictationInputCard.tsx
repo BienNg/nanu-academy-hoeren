@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
   useState,
   type ChangeEvent,
-  type KeyboardEvent,
 } from "react";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
@@ -83,16 +83,23 @@ export function DictationInputCard({
     setValue(event.target.value);
   };
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
+  const handleSubmit = useCallback(() => {
+    if (value.trim().length === 0 || disabled) return;
     onSubmit(value);
-  };
+  }, [disabled, onSubmit, value]);
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    event.preventDefault();
-    handleSubmit();
-  };
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      if (!canSubmit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handleSubmit();
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [canSubmit, handleSubmit]);
 
   return (
     <>
@@ -112,7 +119,6 @@ export function DictationInputCard({
             value={value}
             disabled={disabled}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
             placeholder="Gõ câu tiếng Đức bạn vừa nghe được vào đây..."
             className="w-full resize-none bg-transparent text-lg font-medium leading-relaxed text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none disabled:opacity-60"
           />
