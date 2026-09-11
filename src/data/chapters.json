@@ -2,7 +2,10 @@
   {
     "level": "A1.1",
     "slug": "a1-1",
-    "chapters": []
+    "chapters": [
+      { "id": "tag-1", "label": "Tag 1", "slug": "tag-1" },
+      { "id": "tag-2", "label": "Tag 2", "slug": "tag-2" }
+    ]
   },
   {
     "level": "A1.2",

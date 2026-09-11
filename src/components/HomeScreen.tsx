@@ -9,12 +9,16 @@ import { useProgress } from "@/lib/useProgress";
 export type LevelMeta = {
   level: string;
   slug: string;
+  /** Tags listed in the catalog for this level (may still be empty of clips). */
+  chapterCount: number;
 };
 
 type HomeScreenProps = {
   berufe: Ausbildungsberuf[];
   levels: LevelMeta[];
   interviewClipTotals: Record<string, number>;
+  /** Admins can open CEFR practice; everyone else still sees Coming Soon. */
+  levelsUnlocked?: boolean;
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -118,30 +122,72 @@ function ContinueCard({
   );
 }
 
-function LevelCard({ level }: { level: LevelMeta }) {
+function LevelCard({
+  level,
+  unlocked,
+}: {
+  level: LevelMeta;
+  unlocked: boolean;
+}) {
+  const chapterLabel =
+    level.chapterCount === 0
+      ? "0 chương"
+      : `${level.chapterCount} chương`;
+
+  if (!unlocked) {
+    return (
+      <div
+        aria-disabled="true"
+        className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-2xl border border-outline-variant/40 bg-surface-container-low/60 p-4 opacity-75"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-outline">
+              Sắp ra mắt
+            </span>
+            <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-on-surface/70">
+              Trình độ {level.level}
+            </h3>
+          </div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-high text-outline">
+            <MaterialIcon name="lock" className="text-[18px]" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between border-t border-surface-container-high/50 pt-2 text-[12px] font-medium text-on-surface-variant">
+          <span>{chapterLabel}</span>
+          <span className="text-[11px] text-outline">Coming Soon</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      aria-disabled="true"
-      className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-2xl border border-outline-variant/40 bg-surface-container-low/60 p-4 opacity-75"
+    <Link
+      href={`/learn/${level.slug}`}
+      aria-label={`Trình độ ${level.level}`}
+      className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-2xl border border-surface-container bg-surface-container-lowest p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:opacity-95 active:scale-[0.98]"
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-outline">
-            Sắp ra mắt
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary-container">
+            Trình độ
           </span>
-          <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-on-surface/70">
-            Trình độ {level.level}
+          <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-on-surface">
+            {level.level}
           </h3>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-high text-outline">
-          <MaterialIcon name="lock" className="text-[18px]" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
+          <MaterialIcon name="hearing" className="text-[18px]" />
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-surface-container-high/50 pt-2 text-[12px] font-medium text-on-surface-variant">
-        <span>0 bài</span>
-        <span className="text-[11px] text-outline">Coming Soon</span>
+      <div className="flex items-center justify-between border-t border-surface-container-low pt-2 text-[12px] font-medium">
+        <span className="text-on-surface-variant">{chapterLabel}</span>
+        <span className="flex items-center gap-0.5 font-semibold text-primary-container">
+          Vào
+          <MaterialIcon name="arrow_forward" className="text-[14px]" />
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -234,6 +280,7 @@ export function HomeScreen({
   berufe,
   levels,
   interviewClipTotals,
+  levelsUnlocked = false,
 }: HomeScreenProps) {
   const { data: session } = useSession();
   const { continueLearning, progressFor, streakDays } =
@@ -315,7 +362,11 @@ export function HomeScreen({
             </div>
             <div className="-mx-space-16 flex flex-nowrap gap-3 overflow-x-auto scroll-smooth px-space-16 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {levels.map((level) => (
-                <LevelCard key={level.slug} level={level} />
+                <LevelCard
+                  key={level.slug}
+                  level={level}
+                  unlocked={levelsUnlocked}
+                />
               ))}
             </div>
           </section>

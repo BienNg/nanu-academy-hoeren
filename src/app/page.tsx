@@ -1,20 +1,16 @@
-import chaptersFile from "@/data/chapters.json";
 import { HomeScreen } from "@/components/HomeScreen";
+import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-
-type ChapterLevel = {
-  level: string;
-  slug: string;
-  chapters: unknown[];
-};
+import { getCefrLevels } from "@/lib/levels";
 
 export default async function Home() {
-  await requireUser();
+  const session = await requireUser();
   const berufe = getAvailableBerufe();
-  const levels = (chaptersFile as ChapterLevel[]).map(({ level, slug }) => ({
+  const levels = getCefrLevels().map(({ level, slug, chapters }) => ({
     level,
     slug,
+    chapterCount: chapters.length,
   }));
 
   const interviewClipTotals: Record<string, number> = {};
@@ -27,6 +23,7 @@ export default async function Home() {
       berufe={berufe}
       levels={levels}
       interviewClipTotals={interviewClipTotals}
+      levelsUnlocked={isAdminUser(session.user)}
     />
   );
 }
