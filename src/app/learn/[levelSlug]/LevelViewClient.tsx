@@ -11,6 +11,7 @@ type Chapter = {
   slug: string;
   label: string;
   hasAudio?: boolean;
+  clipCount?: number;
 };
 
 type Level = {
@@ -34,7 +35,11 @@ export default function LevelViewClient({
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const shouldReduceMotion = useReducedMotion();
-  const { learnChapterCompleted } = useProgress();
+  const {
+    completedLearnRunClipIdsFor,
+    learnChapterCompleted,
+    learnRunCountFor,
+  } = useProgress();
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -128,7 +133,18 @@ export default function LevelViewClient({
         >
           {chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
-            const isCompleted = isAvailable && learnChapterCompleted(chapter.slug);
+            const chapterKey = chapter.slug;
+            const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
+            const runCount = learnRunCountFor(chapterKey);
+            const clipCount = chapter.clipCount ?? 0;
+            const startedRunCompleted = Math.min(
+              clipCount,
+              completedLearnRunClipIdsFor(chapterKey).length,
+            );
+            const startedRun =
+              clipCount > 0 &&
+              startedRunCompleted > 0 &&
+              startedRunCompleted < clipCount;
             
             const content = (
               <>
@@ -150,10 +166,20 @@ export default function LevelViewClient({
                         Đã hoàn thành
                       </span>
                     )}
+                    {runCount > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold text-[#1d1d1f] uppercase tracking-wider">
+                        {runCount} lượt
+                      </span>
+                    )}
                   </div>
                   <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight transition-colors duration-300 ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
+                  {startedRun && (
+                    <p className="text-sm font-medium text-[#86868b]">
+                      Tiến độ hiện tại: {startedRunCompleted}/{clipCount}
+                    </p>
+                  )}
                 </div>
                 
                 <div className={`z-10 flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>

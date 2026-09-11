@@ -33,6 +33,7 @@ type CatalogLevel = {
 
 const catalogLevels = chaptersFile as CatalogLevel[];
 const levelsDir = join(process.cwd(), "src/data/levels");
+const levelsAudioDir = join(process.cwd(), "public/audio");
 
 function isStoredChapterFile(value: unknown): value is StoredChapterFile {
   return (
@@ -103,10 +104,9 @@ export function getLevelChapters(levelSlug: string): LevelChapterMeta[] {
 
 /** Lektionen that have at least one clip and are ready to practice. */
 export function getAvailableChapters(levelSlug: string): LevelChapterMeta[] {
-  return getLevelChapters(levelSlug).filter((chapter) => {
-    const file = loadChapterFile(levelSlug, chapter.slug);
-    return Boolean(file && file.clips.length > 0);
-  });
+  return getLevelChapters(levelSlug).filter(
+    (chapter) => getChapterClips(levelSlug, chapter.slug).length > 0,
+  );
 }
 
 /**
@@ -142,7 +142,11 @@ export function getChapterClips(
     );
   }
 
-  return file.clips.map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
+  return file.clips
+    .filter((clip) =>
+      existsSync(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
+    )
+    .map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
 }
 
 /** Discover chapter JSON files under a level folder (dev helper / validation). */

@@ -7,7 +7,10 @@ import {
   DEFAULT_PROGRESS,
   STORAGE_KEY,
   clearStoredProgress,
+  incrementLearnRunCount,
   isLearnChapterCompleted,
+  learnRunCompletedClipIds,
+  learnRunCount,
   markClipCompleted,
   markLearnChapterCompleted,
   markLearnClipCompleted,
@@ -210,6 +213,14 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const incrementLearnRunDoneCount = useCallback(
+    (chapterSlug: string) => {
+      const next = incrementLearnRunCount(readProgressSnapshot(), chapterSlug);
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const resetProgress = useCallback(
     (berufSlug: string) => {
       const next = resetBerufProgress(readProgressSnapshot(), berufSlug);
@@ -251,8 +262,12 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
       progress.interview[berufSlug]?.completedClipIds ?? [],
     completedLearnClipIdsFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.completedClipIds ?? [],
+    completedLearnRunClipIdsFor: (chapterSlug: string) =>
+      learnRunCompletedClipIds(progress, chapterSlug),
+    learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),
     learnChapterCompleted: (chapterSlug: string) =>
       isLearnChapterCompleted(progress, chapterSlug),
+    incrementLearnRunDoneCount,
   };
 }
 

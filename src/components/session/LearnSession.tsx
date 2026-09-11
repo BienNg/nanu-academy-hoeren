@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
-import { catalogCompletedCount, learnQueue } from "@/lib/progress";
+import {
+  catalogCompletedCount,
+  learnQueue,
+} from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -122,20 +125,26 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
+  const runCountSavedRef = useRef(false);
 
   const {
     completedLearnClipIdsFor,
+    completedLearnRunClipIdsFor,
+    incrementLearnRunDoneCount,
     learnChapterCompleted,
     markLearnClipDone,
     markLearnChapterDone,
+    resetLearnProgress,
   } = useProgress();
-  const completedIds = completedLearnClipIdsFor(chapter.slug);
-  const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
+  const chapterProgressKey = chapter.slug;
+  const completedIds = completedLearnClipIdsFor(chapterProgressKey);
+  const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
 
   const catalogTotal = clips.length;
   const catalogCompleted = catalogCompletedCount(clips, completedIds);
+  const runCompleted = catalogCompletedCount(clips, runCompletedIds);
   const chapterCompleted =
-    learnChapterCompleted(chapter.slug) ||
+    learnChapterCompleted(chapterProgressKey) ||
     (catalogTotal > 0 && catalogCompleted >= catalogTotal);
 
   // The queue is built once per session so it never reorders mid-practice:
@@ -144,23 +153,30 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReview(chapterCompleted);
 
-    setQueue(learnQueue(clips, completedIds, chapterCompleted));
+    setQueue(
+      learnQueue(
+        clips,
+        chapterCompleted ? runCompletedIds : completedIds,
+        chapterCompleted,
+      ),
+    );
 
-    setStartingCompleted(chapterCompleted ? 0 : catalogCompleted);
+    setStartingCompleted(chapterCompleted ? runCompleted : catalogCompleted);
 
     setClipIndex(0);
+    runCountSavedRef.current = false;
 
     setScoreResult(null);
 
     setDraft("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter.slug, clips]);
+  }, [chapterProgressKey, clips]);
 
   // First full pass through the chapter marks it as completed for good.
   useEffect(() => {
     if (catalogTotal === 0 || catalogCompleted < catalogTotal) return;
-    markLearnChapterDone(chapter.slug);
-  }, [catalogTotal, catalogCompleted, chapter.slug, markLearnChapterDone]);
+    markLearnChapterDone(chapterProgressKey);
+  }, [catalogTotal, catalogCompleted, chapterProgressKey, markLearnChapterDone]);
 
   const remaining = queue ?? [];
   const currentClip = remaining[clipIndex];
@@ -179,7 +195,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   }, [catalogTotal, startingCompleted, clipIndex, currentClip]);
 
   const rememberClip = (clip: SessionClip) => {
-    markLearnClipDone(chapter.slug, clip.id);
+    markLearnClipDone(chapterProgressKey, clip.id);
   };
 
   const handleSubmit = (value: string) => {
@@ -198,14 +214,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     }
     setScoreResult(null);
     setDraft("");
-    setClipIndex((index) => {
-      if (!queue || review) return index + 1;
-      let next = index + 1;
-      while (next < queue.length && completedClips.has(queue[next]!.id)) {
-        next += 1;
-      }
-      return next;
-    });
+    setClipIndex((index) => index + 1);
   };
 
   const handleRetry = () => {
@@ -214,19 +223,38 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   };
 
   const beginReplay = () => {
-    const chapterFinished =
-      chapterCompleted || (catalogTotal > 0 && catalogCompleted >= catalogTotal);
-    const unfinished = learnQueue(clips, completedIds, false);
-    const replayAll = chapterFinished || unfinished.length === 0;
-    const nextQueue = replayAll ? learnQueue(clips, [], true) : unfinished;
+    resetLearnProgress(chapterProgressKey);
+    const nextQueue = learnQueue(clips, [], true);
 
-    setReview(replayAll);
+    setReview(true);
     setQueue(nextQueue);
-    setStartingCompleted(replayAll ? 0 : catalogCompleted);
+    setStartingCompleted(0);
     setClipIndex(0);
+    runCountSavedRef.current = false;
     setScoreResult(null);
     setDraft("");
   };
+
+  useEffect(() => {
+    if (
+      !ready ||
+      !complete ||
+      runCountSavedRef.current ||
+      catalogTotal === 0 ||
+      startingCompleted >= catalogTotal
+    ) {
+      return;
+    }
+    incrementLearnRunDoneCount(chapterProgressKey);
+    runCountSavedRef.current = true;
+  }, [
+    ready,
+    complete,
+    catalogTotal,
+    startingCompleted,
+    incrementLearnRunDoneCount,
+    chapterProgressKey,
+  ]);
 
   return (
     <div 

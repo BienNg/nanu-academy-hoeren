@@ -23,9 +23,19 @@ export type InterviewProgress = {
   completedAt?: string;
 };
 
+export type LearnProgress = InterviewProgress & {
+  /** Number of fully completed runs for this Lektion (first pass + replays). */
+  runCount: number;
+  /**
+   * Clip ids completed in the current/last run.
+   * Used to resume an unfinished rerun and surface "started" progress.
+   */
+  runCompletedClipIds: string[];
+};
+
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
-  learn: Record<string, InterviewProgress>;
+  learn: Record<string, LearnProgress>;
   /** Day streak for header display; defaults when unset. */
   streakDays: number;
   /** ISO date (YYYY-MM-DD) of last practice day, for streak updates. */
@@ -76,6 +86,29 @@ function normalizeEntry(entry: InterviewProgress): InterviewProgress {
   return normalized;
 }
 
+function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
+  const normalized = normalizeEntry(entry);
+  const record = entry as InterviewProgress & {
+    runCount?: unknown;
+    runCompletedClipIds?: unknown;
+  };
+
+  return {
+    ...normalized,
+    runCount:
+      typeof record.runCount === "number" && record.runCount >= 0
+        ? Math.floor(record.runCount)
+        : normalized.completedAt
+          ? 1
+          : 0,
+    runCompletedClipIds: Array.isArray(record.runCompletedClipIds)
+      ? record.runCompletedClipIds.filter(
+          (id): id is string => typeof id === "string",
+        )
+      : normalized.completedClipIds,
+  };
+}
+
 function normalizeTrack(
   parsed: unknown,
   defaults: Record<string, InterviewProgress>,
@@ -85,6 +118,20 @@ function normalizeTrack(
     for (const [slug, entry] of Object.entries(parsed)) {
       if (isInterviewProgress(entry)) {
         track[slug] = normalizeEntry(entry);
+      }
+    }
+  }
+  return track;
+}
+
+function normalizeLearnTrack(
+  parsed: unknown,
+): Record<string, LearnProgress> {
+  const track: Record<string, LearnProgress> = {};
+  if (parsed && typeof parsed === "object") {
+    for (const [slug, entry] of Object.entries(parsed)) {
+      if (isInterviewProgress(entry)) {
+        track[slug] = normalizeLearnEntry(entry);
       }
     }
   }
@@ -105,7 +152,7 @@ export function normalizeProgress(
   parsed: Partial<StoredProgress> | null | undefined,
 ): StoredProgress {
   const interview = normalizeTrack(parsed?.interview, DEFAULT_PROGRESS.interview);
-  const learn = normalizeTrack(parsed?.learn, DEFAULT_PROGRESS.learn);
+  const learn = normalizeLearnTrack(parsed?.learn);
 
   return {
     interview,
@@ -163,13 +210,43 @@ function mergeTrack(
   return track;
 }
 
+function mergeLearnEntry(
+  left: LearnProgress | undefined,
+  right: LearnProgress | undefined,
+): LearnProgress {
+  const mergedBase = mergeEntry(left, right);
+  const runCompletedClipIds = Array.from(
+    new Set([
+      ...(left?.runCompletedClipIds ?? []),
+      ...(right?.runCompletedClipIds ?? []),
+    ]),
+  );
+  return {
+    ...mergedBase,
+    runCount: Math.max(left?.runCount ?? 0, right?.runCount ?? 0),
+    runCompletedClipIds,
+  };
+}
+
+function mergeLearnTrack(
+  a: Record<string, LearnProgress> | undefined,
+  b: Record<string, LearnProgress> | undefined,
+): Record<string, LearnProgress> {
+  const slugs = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
+  const track: Record<string, LearnProgress> = {};
+  for (const slug of slugs) {
+    track[slug] = mergeLearnEntry(a?.[slug], b?.[slug]);
+  }
+  return track;
+}
+
 /** Merge two progress snapshots — union of completions, keep farthest index. */
 export function mergeProgress(
   a: StoredProgress,
   b: StoredProgress,
 ): StoredProgress {
   const interview = mergeTrack(a.interview, b.interview);
-  const learn = mergeTrack(a.learn, b.learn);
+  const learn = mergeLearnTrack(a.learn, b.learn);
 
   const aDate = a.lastPracticeDate ?? "";
   const bDate = b.lastPracticeDate ?? "";
@@ -263,10 +340,15 @@ export function markLearnClipCompleted(
   const entry = progress.learn[chapterSlug] ?? {
     currentClipIndex: 0,
     completedClipIds: [],
+    runCount: 0,
+    runCompletedClipIds: [],
   };
   const completedClipIds = entry.completedClipIds.includes(clipId)
     ? entry.completedClipIds
     : [...entry.completedClipIds, clipId];
+  const runCompletedClipIds = entry.runCompletedClipIds.includes(clipId)
+    ? entry.runCompletedClipIds
+    : [...entry.runCompletedClipIds, clipId];
 
   const next: StoredProgress = {
     ...progress,
@@ -274,8 +356,9 @@ export function markLearnClipCompleted(
       ...progress.learn,
       [chapterSlug]: {
         ...entry,
-        currentClipIndex: completedClipIds.length,
+        currentClipIndex: runCompletedClipIds.length,
         completedClipIds,
+        runCompletedClipIds,
       },
     },
   };
@@ -295,6 +378,8 @@ export function markLearnChapterCompleted(
   const entry = progress.learn[chapterSlug] ?? {
     currentClipIndex: 0,
     completedClipIds: [],
+    runCount: 0,
+    runCompletedClipIds: [],
   };
   if (entry.completedAt) {
     return progress;
@@ -304,7 +389,33 @@ export function markLearnChapterCompleted(
     ...progress,
     learn: {
       ...progress.learn,
-      [chapterSlug]: { ...entry, completedAt },
+      [chapterSlug]: {
+        ...entry,
+        completedAt: entry.completedAt ?? completedAt,
+      },
+    },
+  };
+}
+
+export function incrementLearnRunCount(
+  progress: StoredProgress,
+  chapterSlug: string,
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? {
+    currentClipIndex: 0,
+    completedClipIds: [],
+    runCount: 0,
+    runCompletedClipIds: [],
+  };
+
+  return {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
+        ...entry,
+        runCount: entry.runCount + 1,
+      },
     },
   };
 }
@@ -340,19 +451,41 @@ export function resetLearnProgress(
   chapterSlug: string,
 ): StoredProgress {
   const completedAt = progress.learn[chapterSlug]?.completedAt;
+  const completedClipIds = progress.learn[chapterSlug]?.completedClipIds ?? [];
+  const runCount = progress.learn[chapterSlug]?.runCount ?? 0;
   const next: StoredProgress = {
     ...progress,
     learn: {
       ...progress.learn,
       [chapterSlug]: {
         currentClipIndex: 0,
-        completedClipIds: [],
+        completedClipIds,
+        runCompletedClipIds: [],
+        runCount,
         ...(completedAt ? { completedAt } : {}),
       },
     },
   };
 
   return next;
+}
+
+export function learnRunCount(
+  progress: StoredProgress,
+  chapterSlug: string,
+): number {
+  return progress.learn[chapterSlug]?.runCount ?? 0;
+}
+
+export function learnRunCompletedClipIds(
+  progress: StoredProgress,
+  chapterSlug: string,
+): string[] {
+  return progress.learn[chapterSlug]?.runCompletedClipIds ?? [];
+}
+
+export function learnProgressKey(levelSlug: string, chapterSlug: string): string {
+  return `${levelSlug}/${chapterSlug}`;
 }
 
 function shuffleItems<T>(items: readonly T[]): T[] {
@@ -385,10 +518,10 @@ export function learnQueue<T extends { id: string }>(
   completedClipIds: readonly string[],
   review: boolean,
 ): T[] {
-  if (review) {
-    return shuffleItems(clips);
-  }
   const done = new Set(completedClipIds);
+  if (review) {
+    return shuffleItems(clips.filter((clip) => !done.has(clip.id)));
+  }
   return clips.filter((clip) => !done.has(clip.id));
 }
 
