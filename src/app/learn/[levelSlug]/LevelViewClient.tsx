@@ -148,76 +148,75 @@ export default function LevelViewClient({
             
             const content = (
               <>
-                <div className="flex flex-col gap-2 z-10">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-[#86868b] uppercase tracking-wider">
-                      Chương {index + 1}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className="shrink-0 text-sm font-medium uppercase tracking-wider text-[#86868b]">
+                    Chương {index + 1}
+                  </span>
+                  {!isAvailable && (
+                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                      Coming soon
                     </span>
-                    {!isAvailable && (
-                      <span className="inline-flex items-center rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">
-                        Coming soon
+                  )}
+                  {isCompleted && (
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
+                      <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                        check_circle
                       </span>
-                    )}
-                    {isCompleted && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold text-[#248a3d] uppercase tracking-wider">
-                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-                          check_circle
-                        </span>
-                        Đã hoàn thành
-                      </span>
-                    )}
-                    {runCount > 0 && (
-                      <span className="inline-flex items-center rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold text-[#1d1d1f] uppercase tracking-wider">
-                        {runCount} lượt
-                      </span>
-                    )}
-                  </div>
-                  <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight transition-colors duration-300 ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
+                      Đã hoàn thành
+                    </span>
+                  )}
+                  {runCount > 0 && (
+                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#1d1d1f]">
+                      {runCount} lượt
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
-                </div>
-                
-                <div className="flex items-center gap-4 z-10">
-                  {startedRun && (
-                    <div className="relative flex items-center justify-center w-12 h-12">
-                      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 48 48">
-                        <circle
-                          className="text-[#f5f5f7]"
-                          strokeWidth="4"
-                          stroke="currentColor"
-                          fill="transparent"
-                          r="20"
-                          cx="24"
-                          cy="24"
-                        />
-                        <circle
-                          className="text-[#0066cc] transition-all duration-500 ease-out"
-                          strokeWidth="4"
-                          strokeDasharray={20 * 2 * Math.PI}
-                          strokeDashoffset={20 * 2 * Math.PI * (1 - startedRunCompleted / clipCount)}
-                          strokeLinecap="round"
-                          stroke="currentColor"
-                          fill="transparent"
-                          r="20"
-                          cx="24"
-                          cy="24"
-                        />
-                      </svg>
-                      <span className="text-[11px] font-bold text-[#1d1d1f] tracking-tighter">
-                        {startedRunCompleted}/{clipCount}
+                  <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                    {startedRun && (
+                      <div className="relative flex h-10 w-10 items-center justify-center sm:h-12 sm:w-12">
+                        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 48 48">
+                          <circle
+                            className="text-[#f5f5f7]"
+                            strokeWidth="4"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="20"
+                            cx="24"
+                            cy="24"
+                          />
+                          <circle
+                            className="text-[#0066cc] transition-all duration-500 ease-out"
+                            strokeWidth="4"
+                            strokeDasharray={20 * 2 * Math.PI}
+                            strokeDashoffset={20 * 2 * Math.PI * (1 - startedRunCompleted / clipCount)}
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="20"
+                            cx="24"
+                            cy="24"
+                          />
+                        </svg>
+                        <span className="text-[10px] font-bold tracking-tighter text-[#1d1d1f] sm:text-[11px]">
+                          {startedRunCompleted}/{clipCount}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
+                      <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
+                        {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
                       </span>
                     </div>
-                  )}
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
-                    <span className="material-symbols-outlined text-2xl" aria-hidden="true">
-                      {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
-                    </span>
                   </div>
                 </div>
               </>
             );
 
-            const itemClassName = `group relative flex items-center justify-between overflow-hidden rounded-[24px] backdrop-blur-xl border border-white/20 p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            const itemClassName = `group relative flex flex-col gap-3 overflow-hidden rounded-[24px] backdrop-blur-xl border border-white/20 p-5 sm:p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               isAvailable 
                 ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer' 
                 : 'bg-white/40 shadow-none cursor-not-allowed'
