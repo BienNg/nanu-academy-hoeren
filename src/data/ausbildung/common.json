@@ -29,6 +29,71 @@
       "filename": "common-wieso_deutschland.mp3",
       "script": "Wieso möchtest du nach Deutschland kommen? Was gefällt dir an Deutschland?",
       "translationVi": "Tại sao bạn muốn đến Đức? Bạn thích điều gì ở Đức?"
+    },
+    {
+      "filename": "common-religion.mp3",
+      "script": "Hast du eine Religion?",
+      "translationVi": "Bạn có theo tôn giáo nào không?"
+    },
+    {
+      "filename": "common-verwandte_deutschland.mp3",
+      "script": "Hast du Verwandte in Deutschland?",
+      "translationVi": "Bạn có người thân ở Đức không?"
+    },
+    {
+      "filename": "common-aufgewachsen.mp3",
+      "script": "Wo bist du aufgewachsen?",
+      "translationVi": "Bạn lớn lên ở đâu?"
+    },
+    {
+      "filename": "common-eltern_beruf.mp3",
+      "script": "Was machen deine Eltern?",
+      "translationVi": "Bố mẹ bạn làm nghề gì?"
+    },
+    {
+      "filename": "common-geschwister.mp3",
+      "script": "Hast du Geschwister?",
+      "translationVi": "Bạn có anh chị em không?"
+    },
+    {
+      "filename": "common-deutsches_essen.mp3",
+      "script": "Hast du schon mal deutsches Essen gegessen? Wie findest du es?",
+      "translationVi": "Bạn đã ăn thử món ăn Đức bao giờ chưa? Bạn thấy thế nào?"
+    },
+    {
+      "filename": "common-bier.mp3",
+      "script": "Hast du schon mal Bier getrunken? Magst du es?",
+      "translationVi": "Bạn đã uống bia bao giờ chưa? Bạn có thích không?"
+    },
+    {
+      "filename": "common-leben_deutschland.mp3",
+      "script": "Weißt du, wie das Leben in Deutschland ist?",
+      "translationVi": "Bạn có biết cuộc sống ở Đức như thế nào không?"
+    },
+    {
+      "filename": "common-weiter_deutsch_lernen.mp3",
+      "script": "Planst du, weiterhin Deutsch zu lernen?",
+      "translationVi": "Bạn có định tiếp tục học tiếng Đức không?"
+    },
+    {
+      "filename": "common-heimweh.mp3",
+      "script": "Wie kann man weniger Heimweh haben?",
+      "translationVi": "Làm sao để đỡ nhớ nhà hơn?"
+    },
+    {
+      "filename": "common-von_deutschland_erfahren.mp3",
+      "script": "Wie hast du von Deutschland erfahren?",
+      "translationVi": "Bạn biết đến nước Đức qua đâu?"
+    },
+    {
+      "filename": "common-kulturen_deutschland.mp3",
+      "script": "Weißt du, welche Kulturen es in Deutschland gibt?",
+      "translationVi": "Bạn có biết ở Đức có những nền văn hóa nào không?"
+    },
+    {
+      "filename": "common-vorbereitung_deutschland.mp3",
+      "script": "Was musst du vorbereiten, wenn du nach Deutschland kommst?",
+      "translationVi": "Bạn cần chuẩn bị gì khi sang Đức?"
     }
   ]
 }

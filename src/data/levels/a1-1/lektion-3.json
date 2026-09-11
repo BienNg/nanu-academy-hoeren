@@ -28,9 +28,9 @@
     { "filename": "a11-tag3-20-ihr-kommt.mp3", "script": "ihr kommt", "translationVi": "các bạn đến / các cậu đến" },
     { "filename": "a11-tag3-21-ihr-geht.mp3", "script": "ihr geht", "translationVi": "các bạn đi / các cậu đi" },
 
-    { "filename": "a11-tag3-22-sie-Sie-machen.mp3", "script": "sie/Sie machen", "translationVi": "họ làm / ngài làm" },
-    { "filename": "a11-tag3-23-sie-Sie-kommen.mp3", "script": "sie/Sie kommen", "translationVi": "họ đến / ngài đến" },
-    { "filename": "a11-tag3-24-sie-Sie-gehen.mp3", "script": "sie/Sie gehen", "translationVi": "họ đi / ngài đi" },
+    { "filename": "a11-tag3-22-sie-Sie-machen.mp3", "script": "sie machen", "translationVi": "họ làm / ngài làm" },
+    { "filename": "a11-tag3-23-sie-Sie-kommen.mp3", "script": "sie kommen", "translationVi": "họ đến / ngài đến" },
+    { "filename": "a11-tag3-24-sie-Sie-gehen.mp3", "script": "sie gehen", "translationVi": "họ đi / ngài đi" },
 
     { "filename": "a11-tag3-25-ich-bin.mp3", "script": "ich bin", "translationVi": "tôi là / tôi ở" },
     { "filename": "a11-tag3-26-ich-habe.mp3", "script": "ich habe", "translationVi": "tôi có" },
@@ -53,8 +53,8 @@
     { "filename": "a11-tag3-37-ihr-seid.mp3", "script": "ihr seid", "translationVi": "các bạn là / các bạn ở" },
     { "filename": "a11-tag3-38-ihr-habt.mp3", "script": "ihr habt", "translationVi": "các bạn có" },
 
-    { "filename": "a11-tag3-39-sie-Sie-sind.mp3", "script": "sie/Sie sind", "translationVi": "họ là / ngài là / họ ở / ngài ở" },
-    { "filename": "a11-tag3-40-sie-Sie-haben.mp3", "script": "sie/Sie haben", "translationVi": "họ có / ngài có" },
+    { "filename": "a11-tag3-39-sie-Sie-sind.mp3", "script": "sie sind", "translationVi": "họ là / ngài là / họ ở / ngài ở" },
+    { "filename": "a11-tag3-40-sie-Sie-haben.mp3", "script": "sie haben", "translationVi": "họ có / ngài có" },
 
     { "filename": "a11-tag3-41-ich-komme-aus-vietnam.mp3", "script": "Ich komme aus Vietnam.", "translationVi": "Tôi đến từ Việt Nam." },
     { "filename": "a11-tag3-42-du-kommst-aus-vietnam.mp3", "script": "Du kommst aus Vietnam.", "translationVi": "Bạn đến từ Việt Nam. / Cậu đến từ Việt Nam." },
