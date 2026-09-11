@@ -175,17 +175,44 @@ export default function LevelViewClient({
                   <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight transition-colors duration-300 ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
-                  {startedRun && (
-                    <p className="text-sm font-medium text-[#86868b]">
-                      Tiến độ hiện tại: {startedRunCompleted}/{clipCount}
-                    </p>
-                  )}
                 </div>
                 
-                <div className={`z-10 flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
-                  <span className="material-symbols-outlined text-2xl" aria-hidden="true">
-                    {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
-                  </span>
+                <div className="flex items-center gap-4 z-10">
+                  {startedRun && (
+                    <div className="relative flex items-center justify-center w-12 h-12">
+                      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 48 48">
+                        <circle
+                          className="text-[#f5f5f7]"
+                          strokeWidth="4"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="20"
+                          cx="24"
+                          cy="24"
+                        />
+                        <circle
+                          className="text-[#0066cc] transition-all duration-500 ease-out"
+                          strokeWidth="4"
+                          strokeDasharray={20 * 2 * Math.PI}
+                          strokeDashoffset={20 * 2 * Math.PI * (1 - startedRunCompleted / clipCount)}
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="20"
+                          cx="24"
+                          cy="24"
+                        />
+                      </svg>
+                      <span className="text-[11px] font-bold text-[#1d1d1f] tracking-tighter">
+                        {startedRunCompleted}/{clipCount}
+                      </span>
+                    </div>
+                  )}
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
+                    <span className="material-symbols-outlined text-2xl" aria-hidden="true">
+                      {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
+                    </span>
+                  </div>
                 </div>
               </>
             );
