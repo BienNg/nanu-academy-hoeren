@@ -15,6 +15,12 @@ export type InterviewProgress = {
   currentClipIndex: number;
   /** Clip ids already answered correctly — skipped when the student continues. */
   completedClipIds: string[];
+  /**
+   * ISO timestamp of the first full pass through the catalog. Once set it is
+   * never cleared: the chapter stays marked as completed and every later visit
+   * is a review session in random order.
+   */
+  completedAt?: string;
 };
 
 export type StoredProgress = {
@@ -57,6 +63,34 @@ export function isInterviewProgress(value: unknown): value is InterviewProgress 
   );
 }
 
+function normalizeEntry(entry: InterviewProgress): InterviewProgress {
+  const normalized: InterviewProgress = {
+    currentClipIndex: Math.max(0, entry.currentClipIndex),
+    completedClipIds: entry.completedClipIds.filter(
+      (id): id is string => typeof id === "string",
+    ),
+  };
+  if (typeof entry.completedAt === "string") {
+    normalized.completedAt = entry.completedAt;
+  }
+  return normalized;
+}
+
+function normalizeTrack(
+  parsed: unknown,
+  defaults: Record<string, InterviewProgress>,
+): Record<string, InterviewProgress> {
+  const track: Record<string, InterviewProgress> = structuredClone(defaults);
+  if (parsed && typeof parsed === "object") {
+    for (const [slug, entry] of Object.entries(parsed)) {
+      if (isInterviewProgress(entry)) {
+        track[slug] = normalizeEntry(entry);
+      }
+    }
+  }
+  return track;
+}
+
 export function parseProgress(raw: string | null): StoredProgress {
   if (!raw) return structuredClone(DEFAULT_PROGRESS);
   try {
@@ -70,37 +104,8 @@ export function parseProgress(raw: string | null): StoredProgress {
 export function normalizeProgress(
   parsed: Partial<StoredProgress> | null | undefined,
 ): StoredProgress {
-  const interview: Record<string, InterviewProgress> = {
-    ...structuredClone(DEFAULT_PROGRESS.interview),
-  };
-  if (parsed?.interview && typeof parsed.interview === "object") {
-    for (const [slug, entry] of Object.entries(parsed.interview)) {
-      if (isInterviewProgress(entry)) {
-        interview[slug] = {
-          currentClipIndex: Math.max(0, entry.currentClipIndex),
-          completedClipIds: entry.completedClipIds.filter(
-            (id): id is string => typeof id === "string",
-          ),
-        };
-      }
-    }
-  }
-
-  const learn: Record<string, InterviewProgress> = {
-    ...structuredClone(DEFAULT_PROGRESS.learn),
-  };
-  if (parsed?.learn && typeof parsed.learn === "object") {
-    for (const [slug, entry] of Object.entries(parsed.learn)) {
-      if (isInterviewProgress(entry)) {
-        learn[slug] = {
-          currentClipIndex: Math.max(0, entry.currentClipIndex),
-          completedClipIds: entry.completedClipIds.filter(
-            (id): id is string => typeof id === "string",
-          ),
-        };
-      }
-    }
-  }
+  const interview = normalizeTrack(parsed?.interview, DEFAULT_PROGRESS.interview);
+  const learn = normalizeTrack(parsed?.learn, DEFAULT_PROGRESS.learn);
 
   return {
     interview,
@@ -116,58 +121,55 @@ export function normalizeProgress(
   };
 }
 
+function mergeEntry(
+  left: InterviewProgress | undefined,
+  right: InterviewProgress | undefined,
+): InterviewProgress {
+  const completedClipIds = Array.from(
+    new Set([
+      ...(left?.completedClipIds ?? []),
+      ...(right?.completedClipIds ?? []),
+    ]),
+  );
+  const merged: InterviewProgress = {
+    currentClipIndex: Math.max(
+      left?.currentClipIndex ?? 0,
+      right?.currentClipIndex ?? 0,
+      completedClipIds.length,
+    ),
+    completedClipIds,
+  };
+
+  // Completion is permanent, so the earliest timestamp from either side wins.
+  const timestamps = [left?.completedAt, right?.completedAt].filter(
+    (value): value is string => typeof value === "string",
+  );
+  if (timestamps.length > 0) {
+    merged.completedAt = timestamps.sort()[0];
+  }
+
+  return merged;
+}
+
+function mergeTrack(
+  a: Record<string, InterviewProgress> | undefined,
+  b: Record<string, InterviewProgress> | undefined,
+): Record<string, InterviewProgress> {
+  const slugs = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
+  const track: Record<string, InterviewProgress> = {};
+  for (const slug of slugs) {
+    track[slug] = mergeEntry(a?.[slug], b?.[slug]);
+  }
+  return track;
+}
+
 /** Merge two progress snapshots — union of completions, keep farthest index. */
 export function mergeProgress(
   a: StoredProgress,
   b: StoredProgress,
 ): StoredProgress {
-  const slugs = new Set([
-    ...Object.keys(a.interview),
-    ...Object.keys(b.interview),
-  ]);
-  const interview: Record<string, InterviewProgress> = {};
-
-  for (const slug of slugs) {
-    const left = a.interview[slug];
-    const right = b.interview[slug];
-    const completed = new Set([
-      ...(left?.completedClipIds ?? []),
-      ...(right?.completedClipIds ?? []),
-    ]);
-    const completedClipIds = Array.from(completed);
-    interview[slug] = {
-      currentClipIndex: Math.max(
-        left?.currentClipIndex ?? 0,
-        right?.currentClipIndex ?? 0,
-        completedClipIds.length,
-      ),
-      completedClipIds,
-    };
-  }
-
-  const learnSlugs = new Set([
-    ...Object.keys(a.learn ?? {}),
-    ...Object.keys(b.learn ?? {}),
-  ]);
-  const learn: Record<string, InterviewProgress> = {};
-
-  for (const slug of learnSlugs) {
-    const left = a.learn?.[slug];
-    const right = b.learn?.[slug];
-    const completed = new Set([
-      ...(left?.completedClipIds ?? []),
-      ...(right?.completedClipIds ?? []),
-    ]);
-    const completedClipIds = Array.from(completed);
-    learn[slug] = {
-      currentClipIndex: Math.max(
-        left?.currentClipIndex ?? 0,
-        right?.currentClipIndex ?? 0,
-        completedClipIds.length,
-      ),
-      completedClipIds,
-    };
-  }
+  const interview = mergeTrack(a.interview, b.interview);
+  const learn = mergeTrack(a.learn, b.learn);
 
   const aDate = a.lastPracticeDate ?? "";
   const bDate = b.lastPracticeDate ?? "";
@@ -243,6 +245,7 @@ export function markClipCompleted(
     interview: {
       ...progress.interview,
       [berufSlug]: {
+        ...entry,
         currentClipIndex: completedClipIds.length,
         completedClipIds,
       },
@@ -270,6 +273,7 @@ export function markLearnClipCompleted(
     learn: {
       ...progress.learn,
       [chapterSlug]: {
+        ...entry,
         currentClipIndex: completedClipIds.length,
         completedClipIds,
       },
@@ -277,6 +281,39 @@ export function markLearnClipCompleted(
   };
 
   return bumpStreak(next);
+}
+
+/**
+ * Stamp a chapter as completed the first time the student finishes every clip.
+ * Later calls are ignored so the original completion date is kept.
+ */
+export function markLearnChapterCompleted(
+  progress: StoredProgress,
+  chapterSlug: string,
+  completedAt = new Date().toISOString(),
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? {
+    currentClipIndex: 0,
+    completedClipIds: [],
+  };
+  if (entry.completedAt) {
+    return progress;
+  }
+
+  return {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: { ...entry, completedAt },
+    },
+  };
+}
+
+export function isLearnChapterCompleted(
+  progress: StoredProgress,
+  chapterSlug: string,
+): boolean {
+  return Boolean(progress.learn[chapterSlug]?.completedAt);
 }
 
 export function resetBerufProgress(
@@ -297,10 +334,12 @@ export function resetBerufProgress(
   return next;
 }
 
+/** Clears clip progress but keeps the permanent completion stamp. */
 export function resetLearnProgress(
   progress: StoredProgress,
   chapterSlug: string,
 ): StoredProgress {
+  const completedAt = progress.learn[chapterSlug]?.completedAt;
   const next: StoredProgress = {
     ...progress,
     learn: {
@@ -308,6 +347,7 @@ export function resetLearnProgress(
       [chapterSlug]: {
         currentClipIndex: 0,
         completedClipIds: [],
+        ...(completedAt ? { completedAt } : {}),
       },
     },
   };
@@ -333,6 +373,23 @@ export function practiceQueue<T extends { id: string }>(
 ): T[] {
   const done = new Set(completedClipIds);
   return shuffleItems(clips.filter((clip) => !done.has(clip.id)));
+}
+
+/**
+ * Clip order for a Lektion session.
+ * First pass: catalog order from the JSON file, resuming past finished clips.
+ * Review (chapter already completed once): the whole chapter, freshly shuffled.
+ */
+export function learnQueue<T extends { id: string }>(
+  clips: readonly T[],
+  completedClipIds: readonly string[],
+  review: boolean,
+): T[] {
+  if (review) {
+    return shuffleItems(clips);
+  }
+  const done = new Set(completedClipIds);
+  return clips.filter((clip) => !done.has(clip.id));
 }
 
 /** Completed ids that still exist in the current catalog. */

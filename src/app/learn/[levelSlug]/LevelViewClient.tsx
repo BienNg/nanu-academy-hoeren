@@ -4,11 +4,13 @@ import Link from "next/link";
 import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
+import { useProgress } from "@/lib/useProgress";
 
 type Chapter = {
   id: string;
   slug: string;
   label: string;
+  hasAudio?: boolean;
 };
 
 type Level = {
@@ -32,6 +34,7 @@ export default function LevelViewClient({
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const shouldReduceMotion = useReducedMotion();
+  const { learnChapterCompleted } = useProgress();
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -123,29 +126,64 @@ export default function LevelViewClient({
           viewport={{ once: true, margin: "-100px" }}
           className="flex flex-col gap-6"
         >
-          {chapters.map((chapter, index) => (
-            <motion.li key={chapter.id} variants={itemVariants}>
-              <Link
-                href={`/learn/${level.slug}/${chapter.slug}`}
-                className="group relative flex items-center justify-between overflow-hidden rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97]"
-              >
+          {chapters.map((chapter, index) => {
+            const isAvailable = chapter.hasAudio !== false;
+            const isCompleted = isAvailable && learnChapterCompleted(chapter.slug);
+            
+            const content = (
+              <>
                 <div className="flex flex-col gap-2 z-10">
-                  <span className="text-sm font-medium text-[#86868b] uppercase tracking-wider">
-                    Chương {index + 1}
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-[#1d1d1f] group-hover:text-[#0066cc] transition-colors duration-300" style={{ letterSpacing: "-0.015em" }}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-[#86868b] uppercase tracking-wider">
+                      Chương {index + 1}
+                    </span>
+                    {!isAvailable && (
+                      <span className="inline-flex items-center rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold text-[#86868b] uppercase tracking-wider">
+                        Coming soon
+                      </span>
+                    )}
+                    {isCompleted && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold text-[#248a3d] uppercase tracking-wider">
+                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                          check_circle
+                        </span>
+                        Đã hoàn thành
+                      </span>
+                    )}
+                  </div>
+                  <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight transition-colors duration-300 ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
                 </div>
                 
-                <div className="z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md">
+                <div className={`z-10 flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
                   <span className="material-symbols-outlined text-2xl" aria-hidden="true">
-                    arrow_forward
+                    {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
                   </span>
                 </div>
-              </Link>
-            </motion.li>
-          ))}
+              </>
+            );
+
+            const itemClassName = `group relative flex items-center justify-between overflow-hidden rounded-[24px] backdrop-blur-xl border border-white/20 p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isAvailable 
+                ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer' 
+                : 'bg-white/40 shadow-none cursor-not-allowed'
+            }`;
+
+            return (
+              <motion.li key={chapter.id} variants={itemVariants}>
+                {isAvailable ? (
+                  <Link href={`/learn/${level.slug}/${chapter.slug}`} className={itemClassName}>
+                    {content}
+                  </Link>
+                ) : (
+                  <div className={itemClassName}>
+                    {content}
+                  </div>
+                )}
+              </motion.li>
+            );
+          })}
         </motion.ul>
       </section>
     </main>

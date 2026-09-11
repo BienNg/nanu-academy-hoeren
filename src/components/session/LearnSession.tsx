@@ -7,7 +7,7 @@ import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
-import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
+import { catalogCompletedCount, learnQueue } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -43,12 +43,14 @@ function SessionComplete({
   chapterLabel,
   clipCount,
   completedCount,
-  onReset,
+  review,
+  onReview,
 }: {
   chapterLabel: string;
   clipCount: number;
   completedCount: number;
-  onReset: () => void;
+  review: boolean;
+  onReview: () => void;
 }) {
   const allDone = clipCount > 0 && completedCount >= clipCount;
 
@@ -67,11 +69,16 @@ function SessionComplete({
         {/* Text Content */}
         <div className="flex flex-col gap-3">
           <h2 className="font-display text-4xl font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-            {allDone ? "Hoàn thành xuất sắc!" : "Session complete"}
+            {review ? "Ôn tập hoàn thành!" : allDone ? "Hoàn thành xuất sắc!" : "Session complete"}
           </h2>
           <p className="mx-auto max-w-[280px] text-lg font-medium leading-relaxed text-[#86868b] sm:max-w-sm">
-            Bạn đã hoàn thành {Math.min(completedCount, clipCount)} / {clipCount} bài nghe cho <span className="font-semibold text-[#1d1d1f]">{chapterLabel}</span>.
+            {review ? "Bạn đã ôn lại" : "Bạn đã hoàn thành"} {Math.min(completedCount, clipCount)} / {clipCount} bài nghe cho <span className="font-semibold text-[#1d1d1f]">{chapterLabel}</span>.
           </p>
+          {allDone ? (
+            <p className="mx-auto max-w-[300px] text-[15px] font-medium leading-relaxed text-[#86868b] sm:max-w-sm">
+              Lektion này đã được đánh dấu hoàn thành. Mỗi lần ôn tập lại, thứ tự câu hỏi sẽ được xáo trộn ngẫu nhiên.
+            </p>
+          ) : null}
         </div>
 
         {/* Action Buttons */}
@@ -84,11 +91,11 @@ function SessionComplete({
           </Link>
           <button
             type="button"
-            onClick={onReset}
+            onClick={onReview}
             className="flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#f5f5f7] px-6 text-[17px] font-semibold text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] sm:flex-1"
           >
-            <MaterialIcon name="replay" className="text-[20px]" />
-            Luyện lại
+            <MaterialIcon name={allDone ? "shuffle" : "replay"} className="text-[20px]" />
+            {allDone ? "Ôn tập lại" : "Luyện lại"}
           </button>
         </div>
       </div>
@@ -108,30 +115,51 @@ function SessionLoading() {
 
 export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   const [queue, setQueue] = useState<SessionClip[] | null>(null);
+  const [review, setReview] = useState(false);
+  const [sessionId, setSessionId] = useState(0);
   const [startingCompleted, setStartingCompleted] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
 
-  const { completedLearnClipIdsFor, markLearnClipDone, resetLearnProgress } = useProgress();
+  const {
+    completedLearnClipIdsFor,
+    learnChapterCompleted,
+    markLearnClipDone,
+    markLearnChapterDone,
+  } = useProgress();
   const completedIds = completedLearnClipIdsFor(chapter.slug);
   const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
   const catalogTotal = clips.length;
+  const catalogCompleted = catalogCompletedCount(clips, completedIds);
+  const chapterCompleted =
+    learnChapterCompleted(chapter.slug) ||
+    (catalogTotal > 0 && catalogCompleted >= catalogTotal);
 
+  // The queue is built once per session so it never reorders mid-practice:
+  // catalog order on the first pass, shuffled once the chapter is completed.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setQueue(practiceQueue(clips, completedIds));
-    
-    setStartingCompleted(catalogCompletedCount(clips, completedIds));
-    
+    setReview(chapterCompleted);
+
+    setQueue(learnQueue(clips, completedIds, chapterCompleted));
+
+    setStartingCompleted(chapterCompleted ? 0 : catalogCompleted);
+
     setClipIndex(0);
-    
+
     setScoreResult(null);
-    
+
     setDraft("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter.slug, clips]);
+  }, [chapter.slug, clips, sessionId]);
+
+  // First full pass through the chapter marks it as completed for good.
+  useEffect(() => {
+    if (catalogTotal === 0 || catalogCompleted < catalogTotal) return;
+    markLearnChapterDone(chapter.slug);
+  }, [catalogTotal, catalogCompleted, chapter.slug, markLearnChapterDone]);
 
   const remaining = queue ?? [];
   const currentClip = remaining[clipIndex];
@@ -170,7 +198,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     setScoreResult(null);
     setDraft("");
     setClipIndex((index) => {
-      if (!queue) return index + 1;
+      if (!queue || review) return index + 1;
       let next = index + 1;
       while (next < queue.length && completedClips.has(queue[next]!.id)) {
         next += 1;
@@ -220,8 +248,9 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
         <SessionComplete
           chapterLabel={`${level.level} - ${chapter.label}`}
           clipCount={catalogTotal}
-          completedCount={catalogCompletedCount(clips, completedIds)}
-          onReset={() => resetLearnProgress(chapter.slug)}
+          completedCount={catalogCompleted}
+          review={review}
+          onReview={() => setSessionId((id) => id + 1)}
         />
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">

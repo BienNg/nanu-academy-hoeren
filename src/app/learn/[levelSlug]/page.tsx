@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth-guard";
-import { getCefrLevel, getLevelChapters } from "@/lib/levels";
+import { getCefrLevel, getLevelChapters, getAvailableChapters } from "@/lib/levels";
 import { notFound } from "next/navigation";
 import LevelViewClient from "./LevelViewClient";
 
@@ -15,7 +15,14 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     notFound();
   }
 
-  const chapters = getLevelChapters(levelSlug);
+  const allChapters = getLevelChapters(levelSlug);
+  const availableChapters = getAvailableChapters(levelSlug);
+  const availableSlugs = new Set(availableChapters.map(c => c.slug));
 
-  return <LevelViewClient level={level} chapters={chapters} />;
+  const chaptersWithAudio = allChapters.map(chapter => ({
+    ...chapter,
+    hasAudio: availableSlugs.has(chapter.slug)
+  }));
+
+  return <LevelViewClient level={level} chapters={chaptersWithAudio} />;
 }
