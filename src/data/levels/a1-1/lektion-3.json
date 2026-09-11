@@ -1,3 +1,69 @@
 {
-  "clips": []
+  "clips": [
+    { "filename": "a11-tag3-01-ich-mache.mp3", "script": "ich mache", "translationVi": "tôi làm" },
+    { "filename": "a11-tag3-02-ich-komme.mp3", "script": "ich komme", "translationVi": "tôi đến" },
+    { "filename": "a11-tag3-03-ich-gehe.mp3", "script": "ich gehe", "translationVi": "tôi đi" },
+
+    { "filename": "a11-tag3-04-du-machst.mp3", "script": "du machst", "translationVi": "bạn làm / cậu làm" },
+    { "filename": "a11-tag3-05-du-kommst.mp3", "script": "du kommst", "translationVi": "bạn đến / cậu đến" },
+    { "filename": "a11-tag3-06-du-gehst.mp3", "script": "du gehst", "translationVi": "bạn đi / cậu đi" },
+
+    { "filename": "a11-tag3-07-er-macht.mp3", "script": "er macht", "translationVi": "anh ấy làm / ông ấy làm" },
+    { "filename": "a11-tag3-08-er-kommt.mp3", "script": "er kommt", "translationVi": "anh ấy đến / ông ấy đến" },
+    { "filename": "a11-tag3-09-er-geht.mp3", "script": "er geht", "translationVi": "anh ấy đi / ông ấy đi" },
+
+    { "filename": "a11-tag3-10-sie-macht.mp3", "script": "sie macht", "translationVi": "cô ấy làm / bà ấy làm" },
+    { "filename": "a11-tag3-11-sie-kommt.mp3", "script": "sie kommt", "translationVi": "cô ấy đến / bà ấy đến" },
+    { "filename": "a11-tag3-12-sie-geht.mp3", "script": "sie geht", "translationVi": "cô ấy đi / bà ấy đi" },
+
+    { "filename": "a11-tag3-13-es-macht.mp3", "script": "es macht", "translationVi": "nó làm" },
+    { "filename": "a11-tag3-14-es-kommt.mp3", "script": "es kommt", "translationVi": "nó đến" },
+    { "filename": "a11-tag3-15-es-geht.mp3", "script": "es geht", "translationVi": "nó đi" },
+
+    { "filename": "a11-tag3-16-wir-machen.mp3", "script": "wir machen", "translationVi": "chúng tôi làm / chúng ta làm" },
+    { "filename": "a11-tag3-17-wir-kommen.mp3", "script": "wir kommen", "translationVi": "chúng tôi đến / chúng ta đến" },
+    { "filename": "a11-tag3-18-wir-gehen.mp3", "script": "wir gehen", "translationVi": "chúng tôi đi / chúng ta đi" },
+
+    { "filename": "a11-tag3-19-ihr-macht.mp3", "script": "ihr macht", "translationVi": "các bạn làm / các cậu làm" },
+    { "filename": "a11-tag3-20-ihr-kommt.mp3", "script": "ihr kommt", "translationVi": "các bạn đến / các cậu đến" },
+    { "filename": "a11-tag3-21-ihr-geht.mp3", "script": "ihr geht", "translationVi": "các bạn đi / các cậu đi" },
+
+    { "filename": "a11-tag3-22-sie-Sie-machen.mp3", "script": "sie/Sie machen", "translationVi": "họ làm / ngài làm" },
+    { "filename": "a11-tag3-23-sie-Sie-kommen.mp3", "script": "sie/Sie kommen", "translationVi": "họ đến / ngài đến" },
+    { "filename": "a11-tag3-24-sie-Sie-gehen.mp3", "script": "sie/Sie gehen", "translationVi": "họ đi / ngài đi" },
+
+    { "filename": "a11-tag3-25-ich-bin.mp3", "script": "ich bin", "translationVi": "tôi là / tôi ở" },
+    { "filename": "a11-tag3-26-ich-habe.mp3", "script": "ich habe", "translationVi": "tôi có" },
+
+    { "filename": "a11-tag3-27-du-bist.mp3", "script": "du bist", "translationVi": "bạn là / bạn ở" },
+    { "filename": "a11-tag3-28-du-hast.mp3", "script": "du hast", "translationVi": "bạn có" },
+
+    { "filename": "a11-tag3-29-er-ist.mp3", "script": "er ist", "translationVi": "anh ấy là / anh ấy ở" },
+    { "filename": "a11-tag3-30-er-hat.mp3", "script": "er hat", "translationVi": "anh ấy có" },
+
+    { "filename": "a11-tag3-31-sie-ist.mp3", "script": "sie ist", "translationVi": "cô ấy là / cô ấy ở" },
+    { "filename": "a11-tag3-32-sie-hat.mp3", "script": "sie hat", "translationVi": "cô ấy có" },
+
+    { "filename": "a11-tag3-33-es-ist.mp3", "script": "es ist", "translationVi": "nó là / nó ở" },
+    { "filename": "a11-tag3-34-es-hat.mp3", "script": "es hat", "translationVi": "nó có" },
+
+    { "filename": "a11-tag3-35-wir-sind.mp3", "script": "wir sind", "translationVi": "chúng tôi là / chúng ta ở" },
+    { "filename": "a11-tag3-36-wir-haben.mp3", "script": "wir haben", "translationVi": "chúng tôi có" },
+
+    { "filename": "a11-tag3-37-ihr-seid.mp3", "script": "ihr seid", "translationVi": "các bạn là / các bạn ở" },
+    { "filename": "a11-tag3-38-ihr-habt.mp3", "script": "ihr habt", "translationVi": "các bạn có" },
+
+    { "filename": "a11-tag3-39-sie-Sie-sind.mp3", "script": "sie/Sie sind", "translationVi": "họ là / ngài là / họ ở / ngài ở" },
+    { "filename": "a11-tag3-40-sie-Sie-haben.mp3", "script": "sie/Sie haben", "translationVi": "họ có / ngài có" },
+
+    { "filename": "a11-tag3-41-ich-komme-aus-vietnam.mp3", "script": "Ich komme aus Vietnam.", "translationVi": "Tôi đến từ Việt Nam." },
+    { "filename": "a11-tag3-42-du-kommst-aus-vietnam.mp3", "script": "Du kommst aus Vietnam.", "translationVi": "Bạn đến từ Việt Nam. / Cậu đến từ Việt Nam." },
+    { "filename": "a11-tag3-43-er-kommt-aus-vietnam.mp3", "script": "Er kommt aus Vietnam.", "translationVi": "Anh ấy đến từ Việt Nam." },
+    { "filename": "a11-tag3-44-sie-kommt-aus-vietnam.mp3", "script": "Sie kommt aus Vietnam.", "translationVi": "Cô ấy đến từ Việt Nam." },
+    { "filename": "a11-tag3-45-es-kommt-aus-vietnam.mp3", "script": "Es kommt aus Vietnam.", "translationVi": "Nó đến từ Việt Nam." },
+    { "filename": "a11-tag3-46-wir-kommen-aus-vietnam.mp3", "script": "Wir kommen aus Vietnam.", "translationVi": "Chúng tôi đến từ Việt Nam. / Chúng ta đến từ Việt Nam." },
+    { "filename": "a11-tag3-47-ihr-kommt-aus-vietnam.mp3", "script": "Ihr kommt aus Vietnam.", "translationVi": "Các bạn đến từ Việt Nam." },
+    { "filename": "a11-tag3-48-sie-Sie-kommen-aus-vietnam.mp3", "script": "Sie kommen aus Vietnam.", "translationVi": "Họ đến từ Việt Nam. / Ngài đến từ Việt Nam." }
+
+  ]
 }
