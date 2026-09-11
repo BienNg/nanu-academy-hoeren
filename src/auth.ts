@@ -35,6 +35,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.sub = profile.sub ?? token.sub;
         if (typeof profile.email === "string") token.email = profile.email;
         if (typeof profile.name === "string") token.name = profile.name;
+        const picture = "picture" in profile ? profile.picture : undefined;
+        if (typeof picture === "string") token.picture = picture;
       }
       return token;
     },
@@ -43,6 +45,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (token.sub) session.user.id = token.sub;
         if (typeof token.email === "string") session.user.email = token.email;
         if (typeof token.name === "string") session.user.name = token.name;
+        session.user.image =
+          typeof token.picture === "string" ? token.picture : null;
         session.user.authAt = token.authAt;
       }
       return session;

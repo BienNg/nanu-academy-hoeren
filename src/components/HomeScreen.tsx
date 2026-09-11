@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { ProfileButton } from "@/components/ProfileButton";
 import type { Ausbildungsberuf } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -312,23 +312,7 @@ export function HomeScreen({
                 {streakDays} ngày
               </span>
             </div>
-            <Link
-              href="/account"
-              className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#f5f5f7] text-[#86868b] transition-all hover:opacity-90 hover:scale-105 active:scale-95 border border-black/[0.05]"
-              aria-label="Tài khoản"
-            >
-              {session?.user?.image ? (
-                <Image
-                  src={session.user.image}
-                  alt=""
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 object-cover"
-                />
-              ) : (
-                <MaterialIcon name="person" className="text-[18px]" />
-              )}
-            </Link>
+            <ProfileButton />
           </div>
         </div>
       </header>

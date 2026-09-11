@@ -11,6 +11,7 @@ import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
+import { ProfileButton } from "@/components/ProfileButton";
 
 type LearnSessionProps = {
   level: CefrLevel;
@@ -209,15 +210,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
               {level.level} - {chapter.label}
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/account"
-              className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#f5f5f7] text-[#86868b] transition-all hover:opacity-90 hover:scale-105 active:scale-95 border border-black/[0.05]"
-              aria-label="Tài khoản"
-            >
-              <MaterialIcon name="person" className="text-[18px]" />
-            </Link>
-          </div>
+          <ProfileButton />
         </div>
       </header>
 

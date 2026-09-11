@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
 
@@ -68,7 +69,7 @@ export default function LevelViewClient({
     >
       {/* Navigation Bar */}
       <header className="fixed top-0 left-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl border-b border-black/[0.05]">
-        <div className="mx-auto flex h-14 max-w-4xl items-center px-6">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
           <Link
             href="/"
             className="group flex items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
@@ -78,6 +79,7 @@ export default function LevelViewClient({
             </span>
             <span className="text-[17px] font-medium tracking-tight">Trở về</span>
           </Link>
+          <ProfileButton />
         </div>
       </header>
 

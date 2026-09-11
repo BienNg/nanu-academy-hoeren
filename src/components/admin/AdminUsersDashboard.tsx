@@ -15,6 +15,7 @@ import {
   type AdminTrackProgress,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import { ProfileButton } from "@/components/ProfileButton";
 
 function MaterialIcon({
   name,
@@ -237,9 +238,12 @@ export function AdminUsersDashboard({
               </h1>
             </div>
           </div>
-          <p className="shrink-0 font-body-sm text-body-sm text-on-surface-variant">
-            {visibleRows.length} {visibleRows.length === 1 ? "user" : "users"}
-          </p>
+          <div className="flex shrink-0 items-center gap-space-12">
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              {visibleRows.length} {visibleRows.length === 1 ? "user" : "users"}
+            </p>
+            <ProfileButton />
+          </div>
         </div>
       </header>
 
