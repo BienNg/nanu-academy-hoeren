@@ -62,16 +62,17 @@ export default function LevelViewClient({
   return (
     <main 
       ref={containerRef}
-      className="relative flex flex-1 flex-col items-center bg-[#fbfbfd] min-h-screen selection:bg-[#0066cc] selection:text-white overflow-hidden"
+      data-layout="wide"
+      className="relative flex w-full max-w-none flex-1 flex-col items-center bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       {/* Parallax Background Elements */}
       <motion.div 
-        className="pointer-events-none absolute left-0 top-0 w-full h-[800px] overflow-hidden"
+        className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden"
         style={{ y: backgroundY, opacity }}
       >
-        <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
-        <div className="absolute top-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
+        <div className="absolute -top-[20%] -left-[10%] h-[70%] w-[70vw] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
+        <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
       </motion.div>
 
       {/* Hero Section */}
