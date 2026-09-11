@@ -1,9 +1,9 @@
-import { normalizeProgress, toBerufProgress } from "@/lib/progress";
+import { activeStreakDays, normalizeProgress, toBerufProgress } from "@/lib/progress";
 import type { UserProgressListItem } from "@/lib/progress-store";
 
 export const ADMIN_PAGE_SIZE = 25;
 
-export type AdminSortKey = "lastLogin" | "name";
+export type AdminSortKey = "lastLogin" | "name" | "streak";
 export type AdminSortDir = "asc" | "desc";
 
 export type AdminTrackColumn = {
@@ -28,6 +28,7 @@ export type AdminUserRow = {
   displayName: string;
   lastLoginAt: string | null;
   lastLoginMs: number;
+  streakDays: number;
   tracks: AdminTrackProgress[];
 };
 
@@ -83,6 +84,7 @@ export function toAdminUserRow(
     displayName: displayNameFor(item),
     lastLoginAt,
     lastLoginMs: Number.isNaN(lastLoginMs) ? 0 : lastLoginMs,
+    streakDays: activeStreakDays(progress),
     tracks: trackRows,
   };
 }
@@ -97,6 +99,10 @@ function compareRows(
   if (sort === "lastLogin") {
     if (a.lastLoginMs !== b.lastLoginMs) {
       return (a.lastLoginMs - b.lastLoginMs) * sign;
+    }
+  } else if (sort === "streak") {
+    if (a.streakDays !== b.streakDays) {
+      return (a.streakDays - b.streakDays) * sign;
     }
   } else {
     const byName = a.displayName.localeCompare(b.displayName, "en", {

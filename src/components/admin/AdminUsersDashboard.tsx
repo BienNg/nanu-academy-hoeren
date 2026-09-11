@@ -78,7 +78,7 @@ function SortHeader({
   );
 }
 
-function TrackCell({ track }: { track: AdminTrackProgress }) {
+function TrackCell({ track, label }: { track: AdminTrackProgress; label?: string }) {
   if (!track.started) {
     return (
       <span className="font-body-sm text-body-sm text-outline">Not started</span>
@@ -86,7 +86,12 @@ function TrackCell({ track }: { track: AdminTrackProgress }) {
   }
 
   return (
-    <div className="flex min-w-[7.5rem] flex-col gap-1">
+    <div className="flex min-w-[10rem] flex-col gap-1">
+      {label ? (
+        <span className="mb-0.5 truncate font-label-sm text-label-sm font-medium text-on-surface-variant">
+          {label}
+        </span>
+      ) : null}
       <div className="flex items-baseline justify-between gap-space-8">
         <span className="font-label-md text-label-md font-semibold text-on-surface">
           {track.percent}%
@@ -115,6 +120,37 @@ function formatAbsoluteTime(iso: string | null): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function StreakCell({ days }: { days: number }) {
+  const active = days > 0;
+
+  return (
+    <td className="whitespace-nowrap px-space-16 py-space-16">
+      <span
+        className={`inline-flex items-center gap-space-4 ${
+          active ? "text-on-surface" : "text-outline"
+        }`}
+        title={
+          active
+            ? `${days} day${days === 1 ? "" : "s"} in a row`
+            : "No active streak"
+        }
+      >
+        <MaterialIcon
+          name="local_fire_department"
+          className={`text-[18px] ${active ? "text-[#ff9500]" : "text-outline"}`}
+          filled={active}
+        />
+        <span className="font-label-md text-label-md font-semibold">
+          {days}
+        </span>
+        <span className="font-caption text-caption text-on-surface-variant">
+          {days === 1 ? "day" : "days"}
+        </span>
+      </span>
+    </td>
+  );
 }
 
 function LastLoginCell({ iso }: { iso: string | null }) {
@@ -295,16 +331,19 @@ export function AdminUsersDashboard({
                     dir={dir}
                     onSort={handleSort}
                   />
-                  {tracks.map((track) => (
-                    <th
-                      key={track.slug}
-                      scope="col"
-                      title={track.label}
-                      className="whitespace-nowrap px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
-                    >
-                      {track.shortLabel}
-                    </th>
-                  ))}
+                  <SortHeader
+                    label="Streak"
+                    column="streak"
+                    sort={sort}
+                    dir={dir}
+                    onSort={handleSort}
+                  />
+                  <th
+                    scope="col"
+                    className="px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
+                  >
+                    Progress
+                  </th>
                   <th
                     scope="col"
                     className="sticky right-0 z-10 whitespace-nowrap bg-surface-container-low px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
@@ -317,7 +356,7 @@ export function AdminUsersDashboard({
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={3 + tracks.length}
+                      colSpan={5}
                       className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                     >
                       {visibleRows.length === 0
@@ -344,11 +383,29 @@ export function AdminUsersDashboard({
                         </div>
                       </td>
                       <LastLoginCell iso={row.lastLoginAt} />
-                      {row.tracks.map((track) => (
-                        <td key={track.slug} className="px-space-16 py-space-16">
-                          <TrackCell track={track} />
-                        </td>
-                      ))}
+                      <StreakCell days={row.streakDays} />
+                      <td className="px-space-16 py-space-16 align-top">
+                        <div className="flex flex-col gap-space-16">
+                          {row.tracks.filter((t) => t.started).length > 0 ? (
+                            row.tracks
+                              .filter((t) => t.started)
+                              .map((track) => (
+                                <TrackCell
+                                  key={track.slug}
+                                  track={track}
+                                  label={
+                                    tracks.find((t) => t.slug === track.slug)
+                                      ?.shortLabel
+                                  }
+                                />
+                              ))
+                          ) : (
+                            <span className="font-body-sm text-body-sm text-outline">
+                              Not started
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
                         <button
                           type="button"

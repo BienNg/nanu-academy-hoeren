@@ -186,6 +186,26 @@ export function todayIsoDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+/**
+ * Days the learner still has credit for. A stored streak only counts if they
+ * practiced today or yesterday (UTC, same clock as `bumpStreak`).
+ */
+export function activeStreakDays(
+  progress: StoredProgress,
+  now = new Date(),
+): number {
+  if (progress.streakDays <= 0) return 0;
+  const last = progress.lastPracticeDate;
+  if (!last) return progress.streakDays;
+
+  const today = todayIsoDate(now);
+  if (last === today) return progress.streakDays;
+
+  const yesterday = new Date(now);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return last === todayIsoDate(yesterday) ? progress.streakDays : 0;
+}
+
 export function bumpStreak(progress: StoredProgress, now = new Date()): StoredProgress {
   const today = todayIsoDate(now);
   if (progress.lastPracticeDate === today) {
