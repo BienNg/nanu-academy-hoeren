@@ -55,6 +55,67 @@
       "filename": "refa-warum-diesen-beruf.mp3",
       "script": "Warum möchtest du in einem Restaurant arbeiten?",
       "translationVi": "Tại sao bạn muốn làm việc trong nhà hàng?"
+    },
+    {
+      "filename": "refa-umkleide.mp3",
+      "script": "Hier ist deine Umkleide. Du kannst dich hier umziehen.",
+      "translationVi": "Đây là phòng thay đồ của bạn. Bạn có thể thay đồ ở đây."
+    },
+    {
+      "filename": "refa-arbeitskleidung.mp3",
+      "script": "Das ist deine Arbeitskleidung. Bitte trage sie jeden Tag.",
+      "translationVi": "Đây là đồng phục làm việc của bạn. Hãy mặc nó mỗi ngày."
+    },
+    {
+      "filename": "refa-spind.mp3",
+      "script": "Das ist dein Spind. Hier kannst du deine Sachen lassen.",
+      "translationVi": "Đây là tủ cá nhân của bạn. Bạn có thể để đồ ở đây."
+    },
+    {
+      "filename": "refa-arbeitszeiten.mp3",
+      "script": "Deine Arbeitszeiten stehen im Dienstplan.",
+      "translationVi": "Giờ làm việc của bạn được ghi trong lịch làm việc."
+    },
+    {
+      "filename": "refa-pausen.mp3",
+      "script": "Deine Pause machst du in der Küche oder im Pausenraum.",
+      "translationVi": "Bạn nghỉ giải lao trong bếp hoặc phòng nghỉ."
+    },
+    {
+      "filename": "refa-tische_eindecken.mp3",
+      "script": "Zuerst lernst du, wie man die Tische eindeckt.",
+      "translationVi": "Đầu tiên, bạn sẽ học cách bày bàn ăn."
+    },
+    {
+      "filename": "refa-speisekarte.mp3",
+      "script": "Hier ist die Speisekarte. Bitte lies sie dir gut durch.",
+      "translationVi": "Đây là thực đơn. Hãy đọc kỹ nhé."
+    },
+    {
+      "filename": "refa-gaeste_begruessen.mp3",
+      "script": "Wenn ein Gast kommt, begrüßt du ihn freundlich.",
+      "translationVi": "Khi có khách đến, bạn hãy chào đón họ thân thiện."
+    },
+    {
+      "filename": "refa-bestellung_aufnehmen.mp3",
+      "script": "Heute zeige ich dir, wie man eine Bestellung aufnimmt.",
+      "translationVi": "Hôm nay tôi sẽ chỉ bạn cách ghi order của khách."
+    },
+    {
+      "filename": "refa-tablett_tragen.mp3",
+      "script": "Pass auf, wie man ein Tablett richtig trägt.",
+      "translationVi": "Chú ý cách bưng khay đúng cách."
+    },
+    {
+      "filename": "refa-fragen_stellen.mp3",
+      "script": "Wenn du etwas nicht verstehst, frag mich einfach.",
+      "translationVi": "Nếu bạn không hiểu điều gì, cứ hỏi tôi."
+    },
+    {
+      "filename": "refa-fehler_ok.mp3",
+      "script": "Am Anfang darfst du auch Fehler machen. Das ist normal.",
+      "translationVi": "Lúc đầu bạn có thể mắc lỗi. Điều đó là bình thường."
     }
+    
   ]
 }
