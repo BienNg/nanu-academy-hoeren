@@ -8,7 +8,9 @@ import {
   STORAGE_KEY,
   clearStoredProgress,
   markClipCompleted,
+  markLearnClipCompleted,
   resetBerufProgress,
+  resetLearnProgress,
   mergeProgress,
   migrateLegacyProgress,
   normalizeProgress,
@@ -188,9 +190,25 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const markLearnClipDone = useCallback(
+    (chapterSlug: string, clipId: string) => {
+      const next = markLearnClipCompleted(readProgressSnapshot(), chapterSlug, clipId);
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const resetProgress = useCallback(
     (berufSlug: string) => {
       const next = resetBerufProgress(readProgressSnapshot(), berufSlug);
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const resetLearnProgressFn = useCallback(
+    (chapterSlug: string) => {
+      const next = resetLearnProgress(readProgressSnapshot(), chapterSlug);
       persist(next, true);
     },
     [persist],
@@ -210,12 +228,16 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     progressFor,
     streakDays: progress.streakDays,
     markClipDone,
+    markLearnClipDone,
     resetProgress,
+    resetLearnProgress: resetLearnProgressFn,
     setStreakDays: (streakDays: number) => {
       persist({ ...progress, streakDays }, true);
     },
     completedClipIdsFor: (berufSlug: string) =>
       progress.interview[berufSlug]?.completedClipIds ?? [],
+    completedLearnClipIdsFor: (chapterSlug: string) =>
+      progress.learn[chapterSlug]?.completedClipIds ?? [],
   };
 }
 

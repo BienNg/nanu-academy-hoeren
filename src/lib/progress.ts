@@ -19,6 +19,7 @@ export type InterviewProgress = {
 
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
+  learn: Record<string, InterviewProgress>;
   /** Day streak for header display; defaults when unset. */
   streakDays: number;
   /** ISO date (YYYY-MM-DD) of last practice day, for streak updates. */
@@ -43,6 +44,7 @@ export const DEFAULT_PROGRESS: StoredProgress = {
       completedClipIds: [],
     },
   },
+  learn: {},
   streakDays: 0,
 };
 
@@ -83,8 +85,26 @@ export function normalizeProgress(
       }
     }
   }
+
+  const learn: Record<string, InterviewProgress> = {
+    ...structuredClone(DEFAULT_PROGRESS.learn),
+  };
+  if (parsed?.learn && typeof parsed.learn === "object") {
+    for (const [slug, entry] of Object.entries(parsed.learn)) {
+      if (isInterviewProgress(entry)) {
+        learn[slug] = {
+          currentClipIndex: Math.max(0, entry.currentClipIndex),
+          completedClipIds: entry.completedClipIds.filter(
+            (id): id is string => typeof id === "string",
+          ),
+        };
+      }
+    }
+  }
+
   return {
     interview,
+    learn,
     streakDays:
       typeof parsed?.streakDays === "number" && parsed.streakDays >= 0
         ? parsed.streakDays
@@ -125,6 +145,30 @@ export function mergeProgress(
     };
   }
 
+  const learnSlugs = new Set([
+    ...Object.keys(a.learn ?? {}),
+    ...Object.keys(b.learn ?? {}),
+  ]);
+  const learn: Record<string, InterviewProgress> = {};
+
+  for (const slug of learnSlugs) {
+    const left = a.learn?.[slug];
+    const right = b.learn?.[slug];
+    const completed = new Set([
+      ...(left?.completedClipIds ?? []),
+      ...(right?.completedClipIds ?? []),
+    ]);
+    const completedClipIds = Array.from(completed);
+    learn[slug] = {
+      currentClipIndex: Math.max(
+        left?.currentClipIndex ?? 0,
+        right?.currentClipIndex ?? 0,
+        completedClipIds.length,
+      ),
+      completedClipIds,
+    };
+  }
+
   const aDate = a.lastPracticeDate ?? "";
   const bDate = b.lastPracticeDate ?? "";
   const lastPracticeDate =
@@ -132,6 +176,7 @@ export function mergeProgress(
 
   return {
     interview,
+    learn,
     streakDays: Math.max(a.streakDays, b.streakDays),
     lastPracticeDate,
   };
@@ -187,6 +232,33 @@ export function markClipCompleted(
   return bumpStreak(next);
 }
 
+export function markLearnClipCompleted(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clipId: string,
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? {
+    currentClipIndex: 0,
+    completedClipIds: [],
+  };
+  const completedClipIds = entry.completedClipIds.includes(clipId)
+    ? entry.completedClipIds
+    : [...entry.completedClipIds, clipId];
+
+  const next: StoredProgress = {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
+        currentClipIndex: completedClipIds.length,
+        completedClipIds,
+      },
+    },
+  };
+
+  return bumpStreak(next);
+}
+
 export function resetBerufProgress(
   progress: StoredProgress,
   berufSlug: string,
@@ -196,6 +268,24 @@ export function resetBerufProgress(
     interview: {
       ...progress.interview,
       [berufSlug]: {
+        currentClipIndex: 0,
+        completedClipIds: [],
+      },
+    },
+  };
+
+  return next;
+}
+
+export function resetLearnProgress(
+  progress: StoredProgress,
+  chapterSlug: string,
+): StoredProgress {
+  const next: StoredProgress = {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
         currentClipIndex: 0,
         completedClipIds: [],
       },

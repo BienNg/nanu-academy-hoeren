@@ -16,7 +16,7 @@ type Level = {
 };
 
 const springTransition = {
-  type: "spring",
+  type: "spring" as const,
   stiffness: 100,
   damping: 20,
   mass: 1,
@@ -66,6 +66,21 @@ export default function LevelViewClient({
       className="relative flex w-full max-w-none flex-1 flex-col items-center bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
+      {/* Navigation Bar */}
+      <header className="fixed top-0 left-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl border-b border-black/[0.05]">
+        <div className="mx-auto flex h-14 max-w-4xl items-center px-6">
+          <Link
+            href="/"
+            className="group flex items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[20px] font-medium" aria-hidden="true">
+              arrow_back_ios_new
+            </span>
+            <span className="text-[17px] font-medium tracking-tight">Trở về</span>
+          </Link>
+        </div>
+      </header>
+
       {/* Parallax Background Elements */}
       <motion.div 
         className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden"

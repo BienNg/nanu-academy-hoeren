@@ -23,7 +23,7 @@ export default async function Home() {
       berufe={berufe}
       levels={levels}
       interviewClipTotals={interviewClipTotals}
-      levelsUnlocked={isAdminUser(session.user)}
+      levelsUnlocked={true}
     />
   );
 }

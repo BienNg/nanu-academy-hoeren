@@ -1,10 +1,11 @@
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
   getChapterClips,
   getLevelChapters,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
+import { LearnSession } from "@/components/session/LearnSession";
 
 type LearnChapterPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
@@ -13,7 +14,7 @@ type LearnChapterPageProps = {
 export default async function LearnChapterPage({
   params,
 }: LearnChapterPageProps) {
-  await requireAdmin();
+  await requireUser();
   const { levelSlug, chapterSlug } = await params;
 
   const level = getCefrLevel(levelSlug);
@@ -30,19 +31,5 @@ export default async function LearnChapterPage({
 
   const clips = getChapterClips(levelSlug, chapterSlug);
 
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-space-8 px-space-16">
-      <p className="font-caption text-caption text-on-surface-variant">
-        {level.level} - {chapter.label}
-      </p>
-      <p className="font-body-md text-body-md text-on-surface-variant">
-        {clips.length === 0
-          ? "Chưa có bài nghe — thêm clips vào file nội dung."
-          : `${clips.length} bài nghe sẵn sàng`}
-      </p>
-      <p className="font-caption text-caption text-outline">
-        src/data/levels/{levelSlug}/{chapterSlug}.json
-      </p>
-    </main>
-  );
+  return <LearnSession level={level} chapter={chapter} clips={clips} />;
 }
