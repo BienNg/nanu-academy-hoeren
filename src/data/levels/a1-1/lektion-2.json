@@ -1,3 +1,49 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag2-01-ich.mp3",
+      "script": "ich",
+      "translationVi": "tôi"
+    },
+    {
+      "filename": "a11-tag2-02-du.mp3",
+      "script": "du",
+      "translationVi": "bạn / cậu"
+    },
+    {
+      "filename": "a11-tag2-03-er.mp3",
+      "script": "er",
+      "translationVi": "anh ấy / ông ấy"
+    },
+    {
+      "filename": "a11-tag2-04-sie.mp3",
+      "script": "sie",
+      "translationVi": "cô ấy / bà ấy"
+    },
+    {
+      "filename": "a11-tag2-05-es.mp3",
+      "script": "es",
+      "translationVi": "nó"
+    },
+    {
+      "filename": "a11-tag2-06-ihr.mp3",
+      "script": "ihr",
+      "translationVi": "các bạn"
+    },
+    {
+      "filename": "a11-tag2-07-wir.mp3",
+      "script": "wir",
+      "translationVi": "chúng tôi / chúng ta"
+    },
+    {
+      "filename": "a11-tag2-08-sie-pl.mp3",
+      "script": "sie",
+      "translationVi": "họ"
+    },
+    {
+      "filename": "a11-tag2-09-sie-formell.mp3",
+      "script": "Sie",
+      "translationVi": "ngài (lịch sự)"
+    }
+  ]
 }
