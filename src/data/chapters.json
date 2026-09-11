@@ -3,43 +3,848 @@
     "level": "A1.1",
     "slug": "a1-1",
     "chapters": [
-      { "id": "tag-1", "label": "Tag 1", "slug": "tag-1" },
-      { "id": "tag-2", "label": "Tag 2", "slug": "tag-2" }
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
     ]
   },
   {
     "level": "A1.2",
     "slug": "a1-2",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "A2.1",
     "slug": "a2-1",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "A2.2",
     "slug": "a2-2",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "B1.1",
     "slug": "b1-1",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "B1.2",
     "slug": "b1-2",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "B2.1",
     "slug": "b2-1",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   },
   {
     "level": "B2.2",
     "slug": "b2-2",
-    "chapters": []
+    "chapters": [
+      {
+        "id": "lektion-1",
+        "label": "Lektion 1",
+        "slug": "lektion-1"
+      },
+      {
+        "id": "lektion-2",
+        "label": "Lektion 2",
+        "slug": "lektion-2"
+      },
+      {
+        "id": "lektion-3",
+        "label": "Lektion 3",
+        "slug": "lektion-3"
+      },
+      {
+        "id": "lektion-4",
+        "label": "Lektion 4",
+        "slug": "lektion-4"
+      },
+      {
+        "id": "lektion-5",
+        "label": "Lektion 5",
+        "slug": "lektion-5"
+      },
+      {
+        "id": "lektion-6",
+        "label": "Lektion 6",
+        "slug": "lektion-6"
+      },
+      {
+        "id": "lektion-7",
+        "label": "Lektion 7",
+        "slug": "lektion-7"
+      },
+      {
+        "id": "lektion-8",
+        "label": "Lektion 8",
+        "slug": "lektion-8"
+      },
+      {
+        "id": "lektion-9",
+        "label": "Lektion 9",
+        "slug": "lektion-9"
+      },
+      {
+        "id": "lektion-10",
+        "label": "Lektion 10",
+        "slug": "lektion-10"
+      },
+      {
+        "id": "lektion-11",
+        "label": "Lektion 11",
+        "slug": "lektion-11"
+      },
+      {
+        "id": "lektion-12",
+        "label": "Lektion 12",
+        "slug": "lektion-12"
+      },
+      {
+        "id": "lektion-13",
+        "label": "Lektion 13",
+        "slug": "lektion-13"
+      },
+      {
+        "id": "lektion-14",
+        "label": "Lektion 14",
+        "slug": "lektion-14"
+      },
+      {
+        "id": "lektion-15",
+        "label": "Lektion 15",
+        "slug": "lektion-15"
+      },
+      {
+        "id": "lektion-16",
+        "label": "Lektion 16",
+        "slug": "lektion-16"
+      },
+      {
+        "id": "lektion-17",
+        "label": "Lektion 17",
+        "slug": "lektion-17"
+      },
+      {
+        "id": "lektion-18",
+        "label": "Lektion 18",
+        "slug": "lektion-18"
+      },
+      {
+        "id": "lektion-19",
+        "label": "Lektion 19",
+        "slug": "lektion-19"
+      },
+      {
+        "id": "lektion-20",
+        "label": "Lektion 20",
+        "slug": "lektion-20"
+      }
+    ]
   }
 ]

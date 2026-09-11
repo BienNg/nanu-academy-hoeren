@@ -28,7 +28,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
         </h1>
         <p className="font-body-sm text-body-sm text-on-surface-variant">
           {chapters.length === 0
-            ? "Chưa có chương nào. Thêm Tag trong chapters.json và file nội dung tương ứng."
+            ? "Chưa có chương nào. Thêm Lektion trong chapters.json và file nội dung tương ứng."
             : `${chapters.length} chương`}
         </p>
       </div>
@@ -41,7 +41,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
               className="flex items-center justify-between rounded-2xl border border-surface-container bg-surface-container-lowest px-space-16 py-space-12 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:opacity-95 active:scale-[0.98]"
             >
               <p className="font-label-lg text-label-lg text-on-surface">
-                {level.level} · {chapter.label}
+                {level.level} - {chapter.label}
               </p>
               <span className="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">
                 arrow_forward

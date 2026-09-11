@@ -33,7 +33,7 @@ export default async function LearnChapterPage({
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-space-8 px-space-16">
       <p className="font-caption text-caption text-on-surface-variant">
-        {level.level} · {chapter.label}
+        {level.level} - {chapter.label}
       </p>
       <p className="font-body-md text-body-md text-on-surface-variant">
         {clips.length === 0

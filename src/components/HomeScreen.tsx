@@ -9,7 +9,7 @@ import { useProgress } from "@/lib/useProgress";
 export type LevelMeta = {
   level: string;
   slug: string;
-  /** Tags listed in the catalog for this level (may still be empty of clips). */
+  /** Lektionen listed in the catalog for this level (may still be empty of clips). */
   chapterCount: number;
 };
 

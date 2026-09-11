@@ -73,7 +73,7 @@ function loadChapterFile(
   return isStoredChapterFile(parsed) ? parsed : null;
 }
 
-/** All CEFR levels from the catalog (including ones with no Tags yet). */
+/** All CEFR levels from the catalog (including ones with no Lektionen yet). */
 export function getCefrLevels(): CefrLevel[] {
   return catalogLevels.map((entry) => ({
     level: entry.level,
@@ -87,7 +87,7 @@ export function getCefrLevel(levelSlug: string): CefrLevel | undefined {
 }
 
 /**
- * Tags listed in chapters.json that also have a content file on disk
+ * Lektionen listed in chapters.json that also have a content file on disk
  * (clips may still be empty — use getAvailableChapters for playable ones).
  */
 export function getLevelChapters(levelSlug: string): LevelChapterMeta[] {
@@ -101,7 +101,7 @@ export function getLevelChapters(levelSlug: string): LevelChapterMeta[] {
   );
 }
 
-/** Tags that have at least one clip and are ready to practice. */
+/** Lektionen that have at least one clip and are ready to practice. */
 export function getAvailableChapters(levelSlug: string): LevelChapterMeta[] {
   return getLevelChapters(levelSlug).filter((chapter) => {
     const file = loadChapterFile(levelSlug, chapter.slug);
@@ -110,7 +110,7 @@ export function getAvailableChapters(levelSlug: string): LevelChapterMeta[] {
 }
 
 /**
- * Levels that have at least one playable Tag (non-empty clips).
+ * Levels that have at least one playable Lektion (non-empty clips).
  * Home can still show the full catalog; use this when unlocking cards.
  */
 export function getAvailableLevels(): CefrLevel[] {
