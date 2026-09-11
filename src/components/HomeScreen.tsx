@@ -165,7 +165,7 @@ function LevelCard({
     <Link
       href={`/learn/${level.slug}`}
       aria-label={`Trình độ ${level.level}`}
-      className="group flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97]"
+      className="group flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
@@ -176,7 +176,7 @@ function LevelCard({
             {level.level}
           </h3>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110">
           <MaterialIcon name="hearing" className="text-[18px]" />
         </div>
       </div>
@@ -221,7 +221,7 @@ function BerufCard({
       aria-label={
         isComplete ? `${beruf.label} · Đã hoàn thành` : beruf.label
       }
-      className="group relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] active:scale-[0.97]"
+      className="group relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
     >
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -231,7 +231,7 @@ function BerufCard({
             ) : null}
             Ausbildung
           </span>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:bg-[#0066cc] group-hover:text-white group-hover:shadow-md">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:bg-[#0066cc] group-hover:text-white">
             <MaterialIcon name={icon} className="text-[18px]" />
           </div>
         </div>

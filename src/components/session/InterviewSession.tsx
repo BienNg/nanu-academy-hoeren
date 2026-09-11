@@ -182,6 +182,15 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
     setDraft("");
   };
 
+  const beginReplay = () => {
+    resetProgress(beruf.slug);
+    setQueue(practiceQueue(clips, []));
+    setStartingCompleted(0);
+    setClipIndex(0);
+    setScoreResult(null);
+    setDraft("");
+  };
+
   return (
     <div 
       data-layout="wide"
@@ -219,7 +228,7 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
           berufLabel={beruf.label}
           clipCount={catalogTotal}
           completedCount={catalogCompletedCount(clips, completedIds)}
-          onReset={() => resetProgress(beruf.slug)}
+          onReset={beginReplay}
         />
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">

@@ -44,12 +44,14 @@ function SessionComplete({
   clipCount,
   completedCount,
   review,
+  levelHref,
   onReview,
 }: {
   chapterLabel: string;
   clipCount: number;
   completedCount: number;
   review: boolean;
+  levelHref: string;
   onReview: () => void;
 }) {
   const allDone = clipCount > 0 && completedCount >= clipCount;
@@ -84,10 +86,10 @@ function SessionComplete({
         {/* Action Buttons */}
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row-reverse sm:px-6">
           <Link
-            href="/"
+            href={levelHref}
             className="group relative flex h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98] sm:flex-1"
           >
-            Về trang chủ
+            Về trình độ
           </Link>
           <button
             type="button"
@@ -116,7 +118,6 @@ function SessionLoading() {
 export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   const [queue, setQueue] = useState<SessionClip[] | null>(null);
   const [review, setReview] = useState(false);
-  const [sessionId, setSessionId] = useState(0);
   const [startingCompleted, setStartingCompleted] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
@@ -153,7 +154,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
 
     setDraft("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter.slug, clips, sessionId]);
+  }, [chapter.slug, clips]);
 
   // First full pass through the chapter marks it as completed for good.
   useEffect(() => {
@@ -212,6 +213,21 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     setDraft("");
   };
 
+  const beginReplay = () => {
+    const chapterFinished =
+      chapterCompleted || (catalogTotal > 0 && catalogCompleted >= catalogTotal);
+    const unfinished = learnQueue(clips, completedIds, false);
+    const replayAll = chapterFinished || unfinished.length === 0;
+    const nextQueue = replayAll ? learnQueue(clips, [], true) : unfinished;
+
+    setReview(replayAll);
+    setQueue(nextQueue);
+    setStartingCompleted(replayAll ? 0 : catalogCompleted);
+    setClipIndex(0);
+    setScoreResult(null);
+    setDraft("");
+  };
+
   return (
     <div 
       data-layout="wide"
@@ -250,7 +266,8 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
           clipCount={catalogTotal}
           completedCount={catalogCompleted}
           review={review}
-          onReview={() => setSessionId((id) => id + 1)}
+          levelHref={`/learn/${level.slug}`}
+          onReview={beginReplay}
         />
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
