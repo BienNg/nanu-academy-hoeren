@@ -115,6 +115,186 @@
       "filename": "refa-fehler_ok.mp3",
       "script": "Am Anfang darfst du auch Fehler machen. Das ist normal.",
       "translationVi": "Lúc đầu bạn có thể mắc lỗi. Điều đó là bình thường."
+    },
+    {
+      "filename": "refa-kasse_einloggen.mp3",
+      "script": "So loggst du dich an der Kasse ein.",
+      "translationVi": "Đây là cách bạn đăng nhập vào máy tính tiền."
+    },
+    {
+      "filename": "refa-kasse_bestellung_eingeben.mp3",
+      "script": "Du gibst die Bestellung hier in die Kasse ein.",
+      "translationVi": "Bạn nhập order vào máy tính tiền ở đây."
+    },
+    {
+      "filename": "refa-kasse_rechnung_drucken.mp3",
+      "script": "Am Ende druckst du die Rechnung aus.",
+      "translationVi": "Cuối cùng bạn in hóa đơn ra."
+    },
+    {
+      "filename": "refa-kasse_bar_karte.mp3",
+      "script": "Der Gast kann bar oder mit Karte bezahlen.",
+      "translationVi": "Khách có thể trả tiền mặt hoặc bằng thẻ."
+    },
+    {
+      "filename": "refa-kasse_trinkgeld.mp3",
+      "script": "Trinkgeld gibst du extra ein.",
+      "translationVi": "Tiền boa được nhập riêng."
+    },
+    {
+      "filename": "refa-kasse_stornieren.mp3",
+      "script": "Wenn du dich verklickst, kannst du die Bestellung stornieren.",
+      "translationVi": "Nếu bấm nhầm, bạn có thể hủy order."
+    },
+    {
+      "filename": "refa-kasse_schicht_abschliessen.mp3",
+      "script": "Am Ende der Schicht schließt du die Kasse ab.",
+      "translationVi": "Cuối ca làm, bạn đóng ca máy tính tiền."
+    },
+    {
+      "filename": "refa-utensil_tablett.mp3",
+      "script": "Das Tablett brauchst du, um Teller zu tragen.",
+      "translationVi": "Bạn cần cái khay để bưng đĩa."
+    },
+    {
+      "filename": "refa-utensil_serviette.mp3",
+      "script": "Die Serviette legst du neben den Teller.",
+      "translationVi": "Bạn đặt khăn ăn cạnh đĩa."
+    },
+    {
+      "filename": "refa-utensil_besteck.mp3",
+      "script": "Das Besteck sind Messer, Gabel und Löffel.",
+      "translationVi": "Bộ dao nĩa gồm dao, nĩa và thìa."
+    },
+    {
+      "filename": "refa-utensil_glaeser.mp3",
+      "script": "Die Gläser stehen im Regal hinter der Bar.",
+      "translationVi": "Ly được để trên kệ phía sau quầy bar."
+    },
+    {
+      "filename": "refa-utensil_tablettwagen.mp3",
+      "script": "Den Tablettwagen nutzt du für viele Teller.",
+      "translationVi": "Bạn dùng xe đẩy khay khi cần bưng nhiều đĩa."
+    },
+    {
+      "filename": "refa-utensil_kellnerblock.mp3",
+      "script": "Der Kellnerblock ist für handschriftliche Bestellungen.",
+      "translationVi": "Sổ ghi order dùng để viết tay đơn của khách."
+    },
+    {
+      "filename": "refa-utensil_flaschenoeffner.mp3",
+      "script": "Der Flaschenöffner liegt an der Bar.",
+      "translationVi": "Đồ khui chai được để ở quầy bar."
+    },
+    {
+      "filename": "refa-utensil_tischtuch.mp3",
+      "script": "Das Tischtuch wechselst du nach jedem Gast.",
+      "translationVi": "Bạn thay khăn trải bàn sau mỗi lượt khách."
+    },
+    {
+      "filename": "refa-geraet_kaffeemaschine.mp3",
+      "script": "Das ist die Kaffeemaschine. Sie macht Kaffee und Espresso.",
+      "translationVi": "Đây là máy pha cà phê. Nó pha cà phê và espresso."
+    },
+    {
+      "filename": "refa-geraet_geschirrspueler.mp3",
+      "script": "Der Geschirrspüler wäscht Teller und Gläser.",
+      "translationVi": "Máy rửa bát rửa đĩa và ly."
+    },
+    {
+      "filename": "refa-geraet_kuehlschrank.mp3",
+      "script": "Der Kühlschrank ist für Getränke und frische Zutaten.",
+      "translationVi": "Tủ lạnh dùng để đựng đồ uống và nguyên liệu tươi."
+    },
+    {
+      "filename": "refa-geraet_kassensystem.mp3",
+      "script": "Das Kassensystem zeigt alle Bestellungen.",
+      "translationVi": "Hệ thống máy tính tiền hiển thị tất cả các order."
+    },
+    {
+      "filename": "refa-objekt_theke.mp3",
+      "script": "Die Theke ist der Platz an der Bar.",
+      "translationVi": "Quầy bar là nơi phục vụ đồ uống."
+    },
+    {
+      "filename": "refa-objekt_serviceecke.mp3",
+      "script": "In der Serviceecke findest du Servietten und Besteck.",
+      "translationVi": "Ở góc phục vụ, bạn tìm thấy khăn ăn và dao nĩa."
+    },
+    {
+      "filename": "refa-objekt_reservierungsbuch.mp3",
+      "script": "Im Reservierungsbuch stehen alle Tischreservierungen.",
+      "translationVi": "Sổ đặt bàn ghi tất cả các bàn đã được đặt trước."
+    },
+    {
+      "filename": "refa-gericht_schnitzel.mp3",
+      "script": "Das Schnitzel ist eines unserer beliebtesten Gerichte.",
+      "translationVi": "Món Schnitzel là một trong những món được yêu thích nhất."
+    },
+    {
+      "filename": "refa-gericht_currywurst.mp3",
+      "script": "Die Currywurst gibt es mit Pommes.",
+      "translationVi": "Xúc xích cà ri được ăn kèm với khoai tây chiên."
+    },
+    {
+      "filename": "refa-gericht_salat.mp3",
+      "script": "Der Salat ist eine leichte Vorspeise.",
+      "translationVi": "Salad là món khai vị nhẹ nhàng."
+    },
+    {
+      "filename": "refa-gericht_suppe.mp3",
+      "script": "Die Suppe des Tages steht auf der Tafel.",
+      "translationVi": "Món súp trong ngày được ghi trên bảng."
+    },
+    {
+      "filename": "refa-gericht_dessert.mp3",
+      "script": "Zum Nachtisch gibt es Kuchen oder Eis.",
+      "translationVi": "Món tráng miệng có bánh ngọt hoặc kem."
+    },
+    {
+      "filename": "refa-zutat_kartoffeln.mp3",
+      "script": "Kartoffeln sind eine wichtige Zutat in der Küche.",
+      "translationVi": "Khoai tây là một nguyên liệu quan trọng trong bếp."
+    },
+    {
+      "filename": "refa-zutat_gemuese.mp3",
+      "script": "Frisches Gemüse kommt jeden Tag.",
+      "translationVi": "Rau củ tươi được giao mỗi ngày."
+    },
+    {
+      "filename": "refa-zutat_fleisch.mp3",
+      "script": "Das Fleisch liegt im Kühlraum.",
+      "translationVi": "Thịt được để trong phòng lạnh."
+    },
+    {
+      "filename": "refa-zutat_gewuerze.mp3",
+      "script": "Die Gewürze stehen im Regal in der Küche.",
+      "translationVi": "Gia vị được để trên kệ trong bếp."
+    },
+    {
+      "filename": "refa-getraenk_wasser.mp3",
+      "script": "Wasser gibt es mit oder ohne Kohlensäure.",
+      "translationVi": "Nước có loại có ga hoặc không ga."
+    },
+    {
+      "filename": "refa-getraenk_bier.mp3",
+      "script": "Bier ist unser beliebtestes Getränk.",
+      "translationVi": "Bia là đồ uống được yêu thích nhất của chúng tôi."
+    },
+    {
+      "filename": "refa-getraenk_wein.mp3",
+      "script": "Wir haben Rotwein und Weißwein.",
+      "translationVi": "Chúng tôi có rượu vang đỏ và rượu vang trắng."
+    },
+    {
+      "filename": "refa-getraenk_saft.mp3",
+      "script": "Saft gibt es in verschiedenen Sorten.",
+      "translationVi": "Nước ép có nhiều loại khác nhau."
+    },
+    {
+      "filename": "refa-getraenk_kaffee.mp3",
+      "script": "Kaffee bestellen die Gäste oft nach dem Essen.",
+      "translationVi": "Khách thường gọi cà phê sau khi ăn."
     }
     
   ]

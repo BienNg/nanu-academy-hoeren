@@ -129,6 +129,156 @@
       "filename": "bfv-tag1-freundlich-sein.mp3",
       "script": "Sei immer freundlich, auch wenn ein Kunde ungeduldig ist.",
       "translationVi": "Hãy luôn thân thiện, kể cả khi khách hàng có vẻ nóng vội."
+    },
+    {
+      "filename": "bfv-sortiment.mp3",
+      "script": "Hier ist unser Sortiment. Bitte schau es dir gut an.",
+      "translationVi": "Đây là danh mục các loại bánh của chúng tôi. Hãy xem kỹ nhé."
+    },
+    {
+      "filename": "bfv-kunden_begruessen.mp3",
+      "script": "Wenn ein Kunde kommt, begrüßt du ihn freundlich.",
+      "translationVi": "Khi có khách đến, bạn hãy chào đón họ thân thiện."
+    },
+    {
+      "filename": "bfv-kunden_beraten.mp3",
+      "script": "Heute zeige ich dir, wie man Kunden berät.",
+      "translationVi": "Hôm nay tôi sẽ chỉ bạn cách tư vấn cho khách hàng."
+    },
+    {
+      "filename": "bfv-kasse_einloggen.mp3",
+      "script": "So loggst du dich an der Kasse ein.",
+      "translationVi": "Đây là cách bạn đăng nhập vào máy tính tiền."
+    },
+    {
+      "filename": "bfv-kasse_artikel_eingeben.mp3",
+      "script": "Du gibst die Artikel hier in die Kasse ein.",
+      "translationVi": "Bạn nhập các mặt hàng vào máy tính tiền ở đây."
+    },
+    {
+      "filename": "bfv-kasse_beleg_drucken.mp3",
+      "script": "Am Ende druckst du den Kassenbon aus.",
+      "translationVi": "Cuối cùng bạn in hóa đơn ra."
+    },
+    {
+      "filename": "bfv-kasse_bar_karte.mp3",
+      "script": "Der Kunde kann bar oder mit Karte bezahlen.",
+      "translationVi": "Khách có thể trả tiền mặt hoặc bằng thẻ."
+    },
+    {
+      "filename": "bfv-kasse_wechselgeld.mp3",
+      "script": "Beim Bargeld gibst du das Wechselgeld zurück.",
+      "translationVi": "Khi khách trả tiền mặt, bạn trả lại tiền thối."
+    },
+    {
+      "filename": "bfv-kasse_stornieren.mp3",
+      "script": "Wenn du dich verklickst, kannst du den Artikel stornieren.",
+      "translationVi": "Nếu bấm nhầm, bạn có thể hủy mặt hàng đó."
+    },
+    {
+      "filename": "bfv-kasse_schicht_abschliessen.mp3",
+      "script": "Am Ende der Schicht schließt du die Kasse ab.",
+      "translationVi": "Cuối ca làm, bạn đóng ca máy tính tiền."
+    },
+    {
+      "filename": "bfv-utensil_brottuete.mp3",
+      "script": "Die Brottüte brauchst du für frisches Brot.",
+      "translationVi": "Bạn cần túi giấy để đựng bánh mì tươi."
+    },
+    {
+      "filename": "bfv-utensil_tablett.mp3",
+      "script": "Das Tablett brauchst du, um Backwaren zu tragen.",
+      "translationVi": "Bạn cần khay để bưng bánh."
+    },
+    {
+      "filename": "bfv-utensil_papierserviette.mp3",
+      "script": "Die Papierserviette legst du in die Tüte.",
+      "translationVi": "Bạn đặt khăn giấy vào trong túi."
+    },
+    {
+      "filename": "bfv-utensil_preisschild.mp3",
+      "script": "Jedes Produkt hat ein Preisschild.",
+      "translationVi": "Mỗi sản phẩm đều có bảng giá."
+    },
+    {
+      "filename": "bfv-geraet_brotschneidemaschine.mp3",
+      "script": "Die Brotschneidemaschine schneidet das Brot in Scheiben.",
+      "translationVi": "Máy cắt bánh mì cắt bánh thành từng lát."
+    },
+    {
+      "filename": "bfv-geraet_kaffeemaschine.mp3",
+      "script": "Das ist die Kaffeemaschine. Sie macht Kaffee für unsere Kunden.",
+      "translationVi": "Đây là máy pha cà phê. Nó pha cà phê cho khách hàng của chúng tôi."
+    },
+    {
+      "filename": "bfv-geraet_kuehltheke.mp3",
+      "script": "Die Kühltheke ist für Kuchen und Sahneprodukte.",
+      "translationVi": "Tủ mát dùng để đựng bánh kem và các sản phẩm từ kem."
+    },
+    {
+      "filename": "bfv-geraet_kassensystem.mp3",
+      "script": "Das Kassensystem zeigt alle Artikel und Preise.",
+      "translationVi": "Hệ thống máy tính tiền hiển thị tất cả mặt hàng và giá."
+    },
+    {
+      "filename": "bfv-objekt_vitrine.mp3",
+      "script": "Die Vitrine zeigt unsere frischen Backwaren.",
+      "translationVi": "Tủ kính trưng bày các loại bánh tươi của chúng tôi."
+    },
+    {
+      "filename": "bfv-objekt_brotregal.mp3",
+      "script": "Im Brotregal liegen die verschiedenen Brotsorten.",
+      "translationVi": "Trên kệ bánh mì có nhiều loại bánh mì khác nhau."
+    },
+    {
+      "filename": "bfv-backware_broetchen.mp3",
+      "script": "Brötchen sind unser meistverkauftes Produkt.",
+      "translationVi": "Bánh mì tròn nhỏ là sản phẩm bán chạy nhất của chúng tôi."
+    },
+    {
+      "filename": "bfv-backware_vollkornbrot.mp3",
+      "script": "Das Vollkornbrot ist besonders gesund.",
+      "translationVi": "Bánh mì nguyên cám đặc biệt tốt cho sức khỏe."
+    },
+    {
+      "filename": "bfv-backware_kuchen.mp3",
+      "script": "Der Kuchen kommt jeden Morgen frisch aus der Backstube.",
+      "translationVi": "Bánh ngọt được làm tươi mỗi sáng từ xưởng bánh."
+    },
+    {
+      "filename": "bfv-backware_torte.mp3",
+      "script": "Die Torte kann man auch für Geburtstage bestellen.",
+      "translationVi": "Bánh kem cũng có thể đặt cho các dịp sinh nhật."
+    },
+    {
+      "filename": "bfv-backware_croissant.mp3",
+      "script": "Das Croissant ist bei Kunden sehr beliebt.",
+      "translationVi": "Bánh sừng bò rất được khách hàng ưa chuộng."
+    },
+    {
+      "filename": "bfv-zutat_mehl.mp3",
+      "script": "Mehl ist die wichtigste Zutat für Brot.",
+      "translationVi": "Bột mì là nguyên liệu quan trọng nhất để làm bánh mì."
+    },
+    {
+      "filename": "bfv-zutat_butter.mp3",
+      "script": "Butter kommt in viele unserer Backwaren.",
+      "translationVi": "Bơ được dùng trong nhiều loại bánh của chúng tôi."
+    },
+    {
+      "filename": "bfv-getraenk_kaffee.mp3",
+      "script": "Kaffee zum Mitnehmen bestellen viele Kunden am Morgen.",
+      "translationVi": "Nhiều khách hàng gọi cà phê mang đi vào buổi sáng."
+    },
+    {
+      "filename": "bfv-getraenk_kakao.mp3",
+      "script": "Kinder mögen oft heißen Kakao.",
+      "translationVi": "Trẻ em thường thích ca cao nóng."
+    },
+    {
+      "filename": "bfv-getraenk_saft.mp3",
+      "script": "Saft gibt es auch in kleinen Flaschen.",
+      "translationVi": "Nước ép cũng có bán dưới dạng chai nhỏ."
     }
   ]
 }
