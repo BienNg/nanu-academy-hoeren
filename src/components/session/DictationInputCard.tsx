@@ -96,10 +96,10 @@ export function DictationInputCard({
 
   return (
     <>
-      <section className="mt-space-16 flex flex-col gap-space-12 rounded-[24px] bg-surface-container-lowest p-space-20 shadow-sm md:p-space-24">
+      <section className="mt-4 flex flex-col gap-3 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
         <label
           htmlFor={inputId}
-          className="font-label-sm text-label-sm uppercase tracking-wider text-secondary"
+          className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]"
         >
           Bản chép chính tả (Diktat)
         </label>
@@ -114,19 +114,19 @@ export function DictationInputCard({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Gõ câu tiếng Đức bạn vừa nghe được vào đây..."
-            className="w-full resize-none bg-transparent font-body-lg text-body-lg leading-relaxed text-on-surface placeholder:text-secondary focus:outline-none disabled:opacity-60"
+            className="w-full resize-none bg-transparent text-lg font-medium leading-relaxed text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none disabled:opacity-60"
           />
         </div>
 
-        <div className="pt-space-8">
-          <div className="-mx-space-4 flex items-center justify-between gap-space-4 overflow-x-auto px-space-4 pb-space-2">
+        <div className="pt-2">
+          <div className="-mx-1 flex items-center justify-between gap-1 overflow-x-auto px-1 pb-1">
             {SPECIAL_CHARS.map((char) => (
               <button
                 key={char}
                 type="button"
                 disabled={disabled}
                 onClick={() => insertChar(char)}
-                className="flex h-10 min-w-[36px] flex-1 items-center justify-center rounded-xl bg-surface-container font-label-md text-label-md text-on-surface transition-colors active:bg-primary active:text-on-primary disabled:opacity-40"
+                className="flex h-10 min-w-[36px] flex-1 items-center justify-center rounded-xl bg-[#f5f5f7] font-semibold text-[#1d1d1f] transition-colors hover:bg-[#e8e8ed] active:bg-[#0066cc] active:text-white disabled:opacity-40"
               >
                 {char}
               </button>
@@ -135,19 +135,19 @@ export function DictationInputCard({
         </div>
       </section>
 
-      <footer className="mt-space-24 flex flex-col items-center gap-space-8">
+      <footer className="mt-6 flex flex-col items-center gap-2">
         <button
           type="button"
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className={`flex h-[52px] w-full items-center justify-center gap-space-8 rounded-2xl px-space-24 py-space-12 font-label-lg text-label-lg transition-all ${
+          className={`group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] px-6 py-3 text-[17px] font-semibold transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             canSubmit
-              ? "bg-primary text-on-primary shadow-md hover:opacity-95 active:scale-[0.98]"
-              : "cursor-not-allowed bg-secondary-container text-secondary"
+              ? "bg-[#0066cc] text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
+              : "cursor-not-allowed bg-[#e8e8ed] text-[#86868b]"
           }`}
         >
           <span>Kiểm tra · Prüfen</span>
-          <MaterialIcon name="arrow_forward" className="text-[20px]" />
+          <MaterialIcon name="arrow_forward" className="text-[20px] transition-transform duration-300 group-hover:translate-x-1" />
         </button>
       </footer>
     </>

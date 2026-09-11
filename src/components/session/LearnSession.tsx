@@ -52,10 +52,10 @@ function SessionComplete({
   const allDone = clipCount > 0 && completedCount >= clipCount;
 
   return (
-    <main className="relative flex w-full flex-1 flex-col bg-surface">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-space-24 px-margin-mobile pb-space-32 text-center">
+    <main className="relative flex w-full flex-1 flex-col items-center justify-center pb-32 px-6">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 text-center">
         {/* Animated Success Badge */}
-        <div className="relative mb-space-8 flex h-24 w-24 items-center justify-center">
+        <div className="relative mb-2 flex h-24 w-24 items-center justify-center">
           <div className="absolute inset-0 animate-ping rounded-full bg-[#34C759]/20" style={{ animationDuration: '3s' }} />
           <div className="absolute inset-2 rounded-full bg-[#34C759]/20" />
           <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#34C759] to-[#2EAD4F] text-white shadow-[0_8px_32px_rgba(52,199,89,0.4)]">
@@ -64,28 +64,27 @@ function SessionComplete({
         </div>
 
         {/* Text Content */}
-        <div className="flex flex-col gap-space-12">
-          <h2 className="font-display text-display-mobile tracking-tight text-on-surface sm:text-display">
+        <div className="flex flex-col gap-3">
+          <h2 className="font-display text-4xl font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
             {allDone ? "Hoàn thành xuất sắc!" : "Session complete"}
           </h2>
-          <p className="mx-auto max-w-[280px] font-body-lg text-body-lg leading-relaxed text-on-surface-variant sm:max-w-sm">
-            Bạn đã hoàn thành {Math.min(completedCount, clipCount)} / {clipCount} bài nghe cho <span className="font-semibold text-on-surface">{chapterLabel}</span>.
+          <p className="mx-auto max-w-[280px] text-lg font-medium leading-relaxed text-[#86868b] sm:max-w-sm">
+            Bạn đã hoàn thành {Math.min(completedCount, clipCount)} / {clipCount} bài nghe cho <span className="font-semibold text-[#1d1d1f]">{chapterLabel}</span>.
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-space-16 flex w-full flex-col gap-space-12 sm:flex-row-reverse sm:px-space-24">
+        <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row-reverse sm:px-6">
           <Link
             href="/"
-            className="group relative flex h-[56px] w-full items-center justify-center gap-space-8 overflow-hidden rounded-2xl bg-on-surface px-space-24 font-label-lg text-[17px] font-semibold text-surface transition-transform hover:scale-[1.02] active:scale-[0.98] sm:flex-1"
+            className="group relative flex h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98] sm:flex-1"
           >
-            <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
             Về trang chủ
           </Link>
           <button
             type="button"
             onClick={onReset}
-            className="flex h-[56px] w-full items-center justify-center gap-space-8 rounded-2xl bg-surface-container-high px-space-24 font-label-lg text-[17px] font-semibold text-on-surface transition-all hover:bg-surface-container-highest active:scale-[0.98] sm:flex-1"
+            className="flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#f5f5f7] px-6 text-[17px] font-semibold text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] sm:flex-1"
           >
             <MaterialIcon name="replay" className="text-[20px]" />
             Luyện lại
@@ -98,8 +97,8 @@ function SessionComplete({
 
 function SessionLoading() {
   return (
-    <main className="relative flex w-full flex-1 flex-col items-center justify-center bg-surface px-margin-mobile pb-space-32">
-      <p className="font-body-md text-body-md text-on-surface-variant">
+    <main className="relative flex w-full flex-1 flex-col items-center justify-center pb-32 px-6">
+      <p className="text-lg font-medium text-[#86868b]">
         Đang tải tiến độ…
       </p>
     </main>
@@ -185,25 +184,35 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
   };
 
   return (
-    <>
-      <header className="sticky top-0 z-50 w-full bg-surface/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
-        <div className="flex h-14 w-full items-center justify-between px-margin-mobile">
+    <div 
+      data-layout="wide"
+      className="relative flex w-screen max-w-none flex-1 flex-col bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
+      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
+    >
+      {/* Parallax Background Elements */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden opacity-50">
+        <div className="absolute -top-[20%] -left-[10%] h-[70%] w-[70vw] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
+        <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
+      </div>
+
+      <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
+        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
             href={`/learn/${level.slug}`}
             aria-label="Quay lại"
-            className="-ml-space-8 flex h-11 w-11 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-container active:scale-95"
+            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
-            <MaterialIcon name="arrow_back_ios_new" className="text-[24px]" />
+            <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
           </Link>
-          <div className="flex-1 truncate px-space-8 text-center">
-            <h1 className="truncate font-headline-sm text-headline-sm tracking-tight text-on-surface">
+          <div className="flex-1 truncate px-4 text-center">
+            <h1 className="truncate font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
               {level.level} - {chapter.label}
             </h1>
           </div>
-          <div className="flex items-center gap-space-4">
+          <div className="flex items-center gap-4">
             <Link
               href="/account"
-              className="ml-space-4 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary"
+              className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#f5f5f7] text-[#86868b] transition-all hover:opacity-90 hover:scale-105 active:scale-95 border border-black/[0.05]"
               aria-label="Tài khoản"
             >
               <MaterialIcon name="person" className="text-[18px]" />
@@ -222,25 +231,25 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
           onReset={() => resetLearnProgress(chapter.slug)}
         />
       ) : (
-        <main className="relative flex w-full flex-1 flex-col bg-surface">
-          <div className="flex w-full flex-col px-margin-mobile pb-space-24">
-            <header className="flex flex-col gap-space-12 pt-space-12 pb-space-8">
-              <div className="flex items-center justify-between gap-space-8">
-                <div className="flex min-w-0 items-center gap-space-8">
-                  <span className="shrink-0 rounded-full bg-secondary-fixed px-space-8 py-space-2 font-label-sm text-label-sm text-on-secondary-fixed">
+        <main className="relative flex w-full flex-1 flex-col items-center">
+          <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
+            <header className="flex flex-col gap-3 pt-6 pb-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
                     Luyện tập
                   </span>
-                  <span className="max-w-[200px] truncate font-body-sm text-body-sm text-secondary sm:max-w-none">
+                  <span className="max-w-[200px] truncate text-sm font-semibold text-[#1d1d1f] sm:max-w-none">
                     {chapter.label}
                   </span>
                 </div>
-                <div className="flex shrink-0 items-center gap-space-4 rounded-full bg-surface-container-high px-space-12 py-space-4">
+                <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e8f2fc] px-3 py-1">
                   <MaterialIcon
                     name="headphones"
-                    className="text-[16px] text-primary"
+                    className="text-[14px] text-[#0066cc]"
                     filled
                   />
-                  <span className="font-label-sm text-label-sm text-on-surface">
+                  <span className="text-[12px] font-bold text-[#0066cc]">
                     Câu {displayNumber} / {catalogTotal}
                   </span>
                 </div>
@@ -248,7 +257,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
 
               <div
                 aria-label="Tiến độ bài học"
-                className="grid w-full gap-space-4"
+                className="grid w-full gap-1.5 mt-2"
                 style={{
                   gridTemplateColumns: `repeat(${Math.max(catalogTotal, 1)}, minmax(0, 1fr))`,
                 }}
@@ -256,14 +265,14 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
                 {progressSegments.map((segment, index) => (
                   <div
                     key={`seg-${index}`}
-                    className={`relative h-1 overflow-hidden rounded-full ${
+                    className={`relative h-1.5 overflow-hidden rounded-full ${
                       segment === "todo"
-                        ? "bg-secondary-container"
-                        : "bg-primary"
+                        ? "bg-[#e8e8ed]"
+                        : "bg-[#0066cc]"
                     }`}
                   >
                     {segment === "current" ? (
-                      <div className="absolute inset-0 animate-pulse bg-primary" />
+                      <div className="absolute inset-0 animate-pulse bg-[#0066cc]" />
                     ) : null}
                   </div>
                 ))}
@@ -303,6 +312,6 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
           </div>
         </main>
       )}
-    </>
+    </div>
   );
 }

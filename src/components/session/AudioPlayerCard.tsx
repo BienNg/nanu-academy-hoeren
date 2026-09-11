@@ -194,22 +194,22 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
     visualState === "playing" ? "text-[32px]" : "ml-1 text-[32px]";
 
   return (
-    <section className="mt-space-12 flex flex-col gap-space-16 rounded-[24px] bg-surface-container-lowest p-space-20 shadow-sm transition-all duration-200 md:p-space-24">
+    <section className="mt-3 flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 md:p-6">
       <div className="flex items-center justify-end">
         <button
           type="button"
           aria-label="Đổi tốc độ phát"
           onClick={handleSpeedToggle}
-          className="shrink-0 rounded-full bg-surface-container px-space-8 py-space-4 font-label-sm text-label-sm text-on-surface transition-transform active:scale-95"
+          className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1.5 text-[12px] font-bold text-[#86868b] transition-all hover:bg-[#e8e8ed] active:scale-95"
         >
           {formatPlaybackRate(rate)}
         </button>
       </div>
 
-      <div className="flex flex-col gap-space-8 pt-space-4">
+      <div className="flex flex-col gap-2 pt-1">
         <div
           aria-label="Dạng sóng âm thanh"
-          className="flex h-12 w-full items-end justify-between gap-[3px] px-space-4"
+          className="flex h-12 w-full items-end justify-between gap-[3px] px-1"
         >
           {WAVEFORM_BAR_HEIGHTS_PX.map((height, index) => (
             <div
@@ -217,23 +217,23 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
               ref={(el) => {
                 barsRef.current[index] = el;
               }}
-              className="w-full rounded-full bg-secondary-container"
+              className="w-full rounded-full bg-[#e8e8ed]"
               style={{ height }}
             />
           ))}
         </div>
-        <div className="flex items-center justify-between px-space-2 font-label-sm text-label-sm text-secondary">
+        <div className="flex items-center justify-between px-1 text-[12px] font-medium text-[#86868b]">
           <span>{formatAudioTime(currentTime)}</span>
           <span>{formatAudioTime(duration)}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-space-24 py-space-4">
+      <div className="flex items-center justify-center gap-6 py-1">
         <button
           type="button"
           aria-label="Phát hoặc tạm dừng âm thanh"
           onClick={handlePlayPause}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-md transition-transform active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:scale-105 active:scale-95"
         >
           <MaterialIcon name={playIcon} className={playIconClass} filled />
         </button>
@@ -241,7 +241,7 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
           type="button"
           aria-label="Lặp lại câu hiện tại"
           onClick={handleRepeat}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-on-surface transition-transform active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all hover:bg-[#e8e8ed] hover:text-[#1d1d1f] active:scale-90"
         >
           <MaterialIcon name="repeat" className="text-[20px]" />
         </button>
