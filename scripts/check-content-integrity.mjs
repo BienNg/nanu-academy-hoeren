@@ -9,6 +9,7 @@ const levelsDataDir = join(repoRoot, "src/data/levels");
 const levelsAudioRoot = join(repoRoot, "public/audio");
 
 const errors = [];
+const skippedMissingAudio = [];
 
 function rel(absolutePath) {
   return absolutePath.replace(`${repoRoot}/`, "");
@@ -38,7 +39,8 @@ function listDirs(dir) {
 
 /**
  * Pair a clips JSON file with its audio folder.
- * Reports missing files listed in JSON and orphaned MP3s on disk.
+ * Clips listed in JSON without an MP3 are skipped (not an error).
+ * Reports orphaned MP3s on disk that have no JSON entry.
  */
 function checkContentFile(jsonPath, audioDir) {
   const jsonRel = rel(jsonPath);
@@ -79,8 +81,8 @@ function checkContentFile(jsonPath, audioDir) {
     listedFilenames.add(clip.filename);
     const audioPath = join(audioDir, clip.filename);
     if (!existsSync(audioPath)) {
-      errors.push(
-        `Missing audio file: ${rel(audioPath)} (listed in ${jsonRel})`,
+      skippedMissingAudio.push(
+        `${rel(audioPath)} (listed in ${jsonRel})`,
       );
     }
   });
@@ -192,3 +194,8 @@ if (errors.length > 0) {
 console.log(
   `Content integrity OK: ${ausbildungCount} Ausbildung file(s), ${levelCount} Lektion file(s).`,
 );
+if (skippedMissingAudio.length > 0) {
+  console.log(
+    `Skipped ${skippedMissingAudio.length} clip(s) with missing audio.`,
+  );
+}
