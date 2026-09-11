@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useProgress } from "@/lib/useProgress";
 
 type Chapter = {
@@ -34,12 +34,45 @@ export default function LevelViewClient({
   chapters: Chapter[];
 }) {
   const containerRef = useRef<HTMLElement>(null);
+  const resumeItemRef = useRef<HTMLLIElement>(null);
+  const didAutoScroll = useRef(false);
   const shouldReduceMotion = useReducedMotion();
   const {
     completedLearnRunClipIdsFor,
     learnChapterCompleted,
     learnRunCountFor,
   } = useProgress();
+
+  const resumeChapterSlug =
+    chapters.find((chapter) => {
+      if (chapter.hasAudio === false) return false;
+      if (learnChapterCompleted(chapter.slug)) return false;
+      const clipCount = chapter.clipCount ?? 0;
+      const startedCount = Math.min(
+        clipCount,
+        completedLearnRunClipIdsFor(chapter.slug).length,
+      );
+      return clipCount > 0 && startedCount > 0 && startedCount < clipCount;
+    })?.slug ?? null;
+
+  useEffect(() => {
+    if (didAutoScroll.current || !resumeChapterSlug) return;
+    const target = resumeItemRef.current;
+    if (!target) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (didAutoScroll.current) return;
+      didAutoScroll.current = true;
+      target.scrollIntoView({
+        behavior: shouldReduceMotion ? "auto" : "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [resumeChapterSlug, shouldReduceMotion]);
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -223,7 +256,12 @@ export default function LevelViewClient({
             }`;
 
             return (
-              <motion.li key={chapter.id} variants={itemVariants}>
+              <motion.li
+                key={chapter.id}
+                ref={chapter.slug === resumeChapterSlug ? resumeItemRef : undefined}
+                variants={itemVariants}
+                className="scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))]"
+              >
                 {isAvailable ? (
                   <Link href={`/learn/${level.slug}/${chapter.slug}`} className={itemClassName}>
                     {content}
