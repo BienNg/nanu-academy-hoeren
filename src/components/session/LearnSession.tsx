@@ -293,8 +293,11 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
           >
             <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
           </Link>
-          <div className="flex-1 truncate px-4 text-center">
-            <h1 className="truncate font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
+          <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
+              Luyện tập
+            </span>
+            <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
               {level.level} - {chapter.label}
             </h1>
           </div>
@@ -316,16 +319,8 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
-            <header className="flex flex-col gap-3 pt-6 pb-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-                    Luyện tập
-                  </span>
-                  <span className="max-w-[200px] truncate text-sm font-semibold text-[#1d1d1f] sm:max-w-none">
-                    {chapter.label}
-                  </span>
-                </div>
+            <header className="flex flex-col gap-4 pt-6 pb-4">
+              <div className="flex items-center justify-end gap-2">
                 <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e8f2fc] px-3 py-1">
                   <MaterialIcon
                     name="headphones"
@@ -340,7 +335,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
 
               <div
                 aria-label="Tiến độ bài học"
-                className="grid w-full gap-1.5 mt-2"
+                className="grid w-full gap-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${Math.max(catalogTotal, 1)}, minmax(0, 1fr))`,
                 }}

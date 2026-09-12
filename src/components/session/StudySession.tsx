@@ -206,49 +206,47 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
   const displayNumber = Math.min(clipIndex + 1, clips.length);
   const modeToggle = (
-    <div className="flex justify-center">
-      <div
-        role="tablist"
-        aria-label="Chế độ học"
-        className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
+    <div
+      role="tablist"
+      aria-label="Chế độ học"
+      className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={viewMode === "cards"}
+        aria-label="Chế độ thẻ"
+        onClick={() => setViewMode("cards")}
+        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+          viewMode === "cards"
+            ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
+            : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
+        }`}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={viewMode === "cards"}
-          aria-label="Chế độ thẻ"
-          onClick={() => setViewMode("cards")}
-          className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
-            viewMode === "cards"
-              ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
-              : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
-          }`}
-        >
-          <MaterialIcon
-            name="view_carousel"
-            className="text-[19px] transition-transform duration-300 group-hover:scale-105"
-            filled={viewMode === "cards"}
-          />
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={viewMode === "list"}
-          aria-label="Chế độ danh sách"
-          onClick={() => setViewMode("list")}
-          className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
-            viewMode === "list"
-              ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
-              : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
-          }`}
-        >
-          <MaterialIcon
-            name="view_list"
-            className="text-[19px] transition-transform duration-300 group-hover:scale-105"
-            filled={viewMode === "list"}
-          />
-        </button>
-      </div>
+        <MaterialIcon
+          name="view_carousel"
+          className="text-[19px] transition-transform duration-300 group-hover:scale-105"
+          filled={viewMode === "cards"}
+        />
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={viewMode === "list"}
+        aria-label="Chế độ danh sách"
+        onClick={() => setViewMode("list")}
+        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+          viewMode === "list"
+            ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
+            : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
+        }`}
+      >
+        <MaterialIcon
+          name="view_list"
+          className="text-[19px] transition-transform duration-300 group-hover:scale-105"
+          filled={viewMode === "list"}
+        />
+      </button>
     </div>
   );
 
@@ -275,9 +273,12 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
           >
             <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
           </Link>
-          <div className="flex-1 truncate px-4 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
+              Học nội dung
+            </span>
             <h1
-              className="truncate font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]"
+              className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
               style={{ letterSpacing: "-0.015em" }}
             >
               {level.level} - {chapter.label}
@@ -301,19 +302,11 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
             <header className="flex items-center justify-between gap-2 pt-6 pb-4">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-                  Học nội dung
-                </span>
-                <span className="max-w-[200px] truncate text-sm font-semibold text-[#1d1d1f] sm:max-w-none">
-                  {chapter.label}
-                </span>
-              </div>
+              {modeToggle}
               <span className="shrink-0 text-[13px] font-medium text-[#86868b]">
                 {clips.length} câu
               </span>
             </header>
-            <div className="pb-4">{modeToggle}</div>
             <StudyClipList clips={clips} />
           </div>
         </main>
@@ -328,16 +321,9 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
-            <header className="flex flex-col gap-3 pt-6 pb-4">
+            <header className="flex flex-col gap-4 pt-6 pb-4">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-                    Học nội dung
-                  </span>
-                  <span className="max-w-[200px] truncate text-sm font-semibold text-[#1d1d1f] sm:max-w-none">
-                    {chapter.label}
-                  </span>
-                </div>
+                {modeToggle}
                 <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e8f2fc] px-3 py-1">
                   <MaterialIcon
                     name="menu_book"
@@ -349,11 +335,10 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
                   </span>
                 </div>
               </div>
-              {modeToggle}
 
               <div
                 aria-label="Tiến độ học nội dung"
-                className="mt-2 grid w-full gap-1.5"
+                className="grid w-full gap-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${Math.max(clips.length, 1)}, minmax(0, 1fr))`,
                 }}
