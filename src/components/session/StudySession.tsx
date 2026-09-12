@@ -7,12 +7,15 @@ import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
+import { StudyClipList } from "@/components/session/StudyClipList";
 import { ProfileButton } from "@/components/ProfileButton";
 import {
   catalogCompletedCount,
   firstUnreviewedIndex,
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
+
+type StudyViewMode = "cards" | "list";
 
 type StudySessionProps = {
   level: CefrLevel;
@@ -114,6 +117,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   const reviewedCount = catalogCompletedCount(clips, reviewedIds);
   const hubHref = `/learn/${level.slug}/${chapter.slug}`;
 
+  const [viewMode, setViewMode] = useState<StudyViewMode>("cards");
   const [clipIndex, setClipIndex] = useState(() =>
     firstUnreviewedIndex(clips, reviewedIds),
   );
@@ -168,7 +172,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   };
 
   useEffect(() => {
-    if (complete || !currentClip) return;
+    if (viewMode !== "cards" || complete || !currentClip) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.shiftKey || event.isComposing) return;
@@ -184,7 +188,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [complete, currentClip, goNext, goPrev]);
+  }, [viewMode, complete, currentClip, goNext, goPrev]);
 
   const handleTouchStart = (event: TouchEvent) => {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -201,6 +205,52 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   };
 
   const displayNumber = Math.min(clipIndex + 1, clips.length);
+  const modeToggle = (
+    <div className="flex justify-center">
+      <div
+        role="tablist"
+        aria-label="Chế độ học"
+        className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "cards"}
+          aria-label="Chế độ thẻ"
+          onClick={() => setViewMode("cards")}
+          className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+            viewMode === "cards"
+              ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
+              : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
+          }`}
+        >
+          <MaterialIcon
+            name="view_carousel"
+            className="text-[19px] transition-transform duration-300 group-hover:scale-105"
+            filled={viewMode === "cards"}
+          />
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "list"}
+          aria-label="Chế độ danh sách"
+          onClick={() => setViewMode("list")}
+          className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+            viewMode === "list"
+              ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
+              : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
+          }`}
+        >
+          <MaterialIcon
+            name="view_list"
+            className="text-[19px] transition-transform duration-300 group-hover:scale-105"
+            filled={viewMode === "list"}
+          />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -247,6 +297,26 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
             Chưa có nội dung cho Lektion này.
           </p>
         </main>
+      ) : viewMode === "list" ? (
+        <main className="relative flex w-full flex-1 flex-col items-center">
+          <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
+            <header className="flex items-center justify-between gap-2 pt-6 pb-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
+                  Học nội dung
+                </span>
+                <span className="max-w-[200px] truncate text-sm font-semibold text-[#1d1d1f] sm:max-w-none">
+                  {chapter.label}
+                </span>
+              </div>
+              <span className="shrink-0 text-[13px] font-medium text-[#86868b]">
+                {clips.length} câu
+              </span>
+            </header>
+            <div className="pb-4">{modeToggle}</div>
+            <StudyClipList clips={clips} />
+          </div>
+        </main>
       ) : complete || !currentClip ? (
         <StudyComplete
           chapterLabel={`${level.level} - ${chapter.label}`}
@@ -279,6 +349,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
                   </span>
                 </div>
               </div>
+              {modeToggle}
 
               <div
                 aria-label="Tiến độ học nội dung"
