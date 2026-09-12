@@ -9,13 +9,16 @@ import {
   clearStoredProgress,
   incrementLearnRunCount,
   isLearnChapterCompleted,
+  learnReviewedClipIds,
   learnRunCompletedClipIds,
   learnRunCount,
   markClipCompleted,
   markLearnChapterCompleted,
   markLearnClipCompleted,
+  markLearnClipReviewed,
   resetBerufProgress,
   resetLearnProgress,
+  resetLearnStudyProgress,
   mergeProgress,
   migrateLegacyProgress,
   normalizeProgress,
@@ -237,6 +240,22 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const markLearnClipReviewedFn = useCallback(
+    (chapterSlug: string, clipId: string) => {
+      const next = markLearnClipReviewed(readProgressSnapshot(), chapterSlug, clipId);
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const resetLearnStudyProgressFn = useCallback(
+    (chapterSlug: string) => {
+      const next = resetLearnStudyProgress(readProgressSnapshot(), chapterSlug);
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const continueLearning = toContinueLearning(progress, totalsBySlug);
 
   const progressFor = useCallback(
@@ -268,6 +287,10 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     learnChapterCompleted: (chapterSlug: string) =>
       isLearnChapterCompleted(progress, chapterSlug),
     incrementLearnRunDoneCount,
+    markLearnClipReviewed: markLearnClipReviewedFn,
+    resetLearnStudyProgress: resetLearnStudyProgressFn,
+    reviewedLearnClipIdsFor: (chapterSlug: string) =>
+      learnReviewedClipIds(progress, chapterSlug),
   };
 }
 

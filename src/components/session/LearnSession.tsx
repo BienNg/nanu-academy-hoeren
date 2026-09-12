@@ -287,7 +287,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
-            href={`/learn/${level.slug}`}
+            href={`/learn/${level.slug}/${chapter.slug}`}
             aria-label="Quay lại"
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >

@@ -5,15 +5,15 @@ import {
   getLevelChapters,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
-import ChapterHubClient from "./ChapterHubClient";
+import { LearnSession } from "@/components/session/LearnSession";
 
-type LearnChapterPageProps = {
+type LearnPracticePageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
 };
 
-export default async function LearnChapterPage({
+export default async function LearnPracticePage({
   params,
-}: LearnChapterPageProps) {
+}: LearnPracticePageProps) {
   await requireUser();
   const { levelSlug, chapterSlug } = await params;
 
@@ -31,11 +31,5 @@ export default async function LearnChapterPage({
 
   const clips = getChapterClips(levelSlug, chapterSlug);
 
-  return (
-    <ChapterHubClient
-      level={level}
-      chapter={chapter}
-      clipIds={clips.map((clip) => clip.id)}
-    />
-  );
+  return <LearnSession level={level} chapter={chapter} clips={clips} />;
 }

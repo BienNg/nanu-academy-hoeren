@@ -31,7 +31,19 @@ export type LearnProgress = InterviewProgress & {
    * Used to resume an unfinished rerun and surface "started" progress.
    */
   runCompletedClipIds: string[];
+  /** Clip ids the student has already reviewed in the study / flashcard flow. */
+  reviewedClipIds: string[];
 };
+
+function emptyLearnProgress(): LearnProgress {
+  return {
+    currentClipIndex: 0,
+    completedClipIds: [],
+    runCount: 0,
+    runCompletedClipIds: [],
+    reviewedClipIds: [],
+  };
+}
 
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
@@ -91,6 +103,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
   const record = entry as InterviewProgress & {
     runCount?: unknown;
     runCompletedClipIds?: unknown;
+    reviewedClipIds?: unknown;
   };
 
   return {
@@ -106,6 +119,11 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           (id): id is string => typeof id === "string",
         )
       : normalized.completedClipIds,
+    reviewedClipIds: Array.isArray(record.reviewedClipIds)
+      ? record.reviewedClipIds.filter(
+          (id): id is string => typeof id === "string",
+        )
+      : [],
   };
 }
 
@@ -221,10 +239,17 @@ function mergeLearnEntry(
       ...(right?.runCompletedClipIds ?? []),
     ]),
   );
+  const reviewedClipIds = Array.from(
+    new Set([
+      ...(left?.reviewedClipIds ?? []),
+      ...(right?.reviewedClipIds ?? []),
+    ]),
+  );
   return {
     ...mergedBase,
     runCount: Math.max(left?.runCount ?? 0, right?.runCount ?? 0),
     runCompletedClipIds,
+    reviewedClipIds,
   };
 }
 
@@ -337,12 +362,7 @@ export function markLearnClipCompleted(
   chapterSlug: string,
   clipId: string,
 ): StoredProgress {
-  const entry = progress.learn[chapterSlug] ?? {
-    currentClipIndex: 0,
-    completedClipIds: [],
-    runCount: 0,
-    runCompletedClipIds: [],
-  };
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
   const completedClipIds = entry.completedClipIds.includes(clipId)
     ? entry.completedClipIds
     : [...entry.completedClipIds, clipId];
@@ -375,12 +395,7 @@ export function markLearnChapterCompleted(
   chapterSlug: string,
   completedAt = new Date().toISOString(),
 ): StoredProgress {
-  const entry = progress.learn[chapterSlug] ?? {
-    currentClipIndex: 0,
-    completedClipIds: [],
-    runCount: 0,
-    runCompletedClipIds: [],
-  };
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
   if (entry.completedAt) {
     return progress;
   }
@@ -401,12 +416,7 @@ export function incrementLearnRunCount(
   progress: StoredProgress,
   chapterSlug: string,
 ): StoredProgress {
-  const entry = progress.learn[chapterSlug] ?? {
-    currentClipIndex: 0,
-    completedClipIds: [],
-    runCount: 0,
-    runCompletedClipIds: [],
-  };
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
 
   return {
     ...progress,
@@ -418,6 +428,67 @@ export function incrementLearnRunCount(
       },
     },
   };
+}
+
+export function markLearnClipReviewed(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clipId: string,
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  if (entry.reviewedClipIds.includes(clipId)) {
+    return progress;
+  }
+
+  const next: StoredProgress = {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
+        ...entry,
+        reviewedClipIds: [...entry.reviewedClipIds, clipId],
+      },
+    },
+  };
+
+  return bumpStreak(next);
+}
+
+/** Clears study / flashcard reviews. Hearing-exercise progress is kept. */
+export function resetLearnStudyProgress(
+  progress: StoredProgress,
+  chapterSlug: string,
+): StoredProgress {
+  const entry = progress.learn[chapterSlug];
+  if (!entry) return progress;
+
+  return {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
+        ...entry,
+        reviewedClipIds: [],
+      },
+    },
+  };
+}
+
+export function learnReviewedClipIds(
+  progress: StoredProgress,
+  chapterSlug: string,
+): string[] {
+  return progress.learn[chapterSlug]?.reviewedClipIds ?? [];
+}
+
+/** First clip the student has not reviewed yet, in catalog order. */
+export function firstUnreviewedIndex<T extends { id: string }>(
+  clips: readonly T[],
+  reviewedClipIds: readonly string[],
+): number {
+  const done = new Set(reviewedClipIds);
+  const index = clips.findIndex((clip) => !done.has(clip.id));
+  return index === -1 ? clips.length : index;
 }
 
 export function isLearnChapterCompleted(
@@ -450,18 +521,18 @@ export function resetLearnProgress(
   progress: StoredProgress,
   chapterSlug: string,
 ): StoredProgress {
-  const completedAt = progress.learn[chapterSlug]?.completedAt;
-  const completedClipIds = progress.learn[chapterSlug]?.completedClipIds ?? [];
-  const runCount = progress.learn[chapterSlug]?.runCount ?? 0;
+  const existing = progress.learn[chapterSlug];
+  const completedAt = existing?.completedAt;
   const next: StoredProgress = {
     ...progress,
     learn: {
       ...progress.learn,
       [chapterSlug]: {
         currentClipIndex: 0,
-        completedClipIds,
+        completedClipIds: existing?.completedClipIds ?? [],
         runCompletedClipIds: [],
-        runCount,
+        runCount: existing?.runCount ?? 0,
+        reviewedClipIds: existing?.reviewedClipIds ?? [],
         ...(completedAt ? { completedAt } : {}),
       },
     },

@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { ScoreResult, WordScore } from "@/lib/scoring";
 import { SessionClip } from "@/lib/content";
+import { ClipContentCard } from "@/components/session/ClipContentCard";
 
 interface FeedbackResultCardProps {
   result: ScoreResult;
@@ -75,33 +76,18 @@ export function FeedbackResultCard({
   if (isPerfect) {
     return (
       <div className="w-full mt-4">
-        <div className="w-full bg-white/80 backdrop-blur-xl rounded-[24px] p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4 border border-[#34C759]/20">
-          <div className="flex items-center">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#34C759]/10 text-[#34C759] text-[12px] font-bold uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
-              <span>Chính xác 100% · Hoàn hảo</span>
+        <ClipContentCard
+          clip={clip}
+          className="border-[#34C759]/20"
+          badge={
+            <div className="flex items-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#34C759]/10 text-[#34C759] text-[12px] font-bold uppercase tracking-wider">
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>Chính xác 100% · Hoàn hảo</span>
+              </div>
             </div>
-          </div>
-
-          <div className="bg-[#f5f5f7]/80 rounded-[16px] p-4 flex flex-col gap-3 border border-black/[0.05]">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-[#1d1d1f] text-lg leading-relaxed font-medium">
-                {clip.script}
-              </p>
-            </div>
-            {clip.translationVi && (
-              <>
-                <div className="h-px w-full bg-black/[0.05]"></div>
-                <div className="flex items-start gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-[#86868b] mt-0.5">translate</span>
-                  <p className="text-[15px] text-[#86868b] italic">
-                    “{clip.translationVi}”
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+          }
+        />
 
         <div className="flex flex-col gap-3 pt-6">
           <button

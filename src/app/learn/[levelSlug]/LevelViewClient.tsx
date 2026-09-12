@@ -39,6 +39,7 @@ export default function LevelViewClient({
   const shouldReduceMotion = useReducedMotion();
   const {
     completedLearnRunClipIdsFor,
+    reviewedLearnClipIdsFor,
     learnChapterCompleted,
     learnRunCountFor,
   } = useProgress();
@@ -178,6 +179,11 @@ export default function LevelViewClient({
               clipCount > 0 &&
               startedRunCompleted > 0 &&
               startedRunCompleted < clipCount;
+            const reviewedCount = Math.min(
+              clipCount,
+              reviewedLearnClipIdsFor(chapterKey).length,
+            );
+            const studyComplete = clipCount > 0 && reviewedCount >= clipCount;
             
             const content = (
               <>
@@ -201,6 +207,20 @@ export default function LevelViewClient({
                   {runCount > 0 && (
                     <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#1d1d1f]">
                       {runCount} lượt
+                    </span>
+                  )}
+                  {isAvailable && reviewedCount > 0 && (
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                        studyComplete
+                          ? "bg-[#e8f2fc] text-[#0066cc]"
+                          : "bg-[#f5f5f7] text-[#1d1d1f]"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                        menu_book
+                      </span>
+                      {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
                     </span>
                   )}
                 </div>
