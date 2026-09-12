@@ -187,43 +187,42 @@ export default function LevelViewClient({
             
             const content = (
               <>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                  <span className="shrink-0 text-sm font-medium uppercase tracking-wider text-[#86868b]">
-                    Chương {index + 1}
-                  </span>
-                  {!isAvailable && (
-                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-                      Coming soon
-                    </span>
-                  )}
-                  {isCompleted && (
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
-                      <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-                        check_circle
+                {(!isAvailable || isCompleted || runCount > 0 || (isAvailable && reviewedCount > 0)) && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                    {!isAvailable && (
+                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                        Coming soon
                       </span>
-                      Đã hoàn thành
-                    </span>
-                  )}
-                  {runCount > 0 && (
-                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#1d1d1f]">
-                      {runCount} lượt
-                    </span>
-                  )}
-                  {isAvailable && reviewedCount > 0 && (
-                    <span
-                      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                        studyComplete
-                          ? "bg-[#e8f2fc] text-[#0066cc]"
-                          : "bg-[#f5f5f7] text-[#1d1d1f]"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                        menu_book
+                    )}
+                    {isCompleted && (
+                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
+                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                          check_circle
+                        </span>
+                        Đã hoàn thành
                       </span>
-                      {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
-                    </span>
-                  )}
-                </div>
+                    )}
+                    {runCount > 0 && (
+                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#1d1d1f]">
+                        {runCount} lượt
+                      </span>
+                    )}
+                    {isAvailable && reviewedCount > 0 && (
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                          studyComplete
+                            ? "bg-[#e8f2fc] text-[#0066cc]"
+                            : "bg-[#f5f5f7] text-[#1d1d1f]"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                          menu_book
+                        </span>
+                        {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}

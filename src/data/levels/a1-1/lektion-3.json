@@ -120,11 +120,6 @@
       "translationVi": "anh ấy lặp lại / ông ấy lặp lại"
     },
     {
-      "filename": "a11-tag3-60-sie-Sie-wiederholen.mp3",
-      "script": "sie wiederholen",
-      "translationVi": "họ lặp lại / ngài lặp lại"
-    },
-    {
       "filename": "a11-tag3-61-intro-sprechen.mp3",
       "script": "sprechen",
       "translationVi": "nói (ngôn ngữ...)"
@@ -138,11 +133,6 @@
       "filename": "a11-tag3-63-du-sprichst.mp3",
       "script": "du sprichst",
       "translationVi": "bạn nói / cậu nói"
-    },
-    {
-      "filename": "a11-tag3-64-wir-sprechen.mp3",
-      "script": "wir sprechen",
-      "translationVi": "chúng tôi nói / chúng ta nói"
     },
     {
       "filename": "a11-tag3-65-intro-sagen.mp3",
@@ -160,19 +150,9 @@
       "translationVi": "chúng tôi nói / chúng ta nói"
     },
     {
-      "filename": "a11-tag3-68-ihr-sagt.mp3",
-      "script": "ihr sagt",
-      "translationVi": "các bạn nói / các cậu nói"
-    },
-    {
       "filename": "a11-tag3-69-intro-kaufen.mp3",
       "script": "kaufen",
       "translationVi": "mua"
-    },
-    {
-      "filename": "a11-tag3-70-ich-kaufe.mp3",
-      "script": "ich kaufe",
-      "translationVi": "tôi mua"
     },
     {
       "filename": "a11-tag3-71-du-kaufst.mp3",
@@ -188,11 +168,6 @@
       "filename": "a11-tag3-73-intro-verkaufen.mp3",
       "script": "verkaufen",
       "translationVi": "bán"
-    },
-    {
-      "filename": "a11-tag3-74-er-verkauft.mp3",
-      "script": "er verkauft",
-      "translationVi": "anh ấy bán / ông ấy bán"
     },
     {
       "filename": "a11-tag3-75-wir-verkaufen.mp3",
@@ -220,19 +195,9 @@
       "translationVi": "bạn hiểu / cậu hiểu"
     },
     {
-      "filename": "a11-tag3-80-sie-Sie-verstehen.mp3",
-      "script": "sie verstehen",
-      "translationVi": "họ hiểu / ngài hiểu"
-    },
-    {
       "filename": "a11-tag3-81-intro-brauchen.mp3",
       "script": "brauchen",
       "translationVi": "cần"
-    },
-    {
-      "filename": "a11-tag3-82-es-braucht.mp3",
-      "script": "es braucht",
-      "translationVi": "nó cần"
     },
     {
       "filename": "a11-tag3-83-wir-brauchen.mp3",
@@ -260,19 +225,9 @@
       "translationVi": "anh ấy sống / ông ấy sống"
     },
     {
-      "filename": "a11-tag3-88-sie-Sie-wohnen.mp3",
-      "script": "sie wohnen",
-      "translationVi": "họ sống / ngài sống"
-    },
-    {
       "filename": "a11-tag3-89-intro-leben.mp3",
       "script": "leben",
       "translationVi": "sống"
-    },
-    {
-      "filename": "a11-tag3-90-du-lebst.mp3",
-      "script": "du lebst",
-      "translationVi": "bạn sống / cậu sống"
     },
     {
       "filename": "a11-tag3-91-wir-leben.mp3",
@@ -293,16 +248,6 @@
       "filename": "a11-tag3-94-ich-lese.mp3",
       "script": "ich lese",
       "translationVi": "tôi đọc"
-    },
-    {
-      "filename": "a11-tag3-95-du-liest.mp3",
-      "script": "du liest",
-      "translationVi": "bạn đọc / cậu đọc"
-    },
-    {
-      "filename": "a11-tag3-96-sie-Sie-lesen.mp3",
-      "script": "sie lesen",
-      "translationVi": "họ đọc / ngài đọc"
     },
     {
       "filename": "a11-tag3-97-intro-wissen.mp3",
@@ -330,39 +275,9 @@
       "translationVi": "ngủ"
     },
     {
-      "filename": "a11-tag3-102-du-schlaefst.mp3",
-      "script": "du schläfst",
-      "translationVi": "bạn ngủ / cậu ngủ"
-    },
-    {
-      "filename": "a11-tag3-103-er-schlaeft.mp3",
-      "script": "er schläft",
-      "translationVi": "anh ấy ngủ / ông ấy ngủ"
-    },
-    {
-      "filename": "a11-tag3-104-wir-schlafen.mp3",
-      "script": "wir schlafen",
-      "translationVi": "chúng tôi ngủ / chúng ta ngủ"
-    },
-    {
       "filename": "a11-tag3-105-intro-beginnen.mp3",
       "script": "beginnen",
       "translationVi": "bắt đầu"
-    },
-    {
-      "filename": "a11-tag3-106-es-beginnt.mp3",
-      "script": "es beginnt",
-      "translationVi": "nó bắt đầu"
-    },
-    {
-      "filename": "a11-tag3-107-wir-beginnen.mp3",
-      "script": "wir beginnen",
-      "translationVi": "chúng tôi bắt đầu / chúng ta bắt đầu"
-    },
-    {
-      "filename": "a11-tag3-108-ihr-beginnt.mp3",
-      "script": "ihr beginnt",
-      "translationVi": "các bạn bắt đầu / các cậu bắt đầu"
     },
     {
       "filename": "a11-tag3-109-intro-bleiben.mp3",
@@ -658,66 +573,6 @@
       "filename": "a11-tag3-167-satz-die-kinder-schlafen.mp3",
       "script": "Die Kinder schlafen.",
       "translationVi": "Những đứa trẻ ngủ."
-    },
-    {
-      "filename": "a11-tag3-168-satz-was-sagst-du.mp3",
-      "script": "Was sagst du?",
-      "translationVi": "Bạn nói gì? / Cậu nói gì?"
-    },
-    {
-      "filename": "a11-tag3-169-satz-mein-bruder-wohnt-in-deutschland.mp3",
-      "script": "Mein Bruder wohnt in Deutschland.",
-      "translationVi": "Anh trai/em trai của tôi sống ở Đức."
-    },
-    {
-      "filename": "a11-tag3-170-satz-wo-wohnt-dein-bruder.mp3",
-      "script": "Wo wohnt dein Bruder?",
-      "translationVi": "Anh trai/em trai bạn sống ở đâu?"
-    },
-    {
-      "filename": "a11-tag3-171-satz-ich-verstehe-sie-nicht.mp3",
-      "script": "Ich verstehe sie nicht.",
-      "translationVi": "Tôi không hiểu cô ấy / họ."
-    },
-    {
-      "filename": "a11-tag3-172-satz-was-brauchen-sie.mp3",
-      "script": "Was brauchen sie?",
-      "translationVi": "Họ cần gì?"
-    },
-    {
-      "filename": "a11-tag3-173-satz-wann-beginnt-der-unterricht.mp3",
-      "script": "Wann beginnt der Unterricht?",
-      "translationVi": "Khi nào tiết học bắt đầu?"
-    },
-    {
-      "filename": "a11-tag3-174-satz-bleibst-du-heute-zu-hause.mp3",
-      "script": "Bleibst du heute zu Hause?",
-      "translationVi": "Hôm nay bạn có ở nhà không?"
-    },
-    {
-      "filename": "a11-tag3-175-satz-wie-findest-du-deutschland.mp3",
-      "script": "Wie findest du Deutschland?",
-      "translationVi": "Bạn thấy nước Đức như thế nào?"
-    },
-    {
-      "filename": "a11-tag3-176-satz-was-redet-ihr.mp3",
-      "script": "Was redet ihr?",
-      "translationVi": "Các bạn đang nói chuyện gì vậy?"
-    },
-    {
-      "filename": "a11-tag3-177-satz-seid-ihr-hier.mp3",
-      "script": "Seid ihr hier?",
-      "translationVi": "Các bạn có ở đây không?"
-    },
-    {
-      "filename": "a11-tag3-178-satz-ich-vergesse-es-schon.mp3",
-      "script": "Ich vergesse es schon.",
-      "translationVi": "Tôi quên rồi."
-    },
-    {
-      "filename": "a11-tag3-179-satz-wo-wohnen-die-kinder.mp3",
-      "script": "Wo wohnen die Kinder?",
-      "translationVi": "Bọn trẻ con sống ở đâu?"
     },
     {
       "filename": "a11-tag3-180-satz-versteht-ihr.mp3",
