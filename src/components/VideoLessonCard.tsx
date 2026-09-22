@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ChapterVideo } from "@/lib/levels";
 import {
   lessonVideoProgressKey,
   lessonVideoStatus,
+  type LessonVideoProgress,
   type LessonVideoStatus,
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
@@ -29,6 +30,20 @@ const STATUS_LABEL: Record<LessonVideoStatus, string> = {
   "in-progress": "Đang xem",
   watched: "Đã xem",
 };
+
+function firstUncompletedVideoIndex(
+  videos: readonly ChapterVideo[],
+  levelSlug: string,
+  chapterSlug: string,
+  lessonVideoProgressFor: (key: string) => LessonVideoProgress | undefined,
+): number | null {
+  const index = videos.findIndex((item) => {
+    if (!item.videoId) return false;
+    const key = lessonVideoProgressKey(levelSlug, chapterSlug, item.videoId);
+    return lessonVideoStatus(lessonVideoProgressFor(key)) !== "watched";
+  });
+  return index === -1 ? null : index;
+}
 
 const END_THRESHOLD_SECONDS = 1.5;
 
@@ -485,13 +500,44 @@ export function VideoLessonCard({
 }: VideoLessonCardProps) {
   const { lessonVideoProgressFor } = useProgress();
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const video = videos[selectedIndex] ?? videos[0];
-  if (!video) return null;
+  const pickedByUserRef = useRef(false);
+  const selectedWasWatchedRef = useRef(false);
+  const prevProgressKeyRef = useRef<string | null>(null);
 
-  const progressKey = video.videoId
+  const uncompletedIndex = firstUncompletedVideoIndex(
+    videos,
+    levelSlug,
+    chapterSlug,
+    lessonVideoProgressFor,
+  );
+  const video = videos[selectedIndex] ?? videos[0];
+  const progressKey = video?.videoId
     ? lessonVideoProgressKey(levelSlug, chapterSlug, video.videoId)
     : null;
   const entry = progressKey ? lessonVideoProgressFor(progressKey) : undefined;
+  const selectedWatched = lessonVideoStatus(entry) === "watched";
+
+  useLayoutEffect(() => {
+    if (pickedByUserRef.current || uncompletedIndex == null) return;
+    setSelectedIndex(uncompletedIndex);
+  }, [uncompletedIndex]);
+
+  useEffect(() => {
+    const keyChanged = prevProgressKeyRef.current !== progressKey;
+    prevProgressKeyRef.current = progressKey;
+    if (keyChanged) {
+      selectedWasWatchedRef.current = selectedWatched;
+      return;
+    }
+    const wasWatched = selectedWasWatchedRef.current;
+    selectedWasWatchedRef.current = selectedWatched;
+    if (!wasWatched && selectedWatched && uncompletedIndex != null) {
+      pickedByUserRef.current = false;
+      setSelectedIndex(uncompletedIndex);
+    }
+  }, [progressKey, selectedWatched, uncompletedIndex]);
+
+  if (!video) return null;
 
   return (
     <section className="flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-7">
@@ -540,7 +586,10 @@ export function VideoLessonCard({
                 <button
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => setSelectedIndex(index)}
+                  onClick={() => {
+                    pickedByUserRef.current = true;
+                    setSelectedIndex(index);
+                  }}
                   className={`flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition ${
                     selected ? "bg-[#e8f2fc]" : "bg-[#f5f5f7] hover:bg-[#ececf1]"
                   }`}

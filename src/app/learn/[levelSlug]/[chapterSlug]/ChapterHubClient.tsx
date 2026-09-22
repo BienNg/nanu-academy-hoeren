@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ProfileButton } from "@/components/ProfileButton";
 import { useProgress } from "@/lib/useProgress";
-import { catalogCompletedCount } from "@/lib/progress";
+import { catalogCompletedCount, lessonVideoProgressKey, lessonVideoStatus } from "@/lib/progress";
 import type { CefrLevel, ChapterVideo, LevelChapterMeta } from "@/lib/levels";
 import { VideoLessonCard } from "@/components/VideoLessonCard";
 
@@ -42,6 +42,14 @@ function MaterialIcon({
   );
 }
 
+type LockInfo = {
+  locked: true;
+  icon: string;
+  message: string;
+} | {
+  locked: false;
+};
+
 function ModeCard({
   href,
   icon,
@@ -50,6 +58,7 @@ function ModeCard({
   progressLabel,
   progress,
   disabled,
+  lockInfo,
 }: {
   href: string;
   icon: string;
@@ -58,9 +67,13 @@ function ModeCard({
   progressLabel: string;
   progress: number;
   disabled?: boolean;
+  lockInfo?: LockInfo;
 }) {
+  const isLocked = lockInfo?.locked === true;
+  const isDisabled = disabled || isLocked;
+
   const cardClassName = `group relative flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 p-6 backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-7 ${
-    disabled
+    isDisabled
       ? "cursor-not-allowed bg-white/40 shadow-none"
       : "cursor-pointer bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] active:scale-[0.97]"
   }`;
@@ -70,54 +83,63 @@ function ModeCard({
       <div className="flex items-start justify-between gap-4">
         <div
           className={`flex h-12 w-12 items-center justify-center rounded-[16px] ${
-            disabled ? "bg-[#f5f5f7]/70 text-[#d2d2d7]" : "bg-[#e8f2fc] text-[#0066cc]"
+            isDisabled ? "bg-[#f5f5f7]/70 text-[#d2d2d7]" : "bg-[#e8f2fc] text-[#0066cc]"
           }`}
         >
           <MaterialIcon name={icon} className="text-[24px]" filled />
         </div>
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            disabled
+            isDisabled
               ? "bg-[#f5f5f7]/50 text-[#d2d2d7]"
               : "bg-[#f5f5f7] text-[#86868b] group-hover:scale-110 group-hover:bg-[#0066cc] group-hover:text-white group-hover:shadow-md"
           }`}
         >
-          <MaterialIcon name={disabled ? "lock" : "arrow_forward"} className="text-xl" />
+          <MaterialIcon name={isDisabled ? "lock" : "arrow_forward"} className="text-xl" />
         </div>
       </div>
       <div className="flex flex-col gap-2">
         <h2
           className={`text-2xl font-semibold tracking-tight sm:text-[28px] ${
-            disabled ? "text-[#86868b]" : "text-[#1d1d1f] group-hover:text-[#0066cc]"
+            isDisabled ? "text-[#86868b]" : "text-[#1d1d1f] group-hover:text-[#0066cc]"
           }`}
           style={{ letterSpacing: "-0.02em" }}
         >
           {title}
         </h2>
-        <p className="text-[15px] font-medium leading-relaxed text-[#86868b] sm:text-[17px]">
-          {description}
-        </p>
+        {isLocked ? (
+          <div className="flex items-center gap-2 text-[15px] font-medium leading-relaxed text-[#86868b] sm:text-[17px]">
+            <MaterialIcon name={lockInfo.icon} className="text-[18px] text-[#0066cc]" />
+            <span>{lockInfo.message}</span>
+          </div>
+        ) : (
+          <p className="text-[15px] font-medium leading-relaxed text-[#86868b] sm:text-[17px]">
+            {description}
+          </p>
+        )}
       </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">
-            {progressLabel}
-          </span>
-          <span className="text-[13px] font-semibold text-[#1d1d1f]">
-            {Math.round(progress * 100)}%
-          </span>
+      {!isLocked && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">
+              {progressLabel}
+            </span>
+            <span className="text-[13px] font-semibold text-[#1d1d1f]">
+              {Math.round(progress * 100)}%
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]">
+            <div
+              className="h-full rounded-full bg-[#0066cc] transition-all duration-500"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]">
-          <div
-            className="h-full rounded-full bg-[#0066cc] transition-all duration-500"
-            style={{ width: `${Math.round(progress * 100)}%` }}
-          />
-        </div>
-      </div>
+      )}
     </>
   );
 
-  if (disabled) {
+  if (isDisabled) {
     return <div className={cardClassName}>{content}</div>;
   }
 
@@ -140,6 +162,7 @@ export default function ChapterHubClient({
     reviewedLearnClipIdsFor,
     learnChapterCompleted,
     learnStudyCompleted,
+    lessonVideoProgressFor,
   } = useProgress();
 
   const clipCount = clipIds.length;
@@ -165,6 +188,34 @@ export default function ChapterHubClient({
       : practiceComplete
         ? 1
         : practicedCount / clipCount;
+
+  // Check video completion status
+  const videoCount = videos.length;
+  const watchedVideoCount = videos.filter((video) => {
+    if (!video.videoId) return false;
+    const key = lessonVideoProgressKey(level.slug, chapter.slug, video.videoId);
+    const entry = lessonVideoProgressFor(key);
+    return lessonVideoStatus(entry) === "watched";
+  }).length;
+  const allVideosWatched = videoCount === 0 || watchedVideoCount >= videoCount;
+
+  // Lock info for Study card (locked if videos exist and not all watched)
+  const studyLockInfo: LockInfo = !allVideosWatched
+    ? {
+        locked: true,
+        icon: "smart_display",
+        message: `Xem hết ${videoCount - watchedVideoCount} video bài học để mở khoá`,
+      }
+    : { locked: false };
+
+  // Lock info for Practice card (locked if study not complete)
+  const practiceLockInfo: LockInfo = !studyComplete
+    ? {
+        locked: true,
+        icon: "menu_book",
+        message: "Hoàn thành phần Học nội dung để mở khoá",
+      }
+    : { locked: false };
 
   return (
     <main
@@ -243,6 +294,7 @@ export default function ChapterHubClient({
             }
             progress={studyProgress}
             disabled={!isAvailable}
+            lockInfo={studyLockInfo}
           />
           <ModeCard
             href={`/learn/${level.slug}/${chapter.slug}/practice`}
@@ -258,6 +310,7 @@ export default function ChapterHubClient({
             }
             progress={practiceProgress}
             disabled={!isAvailable}
+            lockInfo={practiceLockInfo}
           />
         </motion.div>
       </section>
