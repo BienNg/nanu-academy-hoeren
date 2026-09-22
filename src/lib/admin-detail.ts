@@ -195,15 +195,7 @@ function projectLesson(
     videos.length === 0 || videos.every((video) => video.status === "watched");
   const touched = listeningTouched || videoTouched || completedCount > 0 || reviewedCount > 0;
   const hasItems = clipTotal > 0 || videos.length > 0;
-  const status: LessonStatus = !hasItems
-    ? learn?.completedAt
-      ? "completed"
-      : "not-started"
-    : cardsComplete && videosComplete && (touched || Boolean(learn?.completedAt))
-      ? "completed"
-      : touched
-        ? "in-progress"
-        : "not-started";
+
   const runCount = learn?.runCount ?? 0;
   const studyRunCount = learn?.studyRunCount ?? 0;
   const listeningCompletedOnce =
@@ -265,6 +257,21 @@ function projectLesson(
             struggling: listeningStruggling,
           },
         ];
+
+  // Calculate if everything inside this lesson is completed
+  const allVideosCompleted = videos.length === 0 || videos.every((v) => v.status === "watched");
+  const allActivitiesCompleted = activities.length === 0 || activities.every((a) => a.status === "completed");
+  const isFullyCompleted = hasItems && allVideosCompleted && allActivitiesCompleted;
+
+  const status: LessonStatus = !hasItems
+    ? learn?.completedAt
+      ? "completed"
+      : "not-started"
+    : isFullyCompleted || (cardsComplete && videosComplete && (touched || Boolean(learn?.completedAt)))
+      ? "completed"
+      : touched
+        ? "in-progress"
+        : "not-started";
   const lastActivityAt = latestIso([
     learn?.completedAt,
     learn?.studyCompletedAt,

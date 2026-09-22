@@ -48,24 +48,28 @@ function formatClock(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
-function ProgressBar({ percent }: { percent: number }) {
+function SummaryStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: string;
+}) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
-      <div
-        className={`h-full rounded-full ${percent >= 100 ? "bg-[#34C759]" : "bg-primary-container"}`}
-        style={{ width: `${percent}%` }}
-      />
-    </div>
-  );
-}
-
-function SummaryStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl bg-surface-container-low px-space-16 py-space-12">
-      <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-        {label}
+    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
+      <div className="flex items-center gap-space-8">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
+          <MaterialIcon name={icon} className="text-[18px]" />
+        </div>
+        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          {label}
+        </p>
+      </div>
+      <p className="mt-space-12 font-headline-lg text-headline-lg text-on-surface">
+        {value}
       </p>
-      <p className="mt-space-4 font-headline-sm text-headline-sm text-on-surface">{value}</p>
     </div>
   );
 }
@@ -178,28 +182,39 @@ function LessonBlock({ lesson }: { lesson: AdminLessonDetail }) {
 
   return (
     <div
-      className={`rounded-2xl border bg-surface-container-lowest px-space-16 py-space-12 ${
-        lesson.struggling ? "border-[#ff9500]" : "border-outline-variant/30"
+      className={`overflow-hidden rounded-2xl border bg-surface-container-lowest shadow-sm ${
+        lesson.struggling ? "border-[#ff9500] ring-1 ring-[#ff9500]" : "border-outline-variant/30"
       }`}
     >
-      <div className="flex items-baseline justify-between gap-space-8">
-        <h4 className="font-label-md text-label-md font-semibold text-on-surface">{lesson.label}</h4>
-        <span className="shrink-0 font-caption text-caption text-on-surface-variant">
-          {when ?? "No date saved"}
+      <div className="flex items-center justify-between gap-space-8 border-b border-outline-variant/20 bg-surface-container-low px-space-16 py-space-12">
+        <div className="flex items-center gap-space-8">
+          {lesson.status === "completed" ? (
+            <MaterialIcon name="check_circle" className="text-[18px] text-[#34C759]" filled />
+          ) : lesson.status === "in-progress" ? (
+            <MaterialIcon name="pending" className="text-[18px] text-primary" />
+          ) : (
+            <MaterialIcon name="radio_button_unchecked" className="text-[18px] text-outline-variant" />
+          )}
+          <h4 className="font-label-md text-label-md font-semibold text-on-surface">{lesson.label}</h4>
+        </div>
+        <span className="shrink-0 font-caption text-caption font-medium text-on-surface-variant">
+          {when ?? "No date"}
         </span>
       </div>
-      {hasMeters ? (
-        <ul className="mt-space-12 flex flex-wrap items-start gap-x-space-8 gap-y-space-12">
-          {lesson.videos.map((video) => (
-            <VideoMeter key={video.id} video={video} />
-          ))}
-          {lesson.activities.map((activity) => (
-            <ActivityMeter key={activity.id} activity={activity} />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-space-8 font-body-sm text-body-sm text-outline">No cards in this lesson.</p>
-      )}
+      <div className="px-space-16 py-space-16">
+        {hasMeters ? (
+          <ul className="flex flex-wrap items-start gap-x-space-12 gap-y-space-16">
+            {lesson.videos.map((video) => (
+              <VideoMeter key={video.id} video={video} />
+            ))}
+            {lesson.activities.map((activity) => (
+              <ActivityMeter key={activity.id} activity={activity} />
+            ))}
+          </ul>
+        ) : (
+          <p className="font-body-sm text-body-sm text-outline">No cards in this lesson.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -260,48 +275,57 @@ export function StudentDetailModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="sticky top-0 z-10 border-b border-outline-variant/30 bg-surface-container-lowest px-space-20 py-space-16 sm:px-space-24">
-          <div className="flex items-start justify-between gap-space-12">
-            <div className="min-w-0">
-              <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
-                Student
-              </p>
-              <h2
-                id="student-detail-title"
-                className="truncate font-headline-sm text-headline-sm text-on-surface"
-              >
-                {row.displayName}
-              </h2>
-              {row.email && row.email !== row.displayName ? (
-                <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
-                  {row.email}
-                </p>
-              ) : null}
+          <div className="flex items-start justify-between gap-space-16">
+            <div className="flex min-w-0 flex-1 items-center gap-space-16">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary font-headline-md text-headline-md uppercase text-on-primary shadow-sm">
+                {row.displayName.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-space-8">
+                  <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
+                    Student
+                  </p>
+                  <span className="h-1 w-1 rounded-full bg-outline-variant/50" />
+                  <span className="inline-flex items-center gap-space-4 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                    <MaterialIcon
+                      name="local_fire_department"
+                      className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
+                      filled={row.streakDays > 0}
+                    />
+                    {row.streakDays} {row.streakDays === 1 ? "day" : "days"}
+                  </span>
+                </div>
+                <h2
+                  id="student-detail-title"
+                  className="mt-1 truncate font-headline-md text-headline-md text-on-surface"
+                >
+                  {row.displayName}
+                </h2>
+                <div className="mt-1 flex flex-wrap items-center gap-x-space-8 gap-y-1 font-body-sm text-body-sm text-on-surface-variant">
+                  {row.email && row.email !== row.displayName ? (
+                    <span className="truncate">{row.email}</span>
+                  ) : null}
+                  {row.email && row.email !== row.displayName && lastLogin ? (
+                    <span className="h-1 w-1 rounded-full bg-outline-variant/50" />
+                  ) : null}
+                  <span>{lastLogin ? `Last login ${lastLogin}` : "Never logged in"}</span>
+                </div>
+              </div>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-container"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface transition-colors hover:bg-surface-container"
             >
-              <MaterialIcon name="close" className="text-[22px]" />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
-          <div className="mt-space-12 flex flex-wrap gap-x-space-16 gap-y-1 font-body-sm text-body-sm text-on-surface-variant">
-            <span>{lastLogin ? `Last login ${lastLogin}` : "Never logged in"}</span>
-            <span className="inline-flex items-center gap-space-4">
-              <MaterialIcon
-                name="local_fire_department"
-                className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
-                filled={row.streakDays > 0}
-              />
-              {row.streakDays} {row.streakDays === 1 ? "day" : "days"}
-            </span>
-          </div>
-          <div className="mt-space-16 grid grid-cols-2 gap-space-8 sm:grid-cols-4">
-            <SummaryStat label="Courses started" value={detail.coursesStarted} />
-            <SummaryStat label="Lessons completed" value={detail.lessonsCompleted} />
-            <SummaryStat label="Listening runs" value={detail.listeningRepetitions} />
-            <SummaryStat label="Videos watched" value={detail.videosWatched} />
+          <div className="mt-space-24 grid grid-cols-2 gap-space-12 sm:grid-cols-4">
+            <SummaryStat label="Courses" value={detail.coursesStarted} icon="menu_book" />
+            <SummaryStat label="Lessons" value={detail.lessonsCompleted} icon="check_circle" />
+            <SummaryStat label="Listening" value={detail.listeningRepetitions} icon="headphones" />
+            <SummaryStat label="Videos" value={detail.videosWatched} icon="smart_display" />
           </div>
         </header>
 
@@ -315,7 +339,7 @@ export function StudentDetailModal({
               <div
                 role="tablist"
                 aria-label="Courses"
-                className="flex gap-space-8 overflow-x-auto pb-space-4"
+                className="flex gap-space-8 overflow-x-auto pb-space-8 pt-space-4"
               >
                 {detail.startedCourses.map((entry) => {
                   const selected = entry.id === course?.id;
@@ -326,37 +350,40 @@ export function StudentDetailModal({
                       role="tab"
                       aria-selected={selected}
                       onClick={() => setCourseId(entry.id)}
-                      className={`shrink-0 rounded-full px-space-12 py-space-8 text-left transition-colors ${
+                      className={`relative flex min-w-[160px] shrink-0 flex-col justify-center overflow-hidden rounded-xl border px-space-16 py-space-12 text-left transition-all ${
                         selected
-                          ? "bg-primary-container text-on-primary-container"
-                          : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                          ? "border-primary bg-primary-fixed text-on-primary-fixed ring-1 ring-primary"
+                          : "border-outline-variant/30 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low"
                       }`}
                     >
-                      <span className="block font-label-md text-label-md font-semibold">
+                      <span className={`block font-label-md text-label-md ${selected ? "font-bold" : "font-semibold"}`}>
                         {entry.shortLabel}
                       </span>
-                      <span className="block font-caption text-caption opacity-80">
-                        {entry.percent}%
-                      </span>
+                      <div className="mt-space-8 flex items-center gap-space-8">
+                        <div className={`h-1.5 flex-1 overflow-hidden rounded-full ${selected ? "bg-primary-fixed-dim" : "bg-surface-container-highest"}`}>
+                          <div
+                            className={`h-full rounded-full ${selected ? "bg-primary" : "bg-outline"}`}
+                            style={{ width: `${entry.percent}%` }}
+                          />
+                        </div>
+                        <span className={`font-caption text-caption font-semibold ${selected ? "text-primary" : "text-on-surface-variant"}`}>
+                          {entry.percent}%
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
               </div>
 
               {course ? (
-                <div className="mt-space-16 flex flex-col gap-space-12">
-                  <div>
-                    <div className="flex items-baseline justify-between gap-space-8">
-                      <h3 className="font-label-md text-label-md font-semibold text-on-surface">
-                        {course.label}
-                      </h3>
-                      <span className="font-caption text-caption text-on-surface-variant">
-                        {lessons.filter((lesson) => lesson.status === "completed").length}/{lessons.length} lessons · {course.percent}%
-                      </span>
-                    </div>
-                    <div className="mt-space-8">
-                      <ProgressBar percent={course.percent} />
-                    </div>
+                <div className="mt-space-24 flex flex-col gap-space-12">
+                  <div className="flex items-baseline justify-between gap-space-8 px-space-4">
+                    <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+                      {course.label}
+                    </h3>
+                    <span className="font-label-sm text-label-sm font-medium text-on-surface-variant bg-surface-container-low px-space-8 py-space-4 rounded-full">
+                      {lessons.filter((lesson) => lesson.status === "completed").length}/{lessons.length} lessons completed
+                    </span>
                   </div>
                   {lessons.length === 0 ? (
                     <p className="font-body-sm text-body-sm text-outline">
