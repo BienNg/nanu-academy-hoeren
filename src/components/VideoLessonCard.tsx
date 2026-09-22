@@ -47,6 +47,9 @@ function firstUncompletedVideoIndex(
 
 const END_THRESHOLD_SECONDS = 1.5;
 
+/** Shifts the embed so YouTube's title and Share / Save sit outside the clip. */
+const YOUTUBE_CHROME_CROP_PX = 60;
+
 function MaterialIcon({
   name,
   className,
@@ -219,6 +222,7 @@ function YouTubePane({
               iframe.style.inset = "0";
               iframe.style.width = "100%";
               iframe.style.height = "100%";
+              iframe.style.border = "none";
               setReady(true);
             },
             onStateChange: (event) => {
@@ -390,7 +394,16 @@ function YouTubePane({
   return (
     <div className="flex flex-col gap-4">
       <div className="relative aspect-video w-full overflow-hidden rounded-[16px] bg-[#1d1d1f]">
-        <div ref={hostRef} className="absolute inset-0" />
+        <div className="absolute inset-0 overflow-hidden">
+          <div
+            ref={hostRef}
+            className="absolute left-0 w-full"
+            style={{
+              top: -YOUTUBE_CHROME_CROP_PX,
+              height: `calc(100% + ${YOUTUBE_CHROME_CROP_PX * 2}px)`,
+            }}
+          />
+        </div>
         {!ready ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-[15px] font-medium text-white/80">
             Đang tải video…
