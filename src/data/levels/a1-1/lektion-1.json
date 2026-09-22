@@ -10,12 +10,12 @@
     { "filename": "ü.mp3", "script": "ü", "translationVi": "nguyên âm biến thể ü" },
     { "filename": "ö.mp3", "script": "ö", "translationVi": "nguyên âm biến thể ö" },
     { "filename": "ä.mp3", "script": "ä", "translationVi": "nguyên âm biến thể ä" },
-    { "filename": "eu.mp3", "script": "eu", "translationVi": "nguyên âm đôi eu" },
+    { "filename": "eu.mp3", "script": "eu äu", "translationVi": "nguyên âm đôi eu/äu" },
     { "filename": "ch hart.mp3", "script": "ch", "translationVi": "ch cứng (như trong \"Buch\")" },
     { "filename": "ei.mp3", "script": "ei", "translationVi": "nguyên âm đôi ei" },
     { "filename": "ch weich.mp3", "script": "ch", "translationVi": "ch mềm (như trong \"ich\")" },
+    { "filename": "sch.mp3", "script": "sch", "translationVi": "tổ hợp sch" },
     { "filename": "sp.mp3", "script": "sp", "translationVi": "tổ hợp sp" },
-    { "filename": "st.mp3", "script": "st", "translationVi": "tổ hợp st" },
-    { "filename": "sch.mp3", "script": "sch", "translationVi": "tổ hợp sch" }
+    { "filename": "st.mp3", "script": "st", "translationVi": "tổ hợp st" }
   ]
 }
