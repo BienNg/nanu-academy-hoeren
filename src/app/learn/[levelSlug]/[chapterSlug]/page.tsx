@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
   getChapterClips,
+  getChapterVideos,
   getLevelChapters,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
@@ -30,12 +31,14 @@ export default async function LearnChapterPage({
   }
 
   const clips = getChapterClips(levelSlug, chapterSlug);
+  const videos = getChapterVideos(levelSlug, chapterSlug);
 
   return (
     <ChapterHubClient
       level={level}
       chapter={chapter}
       clipIds={clips.map((clip) => clip.id)}
+      videos={videos}
     />
   );
 }

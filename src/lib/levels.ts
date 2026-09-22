@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
 import type { SessionClip } from "@/lib/content";
+import { parseYouTubeUrl } from "@/lib/youtube";
 
 export type LevelChapterMeta = {
   id: string;
@@ -21,8 +22,22 @@ type StoredClip = {
   translationVi?: string;
 };
 
+type StoredVideo = {
+  title?: unknown;
+  url?: unknown;
+};
+
 type StoredChapterFile = {
   clips: StoredClip[];
+  videos?: StoredVideo[];
+};
+
+/** A lesson video entered as a title plus a YouTube URL. `videoId` is null when the URL is not playable. */
+export type ChapterVideo = {
+  title: string;
+  url: string;
+  videoId: string | null;
+  startSeconds: number;
 };
 
 type CatalogLevel = {
@@ -147,6 +162,35 @@ export function getChapterClips(
       existsSync(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
     )
     .map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
+}
+
+function toChapterVideo(entry: StoredVideo): ChapterVideo | null {
+  const title = typeof entry.title === "string" ? entry.title.trim() : "";
+  const url = typeof entry.url === "string" ? entry.url.trim() : "";
+  if (!title || !url) return null;
+
+  const parsed = parseYouTubeUrl(url);
+  return {
+    title,
+    url,
+    videoId: parsed?.videoId ?? null,
+    startSeconds: parsed?.startSeconds ?? 0,
+  };
+}
+
+/** Videos listed on a Lektion. Missing or empty means the lesson view hides the video card. */
+export function getChapterVideos(
+  levelSlug: string,
+  chapterSlug: string,
+): ChapterVideo[] {
+  const file = loadChapterFile(levelSlug, chapterSlug);
+  if (!file?.videos) return [];
+
+  return file.videos.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const video = toChapterVideo(entry);
+    return video ? [video] : [];
+  });
 }
 
 /** Discover chapter JSON files under a level folder (dev helper / validation). */

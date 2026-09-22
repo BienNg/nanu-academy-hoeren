@@ -45,9 +45,22 @@ function emptyLearnProgress(): LearnProgress {
   };
 }
 
+export type LessonVideoProgress = {
+  /** Seconds to resume from. */
+  positionSeconds: number;
+  /** ISO timestamp of the last position or watched-state write. Newer wins on merge. */
+  updatedAt: string;
+  /** Set when the learner marks the video watched. Cleared when they undo it. */
+  watchedAt?: string;
+};
+
+export type LessonVideoStatus = "not-started" | "in-progress" | "watched";
+
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
   learn: Record<string, LearnProgress>;
+  /** Resume point and watched state, keyed by level/chapter/youtube id. */
+  videos: Record<string, LessonVideoProgress>;
   /** Day streak for header display; defaults when unset. */
   streakDays: number;
   /** ISO date (YYYY-MM-DD) of last practice day, for streak updates. */
@@ -73,6 +86,7 @@ export const DEFAULT_PROGRESS: StoredProgress = {
     },
   },
   learn: {},
+  videos: {},
   streakDays: 0,
 };
 
@@ -156,6 +170,36 @@ function normalizeLearnTrack(
   return track;
 }
 
+function normalizeVideoEntry(value: unknown): LessonVideoProgress | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const position = record.positionSeconds;
+  const positionSeconds =
+    typeof position === "number" && Number.isFinite(position)
+      ? Math.min(86_400, Math.max(0, position))
+      : 0;
+  const updatedAt = typeof record.updatedAt === "string" ? record.updatedAt : "";
+  const entry: LessonVideoProgress = { positionSeconds, updatedAt };
+  if (typeof record.watchedAt === "string" && record.watchedAt.length > 0) {
+    entry.watchedAt = record.watchedAt;
+  }
+  if (!entry.watchedAt && positionSeconds === 0 && updatedAt.length === 0) {
+    return null;
+  }
+  return entry;
+}
+
+function normalizeVideos(parsed: unknown): Record<string, LessonVideoProgress> {
+  const videos: Record<string, LessonVideoProgress> = {};
+  if (!parsed || typeof parsed !== "object") return videos;
+  for (const [key, entry] of Object.entries(parsed)) {
+    if (!key) continue;
+    const normalized = normalizeVideoEntry(entry);
+    if (normalized) videos[key] = normalized;
+  }
+  return videos;
+}
+
 export function parseProgress(raw: string | null): StoredProgress {
   if (!raw) return structuredClone(DEFAULT_PROGRESS);
   try {
@@ -171,10 +215,12 @@ export function normalizeProgress(
 ): StoredProgress {
   const interview = normalizeTrack(parsed?.interview, DEFAULT_PROGRESS.interview);
   const learn = normalizeLearnTrack(parsed?.learn);
+  const videos = normalizeVideos(parsed?.videos);
 
   return {
     interview,
     learn,
+    videos,
     streakDays:
       typeof parsed?.streakDays === "number" && parsed.streakDays >= 0
         ? parsed.streakDays
@@ -265,6 +311,39 @@ function mergeLearnTrack(
   return track;
 }
 
+function mergeVideoEntry(
+  left: LessonVideoProgress | undefined,
+  right: LessonVideoProgress | undefined,
+): LessonVideoProgress | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  if (left.updatedAt !== right.updatedAt) {
+    return left.updatedAt > right.updatedAt ? left : right;
+  }
+
+  const watchedAt = [left.watchedAt, right.watchedAt]
+    .filter((value): value is string => typeof value === "string")
+    .sort()[0];
+  return {
+    positionSeconds: Math.max(left.positionSeconds, right.positionSeconds),
+    updatedAt: left.updatedAt,
+    ...(watchedAt ? { watchedAt } : {}),
+  };
+}
+
+function mergeVideos(
+  a: Record<string, LessonVideoProgress> | undefined,
+  b: Record<string, LessonVideoProgress> | undefined,
+): Record<string, LessonVideoProgress> {
+  const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
+  const videos: Record<string, LessonVideoProgress> = {};
+  for (const key of keys) {
+    const merged = mergeVideoEntry(a?.[key], b?.[key]);
+    if (merged) videos[key] = merged;
+  }
+  return videos;
+}
+
 /** Merge two progress snapshots — union of completions, keep farthest index. */
 export function mergeProgress(
   a: StoredProgress,
@@ -272,6 +351,7 @@ export function mergeProgress(
 ): StoredProgress {
   const interview = mergeTrack(a.interview, b.interview);
   const learn = mergeLearnTrack(a.learn, b.learn);
+  const videos = mergeVideos(a.videos, b.videos);
 
   const aDate = a.lastPracticeDate ?? "";
   const bDate = b.lastPracticeDate ?? "";
@@ -281,8 +361,79 @@ export function mergeProgress(
   return {
     interview,
     learn,
+    videos,
     streakDays: Math.max(a.streakDays, b.streakDays),
     lastPracticeDate,
+  };
+}
+
+export function lessonVideoProgressKey(
+  levelSlug: string,
+  chapterSlug: string,
+  videoId: string,
+): string {
+  return `${levelSlug}/${chapterSlug}/${videoId}`;
+}
+
+export function lessonVideoStatus(
+  entry: LessonVideoProgress | undefined,
+): LessonVideoStatus {
+  if (entry?.watchedAt) return "watched";
+  if ((entry?.positionSeconds ?? 0) >= 1) return "in-progress";
+  return "not-started";
+}
+
+export function saveLessonVideoPosition(
+  progress: StoredProgress,
+  key: string,
+  positionSeconds: number,
+  options?: { now?: string; force?: boolean },
+): StoredProgress {
+  if (!key) return progress;
+  const now = options?.now ?? new Date().toISOString();
+  const seconds = Math.min(86_400, Math.max(0, positionSeconds));
+  const current = progress.videos[key];
+  if (
+    !options?.force &&
+    current &&
+    Math.abs(current.positionSeconds - seconds) < 0.8
+  ) {
+    return progress;
+  }
+
+  return {
+    ...progress,
+    videos: {
+      ...progress.videos,
+      [key]: {
+        positionSeconds: seconds,
+        updatedAt: now,
+        ...(current?.watchedAt ? { watchedAt: current.watchedAt } : {}),
+      },
+    },
+  };
+}
+
+export function setLessonVideoWatched(
+  progress: StoredProgress,
+  key: string,
+  watched: boolean,
+  now = new Date().toISOString(),
+): StoredProgress {
+  if (!key) return progress;
+  const current = progress.videos[key];
+  const nextEntry: LessonVideoProgress = {
+    positionSeconds: current?.positionSeconds ?? 0,
+    updatedAt: now,
+  };
+  if (watched) nextEntry.watchedAt = now;
+
+  return {
+    ...progress,
+    videos: {
+      ...progress.videos,
+      [key]: nextEntry,
+    },
   };
 }
 

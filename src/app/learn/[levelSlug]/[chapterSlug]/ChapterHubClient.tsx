@@ -5,12 +5,14 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ProfileButton } from "@/components/ProfileButton";
 import { useProgress } from "@/lib/useProgress";
 import { catalogCompletedCount } from "@/lib/progress";
-import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import type { CefrLevel, ChapterVideo, LevelChapterMeta } from "@/lib/levels";
+import { VideoLessonCard } from "@/components/VideoLessonCard";
 
 type ChapterHubClientProps = {
   level: CefrLevel;
   chapter: LevelChapterMeta;
   clipIds: string[];
+  videos: ChapterVideo[];
 };
 
 const springTransition = {
@@ -130,6 +132,7 @@ export default function ChapterHubClient({
   level,
   chapter,
   clipIds,
+  videos,
 }: ChapterHubClientProps) {
   const shouldReduceMotion = useReducedMotion();
   const {
@@ -215,6 +218,13 @@ export default function ChapterHubClient({
           transition={shouldReduceMotion ? { duration: 0 } : { ...springTransition, delay: 0.12 }}
           className="flex flex-col gap-4"
         >
+          {videos.length > 0 ? (
+            <VideoLessonCard
+              levelSlug={level.slug}
+              chapterSlug={chapter.slug}
+              videos={videos}
+            />
+          ) : null}
           <ModeCard
             href={`/learn/${level.slug}/${chapter.slug}/study`}
             icon="menu_book"

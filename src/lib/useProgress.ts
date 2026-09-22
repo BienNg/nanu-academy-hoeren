@@ -23,9 +23,12 @@ import {
   migrateLegacyProgress,
   normalizeProgress,
   parseProgress,
+  saveLessonVideoPosition,
+  setLessonVideoWatched,
   toBerufProgress,
   toContinueLearning,
   type BerufProgressSummary,
+  type LessonVideoProgress,
   type StoredProgress,
 } from "@/lib/progress";
 
@@ -190,6 +193,44 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [status],
   );
 
+  const cloudSyncTimer = useRef<number | null>(null);
+
+  const flushCloudSync = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (cloudSyncTimer.current !== null) {
+      window.clearTimeout(cloudSyncTimer.current);
+      cloudSyncTimer.current = null;
+    }
+    if (status === "authenticated") {
+      void pushCloudProgress(readProgressSnapshot());
+    }
+  }, [status]);
+
+  const queueCloudSync = useCallback(() => {
+    if (typeof window === "undefined" || status !== "authenticated") return;
+    if (cloudSyncTimer.current !== null) {
+      window.clearTimeout(cloudSyncTimer.current);
+    }
+    cloudSyncTimer.current = window.setTimeout(() => {
+      cloudSyncTimer.current = null;
+      void pushCloudProgress(readProgressSnapshot());
+    }, 1200);
+  }, [status]);
+
+  useEffect(() => {
+    const flushIfPending = () => {
+      if (cloudSyncTimer.current === null) return;
+      window.clearTimeout(cloudSyncTimer.current);
+      cloudSyncTimer.current = null;
+      void pushCloudProgress(readProgressSnapshot());
+    };
+    window.addEventListener("pagehide", flushIfPending);
+    return () => {
+      window.removeEventListener("pagehide", flushIfPending);
+      flushIfPending();
+    };
+  }, []);
+
   const markClipDone = useCallback(
     (berufSlug: string, clipId: string) => {
       const next = markClipCompleted(readProgressSnapshot(), berufSlug, clipId);
@@ -256,6 +297,28 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const saveVideoPosition = useCallback(
+    (key: string, positionSeconds: number, force = false) => {
+      const current = readProgressSnapshot();
+      const next = saveLessonVideoPosition(current, key, positionSeconds, {
+        force,
+      });
+      if (next === current) return;
+      persist(next, false);
+      queueCloudSync();
+    },
+    [persist, queueCloudSync],
+  );
+
+  const setVideoWatched = useCallback(
+    (key: string, watched: boolean) => {
+      const next = setLessonVideoWatched(readProgressSnapshot(), key, watched);
+      persist(next, false);
+      flushCloudSync();
+    },
+    [persist, flushCloudSync],
+  );
+
   const continueLearning = toContinueLearning(progress, totalsBySlug);
 
   const progressFor = useCallback(
@@ -291,6 +354,10 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     resetLearnStudyProgress: resetLearnStudyProgressFn,
     reviewedLearnClipIdsFor: (chapterSlug: string) =>
       learnReviewedClipIds(progress, chapterSlug),
+    lessonVideoProgressFor: (key: string): LessonVideoProgress | undefined =>
+      progress.videos[key],
+    saveVideoPosition,
+    setVideoWatched,
   };
 }
 

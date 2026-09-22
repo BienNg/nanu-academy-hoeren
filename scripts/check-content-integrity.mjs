@@ -87,6 +87,33 @@ function checkContentFile(jsonPath, audioDir) {
     }
   });
 
+  if (parsed.videos !== undefined) {
+    if (!Array.isArray(parsed.videos)) {
+      errors.push(`${jsonRel} "videos" must be an array when present`);
+    } else {
+      parsed.videos.forEach((video, index) => {
+        if (
+          !isRecord(video) ||
+          typeof video.title !== "string" ||
+          video.title.trim().length === 0
+        ) {
+          errors.push(
+            `${jsonRel} videos[${index}] is missing a non-empty "title" string`,
+          );
+        }
+        if (
+          !isRecord(video) ||
+          typeof video.url !== "string" ||
+          video.url.trim().length === 0
+        ) {
+          errors.push(
+            `${jsonRel} videos[${index}] is missing a non-empty "url" string`,
+          );
+        }
+      });
+    }
+  }
+
   if (!existsSync(audioDir)) {
     return;
   }
