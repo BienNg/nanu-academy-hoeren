@@ -1,4 +1,5 @@
 import { AdminUsersDashboard } from "@/components/admin/AdminUsersDashboard";
+import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   shortBerufLabel,
   toAdminUserRow,
@@ -25,6 +26,7 @@ export default async function AdminPage() {
     shortLabel: shortBerufLabel(beruf.label),
     totalClips: getSessionClips(beruf.slug).length,
   }));
+  const courseCatalog = buildAdminCourseCatalog(tracks);
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -43,6 +45,7 @@ export default async function AdminPage() {
     <AdminUsersDashboard
       rows={rows}
       tracks={tracks}
+      courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
       currentUserId={session.user.id}
     />

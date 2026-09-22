@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { deleteAdminUser } from "@/app/admin/actions";
+import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   filterAdminUsers,
@@ -174,6 +176,7 @@ function LastLoginCell({ iso }: { iso: string | null }) {
 type AdminUsersDashboardProps = {
   rows: AdminUserRow[];
   tracks: AdminTrackColumn[];
+  courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   currentUserId: string;
 };
@@ -181,6 +184,7 @@ type AdminUsersDashboardProps = {
 export function AdminUsersDashboard({
   rows,
   tracks,
+  courseCatalog,
   storeConfigured,
   currentUserId,
 }: AdminUsersDashboardProps) {
@@ -192,6 +196,7 @@ export function AdminUsersDashboard({
   const [page, setPage] = useState(1);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [confirmRow, setConfirmRow] = useState<AdminUserRow | null>(null);
+  const [detailRow, setDetailRow] = useState<AdminUserRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -242,12 +247,15 @@ export function AdminUsersDashboard({
     setDeletedIds((current) =>
       current.includes(deletedId) ? current : [...current, deletedId],
     );
+    setDetailRow((current) => (current?.userId === deletedId ? null : current));
     setConfirmRow(null);
     setDeleting(false);
     startTransition(() => {
       router.refresh();
     });
   }
+
+  const closeDetail = useCallback(() => setDetailRow(null), []);
 
   const rangeStart =
     paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
@@ -307,7 +315,7 @@ export function AdminUsersDashboard({
             />
           </label>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Progress is per Ausbildung track. CEFR levels are not stored yet.
+            Select a student to see lessons, cards, and videos.
           </p>
         </div>
 
@@ -368,7 +376,12 @@ export function AdminUsersDashboard({
                   paged.pageRows.map((row) => (
                     <tr
                       key={row.userId}
-                      className="group border-t border-outline-variant/20 hover:bg-surface-container-low/60"
+                      tabIndex={0}
+                      onClick={() => setDetailRow(row)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") setDetailRow(row);
+                      }}
+                      className="group cursor-pointer border-t border-outline-variant/20 hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
                     >
                       <td className="sticky left-0 z-10 bg-surface-container-lowest px-space-16 py-space-16 group-hover:bg-surface-container-low">
                         <div className="flex min-w-[14rem] flex-col">
@@ -409,7 +422,8 @@ export function AdminUsersDashboard({
                       <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setDeleteError(null);
                             setConfirmRow(row);
                           }}
@@ -459,6 +473,14 @@ export function AdminUsersDashboard({
           </div>
         </section>
       </main>
+
+      {detailRow ? (
+        <StudentDetailModal
+          row={detailRow}
+          catalog={courseCatalog}
+          onClose={closeDetail}
+        />
+      ) : null}
 
       {confirmRow ? (
         <div

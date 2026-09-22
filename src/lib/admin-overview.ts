@@ -1,4 +1,9 @@
-import { activeStreakDays, normalizeProgress, toBerufProgress } from "@/lib/progress";
+import {
+  activeStreakDays,
+  normalizeProgress,
+  toBerufProgress,
+  type StoredProgress,
+} from "@/lib/progress";
 import type { UserProgressListItem } from "@/lib/progress-store";
 
 export const ADMIN_PAGE_SIZE = 25;
@@ -30,6 +35,7 @@ export type AdminUserRow = {
   lastLoginMs: number;
   streakDays: number;
   tracks: AdminTrackProgress[];
+  progress: StoredProgress;
 };
 
 export function shortBerufLabel(label: string): string {
@@ -86,6 +92,7 @@ export function toAdminUserRow(
     lastLoginMs: Number.isNaN(lastLoginMs) ? 0 : lastLoginMs,
     streakDays: activeStreakDays(progress),
     tracks: trackRows,
+    progress,
   };
 }
 
