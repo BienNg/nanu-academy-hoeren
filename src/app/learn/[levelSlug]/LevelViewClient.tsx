@@ -39,9 +39,7 @@ export default function LevelViewClient({
   const shouldReduceMotion = useReducedMotion();
   const {
     completedLearnRunClipIdsFor,
-    reviewedLearnClipIdsFor,
     learnChapterCompleted,
-    learnStudyCompleted,
     learnRunCountFor,
   } = useProgress();
 
@@ -180,18 +178,10 @@ export default function LevelViewClient({
               clipCount > 0 &&
               startedRunCompleted > 0 &&
               startedRunCompleted < clipCount;
-            const reviewedCount = Math.min(
-              clipCount,
-              reviewedLearnClipIdsFor(chapterKey).length,
-            );
-            const studyComplete =
-              clipCount > 0 &&
-              (learnStudyCompleted(chapterKey) || reviewedCount >= clipCount);
-            
             const content = (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  {(!isAvailable || isCompleted || (isAvailable && (reviewedCount > 0 || studyComplete))) ? (
+                  {(!isAvailable || isCompleted) ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                       {!isAvailable && (
                         <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
@@ -204,20 +194,6 @@ export default function LevelViewClient({
                             check_circle
                           </span>
                           Đã hoàn thành
-                        </span>
-                      )}
-                      {isAvailable && (reviewedCount > 0 || studyComplete) && (
-                        <span
-                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                            studyComplete
-                              ? "bg-[#e8f2fc] text-[#0066cc]"
-                              : "bg-[#f5f5f7] text-[#1d1d1f]"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                            menu_book
-                          </span>
-                          {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
                         </span>
                       )}
                     </div>
