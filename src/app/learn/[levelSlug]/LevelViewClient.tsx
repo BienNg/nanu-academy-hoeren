@@ -183,16 +183,6 @@ export default function LevelViewClient({
             const isLocked = isAvailable && !isCompleted && Boolean(gateChapter);
             const isOpen = isAvailable && !isLocked;
             const runCount = learnRunCountFor(chapterKey);
-            const clipCount = chapter.clipCount ?? 0;
-            const startedRunCompleted = Math.min(
-              clipCount,
-              completedLearnRunClipIdsFor(chapterKey).length,
-            );
-            const startedRun =
-              isOpen &&
-              clipCount > 0 &&
-              startedRunCompleted > 0 &&
-              startedRunCompleted < clipCount;
             const content = isLocked && gateChapter ? (
               <>
                 <div className="flex items-center justify-between gap-3">
@@ -258,42 +248,10 @@ export default function LevelViewClient({
                   <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isOpen ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
-                  <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                    {startedRun && (
-                      <div className="relative flex h-10 w-10 items-center justify-center sm:h-12 sm:w-12">
-                        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 48 48">
-                          <circle
-                            className="text-[#f5f5f7]"
-                            strokeWidth="4"
-                            stroke="currentColor"
-                            fill="transparent"
-                            r="20"
-                            cx="24"
-                            cy="24"
-                          />
-                          <circle
-                            className="text-[#0066cc] transition-all duration-500 ease-out"
-                            strokeWidth="4"
-                            strokeDasharray={20 * 2 * Math.PI}
-                            strokeDashoffset={20 * 2 * Math.PI * (1 - startedRunCompleted / clipCount)}
-                            strokeLinecap="round"
-                            stroke="currentColor"
-                            fill="transparent"
-                            r="20"
-                            cx="24"
-                            cy="24"
-                          />
-                        </svg>
-                        <span className="text-[10px] font-bold tracking-tighter text-[#1d1d1f] sm:text-[11px]">
-                          {startedRunCompleted}/{clipCount}
-                        </span>
-                      </div>
-                    )}
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
-                      <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
-                        {isCompleted ? "replay" : isOpen ? "arrow_forward" : "lock"}
-                      </span>
-                    </div>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
+                    <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
+                      {isCompleted ? "replay" : isOpen ? "arrow_forward" : "lock"}
+                    </span>
                   </div>
                 </div>
               </>

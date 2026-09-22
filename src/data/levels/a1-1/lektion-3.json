@@ -1,4 +1,11 @@
 {
+
+  "videos": [
+    {
+      "title": "Verbkonjugation",
+      "url": "https://youtu.be/IUBj3B27p70"
+    }
+  ],
   "clips": [
     { "filename": "a11-tag3-01-ich-mache.mp3", "script": "ich mache", "translationVi": "tôi làm" },
     { "filename": "a11-tag3-02-ich-komme.mp3", "script": "ich komme", "translationVi": "tôi đến" },
