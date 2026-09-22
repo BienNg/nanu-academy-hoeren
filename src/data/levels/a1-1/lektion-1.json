@@ -16,6 +16,16 @@
     { "filename": "ch weich.mp3", "script": "ch", "translationVi": "ch mềm (như trong \"ich\")" },
     { "filename": "sch.mp3", "script": "sch", "translationVi": "tổ hợp sch" },
     { "filename": "sp.mp3", "script": "sp", "translationVi": "tổ hợp sp" },
-    { "filename": "st.mp3", "script": "st", "translationVi": "tổ hợp st" }
+    { "filename": "st.mp3", "script": "st", "translationVi": "tổ hợp st" },
+    { "filename": "Hallo.mp3", "script": "Hallo", "translationVi": "Xin chào" },
+    { "filename": "Guten Morgen.mp3", "script": "Guten Morgen", "translationVi": "Chào buổi sáng" },
+    { "filename": "Guten Abend.mp3", "script": "Guten Abend", "translationVi": "Chào buổi tối" },
+    { "filename": "Guten Tag.mp3", "script": "Guten Tag", "translationVi": "Xin chào (ban ngày)" },
+    { "filename": "Gute Nacht.mp3", "script": "Gute Nacht", "translationVi": "Chúc ngủ ngon" },
+    { "filename": "Tschüss.mp3", "script": "Tschüss", "translationVi": "Tạm biệt (thân mật)" },
+    { "filename": "Auf Wiedersehen.mp3", "script": "Auf Wiedersehen", "translationVi": "Tạm biệt (trang trọng)" },
+    { "filename": "essen.mp3", "script": "essen", "translationVi": "ăn" },
+    { "filename": "lernen.mp3", "script": "lernen", "translationVi": "học" },
+    { "filename": "Deutsch.mp3", "script": "Deutsch", "translationVi": "tiếng Đức" }
   ]
 }
