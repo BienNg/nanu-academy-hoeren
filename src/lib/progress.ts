@@ -31,8 +31,15 @@ export type LearnProgress = InterviewProgress & {
    * Used to resume an unfinished rerun and surface "started" progress.
    */
   runCompletedClipIds: string[];
-  /** Clip ids the student has already reviewed in the study / flashcard flow. */
+  /** Clip ids the student has already reviewed in the current study pass. */
   reviewedClipIds: string[];
+  /** Number of fully completed study passes (first pass + replays). */
+  studyRunCount: number;
+  /**
+   * ISO timestamp of the first full study pass. Once set it is never cleared,
+   * so Study stays completed even after the student starts another pass.
+   */
+  studyCompletedAt?: string;
 };
 
 function emptyLearnProgress(): LearnProgress {
@@ -42,6 +49,7 @@ function emptyLearnProgress(): LearnProgress {
     runCount: 0,
     runCompletedClipIds: [],
     reviewedClipIds: [],
+    studyRunCount: 0,
   };
 }
 
@@ -118,7 +126,12 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     runCount?: unknown;
     runCompletedClipIds?: unknown;
     reviewedClipIds?: unknown;
+    studyRunCount?: unknown;
+    studyCompletedAt?: unknown;
   };
+
+  const studyCompletedAt =
+    typeof record.studyCompletedAt === "string" ? record.studyCompletedAt : undefined;
 
   return {
     ...normalized,
@@ -138,6 +151,13 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           (id): id is string => typeof id === "string",
         )
       : [],
+    studyRunCount:
+      typeof record.studyRunCount === "number" && record.studyRunCount >= 0
+        ? Math.floor(record.studyRunCount)
+        : studyCompletedAt
+          ? 1
+          : 0,
+    ...(studyCompletedAt ? { studyCompletedAt } : {}),
   };
 }
 
@@ -291,11 +311,18 @@ function mergeLearnEntry(
       ...(right?.reviewedClipIds ?? []),
     ]),
   );
+  const studyStamps = [left?.studyCompletedAt, right?.studyCompletedAt].filter(
+    (value): value is string => typeof value === "string",
+  );
   return {
     ...mergedBase,
     runCount: Math.max(left?.runCount ?? 0, right?.runCount ?? 0),
     runCompletedClipIds,
     reviewedClipIds,
+    studyRunCount: Math.max(left?.studyRunCount ?? 0, right?.studyRunCount ?? 0),
+    ...(studyStamps.length > 0
+      ? { studyCompletedAt: studyStamps.sort()[0] }
+      : {}),
   };
 }
 
@@ -581,6 +608,30 @@ export function incrementLearnRunCount(
   };
 }
 
+/**
+ * Count one finished study pass and stamp the chapter the first time.
+ * Later passes keep the original completion date.
+ */
+export function incrementStudyRunCount(
+  progress: StoredProgress,
+  chapterSlug: string,
+  completedAt = new Date().toISOString(),
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+
+  return {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: {
+        ...entry,
+        studyRunCount: entry.studyRunCount + 1,
+        studyCompletedAt: entry.studyCompletedAt ?? completedAt,
+      },
+    },
+  };
+}
+
 export function markLearnClipReviewed(
   progress: StoredProgress,
   chapterSlug: string,
@@ -684,7 +735,11 @@ export function resetLearnProgress(
         runCompletedClipIds: [],
         runCount: existing?.runCount ?? 0,
         reviewedClipIds: existing?.reviewedClipIds ?? [],
+        studyRunCount: existing?.studyRunCount ?? 0,
         ...(completedAt ? { completedAt } : {}),
+        ...(existing?.studyCompletedAt
+          ? { studyCompletedAt: existing.studyCompletedAt }
+          : {}),
       },
     },
   };
@@ -697,6 +752,22 @@ export function learnRunCount(
   chapterSlug: string,
 ): number {
   return progress.learn[chapterSlug]?.runCount ?? 0;
+}
+
+export function learnStudyRunCount(
+  progress: StoredProgress,
+  chapterSlug: string,
+): number {
+  return progress.learn[chapterSlug]?.studyRunCount ?? 0;
+}
+
+/** True after the student has finished every study card at least once. */
+export function isStudyChapterCompleted(
+  progress: StoredProgress,
+  chapterSlug: string,
+): boolean {
+  const entry = progress.learn[chapterSlug];
+  return Boolean(entry?.studyCompletedAt) || (entry?.studyRunCount ?? 0) > 0;
 }
 
 export function learnRunCompletedClipIds(

@@ -41,7 +41,7 @@ export type AdminActivityCard = {
   percent: number;
   /** Items finished out of the items on this card, e.g. "14/19". */
   progressLabel: string;
-  /** Extra stored context, such as how many full listening runs. */
+  /** Extra stored context, such as how many full listening or study runs. */
   note: string | null;
   struggling: boolean;
 };
@@ -113,7 +113,9 @@ function learnTouched(entry: LearnProgress | undefined): boolean {
     entry.runCompletedClipIds.length > 0 ||
     entry.reviewedClipIds.length > 0 ||
     entry.runCount > 0 ||
-    Boolean(entry.completedAt)
+    entry.studyRunCount > 0 ||
+    Boolean(entry.completedAt) ||
+    Boolean(entry.studyCompletedAt)
   );
 }
 
@@ -203,6 +205,7 @@ function projectLesson(
         ? "in-progress"
         : "not-started";
   const runCount = learn?.runCount ?? 0;
+  const studyRunCount = learn?.studyRunCount ?? 0;
   const listeningCompletedOnce =
     clipTotal > 0 &&
     (runCount >= 1 || completedCount >= clipTotal || Boolean(learn?.completedAt));
@@ -214,10 +217,15 @@ function projectLesson(
         : completedCount > 0
           ? "in-progress"
           : "not-started";
+  const studyCompletedOnce =
+    clipTotal > 0 &&
+    (studyRunCount >= 1 ||
+      reviewedCount >= clipTotal ||
+      Boolean(learn?.studyCompletedAt));
   const studyStatus: LessonStatus =
     clipTotal === 0
       ? "not-started"
-      : reviewedCount >= clipTotal
+      : studyCompletedOnce
         ? "completed"
         : reviewedCount > 0
           ? "in-progress"
@@ -234,10 +242,12 @@ function projectLesson(
                   id: `${lesson.id}-study`,
                   label: "Study",
                   status: studyStatus,
-                  percent: studyStatus === "completed" ? 100 : percentOf(reviewedCount, clipTotal),
-                  progressLabel:
-                    studyStatus === "completed" ? "" : `${reviewedCount}/${clipTotal}`,
-                  note: null,
+                  percent: studyCompletedOnce ? 100 : percentOf(reviewedCount, clipTotal),
+                  progressLabel: studyCompletedOnce ? "" : `${reviewedCount}/${clipTotal}`,
+                  note:
+                    studyRunCount > 0
+                      ? `${studyRunCount} study ${studyRunCount === 1 ? "run" : "runs"}`
+                      : null,
                   struggling: false,
                 } satisfies AdminActivityCard,
               ]
@@ -257,6 +267,7 @@ function projectLesson(
         ];
   const lastActivityAt = latestIso([
     learn?.completedAt,
+    learn?.studyCompletedAt,
     status === "completed" ? interviewCompletedAt : null,
     ...videos.map((video) => video.updatedAt),
   ]);

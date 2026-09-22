@@ -139,6 +139,7 @@ export default function ChapterHubClient({
     completedLearnRunClipIdsFor,
     reviewedLearnClipIdsFor,
     learnChapterCompleted,
+    learnStudyCompleted,
   } = useProgress();
 
   const clipCount = clipIds.length;
@@ -152,9 +153,12 @@ export default function ChapterHubClient({
     completedLearnRunClipIdsFor(chapter.slug),
   );
   const practiceComplete = learnChapterCompleted(chapter.slug);
-  const studyComplete = clipCount > 0 && reviewedCount >= clipCount;
+  const studyComplete =
+    clipCount > 0 &&
+    (learnStudyCompleted(chapter.slug) || reviewedCount >= clipCount);
 
-  const studyProgress = clipCount === 0 ? 0 : reviewedCount / clipCount;
+  const studyProgress =
+    clipCount === 0 ? 0 : studyComplete ? 1 : reviewedCount / clipCount;
   const practiceProgress =
     clipCount === 0
       ? 0

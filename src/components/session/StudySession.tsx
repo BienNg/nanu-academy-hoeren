@@ -110,6 +110,8 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
     markLearnClipReviewed,
     resetLearnStudyProgress,
     reviewedLearnClipIdsFor,
+    learnStudyRunCountFor,
+    incrementStudyRunDoneCount,
   } = useProgress();
 
   const chapterProgressKey = chapter.slug;
@@ -124,12 +126,16 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   const [direction, setDirection] = useState(1);
   const [ready, setReady] = useState(false);
   const initializedRef = useRef(false);
+  const studyRunSavedRef = useRef(false);
+  const startedCompleteRef = useRef(false);
   const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
-    setClipIndex(firstUnreviewedIndex(clips, reviewedIds));
+    const startIndex = firstUnreviewedIndex(clips, reviewedIds);
+    startedCompleteRef.current = clips.length > 0 && startIndex >= clips.length;
+    setClipIndex(startIndex);
     setReady(true);
   }, [clips, reviewedIds]);
 
@@ -167,9 +173,31 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
+    studyRunSavedRef.current = false;
+    startedCompleteRef.current = false;
     setDirection(1);
     setClipIndex(0);
   };
+
+  useEffect(() => {
+    if (!ready || !complete || studyRunSavedRef.current || clips.length === 0) {
+      return;
+    }
+    const alreadyCounted = learnStudyRunCountFor(chapterProgressKey) > 0;
+    if (startedCompleteRef.current && alreadyCounted) {
+      studyRunSavedRef.current = true;
+      return;
+    }
+    incrementStudyRunDoneCount(chapterProgressKey);
+    studyRunSavedRef.current = true;
+  }, [
+    ready,
+    complete,
+    clips.length,
+    learnStudyRunCountFor,
+    incrementStudyRunDoneCount,
+    chapterProgressKey,
+  ]);
 
   useEffect(() => {
     if (viewMode !== "cards" || complete || !currentClip) return;

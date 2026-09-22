@@ -8,7 +8,10 @@ import {
   STORAGE_KEY,
   clearStoredProgress,
   incrementLearnRunCount,
+  incrementStudyRunCount,
   isLearnChapterCompleted,
+  isStudyChapterCompleted,
+  learnStudyRunCount,
   learnReviewedClipIds,
   learnRunCompletedClipIds,
   learnRunCount,
@@ -265,6 +268,14 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     [persist],
   );
 
+  const incrementStudyRunDoneCount = useCallback(
+    (chapterSlug: string) => {
+      const next = incrementStudyRunCount(readProgressSnapshot(), chapterSlug);
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const resetProgress = useCallback(
     (berufSlug: string) => {
       const next = resetBerufProgress(readProgressSnapshot(), berufSlug);
@@ -347,9 +358,14 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
     completedLearnRunClipIdsFor: (chapterSlug: string) =>
       learnRunCompletedClipIds(progress, chapterSlug),
     learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),
+    learnStudyRunCountFor: (chapterSlug: string) =>
+      learnStudyRunCount(progress, chapterSlug),
     learnChapterCompleted: (chapterSlug: string) =>
       isLearnChapterCompleted(progress, chapterSlug),
+    learnStudyCompleted: (chapterSlug: string) =>
+      isStudyChapterCompleted(progress, chapterSlug),
     incrementLearnRunDoneCount,
+    incrementStudyRunDoneCount,
     markLearnClipReviewed: markLearnClipReviewedFn,
     resetLearnStudyProgress: resetLearnStudyProgressFn,
     reviewedLearnClipIdsFor: (chapterSlug: string) =>

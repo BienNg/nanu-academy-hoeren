@@ -41,6 +41,7 @@ export default function LevelViewClient({
     completedLearnRunClipIdsFor,
     reviewedLearnClipIdsFor,
     learnChapterCompleted,
+    learnStudyCompleted,
     learnRunCountFor,
   } = useProgress();
 
@@ -183,12 +184,14 @@ export default function LevelViewClient({
               clipCount,
               reviewedLearnClipIdsFor(chapterKey).length,
             );
-            const studyComplete = clipCount > 0 && reviewedCount >= clipCount;
+            const studyComplete =
+              clipCount > 0 &&
+              (learnStudyCompleted(chapterKey) || reviewedCount >= clipCount);
             
             const content = (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  {(!isAvailable || isCompleted || (isAvailable && reviewedCount > 0)) ? (
+                  {(!isAvailable || isCompleted || (isAvailable && (reviewedCount > 0 || studyComplete))) ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                       {!isAvailable && (
                         <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
@@ -203,7 +206,7 @@ export default function LevelViewClient({
                           Đã hoàn thành
                         </span>
                       )}
-                      {isAvailable && reviewedCount > 0 && (
+                      {isAvailable && (reviewedCount > 0 || studyComplete) && (
                         <span
                           className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
                             studyComplete
