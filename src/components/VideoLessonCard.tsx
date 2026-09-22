@@ -50,6 +50,27 @@ const END_THRESHOLD_SECONDS = 1.5;
 /** Shifts the embed so YouTube's title and Share / Save sit outside the clip. */
 const YOUTUBE_CHROME_CROP_PX = 60;
 
+function currentFullscreenElement(): Element | null {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null };
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+function enterFullscreen(element: HTMLElement) {
+  const target = element as HTMLElement & { webkitRequestFullscreen?: () => void };
+  if (typeof element.requestFullscreen === "function") {
+    return Promise.resolve(element.requestFullscreen()).catch(() => {});
+  }
+  target.webkitRequestFullscreen?.();
+}
+
+function leaveFullscreen() {
+  const doc = document as Document & { webkitExitFullscreen?: () => void };
+  if (document.fullscreenElement) {
+    return Promise.resolve(document.exitFullscreen()).catch(() => {});
+  }
+  doc.webkitExitFullscreen?.();
+}
+
 function MaterialIcon({
   name,
   className,
@@ -132,7 +153,9 @@ function YouTubePane({
   urlStart: number;
   progressKey: string;
 }) {
+  const frameRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const skipPlayerResizeRef = useRef(true);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveRef = useRef<
     (key: string, positionSeconds: number, force?: boolean) => void
@@ -157,12 +180,31 @@ function YouTubePane({
   const [volume, setVolume] = useState(100);
   const volumeSupported = useProgrammaticVolume();
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     saveRef.current = saveVideoPosition;
     savedRef.current = savedPosition;
     urlStartRef.current = urlStart;
   }, [saveVideoPosition, savedPosition, urlStart]);
+
+  useEffect(() => {
+    const sync = () => {
+      setFullscreen(currentFullscreenElement() === frameRef.current);
+    };
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener(
+      "webkitfullscreenchange",
+      sync as EventListener,
+    );
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        sync as EventListener,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -373,6 +415,49 @@ function YouTubePane({
     setMuted(true);
   }
 
+  useEffect(() => {
+    if (!ready) return;
+    if (skipPlayerResizeRef.current) {
+      skipPlayerResizeRef.current = false;
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      const host = hostRef.current;
+      const player = playerRef.current;
+      if (!host || !player) return;
+      const width = Math.round(host.clientWidth);
+      const height = Math.round(host.clientHeight);
+      if (width < 1 || height < 1) return;
+      try {
+        player.setSize(width, height);
+        const iframe = player.getIframe();
+        const widget = iframe.parentElement;
+        if (widget && widget !== host) {
+          widget.style.width = "100%";
+          widget.style.height = "100%";
+        }
+        iframe.style.position = "absolute";
+        iframe.style.inset = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+      } catch {
+        // The player can reject a resize while it is being destroyed.
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [fullscreen, ready]);
+
+  function toggleFullscreen() {
+    const frame = frameRef.current;
+    if (!frame) return;
+    if (currentFullscreenElement() === frame) {
+      void leaveFullscreen();
+      return;
+    }
+    void enterFullscreen(frame);
+  }
+
   function changeVolume(next: number) {
     const player = playerRef.current;
     if (!player || !volumeSupported) return;
@@ -393,8 +478,21 @@ function YouTubePane({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative aspect-video w-full overflow-hidden rounded-[16px] bg-[#1d1d1f]">
-        <div className="absolute inset-0 overflow-hidden">
+      <div
+        ref={frameRef}
+        className={`relative w-full overflow-hidden bg-[#1d1d1f] ${
+          fullscreen
+            ? "flex h-full items-center justify-center bg-black"
+            : "aspect-video rounded-[16px]"
+        }`}
+      >
+        <div
+          className={`overflow-hidden ${
+            fullscreen
+              ? "relative aspect-video h-[min(100%,calc(100vw*9/16))] w-[min(100%,calc(100vh*16/9))]"
+              : "absolute inset-0"
+          }`}
+        >
           <div
             ref={hostRef}
             className="absolute left-0 w-full"
@@ -403,6 +501,19 @@ function YouTubePane({
               height: `calc(100% + ${YOUTUBE_CHROME_CROP_PX * 2}px)`,
             }}
           />
+          {ready ? (
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={fullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+              className="absolute right-3 bottom-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white shadow-[0_2px_8px_rgb(0,0,0,0.25)] backdrop-blur-md transition active:scale-95"
+            >
+              <MaterialIcon
+                name={fullscreen ? "fullscreen_exit" : "fullscreen"}
+                className="text-[22px]"
+              />
+            </button>
+          ) : null}
         </div>
         {!ready ? (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-[15px] font-medium text-white/80">
