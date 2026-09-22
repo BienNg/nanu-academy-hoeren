@@ -1,3 +1,14 @@
 {
+  "videos": [
+    {
+      "title": "Artikel",
+      "url": "https://youtu.be/HK0jxag5tNw"
+    },
+
+    {
+      "title": "W-Fragen",
+      "url": "https://youtu.be/MG2BfvdxBro"
+    }
+  ],
   "clips": []
 }
