@@ -43,10 +43,21 @@ export default function LevelViewClient({
     learnRunCountFor,
   } = useProgress();
 
+  function firstIncompletePrevious(index: number): Chapter | undefined {
+    return chapters
+      .slice(0, index)
+      .find(
+        (chapter) =>
+          chapter.hasAudio !== false &&
+          !learnChapterCompleted(chapter.slug),
+      );
+  }
+
   const resumeChapterSlug =
-    chapters.find((chapter) => {
+    chapters.find((chapter, index) => {
       if (chapter.hasAudio === false) return false;
       if (learnChapterCompleted(chapter.slug)) return false;
+      if (firstIncompletePrevious(index)) return false;
       const clipCount = chapter.clipCount ?? 0;
       const startedCount = Math.min(
         clipCount,
@@ -168,6 +179,9 @@ export default function LevelViewClient({
             const isAvailable = chapter.hasAudio !== false;
             const chapterKey = chapter.slug;
             const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
+            const gateChapter = firstIncompletePrevious(index);
+            const isLocked = isAvailable && !isCompleted && Boolean(gateChapter);
+            const isOpen = isAvailable && !isLocked;
             const runCount = learnRunCountFor(chapterKey);
             const clipCount = chapter.clipCount ?? 0;
             const startedRunCompleted = Math.min(
@@ -175,10 +189,33 @@ export default function LevelViewClient({
               completedLearnRunClipIdsFor(chapterKey).length,
             );
             const startedRun =
+              isOpen &&
               clipCount > 0 &&
               startedRunCompleted > 0 &&
               startedRunCompleted < clipCount;
-            const content = (
+            const content = isLocked && gateChapter ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <h2
+                    className="min-w-0 flex-1 text-xl font-semibold tracking-tight text-[#86868b] sm:text-2xl md:text-3xl"
+                    style={{ letterSpacing: "-0.015em" }}
+                  >
+                    {level.level} - {chapter.label}
+                  </h2>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7]/50 text-[#d2d2d7] sm:h-12 sm:w-12">
+                    <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
+                      lock
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[15px] font-medium leading-relaxed text-[#86868b]">
+                  <span className="material-symbols-outlined text-[18px] text-[#0066cc]" aria-hidden="true">
+                    flag
+                  </span>
+                  <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
+                </div>
+              </>
+            ) : (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   {(!isAvailable || isCompleted) ? (
@@ -218,7 +255,7 @@ export default function LevelViewClient({
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
+                  <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isOpen ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
                   <div className="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -252,9 +289,9 @@ export default function LevelViewClient({
                         </span>
                       </div>
                     )}
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isAvailable ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
                       <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
-                        {isCompleted ? "replay" : isAvailable ? "arrow_forward" : "lock"}
+                        {isCompleted ? "replay" : isOpen ? "arrow_forward" : "lock"}
                       </span>
                     </div>
                   </div>
@@ -263,8 +300,8 @@ export default function LevelViewClient({
             );
 
             const itemClassName = `group relative flex flex-col gap-3 overflow-hidden rounded-[24px] backdrop-blur-xl border border-white/20 p-5 sm:p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isAvailable 
-                ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer' 
+              isOpen
+                ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer'
                 : 'bg-white/40 shadow-none cursor-not-allowed'
             }`;
 
@@ -275,7 +312,7 @@ export default function LevelViewClient({
                 variants={itemVariants}
                 className="scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))]"
               >
-                {isAvailable ? (
+                {isOpen ? (
                   <Link href={`/learn/${level.slug}/${chapter.slug}`} className={itemClassName}>
                     {content}
                   </Link>
