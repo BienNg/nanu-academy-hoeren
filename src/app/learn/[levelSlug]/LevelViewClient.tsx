@@ -187,42 +187,57 @@ export default function LevelViewClient({
             
             const content = (
               <>
-                {(!isAvailable || isCompleted || runCount > 0 || (isAvailable && reviewedCount > 0)) && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                    {!isAvailable && (
-                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-                        Coming soon
-                      </span>
-                    )}
-                    {isCompleted && (
-                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
-                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-                          check_circle
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                  {(!isAvailable || isCompleted || (isAvailable && reviewedCount > 0)) ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                      {!isAvailable && (
+                        <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                          Coming soon
                         </span>
-                        Đã hoàn thành
+                      )}
+                      {isCompleted && (
+                        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
+                          <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                            check_circle
+                          </span>
+                          Đã hoàn thành
+                        </span>
+                      )}
+                      {isAvailable && reviewedCount > 0 && (
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                            studyComplete
+                              ? "bg-[#e8f2fc] text-[#0066cc]"
+                              : "bg-[#f5f5f7] text-[#1d1d1f]"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                            menu_book
+                          </span>
+                          {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
+                        </span>
+                      )}
+                    </div>
+                  ) : <div />}
+                  {runCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-space-4 rounded-full bg-white border border-black/[0.05] shadow-sm px-space-8 py-1 text-[#86868b] shrink-0"
+                      title={`${runCount} lượt luyện`}
+                    >
+                      <span className="sr-only">{runCount} lượt luyện</span>
+                      <span
+                        className="material-symbols-outlined text-[16px] text-[#ff9500]"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                        aria-hidden="true"
+                      >
+                        workspace_premium
                       </span>
-                    )}
-                    {runCount > 0 && (
-                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#1d1d1f]">
+                      <span className="font-label-sm text-label-sm font-semibold text-[#1d1d1f]" aria-hidden="true">
                         {runCount} lượt
                       </span>
-                    )}
-                    {isAvailable && reviewedCount > 0 && (
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                          studyComplete
-                            ? "bg-[#e8f2fc] text-[#0066cc]"
-                            : "bg-[#f5f5f7] text-[#1d1d1f]"
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                          menu_book
-                        </span>
-                        {studyComplete ? "Đã học" : `${reviewedCount}/${clipCount} đã học`}
-                      </span>
-                    )}
-                  </div>
-                )}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isAvailable ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
