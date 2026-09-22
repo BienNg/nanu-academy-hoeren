@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth-guard";
+import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
   getChapterClips,
@@ -14,13 +14,14 @@ type LearnPracticePageProps = {
 export default async function LearnPracticePage({
   params,
 }: LearnPracticePageProps) {
-  await requireUser();
+  const session = await requireUser();
   const { levelSlug, chapterSlug } = await params;
 
   const level = getCefrLevel(levelSlug);
   if (!level) {
     notFound();
   }
+  await requireLevelAccess(session.user, levelSlug);
 
   const chapter = getLevelChapters(levelSlug).find(
     (entry) => entry.slug === chapterSlug,

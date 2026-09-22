@@ -1,5 +1,5 @@
 import { isAdminUser } from "@/lib/admins";
-import { requireUser } from "@/lib/auth-guard";
+import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
   getChapterClips,
@@ -23,6 +23,7 @@ export default async function LearnChapterPage({
   if (!level) {
     notFound();
   }
+  await requireLevelAccess(session.user, levelSlug);
 
   const chapter = getLevelChapters(levelSlug).find(
     (entry) => entry.slug === chapterSlug,

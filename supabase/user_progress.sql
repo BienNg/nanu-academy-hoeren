@@ -10,7 +10,10 @@ create table if not exists public.user_progress (
   name text,
   last_login_at timestamptz,
   deleted_at timestamptz,
-  revoked_before timestamptz
+  revoked_before timestamptz,
+  -- CEFR slugs this learner may open. Empty = locked until an admin grants one.
+  -- Admin accounts ignore this column and can open every level.
+  level_access text[] not null default '{}'
 );
 
 alter table public.user_progress
@@ -18,7 +21,8 @@ alter table public.user_progress
   add column if not exists name text,
   add column if not exists last_login_at timestamptz,
   add column if not exists deleted_at timestamptz,
-  add column if not exists revoked_before timestamptz;
+  add column if not exists revoked_before timestamptz,
+  add column if not exists level_access text[] not null default '{}';
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);

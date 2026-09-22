@@ -19,8 +19,8 @@ type HomeScreenProps = {
   levels: LevelMeta[];
   levelCatalog: ContinueLevelCatalogEntry[];
   interviewClipTotals: Record<string, number>;
-  /** Admins can open CEFR practice; everyone else still sees Coming Soon. */
-  levelsUnlocked?: boolean;
+  /** CEFR slugs this learner may open. Everyone else sees a lock. */
+  unlockedLevelSlugs?: readonly string[];
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -138,14 +138,16 @@ function LevelCard({
     return (
       <div
         aria-disabled="true"
-        className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] border border-white/10 bg-white/40 backdrop-blur-md p-5 opacity-70"
+        aria-label={`Trình độ ${level.level} đang khóa. Nhờ giáo viên mở khóa.`}
+        title="Nhờ giáo viên mở trình độ này"
+        className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] border border-black/[0.06] bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
       >
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-              Sắp ra mắt
+              Đã khóa
             </span>
-            <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-[#1d1d1f]/70" style={{ letterSpacing: "-0.015em" }}>
+            <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
               Trình độ {level.level}
             </h3>
           </div>
@@ -153,10 +155,9 @@ function LevelCard({
             <MaterialIcon name="lock" className="text-[18px]" />
           </div>
         </div>
-        <div className="flex items-center justify-between border-t border-black/[0.05] pt-3 text-[12px] font-medium text-[#86868b]">
-          <span>{chapterLabel}</span>
-          <span className="text-[10px] uppercase tracking-wider">Coming Soon</span>
-        </div>
+        <p className="border-t border-black/[0.05] pt-3 text-[12px] font-medium leading-snug text-[#86868b]">
+          Nhờ giáo viên mở khóa
+        </p>
       </div>
     );
   }
@@ -263,7 +264,7 @@ export function HomeScreen({
   levels,
   levelCatalog,
   interviewClipTotals,
-  levelsUnlocked = false,
+  unlockedLevelSlugs = [],
 }: HomeScreenProps) {
   const { data: session } = useSession();
   const { continueLevel, progressFor, streakDays } =
@@ -314,7 +315,8 @@ export function HomeScreen({
 
       <main className="relative flex w-full flex-1 flex-col items-center">
         <div className="flex w-full max-w-4xl flex-col gap-space-24 px-6 pb-space-32">
-          {continueLevel ? (
+          {continueLevel &&
+          unlockedLevelSlugs.includes(continueLevel.levelSlug) ? (
             <ContinueCard
               levelLabel={continueLevel.levelLabel}
               chapterLabel={continueLevel.chapterLabel}
@@ -326,17 +328,22 @@ export function HomeScreen({
           ) : null}
 
           <section className="flex flex-col gap-space-12 mt-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-space-4">
               <h2 className="font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
                 Luyện tập theo trình độ
               </h2>
+              {levels.some((level) => !unlockedLevelSlugs.includes(level.slug)) ? (
+                <p className="font-body-sm text-body-sm text-[#86868b]">
+                  Ổ khóa nghĩa là trình độ chưa được mở. Nhờ giáo viên mở giúp bạn.
+                </p>
+              ) : null}
             </div>
             <div className="-mx-6 flex flex-nowrap gap-4 overflow-x-auto scroll-smooth px-6 pb-6 pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {levels.map((level) => (
                 <LevelCard
                   key={level.slug}
                   level={level}
-                  unlocked={levelsUnlocked}
+                  unlocked={unlockedLevelSlugs.includes(level.slug)}
                 />
               ))}
             </div>

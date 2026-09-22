@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
+import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
@@ -27,6 +28,7 @@ export default async function AdminPage() {
     totalClips: getSessionClips(beruf.slug).length,
   }));
   const courseCatalog = buildAdminCourseCatalog(tracks);
+  const levels = getCefrLevels().map(({ level, slug }) => ({ level, slug }));
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -38,13 +40,13 @@ export default async function AdminPage() {
 
   const items = storeConfigured ? await listAllUserProgress() : [];
   const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user), tracks),
+    toAdminUserRow(withSessionIdentity(item, session.user)),
   );
 
   return (
     <AdminUsersDashboard
       rows={rows}
-      tracks={tracks}
+      levels={levels}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
       currentUserId={session.user.id}

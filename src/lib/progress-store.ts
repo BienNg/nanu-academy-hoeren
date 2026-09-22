@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_PROGRESS,
@@ -104,6 +105,8 @@ export type UserProgressListItem = {
   name: string | null;
   lastLoginAt: string | null;
   updatedAt: string | null;
+  /** CEFR slugs an admin has granted. Empty means every level stays locked. */
+  levelAccess: string[];
   progress: StoredProgress;
 };
 
@@ -117,7 +120,36 @@ type RawProgressRow = {
   name?: string | null;
   last_login_at?: string | null;
   deleted_at?: string | null;
+  level_access?: unknown;
 };
+
+/** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
+export function readLevelAccess(value: unknown): string[] {
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? parsePostgresTextArray(value)
+      : [];
+  const slugs: string[] = [];
+  for (const item of rawItems) {
+    if (typeof item !== "string") continue;
+    const slug = item.trim();
+    if (!slug || slugs.includes(slug)) continue;
+    slugs.push(slug);
+  }
+  return slugs;
+}
+
+function parsePostgresTextArray(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "{}") return [];
+  const inner =
+    trimmed.startsWith("{") && trimmed.endsWith("}")
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  if (!inner) return [];
+  return inner.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
+}
 
 function mapProgressRow(row: RawProgressRow): UserProgressListItem {
   return {
@@ -127,6 +159,7 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     lastLoginAt:
       typeof row.last_login_at === "string" ? row.last_login_at : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
+    levelAccess: readLevelAccess(row.level_access),
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
 }
@@ -174,6 +207,7 @@ export async function touchUserProfile(
     user_id: userId,
     data: structuredClone(DEFAULT_PROGRESS),
     updated_at: now,
+    level_access: [],
     ...patch,
   };
   const { error } = await supabase.from(TABLE).insert(insertPayload);
@@ -197,6 +231,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
+    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at",
     "user_id, data, updated_at, email, name, last_login_at",
     "user_id, data, updated_at",
@@ -268,6 +303,74 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     throw new Error(
       `Could not delete this account (${error.message}). Run supabase/user_progress.sql once to add the deleted_at and revoked_before columns.`,
     );
+  }
+
+  // A later sign-in starts locked again. Ignore a missing column so delete
+  // still works before the level_access migration is applied.
+  const { error: accessError } = await supabase
+    .from(TABLE)
+    .update({ level_access: [] })
+    .eq("user_id", userId);
+  if (accessError) {
+    console.error("Supabase deleteUserAccount level_access", accessError.message);
+  }
+}
+
+/**
+ * CEFR slugs granted to this learner. Missing rows and a missing column both
+ * mean no access, so a new sign-up stays locked until an admin grants a level.
+ */
+export const getUserLevelAccess = cache(async (userId: string): Promise<string[]> => {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("level_access")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return [];
+  return readLevelAccess((data as { level_access?: unknown }).level_access);
+});
+
+export async function getStoredUserEmail(userId: string): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("email")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return typeof data.email === "string" ? data.email : null;
+}
+
+export async function setUserLevelAccess(
+  userId: string,
+  levelSlugs: readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ level_access: [...levelSlugs] })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) {
+    throw new Error(
+      `Could not update level access (${error.message}). Run supabase/user_progress.sql once to add the level_access column.`,
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("This user has not signed in yet.");
   }
 }
 

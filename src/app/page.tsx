@@ -3,6 +3,9 @@ import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
+import { getUserLevelAccess } from "@/lib/progress-store";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const session = await requireUser();
@@ -24,7 +27,11 @@ export default async function Home() {
       levels={levels}
       levelCatalog={getContinueLevelCatalog()}
       interviewClipTotals={interviewClipTotals}
-      levelsUnlocked={true}
+      unlockedLevelSlugs={
+        isAdminUser(session.user)
+          ? levels.map((level) => level.slug)
+          : await getUserLevelAccess(session.user.id)
+      }
     />
   );
 }

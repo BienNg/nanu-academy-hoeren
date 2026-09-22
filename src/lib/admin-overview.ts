@@ -1,7 +1,7 @@
+import { isAdminUser } from "@/lib/admins";
 import {
   activeStreakDays,
   normalizeProgress,
-  toBerufProgress,
   type StoredProgress,
 } from "@/lib/progress";
 import type { UserProgressListItem } from "@/lib/progress-store";
@@ -18,12 +18,9 @@ export type AdminTrackColumn = {
   totalClips: number;
 };
 
-export type AdminTrackProgress = {
+export type AdminLevelOption = {
   slug: string;
-  completedCount: number;
-  totalClips: number;
-  percent: number;
-  started: boolean;
+  level: string;
 };
 
 export type AdminUserRow = {
@@ -34,7 +31,8 @@ export type AdminUserRow = {
   lastLoginAt: string | null;
   lastLoginMs: number;
   streakDays: number;
-  tracks: AdminTrackProgress[];
+  isAdmin: boolean;
+  levelAccess: string[];
   progress: StoredProgress;
 };
 
@@ -65,23 +63,10 @@ export function withSessionIdentity(
   };
 }
 
-export function toAdminUserRow(
-  item: UserProgressListItem,
-  tracks: readonly AdminTrackColumn[],
-): AdminUserRow {
+export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
   const progress = normalizeProgress(item.progress);
   const lastLoginAt = item.lastLoginAt ?? item.updatedAt;
   const lastLoginMs = lastLoginAt ? new Date(lastLoginAt).getTime() : 0;
-  const trackRows: AdminTrackProgress[] = tracks.map((track) => {
-    const summary = toBerufProgress(progress, track.slug, track.totalClips);
-    return {
-      slug: track.slug,
-      completedCount: summary.completedCount,
-      totalClips: summary.totalClips,
-      percent: summary.percent,
-      started: summary.completedCount > 0,
-    };
-  });
 
   return {
     userId: item.userId,
@@ -91,7 +76,8 @@ export function toAdminUserRow(
     lastLoginAt,
     lastLoginMs: Number.isNaN(lastLoginMs) ? 0 : lastLoginMs,
     streakDays: activeStreakDays(progress),
-    tracks: trackRows,
+    isAdmin: isAdminUser({ email: item.email, id: item.userId }),
+    levelAccess: item.levelAccess,
     progress,
   };
 }

@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { deleteAdminUser } from "@/app/admin/actions";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import {
+  deleteAdminUser,
+  setAdminUserLevelAccess,
+} from "@/app/admin/actions";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -11,10 +14,9 @@ import {
   filterAdminUsers,
   paginateAdminUsers,
   sortAdminUsers,
+  type AdminLevelOption,
   type AdminSortDir,
   type AdminSortKey,
-  type AdminTrackColumn,
-  type AdminTrackProgress,
   type AdminUserRow,
 } from "@/lib/admin-overview";
 import { ProfileButton } from "@/components/ProfileButton";
@@ -80,40 +82,6 @@ function SortHeader({
   );
 }
 
-function TrackCell({ track, label }: { track: AdminTrackProgress; label?: string }) {
-  if (!track.started) {
-    return (
-      <span className="font-body-sm text-body-sm text-outline">Not started</span>
-    );
-  }
-
-  return (
-    <div className="flex min-w-[10rem] flex-col gap-1">
-      {label ? (
-        <span className="mb-0.5 truncate font-label-sm text-label-sm font-medium text-on-surface-variant">
-          {label}
-        </span>
-      ) : null}
-      <div className="flex items-baseline justify-between gap-space-8">
-        <span className="font-label-md text-label-md font-semibold text-on-surface">
-          {track.percent}%
-        </span>
-        <span className="font-caption text-caption text-on-surface-variant">
-          {track.completedCount}/{track.totalClips}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
-        <div
-          className={`h-full rounded-full ${
-            track.percent >= 100 ? "bg-[#34C759]" : "bg-primary-container"
-          }`}
-          style={{ width: `${track.percent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function formatAbsoluteTime(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);
@@ -173,9 +141,69 @@ function LastLoginCell({ iso }: { iso: string | null }) {
   );
 }
 
+function LevelAccessCell({
+  row,
+  levels,
+  granted,
+  saving,
+  onToggle,
+}: {
+  row: AdminUserRow;
+  levels: readonly AdminLevelOption[];
+  granted: readonly string[];
+  saving: boolean;
+  onToggle: (slug: string) => void;
+}) {
+  if (row.isAdmin) {
+    return (
+      <td className="px-space-16 py-space-16">
+        <span className="inline-flex items-center gap-space-4 rounded-full bg-primary-fixed px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-primary-fixed">
+          <MaterialIcon name="verified" className="text-[16px]" filled />
+          All levels
+        </span>
+      </td>
+    );
+  }
+
+  return (
+    <td
+      className="px-space-16 py-space-16"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <div className="flex max-w-[28rem] flex-wrap gap-space-8">
+        {levels.map((level) => {
+          const on = granted.includes(level.slug);
+          return (
+            <button
+              key={level.slug}
+              type="button"
+              aria-pressed={on}
+              disabled={saving}
+              title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
+              onClick={() => onToggle(level.slug)}
+              className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
+                on
+                  ? "bg-primary text-on-primary"
+                  : "border border-outline-variant/60 bg-surface text-on-surface-variant hover:bg-surface-container"
+              }`}
+            >
+              <MaterialIcon
+                name={on ? "lock_open" : "lock"}
+                className="text-[14px]"
+              />
+              {level.level}
+            </button>
+          );
+        })}
+      </div>
+    </td>
+  );
+}
+
 type AdminUsersDashboardProps = {
   rows: AdminUserRow[];
-  tracks: AdminTrackColumn[];
+  levels: readonly AdminLevelOption[];
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   currentUserId: string;
@@ -183,7 +211,7 @@ type AdminUsersDashboardProps = {
 
 export function AdminUsersDashboard({
   rows,
-  tracks,
+  levels,
   courseCatalog,
   storeConfigured,
   currentUserId,
@@ -199,6 +227,43 @@ export function AdminUsersDashboard({
   const [detailRow, setDetailRow] = useState<AdminUserRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [accessByUser, setAccessByUser] = useState<Record<string, string[]>>({});
+  const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const savingRef = useRef(new Set<string>());
+
+  function grantedFor(row: AdminUserRow): string[] {
+    return accessByUser[row.userId] ?? row.levelAccess;
+  }
+
+  async function toggleLevel(row: AdminUserRow, slug: string) {
+    if (row.isAdmin || savingRef.current.has(row.userId)) return;
+    savingRef.current.add(row.userId);
+    const current = grantedFor(row);
+    const next = current.includes(slug)
+      ? current.filter((item) => item !== slug)
+      : [...current, slug];
+    setAccessByUser((prev) => ({ ...prev, [row.userId]: next }));
+    setSavingIds((prev) =>
+      prev.includes(row.userId) ? prev : [...prev, row.userId],
+    );
+    setAccessError(null);
+    try {
+      const result = await setAdminUserLevelAccess(row.userId, next);
+      if (!result.ok) {
+        setAccessByUser((prev) => ({ ...prev, [row.userId]: current }));
+        setAccessError(result.error);
+        return;
+      }
+      setAccessByUser((prev) => ({ ...prev, [row.userId]: result.levelAccess }));
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingRef.current.delete(row.userId);
+      setSavingIds((prev) => prev.filter((id) => id !== row.userId));
+    }
+  }
 
   const visibleRows = useMemo(
     () => rows.filter((row) => !deletedIds.includes(row.userId)),
@@ -315,9 +380,16 @@ export function AdminUsersDashboard({
             />
           </label>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Select a student to see lessons, cards, and videos.
+            New students start with every level locked. Turn a level on to give
+            access. Select a row for lesson detail.
           </p>
         </div>
+
+        {accessError ? (
+          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+            {accessError}
+          </div>
+        ) : null}
 
         <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
           <div className="overflow-x-auto">
@@ -350,7 +422,7 @@ export function AdminUsersDashboard({
                     scope="col"
                     className="px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
                   >
-                    Progress
+                    Level access
                   </th>
                   <th
                     scope="col"
@@ -397,28 +469,13 @@ export function AdminUsersDashboard({
                       </td>
                       <LastLoginCell iso={row.lastLoginAt} />
                       <StreakCell days={row.streakDays} />
-                      <td className="px-space-16 py-space-16 align-top">
-                        <div className="flex flex-col gap-space-16">
-                          {row.tracks.filter((t) => t.started).length > 0 ? (
-                            row.tracks
-                              .filter((t) => t.started)
-                              .map((track) => (
-                                <TrackCell
-                                  key={track.slug}
-                                  track={track}
-                                  label={
-                                    tracks.find((t) => t.slug === track.slug)
-                                      ?.shortLabel
-                                  }
-                                />
-                              ))
-                          ) : (
-                            <span className="font-body-sm text-body-sm text-outline">
-                              Not started
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                      <LevelAccessCell
+                        row={row}
+                        levels={levels}
+                        granted={grantedFor(row)}
+                        saving={savingIds.includes(row.userId)}
+                        onToggle={(slug) => void toggleLevel(row, slug)}
+                      />
                       <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
                         <button
                           type="button"

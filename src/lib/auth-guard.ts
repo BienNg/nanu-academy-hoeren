@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/admins";
-import { resolveAccountAccess } from "@/lib/progress-store";
+import { getUserLevelAccess, resolveAccountAccess } from "@/lib/progress-store";
 
 /** Allow only same-origin relative paths after Google sign-in. */
 export function safeCallbackUrl(value: string | string[] | undefined): string {
@@ -46,6 +46,24 @@ export async function requireUser() {
   }
 
   return session;
+}
+
+/**
+ * Admins can open every CEFR level. Everyone else needs an explicit grant,
+ * and a missing grant sends them back to Home.
+ */
+export async function requireLevelAccess(
+  user: { id?: string | null; email?: string | null },
+  levelSlug: string,
+): Promise<void> {
+  if (isAdminUser(user)) return;
+  if (!user.id) {
+    redirect("/");
+  }
+  const granted = await getUserLevelAccess(user.id);
+  if (!granted.includes(levelSlug)) {
+    redirect("/");
+  }
 }
 
 /** Signed-in admins only. Non-admins get a 404 — no admin UI or data. */
