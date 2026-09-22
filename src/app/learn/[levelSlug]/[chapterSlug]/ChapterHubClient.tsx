@@ -13,6 +13,7 @@ type ChapterHubClientProps = {
   chapter: LevelChapterMeta;
   clipIds: string[];
   videos: ChapterVideo[];
+  isAdmin?: boolean;
 };
 
 const springTransition = {
@@ -171,6 +172,7 @@ export default function ChapterHubClient({
   chapter,
   clipIds,
   videos,
+  isAdmin = false,
 }: ChapterHubClientProps) {
   const shouldReduceMotion = useReducedMotion();
   const {
@@ -217,22 +219,24 @@ export default function ChapterHubClient({
   const allVideosWatched = videoCount === 0 || watchedVideoCount >= videoCount;
 
   // Lock info for Study card (locked if videos exist and not all watched)
-  const studyLockInfo: LockInfo = !allVideosWatched
-    ? {
-        locked: true,
-        icon: "smart_display",
-        message: `Xem hết ${videoCount - watchedVideoCount} video bài học để mở khoá`,
-      }
-    : { locked: false };
+  const studyLockInfo: LockInfo =
+    !isAdmin && !allVideosWatched
+      ? {
+          locked: true,
+          icon: "smart_display",
+          message: `Xem hết ${videoCount - watchedVideoCount} video bài học để mở khoá`,
+        }
+      : { locked: false };
 
   // Lock info for Practice card (locked if study not complete)
-  const practiceLockInfo: LockInfo = !studyComplete
-    ? {
-        locked: true,
-        icon: "menu_book",
-        message: "Hoàn thành phần Học nội dung để mở khoá",
-      }
-    : { locked: false };
+  const practiceLockInfo: LockInfo =
+    !isAdmin && !studyComplete
+      ? {
+          locked: true,
+          icon: "menu_book",
+          message: "Hoàn thành phần Học nội dung để mở khoá",
+        }
+      : { locked: false };
 
   return (
     <main

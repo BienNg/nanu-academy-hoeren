@@ -1,3 +1,4 @@
+import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
@@ -15,7 +16,7 @@ type LearnChapterPageProps = {
 export default async function LearnChapterPage({
   params,
 }: LearnChapterPageProps) {
-  await requireUser();
+  const session = await requireUser();
   const { levelSlug, chapterSlug } = await params;
 
   const level = getCefrLevel(levelSlug);
@@ -39,6 +40,7 @@ export default async function LearnChapterPage({
       chapter={chapter}
       clipIds={clips.map((clip) => clip.id)}
       videos={videos}
+      isAdmin={isAdminUser(session.user)}
     />
   );
 }

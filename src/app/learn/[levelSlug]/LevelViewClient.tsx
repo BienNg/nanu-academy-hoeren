@@ -29,9 +29,11 @@ const springTransition = {
 export default function LevelViewClient({
   level,
   chapters,
+  isAdmin = false,
 }: {
   level: Level;
   chapters: Chapter[];
+  isAdmin?: boolean;
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const resumeItemRef = useRef<HTMLLIElement>(null);
@@ -180,7 +182,8 @@ export default function LevelViewClient({
             const chapterKey = chapter.slug;
             const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
             const gateChapter = firstIncompletePrevious(index);
-            const isLocked = isAvailable && !isCompleted && Boolean(gateChapter);
+            const isLocked =
+              !isAdmin && isAvailable && !isCompleted && Boolean(gateChapter);
             const isOpen = isAvailable && !isLocked;
             const runCount = learnRunCountFor(chapterKey);
             const content = isLocked && gateChapter ? (

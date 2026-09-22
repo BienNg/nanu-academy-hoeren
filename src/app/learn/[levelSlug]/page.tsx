@@ -1,3 +1,4 @@
+import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import {
   getAvailableChapters,
@@ -13,7 +14,7 @@ type LearnLevelPageProps = {
 };
 
 export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
-  await requireUser();
+  const session = await requireUser();
   const { levelSlug } = await params;
   const level = getCefrLevel(levelSlug);
   if (!level) {
@@ -32,5 +33,11 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       : 0,
   }));
 
-  return <LevelViewClient level={level} chapters={chaptersWithAudio} />;
+  return (
+    <LevelViewClient
+      level={level}
+      chapters={chaptersWithAudio}
+      isAdmin={isAdminUser(session.user)}
+    />
+  );
 }
