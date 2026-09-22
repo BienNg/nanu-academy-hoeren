@@ -59,6 +59,7 @@ function ModeCard({
   progress,
   disabled,
   lockInfo,
+  runCount = 0,
 }: {
   href: string;
   icon: string;
@@ -68,6 +69,7 @@ function ModeCard({
   progress: number;
   disabled?: boolean;
   lockInfo?: LockInfo;
+  runCount?: number;
 }) {
   const isLocked = lockInfo?.locked === true;
   const isDisabled = disabled || isLocked;
@@ -81,12 +83,26 @@ function ModeCard({
   const content = (
     <>
       <div className="flex items-start justify-between gap-4">
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-[16px] ${
-            isDisabled ? "bg-[#f5f5f7]/70 text-[#d2d2d7]" : "bg-[#e8f2fc] text-[#0066cc]"
-          }`}
-        >
-          <MaterialIcon name={icon} className="text-[24px]" filled />
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-[16px] ${
+              isDisabled ? "bg-[#f5f5f7]/70 text-[#d2d2d7]" : "bg-[#e8f2fc] text-[#0066cc]"
+            }`}
+          >
+            <MaterialIcon name={icon} className="text-[24px]" filled />
+          </div>
+          {runCount > 0 && (
+            <span
+              className="inline-flex items-center gap-space-4 rounded-full bg-white border border-black/[0.05] shadow-sm px-space-8 py-1 text-[#86868b] shrink-0"
+              title={`${runCount} lượt luyện`}
+            >
+              <span className="sr-only">{runCount} lượt luyện</span>
+              <MaterialIcon name="workspace_premium" className="text-[16px] text-[#ff9500]" filled />
+              <span className="font-label-sm text-label-sm font-semibold text-[#1d1d1f]" aria-hidden="true">
+                {runCount} lượt
+              </span>
+            </span>
+          )}
         </div>
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -162,6 +178,7 @@ export default function ChapterHubClient({
     reviewedLearnClipIdsFor,
     learnChapterCompleted,
     learnStudyCompleted,
+    learnRunCountFor,
     lessonVideoProgressFor,
   } = useProgress();
 
@@ -311,6 +328,7 @@ export default function ChapterHubClient({
             progress={practiceProgress}
             disabled={!isAvailable}
             lockInfo={practiceLockInfo}
+            runCount={learnRunCountFor(chapter.slug)}
           />
         </motion.div>
       </section>
