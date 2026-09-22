@@ -86,6 +86,31 @@ export type BerufProgressSummary = {
 
 export type ContinueLearning = BerufProgressSummary;
 
+export type ContinueLevelCatalogChapter = {
+  slug: string;
+  label: string;
+  clipCount: number;
+  videoIds: string[];
+};
+
+export type ContinueLevelCatalogEntry = {
+  level: string;
+  slug: string;
+  chapters: ContinueLevelCatalogChapter[];
+};
+
+export type ContinueLevelLearning = {
+  levelSlug: string;
+  levelLabel: string;
+  chapterSlug: string;
+  chapterLabel: string;
+  href: `/learn/${string}/${string}`;
+  currentChapterIndex: number;
+  totalChapters: number;
+  completedChapters: number;
+  percent: number;
+};
+
 export const DEFAULT_PROGRESS: StoredProgress = {
   interview: {
     [CONTINUE_BERUF_SLUG]: {
@@ -883,6 +908,111 @@ export function toContinueLearning(
     candidates[0] ??
     toBerufProgress(progress, fallbackSlug, totalsBySlug[fallbackSlug] ?? 0)
   );
+}
+
+function hasChapterContent(chapter: ContinueLevelCatalogChapter): boolean {
+  return chapter.clipCount > 0 || chapter.videoIds.length > 0;
+}
+
+function hasLearnActivity(entry: LearnProgress | undefined): boolean {
+  if (!entry) return false;
+  return Boolean(
+    entry.completedAt ||
+      entry.studyCompletedAt ||
+      entry.runCount > 0 ||
+      entry.studyRunCount > 0 ||
+      entry.completedClipIds.length > 0 ||
+      entry.runCompletedClipIds.length > 0 ||
+      entry.reviewedClipIds.length > 0 ||
+      entry.currentClipIndex > 0,
+  );
+}
+
+function isChapterComplete(
+  progress: StoredProgress,
+  levelSlug: string,
+  chapter: ContinueLevelCatalogChapter,
+): boolean {
+  if (chapter.clipCount > 0) {
+    return isLearnChapterCompleted(progress, chapter.slug);
+  }
+  if (chapter.videoIds.length === 0) return false;
+  return chapter.videoIds.every((videoId) => {
+    const key = lessonVideoProgressKey(levelSlug, chapter.slug, videoId);
+    return lessonVideoStatus(progress.videos[key]) === "watched";
+  });
+}
+
+function isChapterStarted(
+  progress: StoredProgress,
+  levelSlug: string,
+  chapter: ContinueLevelCatalogChapter,
+): boolean {
+  if (!hasChapterContent(chapter)) return false;
+  const videoStarted = chapter.videoIds.some((videoId) => {
+    const key = lessonVideoProgressKey(levelSlug, chapter.slug, videoId);
+    return lessonVideoStatus(progress.videos[key]) !== "not-started";
+  });
+  if (videoStarted) return true;
+  return chapter.clipCount > 0 && hasLearnActivity(progress.learn[chapter.slug]);
+}
+
+function isLevelStarted(
+  progress: StoredProgress,
+  level: ContinueLevelCatalogEntry,
+): boolean {
+  return level.chapters.some((chapter) =>
+    isChapterStarted(progress, level.slug, chapter),
+  );
+}
+
+/**
+ * Resume target on Home: the first unfinished Lektion of the latest CEFR
+ * level the student has actually started. Returns null when nothing is in
+ * progress (so Home does not fall back to Ausbildung).
+ */
+export function toContinueLevelLearning(
+  progress: StoredProgress,
+  catalog: readonly ContinueLevelCatalogEntry[],
+): ContinueLevelLearning | null {
+  const latestStarted = [...catalog]
+    .reverse()
+    .find((level) => isLevelStarted(progress, level));
+  if (!latestStarted) return null;
+
+  const contentChapters = latestStarted.chapters.filter(hasChapterContent);
+  if (contentChapters.length === 0) return null;
+
+  const completedChapters = contentChapters.filter((chapter) =>
+    isChapterComplete(progress, latestStarted.slug, chapter),
+  ).length;
+  const resumeIndex = contentChapters.findIndex(
+    (chapter) => !isChapterComplete(progress, latestStarted.slug, chapter),
+  );
+  if (resumeIndex < 0) return null;
+
+  const chapter = contentChapters[resumeIndex];
+  if (!chapter) return null;
+
+  const percent =
+    contentChapters.length === 0
+      ? 0
+      : Math.min(
+          100,
+          Math.round((completedChapters / contentChapters.length) * 100),
+        );
+
+  return {
+    levelSlug: latestStarted.slug,
+    levelLabel: latestStarted.level,
+    chapterSlug: chapter.slug,
+    chapterLabel: chapter.label,
+    href: `/learn/${latestStarted.slug}/${chapter.slug}`,
+    currentChapterIndex: resumeIndex,
+    totalChapters: contentChapters.length,
+    completedChapters,
+    percent,
+  };
 }
 
 /** Remove every locally cached progress key, including legacy per-beruf ones. */

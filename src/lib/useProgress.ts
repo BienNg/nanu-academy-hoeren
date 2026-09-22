@@ -30,7 +30,9 @@ import {
   setLessonVideoWatched,
   toBerufProgress,
   toContinueLearning,
+  toContinueLevelLearning,
   type BerufProgressSummary,
+  type ContinueLevelCatalogEntry,
   type LessonVideoProgress,
   type StoredProgress,
 } from "@/lib/progress";
@@ -159,12 +161,16 @@ function getServerSnapshot(): StoredProgress {
 }
 
 const EMPTY_TOTALS: Record<string, number> = {};
+const EMPTY_LEVEL_CATALOG: ContinueLevelCatalogEntry[] = [];
 
 /**
  * Unified localStorage + cloud-synced learning progress (requires login).
  * Pass `totalsBySlug` so continue-learning and per-beruf cards get correct totals.
  */
-export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS) {
+export function useProgress(
+  totalsBySlug: Record<string, number> = EMPTY_TOTALS,
+  levelCatalog: readonly ContinueLevelCatalogEntry[] = EMPTY_LEVEL_CATALOG,
+) {
   const { status } = useSession();
   const progress = useSyncExternalStore(
     subscribeProgress,
@@ -331,6 +337,7 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
   );
 
   const continueLearning = toContinueLearning(progress, totalsBySlug);
+  const continueLevel = toContinueLevelLearning(progress, levelCatalog);
 
   const progressFor = useCallback(
     (berufSlug: string): BerufProgressSummary =>
@@ -341,6 +348,7 @@ export function useProgress(totalsBySlug: Record<string, number> = EMPTY_TOTALS)
   return {
     progress,
     continueLearning,
+    continueLevel,
     progressFor,
     streakDays: progress.streakDays,
     markClipDone,

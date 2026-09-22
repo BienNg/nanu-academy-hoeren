@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
 import type { SessionClip } from "@/lib/content";
+import type { ContinueLevelCatalogEntry } from "@/lib/progress";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
 export type LevelChapterMeta = {
@@ -191,6 +192,31 @@ export function getChapterVideos(
     const video = toChapterVideo(entry);
     return video ? [video] : [];
   });
+}
+
+/** Catalog used on Home to pick the in-progress CEFR resume card. */
+export function getContinueLevelCatalog(): ContinueLevelCatalogEntry[] {
+  return getCefrLevels().map((level) => ({
+    level: level.level,
+    slug: level.slug,
+    chapters: getLevelChapters(level.slug).map((chapter) => {
+      let clipCount = 0;
+      try {
+        clipCount = getChapterClips(level.slug, chapter.slug).length;
+      } catch {
+        clipCount = 0;
+      }
+      const videoIds = getChapterVideos(level.slug, chapter.slug).flatMap(
+        (video) => (video.videoId ? [video.videoId] : []),
+      );
+      return {
+        slug: chapter.slug,
+        label: chapter.label,
+        clipCount,
+        videoIds,
+      };
+    }),
+  }));
 }
 
 /** Discover chapter JSON files under a level folder (dev helper / validation). */

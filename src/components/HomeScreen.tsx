@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
 import type { Ausbildungsberuf } from "@/lib/content";
+import type { ContinueLevelCatalogEntry } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 
 export type LevelMeta = {
@@ -16,6 +17,7 @@ export type LevelMeta = {
 type HomeScreenProps = {
   berufe: Ausbildungsberuf[];
   levels: LevelMeta[];
+  levelCatalog: ContinueLevelCatalogEntry[];
   interviewClipTotals: Record<string, number>;
   /** Admins can open CEFR practice; everyone else still sees Coming Soon. */
   levelsUnlocked?: boolean;
@@ -53,21 +55,21 @@ function MaterialIcon({
 }
 
 function ContinueCard({
-  label,
-  icon,
-  totalClips,
+  levelLabel,
+  chapterLabel,
+  totalChapters,
   percent,
-  currentClipIndex,
+  currentChapterIndex,
   href,
 }: {
-  label: string;
-  icon: string;
-  totalClips: number;
+  levelLabel: string;
+  chapterLabel: string;
+  totalChapters: number;
   percent: number;
-  currentClipIndex: number;
+  currentChapterIndex: number;
   href: string;
 }) {
-  const displayIndex = Math.min(currentClipIndex + 1, Math.max(totalClips, 1));
+  const displayIndex = Math.min(currentChapterIndex + 1, Math.max(totalChapters, 1));
 
   return (
     <section className="flex flex-col gap-space-8 pt-space-4">
@@ -80,24 +82,22 @@ function ContinueCard({
               </span>
             </div>
             <h2 className="mt-space-2 font-headline-sm text-headline-sm font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-              Ausbildung · {label}
+              Trình độ {levelLabel} · {chapterLabel}
             </h2>
             <p className="font-body-sm text-body-sm font-medium text-[#86868b]">
-              Luyện nghe câu hỏi phỏng vấn theo nghề
+              Luyện tập theo trình độ
             </p>
           </div>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc]">
-            <MaterialIcon name={icon} className="text-[24px]" />
+            <MaterialIcon name="hearing" className="text-[24px]" />
           </div>
         </div>
 
         <div className="flex flex-col gap-space-4">
           <div className="flex items-center justify-between font-caption text-caption font-medium text-[#86868b]">
             <span>
-              Câu {displayIndex} / {Math.max(totalClips, 1)}
-              {percent >= 100
-                ? " · Đã hoàn thành"
-                : " · Nghe chép chính tả"}
+              Chương {displayIndex} / {Math.max(totalChapters, 1)}
+              {percent >= 100 ? " · Đã hoàn thành" : " · Chưa hoàn thành"}
             </span>
             <span className="font-semibold text-[#1d1d1f]">{percent}%</span>
           </div>
@@ -261,18 +261,13 @@ function BerufCard({
 export function HomeScreen({
   berufe,
   levels,
+  levelCatalog,
   interviewClipTotals,
   levelsUnlocked = false,
 }: HomeScreenProps) {
   const { data: session } = useSession();
-  const { continueLearning, progressFor, streakDays } =
-    useProgress(interviewClipTotals);
-  const continueBeruf =
-    berufe.find((b) => b.slug === continueLearning.berufSlug) ?? berufe[0];
-  const continueIcon =
-    BERUF_ICON[continueLearning.berufSlug] ??
-    (continueBeruf ? BERUF_ICON[continueBeruf.slug] : undefined) ??
-    "work";
+  const { continueLevel, progressFor, streakDays } =
+    useProgress(interviewClipTotals, levelCatalog);
   const firstName =
     session?.user?.name?.trim().split(/\s+/)[0] ?? "bạn";
   const greeting = `Chào ${firstName} 👋`;
@@ -319,14 +314,14 @@ export function HomeScreen({
 
       <main className="relative flex w-full flex-1 flex-col items-center">
         <div className="flex w-full max-w-4xl flex-col gap-space-24 px-6 pb-space-32">
-          {continueBeruf ? (
+          {continueLevel ? (
             <ContinueCard
-              label={continueBeruf.label}
-              icon={continueIcon}
-              totalClips={continueLearning.totalClips}
-              percent={continueLearning.percent}
-              currentClipIndex={continueLearning.currentClipIndex}
-              href={continueLearning.href}
+              levelLabel={continueLevel.levelLabel}
+              chapterLabel={continueLevel.chapterLabel}
+              totalChapters={continueLevel.totalChapters}
+              percent={continueLevel.percent}
+              currentChapterIndex={continueLevel.currentChapterIndex}
+              href={continueLevel.href}
             />
           ) : null}
 

@@ -2,7 +2,7 @@ import { HomeScreen } from "@/components/HomeScreen";
 import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import { getCefrLevels } from "@/lib/levels";
+import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
 
 export default async function Home() {
   const session = await requireUser();
@@ -22,6 +22,7 @@ export default async function Home() {
     <HomeScreen
       berufe={berufe}
       levels={levels}
+      levelCatalog={getContinueLevelCatalog()}
       interviewClipTotals={interviewClipTotals}
       levelsUnlocked={true}
     />
