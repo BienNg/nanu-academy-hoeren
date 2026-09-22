@@ -203,12 +203,15 @@ function projectLesson(
         ? "in-progress"
         : "not-started";
   const runCount = learn?.runCount ?? 0;
+  const listeningCompletedOnce =
+    clipTotal > 0 &&
+    (runCount >= 1 || completedCount >= clipTotal || Boolean(learn?.completedAt));
   const listeningStatus: LessonStatus =
     clipTotal === 0
       ? "not-started"
-      : completedCount >= clipTotal
+      : listeningCompletedOnce
         ? "completed"
-        : completedCount > 0 || runCount > 0
+        : completedCount > 0
           ? "in-progress"
           : "not-started";
   const studyStatus: LessonStatus =
@@ -231,8 +234,9 @@ function projectLesson(
                   id: `${lesson.id}-study`,
                   label: "Study",
                   status: studyStatus,
-                  percent: percentOf(reviewedCount, clipTotal),
-                  progressLabel: `${reviewedCount}/${clipTotal}`,
+                  percent: studyStatus === "completed" ? 100 : percentOf(reviewedCount, clipTotal),
+                  progressLabel:
+                    studyStatus === "completed" ? "" : `${reviewedCount}/${clipTotal}`,
                   note: null,
                   struggling: false,
                 } satisfies AdminActivityCard,
@@ -242,8 +246,8 @@ function projectLesson(
             id: `${lesson.id}-listening`,
             label: "Listening",
             status: listeningStatus,
-            percent: percentOf(completedCount, clipTotal),
-            progressLabel: `${completedCount}/${clipTotal}`,
+            percent: listeningCompletedOnce ? 100 : percentOf(completedCount, clipTotal),
+            progressLabel: listeningCompletedOnce ? "" : `${completedCount}/${clipTotal}`,
             note:
               runCount > 0
                 ? `${runCount} listening ${runCount === 1 ? "run" : "runs"}`
@@ -331,8 +335,12 @@ export function projectStudentDetail(
     };
   });
 
-  const startedCourses = detailed.filter((course) => course.started);
-  const notStartedLabels = detailed
+  const ordered = [...detailed].sort((left, right) => {
+    if (left.kind === right.kind) return 0;
+    return left.kind === "cefr" ? -1 : 1;
+  });
+  const startedCourses = ordered.filter((course) => course.started);
+  const notStartedLabels = ordered
     .filter((course) => !course.started)
     .map((course) => course.shortLabel);
 

@@ -112,9 +112,11 @@ function CircleMeter({
         </svg>
         <MaterialIcon name={icon} className="text-[22px] text-[#0066cc]" filled />
       </div>
-      <span className="font-label-sm text-label-sm font-semibold leading-tight text-on-surface">
-        {center}
-      </span>
+      {center ? (
+        <span className="font-label-sm text-label-sm font-semibold leading-tight text-on-surface">
+          {center}
+        </span>
+      ) : null}
       {detail ? (
         <span
           className={`font-caption text-caption leading-tight ${
@@ -138,7 +140,7 @@ function ActivityMeter({ activity }: { activity: AdminActivityCard }) {
       percent={activity.percent}
       center={activity.progressLabel}
       icon={activityIcon(activity)}
-      accessibleLabel={`${activity.label} ${activity.progressLabel}${activity.note ? `, ${activity.note}` : ""}`}
+      accessibleLabel={`${activity.label}${activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"}${activity.note ? `, ${activity.note}` : ""}`}
       detail={activity.note}
       struggling={activity.struggling}
     />
@@ -146,26 +148,25 @@ function ActivityMeter({ activity }: { activity: AdminActivityCard }) {
 }
 
 function videoCenter(video: AdminVideoDetail): string {
-  if (video.status === "watched") return "100%";
+  if (video.status === "watched") return "";
   if (video.status === "in-progress") return formatClock(video.positionSeconds);
   return "0%";
 }
 
 function VideoMeter({ video }: { video: AdminVideoDetail }) {
-  const percent = video.status === "watched" ? 100 : 0;
-  const detail =
-    video.status === "watched"
-      ? "Watched"
-      : video.status === "in-progress"
-        ? "In progress"
-        : "Not started";
+  const completed = video.status === "watched";
+  const detail = completed ? null : video.status === "in-progress" ? "In progress" : "Not started";
 
   return (
     <CircleMeter
-      percent={percent}
+      percent={completed ? 100 : 0}
       center={videoCenter(video)}
       icon="smart_display"
-      accessibleLabel={`${video.title}, ${detail}${video.status === "in-progress" ? ` ${videoCenter(video)}` : ""}`}
+      accessibleLabel={
+        completed
+          ? `${video.title}, watched`
+          : `${video.title}, ${detail}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
+      }
       detail={detail}
     />
   );
