@@ -45,7 +45,7 @@ function firstUncompletedVideoIndex(
   return index === -1 ? null : index;
 }
 
-const END_THRESHOLD_SECONDS = 1.5;
+const MARK_WATCHED_LEAD_SECONDS = 10;
 
 /** Shifts the embed so YouTube's title and Share / Save sit outside the clip. */
 const YOUTUBE_CHROME_CROP_PX = 60;
@@ -450,8 +450,9 @@ function YouTubePane({
     setCurrentTime(target);
   }, [ready, savedPosition, urlStart]);
 
-  const atEnd =
-    duration > 0 && currentTime >= Math.max(0, duration - END_THRESHOLD_SECONDS);
+  const nearEnd =
+    duration > 0 &&
+    currentTime >= Math.max(0, duration - MARK_WATCHED_LEAD_SECONDS);
 
   function togglePlay() {
     const player = playerRef.current;
@@ -700,20 +701,11 @@ function YouTubePane({
         </div>
       </div>
 
-      {watched ? (
-        <button
-          type="button"
-          onClick={() => setVideoWatched(progressKey, false)}
-          className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-full bg-[#f5f5f7] px-5 text-[15px] font-semibold text-[#1d1d1f] transition active:scale-[0.98]"
-        >
-          <MaterialIcon name="undo" className="text-[20px]" />
-          Bỏ đánh dấu đã xem
-        </button>
-      ) : ended || atEnd ? (
+      {!watched && (ended || nearEnd) ? (
         <button
           type="button"
           onClick={() => setVideoWatched(progressKey, true)}
-          className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
+          className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
         >
           <MaterialIcon name="check" className="text-[20px]" />
           Đánh dấu đã xem
