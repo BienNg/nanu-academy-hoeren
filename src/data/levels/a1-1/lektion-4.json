@@ -69,6 +69,50 @@
     { "filename": "a11-tag4-53-was-esst-ihr-heute.mp3", "script": "Was esst ihr heute?", "translationVi": "Hôm nay các bạn ăn gì?" },
     { "filename": "a11-tag4-54-wieso-kommst-du-spaet.mp3", "script": "Wieso kommst du spät?", "translationVi": "Tại sao bạn đến muộn?" },
     { "filename": "a11-tag4-55-warum-kommst-du-spaet.mp3", "script": "Warum kommst du spät?", "translationVi": "Tại sao bạn đến muộn?" },
-    { "filename": "a11-tag4-56-woher-kommt-die-idee.mp3", "script": "Woher kommt die Idee?", "translationVi": "Ý tưởng này từ đâu ra?" }
+    { "filename": "a11-tag4-56-woher-kommt-die-idee.mp3", "script": "Woher kommt die Idee?", "translationVi": "Ý tưởng này từ đâu ra?" },
+
+    { "filename": "a11-tag4-57-treffen.mp3", "script": "treffen", "translationVi": "gặp" },
+    { "filename": "a11-tag4-58-uns.mp3", "script": "uns", "translationVi": "nhau" },
+    { "filename": "a11-tag4-59-wann-treffen-wir-uns.mp3", "script": "Wann treffen wir uns?", "translationVi": "Khi nào chúng ta gặp nhau?" },
+
+    { "filename": "a11-tag4-60-die-idee.mp3", "script": "die Idee", "translationVi": "ý tưởng" },
+    { "filename": "a11-tag4-61-finden.mp3", "script": "finden", "translationVi": "thấy" },
+    { "filename": "a11-tag4-62-findest.mp3", "script": "findest", "translationVi": "(bạn) thấy" },
+    { "filename": "a11-tag4-63-wie-findest-du-die-idee.mp3", "script": "Wie findest du die Idee?", "translationVi": "Bạn thấy ý tưởng đó như thế nào?" },
+
+    { "filename": "a11-tag4-64-die-party.mp3", "script": "die Party", "translationVi": "bữa tiệc" },
+    { "filename": "a11-tag4-65-beginnen.mp3", "script": "beginnen", "translationVi": "bắt đầu" },
+    { "filename": "a11-tag4-66-wann-beginnt-die-party.mp3", "script": "Wann beginnt die Party?", "translationVi": "Khi nào bữa tiệc bắt đầu?" },
+
+    { "filename": "a11-tag4-67-fahren.mp3", "script": "fahren", "translationVi": "đi" },
+    { "filename": "a11-tag4-68-wohin-fahren-wir.mp3", "script": "Wohin fahren wir?", "translationVi": "Chúng ta đi đâu?" },
+
+    { "filename": "a11-tag4-69-warum-lernst-du-deutsch.mp3", "script": "Warum lernst du Deutsch?", "translationVi": "Tại sao bạn học tiếng Đức?" },
+    { "filename": "a11-tag4-70-wo-lernst-du-deutsch.mp3", "script": "Wo lernst du Deutsch?", "translationVi": "Bạn học tiếng Đức ở đâu?" },
+    { "filename": "a11-tag4-71-wie-findest-du-deutsch.mp3", "script": "Wie findest du Deutsch?", "translationVi": "Bạn thấy tiếng Đức như thế nào?" },
+
+    { "filename": "a11-tag4-72-fuer-ihn.mp3", "script": "für ihn", "translationVi": "cho anh ấy" },
+    { "filename": "a11-tag4-73-was-kaufst-du-fuer-ihn.mp3", "script": "Was kaufst du für ihn?", "translationVi": "Bạn mua cái gì cho anh ấy?" },
+
+    { "filename": "a11-tag4-74-zu-ihr.mp3", "script": "zu ihr", "translationVi": "chỗ cô ấy" },
+    { "filename": "a11-tag4-75-kommen.mp3", "script": "kommen", "translationVi": "đến" },
+    { "filename": "a11-tag4-76-wann-kommen-wir-zu-ihr.mp3", "script": "Wann kommen wir zu ihr?", "translationVi": "Khi nào chúng ta đến chỗ cô ấy?" },
+
+    { "filename": "a11-tag4-77-zur-buchhandlung.mp3", "script": "zur Buchhandlung", "translationVi": "tới hiệu sách" },
+    { "filename": "a11-tag4-78-wann-gehst-du-zur-buchhandlung.mp3", "script": "Wann gehst du zur Buchhandlung?", "translationVi": "Khi nào bạn đi tới hiệu sách?" },
+
+    { "filename": "a11-tag4-79-schenken.mp3", "script": "schenken", "translationVi": "tặng" },
+    { "filename": "a11-tag4-80-was-schenkst-du.mp3", "script": "Was schenkst du?", "translationVi": "Bạn tặng cái gì?" },
+
+    { "filename": "a11-tag4-81-das-geschenk.mp3", "script": "das Geschenk", "translationVi": "món quà" },
+    { "filename": "a11-tag4-82-denken.mp3", "script": "denken", "translationVi": "nghĩ" },
+    { "filename": "a11-tag4-83-was-denkst-du-ueber-das-geschenk.mp3", "script": "Was denkst du über das Geschenk?", "translationVi": "Bạn nghĩ sao về món quà đó?" },
+
+    { "filename": "a11-tag4-84-sagen.mp3", "script": "sagen", "translationVi": "nói" },
+    { "filename": "a11-tag4-85-was-sagst-du.mp3", "script": "Was sagst du?", "translationVi": "Bạn nói cái gì?" },
+
+    { "filename": "a11-tag4-86-wo-ist-stuttgart.mp3", "script": "Wo ist Stuttgart?", "translationVi": "Stuttgart ở đâu?" },
+    { "filename": "a11-tag4-87-wozu-lernst-du-deutsch.mp3", "script": "Wozu lernst du Deutsch?", "translationVi": "Học tiếng Đức để làm gì?" }
+  
   ]
 }
