@@ -227,3 +227,79 @@ export function usersInClass(
 ): AdminUserRow[] {
   return rows.filter((row) => classKey(row.className) === key);
 }
+
+export type AdminActivityStats = {
+  users: number;
+  activeUsers: number;
+  videosWatchedToday: number;
+  studyRunsToday: number;
+  practiceRunsToday: number;
+};
+
+function utcDay(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  return value.slice(0, 10);
+}
+
+function studyRunsOnDay(progress: StoredProgress, day: string): number {
+  const recorded = progress.activity?.[day]?.studyRuns ?? 0;
+  let firstCompletions = 0;
+  for (const entry of Object.values(progress.learn)) {
+    if (utcDay(entry.studyCompletedAt) === day) firstCompletions += 1;
+  }
+  return Math.max(recorded, firstCompletions);
+}
+
+function practiceRunsOnDay(progress: StoredProgress, day: string): number {
+  const recorded = progress.activity?.[day]?.practiceRuns ?? 0;
+  let firstCompletions = 0;
+  for (const entry of Object.values(progress.learn)) {
+    if (utcDay(entry.completedAt) === day) firstCompletions += 1;
+  }
+  return Math.max(recorded, firstCompletions);
+}
+
+function videosWatchedOnDay(progress: StoredProgress, day: string): number {
+  let count = 0;
+  for (const entry of Object.values(progress.videos)) {
+    if (utcDay(entry.watchedAt) === day) count += 1;
+  }
+  return count;
+}
+
+/** Totals for the admin overview. "Today" is the UTC calendar day, matching streaks. */
+export function buildAdminActivityStats(
+  rows: readonly AdminUserRow[],
+  now = new Date(),
+): AdminActivityStats {
+  const today = now.toISOString().slice(0, 10);
+  let activeUsers = 0;
+  let videosWatchedToday = 0;
+  let studyRunsToday = 0;
+  let practiceRunsToday = 0;
+
+  for (const row of rows) {
+    const videos = videosWatchedOnDay(row.progress, today);
+    const studyRuns = studyRunsOnDay(row.progress, today);
+    const practiceRuns = practiceRunsOnDay(row.progress, today);
+    videosWatchedToday += videos;
+    studyRunsToday += studyRuns;
+    practiceRunsToday += practiceRuns;
+
+    const active =
+      utcDay(row.lastLoginAt) === today ||
+      row.progress.lastPracticeDate === today ||
+      videos > 0 ||
+      studyRuns > 0 ||
+      practiceRuns > 0;
+    if (active) activeUsers += 1;
+  }
+
+  return {
+    users: rows.length,
+    activeUsers,
+    videosWatchedToday,
+    studyRunsToday,
+    practiceRunsToday,
+  };
+}

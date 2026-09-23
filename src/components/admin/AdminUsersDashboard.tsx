@@ -16,6 +16,7 @@ import {
   CLASS_NAME_MAX_LENGTH,
   classKey,
   filterAdminUsers,
+  buildAdminActivityStats,
   listAdminClasses,
   normalizeClassName,
   paginateAdminUsers,
@@ -96,6 +97,39 @@ function formatAbsoluteTime(iso: string | null): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-GB");
+}
+
+function ActivityStat({
+  label,
+  value,
+  icon,
+  hint,
+}: {
+  label: string;
+  value: string;
+  icon: string;
+  hint: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
+      <div className="flex items-center gap-space-8">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
+          <MaterialIcon name={icon} className="text-[18px]" />
+        </div>
+        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          {label}
+        </p>
+      </div>
+      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
+        {value}
+      </p>
+      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
+    </div>
+  );
 }
 
 function StreakCell({ days }: { days: number }) {
@@ -585,6 +619,11 @@ export function AdminUsersDashboard({
     [rows, deletedIds, classFor],
   );
 
+  const activity = useMemo(
+    () => buildAdminActivityStats(visibleRows),
+    [visibleRows],
+  );
+
   const classOptions = useMemo(() => listAdminClasses(visibleRows), [visibleRows]);
 
   const displayClass = useCallback(
@@ -687,27 +726,63 @@ export function AdminUsersDashboard({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-space-12">
-          <label className="relative min-w-[16rem] flex-1 max-w-md">
-            <span className="sr-only">Search by name, email, or class</span>
-            <MaterialIcon
-              name="search"
-              className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+        <section aria-label="Activity today" className="flex flex-col gap-space-12">
+          <div>
+            <h2 className="font-headline-sm text-headline-sm text-on-surface">
+              Activity
+            </h2>
+            <p className="font-caption text-caption text-on-surface-variant">
+              Today uses UTC, the same day boundary as streaks.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
+            <ActivityStat
+              label="Users"
+              value={formatCount(activity.users)}
+              icon="group"
+              hint="Accounts in this list"
             />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => handleQueryChange(event.target.value)}
-              placeholder="Search by name, email, or class"
-              className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest py-space-8 pl-10 pr-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
+            <ActivityStat
+              label="Active today"
+              value={formatCount(activity.activeUsers)}
+              icon="person"
+              hint="Signed in or practiced"
             />
-          </label>
-          <p className="max-w-xl font-body-sm text-body-sm text-on-surface-variant">
-            Type a class on each student, then open Classes to compare that
-            group. New students start with every level locked. Select a row for
-            lesson detail.
-          </p>
-        </div>
+            <ActivityStat
+              label="Videos watched"
+              value={formatCount(activity.videosWatchedToday)}
+              icon="smart_display"
+              hint="Marked watched today"
+            />
+            <ActivityStat
+              label="Study runs"
+              value={formatCount(activity.studyRunsToday)}
+              icon="menu_book"
+              hint="Finished today"
+            />
+            <ActivityStat
+              label="Practice runs"
+              value={formatCount(activity.practiceRunsToday)}
+              icon="headphones"
+              hint="Listening runs finished today"
+            />
+          </div>
+        </section>
+
+        <label className="relative w-full max-w-md">
+          <span className="sr-only">Search by name, email, or class</span>
+          <MaterialIcon
+            name="search"
+            className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => handleQueryChange(event.target.value)}
+            placeholder="Search by name, email, or class"
+            className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest py-space-8 pl-10 pr-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
+          />
+        </label>
 
         {accessError ? (
           <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">

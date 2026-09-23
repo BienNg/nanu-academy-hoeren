@@ -64,6 +64,12 @@ export type LessonVideoProgress = {
 
 export type LessonVideoStatus = "not-started" | "in-progress" | "watched";
 
+/** Finished runs on one UTC day. The admin dashboard sums these for "today". */
+export type DayActivity = {
+  studyRuns: number;
+  practiceRuns: number;
+};
+
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
   learn: Record<string, LearnProgress>;
@@ -75,6 +81,8 @@ export type StoredProgress = {
   lastPracticeDate?: string;
   /** UTC calendar days the learner practiced. The streak is derived from this. */
   practiceDates?: string[];
+  /** Runs finished per UTC day (`YYYY-MM-DD`). Older days are dropped on save. */
+  activity?: Record<string, DayActivity>;
 };
 
 export type BerufProgressSummary = {
@@ -263,6 +271,7 @@ export function normalizeProgress(
   const interview = normalizeTrack(parsed?.interview, DEFAULT_PROGRESS.interview);
   const learn = normalizeLearnTrack(parsed?.learn);
   const videos = normalizeVideos(parsed?.videos);
+  const activity = normalizeActivity(parsed?.activity);
 
   return {
     interview,
@@ -279,6 +288,7 @@ export function normalizeProgress(
     ...(practiceDatesFrom(parsed?.practiceDates).length
       ? { practiceDates: practiceDatesFrom(parsed?.practiceDates) }
       : {}),
+    ...(activity ? { activity } : {}),
   };
 }
 
@@ -415,6 +425,8 @@ export function mergeProgress(
   ].sort();
   const lastPracticeDate = practiceDates.at(-1);
 
+  const activity = mergeActivity(a.activity, b.activity);
+
   return {
     interview,
     learn,
@@ -424,6 +436,7 @@ export function mergeProgress(
       : 0,
     ...(lastPracticeDate ? { lastPracticeDate } : {}),
     ...(practiceDates.length ? { practiceDates } : {}),
+    ...(activity ? { activity } : {}),
   };
 }
 
@@ -504,6 +517,83 @@ export function todayIsoDate(now = new Date()): string {
 function isoDay(value: string | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
   return value.slice(0, 10);
+}
+
+const ACTIVITY_KEEP_DAYS = 120;
+
+function countField(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.min(1_000_000, Math.floor(value))
+    : 0;
+}
+
+function activityCutoff(now = new Date()): string {
+  const cutoff = new Date(now);
+  cutoff.setUTCDate(cutoff.getUTCDate() - ACTIVITY_KEEP_DAYS);
+  return todayIsoDate(cutoff);
+}
+
+function normalizeActivity(
+  value: unknown,
+  now = new Date(),
+): Record<string, DayActivity> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const cutoff = activityCutoff(now);
+  const activity: Record<string, DayActivity> = {};
+  for (const [day, entry] of Object.entries(value)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < cutoff) continue;
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const studyRuns = countField(record.studyRuns);
+    const practiceRuns = countField(record.practiceRuns);
+    if (studyRuns === 0 && practiceRuns === 0) continue;
+    activity[day] = { studyRuns, practiceRuns };
+  }
+  return Object.keys(activity).length > 0 ? activity : undefined;
+}
+
+function mergeActivity(
+  left: Record<string, DayActivity> | undefined,
+  right: Record<string, DayActivity> | undefined,
+): Record<string, DayActivity> | undefined {
+  const days = new Set([...Object.keys(left ?? {}), ...Object.keys(right ?? {})]);
+  const merged: Record<string, DayActivity> = {};
+  for (const day of days) {
+    const studyRuns = Math.max(left?.[day]?.studyRuns ?? 0, right?.[day]?.studyRuns ?? 0);
+    const practiceRuns = Math.max(
+      left?.[day]?.practiceRuns ?? 0,
+      right?.[day]?.practiceRuns ?? 0,
+    );
+    if (studyRuns === 0 && practiceRuns === 0) continue;
+    merged[day] = { studyRuns, practiceRuns };
+  }
+  return normalizeActivity(merged);
+}
+
+function dateFromStamp(value: string): Date {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function recordDayRun(
+  progress: StoredProgress,
+  field: keyof DayActivity,
+  now: Date,
+): StoredProgress {
+  const day = todayIsoDate(now);
+  const current = progress.activity?.[day];
+  const nextDay: DayActivity = {
+    studyRuns: current?.studyRuns ?? 0,
+    practiceRuns: current?.practiceRuns ?? 0,
+  };
+  nextDay[field] += 1;
+  return {
+    ...progress,
+    activity: {
+      ...progress.activity,
+      [day]: nextDay,
+    },
+  };
 }
 
 function practiceDatesFrom(value: unknown): string[] {
@@ -697,19 +787,24 @@ export function markLearnChapterCompleted(
 export function incrementLearnRunCount(
   progress: StoredProgress,
   chapterSlug: string,
+  now = new Date(),
 ): StoredProgress {
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
 
-  return {
-    ...progress,
-    learn: {
-      ...progress.learn,
-      [chapterSlug]: {
-        ...entry,
-        runCount: entry.runCount + 1,
+  return recordDayRun(
+    {
+      ...progress,
+      learn: {
+        ...progress.learn,
+        [chapterSlug]: {
+          ...entry,
+          runCount: entry.runCount + 1,
+        },
       },
     },
-  };
+    "practiceRuns",
+    now,
+  );
 }
 
 /**
@@ -723,17 +818,21 @@ export function incrementStudyRunCount(
 ): StoredProgress {
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
 
-  return {
-    ...progress,
-    learn: {
-      ...progress.learn,
-      [chapterSlug]: {
-        ...entry,
-        studyRunCount: entry.studyRunCount + 1,
-        studyCompletedAt: entry.studyCompletedAt ?? completedAt,
+  return recordDayRun(
+    {
+      ...progress,
+      learn: {
+        ...progress.learn,
+        [chapterSlug]: {
+          ...entry,
+          studyRunCount: entry.studyRunCount + 1,
+          studyCompletedAt: entry.studyCompletedAt ?? completedAt,
+        },
       },
     },
-  };
+    "studyRuns",
+    dateFromStamp(completedAt),
+  );
 }
 
 export function markLearnClipReviewed(
