@@ -140,7 +140,13 @@ function activityIcon(activity: AdminActivityCard): string {
   return activity.id.endsWith("-study") ? "menu_book" : "headphones";
 }
 
-function ActivityMeter({ activity }: { activity: AdminActivityCard }) {
+function ActivityMeter({
+  activity,
+  itemClassName,
+}: {
+  activity: AdminActivityCard;
+  itemClassName?: string;
+}) {
   return (
     <CircleMeter
       percent={activity.percent}
@@ -149,6 +155,7 @@ function ActivityMeter({ activity }: { activity: AdminActivityCard }) {
       accessibleLabel={`${activity.label}${activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"}${activity.note ? `, ${activity.note}` : ""}`}
       detail={activity.note}
       struggling={activity.struggling}
+      itemClassName={itemClassName}
     />
   );
 }
@@ -181,7 +188,7 @@ function VideoMeter({
           : `${video.title}, ${statusLabel}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
       }
       detail={showTitle ? null : statusLabel}
-      itemClassName={showTitle ? "max-w-36" : "w-24"}
+      itemClassName={showTitle ? "w-full min-w-0" : "w-24"}
     />
   );
 }
@@ -195,13 +202,25 @@ export function LessonContentMeters({
 }) {
   if (lesson.activities.length === 0 && lesson.videos.length === 0) return null;
 
+  const aligned = videoCaption === "title";
+
   return (
-    <ul className="flex flex-wrap items-start gap-x-space-12 gap-y-space-16">
+    <ul
+      className={
+        aligned
+          ? "grid w-full justify-start gap-x-space-12 gap-y-space-16 [grid-template-columns:repeat(auto-fill,7.5rem)]"
+          : "flex flex-wrap items-start gap-x-space-12 gap-y-space-16"
+      }
+    >
       {lesson.videos.map((video) => (
         <VideoMeter key={video.id} video={video} caption={videoCaption} />
       ))}
       {lesson.activities.map((activity) => (
-        <ActivityMeter key={activity.id} activity={activity} />
+        <ActivityMeter
+          key={activity.id}
+          activity={activity}
+          itemClassName={aligned ? "w-full min-w-0" : undefined}
+        />
       ))}
     </ul>
   );
