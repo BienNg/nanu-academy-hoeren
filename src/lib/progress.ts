@@ -69,10 +69,12 @@ export type StoredProgress = {
   learn: Record<string, LearnProgress>;
   /** Resume point and watched state, keyed by level/chapter/youtube id. */
   videos: Record<string, LessonVideoProgress>;
-  /** Day streak for header display; defaults when unset. */
+  /** Consecutive practice days ending on `lastPracticeDate`. */
   streakDays: number;
-  /** ISO date (YYYY-MM-DD) of last practice day, for streak updates. */
+  /** ISO date (YYYY-MM-DD, UTC) of last practice day, for streak updates. */
   lastPracticeDate?: string;
+  /** UTC calendar days the learner practiced. The streak is derived from this. */
+  practiceDates?: string[];
 };
 
 export type BerufProgressSummary = {
@@ -274,6 +276,9 @@ export function normalizeProgress(
       typeof parsed?.lastPracticeDate === "string"
         ? parsed.lastPracticeDate
         : undefined,
+    ...(practiceDatesFrom(parsed?.practiceDates).length
+      ? { practiceDates: practiceDatesFrom(parsed?.practiceDates) }
+      : {}),
   };
 }
 
@@ -405,17 +410,20 @@ export function mergeProgress(
   const learn = mergeLearnTrack(a.learn, b.learn);
   const videos = mergeVideos(a.videos, b.videos);
 
-  const aDate = a.lastPracticeDate ?? "";
-  const bDate = b.lastPracticeDate ?? "";
-  const lastPracticeDate =
-    aDate >= bDate ? a.lastPracticeDate : b.lastPracticeDate;
+  const practiceDates = [
+    ...new Set([...collectPracticeDates(a), ...collectPracticeDates(b)]),
+  ].sort();
+  const lastPracticeDate = practiceDates.at(-1);
 
   return {
     interview,
     learn,
     videos,
-    streakDays: Math.max(a.streakDays, b.streakDays),
-    lastPracticeDate,
+    streakDays: lastPracticeDate
+      ? streakEndingOn(new Set(practiceDates), lastPracticeDate)
+      : 0,
+    ...(lastPracticeDate ? { lastPracticeDate } : {}),
+    ...(practiceDates.length ? { practiceDates } : {}),
   };
 }
 
@@ -493,40 +501,111 @@ export function todayIsoDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+function isoDay(value: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  return value.slice(0, 10);
+}
+
+function practiceDatesFrom(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter(
+        (day): day is string =>
+          typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day),
+      ),
+    ),
+  ].sort();
+}
+
+function previousIsoDate(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+/** UTC days this snapshot records as practice, including activity timestamps. */
+export function collectPracticeDates(progress: StoredProgress): string[] {
+  const dates = new Set<string>();
+  const add = (value: string | undefined) => {
+    const day = isoDay(value);
+    if (day) dates.add(day);
+  };
+
+  add(progress.lastPracticeDate);
+  for (const day of progress.practiceDates ?? []) add(day);
+  for (const entry of Object.values(progress.learn)) {
+    add(entry.completedAt);
+    add(entry.studyCompletedAt);
+  }
+  for (const entry of Object.values(progress.interview)) {
+    add(entry.completedAt);
+  }
+  for (const entry of Object.values(progress.videos)) {
+    add(entry.updatedAt);
+    add(entry.watchedAt);
+  }
+
+  return [...dates].sort();
+}
+
+function datesForStreak(progress: StoredProgress): Set<string> {
+  const recorded = practiceDatesFrom(progress.practiceDates);
+  return new Set(recorded.length > 0 ? recorded : collectPracticeDates(progress));
+}
+
+/** Consecutive practice days ending on `end` (inclusive). */
+function streakEndingOn(dates: ReadonlySet<string>, end: string): number {
+  let count = 0;
+  let cursor: string | null = end;
+  while (cursor && dates.has(cursor)) {
+    count += 1;
+    cursor = previousIsoDate(cursor);
+  }
+  return count;
+}
+
+function samePracticeDates(left: string[] | undefined, right: string[]): boolean {
+  if (!left || left.length !== right.length) return false;
+  return left.every((day, index) => day === right[index]);
+}
+
 /**
- * Days the learner still has credit for. A stored streak only counts if they
- * practiced today or yesterday (UTC, same clock as `bumpStreak`).
+ * Days the learner still has credit for. The run counts only when they
+ * practiced today or yesterday (UTC).
  */
 export function activeStreakDays(
   progress: StoredProgress,
   now = new Date(),
 ): number {
-  if (progress.streakDays <= 0) return 0;
-  const last = progress.lastPracticeDate;
-  if (!last) return progress.streakDays;
-
+  const dates = datesForStreak(progress);
   const today = todayIsoDate(now);
-  if (last === today) return progress.streakDays;
-
-  const yesterday = new Date(now);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  return last === todayIsoDate(yesterday) ? progress.streakDays : 0;
-}
-
-export function bumpStreak(progress: StoredProgress, now = new Date()): StoredProgress {
-  const today = todayIsoDate(now);
-  if (progress.lastPracticeDate === today) {
-    return progress;
-  }
+  if (dates.has(today)) return streakEndingOn(dates, today);
 
   const yesterday = new Date(now);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const yesterdayIso = todayIsoDate(yesterday);
-  const streakDays =
-    progress.lastPracticeDate === yesterdayIso ? progress.streakDays + 1 : 1;
+  return dates.has(yesterdayIso) ? streakEndingOn(dates, yesterdayIso) : 0;
+}
+
+export function bumpStreak(progress: StoredProgress, now = new Date()): StoredProgress {
+  const today = todayIsoDate(now);
+  const dates = datesForStreak(progress);
+  dates.add(today);
+  const practiceDates = [...dates].sort();
+  const streakDays = streakEndingOn(dates, today);
+  if (
+    progress.lastPracticeDate === today &&
+    progress.streakDays === streakDays &&
+    samePracticeDates(progress.practiceDates, practiceDates)
+  ) {
+    return progress;
+  }
 
   return {
     ...progress,
+    practiceDates,
     streakDays,
     lastPracticeDate: today,
   };

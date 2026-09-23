@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
+  activeStreakDays,
   STORAGE_KEY,
   clearStoredProgress,
   incrementLearnRunCount,
@@ -350,7 +351,7 @@ export function useProgress(
     continueLearning,
     continueLevel,
     progressFor,
-    streakDays: progress.streakDays,
+    streakDays: activeStreakDays(progress),
     markClipDone,
     markLearnClipDone,
     markLearnChapterDone,

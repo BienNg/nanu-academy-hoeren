@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
-import { useProgress } from "@/lib/useProgress";
 
 function MaterialIcon({
   name,
@@ -39,17 +38,14 @@ function GoogleIcon({ className }: { className?: string }) {
 
 type AccountScreenProps = {
   callbackUrl: string;
-  interviewClipTotals: Record<string, number>;
   isAdmin?: boolean;
 };
 
 export function AccountScreen({
   callbackUrl,
-  interviewClipTotals,
   isAdmin = false,
 }: AccountScreenProps) {
   const { data: session, status } = useSession();
-  const { continueLearning, streakDays } = useProgress(interviewClipTotals);
   const loading = status === "loading";
   const user = session?.user;
 
@@ -221,57 +217,6 @@ export function AccountScreen({
               <MaterialIcon name="logout" className="text-[20px]" />
               Đăng xuất
             </button>
-          </section>
-
-          <section className="flex flex-col gap-4 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0066cc] text-white shadow-[0_2px_8px_rgba(0,102,204,0.25)]">
-                <MaterialIcon name="monitoring" className="text-[22px]" />
-              </div>
-              <h2 className="font-headline-sm text-[18px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                Tiến độ học
-              </h2>
-            </div>
-            
-            <div className="flex flex-col gap-3 rounded-[20px] bg-[#f5f5f7]/80 p-4 border border-black/[0.05]">
-              <div className="flex items-center justify-between border-b border-black/[0.05] pb-3">
-                <div className="flex items-center gap-2 text-[#86868b]">
-                  <MaterialIcon name="local_fire_department" className="text-[18px] text-[#0066cc]" filled />
-                  <span className="font-body-sm text-[14px] font-medium">Chuỗi ngày luyện</span>
-                </div>
-                <span className="font-label-lg text-[15px] font-bold text-[#1d1d1f]">
-                  {streakDays} ngày
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-black/[0.05] pb-3">
-                <div className="flex items-center gap-2 text-[#86868b]">
-                  <MaterialIcon name="task_alt" className="text-[18px] text-[#0066cc]" filled />
-                  <span className="font-body-sm text-[14px] font-medium">Đã hoàn thành</span>
-                </div>
-                <span className="font-label-lg text-[15px] font-bold text-[#1d1d1f]">
-                  {continueLearning.completedCount} / {Math.max(continueLearning.totalClips, 1)}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#86868b]">
-                  <MaterialIcon name="cloud_sync" className="text-[18px] text-[#0066cc]" filled />
-                  <span className="font-body-sm text-[14px] font-medium">Đồng bộ đám mây</span>
-                </div>
-                <span className="font-label-lg text-[13px] font-bold text-[#0066cc]">
-                  Đang bật
-                </span>
-              </div>
-            </div>
-            
-            <Link
-              href={continueLearning.href}
-              className="group mt-2 flex h-[52px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] font-label-lg text-[16px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-            >
-              Tiếp tục luyện
-              <MaterialIcon name="arrow_forward" className="text-[18px] transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
           </section>
         </div>
       </main>
