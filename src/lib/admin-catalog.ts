@@ -64,3 +64,16 @@ export function buildAdminCourseCatalog(
 
   return [...ausbildung, ...levels];
 }
+
+/** CEFR courses with clip ids only, so learner pages can project the same meters as admin. */
+export function buildCefrProgressCatalog(): AdminCatalogCourse[] {
+  return buildAdminCourseCatalog([])
+    .filter((course) => course.kind === "cefr")
+    .map((course) => ({
+      ...course,
+      lessons: course.lessons.map((lesson) => ({
+        ...lesson,
+        clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
+      })),
+    }));
+}

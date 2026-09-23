@@ -81,6 +81,7 @@ function CircleMeter({
   accessibleLabel,
   detail,
   struggling = false,
+  itemClassName = "w-24",
 }: {
   percent: number;
   center: string;
@@ -88,6 +89,7 @@ function CircleMeter({
   accessibleLabel: string;
   detail?: string | null;
   struggling?: boolean;
+  itemClassName?: string;
 }) {
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
@@ -96,7 +98,7 @@ function CircleMeter({
   const progressColor = clamped >= 100 ? "#34C759" : struggling ? "#ff9500" : "#0071e3";
 
   return (
-    <li className="flex w-24 flex-col items-center gap-1 text-center" aria-label={accessibleLabel}>
+    <li className={`flex flex-col items-center gap-1 text-center ${itemClassName}`} aria-label={accessibleLabel}>
       <div className="relative flex h-16 w-16 items-center justify-center">
         <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 40 40" aria-hidden="true">
           <circle cx="20" cy="20" r={radius} fill="none" stroke="#eae7ea" strokeWidth="3.5" />
@@ -117,7 +119,7 @@ function CircleMeter({
         <MaterialIcon name={icon} className="text-[22px] text-[#0066cc]" filled />
       </div>
       {center ? (
-        <span className="font-label-sm text-label-sm font-semibold leading-tight text-on-surface">
+        <span className="max-w-full break-words font-label-sm text-label-sm font-semibold leading-tight text-on-surface">
           {center}
         </span>
       ) : null}
@@ -157,22 +159,51 @@ function videoCenter(video: AdminVideoDetail): string {
   return "0%";
 }
 
-function VideoMeter({ video }: { video: AdminVideoDetail }) {
+function VideoMeter({
+  video,
+  caption = "status",
+}: {
+  video: AdminVideoDetail;
+  caption?: "status" | "title";
+}) {
   const completed = video.status === "watched";
-  const detail = completed ? null : video.status === "in-progress" ? "In progress" : "Not started";
+  const statusLabel = completed ? null : video.status === "in-progress" ? "In progress" : "Not started";
+  const showTitle = caption === "title";
 
   return (
     <CircleMeter
       percent={completed ? 100 : 0}
-      center={videoCenter(video)}
+      center={showTitle ? video.title : videoCenter(video)}
       icon="smart_display"
       accessibleLabel={
         completed
           ? `${video.title}, watched`
-          : `${video.title}, ${detail}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
+          : `${video.title}, ${statusLabel}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
       }
-      detail={detail}
+      detail={showTitle ? null : statusLabel}
+      itemClassName={showTitle ? "max-w-36" : "w-24"}
     />
+  );
+}
+
+export function LessonContentMeters({
+  lesson,
+  videoCaption = "status",
+}: {
+  lesson: AdminLessonDetail;
+  videoCaption?: "status" | "title";
+}) {
+  if (lesson.activities.length === 0 && lesson.videos.length === 0) return null;
+
+  return (
+    <ul className="flex flex-wrap items-start gap-x-space-12 gap-y-space-16">
+      {lesson.videos.map((video) => (
+        <VideoMeter key={video.id} video={video} caption={videoCaption} />
+      ))}
+      {lesson.activities.map((activity) => (
+        <ActivityMeter key={activity.id} activity={activity} />
+      ))}
+    </ul>
   );
 }
 
@@ -203,14 +234,7 @@ function LessonBlock({ lesson }: { lesson: AdminLessonDetail }) {
       </div>
       <div className="px-space-16 py-space-16">
         {hasMeters ? (
-          <ul className="flex flex-wrap items-start gap-x-space-12 gap-y-space-16">
-            {lesson.videos.map((video) => (
-              <VideoMeter key={video.id} video={video} />
-            ))}
-            {lesson.activities.map((activity) => (
-              <ActivityMeter key={activity.id} activity={activity} />
-            ))}
-          </ul>
+          <LessonContentMeters lesson={lesson} />
         ) : (
           <p className="font-body-sm text-body-sm text-outline">No cards in this lesson.</p>
         )}

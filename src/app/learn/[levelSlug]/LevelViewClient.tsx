@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { LessonContentMeters } from "@/components/admin/StudentDetailModal";
 import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { projectStudentDetail, type AdminCatalogCourse } from "@/lib/admin-detail";
 import { useProgress } from "@/lib/useProgress";
 
 type Chapter = {
@@ -29,21 +31,25 @@ const springTransition = {
 export default function LevelViewClient({
   level,
   chapters,
+  cefrCatalog,
   isAdmin = false,
 }: {
   level: Level;
   chapters: Chapter[];
+  cefrCatalog: readonly AdminCatalogCourse[];
   isAdmin?: boolean;
 }) {
   const containerRef = useRef<HTMLElement>(null);
   const resumeItemRef = useRef<HTMLLIElement>(null);
   const didAutoScroll = useRef(false);
   const shouldReduceMotion = useReducedMotion();
-  const {
-    completedLearnRunClipIdsFor,
-    learnChapterCompleted,
-    learnRunCountFor,
-  } = useProgress();
+  const { progress, completedLearnRunClipIdsFor, learnChapterCompleted } = useProgress();
+  const lessonById = useMemo(() => {
+    const course = projectStudentDetail(cefrCatalog, progress).courses.find(
+      (entry) => entry.id === level.slug,
+    );
+    return new Map(course?.lessons.map((lesson) => [lesson.id, lesson]) ?? []);
+  }, [cefrCatalog, level.slug, progress]);
 
   function firstIncompletePrevious(index: number): Chapter | undefined {
     return chapters
@@ -185,7 +191,10 @@ export default function LevelViewClient({
             const isLocked =
               !isAdmin && isAvailable && !isCompleted && Boolean(gateChapter);
             const isOpen = isAvailable && !isLocked;
-            const runCount = learnRunCountFor(chapterKey);
+            const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
+            const meters = lessonDetail ? (
+              <LessonContentMeters lesson={lessonDetail} videoCaption="title" />
+            ) : null;
             const content = isLocked && gateChapter ? (
               <>
                 <div className="flex items-center justify-between gap-3">
@@ -207,46 +216,27 @@ export default function LevelViewClient({
                   </span>
                   <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
                 </div>
+                {meters}
               </>
             ) : (
               <>
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  {(!isAvailable || isCompleted) ? (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                      {!isAvailable && (
-                        <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-                          Coming soon
-                        </span>
-                      )}
-                      {isCompleted && (
-                        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
-                          <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-                            check_circle
-                          </span>
-                          Đã hoàn thành
-                        </span>
-                      )}
-                    </div>
-                  ) : <div />}
-                  {runCount > 0 && (
-                    <span
-                      className="inline-flex items-center gap-space-4 rounded-full bg-white border border-black/[0.05] shadow-sm px-space-8 py-1 text-[#86868b] shrink-0"
-                      title={`${runCount} lượt luyện`}
-                    >
-                      <span className="sr-only">{runCount} lượt luyện</span>
-                      <span
-                        className="material-symbols-outlined text-[16px] text-[#ff9500]"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                        aria-hidden="true"
-                      >
-                        workspace_premium
+                {(!isAvailable || isCompleted) && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                    {!isAvailable && (
+                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                        Coming soon
                       </span>
-                      <span className="font-label-sm text-label-sm font-semibold text-[#1d1d1f]" aria-hidden="true">
-                        {runCount} lượt
+                    )}
+                    {isCompleted && (
+                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
+                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                          check_circle
+                        </span>
+                        Đã hoàn thành
                       </span>
-                    </span>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isOpen ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
@@ -257,6 +247,7 @@ export default function LevelViewClient({
                     </span>
                   </div>
                 </div>
+                {meters}
               </>
             );
 

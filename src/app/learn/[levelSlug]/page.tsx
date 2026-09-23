@@ -1,3 +1,4 @@
+import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
 import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import {
@@ -38,6 +39,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     <LevelViewClient
       level={level}
       chapters={chaptersWithAudio}
+      cefrCatalog={buildCefrProgressCatalog()}
       isAdmin={isAdminUser(session.user)}
     />
   );
