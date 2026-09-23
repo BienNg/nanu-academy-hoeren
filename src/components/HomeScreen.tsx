@@ -140,22 +140,22 @@ function LevelCard({
         aria-disabled="true"
         aria-label={`Trình độ ${level.level} đang khóa. Nhờ giáo viên mở khóa.`}
         title="Nhờ giáo viên mở trình độ này"
-        className="flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] border border-black/[0.06] bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
+        className="flex min-h-[200px] w-[240px] shrink-0 flex-col justify-between gap-5 rounded-[28px] border border-black/[0.06] bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
       >
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+            <span className="text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">
               Đã khóa
             </span>
-            <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
+            <h3 className="mt-1 font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
               Trình độ {level.level}
             </h3>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b]">
-            <MaterialIcon name="lock" className="text-[18px]" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b]">
+            <MaterialIcon name="lock" className="text-[22px]" />
           </div>
         </div>
-        <p className="border-t border-black/[0.05] pt-3 text-[12px] font-medium leading-snug text-[#86868b]">
+        <p className="border-t border-black/[0.05] pt-4 text-[14px] font-medium leading-snug text-[#86868b]">
           Nhờ giáo viên mở khóa
         </p>
       </div>
@@ -166,26 +166,26 @@ function LevelCard({
     <Link
       href={`/learn/${level.slug}`}
       aria-label={`Trình độ ${level.level}`}
-      className="group flex w-[160px] shrink-0 flex-col justify-between gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
+      className="group flex min-h-[200px] w-[240px] shrink-0 flex-col justify-between gap-5 rounded-[28px] bg-white/80 backdrop-blur-xl border border-white/20 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
     >
       <div className="flex items-start justify-between">
         <div className="flex flex-col">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0066cc]">
+          <span className="text-[12px] font-semibold uppercase tracking-wider text-[#0066cc]">
             Trình độ
           </span>
-          <h3 className="mt-0.5 font-headline-sm text-[17px] font-bold text-[#1d1d1f] group-hover:text-[#0066cc] transition-colors duration-300" style={{ letterSpacing: "-0.015em" }}>
+          <h3 className="mt-1 font-headline-sm text-[22px] font-bold text-[#1d1d1f] group-hover:text-[#0066cc] transition-colors duration-300" style={{ letterSpacing: "-0.015em" }}>
             {level.level}
           </h3>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110">
-          <MaterialIcon name="hearing" className="text-[18px]" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110">
+          <MaterialIcon name="hearing" className="text-[22px]" />
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-black/[0.05] pt-3 text-[12px] font-medium">
+      <div className="flex items-center justify-between border-t border-black/[0.05] pt-4 text-[14px] font-medium">
         <span className="text-[#86868b]">{chapterLabel}</span>
         <span className="flex items-center gap-0.5 font-semibold text-[#0066cc]">
           Vào
-          <MaterialIcon name="arrow_forward" className="text-[14px] transition-transform duration-300 group-hover:translate-x-0.5" />
+          <MaterialIcon name="arrow_forward" className="text-[16px] transition-transform duration-300 group-hover:translate-x-0.5" />
         </span>
       </div>
     </Link>
