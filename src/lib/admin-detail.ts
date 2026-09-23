@@ -91,6 +91,8 @@ export type StudentDetail = {
   videosWatched: number;
   startedCourses: AdminCourseDetail[];
   notStartedLabels: string[];
+  /** Every catalog course, including ones this student has not opened. */
+  courses: AdminCourseDetail[];
 };
 
 const STRUGGLE_RUNS = 3;
@@ -379,5 +381,113 @@ export function projectStudentDetail(
     videosWatched,
     startedCourses,
     notStartedLabels,
+    courses: ordered,
+  };
+}
+
+export type ClassStatsMemberInput = {
+  userId: string;
+  displayName: string;
+  email: string | null;
+  lastLoginAt: string | null;
+  streakDays: number;
+  progress: StoredProgress;
+};
+
+export type ClassMemberStat = {
+  userId: string;
+  displayName: string;
+  email: string | null;
+  lastLoginAt: string | null;
+  streakDays: number;
+  coursesStarted: number;
+  lessonsCompleted: number;
+  listeningRepetitions: number;
+  videosWatched: number;
+};
+
+export type ClassCourseStat = {
+  id: string;
+  label: string;
+  shortLabel: string;
+  kind: "ausbildung" | "cefr";
+  studentsStarted: number;
+  studentCount: number;
+  /** Mean completion across the whole class. Students who have not started count as 0. */
+  averagePercent: number;
+};
+
+export type ClassStatsSnapshot = {
+  studentCount: number;
+  activeStreaks: number;
+  averageStreak: number;
+  coursesStarted: number;
+  lessonsCompleted: number;
+  listeningRepetitions: number;
+  videosWatched: number;
+  members: ClassMemberStat[];
+  courses: ClassCourseStat[];
+};
+
+/** Headline stats for one class, using the same totals as a single student. */
+export function buildClassStats(
+  members: readonly ClassStatsMemberInput[],
+  catalog: readonly AdminCatalogCourse[],
+): ClassStatsSnapshot {
+  const detailed = members.map((member) => ({
+    member,
+    detail: projectStudentDetail(catalog, member.progress),
+  }));
+
+  const studentCount = detailed.length;
+  const activeStreaks = detailed.filter((item) => item.member.streakDays > 0).length;
+  const streakSum = detailed.reduce((sum, item) => sum + item.member.streakDays, 0);
+  const template = detailed[0]?.detail.courses ?? [];
+
+  const courses: ClassCourseStat[] = template
+    .filter((course) => course.totalLessons > 0)
+    .map((course) => {
+      let studentsStarted = 0;
+      let percentSum = 0;
+      for (const item of detailed) {
+        const match = item.detail.courses.find((entry) => entry.id === course.id);
+        if (!match) continue;
+        percentSum += match.percent;
+        if (match.started) studentsStarted += 1;
+      }
+      return {
+        id: course.id,
+        label: course.label,
+        shortLabel: course.shortLabel,
+        kind: course.kind,
+        studentsStarted,
+        studentCount,
+        averagePercent: studentCount === 0 ? 0 : Math.round(percentSum / studentCount),
+      };
+    });
+
+  return {
+    studentCount,
+    activeStreaks,
+    averageStreak: studentCount === 0 ? 0 : Math.round(streakSum / studentCount),
+    coursesStarted: detailed.reduce((sum, item) => sum + item.detail.coursesStarted, 0),
+    lessonsCompleted: detailed.reduce((sum, item) => sum + item.detail.lessonsCompleted, 0),
+    listeningRepetitions: detailed.reduce(
+      (sum, item) => sum + item.detail.listeningRepetitions,
+      0,
+    ),
+    videosWatched: detailed.reduce((sum, item) => sum + item.detail.videosWatched, 0),
+    members: detailed.map(({ member, detail }) => ({
+      userId: member.userId,
+      displayName: member.displayName,
+      email: member.email,
+      lastLoginAt: member.lastLoginAt,
+      streakDays: member.streakDays,
+      coursesStarted: detail.coursesStarted,
+      lessonsCompleted: detail.lessonsCompleted,
+      listeningRepetitions: detail.listeningRepetitions,
+      videosWatched: detail.videosWatched,
+    })),
+    courses,
   };
 }

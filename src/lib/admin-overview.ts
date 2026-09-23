@@ -8,7 +8,9 @@ import type { UserProgressListItem } from "@/lib/progress-store";
 
 export const ADMIN_PAGE_SIZE = 25;
 
-export type AdminSortKey = "lastLogin" | "name" | "streak";
+export const CLASS_NAME_MAX_LENGTH = 64;
+
+export type AdminSortKey = "lastLogin" | "name" | "streak" | "class";
 export type AdminSortDir = "asc" | "desc";
 
 export type AdminTrackColumn = {
@@ -33,8 +35,27 @@ export type AdminUserRow = {
   streakDays: number;
   isAdmin: boolean;
   levelAccess: string[];
+  className: string | null;
   progress: StoredProgress;
 };
+
+export type AdminClassOption = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+export function normalizeClassName(value: string): string {
+  return value
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Case-insensitive grouping key. An empty key means the student has no class. */
+export function classKey(value: string | null | undefined): string {
+  return normalizeClassName(value ?? "").toLocaleLowerCase("vi");
+}
 
 export function shortBerufLabel(label: string): string {
   return label.split(" / ")[0]?.trim() || label;
@@ -78,6 +99,7 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     streakDays: activeStreakDays(progress),
     isAdmin: isAdminUser({ email: item.email, id: item.userId }),
     levelAccess: item.levelAccess,
+    className: item.className,
     progress,
   };
 }
@@ -96,6 +118,17 @@ function compareRows(
   } else if (sort === "streak") {
     if (a.streakDays !== b.streakDays) {
       return (a.streakDays - b.streakDays) * sign;
+    }
+  } else if (sort === "class") {
+    const aKey = classKey(a.className);
+    const bKey = classKey(b.className);
+    if (!aKey !== !bKey) return aKey ? -1 : 1;
+    if (aKey !== bKey) {
+      return (
+        (a.className ?? "").localeCompare(b.className ?? "", "vi", {
+          sensitivity: "base",
+        }) * sign
+      );
     }
   } else {
     const byName = a.displayName.localeCompare(b.displayName, "en", {
@@ -116,7 +149,7 @@ export function filterAdminUsers(
   const needle = query.trim().toLowerCase();
   if (!needle) return [...rows];
   return rows.filter((row) => {
-    const haystack = [row.displayName, row.name, row.email, row.userId]
+    const haystack = [row.displayName, row.name, row.email, row.className, row.userId]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -152,4 +185,45 @@ export function paginateAdminUsers(
     pageCount,
     total,
   };
+}
+
+/** Distinct classes, labeled with the most common spelling of each name. */
+export function listAdminClasses(rows: readonly AdminUserRow[]): AdminClassOption[] {
+  const groups = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    const key = classKey(row.className);
+    if (!key) continue;
+    const label = normalizeClassName(row.className ?? "");
+    const votes = groups.get(key) ?? new Map<string, number>();
+    votes.set(label, (votes.get(label) ?? 0) + 1);
+    groups.set(key, votes);
+  }
+
+  const options: AdminClassOption[] = [];
+  for (const [key, votes] of groups) {
+    let label = "";
+    let best = -1;
+    let count = 0;
+    for (const [candidate, votesFor] of votes) {
+      count += votesFor;
+      if (
+        votesFor > best ||
+        (votesFor === best && candidate.localeCompare(label, "vi", { sensitivity: "base" }) < 0)
+      ) {
+        best = votesFor;
+        label = candidate;
+      }
+    }
+    options.push({ key, label, count });
+  }
+
+  options.sort((a, b) => a.label.localeCompare(b.label, "vi", { sensitivity: "base" }));
+  return options;
+}
+
+export function usersInClass(
+  rows: readonly AdminUserRow[],
+  key: string,
+): AdminUserRow[] {
+  return rows.filter((row) => classKey(row.className) === key);
 }

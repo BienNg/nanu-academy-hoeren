@@ -13,7 +13,9 @@ create table if not exists public.user_progress (
   revoked_before timestamptz,
   -- CEFR slugs this learner may open. Empty = locked until an admin grants one.
   -- Admin accounts ignore this column and can open every level.
-  level_access text[] not null default '{}'
+  level_access text[] not null default '{}',
+  -- Admin-only class label used to group students. Learner APIs never read it.
+  class_name text
 );
 
 alter table public.user_progress
@@ -22,7 +24,8 @@ alter table public.user_progress
   add column if not exists last_login_at timestamptz,
   add column if not exists deleted_at timestamptz,
   add column if not exists revoked_before timestamptz,
-  add column if not exists level_access text[] not null default '{}';
+  add column if not exists level_access text[] not null default '{}',
+  add column if not exists class_name text;
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);
@@ -35,6 +38,9 @@ create index if not exists user_progress_last_login_at_idx
 -- earlier, so a still-logged-in browser cannot re-sync its old progress.
 create index if not exists user_progress_deleted_at_idx
   on public.user_progress (deleted_at);
+
+create index if not exists user_progress_class_name_idx
+  on public.user_progress (class_name);
 
 alter table public.user_progress enable row level security;
 

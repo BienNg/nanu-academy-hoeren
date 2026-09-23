@@ -281,10 +281,16 @@ export function StudentDetailModal({
                 {row.displayName.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-space-8">
+                <div className="flex flex-wrap items-center gap-space-8">
                   <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
                     Student
                   </p>
+                  {row.className ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 font-label-sm text-label-sm font-semibold text-on-surface">
+                      <MaterialIcon name="school" className="text-[14px]" />
+                      {row.className}
+                    </span>
+                  ) : null}
                   <span className="h-1 w-1 rounded-full bg-outline-variant/50" />
                   <span className="inline-flex items-center gap-space-4 font-label-sm text-label-sm font-semibold text-on-surface-variant">
                     <MaterialIcon

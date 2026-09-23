@@ -107,6 +107,8 @@ export type UserProgressListItem = {
   updatedAt: string | null;
   /** CEFR slugs an admin has granted. Empty means every level stays locked. */
   levelAccess: string[];
+  /** Admin-only class label. Never returned by the learner progress API. */
+  className: string | null;
   progress: StoredProgress;
 };
 
@@ -121,6 +123,7 @@ type RawProgressRow = {
   last_login_at?: string | null;
   deleted_at?: string | null;
   level_access?: unknown;
+  class_name?: unknown;
 };
 
 /** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
@@ -138,6 +141,16 @@ export function readLevelAccess(value: unknown): string[] {
     slugs.push(slug);
   }
   return slugs;
+}
+
+/** Admin class label. Empty and non-strings become "no class". */
+export function readClassName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+  return normalized || null;
 }
 
 function parsePostgresTextArray(value: string): string[] {
@@ -160,6 +173,7 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
       typeof row.last_login_at === "string" ? row.last_login_at : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
     levelAccess: readLevelAccess(row.level_access),
+    className: readClassName(row.class_name),
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
 }
@@ -231,6 +245,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
+    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at",
     "user_id, data, updated_at, email, name, last_login_at",
@@ -249,10 +264,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
         .select(columns)
         .range(from, from + LIST_PAGE_SIZE - 1);
 
-      if (error) {
-        console.error("Supabase listAllUserProgress", error.message);
-        return null;
-      }
+      if (error) return null;
 
       const page = (data ?? []) as unknown as RawProgressRow[];
       rows.push(...page);
@@ -262,12 +274,17 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   }
 
   let rows: RawProgressRow[] = [];
+  let loaded = false;
   for (const columns of columnSets) {
     const result = await fetchAll(supabase, columns);
     if (result) {
       rows = result;
+      loaded = true;
       break;
     }
+  }
+  if (!loaded) {
+    console.error("Supabase listAllUserProgress", "every column set failed");
   }
 
   return rows.filter((row) => !row.deleted_at).map(mapProgressRow);
@@ -313,6 +330,14 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     .eq("user_id", userId);
   if (accessError) {
     console.error("Supabase deleteUserAccount level_access", accessError.message);
+  }
+
+  const { error: classError } = await supabase
+    .from(TABLE)
+    .update({ class_name: null })
+    .eq("user_id", userId);
+  if (classError) {
+    console.error("Supabase deleteUserAccount class_name", classError.message);
   }
 }
 
@@ -366,6 +391,40 @@ export async function setUserLevelAccess(
   if (error) {
     throw new Error(
       `Could not update level access (${error.message}). Run supabase/user_progress.sql once to add the level_access column.`,
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("This user has not signed in yet.");
+  }
+}
+
+const CLASS_NAME_MAX_LENGTH = 64;
+
+/** Admin-only. Passing null clears the class. Learner progress writes leave this column alone. */
+export async function setUserClass(
+  userId: string,
+  className: string | null,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+
+  const normalized = readClassName(className);
+  if (normalized && normalized.length > CLASS_NAME_MAX_LENGTH) {
+    throw new Error("Class names can be at most 64 characters.");
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ class_name: normalized })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) {
+    throw new Error(
+      `Could not update class (${error.message}). Run supabase/user_progress.sql once to add the class_name column.`,
     );
   }
 
