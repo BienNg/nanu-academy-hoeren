@@ -16,6 +16,7 @@ import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { ProfileButton } from "@/components/ProfileButton";
+import { SessionContentSkeleton } from "@/components/RouteLoading";
 
 type LearnSessionProps = {
   level: CefrLevel;
@@ -105,16 +106,6 @@ function SessionComplete({
           </button>
         </div>
       </div>
-    </main>
-  );
-}
-
-function SessionLoading() {
-  return (
-    <main className="relative flex w-full flex-1 flex-col items-center justify-center pb-32 px-6">
-      <p className="text-lg font-medium text-[#86868b]">
-        Đang tải tiến độ…
-      </p>
     </main>
   );
 }
@@ -306,7 +297,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
       </header>
 
       {!ready ? (
-        <SessionLoading />
+        <SessionContentSkeleton kind="practice" />
       ) : complete || !currentClip ? (
         <SessionComplete
           chapterLabel={`${level.level} - ${chapter.label}`}

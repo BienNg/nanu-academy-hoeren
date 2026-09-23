@@ -9,6 +9,7 @@ import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { ProfileButton } from "@/components/ProfileButton";
+import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
   catalogCompletedCount,
   firstUnreviewedIndex,
@@ -317,9 +318,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
       </header>
 
       {!ready ? (
-        <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
-          <p className="text-lg font-medium text-[#86868b]">Đang tải tiến độ…</p>
-        </main>
+        <SessionContentSkeleton kind="study" />
       ) : clips.length === 0 ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <p className="text-lg font-medium text-[#86868b]">

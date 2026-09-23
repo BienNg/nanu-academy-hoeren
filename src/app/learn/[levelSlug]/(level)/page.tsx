@@ -8,7 +8,7 @@ import {
   getLevelChapters,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
-import LevelViewClient from "./LevelViewClient";
+import LevelViewClient from "../LevelViewClient";
 
 type LearnLevelPageProps = {
   params: Promise<{ levelSlug: string }>;

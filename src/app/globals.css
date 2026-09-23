@@ -20,6 +20,26 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+@keyframes route-loading-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.route-loading-bar {
+  animation: route-loading-bar 1.05s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-bar {
+    animation: none;
+    width: 100%;
+  }
+}
+
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined", sans-serif;
   font-weight: normal;

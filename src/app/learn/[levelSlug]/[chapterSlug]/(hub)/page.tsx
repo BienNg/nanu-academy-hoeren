@@ -7,7 +7,7 @@ import {
   getLevelChapters,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
-import ChapterHubClient from "./ChapterHubClient";
+import ChapterHubClient from "../ChapterHubClient";
 
 type LearnChapterPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
