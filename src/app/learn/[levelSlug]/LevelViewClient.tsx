@@ -4,7 +4,7 @@ import Link from "next/link";
 import { LessonContentMeters } from "@/components/admin/StudentDetailModal";
 import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useEffect, useMemo, useRef } from "react";
+import { useId, useEffect, useMemo, useRef } from "react";
 import { projectStudentDetail, type AdminCatalogCourse } from "@/lib/admin-detail";
 import { useProgress } from "@/lib/useProgress";
 
@@ -27,6 +27,44 @@ const springTransition = {
   damping: 20,
   mass: 1,
 };
+
+function AchievementMedal() {
+  const uid = useId().replace(/:/g, "");
+  const goldId = `achievement-gold-${uid}`;
+  const rimId = `achievement-rim-${uid}`;
+
+  return (
+    <span
+      className="achievement-medal inline-flex h-11 w-11 shrink-0 items-center justify-center"
+      title="Đã hoàn thành"
+    >
+      <span className="sr-only">Đã hoàn thành</span>
+      <svg
+        viewBox="0 0 48 48"
+        className="h-11 w-11 drop-shadow-[0_2px_6px_rgba(140,96,24,0.22)]"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id={rimId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F3D48A" />
+            <stop offset="100%" stopColor="#C4922A" />
+          </linearGradient>
+          <linearGradient id={goldId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFF6DC" />
+            <stop offset="48%" stopColor="#F0D48A" />
+            <stop offset="100%" stopColor="#E2BE62" />
+          </linearGradient>
+        </defs>
+        <circle cx="24" cy="24" r="20" fill={`url(#${rimId})`} />
+        <circle cx="24" cy="24" r="16" fill={`url(#${goldId})`} />
+        <path
+          d="M24 15.2 L26.1 20.2 L31.4 20.6 L27.2 24 L28.6 29.2 L24 26.2 L19.4 29.2 L20.8 24 L16.6 20.6 L21.9 20.2 Z"
+          fill="#8C5E16"
+        />
+      </svg>
+    </span>
+  );
+}
 
 export default function LevelViewClient({
   level,
@@ -220,38 +258,30 @@ export default function LevelViewClient({
               </>
             ) : (
               <>
-                {(!isAvailable || isCompleted) && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                    {!isAvailable && (
-                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-                        Coming soon
-                      </span>
-                    )}
-                    {isCompleted && (
-                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#e7f8ed] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#248a3d]">
-                        <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-                          check_circle
-                        </span>
-                        Đã hoàn thành
-                      </span>
-                    )}
-                  </div>
+                {!isAvailable && (
+                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                    Coming soon
+                  </span>
                 )}
                 <div className="flex items-center justify-between gap-3">
                   <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isOpen ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
                     {level.level} - {chapter.label}
                   </h2>
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
-                    <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
-                      {isCompleted ? "replay" : isOpen ? "arrow_forward" : "lock"}
-                    </span>
-                  </div>
+                  {isCompleted ? (
+                    <AchievementMedal />
+                  ) : (
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
+                      <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
+                        {isOpen ? "arrow_forward" : "lock"}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {meters}
               </>
             );
 
-            const itemClassName = `group relative flex flex-col gap-3 overflow-hidden rounded-[24px] backdrop-blur-xl border border-white/20 p-5 sm:p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            const itemClassName = `group relative flex flex-col gap-3 rounded-[24px] backdrop-blur-xl border border-white/20 p-5 sm:p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               isOpen
                 ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer'
                 : 'bg-white/40 shadow-none cursor-not-allowed'

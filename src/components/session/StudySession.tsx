@@ -428,16 +428,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
                               <span>Đã xem</span>
                             </div>
                           </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#0066cc]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#0066cc]">
-                              <span className="material-symbols-outlined text-[16px]">
-                                translate
-                              </span>
-                              <span>Từ và bản dịch</span>
-                            </div>
-                          </div>
-                        )
+                        ) : undefined
                       }
                     />
                   </div>

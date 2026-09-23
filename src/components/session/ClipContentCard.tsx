@@ -29,17 +29,9 @@ export function ClipContentCard({
         {clip.translationVi ? (
           <>
             <div className="h-px w-full bg-black/[0.05]" />
-            <div className="flex items-start gap-2">
-              <span
-                className="material-symbols-outlined text-[18px] text-[#86868b] mt-0.5"
-                aria-hidden="true"
-              >
-                translate
-              </span>
-              <p className="text-[15px] text-[#86868b] italic">
-                “{clip.translationVi}”
-              </p>
-            </div>
+            <p className="text-[15px] text-[#86868b] italic">
+              “{clip.translationVi}”
+            </p>
           </>
         ) : null}
       </div>
