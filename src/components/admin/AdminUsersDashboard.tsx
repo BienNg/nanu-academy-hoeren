@@ -231,10 +231,9 @@ function ClassCell({
     };
   }, [editing, matches.length]);
 
-  if (editing) {
-    const menu =
-      menuBox && typeof document !== "undefined"
-        ? createPortal(
+  const menu =
+    editing && menuBox && typeof document !== "undefined"
+      ? createPortal(
             <div
               id={listId}
               role="listbox"
@@ -267,82 +266,78 @@ function ClassCell({
             </div>,
             document.body,
           )
-        : null;
-
-    return (
-      <td
-        className="px-space-16 py-space-16"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-      >
-        <form
-          className="flex items-center gap-space-8"
-          onSubmit={(event) => {
-            event.preventDefault();
-            commitFrom(inputRef.current?.value ?? draft);
-          }}
-        >
-          <label className="sr-only" htmlFor={`class-${userId}`}>
-            Class for {studentName}
-          </label>
-          <input
-            ref={inputRef}
-            id={`class-${userId}`}
-            autoFocus
-            value={draft}
-            role="combobox"
-            aria-expanded={matches.length > 0}
-            aria-controls={listId}
-            aria-autocomplete="list"
-            maxLength={CLASS_NAME_MAX_LENGTH}
-            disabled={saving}
-            placeholder="Class name"
-            autoComplete="off"
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={(event) => commitFrom(event.target.value)}
-            onKeyDown={(event) => {
-              event.stopPropagation();
-              if (event.key === "Escape") {
-                event.preventDefault();
-                cancel();
-              }
-            }}
-            className="h-8 w-44 rounded-full border border-primary-container bg-white px-space-12 font-label-sm text-label-sm text-on-surface outline-none focus:ring-2 focus:ring-primary-fixed"
-          />
-          <button
-            type="submit"
-            disabled={saving}
-            onMouseDown={(event) => event.preventDefault()}
-            className="inline-flex h-8 items-center rounded-full bg-primary px-space-12 font-label-sm text-label-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            Save
-          </button>
-        </form>
-        {menu}
-      </td>
-    );
-  }
+      : null;
 
   return (
     <td
-      className="px-space-16 py-space-16"
+      className="w-44 min-w-44 max-w-44 px-space-16 py-space-16"
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <button
-        type="button"
-        disabled={saving}
-        onClick={begin}
-        aria-label={value ? `Class ${value} for ${studentName}` : `Add class for ${studentName}`}
-        className={`inline-flex h-8 max-w-[12rem] items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
-          value
-            ? "bg-surface-container text-on-surface hover:bg-surface-container-high"
-            : "border border-dashed border-outline-variant/70 text-on-surface-variant hover:bg-surface-container"
-        }`}
-      >
-        <MaterialIcon name={value ? "school" : "add"} className="text-[14px]" />
-        <span className="truncate">{value ?? "Add class"}</span>
-      </button>
+      <div className="w-44 max-w-44">
+        {editing ? (
+          <form
+            className="relative w-full"
+            onSubmit={(event) => {
+              event.preventDefault();
+              commitFrom(inputRef.current?.value ?? draft);
+            }}
+          >
+            <label className="sr-only" htmlFor={`class-${userId}`}>
+              Class for {studentName}
+            </label>
+            <input
+              ref={inputRef}
+              id={`class-${userId}`}
+              autoFocus
+              value={draft}
+              role="combobox"
+              aria-expanded={matches.length > 0}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              maxLength={CLASS_NAME_MAX_LENGTH}
+              disabled={saving}
+              placeholder="Class name"
+              autoComplete="off"
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={(event) => commitFrom(event.target.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancel();
+                }
+              }}
+              className="h-8 w-full rounded-full border border-primary-container bg-white py-0 pl-space-12 pr-8 font-label-sm text-label-sm text-on-surface outline-none focus:ring-2 focus:ring-primary-fixed"
+            />
+            <button
+              type="submit"
+              disabled={saving}
+              aria-label={`Save class for ${studentName}`}
+              onMouseDown={(event) => event.preventDefault()}
+              className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <MaterialIcon name="check" className="text-[16px]" />
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={begin}
+            aria-label={value ? `Class ${value} for ${studentName}` : `Add class for ${studentName}`}
+            className={`inline-flex h-8 max-w-full items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
+              value
+                ? "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                : "border border-dashed border-outline-variant/70 text-on-surface-variant hover:bg-surface-container"
+            }`}
+          >
+            <MaterialIcon name={value ? "school" : "add"} className="text-[14px]" />
+            <span className="truncate">{value ?? "Add class"}</span>
+          </button>
+        )}
+      </div>
+      {menu}
     </td>
   );
 }
@@ -744,6 +739,7 @@ export function AdminUsersDashboard({
                     sort={sort}
                     dir={dir}
                     onSort={handleSort}
+                    className="w-44 min-w-44 max-w-44"
                   />
                   <SortHeader
                     label="Last login"

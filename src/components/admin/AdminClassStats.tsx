@@ -219,9 +219,6 @@ export function AdminClassStats({
     [classRows, courseCatalog],
   );
 
-  const startedCourses = stats.courses.filter((course) => course.studentsStarted > 0);
-  const idleCourses = stats.courses.filter((course) => course.studentsStarted === 0);
-
   const visibleMembers = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matched = needle
@@ -378,64 +375,6 @@ export function AdminClassStats({
                   value={formatCount(stats.videosWatched)}
                   icon="smart_display"
                 />
-              </div>
-
-              <div className="flex flex-col gap-space-12">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface">Course progress</h3>
-                {startedCourses.length === 0 ? (
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    No one in this class has started a course yet.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-space-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {startedCourses.map((course) => (
-                      <article
-                        key={course.id}
-                        className="flex flex-col gap-space-8 rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-space-16 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]"
-                      >
-                        <div className="flex items-start justify-between gap-space-8">
-                          <div className="min-w-0">
-                            <p className="font-caption text-caption font-semibold uppercase tracking-wider text-on-surface-variant">
-                              {course.kind === "cefr" ? "Listening" : "Ausbildung"}
-                            </p>
-                            <h4
-                              title={course.label}
-                              className="truncate font-label-md text-label-md font-semibold text-on-surface"
-                            >
-                              {course.shortLabel}
-                            </h4>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-label-md text-label-md font-semibold tabular-nums text-on-surface">
-                              {course.averagePercent}%
-                            </p>
-                            <p className="font-caption text-caption text-on-surface-variant">
-                              Class average
-                            </p>
-                          </div>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${course.averagePercent}%`,
-                              backgroundColor:
-                                course.averagePercent >= 100 ? "#34C759" : "#0071e3",
-                            }}
-                          />
-                        </div>
-                        <p className="font-caption text-caption text-on-surface-variant">
-                          {course.studentsStarted} of {course.studentCount} started
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                {startedCourses.length > 0 && idleCourses.length > 0 ? (
-                  <p className="font-body-sm text-body-sm text-outline">
-                    Not started: {idleCourses.map((course) => course.shortLabel).join(", ")}
-                  </p>
-                ) : null}
               </div>
 
               <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
