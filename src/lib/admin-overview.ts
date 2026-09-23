@@ -35,6 +35,7 @@ export type AdminUserRow = {
   streakDays: number;
   isAdmin: boolean;
   levelAccess: string[];
+  interviewAccess: boolean;
   className: string | null;
   progress: StoredProgress;
 };
@@ -99,6 +100,7 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     streakDays: activeStreakDays(progress),
     isAdmin: isAdminUser({ email: item.email, id: item.userId }),
     levelAccess: item.levelAccess,
+    interviewAccess: item.interviewAccess,
     className: item.className,
     progress,
   };

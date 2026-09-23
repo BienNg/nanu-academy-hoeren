@@ -11,8 +11,9 @@ create table if not exists public.user_progress (
   last_login_at timestamptz,
   deleted_at timestamptz,
   revoked_before timestamptz,
-  -- CEFR slugs this learner may open. Empty = locked until an admin grants one.
-  -- Admin accounts ignore this column and can open every level.
+  -- CEFR slugs this learner may open, plus the reserved slug "interview"
+  -- for "Luyện phỏng vấn theo nghề". Empty = locked until an admin grants one.
+  -- Admin accounts ignore this column and can open every level and interview course.
   level_access text[] not null default '{}',
   -- Admin-only class label used to group students. Learner APIs never read it.
   class_name text

@@ -22,6 +22,8 @@ type HomeScreenProps = {
   interviewClipTotals: Record<string, number>;
   /** CEFR slugs this learner may open. Everyone else sees a lock. */
   unlockedLevelSlugs?: readonly string[];
+  /** When false, "Luyện phỏng vấn theo nghề" is omitted entirely. */
+  interviewAccess?: boolean;
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -266,6 +268,7 @@ export function HomeScreen({
   levelCatalog,
   interviewClipTotals,
   unlockedLevelSlugs = [],
+  interviewAccess = false,
 }: HomeScreenProps) {
   const { data: session } = useSession();
   const { continueLevel, progressFor, streakDays } =
@@ -355,32 +358,34 @@ export function HomeScreen({
             </div>
           </section>
 
-          <section className="flex flex-col gap-space-12">
-            <div className="flex items-center justify-between">
-              <h2 className="font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-                Luyện phỏng vấn theo nghề
-              </h2>
-            </div>
-            <div className="-mx-6 flex flex-nowrap gap-4 overflow-x-auto scroll-smooth px-6 pb-6 pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {[...berufe]
-                .sort(
-                  (a, b) =>
-                    progressFor(b.slug).percent - progressFor(a.slug).percent,
-                )
-                .map((beruf) => {
-                  const summary = progressFor(beruf.slug);
-                  return (
-                    <BerufCard
-                      key={beruf.id}
-                      beruf={beruf}
-                      completedCount={summary.completedCount}
-                      totalClips={summary.totalClips}
-                      percent={summary.percent}
-                    />
-                  );
-                })}
-            </div>
-          </section>
+          {interviewAccess ? (
+            <section className="flex flex-col gap-space-12">
+              <div className="flex items-center justify-between">
+                <h2 className="font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
+                  Luyện phỏng vấn theo nghề
+                </h2>
+              </div>
+              <div className="-mx-6 flex flex-nowrap gap-4 overflow-x-auto scroll-smooth px-6 pb-6 pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {[...berufe]
+                  .sort(
+                    (a, b) =>
+                      progressFor(b.slug).percent - progressFor(a.slug).percent,
+                  )
+                  .map((beruf) => {
+                    const summary = progressFor(beruf.slug);
+                    return (
+                      <BerufCard
+                        key={beruf.id}
+                        beruf={beruf}
+                        completedCount={summary.completedCount}
+                        totalClips={summary.totalClips}
+                        percent={summary.percent}
+                      />
+                    );
+                  })}
+              </div>
+            </section>
+          ) : null}
         </div>
       </main>
     </div>

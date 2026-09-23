@@ -3,7 +3,11 @@ import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
-import { getUserLevelAccess } from "@/lib/progress-store";
+import {
+  getUserLevelAccess,
+  hasInterviewAccess,
+  withoutInterviewAccess,
+} from "@/lib/progress-store";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +25,9 @@ export default async function Home() {
     interviewClipTotals[beruf.slug] = getSessionClips(beruf.slug).length;
   }
 
+  const isAdmin = isAdminUser(session.user);
+  const storedAccess = isAdmin ? null : await getUserLevelAccess(session.user.id);
+
   return (
     <HomeScreen
       berufe={berufe}
@@ -28,10 +35,11 @@ export default async function Home() {
       levelCatalog={getContinueLevelCatalog()}
       interviewClipTotals={interviewClipTotals}
       unlockedLevelSlugs={
-        isAdminUser(session.user)
-          ? levels.map((level) => level.slug)
-          : await getUserLevelAccess(session.user.id)
+        storedAccess
+          ? withoutInterviewAccess(storedAccess)
+          : levels.map((level) => level.slug)
       }
+      interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
     />
   );
 }

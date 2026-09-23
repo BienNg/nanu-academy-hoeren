@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import {
   deleteAdminUser,
   setAdminUserClass,
+  setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
 } from "@/app/admin/actions";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
@@ -454,19 +455,25 @@ function LevelAccessCell({
   granted,
   saving,
   onToggle,
+  interviewAccess,
+  interviewSaving,
+  onToggleInterview,
 }: {
   row: AdminUserRow;
   levels: readonly AdminLevelOption[];
   granted: readonly string[];
   saving: boolean;
   onToggle: (slug: string) => void;
+  interviewAccess: boolean;
+  interviewSaving: boolean;
+  onToggleInterview: () => void;
 }) {
   if (row.isAdmin) {
     return (
       <td className="px-space-16 py-space-16">
         <span className="inline-flex items-center gap-space-4 rounded-full bg-primary-fixed px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-primary-fixed">
           <MaterialIcon name="verified" className="text-[16px]" filled />
-          All levels
+          All access
         </span>
       </td>
     );
@@ -478,7 +485,7 @@ function LevelAccessCell({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <div className="flex max-w-[28rem] flex-wrap gap-space-8">
+      <div className="flex max-w-[32rem] flex-wrap gap-space-8">
         {levels.map((level) => {
           const on = granted.includes(level.slug);
           return (
@@ -486,7 +493,7 @@ function LevelAccessCell({
               key={level.slug}
               type="button"
               aria-pressed={on}
-              disabled={saving}
+              disabled={saving || interviewSaving}
               title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
               onClick={() => onToggle(level.slug)}
               className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
@@ -503,6 +510,28 @@ function LevelAccessCell({
             </button>
           );
         })}
+        <button
+          type="button"
+          aria-pressed={interviewAccess}
+          disabled={saving || interviewSaving}
+          title={
+            interviewAccess
+              ? "Hide Luyện phỏng vấn theo nghề"
+              : "Show Luyện phỏng vấn theo nghề"
+          }
+          onClick={onToggleInterview}
+          className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
+            interviewAccess
+              ? "bg-primary text-on-primary"
+              : "border border-outline-variant/60 bg-surface text-on-surface-variant hover:bg-surface-container"
+          }`}
+        >
+          <MaterialIcon
+            name={interviewAccess ? "lock_open" : "lock"}
+            className="text-[14px]"
+          />
+          Phỏng vấn
+        </button>
       </div>
     </td>
   );
@@ -535,16 +564,24 @@ export function AdminUsersDashboard({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]>>({});
+  const [interviewByUser, setInterviewByUser] = useState<Record<string, boolean>>({});
   const [classByUser, setClassByUser] = useState<Record<string, string | null>>({});
   const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [savingInterviewIds, setSavingInterviewIds] = useState<string[]>([]);
   const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [classError, setClassError] = useState<string | null>(null);
   const savingRef = useRef(new Set<string>());
+  const savingInterviewRef = useRef(new Set<string>());
   const savingClassRef = useRef(new Set<string>());
 
   function grantedFor(row: AdminUserRow): string[] {
     return accessByUser[row.userId] ?? row.levelAccess;
+  }
+
+  function interviewFor(row: AdminUserRow): boolean {
+    if (Object.hasOwn(interviewByUser, row.userId)) return interviewByUser[row.userId];
+    return row.interviewAccess;
   }
 
   const classFor = useCallback(
@@ -556,7 +593,13 @@ export function AdminUsersDashboard({
   );
 
   async function toggleLevel(row: AdminUserRow, slug: string) {
-    if (row.isAdmin || savingRef.current.has(row.userId)) return;
+    if (
+      row.isAdmin ||
+      savingRef.current.has(row.userId) ||
+      savingInterviewRef.current.has(row.userId)
+    ) {
+      return;
+    }
     savingRef.current.add(row.userId);
     const current = grantedFor(row);
     const next = current.includes(slug)
@@ -581,6 +624,42 @@ export function AdminUsersDashboard({
     } finally {
       savingRef.current.delete(row.userId);
       setSavingIds((prev) => prev.filter((id) => id !== row.userId));
+    }
+  }
+
+  async function toggleInterview(row: AdminUserRow) {
+    if (
+      row.isAdmin ||
+      savingRef.current.has(row.userId) ||
+      savingInterviewRef.current.has(row.userId)
+    ) {
+      return;
+    }
+    savingInterviewRef.current.add(row.userId);
+    const current = interviewFor(row);
+    const next = !current;
+    setInterviewByUser((prev) => ({ ...prev, [row.userId]: next }));
+    setSavingInterviewIds((prev) =>
+      prev.includes(row.userId) ? prev : [...prev, row.userId],
+    );
+    setAccessError(null);
+    try {
+      const result = await setAdminUserInterviewAccess(row.userId, next);
+      if (!result.ok) {
+        setInterviewByUser((prev) => ({ ...prev, [row.userId]: current }));
+        setAccessError(result.error);
+        return;
+      }
+      setInterviewByUser((prev) => ({
+        ...prev,
+        [row.userId]: result.interviewAccess,
+      }));
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingInterviewRef.current.delete(row.userId);
+      setSavingInterviewIds((prev) => prev.filter((id) => id !== row.userId));
     }
   }
 
@@ -644,8 +723,11 @@ export function AdminUsersDashboard({
       ...row,
       className: displayClass(row),
       levelAccess: accessByUser[row.userId] ?? row.levelAccess,
+      interviewAccess: Object.hasOwn(interviewByUser, row.userId)
+        ? interviewByUser[row.userId]
+        : row.interviewAccess,
     };
-  }, [visibleRows, detailUserId, displayClass, accessByUser]);
+  }, [visibleRows, detailUserId, displayClass, accessByUser, interviewByUser]);
 
   const filtered = useMemo(
     () => filterAdminUsers(visibleRows, query),
@@ -895,6 +977,9 @@ export function AdminUsersDashboard({
                         granted={grantedFor(row)}
                         saving={savingIds.includes(row.userId)}
                         onToggle={(slug) => void toggleLevel(row, slug)}
+                        interviewAccess={interviewFor(row)}
+                        interviewSaving={savingInterviewIds.includes(row.userId)}
+                        onToggleInterview={() => void toggleInterview(row)}
                       />
                       <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
                         <button

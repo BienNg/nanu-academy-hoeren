@@ -1,7 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/admins";
-import { getUserLevelAccess, resolveAccountAccess } from "@/lib/progress-store";
+import {
+  getUserInterviewAccess,
+  getUserLevelAccess,
+  resolveAccountAccess,
+} from "@/lib/progress-store";
 
 /** Allow only same-origin relative paths after Google sign-in. */
 export function safeCallbackUrl(value: string | string[] | undefined): string {
@@ -62,6 +66,24 @@ export async function requireLevelAccess(
   }
   const granted = await getUserLevelAccess(user.id);
   if (!granted.includes(levelSlug)) {
+    redirect("/");
+  }
+}
+
+/**
+ * Admins can open every interview course. Everyone else needs an explicit
+ * grant, and a missing grant sends them back to Home.
+ */
+export async function requireInterviewAccess(user: {
+  id?: string | null;
+  email?: string | null;
+}): Promise<void> {
+  if (isAdminUser(user)) return;
+  if (!user.id) {
+    redirect("/");
+  }
+  const granted = await getUserInterviewAccess(user.id);
+  if (!granted) {
     redirect("/");
   }
 }

@@ -3,7 +3,7 @@ import {
   getAvailableBerufe,
   getSessionClips,
 } from "@/lib/content";
-import { requireUser } from "@/lib/auth-guard";
+import { requireInterviewAccess, requireUser } from "@/lib/auth-guard";
 import { InterviewSession } from "@/components/session/InterviewSession";
 
 type InterviewBerufPageProps = {
@@ -41,7 +41,8 @@ function NotAvailableYet({ berufId }: { berufId: string }) {
 export default async function InterviewBerufPage({
   params,
 }: InterviewBerufPageProps) {
-  await requireUser();
+  const session = await requireUser();
+  await requireInterviewAccess(session.user);
   const { berufId } = await params;
   const available = getAvailableBerufe();
   const beruf = available.find((entry) => entry.slug === berufId);

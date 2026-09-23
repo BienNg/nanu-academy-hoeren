@@ -8,6 +8,20 @@ import {
 
 const TABLE = "user_progress";
 
+/**
+ * Reserved `level_access` entry for "Luyện phỏng vấn theo nghề".
+ * It is not a CEFR slug. Absent means the Home section stays hidden.
+ */
+export const INTERVIEW_ACCESS_SLUG = "interview";
+
+export function hasInterviewAccess(slugs: readonly string[]): boolean {
+  return slugs.includes(INTERVIEW_ACCESS_SLUG);
+}
+
+export function withoutInterviewAccess(slugs: readonly string[]): string[] {
+  return slugs.filter((slug) => slug !== INTERVIEW_ACCESS_SLUG);
+}
+
 /** Vercel Marketplace may inject NEXT_PUBLIC_SUPABASE_URL; either works server-side. */
 function supabaseUrl(): string | undefined {
   return process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -107,6 +121,8 @@ export type UserProgressListItem = {
   updatedAt: string | null;
   /** CEFR slugs an admin has granted. Empty means every level stays locked. */
   levelAccess: string[];
+  /** When false, Home hides "Luyện phỏng vấn theo nghề" entirely. */
+  interviewAccess: boolean;
   /** Admin-only class label. Never returned by the learner progress API. */
   className: string | null;
   progress: StoredProgress;
@@ -165,6 +181,7 @@ function parsePostgresTextArray(value: string): string[] {
 }
 
 function mapProgressRow(row: RawProgressRow): UserProgressListItem {
+  const access = readLevelAccess(row.level_access);
   return {
     userId: row.user_id,
     email: typeof row.email === "string" ? row.email : null,
@@ -172,7 +189,8 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     lastLoginAt:
       typeof row.last_login_at === "string" ? row.last_login_at : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
-    levelAccess: readLevelAccess(row.level_access),
+    levelAccess: withoutInterviewAccess(access),
+    interviewAccess: hasInterviewAccess(access),
     className: readClassName(row.class_name),
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
@@ -398,6 +416,12 @@ export async function setUserLevelAccess(
     throw new Error("This user has not signed in yet.");
   }
 }
+
+/** True when `level_access` contains the reserved interview slug. */
+export const getUserInterviewAccess = cache(async (userId: string): Promise<boolean> => {
+  const slugs = await getUserLevelAccess(userId);
+  return hasInterviewAccess(slugs);
+});
 
 const CLASS_NAME_MAX_LENGTH = 64;
 
