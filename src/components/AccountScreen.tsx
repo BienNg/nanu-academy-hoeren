@@ -92,9 +92,14 @@ export function AccountScreen({
           
           <div className="relative z-10 flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-32">
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#0066cc] text-white shadow-[0_8px_30px_rgba(0,102,204,0.3)]">
-                <MaterialIcon name="hearing" className="text-[40px]" />
-              </div>
+              <Image
+                src="/logo192.png"
+                alt="NaNu Nana"
+                width={192}
+                height={192}
+                className="h-40 w-40 object-contain"
+                priority
+              />
               <div className="flex flex-col gap-2">
                 <h1 className="font-display text-[32px] font-bold leading-tight tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
                   NaNu Academy<br />Hören

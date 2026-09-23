@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
@@ -288,9 +289,14 @@ export function HomeScreen({
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between px-6">
           <div className="flex items-center gap-space-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0066cc] text-white shadow-[0_2px_8px_rgba(0,102,204,0.25)]">
-              <MaterialIcon name="hearing" className="text-[20px]" />
-            </div>
+            <Image
+              src="/logo192.png"
+              alt="NaNu Nana"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain"
+              priority
+            />
             <div className="flex flex-col">
               <h1 className="font-headline-sm text-headline-sm font-bold leading-none tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
                 {greeting}
