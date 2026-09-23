@@ -247,17 +247,28 @@ export default function ChapterHubClient({
           "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
       }}
     >
-      <header className="fixed top-0 left-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
+      <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
           <Link
             href={`/learn/${level.slug}`}
-            className="group flex items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
+            className="group flex shrink-0 items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
           >
             <span className="material-symbols-outlined text-[20px] font-medium" aria-hidden="true">
               arrow_back_ios_new
             </span>
             <span className="text-[17px] font-medium tracking-tight">Trở về</span>
           </Link>
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b]">
+              {level.level}
+            </span>
+            <h1
+              className="truncate text-[15px] font-bold tracking-tight text-[#1d1d1f]"
+              style={{ letterSpacing: "-0.015em" }}
+            >
+              {chapter.label}
+            </h1>
+          </div>
           <ProfileButton />
         </div>
       </header>
@@ -267,27 +278,7 @@ export default function ChapterHubClient({
         <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
       </div>
 
-      <section className="relative z-10 flex w-full max-w-2xl flex-col px-6 pt-[120px] pb-24">
-        <motion.div
-          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={shouldReduceMotion ? { duration: 0 } : { ...springTransition, delay: 0.05 }}
-          className="mb-10 flex flex-col gap-3"
-        >
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#86868b] md:text-sm">
-            {level.level}
-          </span>
-          <h1
-            className="text-4xl font-bold tracking-tight text-[#1d1d1f] sm:text-5xl"
-            style={{ letterSpacing: "-0.03em" }}
-          >
-            {chapter.label}
-          </h1>
-          <p className="max-w-md text-lg font-medium leading-relaxed text-[#86868b]">
-            Học nội dung trước, hoặc luyện nghe ngay.
-          </p>
-        </motion.div>
-
+      <section className="relative z-10 flex w-full max-w-2xl flex-col px-6 pt-8 pb-24">
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
           animate={{ opacity: 1, y: 0 }}

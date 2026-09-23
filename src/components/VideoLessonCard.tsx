@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
 import type { ChapterVideo } from "@/lib/levels";
 import {
   lessonVideoProgressKey,
@@ -129,6 +129,85 @@ function readDuration(player: YouTubePlayer): number {
   }
 }
 
+function VerticalVolumeSlider({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: number;
+  disabled?: boolean;
+  onChange: (next: number) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function valueFromClientY(clientY: number) {
+    const track = trackRef.current;
+    if (!track) return value;
+    const rect = track.getBoundingClientRect();
+    const ratio = (rect.bottom - clientY) / rect.height;
+    return Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (disabled) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    onChange(valueFromClientY(event.clientY));
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (disabled || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    onChange(valueFromClientY(event.clientY));
+  }
+
+  function nudge(delta: number) {
+    onChange(Math.min(100, Math.max(0, value + delta)));
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      role="slider"
+      aria-label="Âm lượng"
+      aria-orientation="vertical"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : 0}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onKeyDown={(event) => {
+        if (disabled) return;
+        if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+          event.preventDefault();
+          nudge(5);
+        } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          nudge(-5);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          onChange(0);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          onChange(100);
+        }
+      }}
+      className="relative flex h-28 w-8 cursor-pointer touch-none items-center justify-center outline-none disabled:cursor-not-allowed"
+    >
+      <div className="relative h-full w-1.5 rounded-full bg-[#e8e8ed]">
+        <div
+          className="absolute inset-x-0 bottom-0 rounded-full bg-[#0066cc]"
+          style={{ height: `${value}%` }}
+        />
+        <div
+          className="absolute left-1/2 h-[18px] w-[18px] -translate-x-1/2 translate-y-1/2 rounded-full bg-[#0066cc] shadow-[0_1px_4px_rgb(0,0,0,0.25)]"
+          style={{ bottom: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function VideoError({ message }: { message: string }) {
   return (
     <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-[16px] bg-[#f5f5f7] px-6 text-center">
@@ -178,6 +257,8 @@ function YouTubePane({
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(100);
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const volumeControlRef = useRef<HTMLDivElement>(null);
   const volumeSupported = useProgrammaticVolume();
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -472,6 +553,24 @@ function YouTubePane({
     }
   }
 
+  useEffect(() => {
+    if (!volumeOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      const root = volumeControlRef.current;
+      if (!root || root.contains(event.target as Node)) return;
+      setVolumeOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setVolumeOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [volumeOpen]);
+
   if (playbackError) {
     return <VideoError message={playbackError} />;
   }
@@ -522,7 +621,7 @@ function YouTubePane({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="relative z-10 flex flex-nowrap items-center gap-1 sm:gap-3">
         <button
           type="button"
           onClick={togglePlay}
@@ -536,7 +635,7 @@ function YouTubePane({
             filled
           />
         </button>
-        <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums text-[#1d1d1f]">
+        <span className="min-w-9 shrink-0 whitespace-nowrap text-right text-[13px] font-semibold tabular-nums text-[#1d1d1f]">
           {formatClock(currentTime)}
         </span>
         <input
@@ -560,38 +659,45 @@ function YouTubePane({
           onTouchEnd={commitSeek}
           onKeyUp={commitSeek}
           onBlur={commitSeek}
-          className="h-11 min-w-[8rem] flex-1 cursor-pointer accent-[#0066cc] disabled:cursor-not-allowed"
+          className="h-11 w-0 min-w-0 flex-1 cursor-pointer accent-[#0066cc] disabled:cursor-not-allowed"
         />
-        <span className="w-12 shrink-0 text-[13px] font-semibold tabular-nums text-[#86868b]">
+        <span className="min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#86868b]">
           {formatClock(duration)}
         </span>
-        <button
-          type="button"
-          onClick={toggleMute}
-          disabled={!ready}
-          aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
-          aria-pressed={muted}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7]"
-        >
-          <MaterialIcon
-            name={muted || volume === 0 ? "volume_off" : "volume_up"}
-            className="text-[22px]"
-            filled
-          />
-        </button>
-        {volumeSupported ? (
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={muted ? 0 : volume}
+        <div ref={volumeControlRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (!volumeSupported) {
+                toggleMute();
+                return;
+              }
+              setVolumeOpen((open) => !open);
+            }}
             disabled={!ready}
-            aria-label="Âm lượng"
-            onChange={(event) => changeVolume(Number(event.target.value))}
-            className="h-11 w-24 shrink-0 cursor-pointer accent-[#0066cc] disabled:cursor-not-allowed"
-          />
-        ) : null}
+            aria-label={
+              volumeSupported ? "Âm lượng" : muted ? "Bật tiếng" : "Tắt tiếng"
+            }
+            aria-expanded={volumeSupported ? volumeOpen : undefined}
+            aria-pressed={muted}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5f5f7] text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7]"
+          >
+            <MaterialIcon
+              name={muted || volume === 0 ? "volume_off" : "volume_up"}
+              className="text-[22px]"
+              filled
+            />
+          </button>
+          {volumeSupported && volumeOpen ? (
+            <div className="absolute bottom-[calc(100%+8px)] left-1/2 z-20 flex h-36 w-11 -translate-x-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white shadow-[0_8px_24px_rgb(0,0,0,0.12)]">
+              <VerticalVolumeSlider
+                value={muted ? 0 : volume}
+                disabled={!ready}
+                onChange={changeVolume}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {watched ? (
