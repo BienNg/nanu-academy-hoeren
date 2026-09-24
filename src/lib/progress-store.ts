@@ -284,6 +284,45 @@ export async function touchUserProfile(
   }
 }
 
+type SignInRow = {
+  deleted_at?: string | null;
+  sign_ins?: unknown;
+};
+
+/**
+ * `sign_ins` is optional until `supabase/user_progress.sql` has been re-run.
+ * A missing column must not skip the new-account Slack notice.
+ */
+async function readSignInRow(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ row: SignInRow | null; hasSignIns: boolean } | null> {
+  const attempts: { columns: string; hasSignIns: boolean }[] = [
+    { columns: "user_id, deleted_at, sign_ins", hasSignIns: true },
+    { columns: "user_id, deleted_at", hasSignIns: false },
+    { columns: "user_id", hasSignIns: false },
+  ];
+
+  let lastMessage = "read failed";
+  for (const attempt of attempts) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select(attempt.columns)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!error) {
+      return {
+        row: (data as SignInRow | null) ?? null,
+        hasSignIns: attempt.hasSignIns,
+      };
+    }
+    lastMessage = error.message;
+  }
+
+  console.error("Supabase recordUserSignIn read", lastMessage);
+  return null;
+}
+
 /**
  * Append a Google sign-in. Called only when the Auth.js jwt callback receives
  * `account` (a real sign-in), never from a progress heartbeat.
@@ -297,58 +336,61 @@ export async function recordUserSignIn(
   const supabase = getSupabaseAdmin();
   if (!supabase || !userId) return;
 
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("user_id, sign_ins")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const existing = await readSignInRow(supabase, userId);
+  if (!existing) return;
 
-  if (error) {
-    console.error("Supabase recordUserSignIn read", error.message);
-    return;
-  }
-
-  const signIns = trimSignIns(
-    [...readSignIns((data as { sign_ins?: unknown } | null)?.sign_ins), at.toISOString()],
-    at.getTime(),
-  );
+  const { row, hasSignIns } = existing;
+  const signIns = hasSignIns
+    ? trimSignIns([...readSignIns(row?.sign_ins), at.toISOString()], at.getTime())
+    : null;
   const identity = {
     ...(profile.email !== undefined ? { email: profile.email } : {}),
     ...(profile.name !== undefined ? { name: profile.name } : {}),
   };
+  const isNewAccount = !row || Boolean(row.deleted_at);
 
-  if (data) {
-    const { error: updateError } = await supabase
-      .from(TABLE)
-      .update({ sign_ins: signIns, ...identity })
-      .eq("user_id", userId);
-    if (updateError) {
-      console.error("Supabase recordUserSignIn update", updateError.message);
+  if (row) {
+    const patch = {
+      ...identity,
+      ...(signIns ? { sign_ins: signIns } : {}),
+    };
+    if (Object.keys(patch).length > 0) {
+      const { error: updateError } = await supabase
+        .from(TABLE)
+        .update(patch)
+        .eq("user_id", userId);
+      if (updateError) {
+        console.error("Supabase recordUserSignIn update", updateError.message);
+        return;
+      }
     }
-    return;
+  } else {
+    const now = at.toISOString();
+    const payload = {
+      user_id: userId,
+      data: structuredClone(DEFAULT_PROGRESS),
+      updated_at: now,
+      level_access: [],
+      ...(signIns ? { sign_ins: signIns } : {}),
+      ...identity,
+    };
+    const { error: insertError } = await supabase.from(TABLE).insert(payload);
+    if (insertError) {
+      console.error("Supabase recordUserSignIn insert", insertError.message);
+      return;
+    }
   }
 
-  const now = at.toISOString();
-  const { error: insertError } = await supabase.from(TABLE).insert({
-    user_id: userId,
-    data: structuredClone(DEFAULT_PROGRESS),
-    updated_at: now,
-    level_access: [],
-    sign_ins: signIns,
-    ...identity,
-  });
-  if (insertError) {
-    console.error("Supabase recordUserSignIn insert", insertError.message);
-    return;
-  }
-
-  await notifyNewUser(profile);
+  if (isNewAccount) await notifyNewUser(profile);
 }
 
-/** Posts once, after the first `user_progress` insert. Missing webhook is a no-op. */
+/** Posts when an account is created, or when a deleted account signs in again. */
 async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
-  const url = process.env.SLACK_NEW_USER_WEBHOOK_URL;
-  if (!url) return;
+  const url = process.env.SLACK_NEW_USER_WEBHOOK_URL?.trim();
+  if (!url) {
+    console.error("Slack new-user webhook is not configured");
+    return;
+  }
 
   const name = profile.name?.trim() || "Unknown";
   const email = profile.email?.trim() || "no email";
