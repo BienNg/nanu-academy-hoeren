@@ -8,7 +8,7 @@
     "build": "node scripts/check-content-integrity.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsc -p tsconfig.test.json && node --test .test-dist/progress.visits.test.js"
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/progress.visits.test.js .test-dist/progress.account.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

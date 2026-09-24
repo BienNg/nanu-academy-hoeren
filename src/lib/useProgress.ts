@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { signOut, useSession } from "next-auth/react";
 import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
   activeStreakDays,
-  STORAGE_KEY,
+  bindStoredProgress,
   clearStoredProgress,
+  progressStorageKey,
+  shouldReplaceLocalWithCloud,
   incrementLearnRunCount,
   incrementStudyRunCount,
   isLearnChapterCompleted,
@@ -48,9 +50,21 @@ import {
 let cachedSnapshot: StoredProgress = DEFAULT_PROGRESS;
 let cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
 
+/** Signed-in user whose local snapshot may be read or written. */
+let activeUserId: string | null = null;
+/** Bumps whenever the signed-in user changes so an in-flight sync cannot land late. */
+let syncGeneration = 0;
+/** Account that just logged out. Ignore re-binds until that session is gone. */
+let logoutHoldUserId: string | null = null;
+let cloudPushSuppressed = false;
+let syncedUserId: string | null = null;
+let migratedUserId: string | null = null;
+
 function readProgressSnapshot(): StoredProgress {
-  if (typeof window === "undefined") return DEFAULT_PROGRESS;
-  const progress = parseProgress(window.localStorage.getItem(STORAGE_KEY));
+  if (typeof window === "undefined" || !activeUserId) return DEFAULT_PROGRESS;
+  const progress = parseProgress(
+    window.localStorage.getItem(progressStorageKey(activeUserId)),
+  );
   const serialized = JSON.stringify(progress);
   if (serialized === cachedSerialized) {
     return cachedSnapshot;
@@ -79,7 +93,11 @@ function subscribeProgress(onStoreChange: () => void): () => void {
   }
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY || event.key === null) {
+    if (event.key === null) {
+      onStoreChange();
+      return;
+    }
+    if (activeUserId && event.key === progressStorageKey(activeUserId)) {
       onStoreChange();
     }
   };
@@ -94,10 +112,81 @@ function subscribeProgress(onStoreChange: () => void): () => void {
 }
 
 function writeProgress(progress: StoredProgress): void {
+  if (typeof window === "undefined" || !activeUserId || cloudPushSuppressed) return;
   const serialized = JSON.stringify(progress);
   cachedSerialized = serialized;
   cachedSnapshot = progress;
-  window.localStorage.setItem(STORAGE_KEY, serialized);
+  window.localStorage.setItem(progressStorageKey(activeUserId), serialized);
+  window.dispatchEvent(new Event("nanu-horen-progress"));
+}
+
+function resetProgressMemory(): void {
+  activeUserId = null;
+  cachedSnapshot = DEFAULT_PROGRESS;
+  cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
+  lastCloudSerialized = null;
+}
+
+/**
+ * Drop this browser's copy of every account's progress.
+ * Cloud progress is left as-is. Call this before sign-out so the next login
+ * cannot merge the previous account into a new one.
+ */
+export function discardDeviceProgress(): void {
+  if (typeof window === "undefined") return;
+  logoutHoldUserId = activeUserId ?? logoutHoldUserId;
+  cloudPushSuppressed = true;
+  syncGeneration += 1;
+  syncedUserId = null;
+  migratedUserId = null;
+  if (visitCloudTimer !== null) {
+    window.clearTimeout(visitCloudTimer);
+    visitCloudTimer = null;
+  }
+  visitCleanup?.();
+  visitTracking = false;
+  visitCleanup = null;
+  lastVisibleTick = 0;
+  try {
+    window.sessionStorage.removeItem(VISIT_ID_KEY);
+  } catch {
+    // Session storage can be blocked. The progress cache is still cleared.
+  }
+  clearStoredProgress(window.localStorage);
+  resetProgressMemory();
+  window.dispatchEvent(new Event("nanu-horen-progress"));
+}
+
+function bindProgressUser(userId: string): void {
+  if (logoutHoldUserId === userId) return;
+  if (activeUserId === userId) {
+    bindStoredProgress(window.localStorage, userId);
+    return;
+  }
+
+  logoutHoldUserId = null;
+  cloudPushSuppressed = false;
+  syncGeneration += 1;
+  revocationHandled = false;
+  activeUserId = userId;
+  lastCloudSerialized = null;
+  lastVisibleTick = 0;
+  try {
+    window.sessionStorage.removeItem(VISIT_ID_KEY);
+  } catch {
+    // A missing visit id starts a new visit for this account.
+  }
+  const progress = bindStoredProgress(window.localStorage, userId);
+  cachedSerialized = JSON.stringify(progress);
+  cachedSnapshot = progress;
+  window.dispatchEvent(new Event("nanu-horen-progress"));
+}
+
+function detachProgressUser(): void {
+  logoutHoldUserId = null;
+  if (activeUserId === null && cachedSnapshot === DEFAULT_PROGRESS) return;
+  syncGeneration += 1;
+  resetProgressMemory();
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }
 
@@ -107,11 +196,7 @@ let revocationHandled = false;
 function handleRevokedAccount(): void {
   if (revocationHandled || typeof window === "undefined") return;
   revocationHandled = true;
-
-  clearStoredProgress(window.localStorage);
-  cachedSnapshot = DEFAULT_PROGRESS;
-  cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
-  window.dispatchEvent(new Event("nanu-horen-progress"));
+  discardDeviceProgress();
   void signOut({ callbackUrl: "/account" });
 }
 
@@ -141,7 +226,17 @@ function writeVisitId(id: string): void {
   }
 }
 
+function progressSyncIsCurrent(userId: string, generation: number): boolean {
+  return !cloudPushSuppressed && activeUserId === userId && syncGeneration === generation;
+}
+
 async function pushCloudProgress(progress: StoredProgress): Promise<void> {
+  if (cloudPushSuppressed || !activeUserId) return;
+  const userId = activeUserId;
+  const generation = syncGeneration;
+  // Refuse a snapshot captured for a previous account. Callers that race a
+  // sign-out or account switch no longer upload that account's progress.
+  if (JSON.stringify(readProgressSnapshot()) !== JSON.stringify(progress)) return;
   lastCloudSerialized = JSON.stringify(progress);
   try {
     const response = await fetch("/api/progress", {
@@ -149,16 +244,33 @@ async function pushCloudProgress(progress: StoredProgress): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(progress),
     });
+    if (!progressSyncIsCurrent(userId, generation)) return;
+    if (!progressSyncIsCurrent(userId, generation)) return;
     if (response.status === 410) {
       handleRevokedAccount();
+      return;
     }
+    if (!response.ok) return;
+    const data = (await response.json()) as { progress?: unknown };
+    if (!progressSyncIsCurrent(userId, generation) || data.progress == null) return;
+    const saved = normalizeProgress(data.progress as Partial<StoredProgress>);
+    if (JSON.stringify(saved) === JSON.stringify(progress)) return;
+    writeProgress(saved);
+    lastCloudSerialized = JSON.stringify(saved);
   } catch (error) {
     console.error("Failed to sync progress to cloud", error);
   }
 }
 
 function queueVisitCloudSync(): void {
-  if (typeof window === "undefined" || visitCloudTimer !== null) return;
+  if (
+    typeof window === "undefined" ||
+    cloudPushSuppressed ||
+    !activeUserId ||
+    visitCloudTimer !== null
+  ) {
+    return;
+  }
   visitCloudTimer = window.setTimeout(() => {
     visitCloudTimer = null;
     const snapshot = readProgressSnapshot();
@@ -168,7 +280,7 @@ function queueVisitCloudSync(): void {
 }
 
 function flushVisitCloudSync(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || cloudPushSuppressed || !activeUserId) return;
   if (visitCloudTimer !== null) {
     window.clearTimeout(visitCloudTimer);
     visitCloudTimer = null;
@@ -275,37 +387,41 @@ export function useVisitTracking(): void {
 }
 
 async function pullAndMergeCloudProgress(
-  local: StoredProgress,
-): Promise<StoredProgress> {
+  userId: string,
+  generation: number,
+  replaceLocal: boolean,
+): Promise<void> {
   try {
     const response = await fetch("/api/progress");
+    if (!progressSyncIsCurrent(userId, generation)) return;
     if (response.status === 410) {
       handleRevokedAccount();
-      return DEFAULT_PROGRESS;
+      return;
     }
-    if (response.status === 401) return local;
-    if (!response.ok) return local;
+    if (response.status === 401 || !response.ok) return;
     const data = (await response.json()) as {
       progress?: unknown;
       configured?: boolean;
     };
-    if (data.configured === false || data.progress == null) {
-      return local;
-    }
+    if (!progressSyncIsCurrent(userId, generation)) return;
+    if (data.configured === false || data.progress == null) return;
     const remote = normalizeProgress(
       data.progress as Partial<StoredProgress> | null,
     );
-    const merged = mergeProgress(readProgressSnapshot(), remote);
-    writeProgress(merged);
-    if (JSON.stringify(merged) !== JSON.stringify(remote)) {
-      await pushCloudProgress(merged);
+    // A fresh sign-in keeps the cloud document. Merging here would upload the
+    // previous account's device cache that this browser has not cleared yet.
+    const next = replaceLocal
+      ? remote
+      : mergeProgress(readProgressSnapshot(), remote);
+    if (!progressSyncIsCurrent(userId, generation)) return;
+    writeProgress(next);
+    if (!replaceLocal && JSON.stringify(next) !== JSON.stringify(remote)) {
+      await pushCloudProgress(next);
     } else {
-      lastCloudSerialized = JSON.stringify(merged);
+      lastCloudSerialized = JSON.stringify(next);
     }
-    return merged;
   } catch (error) {
     console.error("Failed to load cloud progress", error);
-    return local;
   }
 }
 
@@ -324,26 +440,44 @@ export function useProgress(
   totalsBySlug: Record<string, number> = EMPTY_TOTALS,
   levelCatalog: readonly ContinueLevelCatalogEntry[] = EMPTY_LEVEL_CATALOG,
 ) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id ?? null;
+  const authAt = session?.user?.authAt;
   const progress = useSyncExternalStore(
     subscribeProgress,
     readProgressSnapshot,
     getServerSnapshot,
   );
-  const syncStarted = useRef(false);
-  const migrated = useRef(false);
+
+  useLayoutEffect(() => {
+    if (status === "loading") return;
+    if (status === "authenticated" && userId) {
+      bindProgressUser(userId);
+      return;
+    }
+    detachProgressUser();
+  }, [authAt, status, userId]);
 
   useEffect(() => {
-    if (migrated.current) return;
-    migrated.current = true;
+    if (status !== "authenticated" || !userId || activeUserId !== userId) return;
+    if (migratedUserId === userId) return;
+    migratedUserId = userId;
     runLegacyMigrationOnce();
-  }, []);
+  }, [status, userId]);
 
   useEffect(() => {
-    if (status !== "authenticated" || syncStarted.current) return;
-    syncStarted.current = true;
-    void pullAndMergeCloudProgress(readProgressSnapshot());
-  }, [status]);
+    if (status !== "authenticated" || !userId) {
+      if (status === "unauthenticated") syncedUserId = null;
+      return;
+    }
+    if (activeUserId !== userId || syncedUserId === userId) return;
+    syncedUserId = userId;
+    void pullAndMergeCloudProgress(
+      userId,
+      syncGeneration,
+      shouldReplaceLocalWithCloud(authAt),
+    );
+  }, [authAt, status, userId]);
 
   const persist = useCallback(
     (next: StoredProgress, syncCloud: boolean) => {

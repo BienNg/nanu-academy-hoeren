@@ -2,6 +2,8 @@ import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_PROGRESS,
+  completedChapterStamps,
+  containsAccountStamps,
   normalizeProgress,
   type StoredProgress,
 } from "@/lib/progress";
@@ -71,6 +73,60 @@ export type UserProfileTouch = {
   email?: string | null;
   name?: string | null;
 };
+
+/**
+ * An account with no lesson progress must not take on another account's
+ * history. Returns the existing document when the upload is a copy.
+ * A detection failure allows the write so a learner is not blocked.
+ */
+export async function rejectCopiedInitialProgress(
+  userId: string,
+  incoming: StoredProgress,
+): Promise<StoredProgress | null> {
+  const incomingStamps = completedChapterStamps(incoming);
+  if (incomingStamps.length === 0) return null;
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+
+  const { data: own, error: ownError } = await supabase
+    .from(TABLE)
+    .select("data")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (ownError) {
+    console.error("Supabase rejectCopiedInitialProgress", ownError.message);
+    return null;
+  }
+  const ownProgress = normalizeProgress(asProgressData(own?.data));
+  const ownStamps = new Set(completedChapterStamps(ownProgress));
+  if (incomingStamps.every((stamp) => ownStamps.has(stamp))) return null;
+
+  const { data: others, error } = await supabase
+    .from(TABLE)
+    .select("user_id, data")
+    .neq("user_id", userId);
+  if (error || !others) {
+    if (error) console.error("Supabase rejectCopiedInitialProgress", error.message);
+    return null;
+  }
+
+  const copied = others.some((row) => {
+    const record = row as { user_id?: string; data?: unknown };
+    if (!record.user_id || record.user_id === userId) return false;
+    return containsAccountStamps(
+      incoming,
+      normalizeProgress(asProgressData(record.data)),
+    );
+  });
+  if (!copied) return null;
+  return ownProgress;
+}
+
+function asProgressData(value: unknown): Partial<StoredProgress> | null {
+  if (!value || typeof value !== "object") return null;
+  return value as Partial<StoredProgress>;
+}
 
 export async function setCloudProgress(
   userId: string,

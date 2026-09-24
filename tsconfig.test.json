@@ -10,5 +10,9 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["src/lib/progress.ts", "src/lib/progress.visits.test.ts"]
+  "include": [
+    "src/lib/progress.ts",
+    "src/lib/progress.visits.test.ts",
+    "src/lib/progress.account.test.ts"
+  ]
 }

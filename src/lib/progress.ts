@@ -2098,20 +2098,97 @@ export function toContinueLevelLearning(
   };
 }
 
-/** Remove every locally cached progress key, including legacy per-beruf ones. */
-export function clearStoredProgress(storage: Storage): void {
-  storage.removeItem(STORAGE_KEY);
+/** Local progress for one signed-in user. Never the shared legacy key. */
+export function progressStorageKey(userId: string): string {
+  return `${STORAGE_KEY}:${encodeURIComponent(userId)}`;
+}
 
-  const legacyKeys: string[] = [];
-  for (let i = 0; i < storage.length; i += 1) {
-    const key = storage.key(i);
-    if (key?.startsWith(LEGACY_PROGRESS_PREFIX)) {
-      legacyKeys.push(key);
-    }
+/**
+ * A sign-in newer than this does not merge the device cache into the cloud.
+ * The previous account's browser cache must not be uploaded as this account.
+ */
+export const FRESH_SIGN_IN_MS = 15 * 60 * 1000;
+
+/** Cloud wins for a new sign-in. An older session may merge its own device cache. */
+export function shouldReplaceLocalWithCloud(
+  authAtSeconds: number | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (typeof authAtSeconds !== "number" || !Number.isFinite(authAtSeconds)) {
+    return true;
   }
-  for (const key of legacyKeys) {
-    storage.removeItem(key);
+  return nowMs - authAtSeconds * 1000 < FRESH_SIGN_IN_MS;
+}
+
+/** Chapter completion timestamps. A copied account keeps the original stamps. */
+export function completedChapterStamps(progress: StoredProgress): string[] {
+  const stamps: string[] = [];
+  for (const [slug, entry] of Object.entries(progress.learn)) {
+    if (!entry) continue;
+    if (entry.completedAt) stamps.push(`learn:${slug}:${entry.completedAt}`);
+    if (entry.studyCompletedAt) stamps.push(`study:${slug}:${entry.studyCompletedAt}`);
   }
+  stamps.sort();
+  return stamps;
+}
+
+/** True when `incoming` still contains every completion stamp from `other`. */
+export function containsAccountStamps(
+  incoming: StoredProgress,
+  other: StoredProgress,
+): boolean {
+  const source = completedChapterStamps(other);
+  if (source.length === 0) return false;
+  const stamps = new Set(completedChapterStamps(incoming));
+  return source.every((stamp) => stamps.has(stamp));
+}
+
+function storageKeys(storage: Storage): string[] {
+  const keys: string[] = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+function removeKeys(storage: Storage, keys: readonly string[]): void {
+  for (const key of keys) storage.removeItem(key);
+}
+
+function removeLegacyBerufKeys(storage: Storage): void {
+  removeKeys(
+    storage,
+    storageKeys(storage).filter((key) => key.startsWith(LEGACY_PROGRESS_PREFIX)),
+  );
+}
+
+/**
+ * Read progress stored for `userId` only.
+ * The old shared key is deleted and never copied, so the next account on this
+ * browser cannot inherit it. Cloud sync restores a returning account.
+ */
+export function bindStoredProgress(
+  storage: Storage,
+  userId: string,
+): StoredProgress {
+  const scopedRaw = storage.getItem(progressStorageKey(userId));
+  if (storage.getItem(STORAGE_KEY) != null) storage.removeItem(STORAGE_KEY);
+  removeLegacyBerufKeys(storage);
+  return parseProgress(scopedRaw);
+}
+
+/** Remove every locally cached progress key, including per-user and legacy ones. */
+export function clearStoredProgress(storage: Storage): void {
+  removeKeys(
+    storage,
+    storageKeys(storage).filter(
+      (key) =>
+        key === STORAGE_KEY ||
+        key.startsWith(`${STORAGE_KEY}:`) ||
+        key.startsWith(LEGACY_PROGRESS_PREFIX),
+    ),
+  );
 }
 
 /** Pull legacy per-beruf keys into the unified store once. */

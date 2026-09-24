@@ -2,12 +2,11 @@
 
 import { useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { clearStoredProgress } from "@/lib/progress";
+import { discardDeviceProgress } from "@/lib/useProgress";
 
 export function SessionEndedScreen() {
   useEffect(() => {
-    clearStoredProgress(window.localStorage);
-    window.dispatchEvent(new Event("nanu-horen-progress"));
+    discardDeviceProgress();
     void signOut({ callbackUrl: "/account" });
   }, []);
 

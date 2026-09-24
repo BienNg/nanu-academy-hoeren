@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
+import { discardDeviceProgress } from "@/lib/useProgress";
 
 function MaterialIcon({
   name,
@@ -216,7 +217,10 @@ export function AccountScreen({
 
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/account" })}
+              onClick={() => {
+                discardDeviceProgress();
+                void signOut({ callbackUrl: "/account" });
+              }}
               className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] border border-black/[0.05] bg-white font-label-lg text-[15px] font-semibold text-[#ff3b30] shadow-sm transition-all hover:bg-[#fff2f2] active:scale-[0.98]"
             >
               <MaterialIcon name="logout" className="text-[20px]" />

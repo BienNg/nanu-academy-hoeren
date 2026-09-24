@@ -4,6 +4,7 @@ import { normalizeProgress, type StoredProgress } from "@/lib/progress";
 import {
   getCloudProgress,
   isProgressStoreConfigured,
+  rejectCopiedInitialProgress,
   resolveAccountAccess,
   setCloudProgress,
   touchUserProfile,
@@ -75,6 +76,10 @@ export async function PUT(request: Request) {
   }
 
   const progress = normalizeProgress(body as Partial<StoredProgress>);
+  const existing = await rejectCopiedInitialProgress(session.user.id, progress);
+  if (existing) {
+    return NextResponse.json({ progress: existing, ok: true, copied: true });
+  }
   await setCloudProgress(session.user.id, progress, sessionProfile(session));
   return NextResponse.json({ progress, ok: true });
 }
