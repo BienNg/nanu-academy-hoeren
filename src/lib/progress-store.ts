@@ -339,6 +339,33 @@ export async function recordUserSignIn(
   });
   if (insertError) {
     console.error("Supabase recordUserSignIn insert", insertError.message);
+    return;
+  }
+
+  await notifyNewUser(profile);
+}
+
+/** Posts once, after the first `user_progress` insert. Missing webhook is a no-op. */
+async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
+  const url = process.env.SLACK_NEW_USER_WEBHOOK_URL;
+  if (!url) return;
+
+  const name = profile.name?.trim() || "Unknown";
+  const email = profile.email?.trim() || "no email";
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `New account: ${name} (${email})`,
+      }),
+    });
+    if (!response.ok) {
+      console.error("Slack new-user webhook", response.status);
+    }
+  } catch (error) {
+    console.error("Slack new-user webhook", error);
   }
 }
 
