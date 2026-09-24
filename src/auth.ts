@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { recordUserSignIn } from "@/lib/progress-store";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -25,6 +26,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Marks when this session was issued, so a deleted account can revoke
         // older sessions while a later sign-in starts fresh.
         token.authAt = Math.floor(Date.now() / 1000);
+        const userId =
+          (typeof profile?.sub === "string" && profile.sub) ||
+          (typeof token.sub === "string" ? token.sub : "");
+        if (userId) {
+          const email =
+            typeof profile?.email === "string"
+              ? profile.email
+              : typeof user?.email === "string"
+                ? user.email
+                : undefined;
+          const name =
+            typeof profile?.name === "string"
+              ? profile.name
+              : typeof user?.name === "string"
+                ? user.name
+                : undefined;
+          try {
+            await recordUserSignIn(userId, {
+              ...(email !== undefined ? { email } : {}),
+              ...(name !== undefined ? { name } : {}),
+            });
+          } catch (error) {
+            console.error("Failed to record sign-in", error);
+          }
+        }
       }
       if (user) {
         token.email = user.email ?? token.email;

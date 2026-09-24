@@ -103,7 +103,8 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
 
-  const { completedClipIdsFor, markClipDone, resetProgress } = useProgress();
+  const { completedClipIdsFor, markClipDone, recordExerciseDone, recordWrongAttempt, resetProgress } =
+    useProgress();
   const completedIds = completedClipIdsFor(beruf.slug);
   const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
@@ -151,6 +152,9 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
     if (result.accuracy === 100) {
       playSuccessSound();
       rememberClip(currentClip);
+      recordExerciseDone(`interview/${beruf.slug}`);
+    } else {
+      recordWrongAttempt();
     }
   };
 

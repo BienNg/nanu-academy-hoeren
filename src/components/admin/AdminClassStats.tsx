@@ -401,7 +401,7 @@ export function AdminClassStats({
                     <thead className="bg-surface-container-low">
                       <tr>
                         <SortHeader label="User" column="name" sort={sort} dir={dir} onSort={handleSort} />
-                        <SortHeader label="Last login" column="lastLogin" sort={sort} dir={dir} onSort={handleSort} />
+                        <SortHeader label="Last seen" column="lastLogin" sort={sort} dir={dir} onSort={handleSort} />
                         <SortHeader label="Streak" column="streak" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Courses" column="courses" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Lessons" column="lessons" sort={sort} dir={dir} align="right" onSort={handleSort} />
@@ -448,7 +448,7 @@ export function AdminClassStats({
                                 {when ? (
                                   <time dateTime={member.lastLoginAt ?? undefined}>{when}</time>
                                 ) : (
-                                  <span className="text-outline">Never logged in</span>
+                                  <span className="text-outline">Not seen yet</span>
                                 )}
                               </td>
                               <td className="whitespace-nowrap px-space-16 py-space-16 text-right">

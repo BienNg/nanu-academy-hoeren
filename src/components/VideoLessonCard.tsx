@@ -5,6 +5,7 @@ import type { ChapterVideo } from "@/lib/levels";
 import {
   lessonVideoProgressKey,
   lessonVideoStatus,
+  videoPlayedSeconds,
   type LessonVideoProgress,
   type LessonVideoStatus,
 } from "@/lib/progress";
@@ -237,7 +238,16 @@ function YouTubePane({
   const skipPlayerResizeRef = useRef(true);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveRef = useRef<
-    (key: string, positionSeconds: number, force?: boolean) => void
+    (
+      key: string,
+      positionSeconds: number,
+      force?: boolean,
+      playback?: {
+        addSeconds?: number;
+        title?: string;
+        durationSeconds?: number;
+      },
+    ) => void
   >(() => {});
   const savedRef = useRef(savedPosition);
   const urlStartRef = useRef(urlStart);
@@ -245,6 +255,10 @@ function YouTubePane({
   const pendingSeekRef = useRef<number | null>(null);
   const userStartedRef = useRef(false);
   const lastPeriodicSaveRef = useRef(0);
+  const samplePositionRef = useRef<number | null>(null);
+  const pendingPlayedRef = useRef(0);
+  const titleRef = useRef(title);
+  const durationRef = useRef(0);
   const { saveVideoPosition, setVideoWatched, lessonVideoProgressFor } =
     useProgress();
   const entry = lessonVideoProgressFor(progressKey);
@@ -267,7 +281,8 @@ function YouTubePane({
     saveRef.current = saveVideoPosition;
     savedRef.current = savedPosition;
     urlStartRef.current = urlStart;
-  }, [saveVideoPosition, savedPosition, urlStart]);
+    titleRef.current = title;
+  }, [saveVideoPosition, savedPosition, urlStart, title]);
 
   useEffect(() => {
     const sync = () => {
@@ -297,8 +312,17 @@ function YouTubePane({
     mount.className = "h-full w-full";
     host.appendChild(mount);
 
+    const flushPlayback = (seconds: number, force = false) => {
+      const addSeconds = pendingPlayedRef.current;
+      pendingPlayedRef.current = 0;
+      saveRef.current(progressKey, seconds, force, {
+        addSeconds,
+        title: titleRef.current,
+        durationSeconds: durationRef.current,
+      });
+    };
     const persist = (seconds: number, force = false) => {
-      saveRef.current(progressKey, seconds, force);
+      flushPlayback(seconds, force);
     };
     const resumeAt =
       savedRef.current > 0 ? savedRef.current : urlStartRef.current;
@@ -333,7 +357,10 @@ function YouTubePane({
               }
               event.target.pauseVideo();
               const total = readDuration(event.target);
-              if (total > 0) setDuration(total);
+              if (total > 0) {
+                durationRef.current = total;
+                setDuration(total);
+              }
               const iframe = event.target.getIframe();
               iframe.title = title;
               iframe.setAttribute("playsinline", "1");
@@ -353,6 +380,7 @@ function YouTubePane({
               const state = event.data;
               if (state === YT_PLAYING) {
                 userStartedRef.current = true;
+                samplePositionRef.current = readTime(event.target);
                 setPlaying(true);
                 setEnded(false);
               } else if (state === YT_PAUSED) {
@@ -407,7 +435,10 @@ function YouTubePane({
       if (!active || scrubbingRef.current) return;
       const time = readTime(active);
       const total = readDuration(active);
-      if (total > 0) setDuration(total);
+      if (total > 0) {
+        durationRef.current = total;
+        setDuration(total);
+      }
       setCurrentTime(time);
       let state = YT_UNSTARTED;
       try {
@@ -416,11 +447,15 @@ function YouTubePane({
         return;
       }
       if (state === YT_PLAYING) {
+        pendingPlayedRef.current += videoPlayedSeconds(samplePositionRef.current, time);
+        samplePositionRef.current = time;
         const now = Date.now();
         if (now - lastPeriodicSaveRef.current >= 5000) {
           lastPeriodicSaveRef.current = now;
           persist(time);
         }
+      } else {
+        samplePositionRef.current = time;
       }
     }, 250);
 
@@ -468,6 +503,7 @@ function YouTubePane({
     userStartedRef.current = true;
     const next = Math.max(0, seconds);
     pendingSeekRef.current = next;
+    samplePositionRef.current = next;
     setCurrentTime(next);
     setEnded(false);
     player.seekTo(next, true);
@@ -704,7 +740,13 @@ function YouTubePane({
       {!watched && (ended || nearEnd) ? (
         <button
           type="button"
-          onClick={() => setVideoWatched(progressKey, true)}
+          onClick={() =>
+            setVideoWatched(progressKey, true, {
+              title,
+              positionSeconds: currentTime,
+              durationSeconds: duration,
+            })
+          }
           className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
         >
           <MaterialIcon name="check" className="text-[20px]" />

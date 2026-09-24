@@ -27,11 +27,17 @@ import {
   migrateLegacyProgress,
   normalizeProgress,
   parseProgress,
+  recordVisitClip,
+  recordVisitExercise,
+  recordVisitListeningRun,
+  recordVisitVideo,
+  recordVisitWrongAttempt,
   saveLessonVideoPosition,
   setLessonVideoWatched,
   toBerufProgress,
   toContinueLearning,
   toContinueLevelLearning,
+  touchVisit,
   type BerufProgressSummary,
   type ContinueLevelCatalogEntry,
   type LessonVideoProgress,
@@ -109,7 +115,34 @@ function handleRevokedAccount(): void {
   void signOut({ callbackUrl: "/account" });
 }
 
+const VISIT_ID_KEY = "nanu-horen-visit-id";
+const VISIT_SYNC_MS = 60_000;
+
+let visitTracking = false;
+let visitCleanup: (() => void) | null = null;
+let lastVisibleTick = 0;
+let visitCloudTimer: number | null = null;
+let lastCloudSerialized: string | null = null;
+
+function readVisitId(): string | null {
+  try {
+    return window.sessionStorage.getItem(VISIT_ID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeVisitId(id: string): void {
+  if (!id || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(VISIT_ID_KEY, id);
+  } catch {
+    // Session storage can be blocked. The visit still lives in progress.
+  }
+}
+
 async function pushCloudProgress(progress: StoredProgress): Promise<void> {
+  lastCloudSerialized = JSON.stringify(progress);
   try {
     const response = await fetch("/api/progress", {
       method: "PUT",
@@ -122,6 +155,123 @@ async function pushCloudProgress(progress: StoredProgress): Promise<void> {
   } catch (error) {
     console.error("Failed to sync progress to cloud", error);
   }
+}
+
+function queueVisitCloudSync(): void {
+  if (typeof window === "undefined" || visitCloudTimer !== null) return;
+  visitCloudTimer = window.setTimeout(() => {
+    visitCloudTimer = null;
+    const snapshot = readProgressSnapshot();
+    if (JSON.stringify(snapshot) === lastCloudSerialized) return;
+    void pushCloudProgress(snapshot);
+  }, VISIT_SYNC_MS);
+}
+
+function flushVisitCloudSync(): void {
+  if (typeof window === "undefined") return;
+  if (visitCloudTimer !== null) {
+    window.clearTimeout(visitCloudTimer);
+    visitCloudTimer = null;
+  }
+  const snapshot = readProgressSnapshot();
+  if (JSON.stringify(snapshot) === lastCloudSerialized) return;
+  void pushCloudProgress(snapshot);
+}
+
+function applyVisitResult(
+  result: { progress: StoredProgress; visitId: string },
+  sync: "now" | "heartbeat" | "local",
+): void {
+  writeVisitId(result.visitId);
+  if (result.progress === readProgressSnapshot()) return;
+  writeProgress(result.progress);
+  if (sync === "now") void pushCloudProgress(result.progress);
+  else if (sync === "heartbeat") queueVisitCloudSync();
+}
+
+function endVisibleVisit(): void {
+  if (typeof window === "undefined") return;
+  if (!readVisitId() && lastVisibleTick === 0) return;
+  const nowMs = Date.now();
+  const elapsed = lastVisibleTick > 0 ? Math.max(0, (nowMs - lastVisibleTick) / 1000) : 0;
+  lastVisibleTick = 0;
+  applyVisitResult(
+    touchVisit(readProgressSnapshot(), new Date(nowMs), {
+      preferredId: readVisitId(),
+      visibleSeconds: elapsed,
+    }),
+    "local",
+  );
+}
+
+function onVisitTick(): void {
+  if (typeof window === "undefined" || document.visibilityState !== "visible") return;
+  const nowMs = Date.now();
+  const elapsed = lastVisibleTick > 0 ? Math.max(0, (nowMs - lastVisibleTick) / 1000) : 0;
+  lastVisibleTick = nowMs;
+  applyVisitResult(
+    touchVisit(readProgressSnapshot(), new Date(nowMs), {
+      preferredId: readVisitId(),
+      visibleSeconds: elapsed,
+    }),
+    "heartbeat",
+  );
+}
+
+function stopVisitTracking(): void {
+  endVisibleVisit();
+  flushVisitCloudSync();
+  visitCleanup?.();
+}
+
+/** Heartbeat while a signed-in learner has the tab visible. Safe to call once. */
+export function startVisitTracking(): () => void {
+  if (typeof window === "undefined") return () => {};
+  if (visitTracking) return () => stopVisitTracking();
+  visitTracking = true;
+
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden") {
+      endVisibleVisit();
+      flushVisitCloudSync();
+      return;
+    }
+    lastVisibleTick = Date.now();
+    onVisitTick();
+  };
+
+  const onPageHide = () => {
+    endVisibleVisit();
+    flushVisitCloudSync();
+  };
+
+  if (document.visibilityState === "visible") {
+    lastVisibleTick = Date.now();
+    onVisitTick();
+  }
+
+  const timer = window.setInterval(onVisitTick, VISIT_SYNC_MS);
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", onPageHide);
+  visitCleanup = () => {
+    window.clearInterval(timer);
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("pagehide", onPageHide);
+    visitTracking = false;
+    visitCleanup = null;
+  };
+  return () => stopVisitTracking();
+}
+
+export function useVisitTracking(): void {
+  const { status } = useSession();
+  useEffect(() => {
+    if (status !== "authenticated") {
+      if (visitTracking) stopVisitTracking();
+      return;
+    }
+    return startVisitTracking();
+  }, [status]);
 }
 
 async function pullAndMergeCloudProgress(
@@ -145,10 +295,12 @@ async function pullAndMergeCloudProgress(
     const remote = normalizeProgress(
       data.progress as Partial<StoredProgress> | null,
     );
-    const merged = mergeProgress(local, remote);
+    const merged = mergeProgress(readProgressSnapshot(), remote);
     writeProgress(merged);
     if (JSON.stringify(merged) !== JSON.stringify(remote)) {
       await pushCloudProgress(merged);
+    } else {
+      lastCloudSerialized = JSON.stringify(merged);
     }
     return merged;
   } catch (error) {
@@ -228,16 +380,21 @@ export function useProgress(
   }, [status]);
 
   useEffect(() => {
+    const flushCloud = () => {
+      if (cloudSyncTimer.current !== null) {
+        window.clearTimeout(cloudSyncTimer.current);
+        cloudSyncTimer.current = null;
+      }
+      flushVisitCloudSync();
+    };
     const flushIfPending = () => {
-      if (cloudSyncTimer.current === null) return;
-      window.clearTimeout(cloudSyncTimer.current);
-      cloudSyncTimer.current = null;
-      void pushCloudProgress(readProgressSnapshot());
+      endVisibleVisit();
+      flushCloud();
     };
     window.addEventListener("pagehide", flushIfPending);
     return () => {
       window.removeEventListener("pagehide", flushIfPending);
-      flushIfPending();
+      flushCloud();
     };
   }, []);
 
@@ -268,9 +425,14 @@ export function useProgress(
   );
 
   const incrementLearnRunDoneCount = useCallback(
-    (chapterSlug: string) => {
-      const next = incrementLearnRunCount(readProgressSnapshot(), chapterSlug);
-      persist(next, true);
+    (chapterSlug: string, lessonKey?: string) => {
+      const now = new Date();
+      const counted = incrementLearnRunCount(readProgressSnapshot(), chapterSlug, now);
+      const recorded = lessonKey
+        ? recordVisitListeningRun(counted, now, readVisitId(), lessonKey)
+        : { progress: counted, visitId: readVisitId() ?? "" };
+      if (recorded.visitId) writeVisitId(recorded.visitId);
+      persist(recorded.progress, true);
     },
     [persist],
   );
@@ -300,12 +462,44 @@ export function useProgress(
   );
 
   const markLearnClipReviewedFn = useCallback(
-    (chapterSlug: string, clipId: string) => {
-      const next = markLearnClipReviewed(readProgressSnapshot(), chapterSlug, clipId);
-      persist(next, true);
+    (chapterSlug: string, clipId: string, lessonKey?: string) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      const reviewed = markLearnClipReviewed(current, chapterSlug, clipId);
+      const recorded = recordVisitClip(
+        reviewed,
+        now,
+        readVisitId(),
+        lessonKey || chapterSlug,
+        clipId,
+      );
+      writeVisitId(recorded.visitId);
+      if (recorded.progress === current) return;
+      persist(recorded.progress, true);
     },
     [persist],
   );
+
+  const recordExerciseDone = useCallback(
+    (lessonKey: string) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      const recorded = recordVisitExercise(current, now, readVisitId(), lessonKey);
+      writeVisitId(recorded.visitId);
+      if (recorded.progress === current) return;
+      persist(recorded.progress, true);
+    },
+    [persist],
+  );
+
+  const recordWrongAttempt = useCallback(() => {
+    const now = new Date();
+    const current = readProgressSnapshot();
+    const recorded = recordVisitWrongAttempt(current, now, readVisitId());
+    writeVisitId(recorded.visitId);
+    if (recorded.progress === current) return;
+    persist(recorded.progress, true);
+  }, [persist]);
 
   const resetLearnStudyProgressFn = useCallback(
     (chapterSlug: string) => {
@@ -316,11 +510,33 @@ export function useProgress(
   );
 
   const saveVideoPosition = useCallback(
-    (key: string, positionSeconds: number, force = false) => {
+    (
+      key: string,
+      positionSeconds: number,
+      force = false,
+      playback?: {
+        addSeconds?: number;
+        title?: string;
+        durationSeconds?: number;
+        watched?: boolean;
+      },
+    ) => {
       const current = readProgressSnapshot();
-      const next = saveLessonVideoPosition(current, key, positionSeconds, {
-        force,
-      });
+      let next = saveLessonVideoPosition(current, key, positionSeconds, { force });
+      const played = playback?.addSeconds ?? 0;
+      if (playback && (played > 0 || playback.watched)) {
+        const now = new Date();
+        const recorded = recordVisitVideo(next, now, readVisitId(), {
+          key,
+          title: playback.title,
+          addSeconds: played,
+          leftAtSeconds: positionSeconds,
+          durationSeconds: playback.durationSeconds,
+          watched: playback.watched,
+        });
+        writeVisitId(recorded.visitId);
+        next = recorded.progress;
+      }
       if (next === current) return;
       persist(next, false);
       queueCloudSync();
@@ -329,8 +545,26 @@ export function useProgress(
   );
 
   const setVideoWatched = useCallback(
-    (key: string, watched: boolean) => {
-      const next = setLessonVideoWatched(readProgressSnapshot(), key, watched);
+    (
+      key: string,
+      watched: boolean,
+      meta?: { title?: string; positionSeconds?: number; durationSeconds?: number },
+    ) => {
+      const current = readProgressSnapshot();
+      let next = setLessonVideoWatched(current, key, watched);
+      if (watched) {
+        const now = new Date();
+        const recorded = recordVisitVideo(next, now, readVisitId(), {
+          key,
+          title: meta?.title,
+          leftAtSeconds: meta?.positionSeconds,
+          durationSeconds: meta?.durationSeconds,
+          watched: true,
+        });
+        writeVisitId(recorded.visitId);
+        next = recorded.progress;
+      }
+      if (next === current) return;
       persist(next, false);
       flushCloudSync();
     },
@@ -375,6 +609,8 @@ export function useProgress(
       isStudyChapterCompleted(progress, chapterSlug),
     incrementLearnRunDoneCount,
     incrementStudyRunDoneCount,
+    recordExerciseDone,
+    recordWrongAttempt,
     markLearnClipReviewed: markLearnClipReviewedFn,
     resetLearnStudyProgress: resetLearnStudyProgressFn,
     reviewedLearnClipIdsFor: (chapterSlug: string) =>

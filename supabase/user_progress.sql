@@ -16,7 +16,10 @@ create table if not exists public.user_progress (
   -- Admin accounts ignore this column and can open every level and interview course.
   level_access text[] not null default '{}',
   -- Admin-only class label used to group students. Learner APIs never read it.
-  class_name text
+  class_name text,
+  -- Real Google sign-ins (Auth.js jwt callback with `account`). Not app visits.
+  -- Kept about 90 days by the app. `last_login_at` stays "last seen".
+  sign_ins timestamptz[] not null default '{}'
 );
 
 alter table public.user_progress
@@ -26,7 +29,8 @@ alter table public.user_progress
   add column if not exists deleted_at timestamptz,
   add column if not exists revoked_before timestamptz,
   add column if not exists level_access text[] not null default '{}',
-  add column if not exists class_name text;
+  add column if not exists class_name text,
+  add column if not exists sign_ins timestamptz[] not null default '{}';
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);

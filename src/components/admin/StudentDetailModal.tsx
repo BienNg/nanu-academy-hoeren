@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   projectStudentDetail,
+  projectStudentVisits,
   type AdminActivityCard,
   type AdminCatalogCourse,
   type AdminCourseDetail,
   type AdminLessonDetail,
   type AdminVideoDetail,
+  type AdminVisitRange,
+  type AdminVisitRow,
 } from "@/lib/admin-detail";
+import { formatActiveDuration } from "@/lib/progress";
 import type { AdminUserRow } from "@/lib/admin-overview";
 
 function MaterialIcon({
@@ -52,10 +56,12 @@ function SummaryStat({
   label,
   value,
   icon,
+  detail,
 }: {
   label: string;
-  value: number;
+  value: string | number;
   icon: string;
+  detail?: string | null;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
@@ -67,9 +73,10 @@ function SummaryStat({
           {label}
         </p>
       </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg text-on-surface">
-        {value}
-      </p>
+      <p className="mt-space-12 font-headline-lg text-headline-lg text-on-surface">{value}</p>
+      {detail ? (
+        <p className="mt-1 font-caption text-caption text-on-surface-variant">{detail}</p>
+      ) : null}
     </div>
   );
 }
@@ -271,6 +278,108 @@ function visibleLessons(course: AdminCourseDetail): AdminLessonDetail[] {
   );
 }
 
+const VISIT_RANGES: { id: AdminVisitRange; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "7d", label: "7 days" },
+  { id: "all", label: "All time" },
+];
+
+function VisitRangeSwitch({
+  range,
+  onChange,
+}: {
+  range: AdminVisitRange;
+  onChange: (range: AdminVisitRange) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-full bg-surface-container-low p-1" role="group" aria-label="Visit range">
+      {VISIT_RANGES.map((option) => {
+        const selected = option.id === range;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.id)}
+            className={`rounded-full px-3 py-1 font-label-sm text-label-sm font-semibold transition-colors ${
+              selected
+                ? "bg-surface-container-lowest text-on-surface shadow-sm"
+                : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function VisitRow({
+  visit,
+  open,
+  onToggle,
+}: {
+  visit: AdminVisitRow;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const expandable = visit.details.length > 0;
+  return (
+    <li className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm">
+      <button
+        type="button"
+        aria-expanded={expandable ? open : undefined}
+        onClick={expandable ? onToggle : undefined}
+        className={`flex w-full items-start gap-space-12 px-space-16 py-space-16 text-left ${expandable ? "" : "cursor-default"}`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-label-md text-label-md font-semibold text-on-surface">
+            {visit.headline}
+          </span>
+          {visit.lines.map((line, index) => (
+            <span
+              key={`${visit.id}-${index}`}
+              className="mt-1 block font-body-sm text-body-sm text-on-surface-variant"
+            >
+              {line}
+            </span>
+          ))}
+          {visit.signal ? (
+            <span className="mt-space-8 block font-body-sm text-body-sm font-semibold text-primary">
+              {visit.signal}
+            </span>
+          ) : null}
+        </span>
+        {expandable ? (
+          <MaterialIcon name={open ? "expand_less" : "expand_more"} className="text-[22px] text-on-surface-variant" />
+        ) : null}
+      </button>
+      {open && visit.details.length > 0 ? (
+        <div className="flex flex-col gap-space-16 border-t border-outline-variant/20 px-space-16 py-space-16">
+          {visit.details.map((group) => (
+            <div key={group.id}>
+              <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                {group.label}
+              </p>
+              <ul className="mt-space-8 flex flex-col gap-1">
+                {group.items.map((item, index) => (
+                  <li key={`${group.id}-${index}`} className="font-body-sm text-body-sm text-on-surface">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              {group.extraCount > 0 ? (
+                <p className="mt-1 font-body-sm text-body-sm text-outline">+{group.extraCount} more</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export function StudentDetailModal({
   row,
   catalog,
@@ -289,7 +398,16 @@ export function StudentDetailModal({
     detail.startedCourses.find((entry) => entry.id === courseId) ??
     detail.startedCourses[0];
   const lessons = course ? visibleLessons(course) : [];
-  const lastLogin = formatAbsoluteTime(row.lastLoginAt);
+  const [range, setRange] = useState<AdminVisitRange>("7d");
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null);
+  const visitLog = useMemo(
+    () => projectStudentVisits(catalog, row.progress, range),
+    [catalog, row.progress, range],
+  );
+  const lastLogin = formatAbsoluteTime(row.lastSignInAt);
+  const lastSeen = formatAbsoluteTime(row.lastLoginAt);
+  const summary = visitLog.summary;
+  const signIns = [...row.signIns].reverse();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -357,7 +475,13 @@ export function StudentDetailModal({
                   {row.email && row.email !== row.displayName && lastLogin ? (
                     <span className="h-1 w-1 rounded-full bg-outline-variant/50" />
                   ) : null}
-                  <span>{lastLogin ? `Last login ${lastLogin}` : "Never logged in"}</span>
+                  <span>{lastLogin ? `Last login ${lastLogin}` : "No sign-in recorded"}</span>
+                  {lastSeen ? (
+                    <>
+                      <span className="h-1 w-1 rounded-full bg-outline-variant/50" />
+                      <span>{`Last seen ${lastSeen}`}</span>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -370,20 +494,87 @@ export function StudentDetailModal({
               <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
-          <div className="mt-space-24 grid grid-cols-2 gap-space-12 sm:grid-cols-4">
-            <SummaryStat label="Courses" value={detail.coursesStarted} icon="menu_book" />
-            <SummaryStat label="Lessons" value={detail.lessonsCompleted} icon="check_circle" />
-            <SummaryStat label="Listening" value={detail.listeningRepetitions} icon="headphones" />
-            <SummaryStat label="Videos" value={detail.videosWatched} icon="smart_display" />
-          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto px-space-20 py-space-16 sm:px-space-24">
-          {detail.startedCourses.length === 0 ? (
-            <p className="py-space-24 text-center font-body-md text-body-md text-on-surface-variant">
-              This student has not started a course yet.
-            </p>
-          ) : (
+          <section aria-label="Visits">
+            <div className="flex flex-wrap items-center justify-between gap-space-12">
+              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Visits</h3>
+              <VisitRangeSwitch range={range} onChange={setRange} />
+            </div>
+            <div className="mt-space-16 grid grid-cols-2 gap-space-12 sm:grid-cols-4">
+              <SummaryStat
+                label="Active time"
+                value={formatActiveDuration(summary.activeSeconds)}
+                detail={`${summary.visitCount} ${summary.visitCount === 1 ? "visit" : "visits"}`}
+                icon="schedule"
+              />
+              <SummaryStat label="Clips studied" value={summary.clipCount} icon="menu_book" />
+              <SummaryStat
+                label="Audio exercises"
+                value={summary.exercisesCompleted}
+                detail={`${summary.listeningRuns} full ${summary.listeningRuns === 1 ? "run" : "runs"}`}
+                icon="headphones"
+              />
+              <SummaryStat
+                label="Video"
+                value={formatActiveDuration(summary.videoSeconds)}
+                detail={`${summary.videosWatched} marked watched`}
+                icon="smart_display"
+              />
+            </div>
+            {visitLog.visits.length === 0 ? (
+              <p className="py-space-24 text-center font-body-md text-body-md text-on-surface-variant">
+                {visitLog.emptyMessage}
+              </p>
+            ) : (
+              <ul className="mt-space-16 flex flex-col gap-space-12">
+                {visitLog.visits.map((visit) => (
+                  <VisitRow
+                    key={visit.id}
+                    visit={visit}
+                    open={openVisitId === visit.id}
+                    onToggle={() =>
+                      setOpenVisitId((current) => (current === visit.id ? null : visit.id))
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+            <div className="mt-space-20">
+              <h4 className="font-label-md text-label-md font-semibold text-on-surface">Sign-ins</h4>
+              {signIns.length === 0 ? (
+                <p className="mt-space-8 font-body-sm text-body-sm text-on-surface-variant">
+                  No sign-ins recorded yet.
+                </p>
+              ) : (
+                <ul className="mt-space-8 flex flex-col gap-1">
+                  {signIns.slice(0, 8).map((stamp) => (
+                    <li key={stamp} className="font-body-sm text-body-sm text-on-surface-variant">
+                      <time dateTime={stamp}>{formatAbsoluteTime(stamp)}</time>
+                    </li>
+                  ))}
+                  {signIns.length > 8 ? (
+                    <li className="font-body-sm text-body-sm text-outline">+{signIns.length - 8} more</li>
+                  ) : null}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section aria-label="Progress" className="mt-space-24">
+            <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Progress</h3>
+            <div className="mt-space-16 grid grid-cols-2 gap-space-12 sm:grid-cols-4">
+              <SummaryStat label="Courses" value={detail.coursesStarted} icon="menu_book" />
+              <SummaryStat label="Lessons" value={detail.lessonsCompleted} icon="check_circle" />
+              <SummaryStat label="Listening" value={detail.listeningRepetitions} icon="headphones" />
+              <SummaryStat label="Videos" value={detail.videosWatched} icon="smart_display" />
+            </div>
+            {detail.startedCourses.length === 0 ? (
+              <p className="py-space-24 text-center font-body-md text-body-md text-on-surface-variant">
+                This student has not started a course yet.
+              </p>
+            ) : (
             <>
               <div
                 role="tablist"
@@ -451,6 +642,7 @@ export function StudentDetailModal({
               Not started: {detail.notStartedLabels.join(", ")}
             </p>
           ) : null}
+          </section>
         </div>
       </div>
     </div>

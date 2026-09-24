@@ -156,8 +156,12 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
   const rememberCurrent = useCallback(() => {
     if (!currentClip) return;
-    markLearnClipReviewed(chapterProgressKey, currentClip.id);
-  }, [currentClip, chapterProgressKey, markLearnClipReviewed]);
+    markLearnClipReviewed(
+      chapterProgressKey,
+      currentClip.id,
+      `${level.slug}/${chapter.slug}`,
+    );
+  }, [currentClip, chapterProgressKey, markLearnClipReviewed, level.slug, chapter.slug]);
 
   const goNext = useCallback(() => {
     if (!currentClip) return;

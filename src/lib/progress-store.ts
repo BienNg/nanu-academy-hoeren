@@ -84,6 +84,7 @@ export async function setCloudProgress(
 
   const payload = normalizeProgress(progress);
   const now = new Date().toISOString();
+  // last_login_at here is last seen (a progress write), not a Google sign-in.
   const withIdentity = {
     user_id: userId,
     data: payload,
@@ -125,6 +126,8 @@ export type UserProgressListItem = {
   interviewAccess: boolean;
   /** Admin-only class label. Never returned by the learner progress API. */
   className: string | null;
+  /** Google sign-ins from the last 90 days, newest last. Not app-open visits. */
+  signIns: string[];
   progress: StoredProgress;
 };
 
@@ -140,6 +143,7 @@ type RawProgressRow = {
   deleted_at?: string | null;
   level_access?: unknown;
   class_name?: unknown;
+  sign_ins?: unknown;
 };
 
 /** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
@@ -180,6 +184,28 @@ function parsePostgresTextArray(value: string): string[] {
   return inner.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
 }
 
+const SIGN_IN_KEEP_MS = 90 * 24 * 60 * 60 * 1000;
+const SIGN_IN_KEEP_COUNT = 120;
+
+export function trimSignIns(values: readonly string[], now = Date.now()): string[] {
+  const cutoff = now - SIGN_IN_KEEP_MS;
+  const stamps = new Set<string>();
+  for (const value of values) {
+    const time = Date.parse(value);
+    if (Number.isNaN(time) || time < cutoff) continue;
+    stamps.add(new Date(time).toISOString());
+  }
+  return [...stamps].sort().slice(-SIGN_IN_KEEP_COUNT);
+}
+
+function readSignIns(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return trimSignIns(value.filter((item): item is string => typeof item === "string"));
+  }
+  if (typeof value === "string") return trimSignIns(parsePostgresTextArray(value));
+  return [];
+}
+
 function mapProgressRow(row: RawProgressRow): UserProgressListItem {
   const access = readLevelAccess(row.level_access);
   return {
@@ -192,13 +218,15 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     levelAccess: withoutInterviewAccess(access),
     interviewAccess: hasInterviewAccess(access),
     className: readClassName(row.class_name),
+    signIns: readSignIns(row.sign_ins),
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
 }
 
 /**
- * Best-effort identity + last-login write. Progress JSON is never overwritten
- * here; missing profile columns (pre-migration) are ignored.
+ * Best-effort identity + last-seen write. `last_login_at` is the last time
+ * this account touched the app, not a Google sign-in. Progress JSON is never
+ * overwritten here; missing profile columns (pre-migration) are ignored.
  */
 export async function touchUserProfile(
   userId: string,
@@ -256,6 +284,64 @@ export async function touchUserProfile(
   }
 }
 
+/**
+ * Append a Google sign-in. Called only when the Auth.js jwt callback receives
+ * `account` (a real sign-in), never from a progress heartbeat.
+ * `last_login_at` is left alone so it can keep meaning "last seen".
+ */
+export async function recordUserSignIn(
+  userId: string,
+  profile: UserProfileTouch = {},
+  at = new Date(),
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("user_id, sign_ins")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase recordUserSignIn read", error.message);
+    return;
+  }
+
+  const signIns = trimSignIns(
+    [...readSignIns((data as { sign_ins?: unknown } | null)?.sign_ins), at.toISOString()],
+    at.getTime(),
+  );
+  const identity = {
+    ...(profile.email !== undefined ? { email: profile.email } : {}),
+    ...(profile.name !== undefined ? { name: profile.name } : {}),
+  };
+
+  if (data) {
+    const { error: updateError } = await supabase
+      .from(TABLE)
+      .update({ sign_ins: signIns, ...identity })
+      .eq("user_id", userId);
+    if (updateError) {
+      console.error("Supabase recordUserSignIn update", updateError.message);
+    }
+    return;
+  }
+
+  const now = at.toISOString();
+  const { error: insertError } = await supabase.from(TABLE).insert({
+    user_id: userId,
+    data: structuredClone(DEFAULT_PROGRESS),
+    updated_at: now,
+    level_access: [],
+    sign_ins: signIns,
+    ...identity,
+  });
+  if (insertError) {
+    console.error("Supabase recordUserSignIn insert", insertError.message);
+  }
+}
+
 export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return [];
@@ -263,6 +349,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
+    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at",

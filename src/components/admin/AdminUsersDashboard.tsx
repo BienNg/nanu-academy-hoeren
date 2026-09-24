@@ -170,7 +170,7 @@ function LastLoginCell({ iso }: { iso: string | null }) {
   if (!iso || !absolute) {
     return (
       <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-outline">
-        Never logged in
+        Not seen yet
       </td>
     );
   }
@@ -828,7 +828,7 @@ export function AdminUsersDashboard({
               label="Active today"
               value={formatCount(activity.activeUsers)}
               icon="person"
-              hint="Signed in or practiced"
+              hint="Seen or practiced"
             />
             <ActivityStat
               label="Videos watched"
@@ -899,7 +899,7 @@ export function AdminUsersDashboard({
                     className="w-44 min-w-44 max-w-44"
                   />
                   <SortHeader
-                    label="Last login"
+                    label="Last seen"
                     column="lastLogin"
                     sort={sort}
                     dir={dir}

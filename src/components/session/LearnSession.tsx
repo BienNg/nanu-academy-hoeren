@@ -127,9 +127,12 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     learnChapterCompleted,
     markLearnClipDone,
     markLearnChapterDone,
+    recordExerciseDone,
+    recordWrongAttempt,
     resetLearnProgress,
   } = useProgress();
   const chapterProgressKey = chapter.slug;
+  const lessonKey = `${level.slug}/${chapter.slug}`;
   const completedIds = completedLearnClipIdsFor(chapterProgressKey);
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
 
@@ -216,6 +219,9 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     if (result.accuracy === 100) {
       playSuccessSound();
       rememberClip(currentClip);
+      recordExerciseDone(lessonKey);
+    } else {
+      recordWrongAttempt();
     }
   };
 
@@ -252,7 +258,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     ) {
       return;
     }
-    incrementLearnRunDoneCount(chapterProgressKey);
+    incrementLearnRunDoneCount(chapterProgressKey, lessonKey);
     runCountSavedRef.current = true;
   }, [
     ready,
@@ -261,6 +267,7 @@ export function LearnSession({ level, chapter, clips }: LearnSessionProps) {
     startingCompleted,
     incrementLearnRunDoneCount,
     chapterProgressKey,
+    lessonKey,
   ]);
 
   return (

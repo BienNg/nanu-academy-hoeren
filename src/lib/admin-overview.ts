@@ -37,6 +37,9 @@ export type AdminUserRow = {
   levelAccess: string[];
   interviewAccess: boolean;
   className: string | null;
+  /** Google sign-ins, oldest first. Empty until the next real sign-in after this ships. */
+  signIns: string[];
+  lastSignInAt: string | null;
   progress: StoredProgress;
 };
 
@@ -102,6 +105,8 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     levelAccess: item.levelAccess,
     interviewAccess: item.interviewAccess,
     className: item.className,
+    signIns: item.signIns ?? [],
+    lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1] ?? null) : null,
     progress,
   };
 }
@@ -284,6 +289,7 @@ export function buildAdminActivityStats(
     const videos = videosWatchedOnDay(row.progress, today);
     const studyRuns = studyRunsOnDay(row.progress, today);
     const practiceRuns = practiceRunsOnDay(row.progress, today);
+    const todayActivity = row.progress.activity?.[today];
     videosWatchedToday += videos;
     studyRunsToday += studyRuns;
     practiceRunsToday += practiceRuns;
@@ -293,7 +299,11 @@ export function buildAdminActivityStats(
       row.progress.lastPracticeDate === today ||
       videos > 0 ||
       studyRuns > 0 ||
-      practiceRuns > 0;
+      practiceRuns > 0 ||
+      (todayActivity?.activeSeconds ?? 0) > 0 ||
+      (todayActivity?.clips ?? 0) > 0 ||
+      (todayActivity?.exercises ?? 0) > 0 ||
+      (todayActivity?.videoSeconds ?? 0) > 0;
     if (active) activeUsers += 1;
   }
 
