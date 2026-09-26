@@ -28,6 +28,14 @@ export type YouTubePlayer = {
   isMuted: () => boolean;
   setVolume: (volume: number) => void;
   getVolume: () => number;
+  getAvailableQualityLevels: () => string[];
+  getPlaybackQuality: () => string;
+  setPlaybackQuality: (suggestedQuality: string) => void;
+  loadVideoById: (video: {
+    videoId: string;
+    startSeconds?: number;
+    suggestedQuality?: string;
+  }) => void;
   setSize: (width: number, height: number) => void;
   destroy: () => void;
   getIframe: () => HTMLIFrameElement;

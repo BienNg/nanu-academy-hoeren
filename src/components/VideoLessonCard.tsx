@@ -51,6 +51,65 @@ const MARK_WATCHED_LEAD_SECONDS = 10;
 /** Shifts the embed so YouTube's title and Share / Save sit outside the clip. */
 const YOUTUBE_CHROME_CROP_PX = 60;
 
+const VIDEO_QUALITY_STORAGE_KEY = "nanu-video-quality";
+
+/**
+ * YouTube ignores setPlaybackQuality. It chooses the stream from the iframe's
+ * layout size, so each option renders the embed at a size that selects that
+ * stream, then scales it into the visible frame.
+ * Measured against the embedded player: 1920-wide → 1080p, 640-wide → 720p,
+ * 426-wide → 360p.
+ */
+const QUALITY_FRAME: Record<string, { width: number; height: number }> = {
+  highres: { width: 3840, height: 2160 },
+  hd2160: { width: 3840, height: 2160 },
+  hd1440: { width: 2560, height: 1440 },
+  hd1080: { width: 1920, height: 1080 },
+  hd720: { width: 640, height: 360 },
+  large: { width: 500, height: 281 },
+  medium: { width: 426, height: 240 },
+};
+
+const QUALITY_RANK = [
+  "highres",
+  "hd2160",
+  "hd1440",
+  "hd1080",
+  "hd720",
+  "large",
+  "medium",
+];
+
+const QUALITY_LABEL: Record<string, string> = {
+  auto: "Tự động",
+  highres: "4K",
+  hd2160: "2160p",
+  hd1440: "1440p",
+  hd1080: "1080p",
+  hd720: "720p",
+  large: "480p",
+  medium: "360p",
+};
+
+function readStoredVideoQuality(): string {
+  if (typeof window === "undefined") return "auto";
+  try {
+    const value = window.localStorage.getItem(VIDEO_QUALITY_STORAGE_KEY);
+    if (value === "auto" || (value != null && QUALITY_FRAME[value])) return value;
+  } catch {
+    // Private mode can reject storage reads.
+  }
+  return "auto";
+}
+
+function storeVideoQuality(value: string) {
+  try {
+    window.localStorage.setItem(VIDEO_QUALITY_STORAGE_KEY, value);
+  } catch {
+    // Ignore storage failures; the choice still applies for this view.
+  }
+}
+
 function currentFullscreenElement(): Element | null {
   const doc = document as Document & { webkitFullscreenElement?: Element | null };
   return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
@@ -234,8 +293,9 @@ function YouTubePane({
   progressKey: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
-  const skipPlayerResizeRef = useRef(true);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const saveRef = useRef<
     (
@@ -276,6 +336,16 @@ function YouTubePane({
   const volumeSupported = useProgrammaticVolume();
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [quality, setQuality] = useState("auto");
+  const [qualityOpen, setQualityOpen] = useState(false);
+  const [qualityLevels, setQualityLevels] = useState<string[]>([]);
+  const [actualQuality, setActualQuality] = useState("");
+  const qualityRef = useRef("auto");
+  const qualityControlRef = useRef<HTMLDivElement>(null);
+  const pendingQualityReloadRef = useRef(false);
+  const qualityReloadUntilRef = useRef(0);
+  const holdPauseRef = useRef(false);
 
   useEffect(() => {
     saveRef.current = saveVideoPosition;
@@ -302,7 +372,15 @@ function YouTubePane({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const stored = readStoredVideoQuality();
+    qualityRef.current = stored;
+    setQuality(stored);
+    setPrefsReady(true);
+  }, []);
+
   useEffect(() => {
+    if (!prefsReady) return;
     const host = hostRef.current;
     if (!host) return;
 
@@ -335,7 +413,6 @@ function YouTubePane({
           width: "100%",
           height: "100%",
           playerVars: {
-            // YouTube no longer honors setPlaybackQuality, so there is no quality menu.
             controls: 0,
             disablekb: 1,
             fs: 0,
@@ -379,12 +456,19 @@ function YouTubePane({
               if (cancelled) return;
               const state = event.data;
               if (state === YT_PLAYING) {
+                if (holdPauseRef.current) {
+                  holdPauseRef.current = false;
+                  event.target.pauseVideo();
+                  setPlaying(false);
+                  return;
+                }
                 userStartedRef.current = true;
                 samplePositionRef.current = readTime(event.target);
                 setPlaying(true);
                 setEnded(false);
               } else if (state === YT_PAUSED) {
                 setPlaying(false);
+                if (Date.now() < qualityReloadUntilRef.current) return;
                 persist(readTime(event.target), true);
               } else if (state === YT_ENDED) {
                 setPlaying(false);
@@ -417,7 +501,7 @@ function YouTubePane({
 
     const flush = () => {
       const active = playerRef.current;
-      if (!active) return;
+      if (!active || Date.now() < qualityReloadUntilRef.current) return;
       const time = readTime(active);
       if (time < 1 && resumeAt >= 3) return;
       persist(time, true);
@@ -440,10 +524,28 @@ function YouTubePane({
         setDuration(total);
       }
       setCurrentTime(time);
+      try {
+        const levels = active.getAvailableQualityLevels();
+        if (Array.isArray(levels) && levels.length > 0) {
+          setQualityLevels((current) =>
+            current.join() === levels.join() ? current : levels,
+          );
+        }
+        const actual = active.getPlaybackQuality();
+        if (actual) {
+          setActualQuality((current) => (current === actual ? current : actual));
+        }
+      } catch {
+        // Quality info is unavailable until the player finishes loading.
+      }
       let state = YT_UNSTARTED;
       try {
         state = active.getPlayerState();
       } catch {
+        return;
+      }
+      if (Date.now() < qualityReloadUntilRef.current) {
+        samplePositionRef.current = time;
         return;
       }
       if (state === YT_PLAYING) {
@@ -472,7 +574,7 @@ function YouTubePane({
       }
       playerRef.current = null;
     };
-  }, [progressKey, title, videoId]);
+  }, [prefsReady, progressKey, title, videoId]);
 
   useEffect(() => {
     if (!ready || userStartedRef.current) return;
@@ -533,16 +635,31 @@ function YouTubePane({
     setMuted(true);
   }
 
-  useEffect(() => {
-    if (!ready) return;
-    if (skipPlayerResizeRef.current) {
-      skipPlayerResizeRef.current = false;
-      return;
-    }
-    const id = window.requestAnimationFrame(() => {
+  useLayoutEffect(() => {
+    if (!prefsReady) return;
+
+    const applyHostScale = () => {
+      const stage = stageRef.current;
+      const scaleEl = scaleRef.current;
+      if (!stage || !scaleEl) return;
+      stage.scrollTop = 0;
+      stage.scrollLeft = 0;
+      const frame = QUALITY_FRAME[qualityRef.current];
+      if (!frame || stage.clientWidth < 1) {
+        scaleEl.style.width = "100%";
+        scaleEl.style.height = "100%";
+        scaleEl.style.transform = "none";
+        return;
+      }
+      scaleEl.style.width = `${frame.width}px`;
+      scaleEl.style.height = `${frame.height}px`;
+      scaleEl.style.transformOrigin = "top left";
+      scaleEl.style.transform = `scale(${stage.clientWidth / frame.width})`;
+    };
+
+    const fitIframe = (player: YouTubePlayer) => {
       const host = hostRef.current;
-      const player = playerRef.current;
-      if (!host || !player) return;
+      if (!host) return;
       const width = Math.round(host.clientWidth);
       const height = Math.round(host.clientHeight);
       if (width < 1 || height < 1) return;
@@ -562,9 +679,56 @@ function YouTubePane({
       } catch {
         // The player can reject a resize while it is being destroyed.
       }
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [fullscreen, ready]);
+    };
+
+    applyHostScale();
+    const stage = stageRef.current;
+    const observer = stage
+      ? new ResizeObserver(() => {
+          applyHostScale();
+          const player = playerRef.current;
+          if (!player || qualityRef.current !== "auto") return;
+          fitIframe(player);
+        })
+      : null;
+    if (stage && observer) observer.observe(stage);
+
+    let frameId = 0;
+    if (ready && playerRef.current) {
+      frameId = window.requestAnimationFrame(() => {
+        const player = playerRef.current;
+        if (!player) return;
+        fitIframe(player);
+        if (!pendingQualityReloadRef.current) return;
+        pendingQualityReloadRef.current = false;
+        const time = readTime(player);
+        qualityReloadUntilRef.current = Date.now() + 2500;
+        samplePositionRef.current = time;
+        let playingNow = false;
+        try {
+          playingNow = player.getPlayerState() === YT_PLAYING;
+        } catch {
+          playingNow = false;
+        }
+        if (!playingNow) holdPauseRef.current = true;
+        const selected = qualityRef.current;
+        player.loadVideoById(
+          selected === "auto"
+            ? { videoId, startSeconds: time }
+            : {
+                videoId,
+                startSeconds: time,
+                suggestedQuality: selected,
+              },
+        );
+      });
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer?.disconnect();
+    };
+  }, [prefsReady, quality, fullscreen, ready, videoId]);
 
   function toggleFullscreen() {
     const frame = frameRef.current;
@@ -574,6 +738,15 @@ function YouTubePane({
       return;
     }
     void enterFullscreen(frame);
+  }
+
+  function changeQuality(next: string) {
+    setQualityOpen(false);
+    if (next === qualityRef.current) return;
+    qualityRef.current = next;
+    storeVideoQuality(next);
+    pendingQualityReloadRef.current = true;
+    setQuality(next);
   }
 
   function changeVolume(next: number) {
@@ -591,14 +764,20 @@ function YouTubePane({
   }
 
   useEffect(() => {
-    if (!volumeOpen) return;
+    if (!volumeOpen && !qualityOpen) return;
     function onPointerDown(event: PointerEvent) {
-      const root = volumeControlRef.current;
-      if (!root || root.contains(event.target as Node)) return;
-      setVolumeOpen(false);
+      const target = event.target as Node;
+      if (volumeControlRef.current && !volumeControlRef.current.contains(target)) {
+        setVolumeOpen(false);
+      }
+      if (qualityControlRef.current && !qualityControlRef.current.contains(target)) {
+        setQualityOpen(false);
+      }
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setVolumeOpen(false);
+      if (event.key !== "Escape") return;
+      setVolumeOpen(false);
+      setQualityOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -606,7 +785,19 @@ function YouTubePane({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [volumeOpen]);
+  }, [qualityOpen, volumeOpen]);
+
+  const menuQualities = (
+    qualityLevels.some((level) => QUALITY_FRAME[level])
+      ? qualityLevels
+      : ["hd1080", "hd720", "medium"]
+  )
+    .filter((level) => level !== "auto" && QUALITY_FRAME[level])
+    .sort(
+      (a, b) =>
+        QUALITY_RANK.indexOf(a) - QUALITY_RANK.indexOf(b),
+    );
+  const qualityButtonLabel = QUALITY_LABEL[quality] ?? "Tự động";
 
   if (playbackError) {
     return <VideoError message={playbackError} />;
@@ -623,20 +814,23 @@ function YouTubePane({
         }`}
       >
         <div
-          className={`overflow-hidden ${
+          ref={stageRef}
+          className={`overflow-clip ${
             fullscreen
               ? "relative aspect-video h-[min(100%,calc(100vw*9/16))] w-[min(100%,calc(100vh*16/9))]"
               : "absolute inset-0"
           }`}
         >
-          <div
-            ref={hostRef}
-            className="absolute left-0 w-full"
-            style={{
-              top: -YOUTUBE_CHROME_CROP_PX,
-              height: `calc(100% + ${YOUTUBE_CHROME_CROP_PX * 2}px)`,
-            }}
-          />
+          <div ref={scaleRef} className="absolute top-0 left-0 h-full w-full">
+            <div
+              ref={hostRef}
+              className="absolute left-0 w-full"
+              style={{
+                top: -YOUTUBE_CHROME_CROP_PX,
+                height: `calc(100% + ${YOUTUBE_CHROME_CROP_PX * 2}px)`,
+              }}
+            />
+          </div>
           {ready ? (
             <button
               type="button"
@@ -709,6 +903,7 @@ function YouTubePane({
                 toggleMute();
                 return;
               }
+              setQualityOpen(false);
               setVolumeOpen((open) => !open);
             }}
             disabled={!ready}
@@ -732,6 +927,64 @@ function YouTubePane({
                 disabled={!ready}
                 onChange={changeVolume}
               />
+            </div>
+          ) : null}
+        </div>
+        <div ref={qualityControlRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setVolumeOpen(false);
+              setQualityOpen((open) => !open);
+            }}
+            disabled={!ready}
+            aria-label="Chất lượng video"
+            aria-haspopup="menu"
+            aria-expanded={qualityOpen}
+            className={`flex h-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[13px] font-semibold text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7] ${
+              quality === "auto" ? "w-11" : "px-3"
+            }`}
+          >
+            {quality === "auto" ? (
+              <MaterialIcon name="hd" className="text-[22px]" />
+            ) : (
+              qualityButtonLabel
+            )}
+          </button>
+          {qualityOpen ? (
+            <div
+              role="menu"
+              aria-label="Chất lượng video"
+              className="absolute right-0 bottom-[calc(100%+8px)] z-20 min-w-[168px] overflow-hidden rounded-2xl border border-black/[0.06] bg-white py-1 shadow-[0_8px_24px_rgb(0,0,0,0.12)]"
+            >
+              {["auto", ...menuQualities].map((level) => {
+                const selected = level === quality;
+                const label = QUALITY_LABEL[level] ?? level;
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    onClick={() => changeQuality(level)}
+                    className={`flex h-11 w-full items-center justify-between gap-4 px-4 text-left text-[15px] font-semibold ${
+                      selected ? "text-[#0066cc]" : "text-[#1d1d1f]"
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className="flex items-center gap-2">
+                      {level === "auto" && selected && QUALITY_LABEL[actualQuality] ? (
+                        <span className="text-[13px] font-semibold text-[#86868b]">
+                          {QUALITY_LABEL[actualQuality]}
+                        </span>
+                      ) : null}
+                      {selected ? (
+                        <MaterialIcon name="check" className="text-[18px]" />
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </div>
