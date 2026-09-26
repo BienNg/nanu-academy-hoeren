@@ -7,6 +7,8 @@ import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
+import { DictationInputCard } from "@/components/session/DictationInputCard";
+import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
@@ -14,9 +16,12 @@ import {
   catalogCompletedCount,
   firstUnreviewedIndex,
 } from "@/lib/progress";
+import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
+import { playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
 type StudyViewMode = "cards" | "list";
+type StudyCardPhase = "study" | "recall";
 
 type StudySessionProps = {
   level: CefrLevel;
@@ -124,6 +129,9 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   const [clipIndex, setClipIndex] = useState(() =>
     firstUnreviewedIndex(clips, reviewedIds),
   );
+  const [phase, setPhase] = useState<StudyCardPhase>("study");
+  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [draft, setDraft] = useState("");
   const [direction, setDirection] = useState(1);
   const [ready, setReady] = useState(false);
   const initializedRef = useRef(false);
@@ -148,8 +156,8 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
   const progressSegments = useMemo(() => {
     return clips.map((clip, index) => {
-      if (reviewedIds.includes(clip.id)) return "done";
       if (index === clipIndex && currentClip) return "current";
+      if (reviewedIds.includes(clip.id)) return "done";
       return "todo";
     });
   }, [clips, reviewedIds, clipIndex, currentClip]);
@@ -163,23 +171,61 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
     );
   }, [currentClip, chapterProgressKey, markLearnClipReviewed, level.slug, chapter.slug]);
 
-  const goNext = useCallback(() => {
+  const clearAttempt = useCallback(() => {
+    setScoreResult(null);
+    setDraft("");
+  }, []);
+
+  const openRecall = useCallback(() => {
+    if (!currentClip) return;
+    clearAttempt();
+    setDirection(1);
+    setPhase("recall");
+  }, [currentClip, clearAttempt]);
+
+  const handleRecallSubmit = useCallback(
+    (value: string) => {
+      if (!currentClip) return;
+      setDraft(value);
+      const result = scoreAttempt(value, currentClip.script);
+      setScoreResult(result);
+      if (result.accuracy === 100) {
+        playSuccessSound();
+        rememberCurrent();
+      }
+    },
+    [currentClip, rememberCurrent],
+  );
+
+  const finishRecall = useCallback(() => {
     if (!currentClip) return;
     rememberCurrent();
+    clearAttempt();
     setDirection(1);
+    setPhase("study");
     setClipIndex((index) => index + 1);
-  }, [currentClip, rememberCurrent]);
+  }, [currentClip, rememberCurrent, clearAttempt]);
 
   const goPrev = useCallback(() => {
+    if (phase === "recall") {
+      clearAttempt();
+      setDirection(-1);
+      setPhase("study");
+      return;
+    }
     if (clipIndex <= 0) return;
+    clearAttempt();
     setDirection(-1);
+    setPhase("study");
     setClipIndex((index) => index - 1);
-  }, [clipIndex]);
+  }, [phase, clipIndex, clearAttempt]);
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
     studyRunSavedRef.current = false;
     startedCompleteRef.current = false;
+    clearAttempt();
+    setPhase("study");
     setDirection(1);
     setClipIndex(0);
   };
@@ -209,9 +255,16 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.shiftKey || event.isComposing) return;
+      if (phase === "recall") {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          goPrev();
+        }
+        return;
+      }
       if (event.key === "ArrowRight" || event.key === "Enter") {
         event.preventDefault();
-        goNext();
+        openRecall();
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -221,7 +274,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [viewMode, complete, currentClip, goNext, goPrev]);
+  }, [viewMode, complete, currentClip, phase, openRecall, goPrev]);
 
   const handleTouchStart = (event: TouchEvent) => {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -233,11 +286,12 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
     if (endX == null) return;
     const delta = endX - touchStartX.current;
     touchStartX.current = null;
-    if (delta < -56) goNext();
+    if (delta < -56 && phase === "study") openRecall();
     if (delta > 56) goPrev();
   };
 
   const displayNumber = Math.min(clipIndex + 1, clips.length);
+  const recallPerfect = scoreResult?.accuracy === 100;
   const modeToggle = (
     <div
       role="tablist"
@@ -357,7 +411,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
                 {modeToggle}
                 <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e8f2fc] px-3 py-1">
                   <MaterialIcon
-                    name="menu_book"
+                    name={phase === "recall" ? "hearing" : "menu_book"}
                     className="text-[14px] text-[#0066cc]"
                     filled
                   />
@@ -396,7 +450,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={currentClip.id}
+                  key={`${currentClip.id}-${phase}`}
                   initial={
                     shouldReduceMotion
                       ? { opacity: 1 }
@@ -414,53 +468,103 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
                       : { type: "spring", stiffness: 280, damping: 32 }
                   }
                 >
-                  <AudioPlayerCard
-                    key={currentClip.id}
-                    audioPath={currentClip.audioPath}
-                  />
+                  {phase === "study" ? (
+                    <>
+                      <AudioPlayerCard
+                        key={currentClip.id}
+                        audioPath={currentClip.audioPath}
+                      />
 
-                  <div className="mt-4">
-                    <ClipContentCard
-                      clip={currentClip}
-                      badge={
-                        isReviewed ? (
-                          <div className="flex items-center">
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
-                              <span className="material-symbols-outlined text-[16px]">
-                                check_circle
-                              </span>
-                              <span>Đã xem</span>
-                            </div>
-                          </div>
-                        ) : undefined
-                      }
-                    />
-                  </div>
+                      <div className="mt-4">
+                        <ClipContentCard
+                          clip={currentClip}
+                          badge={
+                            isReviewed ? (
+                              <div className="flex items-center">
+                                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
+                                  <span className="material-symbols-outlined text-[16px]">
+                                    check_circle
+                                  </span>
+                                  <span>Đã xem</span>
+                                </div>
+                              </div>
+                            ) : undefined
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="pb-4 text-[15px] font-medium leading-relaxed text-[#86868b]">
+                        Nghe và gõ lại câu vừa xem.
+                      </p>
+                      <AudioPlayerCard
+                        key={`${currentClip.id}-recall`}
+                        audioPath={currentClip.audioPath}
+                      />
+                      {recallPerfect && scoreResult ? (
+                        <FeedbackResultCard
+                          result={scoreResult}
+                          clip={currentClip}
+                          onNext={finishRecall}
+                        />
+                      ) : (
+                        <>
+                          {scoreResult ? (
+                            <FeedbackResultCard
+                              result={scoreResult}
+                              clip={currentClip}
+                              onNext={finishRecall}
+                            />
+                          ) : null}
+                          <DictationInputCard
+                            key={`dictation-${currentClip.id}`}
+                            value={draft}
+                            onChange={setDraft}
+                            onSubmit={handleRecallSubmit}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            <div className="flex gap-3 pt-6">
-              <button
-                type="button"
-                onClick={goPrev}
-                disabled={clipIndex === 0}
-                className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-[16px] bg-[#f5f5f7] text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Thẻ trước"
-              >
-                <MaterialIcon name="arrow_back" className="text-[22px]" />
-              </button>
-              <button
-                type="button"
-                onClick={goNext}
-                className="group flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
-              >
-                <span>{clipIndex === clips.length - 1 ? "Hoàn thành" : "Tiếp theo"}</span>
-                <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">
-                  arrow_forward
-                </span>
-              </button>
-            </div>
+            {phase === "study" ? (
+              <div className="flex gap-3 pt-6">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  disabled={clipIndex === 0}
+                  className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-[16px] bg-[#f5f5f7] text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Thẻ trước"
+                >
+                  <MaterialIcon name="arrow_back" className="text-[22px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={openRecall}
+                  className="group flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
+                >
+                  <span>Tiếp theo</span>
+                  <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">
+                    arrow_forward
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-4">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-semibold text-[#0066cc] transition-colors hover:bg-[#f5f5f7]"
+                >
+                  <MaterialIcon name="arrow_back" className="text-[18px]" />
+                  Xem lại thẻ
+                </button>
+              </div>
+            )}
           </div>
         </main>
       )}
