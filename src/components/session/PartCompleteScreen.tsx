@@ -13,6 +13,7 @@ type PartCompleteScreenProps = {
   elapsedMs: number;
   streakDays: number;
   finishRun: boolean;
+  failed: boolean;
   continueLabel: string;
   onContinue: () => void;
 };
@@ -43,7 +44,13 @@ function formatPartDuration(elapsedMs: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function subtitleFor(finishRun: boolean, partNumber: number, partCount: number): string {
+function subtitleFor(
+  failed: boolean,
+  finishRun: boolean,
+  partNumber: number,
+  partCount: number,
+): string {
+  if (failed) return "Phần này bắt đầu lại từ đầu.";
   if (finishRun) {
     return partCount > 1
       ? `Bạn đã xong cả ${partCount} phần.`
@@ -62,6 +69,7 @@ export function PartCompleteScreen({
   elapsedMs,
   streakDays,
   finishRun,
+  failed,
   continueLabel,
   onContinue,
 }: PartCompleteScreenProps) {
@@ -93,7 +101,7 @@ export function PartCompleteScreen({
 
   return (
     <main className="relative flex w-full flex-1 flex-col items-center overflow-hidden">
-      {reduceMotion ? null : (
+      {reduceMotion || failed ? null : (
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           {CONFETTI.map((piece, index) => (
             <motion.span
@@ -135,19 +143,23 @@ export function PartCompleteScreen({
           }
         >
           <motion.div
-            className="absolute inset-2 rounded-full bg-[#ffd60a]/25"
-            animate={reduceMotion ? undefined : { scale: [1, 1.12, 1] }}
+            className={`absolute inset-2 rounded-full ${failed ? "bg-[#ff3b30]/15" : "bg-[#ffd60a]/25"}`}
+            animate={reduceMotion || failed ? undefined : { scale: [1, 1.12, 1] }}
             transition={
-              reduceMotion
+              reduceMotion || failed
                 ? undefined
                 : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
             }
           />
           <motion.div
-            className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] text-white shadow-[0_12px_40px_rgba(255,159,10,0.45)]"
-            animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+            className={`relative flex h-24 w-24 items-center justify-center rounded-full text-white ${
+              failed
+                ? "bg-gradient-to-br from-[#ff6b64] to-[#ff3b30] shadow-[0_12px_40px_rgba(255,59,48,0.35)]"
+                : "bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] shadow-[0_12px_40px_rgba(255,159,10,0.45)]"
+            }`}
+            animate={reduceMotion || failed ? undefined : { y: [0, -8, 0] }}
             transition={
-              reduceMotion
+              reduceMotion || failed
                 ? undefined
                 : { delay: 0.35, duration: 0.55, repeat: 2, ease: "easeInOut" }
             }
@@ -157,7 +169,7 @@ export function PartCompleteScreen({
               style={{ fontVariationSettings: "'FILL' 1" }}
               aria-hidden="true"
             >
-              emoji_events
+              {failed ? "heart_broken" : "emoji_events"}
             </span>
           </motion.div>
         </motion.div>
@@ -177,7 +189,7 @@ export function PartCompleteScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: reduceMotion ? 0 : 0.18, duration: 0.3 }}
         >
-          {finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!"}
+          {failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!"}
         </motion.h2>
         <motion.p
           className="mt-2 text-[17px] font-medium text-[#86868b]"
@@ -185,7 +197,7 @@ export function PartCompleteScreen({
           animate={{ opacity: 1 }}
           transition={{ delay: reduceMotion ? 0 : 0.24, duration: 0.25 }}
         >
-          {subtitleFor(finishRun, partNumber, partCount)}
+          {subtitleFor(failed, finishRun, partNumber, partCount)}
         </motion.p>
 
         <div className="mt-8 grid w-full grid-cols-3 gap-3">
@@ -214,7 +226,7 @@ export function PartCompleteScreen({
           ))}
         </div>
 
-        {perfect ? (
+        {perfect && !failed ? (
           <motion.div
             className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}

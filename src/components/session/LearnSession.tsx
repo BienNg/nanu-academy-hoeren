@@ -18,7 +18,7 @@ import {
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
+import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { ProfileButton } from "@/components/ProfileButton";
@@ -32,6 +32,7 @@ type LearnSessionProps = {
   hasNextChapter: boolean;
 };
 
+const LISTENING_HEARTS = 3;
 const PRACTICE_FOCUS_KEY = "nanu-focus-luyen-nghe";
 const pendingRunOrders = new Map<string, string[]>();
 const replacementRunOrders = new Map<string, string[]>();
@@ -40,7 +41,40 @@ type PartSummary = {
   questionCount: number;
   accuracy: number;
   elapsedMs: number;
+  failed: boolean;
 };
+
+function PartHearts({
+  remaining,
+  breakingIndex,
+}: {
+  remaining: number;
+  breakingIndex: number | null;
+}) {
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      role="img"
+      aria-label={`${remaining} trên ${LISTENING_HEARTS} tim`}
+    >
+      {Array.from({ length: LISTENING_HEARTS }, (_, index) => {
+        const filled = index < remaining || index === breakingIndex;
+        return (
+          <span
+            key={index}
+            className={`material-symbols-outlined text-[20px] ${
+              filled ? "text-[#ff3b30]" : "text-[#d2d2d7]"
+            } ${index === breakingIndex ? "heart-break" : ""}`}
+            style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}
+            aria-hidden="true"
+          >
+            favorite
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function MaterialIcon({
   name,
@@ -90,10 +124,13 @@ export function LearnSession({
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
   const [summary, setSummary] = useState<PartSummary | null>(null);
+  const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
+  const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
   const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
   const completingRef = useRef(false);
+  const failedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const missedClipIdsRef = useRef(new Set<string>());
 
@@ -187,6 +224,9 @@ export function LearnSession({
     initializedSourceRef.current = signature;
     partStartedAtRef.current = Date.now();
     missedClipIdsRef.current = new Set();
+    failedRef.current = false;
+    setHeartsLeft(LISTENING_HEARTS);
+    setBreakingIndex(null);
     setPartClips(parts[partIndex] ?? []);
     setPartNumber(partIndex + 1);
     setPartCount(parts.length);
@@ -209,15 +249,24 @@ export function LearnSession({
     setLearnRunOrder,
   ]);
 
+  useEffect(() => {
+    if (breakingIndex === null) return;
+    const timeout = window.setTimeout(() => setBreakingIndex(null), 560);
+    return () => window.clearTimeout(timeout);
+  }, [breakingIndex]);
+
   const currentClip = partClips?.[clipIndex];
   const ready = partClips !== null;
   const isPerfect = scoreResult?.accuracy === 100;
   const isLastPart = partCount > 0 && partNumber >= partCount;
-  const exitLabel = isLastPart
-    ? hasNextChapter
-      ? "Lektion tiếp theo"
-      : "Về trình độ"
-    : "Về bài học";
+  const failedRun = summary?.failed === true;
+  const exitLabel =
+    failedRun || !isLastPart
+      ? "Về bài học"
+      : hasNextChapter
+        ? "Lektion tiếp theo"
+        : "Về trình độ";
+  const showHearts = Boolean(partClips && partClips.length > 0 && phase !== "leaving");
 
   const progressSegments = useMemo(() => {
     const total = partClips?.length ?? 0;
@@ -235,10 +284,19 @@ export function LearnSession({
     setScoreResult(result);
     if (result.accuracy === 100) {
       playSuccessSound();
-    } else {
-      missedClipIdsRef.current.add(currentClip.id);
-      recordWrongAttempt();
+      return;
     }
+
+    recordWrongAttempt();
+    if (missedClipIdsRef.current.has(currentClip.id)) return;
+
+    missedClipIdsRef.current.add(currentClip.id);
+    const nextHearts = heartsLeft - 1;
+    setHeartsLeft(Math.max(0, nextHearts));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduceMotion) setBreakingIndex(nextHearts);
+    playHeartLostSound();
+    if (nextHearts <= 0) openCompleteScreen(true);
   };
 
   const commitPart = () => {
@@ -261,26 +319,33 @@ export function LearnSession({
     }
   };
 
-  const openCompleteScreen = () => {
+  const openCompleteScreen = (failed = false) => {
     if (completingRef.current || !partClips || partClips.length === 0 || phase === "complete") {
       return;
     }
     completingRef.current = true;
-    const questionCount = partClips.length;
+    failedRef.current = failed;
+    const total = partClips.length;
     const missed = partClips.filter((clip) => missedClipIdsRef.current.has(clip.id)).length;
+    const answered = failed ? Math.min(total, clipIndex + 1) : total;
+    const firstTry = Math.max(0, answered - missed);
     const startedAt = partStartedAtRef.current;
     setSummary({
-      questionCount,
-      accuracy: Math.round(((questionCount - missed) / questionCount) * 100),
+      questionCount: answered,
+      accuracy: answered === 0 ? 0 : Math.round((firstTry / answered) * 100),
       elapsedMs: startedAt > 0 ? Date.now() - startedAt : 0,
+      failed,
     });
-    commitPart();
-    playCelebrationSound();
+    if (!failed) {
+      commitPart();
+      playCelebrationSound();
+    }
     setPhase("complete");
   };
 
   const continueAfterPart = () => {
-    const finishRun = partCount > 0 && partNumber >= partCount;
+    const finishRun =
+      !failedRef.current && partCount > 0 && partNumber >= partCount;
     setPhase("leaving");
     router.push(finishRun ? nextChapterHref : hubHref);
   };
@@ -316,7 +381,7 @@ export function LearnSession({
           >
             <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
           </Link>
-          <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-3 text-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
               Luyện tập
             </span>
@@ -324,7 +389,12 @@ export function LearnSession({
               {level.level} - {chapter.label}
             </h1>
           </div>
-          <ProfileButton />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {showHearts ? (
+              <PartHearts remaining={heartsLeft} breakingIndex={breakingIndex} />
+            ) : null}
+            <ProfileButton />
+          </div>
         </div>
       </header>
 
@@ -340,7 +410,8 @@ export function LearnSession({
           accuracy={summary.accuracy}
           elapsedMs={summary.elapsedMs}
           streakDays={streakDays}
-          finishRun={isLastPart}
+          finishRun={isLastPart && !failedRun}
+          failed={failedRun}
           continueLabel={exitLabel}
           onContinue={continueAfterPart}
         />

@@ -224,3 +224,66 @@ export function playCelebrationSound(): void {
   noise.start(chordAt);
   noise.stop(chordAt + washSeconds);
 }
+
+/**
+ * Playful cartoon "bwomp" when a listening heart is lost.
+ * A soft thud plus two downward pitch slides. Call from the submit gesture
+ * so the AudioContext can unlock on iOS.
+ */
+export function playHeartLostSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  if (ctx.state === "suspended") {
+    void ctx.resume();
+  }
+
+  const output = getOutput(ctx);
+  const t = ctx.currentTime + 0.01;
+
+  const thud = ctx.createBufferSource();
+  thud.buffer = getNoiseBuffer(ctx);
+  const thudFilter = ctx.createBiquadFilter();
+  thudFilter.type = "lowpass";
+  thudFilter.frequency.setValueAtTime(520, t);
+  const thudGain = ctx.createGain();
+  thudGain.gain.setValueAtTime(0.16, t);
+  thudGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  thud.connect(thudFilter);
+  thudFilter.connect(thudGain);
+  thudGain.connect(output);
+  thud.start(t);
+  thud.stop(t + 0.06);
+
+  const slides: ReadonlyArray<{
+    at: number;
+    from: number;
+    to: number;
+    dur: number;
+    peak: number;
+  }> = [
+    { at: 0, from: 523, to: 196, dur: 0.16, peak: 0.16 },
+    { at: 0.12, from: 262, to: 131, dur: 0.26, peak: 0.12 },
+  ];
+
+  for (const slide of slides) {
+    const start = t + slide.at;
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(slide.from, start);
+    osc.frequency.exponentialRampToValueAtTime(slide.to, start + slide.dur);
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1600, start);
+    filter.frequency.exponentialRampToValueAtTime(500, start + slide.dur);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(slide.peak, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + slide.dur);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(output);
+    osc.start(start);
+    osc.stop(start + slide.dur + 0.02);
+  }
+}
