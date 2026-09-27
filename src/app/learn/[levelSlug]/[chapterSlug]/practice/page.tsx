@@ -40,7 +40,7 @@ export default async function LearnPracticePage({
       clips={clips}
       nextChapterHref={
         nextChapter
-          ? `/learn/${levelSlug}/${nextChapter.slug}`
+          ? `/learn/${levelSlug}?lektion=${encodeURIComponent(nextChapter.slug)}`
           : `/learn/${levelSlug}`
       }
       hasNextChapter={Boolean(nextChapter)}

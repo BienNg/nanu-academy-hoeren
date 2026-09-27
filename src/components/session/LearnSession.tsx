@@ -153,7 +153,7 @@ export function LearnSession({
   } = useProgress();
   const chapterProgressKey = chapter.slug;
   const lessonKey = `${level.slug}/${chapter.slug}`;
-  const hubHref = `/learn/${level.slug}/${chapter.slug}?focus=luyen-nghe#luyen-nghe`;
+  const pathHref = `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`;
   const completedIds = completedLearnClipIdsFor(chapterProgressKey);
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
@@ -373,7 +373,7 @@ export function LearnSession({
     const finishRun =
       !failedRef.current && partCount > 0 && partNumber >= partCount;
     setPhase("leaving");
-    router.push(finishRun ? nextChapterHref : hubHref);
+    router.push(finishRun ? nextChapterHref : pathHref);
   };
 
   const handleNext = () => {
@@ -411,7 +411,7 @@ export function LearnSession({
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
-            href={hubHref}
+            href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
             aria-label="Quay lại"
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
@@ -458,7 +458,7 @@ export function LearnSession({
               Chưa có bài nghe
             </h2>
             <Link
-              href={hubHref}
+              href={pathHref}
               className="flex h-[56px] w-full items-center justify-center rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white"
             >
               Về bài học

@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { LessonContentMeters } from "@/components/admin/StudentDetailModal";
 import { ProfileButton } from "@/components/ProfileButton";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useId, useEffect, useMemo, useRef } from "react";
-import { projectStudentDetail, type AdminCatalogCourse } from "@/lib/admin-detail";
+import { useId, useEffect, useMemo, useRef, useState } from "react";
+import {
+  projectStudentDetail,
+  type AdminCatalogCourse,
+  type AdminLessonDetail,
+} from "@/lib/admin-detail";
 import { useProgress } from "@/lib/useProgress";
 
 type Chapter = {
@@ -27,6 +30,203 @@ const springTransition = {
   damping: 20,
   mass: 1,
 };
+
+const PATH_SHIFT = [
+  "-translate-x-9",
+  "translate-x-9",
+  "translate-x-0",
+  "-translate-x-6",
+  "translate-x-8",
+] as const;
+
+type TrailNode = {
+  key: string;
+  icon: string;
+  href: string | null;
+  percent: number;
+  complete: boolean;
+  struggling: boolean;
+  primary: string | null;
+  secondary: string | null;
+  label: string;
+};
+
+function lessonTrailNodes(
+  lesson: AdminLessonDetail | undefined,
+  lessonHref: string,
+  videoHref: (videoId: string) => string,
+): TrailNode[] {
+  if (!lesson) return [];
+
+  const videos = lesson.videos.map((video) => ({
+    key: video.id,
+    icon: "smart_display",
+    href: videoHref(video.id),
+    percent: video.status === "watched" ? 100 : 0,
+    complete: video.status === "watched",
+    struggling: false,
+    primary: video.title,
+    secondary: null,
+    label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
+  }));
+
+  const activities = lesson.activities.map((activity) => {
+    const primary = activity.progressLabel || activity.note || null;
+    const secondary = activity.progressLabel && activity.note ? activity.note : null;
+    const label = `${activity.label}${
+      activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"
+    }${activity.note ? `, ${activity.note}` : ""}`;
+    const isStudy = activity.id.endsWith("-study");
+    return {
+      key: activity.id,
+      icon: isStudy ? "menu_book" : "headphones",
+      href: `${lessonHref}/${isStudy ? "study" : "practice"}`,
+      percent: activity.percent,
+      complete: activity.status === "completed",
+      struggling: activity.struggling,
+      primary,
+      secondary,
+      label,
+    };
+  });
+
+  return [...videos, ...activities];
+}
+
+function PathCircle({
+  icon,
+  percent,
+  complete,
+  locked,
+  struggling,
+}: {
+  icon: string;
+  percent: number;
+  complete: boolean;
+  locked: boolean;
+  struggling: boolean;
+}) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(100, Math.max(0, percent));
+  const dashOffset = circumference * (1 - clamped / 100);
+  const ring = struggling ? "#ff9500" : "#0284c7";
+
+  if (locked) {
+    return (
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
+        <span
+          className="material-symbols-outlined text-[30px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          {icon}
+        </span>
+        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#cbd5e1] text-[#475569] shadow-[0_1.5px_0_0_#94a3b8]">
+          <span className="material-symbols-outlined text-[12px]" aria-hidden="true">
+            lock
+          </span>
+        </span>
+      </span>
+    );
+  }
+
+  if (complete) {
+    return (
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[#0284c7] text-white shadow-[0_6px_0_0_#0369a1]">
+        <span
+          className="material-symbols-outlined text-[30px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          {icon}
+        </span>
+        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#fea619] text-[#684000] shadow-[0_2px_0_0_#855300]">
+          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
+            check
+          </span>
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
+      <svg
+        className="absolute inset-1 -rotate-90"
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+      >
+        <circle cx="32" cy="32" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="5" />
+        {clamped > 0 ? (
+          <circle
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            stroke={ring}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+          />
+        ) : null}
+      </svg>
+      <span
+        className="material-symbols-outlined text-[26px] text-[#0284c7]"
+        style={{ fontVariationSettings: "'FILL' 1" }}
+      >
+        {icon}
+      </span>
+    </span>
+  );
+}
+
+function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
+  const className =
+    "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]";
+  const body = (
+    <>
+      <PathCircle
+        icon={node.icon}
+        percent={node.percent}
+        complete={node.complete}
+        locked={locked}
+        struggling={node.struggling}
+      />
+      {node.primary ? (
+        <span
+          className={`mt-1.5 text-[12px] font-bold leading-4 ${
+            locked ? "text-[#6e7881]" : node.complete ? "text-[#131b2e]" : "text-[#0369a1]"
+          }`}
+        >
+          {node.primary}
+        </span>
+      ) : null}
+      {node.secondary ? (
+        <span
+          className={`text-[11px] font-semibold leading-4 ${
+            node.struggling && !locked ? "text-[#9a6700]" : "text-[#64748b]"
+          }`}
+        >
+          {node.secondary}
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (!locked && node.href) {
+    return (
+      <Link href={node.href} aria-label={node.label} className={className}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className} aria-label={node.label}>
+      {body}
+    </div>
+  );
+}
 
 function AchievementMedal() {
   const uid = useId().replace(/:/g, "");
@@ -78,16 +278,24 @@ export default function LevelViewClient({
   isAdmin?: boolean;
 }) {
   const containerRef = useRef<HTMLElement>(null);
-  const resumeItemRef = useRef<HTMLLIElement>(null);
-  const didAutoScroll = useRef(false);
+  const [returnSlug, setReturnSlug] = useState<string | null>(null);
+  const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const { progress, completedLearnRunClipIdsFor, learnChapterCompleted } = useProgress();
-  const lessonById = useMemo(() => {
-    const course = projectStudentDetail(cefrCatalog, progress).courses.find(
+  const courseDetail = useMemo(() => {
+    return projectStudentDetail(cefrCatalog, progress).courses.find(
       (entry) => entry.id === level.slug,
     );
-    return new Map(course?.lessons.map((lesson) => [lesson.id, lesson]) ?? []);
   }, [cefrCatalog, level.slug, progress]);
+  const lessonById = useMemo(
+    () => new Map(courseDetail?.lessons.map((lesson) => [lesson.id, lesson]) ?? []),
+    [courseDetail],
+  );
+  const completedLessonCount = chapters.filter(
+    (chapter) => chapter.hasAudio !== false && learnChapterCompleted(chapter.slug),
+  ).length;
+  const overallPercent =
+    chapters.length === 0 ? 0 : Math.round((completedLessonCount / chapters.length) * 100);
 
   function firstIncompletePrevious(index: number): Chapter | undefined {
     return chapters
@@ -113,22 +321,43 @@ export default function LevelViewClient({
     })?.slug ?? null;
 
   useEffect(() => {
-    if (didAutoScroll.current || !resumeChapterSlug) return;
-    const target = resumeItemRef.current;
-    if (!target) return;
+    const requested = new URLSearchParams(window.location.search).get("lektion");
+    setReturnSlug(requested);
+    setFocusReady(true);
+  }, []);
 
-    const frame = window.requestAnimationFrame(() => {
-      if (didAutoScroll.current) return;
-      didAutoScroll.current = true;
-      target.scrollIntoView({
+  const focusSlug =
+    (returnSlug && chapters.some((chapter) => chapter.slug === returnSlug)
+      ? returnSlug
+      : null) ?? resumeChapterSlug;
+
+  useEffect(() => {
+    if (!focusReady || !focusSlug) return;
+    let cancelled = false;
+
+    const scrollToLesson = () => {
+      if (cancelled) return;
+      const target = document.getElementById(`lesson-${focusSlug}`);
+      if (!target) return;
+      const top =
+        target.getBoundingClientRect().top +
+        window.scrollY -
+        window.innerHeight / 2 +
+        target.offsetHeight / 2;
+      window.scrollTo({
+        top: Math.max(0, top),
         behavior: shouldReduceMotion ? "auto" : "smooth",
-        block: "center",
-        inline: "nearest",
       });
-    });
+    };
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [resumeChapterSlug, shouldReduceMotion]);
+    const frame = window.requestAnimationFrame(scrollToLesson);
+    const timer = window.setTimeout(scrollToLesson, 400);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [focusReady, focusSlug, shouldReduceMotion]);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -190,36 +419,72 @@ export default function LevelViewClient({
         <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
       </motion.div>
 
-      {/* Hero Section */}
-      <section className="relative z-10 w-full flex flex-col items-center justify-center pt-[160px] pb-[100px] px-6 text-center">
+      <section
+        className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-28 sm:px-6"
+        style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
+      >
         <motion.div
-          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={shouldReduceMotion ? { duration: 0 } : { ...springTransition, delay: 0.1 }}
-          className="max-w-3xl flex flex-col items-center"
+          className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-4 text-white shadow-[0_6px_0_0_#0369a1]"
         >
-          <span className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-[#86868b] mb-6">
-            Luyện tập theo trình độ
-          </span>
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-[#1d1d1f] mb-8" style={{ letterSpacing: "-0.03em" }}>
-            Trình độ {level.level}
-          </h1>
-          <p className="text-xl md:text-2xl text-[#86868b] max-w-2xl font-medium leading-relaxed">
-            {chapters.length === 0
-              ? "Chưa có chương nào. Thêm Lektion trong chapters.json và file nội dung tương ứng."
-              : `Khám phá ${chapters.length} chương học được thiết kế tỉ mỉ giúp bạn làm chủ tiếng Đức.`}
-          </p>
+          <div className="relative z-10 flex flex-col gap-0.5">
+            <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-sky-100">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+                school
+              </span>
+              Luyện tập theo trình độ
+            </span>
+            <h1 className="text-[20px] font-extrabold leading-7 text-white">
+              Trình độ {level.level}
+            </h1>
+            <p className="mt-1 text-[14px] font-medium leading-5 text-sky-100">
+              {chapters.length === 0
+                ? "Chưa có chương nào. Thêm Lektion trong chapters.json và file nội dung tương ứng."
+                : `Khám phá ${chapters.length} chương học được thiết kế tỉ mỉ giúp bạn làm chủ tiếng Đức.`}
+            </p>
+          </div>
+          <div className="relative z-10 mt-4 flex flex-col gap-1.5 border-t border-white/20 pt-3">
+            <div className="flex items-center justify-between text-[12px] font-bold leading-4 text-white">
+              <span className="flex items-center gap-1">
+                <span
+                  className="material-symbols-outlined text-[16px] text-amber-300"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                  aria-hidden="true"
+                >
+                  bolt
+                </span>
+                Tổng tiến độ
+              </span>
+              <span className="text-sky-50">{overallPercent}% hoàn thành</span>
+            </div>
+            <div
+              className="h-3 w-full overflow-hidden rounded-full bg-black/20 p-0.5 shadow-inner"
+              role="progressbar"
+              aria-valuenow={overallPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Tổng tiến độ ${overallPercent}%`}
+            >
+              <div
+                className="h-full rounded-full bg-amber-400 shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-700 ease-out"
+                style={{ width: `${overallPercent}%` }}
+              />
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-4 -bottom-6 text-white opacity-15">
+            <span className="material-symbols-outlined text-[120px]" aria-hidden="true">
+              flag_circle
+            </span>
+          </div>
         </motion.div>
-      </section>
-
-      {/* Chapters Section */}
-      <section className="relative z-10 w-full max-w-4xl px-6 pb-[160px]">
         <motion.ul
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-8"
         >
           {chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
@@ -229,80 +494,79 @@ export default function LevelViewClient({
             const isLocked =
               !isAdmin && isAvailable && !isCompleted && Boolean(gateChapter);
             const isOpen = isAvailable && !isLocked;
+            const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
-            const meters = lessonDetail ? (
-              <LessonContentMeters lesson={lessonDetail} videoCaption="title" />
-            ) : null;
-            const content = isLocked && gateChapter ? (
+            const lessonHref = `/learn/${level.slug}/${chapter.slug}`;
+            const nodes = lessonTrailNodes(
+              lessonDetail,
+              lessonHref,
+              (videoId) =>
+                `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
+            );
+            const headerClassName = `flex w-full flex-col gap-2 rounded-2xl bg-white p-4 ${
+              isOpen && isResume
+                ? "shadow-[0_4px_0_0_#0284c7]"
+                : "shadow-[0_4px_0_0_#dae2fd]"
+            }`;
+            const header = (
               <>
-                <div className="flex items-center justify-between gap-3">
-                  <h2
-                    className="min-w-0 flex-1 text-xl font-semibold tracking-tight text-[#86868b] sm:text-2xl md:text-3xl"
-                    style={{ letterSpacing: "-0.015em" }}
-                  >
-                    {level.level} - {chapter.label}
-                  </h2>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7]/50 text-[#d2d2d7] sm:h-12 sm:w-12">
-                    <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
-                      lock
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[15px] font-medium leading-relaxed text-[#86868b]">
-                  <span className="material-symbols-outlined text-[18px] text-[#0066cc]" aria-hidden="true">
-                    flag
-                  </span>
-                  <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
-                </div>
-                {meters}
-              </>
-            ) : (
-              <>
-                {!isAvailable && (
-                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+                {!isAvailable ? (
+                  <span className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
                     Coming soon
                   </span>
-                )}
+                ) : null}
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className={`min-w-0 flex-1 text-xl font-semibold tracking-tight transition-colors duration-300 sm:text-2xl md:text-3xl ${isOpen ? 'text-[#1d1d1f] group-hover:text-[#0066cc]' : 'text-[#86868b]'}`} style={{ letterSpacing: "-0.015em" }}>
+                  <h2
+                    className={`min-w-0 flex-1 text-[20px] font-extrabold leading-7 tracking-tight ${
+                      isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
+                    }`}
+                  >
                     {level.level} - {chapter.label}
                   </h2>
                   {isCompleted ? (
                     <AchievementMedal />
                   ) : (
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:h-12 sm:w-12 ${isOpen ? 'bg-[#f5f5f7] text-[#86868b] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110 group-hover:shadow-md' : 'bg-[#f5f5f7]/50 text-[#d2d2d7]'}`}>
-                      <span className="material-symbols-outlined text-xl sm:text-2xl" aria-hidden="true">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                        isOpen
+                          ? "bg-[#e2e7ff] text-[#131b2e] shadow-[0_2px_0_0_#bec8d2]"
+                          : "bg-[#f1f5f9] text-[#94a3b8]"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                         {isOpen ? "arrow_forward" : "lock"}
                       </span>
                     </div>
                   )}
                 </div>
-                {meters}
+                {isLocked && gateChapter ? (
+                  <div className="flex items-start gap-2 text-[14px] font-medium leading-5 text-[#6e7881]">
+                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-[#0284c7]" aria-hidden="true">
+                      flag
+                    </span>
+                    <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
+                  </div>
+                ) : null}
               </>
             );
-
-            const itemClassName = `group relative flex flex-col gap-3 rounded-[24px] backdrop-blur-xl border border-white/20 p-5 sm:p-6 md:p-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isOpen
-                ? 'bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.97] cursor-pointer'
-                : 'bg-white/40 shadow-none cursor-not-allowed'
-            }`;
 
             return (
               <motion.li
                 key={chapter.id}
-                ref={chapter.slug === resumeChapterSlug ? resumeItemRef : undefined}
+                id={`lesson-${chapter.slug}`}
                 variants={itemVariants}
-                className="scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))]"
+                className="flex scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))] flex-col items-center"
               >
-                {isOpen ? (
-                  <Link href={`/learn/${level.slug}/${chapter.slug}`} className={itemClassName}>
-                    {content}
-                  </Link>
-                ) : (
-                  <div className={itemClassName}>
-                    {content}
-                  </div>
-                )}
+                <div className={headerClassName}>{header}</div>
+                {nodes.length > 0 ? (
+                  <ul className="flex w-full flex-col items-center gap-3 py-3">
+                    {nodes.map((node, nodeIndex) => (
+                      <li key={node.key} className={PATH_SHIFT[nodeIndex % PATH_SHIFT.length]}>
+                        <PathStop node={node} locked={!isOpen} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </motion.li>
             );
           })}

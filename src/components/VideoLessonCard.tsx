@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
-import type { ChapterVideo } from "@/lib/levels";
+import { ProfileButton } from "@/components/ProfileButton";
+import type { CefrLevel, ChapterVideo, LevelChapterMeta } from "@/lib/levels";
 import {
   lessonVideoProgressKey,
   lessonVideoStatus,
@@ -24,9 +26,12 @@ type VideoLessonCardProps = {
   levelSlug: string;
   chapterSlug: string;
   videos: ChapterVideo[];
+  /** `page` is the full lesson video screen. `card` keeps the hub tile. */
+  presentation?: "card" | "page";
+  initialVideoId?: string | null;
 };
 
-const STATUS_LABEL: Record<LessonVideoStatus, string> = {
+export const LESSON_VIDEO_STATUS_LABEL: Record<LessonVideoStatus, string> = {
   "not-started": "Chưa xem",
   "in-progress": "Đang xem",
   watched: "Đã xem",
@@ -1014,10 +1019,17 @@ export function VideoLessonCard({
   levelSlug,
   chapterSlug,
   videos,
+  presentation = "card",
+  initialVideoId = null,
 }: VideoLessonCardProps) {
   const { lessonVideoProgressFor } = useProgress();
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const pickedByUserRef = useRef(false);
+  const requestedIndex = initialVideoId
+    ? videos.findIndex((item) => item.videoId === initialVideoId)
+    : -1;
+  const [selectedIndex, setSelectedIndex] = useState(
+    requestedIndex >= 0 ? requestedIndex : 0,
+  );
+  const pickedByUserRef = useRef(requestedIndex >= 0);
   const selectedWasWatchedRef = useRef(false);
   const prevProgressKeyRef = useRef<string | null>(null);
 
@@ -1056,8 +1068,13 @@ export function VideoLessonCard({
 
   if (!video) return null;
 
+  const shellClassName =
+    presentation === "page"
+      ? "flex flex-col gap-5"
+      : "flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-7";
+
   return (
-    <section className="flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-7">
+    <section className={shellClassName}>
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#e8f2fc] text-[#0066cc]">
           <MaterialIcon name="smart_display" className="text-[24px]" filled />
@@ -1081,7 +1098,7 @@ export function VideoLessonCard({
               }`}
             >
               {video.videoId
-                ? STATUS_LABEL[lessonVideoStatus(entry)]
+                ? LESSON_VIDEO_STATUS_LABEL[lessonVideoStatus(entry)]
                 : "Lỗi liên kết"}
             </span>
           ) : null}
@@ -1128,7 +1145,7 @@ export function VideoLessonCard({
                         : "text-[#86868b]"
                     }`}
                   >
-                    {item.videoId ? STATUS_LABEL[status] : "Lỗi liên kết"}
+                    {item.videoId ? LESSON_VIDEO_STATUS_LABEL[status] : "Lỗi liên kết"}
                   </span>
                 </button>
               </li>
@@ -1150,5 +1167,69 @@ export function VideoLessonCard({
         <VideoError message="Không phát được video này. Hãy kiểm tra lại liên kết YouTube." />
       )}
     </section>
+  );
+}
+
+export function VideoLessonScreen({
+  level,
+  chapter,
+  videos,
+  initialVideoId = null,
+}: {
+  level: CefrLevel;
+  chapter: LevelChapterMeta;
+  videos: ChapterVideo[];
+  initialVideoId?: string | null;
+}) {
+  return (
+    <main
+      data-layout="wide"
+      className="relative flex min-h-dvh w-full max-w-none flex-1 flex-col items-center overflow-x-hidden bg-[#fbfbfd] selection:bg-[#0066cc] selection:text-white"
+      style={{
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      }}
+    >
+      <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
+          <Link
+            href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
+            className="group flex shrink-0 items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[20px] font-medium" aria-hidden="true">
+              arrow_back_ios_new
+            </span>
+            <span className="text-[17px] font-medium tracking-tight">Trở về</span>
+          </Link>
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 text-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b]">
+              {level.level}
+            </span>
+            <h1
+              className="truncate text-[15px] font-bold tracking-tight text-[#1d1d1f]"
+              style={{ letterSpacing: "-0.015em" }}
+            >
+              {chapter.label}
+            </h1>
+          </div>
+          <ProfileButton />
+        </div>
+      </header>
+
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden">
+        <div className="absolute -top-[20%] -left-[10%] h-[70%] w-[70vw] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
+        <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
+      </div>
+
+      <section className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pt-6 pb-24 sm:px-6">
+        <VideoLessonCard
+          presentation="page"
+          levelSlug={level.slug}
+          chapterSlug={chapter.slug}
+          videos={videos}
+          initialVideoId={initialVideoId}
+        />
+      </section>
+    </main>
   );
 }

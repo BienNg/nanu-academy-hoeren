@@ -55,8 +55,9 @@ function LoadingTitle() {
 export function backHrefFor(path: string): string | null {
   const parts = path.split("/").filter(Boolean);
   if (parts[0] === "learn") {
-    if (parts.length >= 4) return `/${parts.slice(0, 3).join("/")}`;
-    if (parts.length === 3) return `/${parts.slice(0, 2).join("/")}`;
+    if (parts.length >= 3 && parts[1] && parts[2]) {
+      return `/learn/${parts[1]}?lektion=${encodeURIComponent(parts[2])}`;
+    }
     if (parts.length === 2) return "/";
   }
   if (parts[0] === "interview" || parts[0] === "account") return "/";
@@ -203,14 +204,14 @@ export function LevelScreenSkeleton({ path }: { path?: string }) {
         <Bone className="mt-6 h-16 w-64 max-w-full rounded-2xl" />
         <Bone className="mt-6 h-5 w-80 max-w-full rounded-full" />
       </section>
-      <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 pb-24">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div
-            key={index}
-            className="rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-          >
-            <Bone className="h-7 w-2/3 rounded-full" />
-            <Bone className="mt-4 h-4 w-1/2 rounded-full" />
+      <section className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center gap-8 px-4 pb-24">
+        {Array.from({ length: 3 }, (_, index) => (
+          <div key={index} className="flex w-full flex-col items-center gap-3">
+            <div className="w-full rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
+              <Bone className="h-6 w-2/3 rounded-full" />
+            </div>
+            <Bone className={`h-[70px] w-[70px] rounded-full ${index % 2 === 0 ? "-translate-x-9" : "translate-x-9"}`} />
+            <Bone className="h-[70px] w-[70px] rounded-full" />
           </div>
         ))}
       </section>
@@ -406,7 +407,7 @@ export function ScreenForPath({ path }: { path: string }) {
   if (parts[0] === "learn" && parts[parts.length - 1] === "practice") {
     return <SessionScreenSkeleton kind="practice" path={path} />;
   }
-  if (parts[0] === "learn" && parts.length === 2) {
+  if (parts[0] === "learn" && (parts.length === 2 || parts.length === 3)) {
     return <LevelScreenSkeleton path={path} />;
   }
   if (parts[0] === "learn") return <ChapterScreenSkeleton path={path} />;

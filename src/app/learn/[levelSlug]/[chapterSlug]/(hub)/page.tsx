@@ -1,13 +1,6 @@
-import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
-import {
-  getCefrLevel,
-  getChapterClips,
-  getChapterVideos,
-  getLevelChapters,
-} from "@/lib/levels";
-import { notFound } from "next/navigation";
-import ChapterHubClient from "../ChapterHubClient";
+import { getCefrLevel, getLevelChapters } from "@/lib/levels";
+import { notFound, redirect } from "next/navigation";
 
 type LearnChapterPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
@@ -32,16 +25,5 @@ export default async function LearnChapterPage({
     notFound();
   }
 
-  const clips = getChapterClips(levelSlug, chapterSlug);
-  const videos = getChapterVideos(levelSlug, chapterSlug);
-
-  return (
-    <ChapterHubClient
-      level={level}
-      chapter={chapter}
-      clips={clips.map((clip) => ({ id: clip.id, script: clip.script }))}
-      videos={videos}
-      isAdmin={isAdminUser(session.user)}
-    />
-  );
+  redirect(`/learn/${levelSlug}?lektion=${encodeURIComponent(chapterSlug)}`);
 }
