@@ -4,6 +4,7 @@ import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { listeningPartSize } from "@/lib/progress";
 import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
+import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
   dayKey,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/xp";
 
 const XP_TABLE = "xp_awards";
+const DUEL_XP_TABLE = "duel_xp_awards";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
 
@@ -198,12 +200,18 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
     from += PAGE_SIZE;
   }
 
+  const duelRows = await listUserDuelXp(supabase, userId);
   const todayKey = dayKey(now);
   const currentWeek = weekKey(now);
   let today = 0;
   let week = 0;
   let total = 0;
   for (const row of rows) {
+    total += row.xp;
+    if (row.day_key === todayKey) today += row.xp;
+    if (row.week_key === currentWeek) week += row.xp;
+  }
+  for (const row of duelRows) {
     total += row.xp;
     if (row.day_key === todayKey) today += row.xp;
     if (row.week_key === currentWeek) week += row.xp;
@@ -216,6 +224,94 @@ type XpAwardSumRow = {
   xp: number;
   created_at: string;
 };
+
+type DuelAwardRow = XpAwardSumRow & {
+  outcome: "win" | "loss" | "tie";
+  day_key: string;
+  week_key: string;
+};
+
+async function listUserDuelXp(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ xp: number; day_key: string; week_key: string }[]> {
+  const rows: { xp: number; day_key: string; week_key: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(DUEL_XP_TABLE)
+      .select("xp, day_key, week_key")
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isDuelSchemaMissing(error.message)) {
+        console.error("Supabase listUserDuelXp", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as { xp?: unknown; day_key?: unknown; week_key?: unknown }[];
+    for (const row of page) {
+      if (typeof row.xp !== "number" || typeof row.day_key !== "string" || typeof row.week_key !== "string") {
+        continue;
+      }
+      rows.push({ xp: row.xp, day_key: row.day_key, week_key: row.week_key });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+async function listDuelXpRows(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<DuelAwardRow[] | "missing"> {
+  const rows: DuelAwardRow[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from(DUEL_XP_TABLE)
+      .select("user_id, xp, outcome, created_at, day_key, week_key")
+      .range(from, from + PAGE_SIZE - 1);
+    if (range === "week") query = query.eq("week_key", weekKey(now));
+    const { data, error } = await query;
+    if (error) {
+      if (isDuelSchemaMissing(error.message)) return "missing";
+      console.error("Supabase listDuelXpRows", error.message);
+      return rows;
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      xp?: unknown;
+      outcome?: unknown;
+      created_at?: unknown;
+      day_key?: unknown;
+      week_key?: unknown;
+    }[];
+    for (const row of page) {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.created_at !== "string" ||
+        typeof row.day_key !== "string" ||
+        typeof row.week_key !== "string" ||
+        (row.outcome !== "win" && row.outcome !== "loss" && row.outcome !== "tie")
+      ) {
+        continue;
+      }
+      rows.push({
+        user_id: row.user_id,
+        xp: row.xp,
+        outcome: row.outcome,
+        created_at: row.created_at,
+        day_key: row.day_key,
+        week_key: row.week_key,
+      });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
 
 async function listXpAwardRows(
   supabase: SupabaseClient,
@@ -316,6 +412,19 @@ export async function getLeaderboard(input: {
     totals.set(award.user_id, current);
   }
 
+  const duelAwards = await listDuelXpRows(supabase, input.range, now);
+  if (duelAwards !== "missing") {
+    for (const award of duelAwards) {
+      if (award.xp <= 0) continue;
+      const current = totals.get(award.user_id) ?? { xp: 0, reachedAt: null };
+      current.xp += award.xp;
+      if (!current.reachedAt || award.created_at > current.reachedAt) {
+        current.reachedAt = award.created_at;
+      }
+      totals.set(award.user_id, current);
+    }
+  }
+
   const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
     const total = totals.get(row.user_id);
@@ -352,5 +461,93 @@ export async function getLeaderboard(input: {
     scope: input.scope,
     range: input.range,
     now,
+  });
+}
+
+export async function getDuelLeaderboard(input: {
+  viewerId: string;
+  scope: LeaderboardScope;
+  range: LeaderboardRange;
+  now?: Date;
+}): Promise<LeaderboardPayload> {
+  const now = input.now ?? new Date();
+  const blank = emptyLeaderboard({
+    scope: input.scope,
+    range: input.range,
+    now,
+    ready: false,
+    board: "duel",
+  });
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return blank;
+
+  const awards = await listDuelXpRows(supabase, input.range, now);
+  if (awards === "missing") return blank;
+
+  const totals = new Map<
+    string,
+    { xp: number; reachedAt: string | null; won: number; tied: number; lost: number }
+  >();
+  for (const award of awards) {
+    const current = totals.get(award.user_id) ?? {
+      xp: 0,
+      reachedAt: null,
+      won: 0,
+      tied: 0,
+      lost: 0,
+    };
+    current.xp += award.xp;
+    if (award.outcome === "win") current.won += 1;
+    if (award.outcome === "tie") current.tied += 1;
+    if (award.outcome === "loss") current.lost += 1;
+    if (!current.reachedAt || award.created_at > current.reachedAt) {
+      current.reachedAt = award.created_at;
+    }
+    totals.set(award.user_id, current);
+  }
+
+  const profiles = await listBoardProfiles(supabase);
+  const people: BoardPerson[] = profiles.map((row) => {
+    const total = totals.get(row.user_id);
+    const className = readClassName(row.class_name);
+    return {
+      userId: row.user_id,
+      name: leaderboardDisplayName(row.name),
+      classKey: leaderboardClassKey(className),
+      className,
+      isAdmin: isAdminUser({
+        id: row.user_id,
+        email: typeof row.email === "string" ? row.email : null,
+      }),
+      xp: total?.xp ?? 0,
+      reachedAt: total?.reachedAt ?? null,
+      won: total?.won ?? 0,
+      tied: total?.tied ?? 0,
+      lost: total?.lost ?? 0,
+    };
+  });
+  if (!people.some((person) => person.userId === input.viewerId)) {
+    const total = totals.get(input.viewerId);
+    people.push({
+      userId: input.viewerId,
+      name: "Học viên",
+      classKey: "",
+      className: null,
+      isAdmin: false,
+      xp: total?.xp ?? 0,
+      reachedAt: total?.reachedAt ?? null,
+      won: total?.won ?? 0,
+      tied: total?.tied ?? 0,
+      lost: total?.lost ?? 0,
+    });
+  }
+
+  return assembleLeaderboard({
+    people,
+    viewerId: input.viewerId,
+    scope: input.scope,
+    range: input.range,
+    now,
+    board: "duel",
   });
 }

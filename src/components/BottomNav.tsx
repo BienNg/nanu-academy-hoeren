@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "school" },
+  { href: "/duel", label: "Đấu", icon: "swords" },
   { href: "/leaderboard", label: "Xếp hạng", icon: "leaderboard" },
-  { href: "/account", label: "Tài khoản", icon: "person" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {

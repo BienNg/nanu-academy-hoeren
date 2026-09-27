@@ -7,11 +7,13 @@ import {
   decidePartXp,
   formatWeekCountdown,
   isXpSchemaMissing,
+  MIN_MS_PER_CLIP,
   weekEndsAt,
   weekKey,
   type BoardPerson,
   type LessonClip,
 } from "./xp.js";
+import { isTooFast } from "./duels.js";
 
 const NOW = new Date("2026-09-27T13:00:00.000Z");
 
@@ -112,6 +114,8 @@ test("review pays 40 percent until the daily cap, then the same part pays nothin
 test("failed, too-fast, and mismatched runs do not earn XP", () => {
   assert.equal(decide({ outcome: "fail" }).kind, "fail");
   assert.equal(decide({ elapsedMs: 1999 }).kind, "rejected");
+  assert.equal(isTooFast(MIN_MS_PER_CLIP - 1), true);
+  assert.equal(isTooFast(MIN_MS_PER_CLIP), false);
   assert.equal(decide({ results: results(["missing"]) }).kind, "rejected");
   assert.equal(decide({ expectedCount: null }).kind, "rejected");
 });
@@ -203,4 +207,28 @@ test("class board lists the whole class and global keeps the top plus you", () =
   assert.equal(global.rows.at(-1)?.rank, null);
   assert.equal(global.rows.at(-1)?.gapBefore, true);
   assert.equal(global.yourRank, null);
+});
+
+test("the duel board ranks by duel XP, then wins, and keeps losses on the global list", () => {
+  const people = [
+    person("wins", 50, { won: 1, tied: 0, lost: 0 }),
+    person("grind", 200, { won: 0, tied: 0, lost: 10 }),
+    person("same-more", 70, { won: 2, tied: 0, lost: 0 }),
+    person("same-less", 70, { won: 0, tied: 2, lost: 0 }),
+    person("you", 0, { won: 0, tied: 0, lost: 0 }),
+  ];
+  const board = assembleLeaderboard({
+    people,
+    viewerId: "you",
+    scope: "global",
+    range: "all",
+    now: NOW,
+    board: "duel",
+  });
+  assert.equal(board.board, "duel");
+  assert.deepEqual(
+    board.rows.filter((row) => row.xp > 0).map((row) => row.name),
+    ["grind", "same-more", "same-less", "wins"],
+  );
+  assert.equal(board.rows.find((row) => row.name === "grind")?.lost, 10);
 });

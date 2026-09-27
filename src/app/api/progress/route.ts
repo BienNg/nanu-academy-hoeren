@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizeProgress, type StoredProgress } from "@/lib/progress";
+import { syncStudiedClips } from "@/lib/duel-store";
 import {
   getCloudProgress,
   isProgressStoreConfigured,
@@ -81,5 +82,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ progress: existing, ok: true, copied: true });
   }
   await setCloudProgress(session.user.id, progress, sessionProfile(session));
+  try {
+    await syncStudiedClips(session.user.id, progress);
+  } catch (error) {
+    console.error("syncStudiedClips", error);
+  }
   return NextResponse.json({ progress, ok: true });
 }

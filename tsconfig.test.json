@@ -18,6 +18,8 @@
     "src/lib/listening-runs.ts",
     "src/lib/listening-runs.test.ts",
     "src/lib/xp.ts",
-    "src/lib/xp.test.ts"
+    "src/lib/xp.test.ts",
+    "src/lib/duels.ts",
+    "src/lib/duels.test.ts"
   ]
 }

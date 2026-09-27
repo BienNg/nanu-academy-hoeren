@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
-import type { LeaderboardPayload, LeaderboardRange, LeaderboardScope } from "@/lib/xp";
+import type { LeaderboardBoard, LeaderboardPayload, LeaderboardRange, LeaderboardScope } from "@/lib/xp";
+import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
 const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
 
@@ -44,21 +45,32 @@ function RankBadge({ rank }: { rank: number | null }) {
   );
 }
 
-function ScopeTabs({
-  scope,
+const BOARD_OPTIONS: { id: LeaderboardBoard; label: string }[] = [
+  { id: "xp", label: "XP" },
+  { id: "duel", label: "Đấu" },
+];
+
+const SCOPE_OPTIONS: { id: LeaderboardScope; label: string }[] = [
+  { id: "class", label: "Lớp của bạn" },
+  { id: "global", label: "Mọi người" },
+];
+
+const RANGE_OPTIONS: { id: LeaderboardRange; label: string }[] = [
+  { id: "week", label: "Tuần này" },
+  { id: "all", label: "Mọi lúc" },
+];
+
+function BoardTabs({
+  board,
   onChange,
 }: {
-  scope: LeaderboardScope;
-  onChange: (scope: LeaderboardScope) => void;
+  board: LeaderboardBoard;
+  onChange: (board: LeaderboardBoard) => void;
 }) {
-  const options: { id: LeaderboardScope; label: string }[] = [
-    { id: "class", label: "Lớp của bạn" },
-    { id: "global", label: "Mọi người" },
-  ];
   return (
-    <div className="grid grid-cols-2 rounded-full bg-[#e2e7ff] p-1" role="tablist" aria-label="Phạm vi xếp hạng">
-      {options.map((option) => {
-        const active = scope === option.id;
+    <div className="flex border-b border-[#e4e8f6]" role="tablist" aria-label="Loại bảng">
+      {BOARD_OPTIONS.map((option) => {
+        const active = board === option.id;
         return (
           <button
             key={option.id}
@@ -66,13 +78,17 @@ function ScopeTabs({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`h-9 rounded-full text-[13px] font-extrabold transition-all ${
-              active
-                ? "bg-white text-[#0284c7] shadow-[0_2px_0_0_#bfdbfe]"
-                : "text-[#3e4850]"
+            className={`relative flex-1 pb-2.5 text-[15px] font-extrabold transition-colors ${
+              active ? "text-[#0284c7]" : "text-[#94a3b8]"
             }`}
           >
             {option.label}
+            {active ? (
+              <span
+                className="absolute inset-x-4 -bottom-px h-[3px] rounded-full bg-[#0284c7]"
+                aria-hidden="true"
+              />
+            ) : null}
           </button>
         );
       })}
@@ -80,21 +96,21 @@ function ScopeTabs({
   );
 }
 
-function RangeChips({
-  range,
+function FilterGroup<T extends string>({
+  label,
+  value,
+  options,
   onChange,
 }: {
-  range: LeaderboardRange;
-  onChange: (range: LeaderboardRange) => void;
+  label: string;
+  value: T;
+  options: { id: T; label: string }[];
+  onChange: (value: T) => void;
 }) {
-  const options: { id: LeaderboardRange; label: string }[] = [
-    { id: "week", label: "Tuần này" },
-    { id: "all", label: "Mọi lúc" },
-  ];
   return (
-    <div className="flex gap-2" role="tablist" aria-label="Khoảng thời gian">
+    <div className="flex flex-1 gap-0.5" role="tablist" aria-label={label}>
       {options.map((option) => {
-        const active = range === option.id;
+        const active = value === option.id;
         return (
           <button
             key={option.id}
@@ -102,10 +118,8 @@ function RangeChips({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`h-8 rounded-full px-3 text-[12px] font-bold ${
-              active
-                ? "bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1] active:translate-y-0.5 active:shadow-[0_1px_0_0_#0369a1]"
-                : "bg-white text-[#3e4850] shadow-[0_3px_0_0_#dae2fd]"
+            className={`h-8 flex-1 whitespace-nowrap rounded-full text-[11px] font-extrabold transition-all sm:text-[12px] ${
+              active ? "bg-white text-[#0284c7] shadow-[0_2px_0_0_#c3cdf2]" : "text-[#5b6577]"
             }`}
           >
             {option.label}
@@ -130,6 +144,7 @@ export function LeaderboardScreen({
   isAdmin: boolean;
 }) {
   const [board, setBoard] = useState(initial);
+  const [boardKind, setBoardKind] = useState<LeaderboardBoard>(initial.board ?? "xp");
   const [scope, setScope] = useState<LeaderboardScope>(initial.scope);
   const [range, setRange] = useState<LeaderboardRange>(initial.range);
   const [loading, setLoading] = useState(false);
@@ -142,7 +157,7 @@ export function LeaderboardScreen({
     }
     let cancelled = false;
     setLoading(true);
-    void fetch(`/api/leaderboard?scope=${scope}&range=${range}`)
+    void fetch(`/api/leaderboard?scope=${scope}&range=${range}&board=${boardKind}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
         if (!cancelled && isLeaderboardPayload(data)) setBoard(data);
@@ -156,7 +171,7 @@ export function LeaderboardScreen({
     return () => {
       cancelled = true;
     };
-  }, [scope, range]);
+  }, [scope, range, boardKind]);
 
   const emptyClass = board.ready && scope === "class" && !board.className;
   const emptyGlobal =
@@ -169,7 +184,7 @@ export function LeaderboardScreen({
       className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff] text-[#131b2e]"
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-3 pt-3">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-2 px-4 pb-2.5 pt-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-headline-md text-headline-md font-extrabold tracking-tight text-[#131b2e]">
               Bảng xếp hạng
@@ -183,8 +198,22 @@ export function LeaderboardScreen({
               </span>
             ) : null}
           </div>
-          <ScopeTabs scope={scope} onChange={setScope} />
-          <RangeChips range={range} onChange={setRange} />
+          <BoardTabs board={boardKind} onChange={setBoardKind} />
+          <div className="flex items-center gap-1 rounded-full bg-[#e2e7ff] p-1">
+            <FilterGroup
+              label="Phạm vi xếp hạng"
+              value={scope}
+              options={SCOPE_OPTIONS}
+              onChange={setScope}
+            />
+            <span className="h-5 w-px shrink-0 bg-[#c3cdf2]" aria-hidden="true" />
+            <FilterGroup
+              label="Khoảng thời gian"
+              value={range}
+              options={RANGE_OPTIONS}
+              onChange={setRange}
+            />
+          </div>
         </div>
       </header>
 
@@ -210,8 +239,13 @@ export function LeaderboardScreen({
                 >
                   bolt
                 </span>
-                XP của bạn
+                {board.board === "duel" ? "XP đấu" : "XP của bạn"}
               </p>
+              {board.board === "duel" ? (
+                <p className="mt-2 text-[13px] font-bold text-sky-50">
+                  {board.yourWon} thắng · {board.yourTied} hòa · {board.yourLost} thua
+                </p>
+              ) : null}
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 shadow-[0_3px_0_0_rgba(3,105,161,0.45)]">
               <span
@@ -226,7 +260,9 @@ export function LeaderboardScreen({
           <p className="relative z-10 mt-3 text-[13px] font-semibold text-sky-50">
             {board.viewerIsAdmin
               ? "Tài khoản giáo viên không hiện trên bảng."
-              : "Điểm từ phần luyện nghe."}
+              : board.board === "duel"
+                ? "XP từ trận đấu. Hạng theo XP đấu."
+                : "Điểm từ phần luyện nghe và đấu."}
           </p>
           <span
             className="pointer-events-none absolute -right-3 -bottom-6 text-white/15 material-symbols-outlined text-[120px]"
@@ -240,9 +276,13 @@ export function LeaderboardScreen({
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
             <p className="text-[16px] font-extrabold text-[#131b2e]">Điểm xếp hạng chưa được lưu</p>
             <p className="mt-2 text-[14px] font-medium leading-relaxed text-[#6e7881]">
-              {isAdmin
-                ? "Chạy supabase/xp_awards.sql một lần trong Supabase, rồi hoàn thành một phần luyện nghe."
-                : "Bảng sẽ hiện sau khi giáo viên bật lưu điểm."}
+              {board.board === "duel"
+                ? isAdmin
+                  ? DUEL_SCHEMA_HINT
+                  : "Bảng đấu sẽ hiện sau khi giáo viên bật tính năng này."
+                : isAdmin
+                  ? "Chạy supabase/xp_awards.sql một lần trong Supabase, rồi hoàn thành một phần luyện nghe."
+                  : "Bảng sẽ hiện sau khi giáo viên bật lưu điểm."}
             </p>
           </section>
         ) : emptyClass ? (
@@ -261,10 +301,18 @@ export function LeaderboardScreen({
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
             <p className="text-[16px] font-extrabold text-[#131b2e]">Chưa có điểm {rangeLabel}</p>
             <p className="mt-2 text-[14px] font-medium text-[#6e7881]">
-              Hoàn thành một phần luyện nghe để lên bảng.
+              {board.board === "duel"
+                ? "Hoàn thành một trận đấu để lên bảng."
+                : "Hoàn thành một phần luyện nghe hoặc một trận đấu để lên bảng."}
             </p>
           </section>
         ) : (
+          <>
+          {board.board === "duel" ? (
+            <p className="-mb-1 px-3 text-[11px] font-extrabold uppercase tracking-wide text-[#94a3b8]">
+              Thắng-Hòa-Thua, rồi XP đấu
+            </p>
+          ) : null}
           <ol className="flex flex-col gap-2">
             {board.rows.map((row, index) => (
               <li key={`${row.rank ?? "you"}-${row.name}-${index}`} className="flex flex-col gap-2">
@@ -291,6 +339,11 @@ export function LeaderboardScreen({
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[15px] font-extrabold text-[#131b2e]">{row.name}</span>
+                      {board.board === "duel" ? (
+                        <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#6e7881]">
+                          {row.won}-{row.tied}-{row.lost}
+                        </span>
+                      ) : null}
                       {row.isYou ? (
                         <span className="shrink-0 rounded-full bg-[#0284c7] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
                           Bạn
@@ -312,6 +365,7 @@ export function LeaderboardScreen({
               </li>
             ))}
           </ol>
+          </>
         )}
       </main>
       <BottomNav />

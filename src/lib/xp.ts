@@ -44,10 +44,14 @@ export type BoardPerson = {
   isAdmin: boolean;
   xp: number;
   reachedAt: string | null;
+  won?: number;
+  tied?: number;
+  lost?: number;
 };
 
 export type LeaderboardScope = "class" | "global";
 export type LeaderboardRange = "week" | "all";
+export type LeaderboardBoard = "xp" | "duel";
 
 export type LeaderboardRow = {
   rank: number | null;
@@ -55,6 +59,9 @@ export type LeaderboardRow = {
   xp: number;
   isYou: boolean;
   gapBefore: boolean;
+  won: number;
+  tied: number;
+  lost: number;
 };
 
 export type LeaderboardPayload = {
@@ -66,6 +73,10 @@ export type LeaderboardPayload = {
   className: string | null;
   yourXp: number;
   yourRank: number | null;
+  yourWon: number;
+  yourTied: number;
+  yourLost: number;
+  board: LeaderboardBoard;
   viewerIsAdmin: boolean;
   rows: LeaderboardRow[];
 };
@@ -251,24 +262,32 @@ export function emptyLeaderboard(input: {
   range: LeaderboardRange;
   now: Date;
   ready: boolean;
+  board?: LeaderboardBoard;
 }): LeaderboardPayload {
   const ends = weekEndsAt(input.now);
   return {
     ready: input.ready,
     scope: input.scope,
     range: input.range,
+    board: input.board ?? "xp",
     weekEndsAt: ends,
     countdown: formatWeekCountdown(ends, input.now),
     className: null,
     yourXp: 0,
     yourRank: null,
+    yourWon: 0,
+    yourTied: 0,
+    yourLost: 0,
     viewerIsAdmin: false,
     rows: [],
   };
 }
 
-function comparePeople(left: BoardPerson, right: BoardPerson): number {
+function comparePeople(left: BoardPerson, right: BoardPerson, board: LeaderboardBoard): number {
   if (left.xp !== right.xp) return right.xp - left.xp;
+  if (board === "duel" && (left.won ?? 0) !== (right.won ?? 0)) {
+    return (right.won ?? 0) - (left.won ?? 0);
+  }
   if (left.xp > 0) {
     const leftTime = left.reachedAt ? Date.parse(left.reachedAt) : Number.POSITIVE_INFINITY;
     const rightTime = right.reachedAt ? Date.parse(right.reachedAt) : Number.POSITIVE_INFINITY;
@@ -283,8 +302,10 @@ export function assembleLeaderboard(input: {
   scope: LeaderboardScope;
   range: LeaderboardRange;
   now: Date;
+  board?: LeaderboardBoard;
 }): LeaderboardPayload {
-  const base = emptyLeaderboard({ ...input, ready: true });
+  const board = input.board ?? "xp";
+  const base = emptyLeaderboard({ ...input, ready: true, board });
   const viewer = input.people.find((person) => person.userId === input.viewerId);
   const yourXp = viewer?.xp ?? 0;
   const viewerIsAdmin = viewer?.isAdmin ?? false;
@@ -298,7 +319,7 @@ export function assembleLeaderboard(input: {
         )
       : input.people.filter((person) => !person.isAdmin && person.xp > 0);
 
-  const ranked = [...contenders].sort(comparePeople).map((person, index) => ({
+  const ranked = [...contenders].sort((left, right) => comparePeople(left, right, board)).map((person, index) => ({
     person,
     rank: index + 1,
   }));
@@ -334,6 +355,10 @@ export function assembleLeaderboard(input: {
     className: classKey.length > 0 ? className : null,
     yourXp,
     yourRank: you ? you.rank : null,
+    yourWon: viewer?.won ?? 0,
+    yourTied: viewer?.tied ?? 0,
+    yourLost: viewer?.lost ?? 0,
+    board,
     viewerIsAdmin,
     rows: visible.map((entry, index) => ({
       rank: entry.rank > 0 ? entry.rank : null,
@@ -341,6 +366,9 @@ export function assembleLeaderboard(input: {
       xp: entry.person.xp,
       isYou: entry.person.userId === input.viewerId,
       gapBefore: appended && index === visible.length - 1 && visible.length > 1,
+      won: entry.person.won ?? 0,
+      tied: entry.person.tied ?? 0,
+      lost: entry.person.lost ?? 0,
     })),
   };
 }
