@@ -18,8 +18,9 @@ import {
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playSuccessSound } from "@/lib/sfx";
+import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
+import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
@@ -34,6 +35,12 @@ type LearnSessionProps = {
 const PRACTICE_FOCUS_KEY = "nanu-focus-luyen-nghe";
 const pendingRunOrders = new Map<string, string[]>();
 const replacementRunOrders = new Map<string, string[]>();
+
+type PartSummary = {
+  questionCount: number;
+  accuracy: number;
+  elapsedMs: number;
+};
 
 function MaterialIcon({
   name,
@@ -82,9 +89,13 @@ export function LearnSession({
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
-  const [phase, setPhase] = useState<"practice" | "leaving">("practice");
+  const [summary, setSummary] = useState<PartSummary | null>(null);
+  const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
+  const completingRef = useRef(false);
+  const partStartedAtRef = useRef(0);
+  const missedClipIdsRef = useRef(new Set<string>());
 
   const {
     completedLearnClipIdsFor,
@@ -95,6 +106,7 @@ export function LearnSession({
     setLearnRunOrder,
     commitLearnListeningPart,
     recordWrongAttempt,
+    streakDays,
   } = useProgress();
   const chapterProgressKey = chapter.slug;
   const lessonKey = `${level.slug}/${chapter.slug}`;
@@ -173,6 +185,8 @@ export function LearnSession({
     if (initializedSourceRef.current === signature) return;
 
     initializedSourceRef.current = signature;
+    partStartedAtRef.current = Date.now();
+    missedClipIdsRef.current = new Set();
     setPartClips(parts[partIndex] ?? []);
     setPartNumber(partIndex + 1);
     setPartCount(parts.length);
@@ -198,15 +212,12 @@ export function LearnSession({
   const currentClip = partClips?.[clipIndex];
   const ready = partClips !== null;
   const isPerfect = scoreResult?.accuracy === 100;
-  const atEndOfPart = Boolean(partClips && clipIndex >= partClips.length - 1);
   const isLastPart = partCount > 0 && partNumber >= partCount;
-  const nextLabel = !atEndOfPart
-    ? "Tiếp theo"
-    : isLastPart
-      ? hasNextChapter
-        ? "Lektion tiếp theo"
-        : "Về trình độ"
-      : "Về bài học";
+  const exitLabel = isLastPart
+    ? hasNextChapter
+      ? "Lektion tiếp theo"
+      : "Về trình độ"
+    : "Về bài học";
 
   const progressSegments = useMemo(() => {
     const total = partClips?.length ?? 0;
@@ -225,11 +236,12 @@ export function LearnSession({
     if (result.accuracy === 100) {
       playSuccessSound();
     } else {
+      missedClipIdsRef.current.add(currentClip.id);
       recordWrongAttempt();
     }
   };
 
-  const finishPart = () => {
+  const commitPart = () => {
     if (committedRef.current || !partClips || partClips.length === 0) return;
     committedRef.current = true;
     const finishRun = partCount > 0 && partNumber >= partCount;
@@ -247,6 +259,28 @@ export function LearnSession({
         // Session storage can be blocked. The return URL still asks for focus.
       }
     }
+  };
+
+  const openCompleteScreen = () => {
+    if (completingRef.current || !partClips || partClips.length === 0 || phase === "complete") {
+      return;
+    }
+    completingRef.current = true;
+    const questionCount = partClips.length;
+    const missed = partClips.filter((clip) => missedClipIdsRef.current.has(clip.id)).length;
+    const startedAt = partStartedAtRef.current;
+    setSummary({
+      questionCount,
+      accuracy: Math.round(((questionCount - missed) / questionCount) * 100),
+      elapsedMs: startedAt > 0 ? Date.now() - startedAt : 0,
+    });
+    commitPart();
+    playCelebrationSound();
+    setPhase("complete");
+  };
+
+  const continueAfterPart = () => {
+    const finishRun = partCount > 0 && partNumber >= partCount;
     setPhase("leaving");
     router.push(finishRun ? nextChapterHref : hubHref);
   };
@@ -254,7 +288,7 @@ export function LearnSession({
   const handleNext = () => {
     if (!partClips || !currentClip) return;
     if (clipIndex + 1 >= partClips.length) {
-      finishPart();
+      openCompleteScreen();
       return;
     }
     setScoreResult(null);
@@ -296,6 +330,20 @@ export function LearnSession({
 
       {!ready || phase === "leaving" ? (
         <SessionContentSkeleton kind="practice" />
+      ) : phase === "complete" && summary ? (
+        <PartCompleteScreen
+          partNumber={partNumber}
+          partCount={partCount}
+          levelLabel={level.level}
+          chapterLabel={chapter.label}
+          questionCount={summary.questionCount}
+          accuracy={summary.accuracy}
+          elapsedMs={summary.elapsedMs}
+          streakDays={streakDays}
+          finishRun={isLastPart}
+          continueLabel={exitLabel}
+          onContinue={continueAfterPart}
+        />
       ) : !currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">
@@ -321,18 +369,21 @@ export function LearnSession({
                   gridTemplateColumns: `repeat(${Math.max(partClips.length, 1)}, minmax(0, 1fr))`,
                 }}
               >
-                {progressSegments.map((segment, index) => (
-                  <div
-                    key={`seg-${index}`}
-                    className={`relative h-1.5 overflow-hidden rounded-full ${
-                      segment === "todo" ? "bg-[#e8e8ed]" : "bg-[#0066cc]"
-                    }`}
-                  >
-                    {segment === "current" ? (
-                      <div className="absolute inset-0 animate-pulse bg-[#0066cc]" />
-                    ) : null}
-                  </div>
-                ))}
+                {progressSegments.map((segment, index) => {
+                  const filled =
+                    segment === "done" || (segment === "current" && isPerfect);
+                  return (
+                    <div
+                      key={`seg-${index}`}
+                      className="relative h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]"
+                    >
+                      <div
+                        className="h-full origin-left rounded-full bg-[#0066cc] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                        style={{ transform: filled ? "scaleX(1)" : "scaleX(0)" }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </header>
 
@@ -346,7 +397,7 @@ export function LearnSession({
                 result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
-                nextLabel={nextLabel}
+                nextLabel="Tiếp theo"
               />
             ) : (
               <>
@@ -355,7 +406,7 @@ export function LearnSession({
                     result={scoreResult}
                     clip={currentClip}
                     onNext={handleNext}
-                    nextLabel={nextLabel}
+                    nextLabel="Tiếp theo"
                   />
                 ) : null}
                 <DictationInputCard

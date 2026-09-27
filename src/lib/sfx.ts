@@ -138,3 +138,89 @@ export function playSuccessSound(): void {
     playMalletNote(ctx, output, note.freq, t + note.at, note.dur, note.amp);
   }
 }
+
+/**
+ * Longer fanfare for finishing a listening part. A rising major line, a
+ * resolving chord, and a bright cymbal wash — played from the continue click
+ * so the AudioContext can unlock on iOS.
+ */
+export function playCelebrationSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  if (ctx.state === "suspended") {
+    void ctx.resume();
+  }
+
+  const output = getOutput(ctx);
+  const bus = ctx.createGain();
+  bus.gain.setValueAtTime(0.9, ctx.currentTime);
+  bus.connect(output);
+
+  const t = ctx.currentTime + 0.02;
+  const melody: ReadonlyArray<{
+    freq: number;
+    at: number;
+    dur: number;
+    amp: number;
+  }> = [
+    { freq: 392.0, at: 0, dur: 0.18, amp: 0.14 },
+    { freq: 523.25, at: 0.12, dur: 0.18, amp: 0.15 },
+    { freq: 659.25, at: 0.24, dur: 0.2, amp: 0.16 },
+    { freq: 783.99, at: 0.36, dur: 0.28, amp: 0.17 },
+    { freq: 1046.5, at: 0.5, dur: 0.55, amp: 0.18 },
+  ];
+
+  for (const note of melody) {
+    playMalletNote(ctx, bus, note.freq, t + note.at, note.dur, note.amp);
+  }
+
+  const rise = ctx.createOscillator();
+  const riseGain = ctx.createGain();
+  rise.type = "triangle";
+  rise.frequency.setValueAtTime(523.25, t + 0.42);
+  rise.frequency.exponentialRampToValueAtTime(1046.5, t + 0.68);
+  riseGain.gain.setValueAtTime(0.0001, t + 0.42);
+  riseGain.gain.exponentialRampToValueAtTime(0.06, t + 0.62);
+  riseGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.78);
+  rise.connect(riseGain);
+  riseGain.connect(bus);
+  rise.start(t + 0.42);
+  rise.stop(t + 0.8);
+
+  const chordAt = t + 0.7;
+  const chord = [130.81, 261.63, 329.63, 392.0, 523.25, 659.25];
+  for (const freq of chord) {
+    playMalletNote(ctx, bus, freq, chordAt, 0.95, freq < 200 ? 0.07 : 0.045);
+  }
+
+  const sparkles = [1174.66, 1567.98, 2093.0, 2637.02];
+  sparkles.forEach((freq, index) => {
+    playMalletNote(ctx, bus, freq, chordAt + 0.04 + index * 0.07, 0.4, 0.04);
+  });
+
+  const washSeconds = 0.45;
+  const wash = ctx.createBuffer(
+    1,
+    Math.max(1, Math.floor(ctx.sampleRate * washSeconds)),
+    ctx.sampleRate,
+  );
+  const washData = wash.getChannelData(0);
+  for (let i = 0; i < washData.length; i += 1) {
+    washData[i] = Math.random() * 2 - 1;
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = wash;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = "highpass";
+  noiseFilter.frequency.setValueAtTime(4000, chordAt);
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.0001, chordAt);
+  noiseGain.gain.exponentialRampToValueAtTime(0.12, chordAt + 0.02);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, chordAt + washSeconds);
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(bus);
+  noise.start(chordAt);
+  noise.stop(chordAt + washSeconds);
+}
