@@ -18,5 +18,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     sub?: string;
     authAt?: number;
+    /** Profile photo URL already written to user_progress. */
+    imageStored?: string;
   }
 }

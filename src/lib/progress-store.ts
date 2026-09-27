@@ -11,7 +11,7 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { isXpSchemaMissing } from "@/lib/xp";
+import { googleProfileImage, isXpSchemaMissing } from "@/lib/xp";
 import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
@@ -89,7 +89,30 @@ export async function getCloudProgress(
 export type UserProfileTouch = {
   email?: string | null;
   name?: string | null;
+  /** Google profile photo. Anything else is ignored. */
+  image?: string | null;
 };
+
+function isMissingImageColumn(message: string): boolean {
+  return /image/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+let loggedMissingImageColumn = false;
+let imageColumnRetryAt = 0;
+
+function imageWritesPaused(): boolean {
+  return Date.now() < imageColumnRetryAt;
+}
+
+function noteMissingImageColumn(message: string): void {
+  imageColumnRetryAt = Date.now() + 60_000;
+  if (loggedMissingImageColumn) return;
+  loggedMissingImageColumn = true;
+  console.error(
+    "user_progress.image is missing. Re-run supabase/user_progress.sql.",
+    message,
+  );
+}
 
 /**
  * An account with no lesson progress must not take on another account's
@@ -158,6 +181,7 @@ export async function setCloudProgress(
   const payload = normalizeProgress(progress);
   const now = new Date().toISOString();
   // last_login_at here is last seen (a progress write), not a Google sign-in.
+  const image = imageWritesPaused() ? null : googleProfileImage(profile.image);
   const withIdentity = {
     user_id: userId,
     data: payload,
@@ -165,6 +189,7 @@ export async function setCloudProgress(
     last_login_at: now,
     ...(profile.email !== undefined ? { email: profile.email } : {}),
     ...(profile.name !== undefined ? { name: profile.name } : {}),
+    ...(image ? { image } : {}),
   };
 
   const { error } = await supabase
@@ -172,6 +197,15 @@ export async function setCloudProgress(
     .upsert(withIdentity, { onConflict: "user_id" });
 
   if (!error) return;
+
+  if (image && isMissingImageColumn(error.message)) {
+    noteMissingImageColumn(error.message);
+    const { image: _image, ...withoutImage } = withIdentity;
+    const { error: retryError } = await supabase
+      .from(TABLE)
+      .upsert(withoutImage, { onConflict: "user_id" });
+    if (!retryError) return;
+  }
 
   const { error: fallbackError } = await supabase.from(TABLE).upsert(
     {
@@ -320,16 +354,29 @@ export async function touchUserProfile(
     return;
   }
 
+  const image = imageWritesPaused() ? null : googleProfileImage(profile.image);
   const patch: {
     last_login_at: string;
     email?: string | null;
     name?: string | null;
+    image?: string;
   } = { last_login_at: now };
   if (profile.email !== undefined) patch.email = profile.email;
   if (profile.name !== undefined) patch.name = profile.name;
+  if (image) patch.image = image;
 
   if (existing) {
     const { error } = await supabase.from(TABLE).update(patch).eq("user_id", userId);
+    if (error && image && isMissingImageColumn(error.message)) {
+      noteMissingImageColumn(error.message);
+      const { image: _image, ...withoutImage } = patch;
+      const { error: retryError } = await supabase
+        .from(TABLE)
+        .update(withoutImage)
+        .eq("user_id", userId);
+      if (retryError) console.error("Supabase touchUserProfile update", retryError.message);
+      return;
+    }
     if (error) {
       console.error("Supabase touchUserProfile update", error.message);
     }
@@ -344,6 +391,13 @@ export async function touchUserProfile(
     ...patch,
   };
   const { error } = await supabase.from(TABLE).insert(insertPayload);
+
+  if (error && image && isMissingImageColumn(error.message)) {
+    noteMissingImageColumn(error.message);
+    const { image: _image, ...withoutImage } = insertPayload;
+    const { error: retryError } = await supabase.from(TABLE).insert(withoutImage);
+    if (!retryError) return;
+  }
 
   if (error) {
     const { error: fallbackError } = await supabase.from(TABLE).insert({
@@ -400,27 +454,32 @@ async function readSignInRow(
  * Append a Google sign-in. Called only when the Auth.js jwt callback receives
  * `account` (a real sign-in), never from a progress heartbeat.
  * `last_login_at` is left alone so it can keep meaning "last seen".
+ * Returns whether a provided profile photo was stored.
  */
 export async function recordUserSignIn(
   userId: string,
   profile: UserProfileTouch = {},
   at = new Date(),
-): Promise<void> {
+): Promise<boolean> {
   const supabase = getSupabaseAdmin();
-  if (!supabase || !userId) return;
+  if (!supabase || !userId) return false;
 
   const existing = await readSignInRow(supabase, userId);
-  if (!existing) return;
+  if (!existing) return false;
 
   const { row, hasSignIns } = existing;
   const signIns = hasSignIns
     ? trimSignIns([...readSignIns(row?.sign_ins), at.toISOString()], at.getTime())
     : null;
+  const requestedImage = googleProfileImage(profile.image);
+  const image = requestedImage && !imageWritesPaused() ? requestedImage : null;
   const identity = {
     ...(profile.email !== undefined ? { email: profile.email } : {}),
     ...(profile.name !== undefined ? { name: profile.name } : {}),
+    ...(image ? { image } : {}),
   };
   const isNewAccount = !row || Boolean(row.deleted_at);
+  let imageSaved = !requestedImage;
 
   if (row) {
     const patch = {
@@ -432,9 +491,24 @@ export async function recordUserSignIn(
         .from(TABLE)
         .update(patch)
         .eq("user_id", userId);
-      if (updateError) {
+      if (updateError && image && isMissingImageColumn(updateError.message)) {
+        noteMissingImageColumn(updateError.message);
+        const { image: _image, ...withoutImage } = patch;
+        if (Object.keys(withoutImage).length > 0) {
+          const { error: retryError } = await supabase
+            .from(TABLE)
+            .update(withoutImage)
+            .eq("user_id", userId);
+          if (retryError) {
+            console.error("Supabase recordUserSignIn update", retryError.message);
+            return false;
+          }
+        }
+      } else if (updateError) {
         console.error("Supabase recordUserSignIn update", updateError.message);
-        return;
+        return false;
+      } else if (image) {
+        imageSaved = true;
       }
     }
   } else {
@@ -448,13 +522,50 @@ export async function recordUserSignIn(
       ...identity,
     };
     const { error: insertError } = await supabase.from(TABLE).insert(payload);
-    if (insertError) {
+    if (insertError && image && isMissingImageColumn(insertError.message)) {
+      noteMissingImageColumn(insertError.message);
+      const { image: _image, ...withoutImage } = payload;
+      const { error: retryError } = await supabase.from(TABLE).insert(withoutImage);
+      if (retryError) {
+        console.error("Supabase recordUserSignIn insert", retryError.message);
+        return false;
+      }
+    } else if (insertError) {
       console.error("Supabase recordUserSignIn insert", insertError.message);
-      return;
+      return false;
+    } else if (image) {
+      imageSaved = true;
     }
   }
 
   if (isNewAccount) await notifyNewUser(profile);
+  return imageSaved;
+}
+
+/**
+ * Store a Google profile photo on an account that already exists.
+ * Used for sessions issued before the photo was saved. Does not create a row.
+ */
+export async function rememberUserImage(userId: string, image: string): Promise<boolean> {
+  const safe = googleProfileImage(image);
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId || !safe || imageWritesPaused()) return false;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ image: safe })
+    .eq("user_id", userId)
+    .select("user_id")
+    .maybeSingle();
+  if (error) {
+    if (isMissingImageColumn(error.message)) {
+      noteMissingImageColumn(error.message);
+      return false;
+    }
+    console.error("Supabase rememberUserImage", error.message);
+    return false;
+  }
+  return Boolean(data);
 }
 
 /** Posts when an account is created, or when a deleted account signs in again. */

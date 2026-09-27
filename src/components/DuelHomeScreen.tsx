@@ -27,11 +27,18 @@ function outcomeLabel(outcome: DuelOutcome | null): string {
   return "Đã xong";
 }
 
+function needsMoreStudy(home: DuelHome): boolean {
+  return home.ready && !home.viewerIsAdmin && home.studiedCount < DUEL_SIZE;
+}
+
 function blockMessage(home: DuelHome): string | null {
   if (!home.ready) {
     return home.viewerIsAdmin
       ? DUEL_SCHEMA_HINT
       : "Đấu sẽ mở khi giáo viên bật tính năng này.";
+  }
+  if (needsMoreStudy(home)) {
+    return `Hãy học ít nhất ${DUEL_SIZE} từ để mở tính năng đấu.`;
   }
   if (home.block === "no_class") {
     return "Bạn chưa có lớp. Nhờ giáo viên thêm bạn vào lớp để đấu với bạn học.";
@@ -176,8 +183,9 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
   }, []);
 
   const explanation = notice ?? blockMessage(home);
-  const canStart = home.ready && home.block === "ok" && !starting;
-  const capped = home.ready && home.block === "cap";
+  const studyFirst = needsMoreStudy(home);
+  const canStart = home.ready && home.block === "ok" && !starting && !studyFirst;
+  const capped = home.ready && home.block === "cap" && !studyFirst;
 
   const start = async () => {
     if (capped) {
@@ -229,23 +237,35 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
           <p className="mt-2 text-[13px] font-semibold text-sky-50">
             Bạn đã học {home.studiedCount} câu. Thắng 50 XP, hòa 35 XP, thua 20 XP.
           </p>
-          <button
-            type="button"
-            onClick={() => void start()}
-            disabled={!canStart && !capped}
-            className={`mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[16px] font-extrabold transition-transform ${
-              canStart
-                ? "bg-white text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] active:translate-y-0.5 active:shadow-[0_2px_0_0_#bae6fd]"
-                : capped
-                  ? "bg-white/40 text-white"
-                  : "cursor-not-allowed bg-white/25 text-white/80"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-              swords
-            </span>
-            {starting ? "Đang tìm đối thủ..." : "Đấu mới"}
-          </button>
+          {studyFirst ? (
+            <Link
+              href={home.studyHref ?? "/"}
+              className="relative z-10 mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[17px] font-extrabold text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] transition-transform active:translate-y-0.5 active:shadow-[0_2px_0_0_#bae6fd]"
+            >
+              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                menu_book
+              </span>
+              Học ngay
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void start()}
+              disabled={!canStart && !capped}
+              className={`relative z-10 mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[16px] font-extrabold transition-transform ${
+                canStart
+                  ? "bg-white text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] active:translate-y-0.5 active:shadow-[0_2px_0_0_#bae6fd]"
+                  : capped
+                    ? "bg-white/40 text-white"
+                    : "cursor-not-allowed bg-white/25 text-white/80"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                swords
+              </span>
+              {starting ? "Đang tìm đối thủ..." : "Đấu mới"}
+            </button>
+          )}
           <span
             className="pointer-events-none absolute -right-3 -bottom-6 text-white/15 material-symbols-outlined text-[120px]"
             aria-hidden="true"

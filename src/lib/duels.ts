@@ -97,6 +97,8 @@ export type DuelHome = {
   ready: boolean;
   block: MatchBlock;
   studiedCount: number;
+  /** Study session to open when the learner has not studied enough clips yet. */
+  studyHref: `/learn/${string}/${string}/study` | null;
   viewerIsAdmin: boolean;
   incoming: DuelCard[];
   playing: DuelCard[];
@@ -424,6 +426,7 @@ export function emptyDuelHome(ready: boolean, block: MatchBlock = "unavailable")
     ready,
     block,
     studiedCount: 0,
+    studyHref: null,
     viewerIsAdmin: false,
     incoming: [],
     playing: [],

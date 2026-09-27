@@ -44,6 +44,7 @@ export async function GET(request: Request) {
 
   const boardInput = {
     viewerId: session.user.id,
+    viewerImage: session.user.image,
     scope,
     range,
     now,

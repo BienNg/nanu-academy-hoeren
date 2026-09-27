@@ -8,6 +8,8 @@ create table if not exists public.user_progress (
   updated_at timestamptz not null default now(),
   email text,
   name text,
+  -- Google profile photo (https://lh3.googleusercontent.com/...). Ranking list only.
+  image text,
   last_login_at timestamptz,
   deleted_at timestamptz,
   revoked_before timestamptz,
@@ -25,6 +27,7 @@ create table if not exists public.user_progress (
 alter table public.user_progress
   add column if not exists email text,
   add column if not exists name text,
+  add column if not exists image text,
   add column if not exists last_login_at timestamptz,
   add column if not exists deleted_at timestamptz,
   add column if not exists revoked_before timestamptz,

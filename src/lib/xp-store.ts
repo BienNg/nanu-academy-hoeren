@@ -10,6 +10,7 @@ import {
   dayKey,
   decidePartXp,
   emptyLeaderboard,
+  googleProfileImage,
   isXpSchemaMissing,
   leaderboardClassKey,
   leaderboardDisplayName,
@@ -351,10 +352,23 @@ type BoardProfileRow = {
   email?: string | null;
   class_name?: unknown;
   deleted_at?: string | null;
+  image?: string | null;
 };
+
+function boardImage(
+  row: BoardProfileRow,
+  viewerId: string,
+  viewerImage: string | null | undefined,
+): string | null {
+  return (
+    googleProfileImage(row.image) ??
+    (row.user_id === viewerId ? googleProfileImage(viewerImage) : null)
+  );
+}
 
 async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfileRow[]> {
   const columnSets = [
+    "user_id, name, email, class_name, deleted_at, image",
     "user_id, name, email, class_name, deleted_at",
     "user_id, name, email, deleted_at",
   ];
@@ -384,6 +398,7 @@ async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfile
 
 export async function getLeaderboard(input: {
   viewerId: string;
+  viewerImage?: string | null;
   scope: LeaderboardScope;
   range: LeaderboardRange;
   now?: Date;
@@ -440,6 +455,7 @@ export async function getLeaderboard(input: {
       }),
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
+      image: boardImage(row, input.viewerId, input.viewerImage),
     };
   });
   if (!people.some((person) => person.userId === input.viewerId)) {
@@ -452,6 +468,7 @@ export async function getLeaderboard(input: {
       isAdmin: false,
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
+      image: googleProfileImage(input.viewerImage),
     });
   }
 
@@ -466,6 +483,7 @@ export async function getLeaderboard(input: {
 
 export async function getDuelLeaderboard(input: {
   viewerId: string;
+  viewerImage?: string | null;
   scope: LeaderboardScope;
   range: LeaderboardRange;
   now?: Date;
@@ -524,6 +542,7 @@ export async function getDuelLeaderboard(input: {
       won: total?.won ?? 0,
       tied: total?.tied ?? 0,
       lost: total?.lost ?? 0,
+      image: boardImage(row, input.viewerId, input.viewerImage),
     };
   });
   if (!people.some((person) => person.userId === input.viewerId)) {
@@ -539,6 +558,7 @@ export async function getDuelLeaderboard(input: {
       won: total?.won ?? 0,
       tied: total?.tied ?? 0,
       lost: total?.lost ?? 0,
+      image: googleProfileImage(input.viewerImage),
     });
   }
 

@@ -3,8 +3,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt } from "@/lib/scoring";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
-import { normalizeProgress, type StoredProgress } from "@/lib/progress";
-import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
+import {
+  firstUnlockedStudyHref,
+  normalizeProgress,
+  type StoredProgress,
+  type StudyUnlockLevel,
+} from "@/lib/progress";
+import {
+  getSupabaseAdmin,
+  getUserLevelAccess,
+  readClassName,
+  withoutInterviewAccess,
+} from "@/lib/progress-store";
 import {
   dayKey,
   leaderboardClassKey,
@@ -290,7 +300,10 @@ async function readStudied(
 async function refreshStudied(
   supabase: SupabaseClient,
   userIds: readonly string[],
-): Promise<Map<string, StudiedClip[]> | null> {
+): Promise<{
+  studied: Map<string, StudiedClip[]> | null;
+  progress: Map<string, StoredProgress>;
+}> {
   const progress = await readProgressMaps(supabase, userIds);
   const catalog = listCatalogClips();
   const groups = [...progress.entries()].map(([userId, stored]) => ({
@@ -298,7 +311,7 @@ async function refreshStudied(
     clips: extractStudiedClips(stored.learn, catalog),
   }));
   await upsertStudied(supabase, groups);
-  return readStudied(supabase, userIds);
+  return { studied: await readStudied(supabase, userIds), progress };
 }
 
 type ClassContext = {
@@ -309,7 +322,22 @@ type ClassContext = {
   pool: string[];
   studied: Map<string, StudiedClip[]>;
   names: Map<string, string>;
+  viewerProgress: StoredProgress;
 };
+
+function studyUnlockLevels(): StudyUnlockLevel[] {
+  const counts = new Map<string, number>();
+  for (const clip of listCatalogClips()) {
+    counts.set(clip.lessonKey, (counts.get(clip.lessonKey) ?? 0) + 1);
+  }
+  return getCefrLevels().map((level) => ({
+    slug: level.slug,
+    chapters: getLevelChapters(level.slug).map((chapter) => ({
+      slug: chapter.slug,
+      clipCount: counts.get(`${level.slug}/${chapter.slug}`) ?? 0,
+    })),
+  }));
+}
 
 async function loadClassContext(user: {
   id: string;
@@ -323,6 +351,7 @@ async function loadClassContext(user: {
     pool: [],
     studied: new Map(),
     names: new Map(),
+    viewerProgress: normalizeProgress(undefined),
   };
   const supabase = getSupabaseAdmin();
   if (!supabase) return empty;
@@ -344,8 +373,13 @@ async function loadClassContext(user: {
     return classKey.length > 0 && leaderboardClassKey(profile.className) === classKey;
   });
 
-  const studied = await refreshStudied(supabase, [user.id, ...classmates.map((profile) => profile.userId)]);
-  if (!studied) return { ...empty, viewerIsAdmin, names };
+  const refreshed = await refreshStudied(supabase, [
+    user.id,
+    ...classmates.map((profile) => profile.userId),
+  ]);
+  const viewerProgress = refreshed.progress.get(user.id) ?? normalizeProgress(undefined);
+  const studied = refreshed.studied;
+  if (!studied) return { ...empty, viewerIsAdmin, names, viewerProgress };
   const studiedCount = studied.get(user.id)?.length ?? 0;
   if (viewerIsAdmin) {
     return {
@@ -356,11 +390,12 @@ async function loadClassContext(user: {
       pool: [],
       studied,
       names,
+      viewerProgress,
     };
   }
 
   const openCounts = await openDuelsByOpponent(supabase, user.id);
-  if (openCounts == null) return { ...empty, viewerIsAdmin, names };
+  if (openCounts == null) return { ...empty, viewerIsAdmin, names, viewerProgress };
   const mine = studied.get(user.id) ?? [];
   const candidates = classmates.map((profile) => ({
     userId: profile.userId,
@@ -376,6 +411,7 @@ async function loadClassContext(user: {
     pool: match.pool,
     studied,
     names,
+    viewerProgress,
   };
 }
 
@@ -532,6 +568,14 @@ export async function getDuelHome(user: {
   const home = emptyDuelHome(true, context.block);
   home.studiedCount = context.studiedCount;
   home.viewerIsAdmin = context.viewerIsAdmin;
+  if (!context.viewerIsAdmin && context.studiedCount < DUEL_SIZE) {
+    const access = withoutInterviewAccess(await getUserLevelAccess(user.id));
+    home.studyHref = firstUnlockedStudyHref(
+      context.viewerProgress,
+      studyUnlockLevels(),
+      access,
+    );
+  }
 
   const cards = duels
     .filter((duel) =>

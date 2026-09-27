@@ -644,7 +644,7 @@ export function useProgress(
     (chapterSlug: string, clipId: string, lessonKey?: string) => {
       const now = new Date();
       const current = readProgressSnapshot();
-      const reviewed = markLearnClipReviewed(current, chapterSlug, clipId);
+      const reviewed = markLearnClipReviewed(current, chapterSlug, clipId, now);
       const recorded = recordVisitClip(
         reviewed,
         now,

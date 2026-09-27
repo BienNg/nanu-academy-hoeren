@@ -6,6 +6,7 @@ import {
   dayKey,
   decidePartXp,
   formatWeekCountdown,
+  googleProfileImage,
   isXpSchemaMissing,
   weekEndsAt,
   weekKey,
@@ -202,6 +203,25 @@ test("class board lists the whole class and global keeps the top plus you", () =
   assert.equal(global.rows.at(-1)?.rank, null);
   assert.equal(global.rows.at(-1)?.gapBefore, true);
   assert.equal(global.yourRank, null);
+});
+
+test("ranking rows keep a google profile photo and drop anything else", () => {
+  const photo = "https://lh3.googleusercontent.com/a/student";
+  assert.equal(googleProfileImage(photo), photo);
+  assert.equal(googleProfileImage("https://lh3.googleusercontent.com/a-/abc=s96-c"), "https://lh3.googleusercontent.com/a-/abc=s96-c");
+  assert.equal(googleProfileImage("https://evil.example/a.png"), null);
+  assert.equal(googleProfileImage("http://lh3.googleusercontent.com/a/x"), null);
+  assert.equal(googleProfileImage(null), null);
+
+  const board = assembleLeaderboard({
+    people: [person("you", 12, { image: photo }), person("plain", 4)],
+    viewerId: "you",
+    scope: "global",
+    range: "week",
+    now: NOW,
+  });
+  assert.equal(board.rows.find((row) => row.name === "you")?.image, photo);
+  assert.equal(board.rows.find((row) => row.name === "plain")?.image, null);
 });
 
 test("the duel board ranks by duel XP, then wins, and keeps losses on the global list", () => {

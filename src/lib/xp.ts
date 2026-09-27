@@ -47,6 +47,8 @@ export type BoardPerson = {
   won?: number;
   tied?: number;
   lost?: number;
+  /** Google profile photo, or null when this person has none. */
+  image?: string | null;
 };
 
 export type LeaderboardScope = "class" | "global";
@@ -62,6 +64,7 @@ export type LeaderboardRow = {
   won: number;
   tied: number;
   lost: number;
+  image: string | null;
 };
 
 export type LeaderboardPayload = {
@@ -151,6 +154,22 @@ export function leaderboardClassKey(value: string | null | undefined): string {
 export function leaderboardDisplayName(name: string | null | undefined): string {
   const trimmed = name?.replace(/\s+/g, " ").trim();
   return trimmed ? trimmed : "Học viên";
+}
+
+const GOOGLE_PROFILE_HOST = "lh3.googleusercontent.com";
+
+/** A Google account photo URL, or null for anything else. */
+export function googleProfileImage(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.hostname !== GOOGLE_PROFILE_HOST) return null;
+  if (url.username || url.password) return null;
+  return url.toString();
 }
 
 function bandBase(levelSlug: string): number {
@@ -343,6 +362,7 @@ export function assembleLeaderboard(input: {
           isAdmin: false,
           xp: 0,
           reachedAt: null,
+          image: viewer?.image ?? null,
         },
         rank: 0,
       },
@@ -369,6 +389,7 @@ export function assembleLeaderboard(input: {
       won: entry.person.won ?? 0,
       tied: entry.person.tied ?? 0,
       lost: entry.person.lost ?? 0,
+      image: entry.person.image ?? null,
     })),
   };
 }

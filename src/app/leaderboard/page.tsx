@@ -9,6 +9,7 @@ export default async function LeaderboardPage() {
   const session = await requireUser();
   const initial = await getLeaderboard({
     viewerId: session.user.id,
+    viewerImage: session.user.image,
     scope: "class",
     range: "week",
   });

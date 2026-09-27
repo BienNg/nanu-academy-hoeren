@@ -18,8 +18,14 @@ function revokedResponse() {
   );
 }
 
-function sessionProfile(session: { user: { email?: string | null; name?: string | null } }) {
-  return { email: session.user.email, name: session.user.name };
+function sessionProfile(session: {
+  user: { email?: string | null; name?: string | null; image?: string | null };
+}) {
+  return {
+    email: session.user.email,
+    name: session.user.name,
+    image: session.user.image,
+  };
 }
 
 export async function GET() {

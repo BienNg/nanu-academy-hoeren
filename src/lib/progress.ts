@@ -1568,7 +1568,7 @@ function previousIsoDate(iso: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** UTC days this snapshot records as practice, including activity timestamps. */
+/** UTC days this snapshot records as practice, including study clips and passes. */
 export function collectPracticeDates(progress: StoredProgress): string[] {
   const dates = new Set<string>();
   const add = (value: string | undefined) => {
@@ -1578,6 +1578,7 @@ export function collectPracticeDates(progress: StoredProgress): string[] {
 
   add(progress.lastPracticeDate);
   for (const day of progress.practiceDates ?? []) add(day);
+  addStudyActivityDays(progress, dates);
   for (const entry of Object.values(progress.learn)) {
     add(entry.completedAt);
     add(entry.studyCompletedAt);
@@ -1593,9 +1594,19 @@ export function collectPracticeDates(progress: StoredProgress): string[] {
   return [...dates].sort();
 }
 
+/** Days a learner finished a study pass or completed a study clip. */
+function addStudyActivityDays(progress: StoredProgress, dates: Set<string>): void {
+  for (const [day, entry] of Object.entries(progress.activity ?? {})) {
+    if (!isoDay(day)) continue;
+    if ((entry?.studyRuns ?? 0) > 0 || (entry?.clips ?? 0) > 0) dates.add(day);
+  }
+}
+
 function datesForStreak(progress: StoredProgress): Set<string> {
   const recorded = practiceDatesFrom(progress.practiceDates);
-  return new Set(recorded.length > 0 ? recorded : collectPracticeDates(progress));
+  const dates = new Set(recorded.length > 0 ? recorded : collectPracticeDates(progress));
+  if (recorded.length > 0) addStudyActivityDays(progress, dates);
+  return dates;
 }
 
 /** Consecutive practice days ending on `end` (inclusive). */
@@ -1857,20 +1868,24 @@ export function incrementStudyRunCount(
 ): StoredProgress {
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
 
-  return recordDayRun(
-    {
-      ...progress,
-      learn: {
-        ...progress.learn,
-        [chapterSlug]: {
-          ...entry,
-          studyRunCount: entry.studyRunCount + 1,
-          studyCompletedAt: entry.studyCompletedAt ?? completedAt,
+  const completedOn = dateFromStamp(completedAt);
+  return bumpStreak(
+    recordDayRun(
+      {
+        ...progress,
+        learn: {
+          ...progress.learn,
+          [chapterSlug]: {
+            ...entry,
+            studyRunCount: entry.studyRunCount + 1,
+            studyCompletedAt: entry.studyCompletedAt ?? completedAt,
+          },
         },
       },
-    },
-    "studyRuns",
-    dateFromStamp(completedAt),
+      "studyRuns",
+      completedOn,
+    ),
+    completedOn,
   );
 }
 
@@ -1878,24 +1893,17 @@ export function markLearnClipReviewed(
   progress: StoredProgress,
   chapterSlug: string,
   clipId: string,
+  now = new Date(),
 ): StoredProgress {
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
-  if (entry.reviewedClipIds.includes(clipId)) {
-    return progress;
-  }
-
-  const next: StoredProgress = {
-    ...progress,
-    learn: {
-      ...progress.learn,
-      [chapterSlug]: {
+  const next = entry.reviewedClipIds.includes(clipId)
+    ? progress
+    : withLearnEntry(progress, chapterSlug, {
         ...entry,
         reviewedClipIds: [...entry.reviewedClipIds, clipId],
-      },
-    },
-  };
+      });
 
-  return bumpStreak(next);
+  return bumpStreak(next, now);
 }
 
 /** Clears study / flashcard reviews. Hearing-exercise progress is kept. */
@@ -2010,6 +2018,49 @@ export function isStudyChapterCompleted(
 ): boolean {
   const entry = progress.learn[chapterSlug];
   return Boolean(entry?.studyCompletedAt) || (entry?.studyRunCount ?? 0) > 0;
+}
+
+export type StudyUnlockChapter = {
+  slug: string;
+  clipCount: number;
+};
+
+export type StudyUnlockLevel = {
+  slug: string;
+  chapters: readonly StudyUnlockChapter[];
+};
+
+/**
+ * Study session for the earliest unlocked lesson the learner can open.
+ * A lesson with clips stays locked until every earlier lesson with clips is
+ * complete. An unfinished study pass wins over a finished one.
+ */
+export function firstUnlockedStudyHref(
+  progress: StoredProgress,
+  levels: readonly StudyUnlockLevel[],
+  unlockedLevelSlugs: readonly string[],
+): `/learn/${string}/${string}/study` | null {
+  const granted = new Set(unlockedLevelSlugs);
+  let firstOpen: `/learn/${string}/${string}/study` | null = null;
+  for (const level of levels) {
+    if (!granted.has(level.slug)) continue;
+    const chapters = level.chapters;
+    for (let index = 0; index < chapters.length; index += 1) {
+      const chapter = chapters[index];
+      if (!chapter || chapter.clipCount <= 0) continue;
+      const blocked = chapters
+        .slice(0, index)
+        .some(
+          (previous) =>
+            previous.clipCount > 0 && !isLearnChapterCompleted(progress, previous.slug),
+        );
+      if (blocked) continue;
+      const href = `/learn/${level.slug}/${chapter.slug}/study` as const;
+      if (!isStudyChapterCompleted(progress, chapter.slug)) return href;
+      if (!firstOpen) firstOpen = href;
+    }
+  }
+  return firstOpen;
 }
 
 export function learnRunCompletedClipIds(

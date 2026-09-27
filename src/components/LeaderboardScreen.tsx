@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBarStatus } from "@/components/TodayXpChip";
-import type { LeaderboardBoard, LeaderboardPayload, LeaderboardRange, LeaderboardScope } from "@/lib/xp";
+import {
+  googleProfileImage,
+  type LeaderboardBoard,
+  type LeaderboardPayload,
+  type LeaderboardRange,
+  type LeaderboardScope,
+} from "@/lib/xp";
 import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
 const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
@@ -18,6 +26,34 @@ function avatarColor(name: string): string {
 
 function initialFor(name: string): string {
   return Array.from(name)[0]?.toLocaleUpperCase("vi") ?? "?";
+}
+
+function PersonAvatar({ name, image }: { name: string; image: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (image && !failed) {
+    return (
+      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
+        <Image
+          src={image}
+          alt=""
+          width={40}
+          height={40}
+          referrerPolicy="no-referrer"
+          className="h-10 w-10 object-cover"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-white"
+      style={{ backgroundColor: avatarColor(name) }}
+      aria-hidden="true"
+    >
+      {initialFor(name)}
+    </span>
+  );
 }
 
 function RankBadge({ rank }: { rank: number | null }) {
@@ -144,6 +180,8 @@ export function LeaderboardScreen({
   initial: LeaderboardPayload;
   isAdmin: boolean;
 }) {
+  const { data: session } = useSession();
+  const ownImage = googleProfileImage(session?.user?.image);
   const [board, setBoard] = useState(initial);
   const [boardKind, setBoardKind] = useState<LeaderboardBoard>(initial.board ?? "xp");
   const [scope, setScope] = useState<LeaderboardScope>(initial.scope);
@@ -333,13 +371,10 @@ export function LeaderboardScreen({
                   }`}
                 >
                   <RankBadge rank={row.rank} />
-                  <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-white"
-                    style={{ backgroundColor: avatarColor(row.name) }}
-                    aria-hidden="true"
-                  >
-                    {initialFor(row.name)}
-                  </span>
+                  <PersonAvatar
+                    name={row.name}
+                    image={row.image ?? (row.isYou ? ownImage : null)}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[15px] font-extrabold text-[#131b2e]">{row.name}</span>

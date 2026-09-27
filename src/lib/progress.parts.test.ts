@@ -3,11 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  activeStreakDays,
+  bumpStreak,
   commitLearnPart,
   completedPartCount,
   firstIncompletePartIndex,
+  firstUnlockedStudyHref,
+  incrementStudyRunCount,
   listeningPartCount,
   listeningPartSize,
+  markLearnClipReviewed,
   mergeProgress,
   normalizeProgress,
   setLearnRunOrder,
@@ -237,4 +242,112 @@ test("run order round-trips through stored progress", () => {
     },
   });
   assert.deepEqual(progress.learn["lektion-1"]?.runClipOrder, ["b", "a"]);
+});
+
+test("the first unlocked study card skips locked lessons and finished passes", () => {
+  const levels = [
+    {
+      slug: "a1-1",
+      chapters: [
+        { slug: "lektion-1", clipCount: 10 },
+        { slug: "video-only", clipCount: 0 },
+        { slug: "lektion-2", clipCount: 8 },
+      ],
+    },
+    {
+      slug: "a1-2",
+      chapters: [{ slug: "lektion-1", clipCount: 12 }],
+    },
+  ];
+  const fresh = normalizeProgress({});
+  assert.equal(
+    firstUnlockedStudyHref(fresh, levels, ["a1-1"]),
+    "/learn/a1-1/lektion-1/study",
+  );
+  assert.equal(firstUnlockedStudyHref(fresh, levels, []), null);
+  assert.equal(
+    firstUnlockedStudyHref(fresh, levels, ["a1-2"]),
+    "/learn/a1-2/lektion-1/study",
+  );
+
+  const studiedFirst = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        currentClipIndex: 0,
+        completedClipIds: [],
+        runCount: 0,
+        runCompletedClipIds: [],
+        reviewedClipIds: [],
+        studyRunCount: 1,
+        studyCompletedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  });
+  assert.equal(
+    firstUnlockedStudyHref(studiedFirst, levels, ["a1-1"]),
+    "/learn/a1-1/lektion-1/study",
+  );
+
+  const listeningDone = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        currentClipIndex: 0,
+        completedClipIds: [],
+        runCount: 1,
+        runCompletedClipIds: [],
+        reviewedClipIds: [],
+        completedAt: "2026-01-02T00:00:00.000Z",
+        studyRunCount: 1,
+      },
+    },
+  });
+  assert.equal(
+    firstUnlockedStudyHref(listeningDone, levels, ["a1-1"]),
+    "/learn/a1-1/lektion-2/study",
+  );
+});
+
+test("completing a study clip extends the day streak", () => {
+  const yesterday = new Date("2026-09-27T08:00:00.000Z");
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const practiced = bumpStreak(normalizeProgress({}), yesterday);
+  const reviewed = markLearnClipReviewed(practiced, "lektion-1", "hallo", today);
+
+  assert.equal(activeStreakDays(reviewed, today), 2);
+  assert.ok(reviewed.practiceDates?.includes("2026-09-28"));
+  assert.deepEqual(reviewed.learn["lektion-1"]?.reviewedClipIds, ["hallo"]);
+});
+
+test("reviewing a study clip again on a later day still counts", () => {
+  const first = new Date("2026-09-27T08:00:00.000Z");
+  const later = new Date("2026-09-28T08:00:00.000Z");
+  const once = markLearnClipReviewed(normalizeProgress({}), "lektion-1", "hallo", first);
+  const again = markLearnClipReviewed(once, "lektion-1", "hallo", later);
+
+  assert.deepEqual(again.learn["lektion-1"]?.reviewedClipIds, ["hallo"]);
+  assert.equal(activeStreakDays(again, later), 2);
+  assert.ok(again.practiceDates?.includes("2026-09-28"));
+});
+
+test("a finished study pass counts as a practice day", () => {
+  const yesterday = new Date("2026-09-27T08:00:00.000Z");
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const practiced = bumpStreak(normalizeProgress({}), yesterday);
+  const studied = incrementStudyRunCount(practiced, "lektion-1", today.toISOString());
+
+  assert.equal(studied.activity?.["2026-09-28"]?.studyRuns, 1);
+  assert.equal(activeStreakDays(studied, today), 2);
+});
+
+test("study clips already stored for today count beside listening days", () => {
+  const progress = normalizeProgress({
+    practiceDates: ["2026-09-27"],
+    lastPracticeDate: "2026-09-27",
+    streakDays: 1,
+    activity: {
+      "2026-09-28": { studyRuns: 0, practiceRuns: 0, clips: 1 },
+    },
+  });
+
+  assert.equal(activeStreakDays(progress, new Date("2026-09-28T12:00:00.000Z")), 2);
 });
