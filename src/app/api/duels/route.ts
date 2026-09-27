@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createDuel, getDuelHome } from "@/lib/duel-store";
+import { createDuel, countUnstartedChallenges, getDuelHome } from "@/lib/duel-store";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import { emptyDuelHome } from "@/lib/duels";
 
@@ -21,11 +21,15 @@ async function viewer() {
   return { user: session.user };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const gate = await viewer();
   if ("response" in gate && gate.response) return gate.response;
   if (!("user" in gate) || !gate.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (new URL(request.url).searchParams.get("badge") === "1") {
+    const count = await countUnstartedChallenges(gate.user.id);
+    return NextResponse.json({ count });
   }
   const home = await getDuelHome({ id: gate.user.id, email: gate.user.email });
   return NextResponse.json(home);

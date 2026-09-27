@@ -1,7 +1,7 @@
 -- Run once in Supabase → SQL Editor, after supabase/studied_clips.sql.
 -- An asynchronous listening duel: both classmates get the same 15 clips.
--- The server records when a clip is served and when the correct answer
--- arrives. Learners never send a time or an XP number.
+-- The browser measures each clip. The server checks the typed answer
+-- and stores the first result. Any non-negative time is kept.
 -- Leaving a clip stores it as forfeited (no time). A finished duel pays
 -- 50 / 35 / 20 XP, which the leaderboard adds to overall XP.
 
@@ -62,7 +62,7 @@ create table if not exists public.duel_plays (
       state = 'done'
       and started_at is not null
       and finished_at is not null
-      and elapsed_ms >= 2000
+      and elapsed_ms >= 0
     )
   )
 );
@@ -113,3 +113,26 @@ grant select, insert, update, delete on table public.duels to service_role;
 grant select, insert, update, delete on table public.duel_clips to service_role;
 grant select, insert, update, delete on table public.duel_plays to service_role;
 grant select, insert, update, delete on table public.duel_xp_awards to service_role;
+
+-- Existing databases still reject times under 2 seconds until this runs.
+alter table public.duel_plays drop constraint if exists duel_plays_time_chk;
+alter table public.duel_plays add constraint duel_plays_time_chk check (
+  (
+    state = 'active'
+    and started_at is not null
+    and finished_at is null
+    and elapsed_ms is null
+    and page_session is not null
+  )
+  or (
+    state = 'forfeited'
+    and finished_at is not null
+    and elapsed_ms is null
+  )
+  or (
+    state = 'done'
+    and started_at is not null
+    and finished_at is not null
+    and elapsed_ms >= 0
+  )
+);

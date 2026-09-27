@@ -37,7 +37,9 @@ export async function POST(
   const action = record.action;
   const pageSession = typeof record.pageSession === "string" ? record.pageSession : "";
   const text = typeof record.text === "string" ? record.text : "";
-  if (action !== "enter" && action !== "answer" && action !== "forfeit") {
+  const position = typeof record.position === "number" ? record.position : null;
+  const elapsedMs = typeof record.elapsedMs === "number" ? record.elapsedMs : null;
+  if (action !== "open" && action !== "begin" && action !== "settle" && action !== "forfeit") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
@@ -47,6 +49,8 @@ export async function POST(
     action,
     pageSession,
     text,
+    position,
+    elapsedMs,
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

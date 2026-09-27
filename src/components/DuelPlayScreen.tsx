@@ -3,17 +3,25 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import {
   DUEL_SIZE,
+  MAX_ANSWER_CHARS,
   formatDuelTime,
+  isSettledState,
+  mergeDuelView,
+  withClipSettled,
   type DuelClipView,
   type DuelFeedback,
   type DuelView,
 } from "@/lib/duels";
+import { scoreAttempt } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
+import { useProgress } from "@/lib/useProgress";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
+const COUNTDOWN_MS = 3000;
 
 let browserPlaySession = "";
 
@@ -22,10 +30,10 @@ function browserPlaySessionId(): string {
   return browserPlaySession;
 }
 
-type Phase = "loading" | "play" | "between" | "result" | "error";
+type Phase = "loading" | "countdown" | "play" | "between" | "result" | "error";
 
 type Between = {
-  kind: "correct" | "forfeit";
+  kind: "forfeit";
   elapsedMs: number | null;
   hasNext: boolean;
 };
@@ -36,19 +44,22 @@ function isViewPayload(value: unknown): value is { view: DuelView; feedback: Due
   return Boolean(view && Array.isArray(view.clips) && typeof view.id === "string");
 }
 
-function activeClip(view: DuelView | null): DuelClipView | null {
-  if (!view || view.nextPosition == null) return null;
-  return view.clips.find((clip) => clip.position === view.nextPosition) ?? null;
-}
-
 function hasPending(view: DuelView): boolean {
-  return view.clips.some((clip) => clip.you.state === "pending");
+  return view.clips.some((clip) => clip.you.state === "pending" || clip.you.state === "active");
 }
 
-function clipSummary(clip: DuelClipView, opponentName: string): string {
-  if (clip.winner === "pending") return "Đang chờ";
-  if (clip.winner === "you") return "Bạn nhanh hơn";
-  if (clip.winner === "opponent") return `${opponentName} nhanh hơn`;
+function nextClip(view: DuelView): DuelClipView | null {
+  return view.clips.find((clip) => clip.you.state === "pending" || clip.you.state === "active") ?? null;
+}
+
+function clipTime(state: DuelClipView["you"]["state"], elapsedMs: number | null): string {
+  if (state === "forfeited") return "Bỏ";
+  if (elapsedMs == null) return "—";
+  return formatDuelTime(elapsedMs);
+}
+
+function clipNote(clip: DuelClipView): string | null {
+  if (clip.winner === "you" || clip.winner === "opponent") return null;
   if (clip.you.elapsedMs == null && clip.opponent.elapsedMs == null) return "Cả hai bỏ";
   return "Hòa thời gian";
 }
@@ -57,6 +68,12 @@ function opponentTime(clip: DuelClipView): string {
   if (clip.opponent.state === "hidden" || clip.opponent.state === "pending") return "Đang chờ";
   if (clip.opponent.state === "forfeited" || clip.opponent.elapsedMs == null) return "Bỏ";
   return formatDuelTime(clip.opponent.elapsedMs);
+}
+
+function countdownLabel(seconds: number): string {
+  if (seconds >= 3) return "Sẵn sàng?";
+  if (seconds === 2) return "Tập trung";
+  return "Nghe nào!";
 }
 
 function Hint({ feedback }: { feedback: DuelFeedback }) {
@@ -86,31 +103,112 @@ function Hint({ feedback }: { feedback: DuelFeedback }) {
   );
 }
 
+const countdownStarts = new Map<string, number>();
+
+function OpeningCountdown({
+  duelId,
+  opponentName,
+  onDone,
+}: {
+  duelId: string;
+  opponentName: string;
+  onDone: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const [left, setLeft] = useState(3);
+
+  useEffect(() => {
+    const started = countdownStarts.get(duelId) ?? Date.now();
+    countdownStarts.set(duelId, started);
+    let finished = false;
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - started;
+      if (elapsed >= COUNTDOWN_MS) {
+        if (finished) return;
+        finished = true;
+        window.clearInterval(timer);
+        countdownStarts.delete(duelId);
+        onDoneRef.current();
+        return;
+      }
+      setLeft(3 - Math.floor(elapsed / 1000));
+    }, 80);
+    return () => {
+      finished = true;
+      window.clearInterval(timer);
+    };
+  }, [duelId]);
+
+  return (
+    <section className="flex flex-1 flex-col items-center justify-center py-16 text-center" aria-live="polite">
+      <span className="material-symbols-outlined text-[36px] text-[#0284c7]" aria-hidden="true">
+        swords
+      </span>
+      <p className="mt-3 text-[13px] font-extrabold uppercase tracking-wider text-[#0284c7]">
+        Đấu với {opponentName}
+      </p>
+      <div className="relative mt-6 flex h-44 w-44 items-center justify-center">
+        <span className="absolute inset-0 rounded-full bg-[#0284c7]/10" />
+        <motion.div
+          key={left}
+          initial={reduceMotion ? { opacity: 0.4 } : { scale: 0.55, opacity: 0, y: 16 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={reduceMotion ? { duration: 0.15 } : { type: "spring", stiffness: 520, damping: 18 }}
+          className="relative flex h-36 w-36 items-center justify-center rounded-full bg-[#0284c7] text-white shadow-[0_8px_0_0_#0369a1]"
+        >
+          <span className="text-[72px] font-extrabold leading-none tabular-nums">{left}</span>
+        </motion.div>
+      </div>
+      <p className="mt-6 text-[28px] font-extrabold">{countdownLabel(left)}</p>
+      <div className="mt-4 flex gap-2" aria-hidden="true">
+        {[3, 2, 1].map((step) => (
+          <span
+            key={step}
+            className={`h-2.5 w-8 rounded-full ${step >= left ? "bg-[#0284c7]" : "bg-[#e2e7ff]"}`}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function DuelPlayScreen({ duelId }: { duelId: string }) {
   const router = useRouter();
+  const { recordPracticeDay } = useProgress();
   const [phase, setPhase] = useState<Phase>("loading");
   const [view, setView] = useState<DuelView | null>(null);
   const [between, setBetween] = useState<Between | null>(null);
   const [draft, setDraft] = useState("");
   const [feedback, setFeedback] = useState<DuelFeedback | null>(null);
   const [quitOpen, setQuitOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
+  const [livePosition, setLivePosition] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [syncError, setSyncError] = useState("");
   const phaseRef = useRef<Phase>("loading");
   const generationRef = useRef(0);
+  const viewRef = useRef<DuelView | null>(null);
+  const playingPositionRef = useRef<number | null>(null);
+  const clockStartRef = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   phaseRef.current = phase;
+  viewRef.current = view;
 
-  const post = async (action: "enter" | "answer" | "forfeit", text?: string) => {
+  const post = async (
+    action: "open" | "begin" | "settle" | "forfeit",
+    extra?: { position?: number; text?: string; elapsedMs?: number },
+    keepalive = false,
+  ) => {
     const response = await fetch(`/api/duels/${duelId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action,
         pageSession: browserPlaySessionId(),
-        ...(text != null ? { text } : {}),
+        ...extra,
       }),
+      keepalive,
     });
     if (response.status === 401) {
       router.push("/account");
@@ -125,73 +223,106 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
     return data;
   };
 
-  const showView = (next: DuelView) => {
+  const remember = (next: DuelView) => {
+    viewRef.current = next;
     setView(next);
-    const clip = activeClip(next);
-    if (clip?.you.state === "active" && next.startedAt) {
-      setPhase("play");
-      setBetween(null);
-      return;
-    }
-    if (hasPending(next)) {
+  };
+
+  const applyServer = (remote: DuelView) => {
+    const current = viewRef.current;
+    const merged = current ? mergeDuelView(current, remote) : remote;
+    remember(merged);
+  };
+
+  const saveClip = (action: "begin" | "settle" | "forfeit", extra: { position: number; text?: string; elapsedMs?: number }) => {
+    void (async () => {
+      try {
+        const payload = await post(action, extra);
+        if (!payload) {
+          if (action !== "begin") setSyncError("Chưa lưu được câu này. Mở lại trận nếu kết quả chưa khớp.");
+          return;
+        }
+        if (action !== "begin") {
+          applyServer(payload.view);
+          setSyncError("");
+        }
+      } catch {
+        if (action !== "begin") setSyncError("Chưa lưu được câu này. Mở lại trận nếu kết quả chưa khớp.");
+      }
+    })();
+  };
+
+  const startClip = (position: number) => {
+    recordPracticeDay();
+    clockStartRef.current = Date.now();
+    setLivePosition(position);
+    playingPositionRef.current = position;
+    setDraft("");
+    setFeedback(null);
+    setBetween(null);
+    setError("");
+    setPhase("play");
+    saveClip("begin", { position });
+  };
+
+  const forfeitLive = (keepalive = false) => {
+    const position = playingPositionRef.current;
+    const current = viewRef.current;
+    if (phaseRef.current !== "play" || position == null || !current) return;
+    const clip = current.clips.find((item) => item.position === position);
+    if (!clip || isSettledState(clip.you.state)) return;
+    const next = withClipSettled(current, position, { state: "forfeited" });
+    playingPositionRef.current = null;
+    remember(next);
+    setFeedback(null);
+    setDraft("");
+    setQuitOpen(false);
+    if (!hasPending(next)) setPhase("result");
+    else {
       setBetween({ kind: "forfeit", elapsedMs: null, hasNext: true });
       setPhase("between");
+    }
+    if (keepalive) {
+      void post("forfeit", { position }, true);
       return;
     }
-    setPhase("result");
+    saveClip("forfeit", { position });
   };
 
   useEffect(() => {
-    const session = browserPlaySessionId();
     const generation = generationRef.current + 1;
     generationRef.current = generation;
     let alive = true;
 
     void (async () => {
       try {
-        const payload = await post("enter");
-        if (!alive || generationRef.current !== generation || !payload) {
-          if (alive && generationRef.current === generation && !payload) {
-            setError("Không mở được trận đấu.");
-            setPhase("error");
-          }
+        const payload = await post("open");
+        if (!alive || generationRef.current !== generation) return;
+        if (!payload) {
+          setError("Không mở được trận đấu.");
+          setPhase("error");
           return;
         }
-        showView(payload.view);
+        remember(payload.view);
+        if (!hasPending(payload.view)) {
+          setPhase("result");
+          return;
+        }
+        setPhase("countdown");
       } catch {
-        if (!alive) return;
+        if (!alive || generationRef.current !== generation) return;
         setError("Không mở được trận đấu.");
         setPhase("error");
       }
     })();
 
     const forfeitKeepalive = () => {
-      if (phaseRef.current !== "play") return;
-      void fetch(`/api/duels/${duelId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "forfeit", pageSession: session }),
-        keepalive: true,
-      });
+      forfeitLive(true);
     };
 
     const onHide = () => {
-      if (document.visibilityState !== "hidden" || phaseRef.current !== "play") return;
-      void (async () => {
-        const payload = await post("forfeit");
-        if (!payload) return;
-        const next = hasPending(payload.view);
-        setView(payload.view);
-        setFeedback(null);
-        setDraft("");
-        setQuitOpen(false);
-        if (!next) {
-          setPhase("result");
-          return;
-        }
-        setBetween({ kind: "forfeit", elapsedMs: null, hasNext: true });
-        setPhase("between");
-      })();
+      if (document.visibilityState !== "hidden") return;
+      forfeitLive(false);
     };
 
     document.addEventListener("visibilitychange", onHide);
@@ -206,94 +337,72 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
         forfeitKeepalive();
       }, 300);
     };
-    // The session clock starts once per visit to this duel.
+    // The bundle loads once per visit. Leaving the clip forfeits it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duelId]);
 
   useEffect(() => {
-    if (phase !== "play" || !view?.startedAt) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 200);
-    return () => window.clearInterval(timer);
-  }, [phase, view?.startedAt]);
-
-  useEffect(() => {
     if (phase === "play") textareaRef.current?.focus();
-  }, [phase, view?.nextPosition]);
+  }, [phase, livePosition]);
 
-  const clip = activeClip(view);
-  const elapsed =
-    view?.startedAt && phase === "play" ? Math.max(0, now - Date.parse(view.startedAt)) : 0;
-  const settledCount = view?.clips.filter((item) => item.you.state === "done" || item.you.state === "forfeited").length ?? 0;
+  const clip = view?.clips.find((item) => item.position === livePosition) ?? null;
+  const settledCount = view?.clips.filter((item) => isSettledState(item.you.state)).length ?? 0;
 
-  const submit = async () => {
-    if (!draft.trim() || busy || phase !== "play") return;
-    setBusy(true);
-    try {
-      const payload = await post("answer", draft);
-      if (!payload) {
-        setError("Không gửi được câu trả lời.");
-        return;
-      }
-      setView(payload.view);
-      if (payload.feedback?.tooFast) {
-        setFeedback(payload.feedback);
-        return;
-      }
-      if (!payload.feedback?.accepted) {
-        setFeedback(payload.feedback);
-        return;
-      }
-      playSuccessSound();
-      setFeedback(null);
-      setDraft("");
-      const doneClip = payload.view.clips.find((item) => item.position === clip?.position);
-      if (!hasPending(payload.view)) {
-        if (payload.view.yourOutcome === "win") playCelebrationSound();
-        setPhase("result");
-        return;
-      }
-      setBetween({
-        kind: "correct",
-        elapsedMs: doneClip?.you.elapsedMs ?? null,
-        hasNext: true,
-      });
-      setPhase("between");
-    } finally {
-      setBusy(false);
+  const submit = () => {
+    if (!draft.trim() || phase !== "play" || !clip?.script || clockStartRef.current == null) return;
+    const typed = draft.trim().slice(0, MAX_ANSWER_CHARS);
+    const elapsedMs = Math.max(0, Date.now() - clockStartRef.current);
+    const result = scoreAttempt(typed, clip.script);
+    const words = result.words.map((word) => ({
+      word: word.word,
+      status: word.status,
+      ...(word.typed ? { typed: word.typed } : {}),
+    }));
+    if (result.accuracy !== 100) {
+      setFeedback({ accuracy: result.accuracy, accepted: false, tooFast: false, words });
+      return;
     }
+    const current = viewRef.current;
+    if (!current) return;
+    playSuccessSound();
+    const next = withClipSettled(current, clip.position, { state: "done", elapsedMs });
+    playingPositionRef.current = null;
+    remember(next);
+    setFeedback(null);
+    setDraft("");
+    saveClip("settle", { position: clip.position, text: typed, elapsedMs });
+    if (!hasPending(next)) {
+      if (next.yourOutcome === "win") playCelebrationSound();
+      setPhase("result");
+      return;
+    }
+    const upcoming = nextClip(next);
+    if (!upcoming?.script || !upcoming.audioPath) {
+      setError("Câu này không phát được.");
+      setPhase("error");
+      return;
+    }
+    startClip(upcoming.position);
   };
 
-  const confirmQuit = async () => {
+  const confirmQuit = () => {
     setQuitOpen(false);
-    setBusy(true);
-    try {
-      const payload = await post("forfeit");
-      if (!payload) return;
-      setView(payload.view);
-      setFeedback(null);
-      setDraft("");
-      if (!hasPending(payload.view)) {
-        setPhase("result");
-        return;
-      }
-      setBetween({ kind: "forfeit", elapsedMs: null, hasNext: true });
-      setPhase("between");
-    } finally {
-      setBusy(false);
-    }
+    forfeitLive(false);
   };
 
-  const continueDuel = async () => {
-    setBusy(true);
-    try {
-      const payload = await post("enter");
-      if (!payload) return;
-      setDraft("");
-      setFeedback(null);
-      showView(payload.view);
-    } finally {
-      setBusy(false);
+  const continueDuel = () => {
+    const current = viewRef.current;
+    const upcoming = current ? nextClip(current) : null;
+    if (!current || !upcoming) {
+      setPhase("result");
+      return;
     }
+    if (!upcoming.script || !upcoming.audioPath) {
+      setError("Câu này không phát được.");
+      return;
+    }
+    countdownStarts.delete(duelId);
+    setPhase("countdown");
   };
 
   const insertChar = (char: string) => {
@@ -336,20 +445,51 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             </Link>
           )}
           <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-[15px] font-extrabold">{view?.opponentName ?? "Đấu"}</p>
+            <p className="truncate text-[15px] font-extrabold">
+              {view ? `${view.yourName} vs ${view.opponentName}` : "Đấu"}
+            </p>
             <p className="text-[12px] font-bold text-[#6e7881]">
-              {phase === "play" ? `Câu ${settledCount + 1}/${DUEL_SIZE}` : "Kết quả"}
+              {phase === "play"
+                ? `Câu ${settledCount + 1}/${DUEL_SIZE}`
+                : phase === "between"
+                  ? `${settledCount}/${DUEL_SIZE} câu`
+                  : phase === "countdown"
+                    ? "Sắp bắt đầu"
+                    : phase === "result"
+                      ? "Kết quả"
+                      : phase === "loading"
+                        ? "Đang chuẩn bị"
+                        : ""}
             </p>
           </div>
-          <p className="w-16 text-right text-[15px] font-extrabold tabular-nums text-[#0284c7]">
-            {phase === "play" ? formatDuelTime(elapsed) : ""}
-          </p>
+          <span className="w-10" aria-hidden="true" />
         </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-4">
         {phase === "loading" ? (
-          <div className="h-48 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+          <section className="flex flex-1 flex-col items-center justify-center py-20 text-center">
+            <span className="material-symbols-outlined text-[48px] text-[#0284c7]" aria-hidden="true">
+              swords
+            </span>
+            <p className="mt-4 text-[20px] font-extrabold">Đang chuẩn bị trận đấu</p>
+          </section>
+        ) : null}
+
+        {phase === "countdown" && view ? (
+          <OpeningCountdown
+            duelId={duelId}
+            opponentName={view.opponentName}
+            onDone={() => {
+              const upcoming = nextClip(view);
+              if (!upcoming?.script || !upcoming.audioPath) {
+                setError("Không mở được câu đầu.");
+                setPhase("error");
+                return;
+              }
+              startClip(upcoming.position);
+            }}
+          />
         ) : null}
 
         {phase === "error" ? (
@@ -368,7 +508,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1" aria-label="Tiến độ trận đấu">
               {view?.clips.map((item) => {
-                const filled = item.you.state === "done" || item.you.state === "forfeited" || item.position === clip.position;
+                const filled = isSettledState(item.you.state) || item.position === clip.position;
                 const lost = item.you.state === "forfeited";
                 return (
                   <span
@@ -381,12 +521,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
               })}
             </div>
             <AudioPlayerCard key={clip.position} audioPath={clip.audioPath} />
-            {feedback?.tooFast ? (
-              <p className="rounded-2xl bg-[#fff4d6] px-4 py-3 text-[14px] font-bold text-[#855300] shadow-[0_3px_0_0_#f4d48a]">
-                Đúng rồi, nhưng thời gian dưới 2 giây không được tính. Hãy gửi lại.
-              </p>
-            ) : null}
-            {feedback && !feedback.accepted && !feedback.tooFast ? (
+            {feedback && !feedback.accepted ? (
               <section className="rounded-2xl bg-white px-4 py-3 shadow-[0_3px_0_0_#fecdd3]">
                 <p className="text-[13px] font-extrabold text-[#be123c]">Chưa đúng. Sửa lại và gửi tiếp.</p>
                 <div className="mt-2">
@@ -395,6 +530,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
               </section>
             ) : null}
             {error ? <p className="text-[14px] font-bold text-[#be123c]">{error}</p> : null}
+            {syncError ? <p className="text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
             <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#6e7881]" htmlFor="duel-answer">
               Bản chép chính tả
             </label>
@@ -407,7 +543,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  void submit();
+                  submit();
                 }
               }}
               placeholder="Gõ câu tiếng Đức bạn vừa nghe"
@@ -427,8 +563,8 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             </div>
             <button
               type="button"
-              disabled={!draft.trim() || busy}
-              onClick={() => void submit()}
+              disabled={!draft.trim()}
+              onClick={() => submit()}
               className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
             >
               Kiểm tra
@@ -438,18 +574,15 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
 
         {phase === "between" && between ? (
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
-            <p className="text-[28px] font-extrabold">
-              {between.kind === "correct" ? "Đúng" : "Câu này bị tính thua"}
-            </p>
+            <p className="text-[28px] font-extrabold">Câu này bị tính thua</p>
             <p className="mt-2 text-[15px] font-semibold text-[#6e7881]">
-              {between.kind === "correct"
-                ? `Thời gian của bạn: ${formatDuelTime(between.elapsedMs)}`
-                : "Câu này không có thời gian. Bạn sẽ tiếp tục với các câu còn lại."}
+              {view ? `Đấu với ${view.opponentName}. ` : ""}
+              Bạn sẽ tiếp tục với các câu còn lại.
             </p>
+            {syncError ? <p className="mt-3 text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void continueDuel()}
+              onClick={() => continueDuel()}
               className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none"
             >
               Câu tiếp theo
@@ -463,15 +596,21 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
         {phase === "result" && view ? (
           <div className="flex flex-col gap-4">
             <section className="rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">
-              <p className="text-[13px] font-bold uppercase tracking-wider text-sky-100">
+              <p className="text-center text-[13px] font-bold uppercase tracking-wider text-sky-100">
                 {view.complete ? "Kết quả" : "Đang chờ đối thủ"}
               </p>
-              <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
-                {view.yourPoints}
-                <span className="px-2 text-[28px] text-sky-100">–</span>
-                {view.opponentPoints}
-              </p>
-              <p className="mt-2 text-[16px] font-extrabold">
+              <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-[14px] font-extrabold">{view.yourName}</p>
+                  <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">{view.yourPoints}</p>
+                </div>
+                <p className="text-[13px] font-extrabold tracking-wide text-sky-100">VS</p>
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-[14px] font-extrabold">{view.opponentName}</p>
+                  <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">{view.opponentPoints}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[16px] font-extrabold">
                 {view.complete
                   ? view.yourOutcome === "win"
                     ? `Bạn thắng · +${view.yourXp ?? 50} XP`
@@ -481,23 +620,70 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                   : `${view.opponentName} chưa xong phần của họ.`}
               </p>
             </section>
+            {syncError ? <p className="text-center text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
             <ol className="flex flex-col gap-2">
               {view.clips.map((item) => (
                 <li key={item.position} className="rounded-2xl bg-white px-4 py-3 shadow-[0_3px_0_0_#dae2fd]">
                   <p className="text-[15px] font-extrabold text-[#131b2e]">
                     {item.script ?? `Câu ${item.position + 1}`}
                   </p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#6e7881]">
-                    Bạn{" "}
-                    {item.you.state === "forfeited"
-                      ? "Bỏ"
-                      : item.you.elapsedMs == null
-                        ? "—"
-                        : formatDuelTime(item.you.elapsedMs)}
-                    {" · "}
-                    {view.opponentName} {opponentTime(item)}
-                  </p>
-                  <p className="mt-1 text-[13px] font-extrabold text-[#0284c7]">{clipSummary(item, view.opponentName)}</p>
+                  {view.complete ? (
+                    <>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            {
+                              name: view.yourName,
+                              time: clipTime(item.you.state, item.you.elapsedMs),
+                              won: item.winner === "you",
+                            },
+                            {
+                              name: view.opponentName,
+                              time: opponentTime(item),
+                              won: item.winner === "opponent",
+                            },
+                          ] as const
+                        ).map((side, index) => (
+                          <div
+                            key={index}
+                            className={`min-w-0 rounded-2xl px-2 py-2 text-center ${
+                              side.won ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]" : "bg-[#f8fafc]"
+                            }`}
+                          >
+                            <p
+                              className={`truncate text-[12px] font-extrabold ${
+                                side.won ? "text-[#0284c7]" : "text-[#6e7881]"
+                              }`}
+                            >
+                              {side.name}
+                            </p>
+                            <p
+                              className={`mt-1 text-[18px] font-extrabold tabular-nums ${
+                                side.won ? "text-[#0284c7]" : "text-[#131b2e]"
+                              }`}
+                            >
+                              {side.time}
+                            </p>
+                            <p
+                              className={`mt-0.5 text-[11px] font-extrabold ${
+                                side.won ? "text-[#0284c7]" : "invisible"
+                              }`}
+                              aria-hidden={side.won ? undefined : true}
+                            >
+                              Nhanh hơn
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      {clipNote(item) ? (
+                        <p className="mt-2 text-center text-[13px] font-extrabold text-[#6e7881]">{clipNote(item)}</p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="mt-1 text-[13px] font-semibold text-[#6e7881]">
+                      {item.you.state === "forfeited" ? "Bỏ câu này" : "Đã xong"}
+                    </p>
+                  )}
                 </li>
               ))}
             </ol>
@@ -534,7 +720,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             </button>
             <button
               type="button"
-              onClick={() => void confirmQuit()}
+              onClick={() => confirmQuit()}
               className="mt-2 flex h-12 w-full items-center justify-center rounded-2xl bg-[#fff1f2] text-[16px] font-extrabold text-[#be123c]"
             >
               Thoát câu này

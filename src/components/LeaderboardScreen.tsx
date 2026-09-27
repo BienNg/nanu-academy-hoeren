@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { TopBarStatus } from "@/components/TodayXpChip";
 import type { LeaderboardBoard, LeaderboardPayload, LeaderboardRange, LeaderboardScope } from "@/lib/xp";
 import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
@@ -184,19 +185,22 @@ export function LeaderboardScreen({
       className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff] text-[#131b2e]"
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-2 px-4 pb-2.5 pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-headline-md text-headline-md font-extrabold tracking-tight text-[#131b2e]">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-4 pb-2.5 pt-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <h1 className="min-w-0 font-headline-md text-headline-md font-extrabold tracking-tight text-[#131b2e]">
               Bảng xếp hạng
             </h1>
-            {range === "week" && board.countdown ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[12px] font-extrabold text-[#855300] shadow-[0_2px_0_0_#f4d48a]">
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                  schedule
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {range === "week" && board.countdown ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[12px] font-extrabold text-[#855300] shadow-[0_2px_0_0_#f4d48a]">
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+                    schedule
+                  </span>
+                  {board.countdown}
                 </span>
-                {board.countdown}
-              </span>
-            ) : null}
+              ) : null}
+              <TopBarStatus />
+            </div>
           </div>
           <BoardTabs board={boardKind} onChange={setBoardKind} />
           <div className="flex items-center gap-1 rounded-full bg-[#e2e7ff] p-1">
@@ -218,7 +222,7 @@ export function LeaderboardScreen({
       </header>
 
       <main
-        className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 ${
+        className={`mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 ${
           loading ? "opacity-70" : ""
         }`}
       >

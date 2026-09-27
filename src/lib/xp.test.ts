@@ -7,14 +7,11 @@ import {
   decidePartXp,
   formatWeekCountdown,
   isXpSchemaMissing,
-  MIN_MS_PER_CLIP,
   weekEndsAt,
   weekKey,
   type BoardPerson,
   type LessonClip,
 } from "./xp.js";
-import { isTooFast } from "./duels.js";
-
 const NOW = new Date("2026-09-27T13:00:00.000Z");
 
 function clips(count: number, script = "Hallo"): LessonClip[] {
@@ -114,8 +111,6 @@ test("review pays 40 percent until the daily cap, then the same part pays nothin
 test("failed, too-fast, and mismatched runs do not earn XP", () => {
   assert.equal(decide({ outcome: "fail" }).kind, "fail");
   assert.equal(decide({ elapsedMs: 1999 }).kind, "rejected");
-  assert.equal(isTooFast(MIN_MS_PER_CLIP - 1), true);
-  assert.equal(isTooFast(MIN_MS_PER_CLIP), false);
   assert.equal(decide({ results: results(["missing"]) }).kind, "rejected");
   assert.equal(decide({ expectedCount: null }).kind, "rejected");
 });

@@ -17,15 +17,14 @@ import {
   MAX_OPEN_WITH_CLASSMATE,
   awardForPoints,
   clipWinner,
-  elapsedMsBetween,
   emptyDuelHome,
   extractStudiedClips,
   homeBucket,
   isDuelId,
   isDuelSchemaMissing,
   isSettledState,
-  isTooFast,
   matchPool,
+  opponentCanSeeDuel,
   pointsFromPlays,
   sampleItems,
   sharedStudied,
@@ -535,6 +534,12 @@ export async function getDuelHome(user: {
   home.viewerIsAdmin = context.viewerIsAdmin;
 
   const cards = duels
+    .filter((duel) =>
+      opponentCanSeeDuel(
+        duel.opponent_id === user.id,
+        settledFor(plays, duel.id, duel.challenger_id),
+      ),
+    )
     .slice()
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .map((duel) => toCard(duel, user.id, plays, awards, context.names));
@@ -553,6 +558,16 @@ export async function getDuelHome(user: {
   home.history.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   home.history = home.history.slice(0, 40);
   return home;
+}
+
+function settledFor(
+  plays: readonly (PlayRow & { duel_id: string })[],
+  duelId: string,
+  userId: string,
+): number {
+  return plays.filter(
+    (play) => play.duel_id === duelId && play.user_id === userId && isSettledState(play.state),
+  ).length;
 }
 
 function cardBucketStarted(
@@ -599,8 +614,23 @@ function toCard(
   const theirs = plays.filter((play) => play.duel_id === duel.id && play.user_id === opponentId);
   const youAreChallenger = duel.challenger_id === userId;
   const award = awards.find((item) => item.duel_id === duel.id && item.user_id === userId);
+  const live = pointsFromPlays(
+    yours.map((play) => ({
+      position: play.position,
+      state: play.state,
+      elapsedMs: play.state === "done" ? play.elapsed_ms : null,
+    })),
+    theirs.map((play) => ({
+      position: play.position,
+      state: play.state,
+      elapsedMs: play.state === "done" ? play.elapsed_ms : null,
+    })),
+  );
+  const storedYours = youAreChallenger ? duel.challenger_points : duel.opponent_points;
+  const storedTheirs = youAreChallenger ? duel.opponent_points : duel.challenger_points;
   return {
     id: duel.id,
+    yourName: names.get(userId) ?? "Bạn",
     opponentName: names.get(opponentId) ?? "Học viên",
     createdAt: duel.completed_at ?? duel.created_at,
     challenged: !youAreChallenger && yours.length === 0,
@@ -608,8 +638,8 @@ function toCard(
     opponentStarted: theirs.length > 0,
     yourOutcome: award?.outcome ?? outcomeFromStored(duel, userId),
     yourXp: award?.xp ?? null,
-    yourPoints: youAreChallenger ? duel.challenger_points : duel.opponent_points,
-    opponentPoints: youAreChallenger ? duel.opponent_points : duel.challenger_points,
+    yourPoints: storedYours ?? live.left,
+    opponentPoints: storedTheirs ?? live.right,
   };
 }
 
@@ -734,12 +764,44 @@ export async function createDuel(user: {
   return { ok: false, block: blockedByCap ? "cap" : "no_overlap" };
 }
 
+/** Challenges the viewer has been sent and has not opened yet. */
+export async function countUnstartedChallenges(userId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return 0;
+  const { data, error } = await supabase
+    .from(DUELS_TABLE)
+    .select("id, challenger_id")
+    .eq("opponent_id", userId)
+    .is("completed_at", null);
+  if (error) {
+    if (schemaGone(error.message)) return 0;
+    return 0;
+  }
+  const duels = (data ?? []).flatMap((row) => {
+    const record = row as { id?: unknown; challenger_id?: unknown };
+    if (typeof record.id !== "string" || typeof record.challenger_id !== "string") return [];
+    return [{ id: record.id, challengerId: record.challenger_id }];
+  });
+  if (duels.length === 0) return 0;
+  const plays = await playsForDuels(
+    supabase,
+    duels.map((duel) => duel.id),
+  );
+  return duels.filter((duel) => {
+    const released = opponentCanSeeDuel(true, settledFor(plays, duel.id, duel.challengerId));
+    const started = plays.some((play) => play.duel_id === duel.id && play.user_id === userId);
+    return released && !started;
+  }).length;
+}
+
 export async function actOnDuel(input: {
   userId: string;
   duelId: string;
-  action: "enter" | "answer" | "forfeit";
+  action: "open" | "begin" | "settle" | "forfeit";
   pageSession: string;
   text?: string;
+  position?: number | null;
+  elapsedMs?: number | null;
   now?: Date;
 }): Promise<DuelActionResult> {
   if (!isDuelId(input.duelId) || !isDuelId(input.pageSession)) {
@@ -753,24 +815,55 @@ export async function actOnDuel(input: {
   if (duel.challenger_id !== input.userId && duel.opponent_id !== input.userId) {
     return { ok: false, status: 404, error: "Not found" };
   }
+  if (duel.opponent_id === input.userId) {
+    const plays = await readPlays(supabase, input.duelId);
+    const challengerSettled = plays.filter(
+      (play) => play.user_id === duel.challenger_id && isSettledState(play.state),
+    ).length;
+    if (!opponentCanSeeDuel(true, challengerSettled)) {
+      return { ok: false, status: 404, error: "Not found" };
+    }
+  }
 
-  if (input.action === "enter") {
+  if (input.action === "open") {
     await forfeitOtherSessions(supabase, input.duelId, input.userId, input.pageSession, now);
-    await activateNext(supabase, input.duelId, input.userId, input.pageSession, now);
+    await skipMissingClips(supabase, input.duelId, input.userId, now);
+  } else if (input.action === "begin") {
+    if (!isClipPosition(input.position)) return { ok: false, status: 400, error: "Invalid clip" };
+    await beginClip(supabase, input.duelId, input.userId, input.position, input.pageSession, now);
   } else if (input.action === "forfeit") {
-    await forfeitSession(supabase, input.duelId, input.userId, input.pageSession, now);
+    if (isClipPosition(input.position)) {
+      await forfeitClip(supabase, input.duelId, input.userId, input.position, now);
+    } else {
+      await forfeitSession(supabase, input.duelId, input.userId, input.pageSession, now);
+    }
   } else {
-    const feedback = await acceptAnswer(supabase, duel, input.userId, input.text ?? "", now);
+    if (!isClipPosition(input.position)) return { ok: false, status: 400, error: "Invalid clip" };
+    const feedback = await settleClip(
+      supabase,
+      input.duelId,
+      input.userId,
+      input.position,
+      input.text ?? "",
+      input.elapsedMs,
+      now,
+    );
     await finalizeIfReady(supabase, input.duelId, now);
     const view = await readView(supabase, input.userId, input.duelId);
     if (!view) return { ok: false, status: 503, error: "Unavailable" };
     return { ok: true, view, feedback };
   }
 
-  await finalizeIfReady(supabase, input.duelId, now);
+  if (input.action === "forfeit" || input.action === "open") {
+    await finalizeIfReady(supabase, input.duelId, now);
+  }
   const view = await readView(supabase, input.userId, input.duelId);
   if (!view) return { ok: false, status: 503, error: "Unavailable" };
   return { ok: true, view, feedback: null };
+}
+
+function isClipPosition(position: number | null | undefined): position is number {
+  return typeof position === "number" && Number.isInteger(position) && position >= 0 && position < DUEL_SIZE;
 }
 
 async function readDuel(supabase: SupabaseClient, duelId: string): Promise<DuelRow | null> {
@@ -870,51 +963,181 @@ async function forfeitSession(
   if (error) schemaGone(error.message);
 }
 
-async function activateNext(
+async function skipMissingClips(
   supabase: SupabaseClient,
   duelId: string,
   userId: string,
-  pageSession: string,
   now: Date,
 ): Promise<void> {
   const catalog = catalogIndex(listCatalogClips());
   for (let guard = 0; guard < DUEL_SIZE; guard += 1) {
     const plays = await readPlays(supabase, duelId);
     const mine = plays.filter((play) => play.user_id === userId);
-    const active = mine.find((play) => play.state === "active" && play.page_session === pageSession);
-    if (active) return;
     const clips = await readClips(supabase, duelId);
     const taken = new Set(mine.map((play) => play.position));
     const next = clips.find((clip) => !taken.has(clip.position));
     if (!next) return;
     const known = catalog.get(studiedKey(next.lesson_key, next.clip_id));
-    if (!known?.script || !known.audioPath) {
-      await insertPlay(supabase, {
-        duel_id: duelId,
-        user_id: userId,
-        position: next.position,
-        state: "forfeited",
-        page_session: null,
-        started_at: null,
-        finished_at: now.toISOString(),
-        elapsed_ms: null,
-      });
-      continue;
-    }
+    if (known?.script && known.audioPath) return;
     const inserted = await insertPlay(supabase, {
       duel_id: duelId,
       user_id: userId,
       position: next.position,
-      state: "active",
-      page_session: pageSession,
-      started_at: now.toISOString(),
-      finished_at: null,
+      state: "forfeited",
+      page_session: null,
+      started_at: null,
+      finished_at: now.toISOString(),
       elapsed_ms: null,
     });
-    if (inserted === "active") return;
-    if (inserted === "conflict") continue;
+    if (inserted === "error") return;
+  }
+}
+
+async function beginClip(
+  supabase: SupabaseClient,
+  duelId: string,
+  userId: string,
+  position: number,
+  pageSession: string,
+  now: Date,
+): Promise<void> {
+  const plays = await readPlays(supabase, duelId);
+  const existing = plays.find((play) => play.user_id === userId && play.position === position);
+  if (existing) return;
+  await insertPlay(supabase, {
+    duel_id: duelId,
+    user_id: userId,
+    position,
+    state: "active",
+    page_session: pageSession,
+    started_at: now.toISOString(),
+    finished_at: null,
+    elapsed_ms: null,
+  });
+}
+
+async function forfeitClip(
+  supabase: SupabaseClient,
+  duelId: string,
+  userId: string,
+  position: number,
+  now: Date,
+): Promise<void> {
+  const plays = await readPlays(supabase, duelId);
+  const existing = plays.find((play) => play.user_id === userId && play.position === position);
+  if (existing && existing.state !== "active") return;
+  if (existing?.state === "active") {
+    await forfeitPosition(supabase, duelId, userId, position, now);
     return;
   }
+  const inserted = await insertPlay(supabase, {
+    duel_id: duelId,
+    user_id: userId,
+    position,
+    state: "forfeited",
+    page_session: null,
+    started_at: null,
+    finished_at: now.toISOString(),
+    elapsed_ms: null,
+  });
+  if (inserted === "conflict") await forfeitPosition(supabase, duelId, userId, position, now);
+}
+
+const MAX_CLIP_MS = 30 * 60 * 1000;
+
+async function settleClip(
+  supabase: SupabaseClient,
+  duelId: string,
+  userId: string,
+  position: number,
+  text: string,
+  elapsedMs: number | null | undefined,
+  now: Date,
+): Promise<DuelFeedback> {
+  const empty: DuelFeedback = { accuracy: 0, accepted: false, tooFast: false, words: [] };
+  const plays = await readPlays(supabase, duelId);
+  const existing = plays.find((play) => play.user_id === userId && play.position === position);
+  if (existing && existing.state !== "active") {
+    return { accuracy: 100, accepted: existing.state === "done", tooFast: false, words: [] };
+  }
+  const clips = await readClips(supabase, duelId);
+  const clip = clips.find((item) => item.position === position);
+  if (!clip) return empty;
+  const known = catalogIndex(listCatalogClips()).get(studiedKey(clip.lesson_key, clip.clip_id));
+  if (!known?.script) {
+    await forfeitClip(supabase, duelId, userId, position, now);
+    return empty;
+  }
+
+  const typed = text.trim().slice(0, MAX_ANSWER_CHARS);
+  const result = scoreAttempt(typed, known.script);
+  const words = result.words.map((word) => ({
+    word: word.word,
+    status: word.status,
+    ...(word.typed ? { typed: word.typed } : {}),
+  }));
+  if (result.accuracy !== 100) {
+    return { accuracy: result.accuracy, accepted: false, tooFast: false, words };
+  }
+  if (elapsedMs == null || !Number.isInteger(elapsedMs) || elapsedMs < 0 || elapsedMs > MAX_CLIP_MS) {
+    return { accuracy: 100, accepted: false, tooFast: false, words };
+  }
+
+  const finishedAt = now.toISOString();
+  const startedAt = new Date(now.getTime() - elapsedMs).toISOString();
+  if (existing?.state === "active") {
+    const { data, error } = await supabase
+      .from(PLAYS_TABLE)
+      .update({
+        state: "done",
+        finished_at: finishedAt,
+        elapsed_ms: elapsedMs,
+        page_session: null,
+      })
+      .eq("duel_id", duelId)
+      .eq("user_id", userId)
+      .eq("position", position)
+      .eq("state", "active")
+      .select("position");
+    if (error) {
+      schemaGone(error.message);
+      return { accuracy: 100, accepted: false, tooFast: false, words };
+    }
+    if (!data || data.length === 0) return { accuracy: 100, accepted: false, tooFast: false, words };
+    return { accuracy: 100, accepted: true, tooFast: false, words };
+  }
+
+  const inserted = await insertPlay(supabase, {
+    duel_id: duelId,
+    user_id: userId,
+    position,
+    state: "done",
+    page_session: null,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    elapsed_ms: elapsedMs,
+  });
+  if (inserted === "error") return { accuracy: 100, accepted: false, tooFast: false, words };
+  if (inserted === "inserted") return { accuracy: 100, accepted: true, tooFast: false, words };
+  const retry = await supabase
+    .from(PLAYS_TABLE)
+    .update({
+      state: "done",
+      finished_at: finishedAt,
+      elapsed_ms: elapsedMs,
+      page_session: null,
+    })
+    .eq("duel_id", duelId)
+    .eq("user_id", userId)
+    .eq("position", position)
+    .eq("state", "active")
+    .select("position");
+  if (retry.error) {
+    schemaGone(retry.error.message);
+    return { accuracy: 100, accepted: false, tooFast: false, words };
+  }
+  if (!retry.data || retry.data.length === 0) return { accuracy: 100, accepted: false, tooFast: false, words };
+  return { accuracy: 100, accepted: true, tooFast: false, words };
 }
 
 async function insertPlay(
@@ -929,70 +1152,12 @@ async function insertPlay(
     finished_at: string | null;
     elapsed_ms: number | null;
   },
-): Promise<"active" | "conflict" | "error"> {
+): Promise<"inserted" | "conflict" | "error"> {
   const { error } = await supabase.from(PLAYS_TABLE).insert(row);
-  if (!error) return row.state === "active" ? "active" : "conflict";
+  if (!error) return "inserted";
   if (error.code === "23505") return "conflict";
   schemaGone(error.message);
   return "error";
-}
-
-async function acceptAnswer(
-  supabase: SupabaseClient,
-  duel: DuelRow,
-  userId: string,
-  text: string,
-  now: Date,
-): Promise<DuelFeedback> {
-  const empty: DuelFeedback = { accuracy: 0, accepted: false, tooFast: false, words: [] };
-  const plays = await readPlays(supabase, duel.id);
-  const active = plays.find((play) => play.user_id === userId && play.state === "active");
-  if (!active?.started_at) return empty;
-  const clips = await readClips(supabase, duel.id);
-  const clip = clips.find((item) => item.position === active.position);
-  if (!clip) return empty;
-  const known = catalogIndex(listCatalogClips()).get(studiedKey(clip.lesson_key, clip.clip_id));
-  if (!known?.script) {
-    await forfeitPosition(supabase, duel.id, userId, active.position, now);
-    return empty;
-  }
-
-  const typed = text.trim().slice(0, MAX_ANSWER_CHARS);
-  const result = scoreAttempt(typed, known.script);
-  const words = result.words.map((word) => ({
-    word: word.word,
-    status: word.status,
-    ...(word.typed ? { typed: word.typed } : {}),
-  }));
-  if (result.accuracy !== 100) {
-    return { accuracy: result.accuracy, accepted: false, tooFast: false, words };
-  }
-
-  const elapsed = elapsedMsBetween(active.started_at, now);
-  if (elapsed == null) return { accuracy: 100, accepted: false, tooFast: false, words };
-  if (isTooFast(elapsed)) {
-    return { accuracy: 100, accepted: false, tooFast: true, words };
-  }
-
-  const { data, error } = await supabase
-    .from(PLAYS_TABLE)
-    .update({
-      state: "done",
-      finished_at: now.toISOString(),
-      elapsed_ms: elapsed,
-      page_session: null,
-    })
-    .eq("duel_id", duel.id)
-    .eq("user_id", userId)
-    .eq("position", active.position)
-    .eq("state", "active")
-    .select("position");
-  if (error) {
-    schemaGone(error.message);
-    return { accuracy: 100, accepted: false, tooFast: false, words };
-  }
-  if (!data || data.length === 0) return empty;
-  return { accuracy: 100, accepted: true, tooFast: false, words };
 }
 
 async function forfeitPosition(
@@ -1090,6 +1255,7 @@ async function readView(
     plays,
     awards,
     userId,
+    yourName: names.get(userId) ?? "Bạn",
     opponentName: names.get(duel.challenger_id === userId ? duel.opponent_id : duel.challenger_id) ?? "Học viên",
     catalog: catalogIndex(listCatalogClips()),
   });
@@ -1118,6 +1284,7 @@ function buildView(input: {
   plays: readonly PlayRow[];
   awards: readonly (XpRow & { duel_id: string })[];
   userId: string;
+  yourName: string;
   opponentName: string;
   catalog: Map<string, CatalogClip>;
 }): DuelView {
@@ -1153,7 +1320,6 @@ function buildView(input: {
           winner = "neither";
         }
       }
-      const active = you?.state === "active";
       const yourState: DuelClipView["you"]["state"] = you?.state ?? "pending";
       const theirState: DuelClipView["opponent"]["state"] = !youSettled
         ? "hidden"
@@ -1162,8 +1328,8 @@ function buildView(input: {
           : "pending";
       return {
         position: clip.position,
-        script: youSettled ? (known?.script ?? null) : null,
-        audioPath: active ? (known?.audioPath ?? null) : null,
+        script: known?.script ?? null,
+        audioPath: known?.audioPath ?? null,
         you: {
           state: yourState,
           elapsedMs: you?.state === "done" ? you.elapsed_ms : null,
@@ -1185,6 +1351,7 @@ function buildView(input: {
 
   return {
     id: input.duel.id,
+    yourName: input.yourName,
     opponentName: input.opponentName,
     complete: Boolean(input.duel.completed_at) || bothDone,
     yourOutcome: yourAward?.outcome ?? award?.leftOutcome ?? null,

@@ -6,6 +6,7 @@ import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
   activeStreakDays,
+  bumpStreak,
   bindStoredProgress,
   clearStoredProgress,
   progressStorageKey,
@@ -722,6 +723,13 @@ export function useProgress(
     [persist, queueCloudSync],
   );
 
+  const recordPracticeDay = useCallback(() => {
+    const current = readProgressSnapshot();
+    const next = bumpStreak(current);
+    if (next === current) return;
+    persist(next, true);
+  }, [persist]);
+
   const setVideoWatched = useCallback(
     (
       key: string,
@@ -764,6 +772,7 @@ export function useProgress(
     continueLevel,
     progressFor,
     streakDays: activeStreakDays(progress),
+    recordPracticeDay,
     markClipDone,
     markLearnClipDone,
     markLearnChapterDone,

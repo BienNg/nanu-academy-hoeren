@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "school" },
@@ -16,6 +17,29 @@ function isCurrent(pathname: string, href: string): boolean {
 
 export function BottomNav() {
   const pathname = usePathname() ?? "/";
+  const [challenges, setChallenges] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetch("/api/duels?badge=1")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: unknown) => {
+          if (cancelled || !data || typeof data !== "object") return;
+          const count = (data as { count?: unknown }).count;
+          setChallenges(typeof count === "number" && count > 0 ? count : 0);
+        })
+        .catch(() => {
+          if (!cancelled) setChallenges(0);
+        });
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", load);
+    };
+  }, [pathname]);
 
   return (
     <nav
@@ -25,17 +49,20 @@ export function BottomNav() {
       <div className="mx-auto flex h-16 w-full max-w-md items-stretch justify-around px-2">
         {ITEMS.map((item) => {
           const active = isCurrent(pathname, item.href);
+          const badge = item.href === "/duel" ? challenges : 0;
+          const label = badge > 0 ? `${item.label}, ${badge} lời thách đấu chưa chơi` : item.label;
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              aria-label={label}
               className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-transform active:translate-y-0.5 ${
                 active ? "text-[#0284c7]" : "text-[#6e7881]"
               }`}
             >
               <span
-                className={`flex h-8 w-14 items-center justify-center rounded-full ${
+                className={`relative flex h-8 w-14 items-center justify-center rounded-full ${
                   active ? "bg-[#e0f2fe]" : ""
                 }`}
               >
@@ -46,6 +73,11 @@ export function BottomNav() {
                 >
                   {item.icon}
                 </span>
+                {badge > 0 ? (
+                  <span className="absolute top-0 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                ) : null}
               </span>
               <span className={`text-[11px] leading-none ${active ? "font-extrabold" : "font-semibold"}`}>
                 {item.label}

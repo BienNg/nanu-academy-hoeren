@@ -1,7 +1,7 @@
 -- Run once in Supabase → SQL Editor (free project is fine).
--- One row per listening clip a learner has completed (a finished part,
--- stored in user_progress.learn completedClipIds). The Next.js API
--- backfills this from existing progress and upserts it on later saves.
+-- One row per listening clip a learner has studied: a finished study
+-- pass, a reviewed study card, or a finished listening part. The Next.js
+-- API backfills this from existing progress and upserts it on later saves.
 -- Duel plays do not add rows. Interview clips are not stored.
 --
 -- Writes go through the Next.js API with the service role key.

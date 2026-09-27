@@ -1,10 +1,9 @@
 /**
  * Asynchronous classmate duels. Both players get the same 15 studied clips.
- * The server owns the clock. A shorter time wins the clip. No time loses it.
+ * The browser scores and times a clip, then saves it in the background.
+ * The server checks the answer and keeps the first result. A shorter time
+ * wins the clip. No time loses it.
  */
-
-/** Matches `MIN_MS_PER_CLIP` in xp.ts. A finish under this is rejected. */
-const MIN_CLIP_MS = 2000;
 
 export const DUEL_SIZE = 15;
 export const MAX_OPEN_WITH_CLASSMATE = 3;
@@ -60,6 +59,7 @@ export type DuelClipView = {
 
 export type DuelView = {
   id: string;
+  yourName: string;
   opponentName: string;
   complete: boolean;
   yourOutcome: DuelOutcome | null;
@@ -81,6 +81,7 @@ export type DuelFeedback = {
 
 export type DuelCard = {
   id: string;
+  yourName: string;
   opponentName: string;
   createdAt: string;
   challenged: boolean;
@@ -118,23 +119,42 @@ export function studiedKey(lessonKey: string, clipId: string): string {
   return `${lessonKey}\0${clipId}`;
 }
 
-export function isTooFast(elapsedMs: number): boolean {
-  return elapsedMs < MIN_CLIP_MS;
-}
-
 export function elapsedMsBetween(startedAtIso: string, now: Date): number | null {
   const started = Date.parse(startedAtIso);
   if (!Number.isFinite(started)) return null;
   return Math.max(0, now.getTime() - started);
 }
 
-/** Completed listening clips that still exist in exactly one catalog lesson. */
+type LearnClipProgress = {
+  completedClipIds?: readonly string[];
+  reviewedClipIds?: readonly string[];
+  studyRunCount?: number;
+  studyCompletedAt?: string;
+};
+
+function studyPassFinished(entry: LearnClipProgress | null | undefined): boolean {
+  if (!entry) return false;
+  if (typeof entry.studyCompletedAt === "string" && entry.studyCompletedAt.length > 0) return true;
+  return typeof entry.studyRunCount === "number" && entry.studyRunCount > 0;
+}
+
+function rememberClip(found: Map<string, StudiedClip>, lessonKey: string, clipId: string): void {
+  found.set(studiedKey(lessonKey, clipId), { lessonKey, clipId });
+}
+
+/**
+ * Clips a learner can be quizzed on. A listening completion, a study card
+ * they have reviewed, or a finished study pass all count. A chapter slug
+ * that exists in more than one lesson is skipped unless the saved key
+ * already names the lesson.
+ */
 export function extractStudiedClips(
-  learn: Record<string, { completedClipIds?: readonly string[] } | null | undefined>,
+  learn: Record<string, LearnClipProgress | null | undefined>,
   catalog: readonly CatalogClip[],
 ): StudiedClip[] {
   const byLesson = new Map<string, Set<string>>();
   const byChapter = new Map<string, CatalogClip[]>();
+  const lessonsByChapter = new Map<string, Set<string>>();
   for (const clip of catalog) {
     const lesson = byLesson.get(clip.lessonKey) ?? new Set<string>();
     lesson.add(clip.clipId);
@@ -142,26 +162,39 @@ export function extractStudiedClips(
     const list = byChapter.get(clip.chapterSlug) ?? [];
     list.push(clip);
     byChapter.set(clip.chapterSlug, list);
+    const lessons = lessonsByChapter.get(clip.chapterSlug) ?? new Set<string>();
+    lessons.add(clip.lessonKey);
+    lessonsByChapter.set(clip.chapterSlug, lessons);
   }
 
   const found = new Map<string, StudiedClip>();
-  for (const [key, entry] of Object.entries(learn)) {
-    const ids = entry?.completedClipIds ?? [];
-    for (const clipId of ids) {
-      if (typeof clipId !== "string" || clipId.length === 0) continue;
-      if (key.includes("/")) {
-        if (!byLesson.get(key)?.has(clipId)) continue;
-        found.set(studiedKey(key, clipId), { lessonKey: key, clipId });
-        continue;
-      }
-      const matches = (byChapter.get(key) ?? []).filter((clip) => clip.clipId === clipId);
-      if (matches.length !== 1) continue;
-      const match = matches[0]!;
-      found.set(studiedKey(match.lessonKey, match.clipId), {
-        lessonKey: match.lessonKey,
-        clipId: match.clipId,
-      });
+  const addNamed = (key: string, clipId: string) => {
+    if (clipId.length === 0) return;
+    if (key.includes("/")) {
+      if (!byLesson.get(key)?.has(clipId)) return;
+      rememberClip(found, key, clipId);
+      return;
     }
+    const matches = (byChapter.get(key) ?? []).filter((clip) => clip.clipId === clipId);
+    if (matches.length !== 1) return;
+    const match = matches[0]!;
+    rememberClip(found, match.lessonKey, match.clipId);
+  };
+
+  for (const [key, entry] of Object.entries(learn)) {
+    for (const clipId of [...(entry?.completedClipIds ?? []), ...(entry?.reviewedClipIds ?? [])]) {
+      if (typeof clipId !== "string") continue;
+      addNamed(key, clipId);
+    }
+    if (!studyPassFinished(entry)) continue;
+    if (key.includes("/")) {
+      for (const clipId of byLesson.get(key) ?? []) rememberClip(found, key, clipId);
+      continue;
+    }
+    const lessons = lessonsByChapter.get(key);
+    if (!lessons || lessons.size !== 1) continue;
+    const lessonKey = [...lessons][0]!;
+    for (const clipId of byLesson.get(lessonKey) ?? []) rememberClip(found, lessonKey, clipId);
   }
   return [...found.values()];
 }
@@ -222,6 +255,81 @@ export function clipWinner(
 
 export function isSettledState(state: string | undefined): boolean {
   return state === "done" || state === "forfeited";
+}
+
+export type LocalClipResult = { state: "done"; elapsedMs: number } | { state: "forfeited" };
+
+function recountView(view: DuelView, clips: readonly DuelClipView[]): DuelView {
+  let yourPoints = 0;
+  let opponentPoints = 0;
+  const scored = clips.map((clip) => {
+    const youSettled = isSettledState(clip.you.state);
+    const themSettled = isSettledState(clip.opponent.state);
+    let winner: DuelClipView["winner"] = "pending";
+    if (youSettled && themSettled) {
+      const side = clipWinner(
+        clip.you.state === "done" ? clip.you.elapsedMs : null,
+        clip.opponent.state === "done" ? clip.opponent.elapsedMs : null,
+      );
+      if (side === "left") {
+        winner = "you";
+        yourPoints += 1;
+      } else if (side === "right") {
+        winner = "opponent";
+        opponentPoints += 1;
+      } else {
+        winner = "neither";
+      }
+    }
+    return { ...clip, winner };
+  });
+  const pending = scored.find((clip) => clip.you.state === "pending" || clip.you.state === "active");
+  const bothDone = scored.length >= DUEL_SIZE && scored.every((clip) => clip.winner !== "pending");
+  const award = bothDone ? awardForPoints(yourPoints, opponentPoints) : null;
+  return {
+    ...view,
+    clips: scored,
+    yourPoints,
+    opponentPoints,
+    nextPosition: pending?.position ?? null,
+    complete: view.complete || bothDone,
+    yourOutcome: award?.leftOutcome ?? (bothDone ? view.yourOutcome : null),
+    yourXp: award?.leftXp ?? (bothDone ? view.yourXp : null),
+    opponentXp: award?.rightXp ?? (bothDone ? view.opponentXp : null),
+  };
+}
+
+/** Apply one local clip result without waiting for the server. */
+export function withClipSettled(view: DuelView, position: number, result: LocalClipResult): DuelView {
+  const clips = view.clips.map((clip) => {
+    if (clip.position !== position || isSettledState(clip.you.state)) return clip;
+    return {
+      ...clip,
+      you:
+        result.state === "done"
+          ? { state: "done" as const, elapsedMs: result.elapsedMs }
+          : { state: "forfeited" as const, elapsedMs: null },
+    };
+  });
+  return recountView(view, clips);
+}
+
+/**
+ * Keep a local result that has not been saved yet. A saved server result wins.
+ */
+export function mergeDuelView(local: DuelView, server: DuelView): DuelView {
+  const clips = server.clips.map((remote) => {
+    const mine = local.clips.find((clip) => clip.position === remote.position);
+    if (!mine) return remote;
+    const keepLocalYou = isSettledState(mine.you.state) && !isSettledState(remote.you.state);
+    return {
+      ...remote,
+      you: keepLocalYou ? mine.you : remote.you,
+      script: remote.script ?? mine.script,
+      audioPath: remote.audioPath ?? mine.audioPath,
+    };
+  });
+  return recountView({ ...server, complete: server.complete }, clips);
 }
 
 export function pointsFromPlays(
@@ -294,6 +402,12 @@ export function homeBucket(input: {
   if (!input.youStarted) return "incoming";
   if (!youDone) return "playing";
   return "waiting";
+}
+
+/** The opponent sees a duel only after the person who started it finishes all clips. */
+export function opponentCanSeeDuel(viewerIsOpponent: boolean, challengerSettled: number, clipCount = DUEL_SIZE): boolean {
+  if (!viewerIsOpponent) return true;
+  return challengerSettled >= clipCount;
 }
 
 export function formatDuelTime(ms: number | null): string {
