@@ -2,6 +2,7 @@ import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
 import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import {
+  countScriptWords,
   getAvailableChapters,
   getCefrLevel,
   getChapterClips,
@@ -27,13 +28,20 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
   const availableChapters = getAvailableChapters(levelSlug);
   const availableSlugs = new Set(availableChapters.map(c => c.slug));
 
-  const chaptersWithAudio = allChapters.map(chapter => ({
-    ...chapter,
-    hasAudio: availableSlugs.has(chapter.slug),
-    clipCount: availableSlugs.has(chapter.slug)
-      ? getChapterClips(levelSlug, chapter.slug).length
-      : 0,
-  }));
+  const chaptersWithAudio = allChapters.map((chapter) => {
+    const clips = availableSlugs.has(chapter.slug)
+      ? getChapterClips(levelSlug, chapter.slug)
+      : [];
+    return {
+      ...chapter,
+      hasAudio: availableSlugs.has(chapter.slug),
+      clipCount: clips.length,
+      wordCount: clips.reduce(
+        (total, clip) => total + countScriptWords(clip.script),
+        0,
+      ),
+    };
+  });
 
   return (
     <LevelViewClient

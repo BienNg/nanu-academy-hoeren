@@ -64,6 +64,11 @@ function stripExtension(filename: string): string {
   return dot <= 0 ? filename : filename.slice(0, dot);
 }
 
+/** German words in a clip script. Whitespace-separated tokens, not flashcards. */
+export function countScriptWords(script: string): number {
+  return script.trim().split(/\s+/).filter(Boolean).length;
+}
+
 function toSessionClip(
   clip: StoredClip,
   levelSlug: string,

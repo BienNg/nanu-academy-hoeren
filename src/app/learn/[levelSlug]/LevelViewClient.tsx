@@ -17,6 +17,7 @@ type Chapter = {
   label: string;
   hasAudio?: boolean;
   clipCount?: number;
+  wordCount?: number;
 };
 
 type Level = {
@@ -51,10 +52,34 @@ type TrailNode = {
   label: string;
 };
 
+function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
+  const titles =
+    lesson?.videos.map((video) => video.title.trim()).filter(Boolean) ?? [];
+  return titles.length > 0 ? titles.join(" & ") : null;
+}
+
+function lessonTopicCaption(
+  topic: string | null,
+  state: "soon" | "completed" | "locked" | "current" | "open",
+): { text: string; current: boolean } | null {
+  if (state === "current") {
+    return {
+      text: topic ? `Lektion hiện tại • ${topic}` : "Lektion hiện tại",
+      current: true,
+    };
+  }
+  if (!topic || state === "soon" || state === "completed") {
+    return topic ? { text: topic, current: false } : null;
+  }
+  if (state === "locked") return { text: `${topic} • Đã khóa`, current: false };
+  return { text: topic, current: false };
+}
+
 function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
   videoHref: (videoId: string) => string,
+  wordCount: number,
 ): TrailNode[] {
   if (!lesson) return [];
 
@@ -71,12 +96,20 @@ function lessonTrailNodes(
   }));
 
   const activities = lesson.activities.map((activity) => {
-    const primary = activity.progressLabel || activity.note || null;
-    const secondary = activity.progressLabel && activity.note ? activity.note : null;
-    const label = `${activity.label}${
-      activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"
-    }${activity.note ? `, ${activity.note}` : ""}`;
     const isStudy = activity.id.endsWith("-study");
+    const wordLabel = wordCount > 0 ? `${wordCount} từ` : null;
+    const note = isStudy
+      ? activity.progressLabel
+        ? null
+        : wordLabel
+      : activity.note;
+    const primary = activity.progressLabel || note || null;
+    const secondary = activity.progressLabel && note ? note : null;
+    const label = isStudy
+      ? ["Study", activity.progressLabel || null, note].filter(Boolean).join(", ")
+      : `${activity.label}${
+          activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"
+        }${activity.note ? `, ${activity.note}` : ""}`;
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "headphones",
@@ -320,6 +353,14 @@ export default function LevelViewClient({
       return clipCount > 0 && startedCount > 0 && startedCount < clipCount;
     })?.slug ?? null;
 
+  const currentChapterSlug =
+    chapters.find((chapter, index) => {
+      if (chapter.hasAudio === false) return false;
+      if (learnChapterCompleted(chapter.slug)) return false;
+      if (firstIncompletePrevious(index)) return false;
+      return true;
+    })?.slug ?? null;
+
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("lektion");
     setReturnSlug(requested);
@@ -502,6 +543,19 @@ export default function LevelViewClient({
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
+              chapter.wordCount ?? 0,
+            );
+            const topicLine = lessonTopicCaption(
+              lessonTopic(lessonDetail),
+              !isAvailable
+                ? "soon"
+                : isCompleted
+                  ? "completed"
+                  : isLocked
+                    ? "locked"
+                    : chapter.slug === currentChapterSlug
+                      ? "current"
+                      : "open",
             );
             const headerClassName = `flex w-full flex-col gap-2 rounded-2xl bg-white p-4 ${
               isOpen && isResume
@@ -516,13 +570,26 @@ export default function LevelViewClient({
                   </span>
                 ) : null}
                 <div className="flex items-center justify-between gap-3">
-                  <h2
-                    className={`min-w-0 flex-1 text-[20px] font-extrabold leading-7 tracking-tight ${
-                      isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
-                    }`}
-                  >
-                    {level.level} - {chapter.label}
-                  </h2>
+                  <div className="min-w-0 flex-1">
+                    <h2
+                      className={`text-[20px] font-extrabold leading-7 tracking-tight ${
+                        isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
+                      }`}
+                    >
+                      {level.level} - {chapter.label}
+                    </h2>
+                    {topicLine ? (
+                      <p
+                        className={`text-[13px] leading-5 ${
+                          topicLine.current
+                            ? "font-bold text-[#0284c7]"
+                            : "font-medium text-[#6e7881]"
+                        }`}
+                      >
+                        {topicLine.text}
+                      </p>
+                    ) : null}
+                  </div>
                   {isCompleted ? (
                     <AchievementMedal />
                   ) : (
@@ -559,7 +626,24 @@ export default function LevelViewClient({
               >
                 <div className={headerClassName}>{header}</div>
                 {nodes.length > 0 ? (
-                  <ul className="flex w-full flex-col items-center gap-3 py-3">
+                  <ul className="relative flex w-full flex-col items-center gap-3 py-3">
+                    {isOpen && nodes.some((node) => node.icon === "menu_book") ? (
+                      <li className="absolute top-3 right-0 z-10">
+                        <Link
+                          href={`${lessonHref}/study?view=list`}
+                          aria-label="Từ vựng"
+                          className="flex h-11 w-11 items-center justify-center rounded-full border-t-2 border-white bg-white text-[#0284c7] shadow-[0_4px_0_0_#bec8d2] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]"
+                        >
+                          <span
+                            className="material-symbols-outlined text-[22px]"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                            aria-hidden="true"
+                          >
+                            dictionary
+                          </span>
+                        </Link>
+                      </li>
+                    ) : null}
                     {nodes.map((node, nodeIndex) => (
                       <li key={node.key} className={PATH_SHIFT[nodeIndex % PATH_SHIFT.length]}>
                         <PathStop node={node} locked={!isOpen} />

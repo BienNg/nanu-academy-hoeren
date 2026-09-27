@@ -9,13 +9,17 @@ import { StudySession } from "@/components/session/StudySession";
 
 type LearnStudyPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
+  searchParams: Promise<{ view?: string | string[] }>;
 };
 
 export default async function LearnStudyPage({
   params,
+  searchParams,
 }: LearnStudyPageProps) {
   const session = await requireUser();
   const { levelSlug, chapterSlug } = await params;
+  const query = await searchParams;
+  const requestedView = Array.isArray(query.view) ? query.view[0] : query.view;
 
   const level = getCefrLevel(levelSlug);
   if (!level) {
@@ -32,5 +36,12 @@ export default async function LearnStudyPage({
 
   const clips = getChapterClips(levelSlug, chapterSlug);
 
-  return <StudySession level={level} chapter={chapter} clips={clips} />;
+  return (
+    <StudySession
+      level={level}
+      chapter={chapter}
+      clips={clips}
+      initialViewMode={requestedView === "list" ? "list" : "cards"}
+    />
+  );
 }

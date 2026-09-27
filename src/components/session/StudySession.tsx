@@ -27,6 +27,7 @@ type StudySessionProps = {
   level: CefrLevel;
   chapter: LevelChapterMeta;
   clips: SessionClip[];
+  initialViewMode?: StudyViewMode;
 };
 
 function MaterialIcon({
@@ -110,7 +111,12 @@ function StudyComplete({
   );
 }
 
-export function StudySession({ level, chapter, clips }: StudySessionProps) {
+export function StudySession({
+  level,
+  chapter,
+  clips,
+  initialViewMode = "cards",
+}: StudySessionProps) {
   const shouldReduceMotion = useReducedMotion();
   const {
     markLearnClipReviewed,
@@ -125,7 +131,7 @@ export function StudySession({ level, chapter, clips }: StudySessionProps) {
   const reviewedCount = catalogCompletedCount(clips, reviewedIds);
   const hubHref = `/learn/${level.slug}/${chapter.slug}`;
 
-  const [viewMode, setViewMode] = useState<StudyViewMode>("cards");
+  const [viewMode, setViewMode] = useState<StudyViewMode>(initialViewMode);
   const [clipIndex, setClipIndex] = useState(() =>
     firstUnreviewedIndex(clips, reviewedIds),
   );
