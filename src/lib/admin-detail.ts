@@ -759,3 +759,38 @@ export function buildClassStats(
     courses,
   };
 }
+
+export function describeCatalogLesson(
+  catalog: readonly AdminCatalogCourse[],
+  lessonKey: string,
+): { course: string; lesson: string } | null {
+  for (const course of catalog) {
+    for (const lesson of course.lessons) {
+      if (lesson.videoKeyPrefix === lessonKey) {
+        return { course: course.label, lesson: lesson.label };
+      }
+    }
+  }
+  return null;
+}
+
+export function describeCatalogClip(
+  catalog: readonly AdminCatalogCourse[],
+  lessonKey: string,
+  clipId: string,
+): { course: string; lesson: string; prompt: string } {
+  for (const course of catalog) {
+    for (const lesson of course.lessons) {
+      if (lesson.videoKeyPrefix !== lessonKey) continue;
+      const prompt = (lesson.clips.find((clip) => clip.id === clipId)?.prompt ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return {
+        course: course.label,
+        lesson: lesson.label,
+        prompt: prompt || clipId,
+      };
+    }
+  }
+  return { course: lessonKey, lesson: "", prompt: clipId };
+}

@@ -9,9 +9,11 @@ import {
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
+import { presentClipOutcomes } from "@/lib/listening-runs";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
+  listClipOutcomeTotals,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -42,6 +44,9 @@ export default async function AdminPage() {
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
+  const clipOutcomes = presentClipOutcomes(
+    storeConfigured ? await listClipOutcomeTotals() : { status: "ready", rows: [] },
+  );
 
   return (
     <AdminUsersDashboard
@@ -50,6 +55,7 @@ export default async function AdminPage() {
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
       currentUserId={session.user.id}
+      clipOutcomes={clipOutcomes}
     />
   );
 }

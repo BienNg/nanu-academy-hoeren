@@ -8,6 +8,7 @@ import {
   CLASS_NAME_MAX_LENGTH,
   normalizeClassName,
 } from "@/lib/admin-overview";
+import type { StudentRunsPage } from "@/lib/listening-runs";
 import {
   INTERVIEW_ACCESS_SLUG,
   deleteUserAccount,
@@ -15,10 +16,31 @@ import {
   getUserLevelAccess,
   hasInterviewAccess,
   isProgressStoreConfigured,
+  listStudentListeningRuns,
   setUserClass,
   setUserLevelAccess,
   withoutInterviewAccess,
 } from "@/lib/progress-store";
+
+export async function listAdminStudentRuns(
+  userId: string,
+  offset = 0,
+): Promise<({ ok: true } & StudentRunsPage) | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id || !isAdminUser(session.user)) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
+  const page = await listStudentListeningRuns(id, start);
+  return { ok: true, ...page };
+}
 
 export async function deleteAdminUser(
   userId: string,

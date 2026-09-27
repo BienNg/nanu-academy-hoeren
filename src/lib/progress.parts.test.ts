@@ -10,6 +10,7 @@ import {
   mergeProgress,
   normalizeProgress,
   setLearnRunOrder,
+  requeueMissedClip,
   splitListeningParts,
 } from "./progress.js";
 
@@ -188,6 +189,28 @@ test("a finished run drops an older in-progress cursor when snapshots merge", ()
   assert.deepEqual(merged.learn["lektion-3"]?.runCompletedClipIds, []);
   assert.equal(merged.learn["lektion-3"]?.runClipOrder, undefined);
   assert.deepEqual(merged.learn["lektion-3"]?.completedClipIds, ["a", "b"]);
+});
+
+test("a missed clip returns later and the following clip takes its place", () => {
+  const clips = questions(4);
+  const soon = requeueMissedClip(clips, 1, () => 0);
+  assert.deepEqual(
+    soon.map((clip) => clip.id),
+    ["c0", "c2", "c1", "c3"],
+  );
+  const later = requeueMissedClip(clips, 1, () => 0.99);
+  assert.deepEqual(
+    later.map((clip) => clip.id),
+    ["c0", "c2", "c3", "c1"],
+  );
+});
+
+test("a missed clip at the end of the part stays last", () => {
+  const clips = questions(3);
+  assert.deepEqual(
+    requeueMissedClip(clips, 2, () => 0).map((clip) => clip.id),
+    ["c0", "c1", "c2"],
+  );
 });
 
 test("run order round-trips through stored progress", () => {

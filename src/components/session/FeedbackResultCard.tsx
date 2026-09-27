@@ -10,6 +10,8 @@ interface FeedbackResultCardProps {
   clip: SessionClip;
   onNext: () => void;
   nextLabel?: string;
+  /** Show the word, then continue. The caller brings the clip back later. */
+  skipOnMistake?: boolean;
 }
 
 function censorWord(word: string): string {
@@ -53,16 +55,41 @@ function renderProgressiveAnswer(words: WordScore[]) {
   });
 }
 
+function ContinueButton({
+  label,
+  onNext,
+}: {
+  label: string;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 pt-6">
+      <button
+        onClick={onNext}
+        className="group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
+        type="button"
+      >
+        <span>{label}</span>
+        <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">
+          arrow_forward
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export function FeedbackResultCard({
   result,
   clip,
   onNext,
   nextLabel = "Tiếp theo",
+  skipOnMistake = false,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
+  const canContinue = isPerfect || skipOnMistake;
 
   useEffect(() => {
-    if (!isPerfect) return;
+    if (!canContinue) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
@@ -73,7 +100,7 @@ export function FeedbackResultCard({
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isPerfect, onNext]);
+  }, [canContinue, onNext]);
 
   if (isPerfect) {
     return (
@@ -91,16 +118,27 @@ export function FeedbackResultCard({
           }
         />
 
-        <div className="flex flex-col gap-3 pt-6">
-          <button
-            onClick={onNext}
-            className="group h-[56px] w-full rounded-[16px] bg-[#0066cc] text-white text-[17px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-            type="button"
-          >
-            <span>{nextLabel}</span>
-            <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
-          </button>
-        </div>
+        <ContinueButton label={nextLabel} onNext={onNext} />
+      </div>
+    );
+  }
+
+  if (skipOnMistake) {
+    return (
+      <div className="mt-4 w-full">
+        <ClipContentCard
+          clip={clip}
+          className="border-[#ff3b30]/20"
+          badge={
+            <div className="flex items-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ff3b30]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#ff3b30]">
+                <span className="material-symbols-outlined text-[16px]">cancel</span>
+                <span>Chưa đúng · sẽ quay lại</span>
+              </div>
+            </div>
+          }
+        />
+        <ContinueButton label={nextLabel} onNext={onNext} />
       </div>
     );
   }

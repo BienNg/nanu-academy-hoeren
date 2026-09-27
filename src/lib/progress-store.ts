@@ -1,6 +1,17 @@
 import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
+  ListeningSchemaError,
+  isListeningSchemaMissing,
+  clipOutcomeTotalFromRow,
+  storedListeningRunFromRow,
+  type ClipOutcomeTotal,
+  type ClipStatsRead,
+  type ListeningRunInput,
+  type StoredListeningRun,
+  type StudentRunsPage,
+} from "@/lib/listening-runs";
+import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
   containsAccountStamps,
@@ -9,6 +20,10 @@ import {
 } from "@/lib/progress";
 
 const TABLE = "user_progress";
+const RUNS_TABLE = "listening_runs";
+const CLIPS_TABLE = "clip_results";
+const TOTALS_RPC = "clip_outcome_totals";
+const STUDENT_RUN_PAGE = 25;
 
 /**
  * Reserved `level_access` entry for "Luyện phỏng vấn theo nghề".
@@ -531,6 +546,8 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     throw new Error("Progress store is not configured");
   }
 
+  await deleteUserListeningRuns(supabase, userId);
+
   const now = new Date().toISOString();
   const { error } = await supabase.from(TABLE).upsert(
     {
@@ -727,4 +744,153 @@ export async function resolveAccountAccess(
   }
 
   return "active";
+}
+
+function emptyStudentRuns(status: StudentRunsPage["status"]): StudentRunsPage {
+  return { status, runs: [], total: 0, passed: 0, failed: 0 };
+}
+
+function throwIfListeningSchemaMissing(message: string): void {
+  if (isListeningSchemaMissing(message)) throw new ListeningSchemaError(message);
+}
+
+async function deleteUserListeningRuns(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase.from(RUNS_TABLE).delete().eq("user_id", userId);
+  if (!error || isListeningSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete listening runs (${error.message}).`);
+}
+
+/** Insert one finished part. A repeated id is ignored so a retry does not double-count. */
+export async function insertListeningRun(
+  userId: string,
+  input: ListeningRunInput,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Progress store is not configured");
+
+  const { data, error } = await supabase
+    .from(RUNS_TABLE)
+    .upsert(
+      {
+        id: input.id,
+        user_id: userId,
+        lesson_key: input.lessonKey,
+        part_number: input.partNumber,
+        part_count: input.partCount,
+        outcome: input.outcome,
+        accuracy: input.accuracy,
+        answered_count: input.answeredCount,
+        clip_count: input.clipCount,
+        elapsed_ms: input.elapsedMs,
+      },
+      { onConflict: "id", ignoreDuplicates: true },
+    )
+    .select("id");
+
+  if (error) {
+    throwIfListeningSchemaMissing(error.message);
+    throw new Error(`Supabase insertListeningRun: ${error.message}`);
+  }
+  if (!data || data.length === 0 || input.clips.length === 0) return;
+
+  const { error: clipError } = await supabase.from(CLIPS_TABLE).insert(
+    input.clips.map((clip, position) => ({
+      run_id: input.id,
+      user_id: userId,
+      lesson_key: input.lessonKey,
+      clip_id: clip.clipId,
+      passed: clip.passed,
+      missed: clip.missed,
+      position,
+    })),
+  );
+  if (!clipError) return;
+
+  const { error: rollbackError } = await supabase.from(RUNS_TABLE).delete().eq("id", input.id);
+  if (rollbackError) {
+    console.error("Supabase insertListeningRun rollback", rollbackError.message);
+  }
+  throwIfListeningSchemaMissing(clipError.message);
+  throw new Error(`Supabase insertListeningRun clips: ${clipError.message}`);
+}
+
+async function countListeningRuns(
+  supabase: SupabaseClient,
+  userId: string,
+  outcome?: ListeningRunInput["outcome"],
+): Promise<number> {
+  let query = supabase
+    .from(RUNS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (outcome) query = query.eq("outcome", outcome);
+  const { count, error } = await query;
+  if (error) {
+    throwIfListeningSchemaMissing(error.message);
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
+export async function listStudentListeningRuns(
+  userId: string,
+  offset = 0,
+): Promise<StudentRunsPage> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return emptyStudentRuns("error");
+
+  const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
+  try {
+    const list = await supabase
+      .from(RUNS_TABLE)
+      .select(
+        "id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at, clip_results(clip_id, passed, missed, position)",
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(start, start + STUDENT_RUN_PAGE - 1);
+
+    if (list.error) {
+      if (isListeningSchemaMissing(list.error.message)) return emptyStudentRuns("missing");
+      console.error("Supabase listStudentListeningRuns", list.error.message);
+      return emptyStudentRuns("error");
+    }
+
+    const [total, passed, failed] = await Promise.all([
+      countListeningRuns(supabase, userId),
+      countListeningRuns(supabase, userId, "success"),
+      countListeningRuns(supabase, userId, "fail"),
+    ]);
+    const runs = (list.data ?? [])
+      .map((row) => storedListeningRunFromRow(row))
+      .filter((run): run is StoredListeningRun => run != null);
+    return { status: "ready", runs, total, passed, failed };
+  } catch (error) {
+    if (error instanceof ListeningSchemaError) return emptyStudentRuns("missing");
+    const message = error instanceof Error ? error.message : "read failed";
+    if (isListeningSchemaMissing(message)) return emptyStudentRuns("missing");
+    console.error("Supabase listStudentListeningRuns", message);
+    return emptyStudentRuns("error");
+  }
+}
+
+export async function listClipOutcomeTotals(): Promise<ClipStatsRead> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { status: "error", rows: [] };
+
+  const { data, error } = await supabase.rpc(TOTALS_RPC);
+  if (error) {
+    if (isListeningSchemaMissing(error.message)) return { status: "missing", rows: [] };
+    console.error("Supabase listClipOutcomeTotals", error.message);
+    return { status: "error", rows: [] };
+  }
+
+  const rows = (Array.isArray(data) ? data : [])
+    .map((row) => clipOutcomeTotalFromRow(row))
+    .filter((row): row is ClipOutcomeTotal => row != null);
+  return { status: "ready", rows };
 }

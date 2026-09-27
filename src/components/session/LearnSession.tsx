@@ -14,9 +14,15 @@ import {
   firstIncompletePartIndex,
   learnQueue,
   sameClipOrderSet,
+  requeueMissedClip,
   splitListeningParts,
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
+import {
+  buildListeningRunRecord,
+  clipResultsForFinishedPart,
+  submitListeningRun,
+} from "@/lib/listening-runs";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -296,7 +302,6 @@ export function LearnSession({
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!reduceMotion) setBreakingIndex(nextHearts);
     playHeartLostSound();
-    if (nextHearts <= 0) openCompleteScreen(true);
   };
 
   const commitPart = () => {
@@ -326,14 +331,35 @@ export function LearnSession({
     completingRef.current = true;
     failedRef.current = failed;
     const total = partClips.length;
-    const missed = partClips.filter((clip) => missedClipIdsRef.current.has(clip.id)).length;
-    const answered = failed ? Math.min(total, clipIndex + 1) : total;
-    const firstTry = Math.max(0, answered - missed);
+    const results = clipResultsForFinishedPart(
+      partClips,
+      missedClipIdsRef.current,
+      failed,
+      clipIndex,
+    );
+    const answered = results.length;
+    const firstTry = results.filter((clip) => !clip.missed).length;
     const startedAt = partStartedAtRef.current;
+    const accuracy = answered === 0 ? 0 : Math.round((firstTry / answered) * 100);
+    const elapsedMs = startedAt > 0 ? Date.now() - startedAt : 0;
+    const run = buildListeningRunRecord({
+      lessonKey,
+      partNumber,
+      partCount,
+      failed,
+      accuracy,
+      clipCount: total,
+      elapsedMs,
+      clips: partClips,
+      missedClipIds: missedClipIdsRef.current,
+      clipIndex,
+    });
+    if (run) submitListeningRun(run);
+    else console.error("Listening run was not saved");
     setSummary({
       questionCount: answered,
-      accuracy: answered === 0 ? 0 : Math.round((firstTry / answered) * 100),
-      elapsedMs: startedAt > 0 ? Date.now() - startedAt : 0,
+      accuracy,
+      elapsedMs,
       failed,
     });
     if (!failed) {
@@ -352,6 +378,16 @@ export function LearnSession({
 
   const handleNext = () => {
     if (!partClips || !currentClip) return;
+    if (heartsLeft <= 0) {
+      openCompleteScreen(true);
+      return;
+    }
+    if (!isPerfect) {
+      setPartClips(requeueMissedClip(partClips, clipIndex));
+      setScoreResult(null);
+      setDraft("");
+      return;
+    }
     if (clipIndex + 1 >= partClips.length) {
       openCompleteScreen();
       return;
@@ -463,30 +499,21 @@ export function LearnSession({
               audioPath={currentClip.audioPath}
             />
 
-            {isPerfect && scoreResult ? (
+            {scoreResult ? (
               <FeedbackResultCard
                 result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
+                skipOnMistake
               />
             ) : (
-              <>
-                {scoreResult ? (
-                  <FeedbackResultCard
-                    result={scoreResult}
-                    clip={currentClip}
-                    onNext={handleNext}
-                    nextLabel="Tiếp theo"
-                  />
-                ) : null}
-                <DictationInputCard
-                  key={`dictation-${currentClip.id}`}
-                  value={draft}
-                  onChange={setDraft}
-                  onSubmit={handleSubmit}
-                />
-              </>
+              <DictationInputCard
+                key={`dictation-${currentClip.id}`}
+                value={draft}
+                onChange={setDraft}
+                onSubmit={handleSubmit}
+              />
             )}
           </div>
         </main>

@@ -14,6 +14,8 @@
     "src/lib/progress.ts",
     "src/lib/progress.visits.test.ts",
     "src/lib/progress.account.test.ts",
-    "src/lib/progress.parts.test.ts"
+    "src/lib/progress.parts.test.ts",
+    "src/lib/listening-runs.ts",
+    "src/lib/listening-runs.test.ts"
   ]
 }

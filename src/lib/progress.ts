@@ -2141,6 +2141,28 @@ export function clipsInStoredOrder<T extends { id: string }>(
   });
 }
 
+/**
+ * Pull the clip at `index` out and place it again later in the queue.
+ * The cursor stays put, so the next clip slides into the current slot.
+ * A clip with nothing after it stays where it is.
+ */
+export function requeueMissedClip<T>(
+  clips: readonly T[],
+  index: number,
+  random: () => number = Math.random,
+): T[] {
+  if (index < 0 || index >= clips.length) return [...clips];
+  const missed = clips[index] as T;
+  const next = [...clips.slice(0, index), ...clips.slice(index + 1)];
+  const earliest = Math.min(index + 1, next.length);
+  const latest = next.length;
+  const start = Math.min(earliest, latest);
+  const span = latest - start + 1;
+  const offset = Math.min(span - 1, Math.max(0, Math.floor(random() * span)));
+  next.splice(start + offset, 0, missed);
+  return next;
+}
+
 /** Index of the first part that still has an unfinished clip, or -1. */
 export function firstIncompletePartIndex<T extends { id: string }>(
   parts: readonly (readonly T[])[],

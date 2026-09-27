@@ -1,0 +1,343 @@
+/** Finished listening parts, passed or out of hearts. Append-only in Supabase. */
+
+export type ListeningRunOutcome = "success" | "fail";
+
+export type ClipRunResult = {
+  clipId: string;
+  /** Reached 100% and moved on. */
+  passed: boolean;
+  /** Wrong at least once. A later correction keeps this true. */
+  missed: boolean;
+};
+
+export type ListeningRunInput = {
+  id: string;
+  lessonKey: string;
+  partNumber: number;
+  partCount: number;
+  outcome: ListeningRunOutcome;
+  accuracy: number;
+  answeredCount: number;
+  clipCount: number;
+  elapsedMs: number;
+  clips: ClipRunResult[];
+};
+
+export type StoredListeningRun = ListeningRunInput & {
+  createdAt: string;
+};
+
+export type ClipOutcomeTotal = {
+  lessonKey: string;
+  clipId: string;
+  failures: number;
+  successes: number;
+  studentsFailed: number;
+  studentsPassed: number;
+};
+
+export type ListeningReadStatus = "ready" | "missing" | "error";
+
+export type ClipStatsRead = {
+  status: ListeningReadStatus;
+  rows: ClipOutcomeTotal[];
+};
+
+export type StudentRunsPage = {
+  status: ListeningReadStatus;
+  runs: StoredListeningRun[];
+  total: number;
+  passed: number;
+  failed: number;
+};
+
+export type RankedClipOutcomes = {
+  status: ListeningReadStatus;
+  failed: ClipOutcomeTotal[];
+  succeeded: ClipOutcomeTotal[];
+};
+
+export const CLIP_RANK_LIMIT = 8;
+
+export const LISTENING_SCHEMA_HINT =
+  "Finished listening parts are not being stored yet. Run supabase/listening_runs.sql once in the Supabase SQL editor.";
+
+const MAX_CLIPS = 40;
+const MAX_ELAPSED_MS = 6 * 60 * 60 * 1000;
+const LESSON_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export class ListeningSchemaError extends Error {
+  constructor(message = "Listening run storage is not set up") {
+    super(message);
+    this.name = "ListeningSchemaError";
+  }
+}
+
+export function isListeningSchemaMissing(message: string): boolean {
+  return (
+    /listening_runs|clip_results|clip_outcome_totals/i.test(message) &&
+    /does not exist|schema cache|could not find the (table|function)/i.test(message)
+  );
+}
+
+function integerIn(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) return null;
+  if (value < min || value > max) return null;
+  return value;
+}
+
+function isClipId(value: string): boolean {
+  return value.length >= 1 && value.length <= 180 && !/[\u0000-\u001f\u007f/\\]/.test(value);
+}
+
+function wasMissed(clipId: string, missedClipIds: ReadonlySet<string>): boolean {
+  return missedClipIds.has(clipId) || missedClipIds.has(clipId.trim());
+}
+
+/**
+ * One result per clip in a finished part.
+ * A passed part cleared every clip; misses that were corrected stay missed.
+ * A failed part includes clips already cleared, the clip that spent the last
+ * heart, and misses still waiting later in the queue. Untouched clips are left out.
+ */
+export function clipResultsForFinishedPart(
+  clips: readonly { id: string }[],
+  missedClipIds: ReadonlySet<string>,
+  failed: boolean,
+  clipIndex: number,
+): ClipRunResult[] {
+  if (clips.length === 0) return [];
+  const seen = new Set<string>();
+  const results: ClipRunResult[] = [];
+  const add = (clip: { id: string }, passed: boolean) => {
+    const clipId = clip.id.trim();
+    if (!clipId || seen.has(clipId)) return;
+    const missed = wasMissed(clip.id, missedClipIds) || !passed;
+    if (!passed && !missed) return;
+    seen.add(clipId);
+    results.push({ clipId, passed, missed });
+  };
+
+  if (!failed) {
+    for (const clip of clips) add(clip, true);
+    return results;
+  }
+
+  const cursor = Math.min(Math.max(0, Math.floor(clipIndex)), clips.length - 1);
+  clips.forEach((clip, index) => {
+    if (index < cursor) add(clip, true);
+  });
+  const current = clips[cursor];
+  if (current) add(current, false);
+  clips.forEach((clip, index) => {
+    if (index > cursor && wasMissed(clip.id, missedClipIds)) add(clip, false);
+  });
+  return results;
+}
+
+export function parseListeningRunInput(value: unknown): ListeningRunInput | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.id !== "string" || !UUID.test(record.id)) return null;
+  if (typeof record.lessonKey !== "string" || !LESSON_KEY.test(record.lessonKey)) return null;
+  const outcome = record.outcome === "success" || record.outcome === "fail" ? record.outcome : null;
+  if (!outcome) return null;
+
+  const accuracy = integerIn(record.accuracy, 0, 100);
+  const partNumber = integerIn(record.partNumber, 1, 99);
+  const partCount = integerIn(record.partCount, 1, 99);
+  const clipCount = integerIn(record.clipCount, 1, MAX_CLIPS);
+  const answeredCount = integerIn(record.answeredCount, 1, MAX_CLIPS);
+  const elapsedMs = integerIn(record.elapsedMs, 0, MAX_ELAPSED_MS);
+  if (
+    accuracy == null ||
+    partNumber == null ||
+    partCount == null ||
+    clipCount == null ||
+    answeredCount == null ||
+    elapsedMs == null ||
+    partNumber > partCount ||
+    answeredCount > clipCount ||
+    !Array.isArray(record.clips) ||
+    record.clips.length !== answeredCount
+  ) {
+    return null;
+  }
+
+  const seen = new Set<string>();
+  const clips: ClipRunResult[] = [];
+  for (const item of record.clips) {
+    if (!item || typeof item !== "object") return null;
+    const clip = item as Record<string, unknown>;
+    if (typeof clip.clipId !== "string" || !isClipId(clip.clipId)) return null;
+    if (clip.passed !== true && clip.passed !== false) return null;
+    if (clip.missed !== true && clip.missed !== false) return null;
+    if (!clip.passed && !clip.missed) return null;
+    if (seen.has(clip.clipId)) return null;
+    seen.add(clip.clipId);
+    clips.push({ clipId: clip.clipId, passed: clip.passed, missed: clip.missed });
+  }
+
+  if (outcome === "success") {
+    if (answeredCount !== clipCount || clips.some((clip) => !clip.passed)) return null;
+  } else if (!clips.some((clip) => clip.missed && !clip.passed)) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    lessonKey: record.lessonKey,
+    partNumber,
+    partCount,
+    outcome,
+    accuracy,
+    answeredCount,
+    clipCount,
+    elapsedMs,
+    clips,
+  };
+}
+
+export function buildListeningRunRecord(input: {
+  lessonKey: string;
+  partNumber: number;
+  partCount: number;
+  failed: boolean;
+  accuracy: number;
+  clipCount: number;
+  elapsedMs: number;
+  clips: readonly { id: string }[];
+  missedClipIds: ReadonlySet<string>;
+  clipIndex: number;
+}): ListeningRunInput | null {
+  const clips = clipResultsForFinishedPart(
+    input.clips,
+    input.missedClipIds,
+    input.failed,
+    input.clipIndex,
+  );
+  return parseListeningRunInput({
+    id: crypto.randomUUID(),
+    lessonKey: input.lessonKey,
+    partNumber: input.partNumber,
+    partCount: input.partCount,
+    outcome: input.failed ? "fail" : "success",
+    accuracy: input.accuracy,
+    answeredCount: clips.length,
+    clipCount: input.clipCount,
+    elapsedMs: input.elapsedMs,
+    clips,
+  });
+}
+
+/** Fire-and-forget. A failed save must not block the part-complete screen. */
+export function submitListeningRun(input: ListeningRunInput): void {
+  void fetch("/api/runs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    keepalive: true,
+  }).then(
+    (response) => {
+      if (!response.ok) console.error("Listening run was not saved", response.status);
+    },
+    (error: unknown) => {
+      console.error("Listening run was not saved", error);
+    },
+  );
+}
+
+function readCount(value: unknown): number {
+  const number =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return Math.min(Math.floor(number), 1_000_000_000);
+}
+
+export function clipOutcomeTotalFromRow(value: unknown): ClipOutcomeTotal | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.lesson_key !== "string" || typeof row.clip_id !== "string") return null;
+  if (!row.lesson_key || !row.clip_id) return null;
+  return {
+    lessonKey: row.lesson_key,
+    clipId: row.clip_id,
+    failures: readCount(row.failures),
+    successes: readCount(row.successes),
+    studentsFailed: readCount(row.students_failed),
+    studentsPassed: readCount(row.students_passed),
+  };
+}
+
+export function storedListeningRunFromRow(value: unknown): StoredListeningRun | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const rawClips = Array.isArray(row.clip_results) ? row.clip_results : [];
+  const clips = rawClips
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const clip = item as Record<string, unknown>;
+      if (typeof clip.clip_id !== "string") return null;
+      const passed = clip.passed === true;
+      const missed = clip.missed === true;
+      if (!passed && !missed) return null;
+      return {
+        position: readCount(clip.position),
+        clip: { clipId: clip.clip_id, passed, missed },
+      };
+    })
+    .filter((item): item is { position: number; clip: ClipRunResult } => item != null)
+    .sort((left, right) => left.position - right.position)
+    .map((item) => item.clip);
+
+  const parsed = parseListeningRunInput({
+    id: row.id,
+    lessonKey: row.lesson_key,
+    partNumber: row.part_number,
+    partCount: row.part_count,
+    outcome: row.outcome,
+    accuracy: row.accuracy,
+    answeredCount: row.answered_count,
+    clipCount: row.clip_count,
+    elapsedMs: row.elapsed_ms,
+    clips,
+  });
+  if (!parsed || typeof row.created_at !== "string" || !row.created_at) return null;
+  return { ...parsed, createdAt: row.created_at };
+}
+
+function compareRank(
+  count: (row: ClipOutcomeTotal) => number,
+  students: (row: ClipOutcomeTotal) => number,
+) {
+  return (left: ClipOutcomeTotal, right: ClipOutcomeTotal) =>
+    count(right) - count(left) ||
+    students(right) - students(left) ||
+    left.lessonKey.localeCompare(right.lessonKey) ||
+    left.clipId.localeCompare(right.clipId);
+}
+
+export function rankClipOutcomes(rows: readonly ClipOutcomeTotal[]): {
+  failed: ClipOutcomeTotal[];
+  succeeded: ClipOutcomeTotal[];
+} {
+  return {
+    failed: [...rows]
+      .filter((row) => row.failures > 0)
+      .sort(compareRank((row) => row.failures, (row) => row.studentsFailed))
+      .slice(0, CLIP_RANK_LIMIT),
+    succeeded: [...rows]
+      .filter((row) => row.successes > 0)
+      .sort(compareRank((row) => row.successes, (row) => row.studentsPassed))
+      .slice(0, CLIP_RANK_LIMIT),
+  };
+}
+
+export function presentClipOutcomes(read: ClipStatsRead): RankedClipOutcomes {
+  if (read.status !== "ready") {
+    return { status: read.status, failed: [], succeeded: [] };
+  }
+  return { status: "ready", ...rankClipOutcomes(read.rows) };
+}

@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { listAdminStudentRuns } from "@/app/admin/actions";
 import {
+  describeCatalogClip,
+  describeCatalogLesson,
   projectStudentDetail,
   projectStudentVisits,
   type AdminActivityCard,
@@ -12,6 +15,11 @@ import {
   type AdminVisitRange,
   type AdminVisitRow,
 } from "@/lib/admin-detail";
+import {
+  LISTENING_SCHEMA_HINT,
+  type StoredListeningRun,
+  type StudentRunsPage,
+} from "@/lib/listening-runs";
 import { formatActiveDuration } from "@/lib/progress";
 import type { AdminUserRow } from "@/lib/admin-overview";
 
@@ -455,6 +463,274 @@ function VisitRow({
   );
 }
 
+function clipStatus(clip: StoredListeningRun["clips"][number]): string {
+  if (clip.missed && clip.passed) return "Missed, then passed";
+  if (clip.passed) return "Passed";
+  return "Missed";
+}
+
+function ListeningRunRow({
+  run,
+  catalog,
+  open,
+  onToggle,
+}: {
+  run: StoredListeningRun;
+  catalog: readonly AdminCatalogCourse[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const place = describeCatalogLesson(catalog, run.lessonKey);
+  const title = place ? `${place.course} · ${place.lesson}` : run.lessonKey;
+  const when = formatAbsoluteTime(run.createdAt);
+  const missed = run.clips.filter((clip) => clip.missed);
+  const firstTry = run.clips.filter((clip) => clip.passed && !clip.missed).length;
+  const passedRun = run.outcome === "success";
+  const facts = [
+    run.partCount > 1 ? `Part ${run.partNumber} of ${run.partCount}` : `Part ${run.partNumber}`,
+    `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}`,
+    compactDuration(formatActiveDuration(Math.round(run.elapsedMs / 1000))),
+    missed.length > 0 ? `${missed.length} missed` : "No misses",
+  ];
+
+  return (
+    <li>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="flex w-full items-start gap-space-16 px-5 py-5 text-left hover:bg-black/[0.02] sm:px-6"
+      >
+        <span
+          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+            passedRun ? "bg-[#34C759]/15 text-[#248a3d]" : "bg-[#ff3b30]/10 text-[#ff3b30]"
+          }`}
+        >
+          <MaterialIcon
+            name={passedRun ? "check_circle" : "heart_broken"}
+            className="text-[20px]"
+            filled
+          />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline justify-between gap-space-12">
+            <span className="font-label-md text-label-md font-semibold text-on-surface">
+              {passedRun ? "Passed" : "Out of hearts"}
+            </span>
+            <span className="shrink-0 font-label-md text-label-md font-semibold tabular-nums text-on-surface">
+              {run.accuracy}%
+            </span>
+          </span>
+          <span className="mt-0.5 block font-body-sm text-body-sm text-on-surface">{title}</span>
+          {when ? (
+            <span className="mt-0.5 block font-body-sm text-body-sm text-outline">{when}</span>
+          ) : null}
+          <span className="mt-3 flex flex-wrap gap-1.5">
+            {facts.map((fact) => (
+              <span
+                key={fact}
+                className="rounded-full bg-surface-container-low px-2.5 py-1 font-caption text-caption font-medium text-on-surface-variant"
+              >
+                {fact}
+              </span>
+            ))}
+          </span>
+        </span>
+        <MaterialIcon
+          name={open ? "expand_less" : "expand_more"}
+          className="mt-1 text-[22px] text-outline"
+        />
+      </button>
+      {open ? (
+        <div className="flex flex-col gap-space-12 border-t border-black/[0.06] bg-[#f5f5f7]/80 px-5 py-5 sm:px-6 sm:pl-[4.75rem]">
+          {run.clips.length === 0 ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              Clip results were not stored for this run.
+            </p>
+          ) : (
+            <>
+              {firstTry > 0 ? (
+                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  {firstTry === run.clips.length
+                    ? "Every clip was right on the first try."
+                    : `${firstTry} ${firstTry === 1 ? "clip was" : "clips were"} right on the first try.`}
+                </p>
+              ) : null}
+              {missed.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {missed.map((clip) => {
+                    const described = describeCatalogClip(catalog, run.lessonKey, clip.clipId);
+                    return (
+                      <li key={clip.clipId} className="min-w-0">
+                        <p className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+                          {clipStatus(clip)}
+                        </p>
+                        <p className="mt-0.5 font-body-sm text-body-sm text-on-surface">
+                          {described.prompt}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function ListeningRunsSection({
+  userId,
+  catalog,
+}: {
+  userId: string;
+  catalog: readonly AdminCatalogCourse[];
+}) {
+  const [page, setPage] = useState<StudentRunsPage | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+  const visible = loadedFor === userId ? page : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAdminStudentRuns(userId, 0).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setLoadedFor(userId);
+        setPage({ status: "error", runs: [], total: 0, passed: 0, failed: 0 });
+        return;
+      }
+      setLoadedFor(userId);
+      setPage({
+        status: result.status,
+        runs: result.runs,
+        total: result.total,
+        passed: result.passed,
+        failed: result.failed,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  async function loadMore() {
+    if (!visible || loadingMore || visible.runs.length >= visible.total) return;
+    const requestUser = userId;
+    const offset = visible.runs.length;
+    setLoadingMore(true);
+    const result = await listAdminStudentRuns(requestUser, offset);
+    if (userIdRef.current !== requestUser) {
+      setLoadingMore(false);
+      return;
+    }
+    setLoadingMore(false);
+    if (!result.ok || result.status !== "ready") return;
+    setPage((current) => {
+      if (!current) return current;
+      const seen = new Set(current.runs.map((run) => run.id));
+      const added = result.runs.filter((run) => !seen.has(run.id));
+      return {
+        ...current,
+        runs: [...current.runs, ...added],
+        total: result.total,
+        passed: result.passed,
+        failed: result.failed,
+      };
+    });
+  }
+
+  const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
+
+  return (
+    <section aria-label="Listening runs" aria-busy={visible == null}>
+      <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+        Listening runs
+      </h3>
+      <p className="mt-1 px-1 font-body-sm text-body-sm text-on-surface-variant">
+        Finished parts, including ones that ran out of hearts.
+      </p>
+      <div className="mt-4">
+        {visible == null ? (
+          <Panel>
+            <p className="px-6 py-10 text-center font-body-sm text-body-sm text-on-surface-variant">
+              Loading listening runs…
+            </p>
+          </Panel>
+        ) : visible.status === "missing" ? (
+          <Panel>
+            <p className="px-6 py-8 font-body-sm text-body-sm text-on-surface-variant">
+              {LISTENING_SCHEMA_HINT}
+            </p>
+          </Panel>
+        ) : visible.status === "error" ? (
+          <Panel>
+            <p className="px-6 py-8 font-body-sm text-body-sm text-on-surface-variant">
+              Listening runs could not be loaded.
+            </p>
+          </Panel>
+        ) : visible.total === 0 ? (
+          <Panel>
+            <p className="px-6 py-10 text-center font-body-sm text-body-sm text-on-surface-variant">
+              No finished listening parts yet.
+            </p>
+          </Panel>
+        ) : (
+          <Panel>
+            <div className="grid grid-cols-3 border-b border-black/[0.06]">
+              {[
+                { label: "Finished", value: String(visible.total) },
+                { label: "Passed", value: String(visible.passed) },
+                { label: "Failed", value: String(visible.failed) },
+              ].map((item, index) => (
+                <div
+                  key={item.label}
+                  className={`min-w-0 px-4 py-4 sm:px-6 ${index < 2 ? "border-r border-black/[0.06]" : ""}`}
+                >
+                  <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 font-headline-sm text-headline-sm font-semibold tabular-nums text-on-surface">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <ul className="divide-y divide-black/[0.06]">
+              {visible.runs.map((run) => (
+                <ListeningRunRow
+                  key={run.id}
+                  run={run}
+                  catalog={catalog}
+                  open={openRunId === run.id}
+                  onToggle={() => setOpenRunId((current) => (current === run.id ? null : run.id))}
+                />
+              ))}
+            </ul>
+            {earlier > 0 ? (
+              <div className="border-t border-black/[0.06] px-5 py-3 sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="font-label-sm text-label-sm font-semibold text-primary disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "run" : "runs"}`}
+                </button>
+              </div>
+            ) : null}
+          </Panel>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function StudentDetailModal({
   row,
   catalog,
@@ -634,6 +910,8 @@ export function StudentDetailModal({
                   </Panel>
                 )}
               </section>
+
+              <ListeningRunsSection userId={row.userId} catalog={catalog} />
 
               <section aria-label="Sign-ins">
                 <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
