@@ -121,6 +121,7 @@ function learnTouched(entry: LearnProgress | undefined): boolean {
   return (
     entry.completedClipIds.length > 0 ||
     entry.runCompletedClipIds.length > 0 ||
+    (entry.runClipOrder?.length ?? 0) > 0 ||
     entry.reviewedClipIds.length > 0 ||
     entry.runCount > 0 ||
     entry.studyRunCount > 0 ||

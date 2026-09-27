@@ -27,10 +27,16 @@ export type LearnProgress = InterviewProgress & {
   /** Number of fully completed runs for this Lektion (first pass + replays). */
   runCount: number;
   /**
-   * Clip ids completed in the current/last run.
-   * Used to resume an unfinished rerun and surface "started" progress.
+   * Clip ids completed in the current run.
+   * Written only when a whole listening part finishes, so a session that
+   * ends mid-part resumes at the start of that part.
    */
   runCompletedClipIds: string[];
+  /**
+   * Clip ids in the order of the current randomized run.
+   * Absent on the ordered first pass, and cleared when a run finishes.
+   */
+  runClipOrder?: string[];
   /** Clip ids the student has already reviewed in the current study pass. */
   reviewedClipIds: string[];
   /** Number of fully completed study passes (first pass + replays). */
@@ -211,6 +217,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
   const record = entry as InterviewProgress & {
     runCount?: unknown;
     runCompletedClipIds?: unknown;
+    runClipOrder?: unknown;
     reviewedClipIds?: unknown;
     studyRunCount?: unknown;
     studyCompletedAt?: unknown;
@@ -218,6 +225,11 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
 
   const studyCompletedAt =
     typeof record.studyCompletedAt === "string" ? record.studyCompletedAt : undefined;
+  const runClipOrder = Array.isArray(record.runClipOrder)
+    ? record.runClipOrder.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      )
+    : [];
 
   return {
     ...normalized,
@@ -232,6 +244,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           (id): id is string => typeof id === "string",
         )
       : normalized.completedClipIds,
+    ...(runClipOrder.length > 0 ? { runClipOrder } : {}),
     reviewedClipIds: Array.isArray(record.reviewedClipIds)
       ? record.reviewedClipIds.filter(
           (id): id is string => typeof id === "string",
@@ -390,35 +403,68 @@ function mergeTrack(
   return track;
 }
 
+function unionIds(left: readonly string[], right: readonly string[]): string[] {
+  return Array.from(new Set([...left, ...right]));
+}
+
+function pickRunClipOrder(
+  left: LearnProgress | undefined,
+  right: LearnProgress | undefined,
+  runCompletedClipIds: readonly string[],
+): string[] | undefined {
+  const orders = [left?.runClipOrder ?? [], right?.runClipOrder ?? []].filter(
+    (order) => order.length > 0,
+  );
+  if (orders.length === 0) return undefined;
+  const done = new Set(runCompletedClipIds);
+  const score = (order: readonly string[]) =>
+    order.filter((id) => done.has(id)).length;
+  orders.sort((a, b) => score(b) - score(a));
+  return orders[0];
+}
+
 function mergeLearnEntry(
   left: LearnProgress | undefined,
   right: LearnProgress | undefined,
 ): LearnProgress {
   const mergedBase = mergeEntry(left, right);
-  const runCompletedClipIds = Array.from(
-    new Set([
-      ...(left?.runCompletedClipIds ?? []),
-      ...(right?.runCompletedClipIds ?? []),
-    ]),
-  );
-  const reviewedClipIds = Array.from(
-    new Set([
-      ...(left?.reviewedClipIds ?? []),
-      ...(right?.reviewedClipIds ?? []),
-    ]),
+  const reviewedClipIds = unionIds(
+    left?.reviewedClipIds ?? [],
+    right?.reviewedClipIds ?? [],
   );
   const studyStamps = [left?.studyCompletedAt, right?.studyCompletedAt].filter(
     (value): value is string => typeof value === "string",
   );
+  const leftCount = left?.runCount ?? 0;
+  const rightCount = right?.runCount ?? 0;
+  const runCount = Math.max(leftCount, rightCount);
+  const ahead =
+    leftCount === rightCount ? undefined : leftCount > rightCount ? left : right;
+  // Finishing a run clears its order. The further-ahead snapshot wins, so an
+  // older in-progress cursor is not merged back in.
+  const aheadFinishedRun = Boolean(ahead) && (ahead?.runClipOrder?.length ?? 0) === 0;
+
+  let runCompletedClipIds = unionIds(
+    left?.runCompletedClipIds ?? [],
+    right?.runCompletedClipIds ?? [],
+  );
+  let runClipOrder = pickRunClipOrder(left, right, runCompletedClipIds);
+  if (ahead && aheadFinishedRun) {
+    runCompletedClipIds = [];
+    runClipOrder = undefined;
+  }
+
   return {
     ...mergedBase,
-    runCount: Math.max(left?.runCount ?? 0, right?.runCount ?? 0),
+    currentClipIndex: runCompletedClipIds.length,
+    runCount,
     runCompletedClipIds,
     reviewedClipIds,
     studyRunCount: Math.max(left?.studyRunCount ?? 0, right?.studyRunCount ?? 0),
     ...(studyStamps.length > 0
       ? { studyCompletedAt: studyStamps.sort()[0] }
       : {}),
+    ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
   };
 }
 
@@ -1223,12 +1269,14 @@ export function recordVisitExercise(
   now: Date,
   preferredId: string | null,
   lessonKey: string,
+  count = 1,
 ): { progress: StoredProgress; visitId: string } {
   const key = textId(lessonKey);
-  if (!key) return { progress, visitId: preferredId || "" };
+  const amount = countField(count);
+  if (!key || amount === 0) return { progress, visitId: preferredId || "" };
   const opened = openVisit(progress, now, preferredId);
   const visit = bumpExerciseLesson(opened.visit, key, (lesson) => {
-    lesson.completed += 1;
+    lesson.completed += amount;
   });
   return { visitId: opened.visitId, progress: commitVisit(opened.progress, visit, now) };
 }
@@ -1663,6 +1711,92 @@ export function markLearnClipCompleted(
   return bumpStreak(next);
 }
 
+function withLearnEntry(
+  progress: StoredProgress,
+  chapterSlug: string,
+  entry: LearnProgress,
+): StoredProgress {
+  return {
+    ...progress,
+    learn: {
+      ...progress.learn,
+      [chapterSlug]: entry,
+    },
+  };
+}
+
+function withoutRunCursor(entry: LearnProgress): LearnProgress {
+  const next: LearnProgress = {
+    currentClipIndex: 0,
+    completedClipIds: entry.completedClipIds,
+    runCount: entry.runCount,
+    runCompletedClipIds: [],
+    reviewedClipIds: entry.reviewedClipIds,
+    studyRunCount: entry.studyRunCount,
+  };
+  if (entry.completedAt) next.completedAt = entry.completedAt;
+  if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
+  return next;
+}
+
+/**
+ * Remember the shuffled order for a review run.
+ * Replacing the order starts that run over, so a new shuffle cannot skip clips.
+ */
+export function setLearnRunOrder(
+  progress: StoredProgress,
+  chapterSlug: string,
+  order: readonly string[],
+): StoredProgress {
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  const current = entry.runClipOrder ?? [];
+  if (
+    current.length === order.length &&
+    current.every((id, index) => id === order[index])
+  ) {
+    return progress;
+  }
+
+  return withLearnEntry(progress, chapterSlug, {
+    ...entry,
+    runClipOrder: [...order],
+    runCompletedClipIds: [],
+    currentClipIndex: 0,
+  });
+}
+
+/**
+ * Store one finished listening part. Individual clips are not saved until the
+ * part ends. `finishRun` records the full pass and clears the run cursor.
+ */
+export function commitLearnPart(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clipIds: readonly string[],
+  options?: { now?: Date; finishRun?: boolean },
+): StoredProgress {
+  const now = options?.now ?? new Date();
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  const completedClipIds = unionIds(entry.completedClipIds, clipIds);
+  const runCompletedClipIds = unionIds(entry.runCompletedClipIds, clipIds);
+  let next = bumpStreak(
+    withLearnEntry(progress, chapterSlug, {
+      ...entry,
+      currentClipIndex: runCompletedClipIds.length,
+      completedClipIds,
+      runCompletedClipIds,
+    }),
+    now,
+  );
+
+  if (!options?.finishRun) return next;
+
+  next = markLearnChapterCompleted(next, chapterSlug, now.toISOString());
+  next = incrementLearnRunCount(next, chapterSlug, now);
+  const finished = next.learn[chapterSlug] ?? emptyLearnProgress();
+  return withLearnEntry(next, chapterSlug, withoutRunCursor(finished));
+}
+
 /**
  * Stamp a chapter as completed the first time the student finishes every clip.
  * Later calls are ignored so the original completion date is kept.
@@ -1926,6 +2060,105 @@ export function learnQueue<T extends { id: string }>(
   return clips.filter((clip) => !done.has(clip.id));
 }
 
+const LISTENING_PART_MIN_QUESTIONS = 10;
+const LISTENING_PART_MAX_QUESTIONS = 15;
+const LISTENING_PART_TARGET_QUESTIONS =
+  (LISTENING_PART_MIN_QUESTIONS + LISTENING_PART_MAX_QUESTIONS) / 2;
+
+/**
+ * How many even parts of 10–15 questions a lesson should become.
+ * When the total cannot be split without a part under 10, keep one longer part.
+ */
+export function listeningPartCount(totalQuestions: number): number {
+  if (totalQuestions <= 0) return 0;
+  if (totalQuestions <= LISTENING_PART_MAX_QUESTIONS) return 1;
+
+  let bestCount = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const maxParts = Math.floor(totalQuestions / LISTENING_PART_MIN_QUESTIONS);
+  for (let count = 1; count <= maxParts; count += 1) {
+    const small = Math.floor(totalQuestions / count);
+    const large = small + (totalQuestions % count === 0 ? 0 : 1);
+    if (small < LISTENING_PART_MIN_QUESTIONS || large > LISTENING_PART_MAX_QUESTIONS) {
+      continue;
+    }
+    const distance = Math.abs(totalQuestions / count - LISTENING_PART_TARGET_QUESTIONS);
+    if (distance < bestDistance || (distance === bestDistance && count < bestCount)) {
+      bestDistance = distance;
+      bestCount = count;
+    }
+  }
+  if (bestCount > 0) return bestCount;
+  return Math.max(1, Math.floor(totalQuestions / LISTENING_PART_MIN_QUESTIONS));
+}
+
+/**
+ * Split questions into even contiguous parts of 10–15.
+ * Sizes differ by at most one, so the last part stays in that range too.
+ * A lesson of 15 questions or fewer is a single part.
+ */
+export function splitListeningParts<T>(clips: readonly T[]): T[][] {
+  if (clips.length === 0) return [];
+  const partCount = Math.min(listeningPartCount(clips.length), clips.length);
+  if (partCount <= 1) return [clips.slice()];
+
+  const base = Math.floor(clips.length / partCount);
+  const extra = clips.length % partCount;
+  const parts: T[][] = [];
+  let index = 0;
+  for (let part = 0; part < partCount; part += 1) {
+    const size = base + (part < extra ? 1 : 0);
+    parts.push(clips.slice(index, index + size));
+    index += size;
+  }
+  return parts;
+}
+
+/** True when `order` is a permutation of the current catalog. */
+export function sameClipOrderSet<T extends { id: string }>(
+  clips: readonly T[],
+  order: readonly string[] | undefined | null,
+): boolean {
+  if (!order || order.length !== clips.length || clips.length === 0) return false;
+  const ids = new Set(clips.map((clip) => clip.id));
+  if (ids.size !== clips.length) return false;
+  const seen = new Set<string>();
+  for (const id of order) {
+    if (!ids.has(id) || seen.has(id)) return false;
+    seen.add(id);
+  }
+  return seen.size === clips.length;
+}
+
+export function clipsInStoredOrder<T extends { id: string }>(
+  clips: readonly T[],
+  order: readonly string[],
+): T[] {
+  const byId = new Map(clips.map((clip) => [clip.id, clip]));
+  return order.flatMap((id) => {
+    const clip = byId.get(id);
+    return clip ? [clip] : [];
+  });
+}
+
+/** Index of the first part that still has an unfinished clip, or -1. */
+export function firstIncompletePartIndex<T extends { id: string }>(
+  parts: readonly (readonly T[])[],
+  completedIds: readonly string[],
+): number {
+  const done = new Set(completedIds);
+  return parts.findIndex((part) => part.some((clip) => !done.has(clip.id)));
+}
+
+/** Finished parts at the start of the run. A partial part does not count. */
+export function completedPartCount<T extends { id: string }>(
+  parts: readonly (readonly T[])[],
+  completedIds: readonly string[],
+): number {
+  const index = firstIncompletePartIndex(parts, completedIds);
+  return index === -1 ? parts.length : index;
+}
+
 /** Completed ids that still exist in the current catalog. */
 export function catalogCompletedCount<T extends { id: string }>(
   clips: readonly T[],
@@ -2006,6 +2239,7 @@ function hasLearnActivity(entry: LearnProgress | undefined): boolean {
       entry.studyRunCount > 0 ||
       entry.completedClipIds.length > 0 ||
       entry.runCompletedClipIds.length > 0 ||
+      (entry.runClipOrder?.length ?? 0) > 0 ||
       entry.reviewedClipIds.length > 0 ||
       entry.currentClipIndex > 0,
   );

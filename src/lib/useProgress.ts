@@ -10,6 +10,7 @@ import {
   clearStoredProgress,
   progressStorageKey,
   shouldReplaceLocalWithCloud,
+  commitLearnPart,
   incrementLearnRunCount,
   incrementStudyRunCount,
   isLearnChapterCompleted,
@@ -35,6 +36,7 @@ import {
   recordVisitVideo,
   recordVisitWrongAttempt,
   saveLessonVideoPosition,
+  setLearnRunOrder,
   setLessonVideoWatched,
   toBerufProgress,
   toContinueLearning,
@@ -429,6 +431,7 @@ function getServerSnapshot(): StoredProgress {
   return DEFAULT_PROGRESS;
 }
 
+const EMPTY_RUN_ORDER: readonly string[] = [];
 const EMPTY_TOTALS: Record<string, number> = {};
 const EMPTY_LEVEL_CATALOG: ContinueLevelCatalogEntry[] = [];
 
@@ -552,6 +555,47 @@ export function useProgress(
     (chapterSlug: string) => {
       const current = readProgressSnapshot();
       const next = markLearnChapterCompleted(current, chapterSlug);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const setLearnRunOrderFn = useCallback(
+    (chapterSlug: string, order: readonly string[]) => {
+      const current = readProgressSnapshot();
+      const next = setLearnRunOrder(current, chapterSlug, order);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const commitLearnListeningPart = useCallback(
+    (
+      chapterSlug: string,
+      clipIds: readonly string[],
+      lessonKey: string,
+      finishRun: boolean,
+    ) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      let next = commitLearnPart(current, chapterSlug, clipIds, { now, finishRun });
+      const exercised = recordVisitExercise(
+        next,
+        now,
+        readVisitId(),
+        lessonKey,
+        clipIds.length,
+      );
+      let visitId = exercised.visitId;
+      next = exercised.progress;
+      if (finishRun) {
+        const recorded = recordVisitListeningRun(next, now, visitId, lessonKey);
+        visitId = recorded.visitId;
+        next = recorded.progress;
+      }
+      if (visitId) writeVisitId(visitId);
       if (next === current) return;
       persist(next, true);
     },
@@ -723,6 +767,8 @@ export function useProgress(
     markClipDone,
     markLearnClipDone,
     markLearnChapterDone,
+    setLearnRunOrder: setLearnRunOrderFn,
+    commitLearnListeningPart,
     resetProgress,
     resetLearnProgress: resetLearnProgressFn,
     setStreakDays: (streakDays: number) => {
@@ -734,6 +780,8 @@ export function useProgress(
       progress.learn[chapterSlug]?.completedClipIds ?? [],
     completedLearnRunClipIdsFor: (chapterSlug: string) =>
       learnRunCompletedClipIds(progress, chapterSlug),
+    learnRunClipOrderFor: (chapterSlug: string) =>
+      progress.learn[chapterSlug]?.runClipOrder ?? EMPTY_RUN_ORDER,
     learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),
     learnStudyRunCountFor: (chapterSlug: string) =>
       learnStudyRunCount(progress, chapterSlug),

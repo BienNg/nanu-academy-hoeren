@@ -1,17 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ProfileButton } from "@/components/ProfileButton";
 import { useProgress } from "@/lib/useProgress";
-import { catalogCompletedCount, lessonVideoProgressKey, lessonVideoStatus } from "@/lib/progress";
+import {
+  catalogCompletedCount,
+  clipsInStoredOrder,
+  completedPartCount,
+  lessonVideoProgressKey,
+  lessonVideoStatus,
+  sameClipOrderSet,
+  splitListeningParts,
+} from "@/lib/progress";
 import type { CefrLevel, ChapterVideo, LevelChapterMeta } from "@/lib/levels";
 import { VideoLessonCard } from "@/components/VideoLessonCard";
 
 type ChapterHubClientProps = {
   level: CefrLevel;
   chapter: LevelChapterMeta;
-  clipIds: string[];
+  clips: { id: string; script: string }[];
   videos: ChapterVideo[];
   isAdmin?: boolean;
 };
@@ -58,6 +67,7 @@ function ModeCard({
   description,
   progressLabel,
   progress,
+  partProgress,
   disabled,
   lockInfo,
   runCount = 0,
@@ -67,7 +77,8 @@ function ModeCard({
   title: string;
   description: string;
   progressLabel: string;
-  progress: number;
+  progress?: number;
+  partProgress?: { done: number; total: number };
   disabled?: boolean;
   lockInfo?: LockInfo;
   runCount?: number;
@@ -135,7 +146,33 @@ function ModeCard({
           </p>
         )}
       </div>
-      {!isLocked && (
+      {!isLocked && partProgress && partProgress.total > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">
+            {progressLabel}
+          </span>
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={partProgress.total}
+            aria-valuenow={partProgress.done}
+            aria-label="Tiến độ các phần"
+            className="grid w-full gap-1"
+            style={{
+              gridTemplateColumns: `repeat(${partProgress.total}, minmax(0, 1fr))`,
+            }}
+          >
+            {Array.from({ length: partProgress.total }, (_, index) => (
+              <div
+                key={`part-${index}`}
+                className={`h-1.5 rounded-full ${
+                  index < partProgress.done ? "bg-[#0066cc]" : "bg-[#e8e8ed]"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      ) : !isLocked && typeof progress === "number" ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">
@@ -152,7 +189,7 @@ function ModeCard({
             />
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 
@@ -170,43 +207,86 @@ function ModeCard({
 export default function ChapterHubClient({
   level,
   chapter,
-  clipIds,
+  clips,
   videos,
   isAdmin = false,
 }: ChapterHubClientProps) {
   const shouldReduceMotion = useReducedMotion();
   const {
+    completedLearnClipIdsFor,
     completedLearnRunClipIdsFor,
     reviewedLearnClipIdsFor,
     learnChapterCompleted,
+    learnRunClipOrderFor,
     learnStudyCompleted,
     learnRunCountFor,
     lessonVideoProgressFor,
   } = useProgress();
 
-  const clipCount = clipIds.length;
+  const clipIds = clips.map((clip) => clip.id);
+  const clipCount = clips.length;
   const isAvailable = clipCount > 0;
   const reviewedCount = catalogCompletedCount(
     clipIds.map((id) => ({ id })),
     reviewedLearnClipIdsFor(chapter.slug),
   );
-  const practicedCount = catalogCompletedCount(
-    clipIds.map((id) => ({ id })),
-    completedLearnRunClipIdsFor(chapter.slug),
-  );
   const practiceComplete = learnChapterCompleted(chapter.slug);
+  const runOrder = learnRunClipOrderFor(chapter.slug);
+  const reviewActive = practiceComplete && sameClipOrderSet(clips, runOrder);
+  const listeningParts = splitListeningParts(
+    reviewActive ? clipsInStoredOrder(clips, runOrder) : clips,
+  );
+  const completedParts = completedPartCount(
+    listeningParts,
+    reviewActive
+      ? completedLearnRunClipIdsFor(chapter.slug)
+      : completedLearnClipIdsFor(chapter.slug),
+  );
+  const partCount = listeningParts.length;
+  const showPracticeComplete =
+    partCount > 0 &&
+    ((practiceComplete && completedParts === 0) || completedParts >= partCount);
+  const practicePartDone = showPracticeComplete ? partCount : completedParts;
   const studyComplete =
     clipCount > 0 &&
     (learnStudyCompleted(chapter.slug) || reviewedCount >= clipCount);
 
   const studyProgress =
     clipCount === 0 ? 0 : studyComplete ? 1 : reviewedCount / clipCount;
-  const practiceProgress =
-    clipCount === 0
-      ? 0
-      : practiceComplete
-        ? 1
-        : practicedCount / clipCount;
+
+  useEffect(() => {
+    const focus = new URLSearchParams(window.location.search).get("focus");
+    let storedFocus = false;
+    try {
+      storedFocus = sessionStorage.getItem("nanu-focus-luyen-nghe") === chapter.slug;
+      if (storedFocus) sessionStorage.removeItem("nanu-focus-luyen-nghe");
+    } catch {
+      storedFocus = false;
+    }
+    if (
+      window.location.hash !== "#luyen-nghe" &&
+      focus !== "luyen-nghe" &&
+      !storedFocus
+    ) {
+      return;
+    }
+    const scrollToPractice = () => {
+      const target = document.getElementById("luyen-nghe");
+      if (!target) return;
+      target.scrollIntoView({
+        behavior: shouldReduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
+      target.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(scrollToPractice);
+    // The lesson video can change height after the first paint.
+    const timer = window.setTimeout(scrollToPractice, 500);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [chapter.slug, shouldReduceMotion]);
 
   // Check video completion status
   const videoCount = videos.length;
@@ -308,23 +388,27 @@ export default function ChapterHubClient({
             disabled={!isAvailable}
             lockInfo={studyLockInfo}
           />
-          <ModeCard
-            href={`/learn/${level.slug}/${chapter.slug}/practice`}
-            icon="headphones"
-            title="Luyện nghe"
-            description="Nghe và chép chính tả để kiểm tra những gì bạn đã học."
-            progressLabel={
-              practiceComplete
-                ? "Đã hoàn thành"
-                : practicedCount > 0
-                  ? `${practicedCount} / ${clipCount} đã luyện`
-                  : `${clipCount} câu`
-            }
-            progress={practiceProgress}
-            disabled={!isAvailable}
-            lockInfo={practiceLockInfo}
-            runCount={learnRunCountFor(chapter.slug)}
-          />
+          <div id="luyen-nghe" tabIndex={-1} className="outline-none">
+            <ModeCard
+              href={`/learn/${level.slug}/${chapter.slug}/practice`}
+              icon="headphones"
+              title="Luyện nghe"
+              description="Nghe và chép chính tả để kiểm tra những gì bạn đã học."
+              progressLabel={
+                partCount === 0
+                  ? "0 phần"
+                  : showPracticeComplete
+                    ? "Đã hoàn thành"
+                    : completedParts > 0
+                      ? `${completedParts} / ${partCount} phần`
+                      : `${partCount} phần`
+              }
+              partProgress={{ done: practicePartDone, total: partCount }}
+              disabled={!isAvailable}
+              lockInfo={practiceLockInfo}
+              runCount={learnRunCountFor(chapter.slug)}
+            />
+          </div>
         </motion.div>
       </section>
     </main>

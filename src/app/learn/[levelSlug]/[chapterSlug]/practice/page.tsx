@@ -23,14 +23,27 @@ export default async function LearnPracticePage({
   }
   await requireLevelAccess(session.user, levelSlug);
 
-  const chapter = getLevelChapters(levelSlug).find(
-    (entry) => entry.slug === chapterSlug,
-  );
+  const chapters = getLevelChapters(levelSlug);
+  const chapter = chapters.find((entry) => entry.slug === chapterSlug);
   if (!chapter) {
     notFound();
   }
 
+  const chapterIndex = chapters.findIndex((entry) => entry.slug === chapterSlug);
+  const nextChapter = chapterIndex >= 0 ? chapters[chapterIndex + 1] : undefined;
   const clips = getChapterClips(levelSlug, chapterSlug);
 
-  return <LearnSession level={level} chapter={chapter} clips={clips} />;
+  return (
+    <LearnSession
+      level={level}
+      chapter={chapter}
+      clips={clips}
+      nextChapterHref={
+        nextChapter
+          ? `/learn/${levelSlug}/${nextChapter.slug}`
+          : `/learn/${levelSlug}`
+      }
+      hasNextChapter={Boolean(nextChapter)}
+    />
+  );
 }

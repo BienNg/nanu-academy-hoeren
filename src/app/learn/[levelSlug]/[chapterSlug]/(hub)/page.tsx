@@ -39,7 +39,7 @@ export default async function LearnChapterPage({
     <ChapterHubClient
       level={level}
       chapter={chapter}
-      clipIds={clips.map((clip) => clip.id)}
+      clips={clips.map((clip) => ({ id: clip.id, script: clip.script }))}
       videos={videos}
       isAdmin={isAdminUser(session.user)}
     />

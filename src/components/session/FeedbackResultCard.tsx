@@ -9,6 +9,7 @@ interface FeedbackResultCardProps {
   result: ScoreResult;
   clip: SessionClip;
   onNext: () => void;
+  nextLabel?: string;
 }
 
 function censorWord(word: string): string {
@@ -56,6 +57,7 @@ export function FeedbackResultCard({
   result,
   clip,
   onNext,
+  nextLabel = "Tiếp theo",
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
 
@@ -95,7 +97,7 @@ export function FeedbackResultCard({
             className="group h-[56px] w-full rounded-[16px] bg-[#0066cc] text-white text-[17px] font-semibold flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
             type="button"
           >
-            <span>Tiếp theo</span>
+            <span>{nextLabel}</span>
             <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
           </button>
         </div>
