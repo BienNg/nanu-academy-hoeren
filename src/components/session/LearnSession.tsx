@@ -48,6 +48,9 @@ type PartSummary = {
   accuracy: number;
   elapsedMs: number;
   failed: boolean;
+  xp: number | null;
+  xpKind: string | null;
+  xpPending: boolean;
 };
 
 function PartHearts({
@@ -354,19 +357,35 @@ export function LearnSession({
       missedClipIds: missedClipIdsRef.current,
       clipIndex,
     });
-    if (run) submitListeningRun(run);
-    else console.error("Listening run was not saved");
+    if (!run) console.error("Listening run was not saved");
     setSummary({
       questionCount: answered,
       accuracy,
       elapsedMs,
       failed,
+      xp: null,
+      xpKind: null,
+      xpPending: Boolean(run) && !failed,
     });
     if (!failed) {
       commitPart();
       playCelebrationSound();
     }
     setPhase("complete");
+    if (!run) return;
+    void submitListeningRun(run).then((grant) => {
+      if (failed) return;
+      setSummary((current) =>
+        current
+          ? {
+              ...current,
+              xp: grant?.xp ?? null,
+              xpKind: grant?.kind ?? null,
+              xpPending: false,
+            }
+          : current,
+      );
+    });
   };
 
   const continueAfterPart = () => {
@@ -445,6 +464,9 @@ export function LearnSession({
           questionCount={summary.questionCount}
           accuracy={summary.accuracy}
           elapsedMs={summary.elapsedMs}
+          xp={summary.xp}
+          xpKind={summary.xpKind}
+          xpPending={summary.xpPending}
           streakDays={streakDays}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
+import { BottomNav } from "@/components/BottomNav";
 import { discardDeviceProgress } from "@/lib/useProgress";
 
 function MaterialIcon({
@@ -170,7 +171,7 @@ export function AccountScreen({
           <div className="absolute -left-[20%] top-[0%] h-[30%] w-[70%] rounded-full bg-blue-100/40 blur-[100px] md:-left-[10%] md:h-[40%] md:w-[50%] md:blur-[120px]" />
         </div>
         
-        <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6 px-6 pb-32 pt-6">
+        <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6 px-6 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
           <section className="flex flex-col gap-5 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
             <div className="flex items-center gap-4">
               <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full shadow-sm border border-black/[0.05]">
@@ -229,6 +230,7 @@ export function AccountScreen({
           </section>
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

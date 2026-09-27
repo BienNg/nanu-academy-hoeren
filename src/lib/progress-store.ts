@@ -11,6 +11,7 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
+import { isXpSchemaMissing } from "@/lib/xp";
 import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
@@ -22,6 +23,7 @@ import {
 const TABLE = "user_progress";
 const RUNS_TABLE = "listening_runs";
 const CLIPS_TABLE = "clip_results";
+const XP_TABLE = "xp_awards";
 const TOTALS_RPC = "clip_outcome_totals";
 const STUDENT_RUN_PAGE = 25;
 
@@ -51,7 +53,7 @@ function supabaseServiceKey(): string | undefined {
   );
 }
 
-function getSupabaseAdmin(): SupabaseClient | null {
+export function getSupabaseAdmin(): SupabaseClient | null {
   const url = supabaseUrl();
   const key = supabaseServiceKey();
   if (!url || !key) return null;
@@ -546,6 +548,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     throw new Error("Progress store is not configured");
   }
 
+  await deleteUserXpAwards(supabase, userId);
   await deleteUserListeningRuns(supabase, userId);
 
   const now = new Date().toISOString();
@@ -761,6 +764,15 @@ async function deleteUserListeningRuns(
   const { error } = await supabase.from(RUNS_TABLE).delete().eq("user_id", userId);
   if (!error || isListeningSchemaMissing(error.message)) return;
   throw new Error(`Could not delete listening runs (${error.message}).`);
+}
+
+async function deleteUserXpAwards(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
+  if (!error || isXpSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete XP (${error.message}).`);
 }
 
 /** Insert one finished part. A repeated id is ignored so a retry does not double-count. */

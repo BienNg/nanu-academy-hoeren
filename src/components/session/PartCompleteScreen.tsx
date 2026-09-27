@@ -11,6 +11,9 @@ type PartCompleteScreenProps = {
   questionCount: number;
   accuracy: number;
   elapsedMs: number;
+  xp: number | null;
+  xpKind: string | null;
+  xpPending: boolean;
   streakDays: number;
   finishRun: boolean;
   failed: boolean;
@@ -59,6 +62,25 @@ function subtitleFor(
   return `Phần ${partNumber} / ${partCount}`;
 }
 
+function xpCaption(xp: number | null, kind: string | null): { value: string; note: string | null } {
+  if (kind === "rejected") {
+    return {
+      value: "+0 XP",
+      note: "Lần này chưa cộng điểm. Làm lại phần để nhận XP.",
+    };
+  }
+  if (kind === "repeat") {
+    return { value: "+0 XP", note: "Phần này đã được tính hôm nay" };
+  }
+  if (kind === "review" && (xp ?? 0) === 0) {
+    return { value: "+0 XP", note: "Đã đủ 30 XP ôn tập hôm nay" };
+  }
+  return {
+    value: `+${xp ?? 0} XP`,
+    note: kind === "review" ? "Ôn tập" : null,
+  };
+}
+
 export function PartCompleteScreen({
   partNumber,
   partCount,
@@ -67,6 +89,9 @@ export function PartCompleteScreen({
   questionCount,
   accuracy,
   elapsedMs,
+  xp,
+  xpKind,
+  xpPending,
   streakDays,
   finishRun,
   failed,
@@ -76,6 +101,7 @@ export function PartCompleteScreen({
   const reduceMotion = useReducedMotion();
   const continueRef = useRef<HTMLButtonElement>(null);
   const perfect = accuracy >= 100;
+  const earned = !failed && (xpPending || xpKind) ? xpCaption(xp, xpKind) : null;
   const stats = [
     { label: "Câu", value: String(questionCount), color: "#0066cc" },
     { label: "Chính xác", value: `${accuracy}%`, color: perfect ? "#34C759" : "#ff9f0a" },
@@ -199,6 +225,29 @@ export function PartCompleteScreen({
         >
           {subtitleFor(failed, finishRun, partNumber, partCount)}
         </motion.p>
+
+        {earned ? (
+          <motion.div
+            className="mt-5 flex flex-col items-center gap-1"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: 0.2 }}
+          >
+            <span className="inline-flex items-center gap-1 text-[28px] font-extrabold leading-none text-[#f59e0b]">
+              <span
+                className="material-symbols-outlined text-[28px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                bolt
+              </span>
+              {xpPending ? "Đang cộng XP…" : earned.value}
+            </span>
+            {!xpPending && earned.note ? (
+              <span className="text-[13px] font-semibold text-[#86868b]">{earned.note}</span>
+            ) : null}
+          </motion.div>
+        ) : null}
 
         <div className="mt-8 grid w-full grid-cols-3 gap-3">
           {stats.map((stat, index) => (

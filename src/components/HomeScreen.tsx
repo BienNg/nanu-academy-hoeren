@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
+import { BottomNav } from "@/components/BottomNav";
+import { TodayXpChip } from "@/components/TodayXpChip";
 import type { Ausbildungsberuf } from "@/lib/content";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
@@ -290,23 +292,23 @@ export function HomeScreen({
       </div>
 
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
-        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between px-6">
-          <div className="flex items-center gap-space-8">
+        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between gap-3 px-6">
+          <div className="flex min-w-0 items-center gap-space-8">
             <Image
               src="/logo192.png"
               alt="NaNu Nana"
               width={40}
               height={40}
-              className="h-10 w-10 object-contain"
+              className="h-10 w-10 shrink-0 object-contain"
               priority
             />
-            <div className="flex flex-col">
-              <h1 className="font-headline-sm text-headline-sm font-bold leading-none tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
+            <div className="flex min-w-0 flex-col">
+              <h1 className="truncate font-headline-sm text-headline-sm font-bold leading-none tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
                 {greeting}
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-space-8">
+          <div className="flex shrink-0 items-center gap-2">
             <div className="flex items-center gap-space-4 rounded-full bg-white border border-black/[0.05] shadow-sm px-space-8 py-1 text-[#86868b]">
               <MaterialIcon
                 name="local_fire_department"
@@ -317,13 +319,14 @@ export function HomeScreen({
                 {streakDays} ngày
               </span>
             </div>
+            <TodayXpChip />
             <ProfileButton />
           </div>
         </div>
       </header>
 
       <main className="relative flex w-full flex-1 flex-col items-center">
-        <div className="flex w-full max-w-4xl flex-col gap-space-24 px-6 pb-space-32">
+        <div className="flex w-full max-w-4xl flex-col gap-space-24 px-6 pb-[calc(7rem+env(safe-area-inset-bottom))]">
           {continueLevel &&
           unlockedLevelSlugs.includes(continueLevel.levelSlug) ? (
             <ContinueCard
@@ -388,6 +391,7 @@ export function HomeScreen({
           ) : null}
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

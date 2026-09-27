@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { BottomNav } from "@/components/BottomNav";
 import { ProfileButton } from "@/components/ProfileButton";
+import { TodayXpChip } from "@/components/TodayXpChip";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useId, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -314,7 +316,8 @@ export default function LevelViewClient({
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const { progress, completedLearnRunClipIdsFor, learnChapterCompleted } = useProgress();
+  const { progress, completedLearnRunClipIdsFor, learnChapterCompleted, streakDays } =
+    useProgress();
   const courseDetail = useMemo(() => {
     return projectStudentDetail(cefrCatalog, progress).courses.find(
       (entry) => entry.id === level.slug,
@@ -429,6 +432,7 @@ export default function LevelViewClient({
   };
 
   return (
+    <>
     <main 
       ref={containerRef}
       data-layout="wide"
@@ -447,7 +451,25 @@ export default function LevelViewClient({
             </span>
             <span className="text-[17px] font-medium tracking-tight">Trở về</span>
           </Link>
-          <ProfileButton />
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-1 rounded-full border border-black/[0.05] bg-white px-2.5 py-1 shadow-sm"
+              aria-label={`Chuỗi ${streakDays} ngày`}
+            >
+              <span
+                className="material-symbols-outlined text-[16px] text-[#ff9500]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                local_fire_department
+              </span>
+              <span className="text-[13px] font-semibold text-[#1d1d1f]">
+                {streakDays} ngày
+              </span>
+            </div>
+            <TodayXpChip />
+            <ProfileButton />
+          </div>
         </div>
       </header>
 
@@ -461,7 +483,7 @@ export default function LevelViewClient({
       </motion.div>
 
       <section
-        className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-28 sm:px-6"
+        className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:px-6"
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
       >
         <motion.div
@@ -657,5 +679,7 @@ export default function LevelViewClient({
         </motion.ul>
       </section>
     </main>
+    <BottomNav />
+    </>
   );
 }

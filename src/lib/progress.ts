@@ -2114,6 +2114,18 @@ export function splitListeningParts<T>(clips: readonly T[]): T[][] {
   return parts;
 }
 
+/** Clip count for one part. Review runs shuffle first, so the ids change and the size does not. */
+export function listeningPartSize(
+  totalClips: number,
+  partNumber: number,
+  partCount: number,
+): number | null {
+  if (totalClips <= 0 || partNumber < 1 || partCount < 1) return null;
+  const parts = splitListeningParts(Array.from({ length: totalClips }, (_, index) => index));
+  if (parts.length !== partCount || partNumber > parts.length) return null;
+  return parts[partNumber - 1]?.length ?? null;
+}
+
 /** True when `order` is a permutation of the current catalog. */
 export function sameClipOrderSet<T extends { id: string }>(
   clips: readonly T[],

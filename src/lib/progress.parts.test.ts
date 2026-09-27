@@ -7,6 +7,7 @@ import {
   completedPartCount,
   firstIncompletePartIndex,
   listeningPartCount,
+  listeningPartSize,
   mergeProgress,
   normalizeProgress,
   setLearnRunOrder,
@@ -97,6 +98,14 @@ test("a short lesson stays one part", () => {
   const parts = splitListeningParts(questions(2));
   assert.equal(parts.length, 1);
   assert.equal(parts[0]?.length, 2);
+  assert.equal(listeningPartSize(2, 1, 1), 2);
+});
+
+test("part size follows the split, including a shuffled lesson of 21", () => {
+  assert.equal(listeningPartSize(21, 1, 2), 11);
+  assert.equal(listeningPartSize(21, 2, 2), 10);
+  assert.equal(listeningPartSize(21, 1, 1), null);
+  assert.equal(listeningPartSize(10, 1, 1), 10);
 });
 
 test("progress is stored only when a whole part finishes", () => {

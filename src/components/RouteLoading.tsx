@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BottomNav } from "@/components/BottomNav";
 
 const screenFont = {
   fontFamily:
@@ -191,6 +192,7 @@ export function HomeScreenSkeleton() {
           </div>
         </div>
       </main>
+      <BottomNav />
     </ScreenFrame>
   );
 }

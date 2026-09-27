@@ -232,21 +232,35 @@ export function buildListeningRunRecord(input: {
   });
 }
 
-/** Fire-and-forget. A failed save must not block the part-complete screen. */
-export function submitListeningRun(input: ListeningRunInput): void {
-  void fetch("/api/runs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    keepalive: true,
-  }).then(
-    (response) => {
-      if (!response.ok) console.error("Listening run was not saved", response.status);
-    },
-    (error: unknown) => {
-      console.error("Listening run was not saved", error);
-    },
-  );
+export type ListeningRunXp = {
+  xp: number | null;
+  kind: string | null;
+};
+
+/** Saves the run and returns the XP the server awarded. Null when the save failed. */
+export async function submitListeningRun(
+  input: ListeningRunInput,
+): Promise<ListeningRunXp | null> {
+  try {
+    const response = await fetch("/api/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      keepalive: true,
+    });
+    if (!response.ok) {
+      console.error("Listening run was not saved", response.status);
+      return null;
+    }
+    const data = (await response.json()) as { xp?: unknown; kind?: unknown };
+    return {
+      xp: typeof data.xp === "number" ? data.xp : null,
+      kind: typeof data.kind === "string" ? data.kind : null,
+    };
+  } catch (error) {
+    console.error("Listening run was not saved", error);
+    return null;
+  }
 }
 
 function readCount(value: unknown): number {

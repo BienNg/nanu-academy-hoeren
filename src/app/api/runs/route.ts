@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ListeningSchemaError, parseListeningRunInput } from "@/lib/listening-runs";
 import { insertListeningRun, isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
+import { grantXpForListeningRun } from "@/lib/xp-store";
 
 function revokedResponse() {
   return NextResponse.json(
@@ -48,5 +49,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not save this run" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  const grant = await grantXpForListeningRun(session.user.id, run);
+  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready });
 }
