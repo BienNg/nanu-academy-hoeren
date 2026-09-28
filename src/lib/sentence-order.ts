@@ -48,7 +48,9 @@ export function normalizeToken(word: string): string {
   return word.toLowerCase().replace(PUNCTUATION, "");
 }
 
-/** Two or more words, a translation to show, and not excluded in the lesson JSON. */
+export const MIN_ORDER_WORDS = 3;
+
+/** Three or more words, a translation to show, and not excluded in the lesson JSON. */
 export function isSentenceOrderEligible(clip: {
   script: string;
   translationVi?: string;
@@ -56,7 +58,7 @@ export function isSentenceOrderEligible(clip: {
 }): boolean {
   if (clip.noSentenceOrder === true) return false;
   if (!clip.translationVi || clip.translationVi.trim().length === 0) return false;
-  return tokenizeSentence(clip.script).filter((word) => normalizeToken(word)).length >= 2;
+  return tokenizeSentence(clip.script).filter((word) => normalizeToken(word)).length >= MIN_ORDER_WORDS;
 }
 
 export function distractorCount(wordCount: number): number {
@@ -146,33 +148,35 @@ export function checkOrder(selected: readonly string[], script: string): OrderRe
 }
 
 /**
- * One listening card per clip, plus an order card for each eligible clip.
- * Cards are drawn at random, and a clip's order card joins the draw only once
- * its listening card is placed, so the chips never give away the dictation.
+ * One listening card per clip in the part's order, plus an order card for each
+ * eligible clip. Each order card is inserted at a random later position after
+ * its own listening card (with at least one card in between when possible),
+ * so the chips never give away the dictation.
  */
 export function buildPracticeDeck<C extends OrderSourceClip>(
   partClips: readonly C[],
   lessonClips: readonly OrderSourceClip[],
   random: () => number = Math.random,
 ): PracticeCard<C>[] {
-  const available: PracticeCard<C>[] = partClips.map((clip) => ({
+  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
     key: `${clip.id}:listen`,
     kind: "listening",
     clip,
   }));
-  const deck: PracticeCard<C>[] = [];
-  while (available.length > 0) {
-    const index = Math.min(available.length - 1, Math.floor(random() * available.length));
-    const [card] = available.splice(index, 1) as [PracticeCard<C>];
-    deck.push(card);
-    if (card.kind === "listening" && card.clip.sentenceOrder) {
-      available.push({
-        key: `${card.clip.id}:order`,
-        kind: "order",
-        clip: card.clip,
-        bank: buildWordBank(card.clip, lessonClips, random),
-      });
-    }
+  for (const clip of partClips) {
+    if (!clip.sentenceOrder) continue;
+    const listenAt = deck.findIndex(
+      (card) => card.kind === "listening" && card.clip.id === clip.id,
+    );
+    const earliest = Math.min(listenAt + 2, deck.length);
+    const span = deck.length - earliest + 1;
+    const at = earliest + Math.min(span - 1, Math.floor(random() * span));
+    deck.splice(at, 0, {
+      key: `${clip.id}:order`,
+      kind: "order",
+      clip,
+      bank: buildWordBank(clip, lessonClips, random),
+    });
   }
   return deck;
 }

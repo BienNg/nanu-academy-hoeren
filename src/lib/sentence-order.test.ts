@@ -33,14 +33,19 @@ const lesson = [
   },
 ];
 
-test("eligibility needs two words, a translation and no exclusion", () => {
-  assert.equal(isSentenceOrderEligible({ script: "ich mache", translationVi: "tôi làm" }), true);
+test("eligibility needs three words, a translation and no exclusion", () => {
+  assert.equal(isSentenceOrderEligible({ script: "ich mache das", translationVi: "tôi làm" }), true);
+  assert.equal(isSentenceOrderEligible({ script: "ich mache", translationVi: "tôi làm" }), false);
   assert.equal(isSentenceOrderEligible({ script: "Hallo", translationVi: "xin chào" }), false);
-  assert.equal(isSentenceOrderEligible({ script: "Hallo !", translationVi: "xin chào" }), false);
-  assert.equal(isSentenceOrderEligible({ script: "ich mache", translationVi: "" }), false);
-  assert.equal(isSentenceOrderEligible({ script: "ich mache" }), false);
+  assert.equal(isSentenceOrderEligible({ script: "ich mache !", translationVi: "tôi làm" }), false);
+  assert.equal(isSentenceOrderEligible({ script: "ich mache das", translationVi: "" }), false);
+  assert.equal(isSentenceOrderEligible({ script: "ich mache das" }), false);
   assert.equal(
-    isSentenceOrderEligible({ script: "ich mache", translationVi: "tôi làm", noSentenceOrder: true }),
+    isSentenceOrderEligible({
+      script: "ich mache das",
+      translationVi: "tôi làm",
+      noSentenceOrder: true,
+    }),
     false,
   );
 });
@@ -100,6 +105,29 @@ test("deck has a listening card per clip and order cards after their listening c
       );
       assert.ok(listen < index, `order card for ${card.clip.id} came first`);
       assert.ok(card.bank && card.bank.length > 0);
+    }
+  }
+});
+
+test("listening cards keep the part order and order cards come later, not right after", () => {
+  const clips = Array.from({ length: 10 }, (_, index) => ({
+    id: `c${index}`,
+    script: "a b c",
+    translationVi: "x",
+    sentenceOrder: index % 3 !== 0,
+  }));
+  for (let seed = 1; seed < 50; seed += 1) {
+    const deck = buildPracticeDeck(clips, clips, seeded(seed));
+    assert.deepEqual(
+      deck.filter((card) => card.kind === "listening").map((card) => card.clip.id),
+      clips.map((clip) => clip.id),
+    );
+    for (const [index, card] of deck.entries()) {
+      if (card.kind !== "order") continue;
+      const listen = deck.findIndex(
+        (other) => other.kind === "listening" && other.clip.id === card.clip.id,
+      );
+      assert.ok(index - listen >= 2, `order card for ${card.clip.id} came right after`);
     }
   }
 });
