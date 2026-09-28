@@ -161,13 +161,36 @@ export function checkOrder(selected: readonly string[], script: string): OrderRe
   return { accuracy, words };
 }
 
-/** One listening card per clip, in part order. Sentence order is a duel card. */
+/**
+ * One listening card per clip in the part's order, plus an order card for each
+ * eligible clip. Each order card is inserted at a random later position after
+ * its own listening card (with at least one card in between when possible),
+ * so the chips never give away the dictation.
+ */
 export function buildPracticeDeck<C extends OrderSourceClip>(
   partClips: readonly C[],
+  lessonClips: readonly OrderSourceClip[],
+  random: () => number = Math.random,
 ): PracticeCard<C>[] {
-  return partClips.map((clip) => ({
+  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
     key: `${clip.id}:listen`,
     kind: "listening",
     clip,
   }));
+  for (const clip of partClips) {
+    if (!clip.sentenceOrder) continue;
+    const listenAt = deck.findIndex(
+      (card) => card.kind === "listening" && card.clip.id === clip.id,
+    );
+    const earliest = Math.min(listenAt + 2, deck.length);
+    const span = deck.length - earliest + 1;
+    const at = earliest + Math.min(span - 1, Math.floor(random() * span));
+    deck.splice(at, 0, {
+      key: `${clip.id}:order`,
+      kind: "order",
+      clip,
+      bank: buildWordBank(clip, lessonClips, random),
+    });
+  }
+  return deck;
 }

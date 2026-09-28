@@ -8,6 +8,7 @@ import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
+import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -26,7 +27,7 @@ import {
   clipResultsForCardDeck,
   submitListeningRun,
 } from "@/lib/listening-runs";
-import { buildPracticeDeck, type PracticeCard } from "@/lib/sentence-order";
+import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -272,7 +273,7 @@ export function LearnSession({
     setBreakingIndex(null);
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
-    setPartCards(buildPracticeDeck(nextPartClips));
+    setPartCards(buildPracticeDeck(nextPartClips, clips));
     setPartNumber(partNumber);
     setPartCount(listeningPartCount);
     setClipIndex(0);
@@ -334,6 +335,7 @@ export function LearnSession({
 
     recordWrongAttempt();
     missedClipIdsRef.current.add(currentCard.clip.id);
+    // The first miss of each card costs a heart; a clip has up to two cards.
     if (missedCardKeysRef.current.has(currentCard.key)) return;
 
     missedCardKeysRef.current.add(currentCard.key);
@@ -348,6 +350,11 @@ export function LearnSession({
     if (!currentClip) return;
     setDraft(value);
     applyResult(scoreAttempt(value, currentClip.script));
+  };
+
+  const handleOrderSubmit = (selected: string[]) => {
+    if (!currentClip) return;
+    applyResult(checkOrder(selected, currentClip.script));
   };
 
   const commitPart = () => {
@@ -566,26 +573,38 @@ export function LearnSession({
               </div>
             </header>
 
-            <AudioPlayerCard
-              key={currentCard?.key ?? currentClip.id}
-              audioPath={currentClip.audioPath}
-            />
-
-            {scoreResult ? (
-              <FeedbackResultCard
-                result={scoreResult}
-                clip={currentClip}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
-                skipOnMistake
+            {currentCard?.kind === "order" && !scoreResult ? (
+              // Order cards hide the audio until checked, then it plays with the feedback.
+              <SentenceOrderCard
+                key={`order-${currentCard.key}`}
+                translation={currentClip.translationVi}
+                chips={currentCard.bank ?? []}
+                onSubmit={handleOrderSubmit}
               />
             ) : (
-              <DictationInputCard
-                key={`dictation-${currentClip.id}`}
-                value={draft}
-                onChange={setDraft}
-                onSubmit={handleSubmit}
-              />
+              <>
+                <AudioPlayerCard
+                  key={currentCard?.key ?? currentClip.id}
+                  audioPath={currentClip.audioPath}
+                />
+
+                {scoreResult ? (
+                  <FeedbackResultCard
+                    result={scoreResult}
+                    clip={currentClip}
+                    onNext={handleNext}
+                    nextLabel="Tiếp theo"
+                    skipOnMistake
+                  />
+                ) : (
+                  <DictationInputCard
+                    key={`dictation-${currentClip.id}`}
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={handleSubmit}
+                  />
+                )}
+              </>
             )}
           </div>
         </main>
