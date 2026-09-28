@@ -8,6 +8,7 @@ import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
+import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -20,9 +21,10 @@ import {
 import { useProgress } from "@/lib/useProgress";
 import {
   buildListeningRunRecord,
-  clipResultsForFinishedPart,
+  clipResultsForCardDeck,
   submitListeningRun,
 } from "@/lib/listening-runs";
+import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -127,6 +129,7 @@ export function LearnSession({
   const router = useRouter();
   const { status } = useSession();
   const [partClips, setPartClips] = useState<SessionClip[] | null>(null);
+  const [partCards, setPartCards] = useState<PracticeCard<SessionClip>[] | null>(null);
   const [partNumber, setPartNumber] = useState(1);
   const [partCount, setPartCount] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
@@ -142,6 +145,7 @@ export function LearnSession({
   const failedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const missedClipIdsRef = useRef(new Set<string>());
+  const missedCardKeysRef = useRef(new Set<string>());
 
   const {
     completedLearnClipIdsFor,
@@ -177,6 +181,7 @@ export function LearnSession({
       if (initializedSourceRef.current === "empty") return;
       initializedSourceRef.current = "empty";
       setPartClips([]);
+      setPartCards([]);
       setPartCount(0);
       setPartNumber(1);
       return;
@@ -233,10 +238,13 @@ export function LearnSession({
     initializedSourceRef.current = signature;
     partStartedAtRef.current = Date.now();
     missedClipIdsRef.current = new Set();
+    missedCardKeysRef.current = new Set();
     failedRef.current = false;
     setHeartsLeft(LISTENING_HEARTS);
     setBreakingIndex(null);
-    setPartClips(parts[partIndex] ?? []);
+    const nextPartClips = parts[partIndex] ?? [];
+    setPartClips(nextPartClips);
+    setPartCards(buildPracticeDeck(nextPartClips, clips));
     setPartNumber(partIndex + 1);
     setPartCount(parts.length);
     setClipIndex(0);
@@ -264,8 +272,9 @@ export function LearnSession({
     return () => window.clearTimeout(timeout);
   }, [breakingIndex]);
 
-  const currentClip = partClips?.[clipIndex];
-  const ready = partClips !== null;
+  const currentCard = partCards?.[clipIndex];
+  const currentClip = currentCard?.clip;
+  const ready = partCards !== null;
   const isPerfect = scoreResult?.accuracy === 100;
   const isLastPart = partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
@@ -275,21 +284,19 @@ export function LearnSession({
       : hasNextChapter
         ? "Lektion tiếp theo"
         : "Về trình độ";
-  const showHearts = Boolean(partClips && partClips.length > 0 && phase !== "leaving");
+  const showHearts = Boolean(partCards && partCards.length > 0 && phase !== "leaving");
 
   const progressSegments = useMemo(() => {
-    const total = partClips?.length ?? 0;
+    const total = partCards?.length ?? 0;
     return Array.from({ length: Math.max(total, 1) }, (_, index) => {
       if (index < clipIndex) return "done";
-      if (index === clipIndex && currentClip) return "current";
+      if (index === clipIndex && currentCard) return "current";
       return "todo";
     });
-  }, [partClips, clipIndex, currentClip]);
+  }, [partCards, clipIndex, currentCard]);
 
-  const handleSubmit = (value: string) => {
-    if (!currentClip) return;
-    setDraft(value);
-    const result = scoreAttempt(value, currentClip.script);
+  const applyResult = (result: ScoreResult) => {
+    if (!currentCard) return;
     setScoreResult(result);
     if (result.accuracy === 100) {
       playSuccessSound();
@@ -297,14 +304,27 @@ export function LearnSession({
     }
 
     recordWrongAttempt();
-    if (missedClipIdsRef.current.has(currentClip.id)) return;
+    missedClipIdsRef.current.add(currentCard.clip.id);
+    // The first miss of each card costs a heart; a clip has up to two cards.
+    if (missedCardKeysRef.current.has(currentCard.key)) return;
 
-    missedClipIdsRef.current.add(currentClip.id);
+    missedCardKeysRef.current.add(currentCard.key);
     const nextHearts = heartsLeft - 1;
     setHeartsLeft(Math.max(0, nextHearts));
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!reduceMotion) setBreakingIndex(nextHearts);
     playHeartLostSound();
+  };
+
+  const handleSubmit = (value: string) => {
+    if (!currentClip) return;
+    setDraft(value);
+    applyResult(scoreAttempt(value, currentClip.script));
+  };
+
+  const handleOrderSubmit = (selected: string[]) => {
+    if (!currentClip) return;
+    applyResult(checkOrder(selected, currentClip.script));
   };
 
   const commitPart = () => {
@@ -328,14 +348,20 @@ export function LearnSession({
   };
 
   const openCompleteScreen = (failed = false) => {
-    if (completingRef.current || !partClips || partClips.length === 0 || phase === "complete") {
+    if (
+      completingRef.current ||
+      !partClips ||
+      !partCards ||
+      partClips.length === 0 ||
+      phase === "complete"
+    ) {
       return;
     }
     completingRef.current = true;
     failedRef.current = failed;
     const total = partClips.length;
-    const results = clipResultsForFinishedPart(
-      partClips,
+    const results = clipResultsForCardDeck(
+      partCards,
       missedClipIdsRef.current,
       failed,
       clipIndex,
@@ -356,6 +382,7 @@ export function LearnSession({
       clips: partClips,
       missedClipIds: missedClipIdsRef.current,
       clipIndex,
+      results,
     });
     if (!run) console.error("Listening run was not saved");
     setSummary({
@@ -396,18 +423,18 @@ export function LearnSession({
   };
 
   const handleNext = () => {
-    if (!partClips || !currentClip) return;
+    if (!partCards || !currentCard) return;
     if (heartsLeft <= 0) {
       openCompleteScreen(true);
       return;
     }
     if (!isPerfect) {
-      setPartClips(requeueMissedClip(partClips, clipIndex));
+      setPartCards(requeueMissedClip(partCards, clipIndex));
       setScoreResult(null);
       setDraft("");
       return;
     }
-    if (clipIndex + 1 >= partClips.length) {
+    if (clipIndex + 1 >= partCards.length) {
       openCompleteScreen();
       return;
     }
@@ -495,7 +522,7 @@ export function LearnSession({
                 aria-label="Tiến độ phần này"
                 className="grid w-full gap-1.5"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.max(partClips.length, 1)}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(${Math.max(partCards?.length ?? 0, 1)}, minmax(0, 1fr))`,
                 }}
               >
                 {progressSegments.map((segment, index) => {
@@ -516,26 +543,38 @@ export function LearnSession({
               </div>
             </header>
 
-            <AudioPlayerCard
-              key={currentClip.id}
-              audioPath={currentClip.audioPath}
-            />
-
-            {scoreResult ? (
-              <FeedbackResultCard
-                result={scoreResult}
-                clip={currentClip}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
-                skipOnMistake
+            {currentCard?.kind === "order" && !scoreResult ? (
+              // Order cards hide the audio until checked, then it plays with the feedback.
+              <SentenceOrderCard
+                key={`order-${currentCard.key}`}
+                translation={currentClip.translationVi}
+                chips={currentCard.bank ?? []}
+                onSubmit={handleOrderSubmit}
               />
             ) : (
-              <DictationInputCard
-                key={`dictation-${currentClip.id}`}
-                value={draft}
-                onChange={setDraft}
-                onSubmit={handleSubmit}
-              />
+              <>
+                <AudioPlayerCard
+                  key={currentCard?.key ?? currentClip.id}
+                  audioPath={currentClip.audioPath}
+                />
+
+                {scoreResult ? (
+                  <FeedbackResultCard
+                    result={scoreResult}
+                    clip={currentClip}
+                    onNext={handleNext}
+                    nextLabel="Tiếp theo"
+                    skipOnMistake
+                  />
+                ) : (
+                  <DictationInputCard
+                    key={`dictation-${currentClip.id}`}
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={handleSubmit}
+                  />
+                )}
+              </>
             )}
           </div>
         </main>

@@ -20,6 +20,8 @@
     "src/lib/xp.ts",
     "src/lib/xp.test.ts",
     "src/lib/duels.ts",
-    "src/lib/duels.test.ts"
+    "src/lib/duels.test.ts",
+    "src/lib/sentence-order.ts",
+    "src/lib/sentence-order.test.ts"
   ]
 }

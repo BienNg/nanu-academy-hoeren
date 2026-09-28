@@ -87,6 +87,15 @@ function checkContentFile(jsonPath, audioDir) {
       );
     }
 
+    if (
+      clip.noSentenceOrder !== undefined &&
+      typeof clip.noSentenceOrder !== "boolean"
+    ) {
+      errors.push(
+        `${jsonRel} clips[${index}] "noSentenceOrder" must be true or false`,
+      );
+    }
+
     listedFilenames.add(nfc(clip.filename));
     const audioPath = join(audioDir, clip.filename);
     if (!existsSync(audioPath)) {

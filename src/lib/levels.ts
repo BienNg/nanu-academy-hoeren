@@ -3,6 +3,7 @@ import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
 import type { SessionClip } from "@/lib/content";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
+import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
 export type LevelChapterMeta = {
@@ -21,6 +22,8 @@ type StoredClip = {
   filename: string;
   script: string;
   translationVi?: string;
+  /** Set to true to keep this clip out of sentence-order cards. */
+  noSentenceOrder?: boolean;
 };
 
 type StoredVideo = {
@@ -80,6 +83,7 @@ function toSessionClip(
     script: clip.script,
     translationVi: clip.translationVi ?? "",
     audioPath: `${levelSlug}/${chapterSlug}/${clip.filename}`,
+    sentenceOrder: isSentenceOrderEligible(clip),
   };
 }
 

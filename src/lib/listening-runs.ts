@@ -137,6 +137,48 @@ export function clipResultsForFinishedPart(
   return results;
 }
 
+/**
+ * One result per clip when a clip can appear as several cards
+ * (listening plus sentence order). A clip passed only when every one of its
+ * cards was cleared, and missed when any of its cards was wrong once.
+ * A failed part leaves out clips that were only partly played and never missed.
+ */
+export function clipResultsForCardDeck(
+  cards: readonly { clip: { id: string } }[],
+  missedClipIds: ReadonlySet<string>,
+  failed: boolean,
+  cardIndex: number,
+): ClipRunResult[] {
+  if (cards.length === 0) return [];
+  const clipOrder: string[] = [];
+  const lastCardAt = new Map<string, number>();
+  cards.forEach((card, index) => {
+    const clipId = card.clip.id.trim();
+    if (!clipId) return;
+    if (!lastCardAt.has(clipId)) clipOrder.push(clipId);
+    lastCardAt.set(clipId, index);
+  });
+
+  if (!failed) {
+    return clipOrder.map((clipId) => ({
+      clipId,
+      passed: true,
+      missed: wasMissed(clipId, missedClipIds),
+    }));
+  }
+
+  const cursor = Math.min(Math.max(0, Math.floor(cardIndex)), cards.length - 1);
+  const currentId = cards[cursor]?.clip.id.trim() ?? "";
+  const results: ClipRunResult[] = [];
+  for (const clipId of clipOrder) {
+    const passed = clipId !== currentId && (lastCardAt.get(clipId) ?? 0) < cursor;
+    const missed = wasMissed(clipId, missedClipIds) || clipId === currentId;
+    if (!passed && !missed) continue;
+    results.push({ clipId, passed, missed });
+  }
+  return results;
+}
+
 export function parseListeningRunInput(value: unknown): ListeningRunInput | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -211,13 +253,17 @@ export function buildListeningRunRecord(input: {
   clips: readonly { id: string }[];
   missedClipIds: ReadonlySet<string>;
   clipIndex: number;
+  /** Precomputed per-clip results, e.g. from clipResultsForCardDeck. */
+  results?: ClipRunResult[];
 }): ListeningRunInput | null {
-  const clips = clipResultsForFinishedPart(
-    input.clips,
-    input.missedClipIds,
-    input.failed,
-    input.clipIndex,
-  );
+  const clips =
+    input.results ??
+    clipResultsForFinishedPart(
+      input.clips,
+      input.missedClipIds,
+      input.failed,
+      input.clipIndex,
+    );
   return parseListeningRunInput({
     id: crypto.randomUUID(),
     lessonKey: input.lessonKey,
