@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DUEL_DEADLINE_MS,
+  DUEL_EXPIRE_CHALLENGER_XP,
+  DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
   awardForPoints,
+  challengeExpiresAt,
+  challengeLeftLabel,
+  challengeReleasedAt,
   clipWinner,
   extractStudiedClips,
   formatDuelTime,
   homeBucket,
+  isChallengeExpired,
   isDuelSchemaMissing,
   matchPool,
   opponentCanSeeDuel,
@@ -162,6 +169,8 @@ test("a local settle updates that clip and leaves the next one waiting", () => {
     opponentPoints: 0,
     nextPosition: 0,
     startedAt: null,
+    expired: false,
+    expiresAt: null,
     clips: [
       {
         position: 0,
@@ -217,9 +226,35 @@ test("home buckets separate unopened, in-progress, waiting, and finished duels",
   assert.equal(homeBucket({ youStarted: true, youSettled: 4, opponentSettled: 0 }), "playing");
   assert.equal(homeBucket({ youStarted: true, youSettled: 15, opponentSettled: 3 }), "waiting");
   assert.equal(homeBucket({ youStarted: true, youSettled: 15, opponentSettled: 15 }), "history");
+  assert.equal(
+    homeBucket({ finished: true, youStarted: false, youSettled: 0, opponentSettled: 15 }),
+    "history",
+  );
   assert.equal(opponentCanSeeDuel(false, 0), true);
   assert.equal(opponentCanSeeDuel(true, 14), false);
   assert.equal(opponentCanSeeDuel(true, 15), true);
+});
+
+test("the challenged person has 3 days after the challenger finishes", () => {
+  const plays = Array.from({ length: DUEL_SIZE }, (_, position) => ({
+    state: "done" as const,
+    finishedAt: `2026-09-01T00:00:${String(position).padStart(2, "0")}.000Z`,
+  }));
+  assert.equal(challengeReleasedAt(plays.slice(0, 14)), null);
+  const released = challengeReleasedAt(plays);
+  assert.equal(released, "2026-09-01T00:00:14.000Z");
+  const expires = challengeExpiresAt(released);
+  assert.equal(expires, new Date(Date.parse(released!) + DUEL_DEADLINE_MS).toISOString());
+  const justBefore = new Date(Date.parse(expires!) - 1);
+  const onDeadline = new Date(Date.parse(expires!));
+  assert.equal(isChallengeExpired(expires, justBefore), false);
+  assert.equal(isChallengeExpired(expires, onDeadline), true);
+  assert.equal(challengeLeftLabel(expires, justBefore, "you"), "Còn 1 phút");
+  const twoDaysLeft = new Date(Date.parse(expires!) - 2 * 24 * 60 * 60 * 1000);
+  assert.equal(challengeLeftLabel(expires, twoDaysLeft, "opponent"), "Đối thủ còn 2 ngày");
+  assert.equal(challengeLeftLabel(expires, onDeadline, "you"), null);
+  assert.equal(DUEL_EXPIRE_CHALLENGER_XP, 35);
+  assert.equal(DUEL_EXPIRE_OPPONENT_XP, 0);
 });
 
 test("time labels use a comma", () => {

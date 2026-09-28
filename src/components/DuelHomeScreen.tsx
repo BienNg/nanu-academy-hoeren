@@ -6,11 +6,13 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBarStatus } from "@/components/TodayXpChip";
 import {
+  DUEL_DEADLINE_DAYS,
+  DUEL_EXPIRE_CHALLENGER_XP,
   DUEL_SCHEMA_HINT,
   DUEL_SIZE,
+  challengeLeftLabel,
   type DuelCard,
   type DuelHome,
-  type DuelOutcome,
   type MatchBlock,
 } from "@/lib/duels";
 
@@ -20,11 +22,24 @@ function isDuelHome(value: unknown): value is DuelHome {
   return typeof record.ready === "boolean" && Array.isArray(record.history);
 }
 
-function outcomeLabel(outcome: DuelOutcome | null): string {
-  if (outcome === "win") return "Bạn thắng";
-  if (outcome === "loss") return "Bạn thua";
-  if (outcome === "tie") return "Hòa";
-  return "Đã xong";
+function challengeAgeLabel(iso: string, now = new Date()): string | null {
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at)) return null;
+  const vietnam = 7 * 60 * 60 * 1000;
+  const dayIndex = (ms: number) => Math.floor((ms + vietnam) / 86_400_000);
+  const days = dayIndex(now.getTime()) - dayIndex(at);
+  if (days <= 0) return "Hôm nay";
+  if (days === 1) return "Hôm qua";
+  return `${days} ngày trước`;
+}
+
+function withDeadline(card: DuelCard, progress: string): string {
+  const left = challengeLeftLabel(
+    card.expiresAt,
+    new Date(),
+    card.youSettled >= DUEL_SIZE ? "opponent" : "you",
+  );
+  return left ? `${progress} · ${left}` : progress;
 }
 
 function needsMoreStudy(home: DuelHome): boolean {
@@ -37,9 +52,7 @@ function blockMessage(home: DuelHome): string | null {
       ? DUEL_SCHEMA_HINT
       : "Đấu sẽ mở khi giáo viên bật tính năng này.";
   }
-  if (needsMoreStudy(home)) {
-    return `Hãy học ít nhất ${DUEL_SIZE} từ để mở tính năng đấu.`;
-  }
+  if (needsMoreStudy(home)) return null;
   if (home.block === "no_class") {
     return "Bạn chưa có lớp. Nhờ giáo viên thêm bạn vào lớp để đấu với bạn học.";
   }
@@ -53,7 +66,8 @@ function blockMessage(home: DuelHome): string | null {
 
 function DuelCardLink({ card, action }: { card: DuelCard; action: string }) {
   const waiting = card.youSettled >= DUEL_SIZE && !card.opponentStarted;
-  const detail =
+  const detail = withDeadline(
+    card,
     card.youSettled >= DUEL_SIZE
       ? waiting
         ? "Đối thủ chưa bắt đầu"
@@ -62,7 +76,8 @@ function DuelCardLink({ card, action }: { card: DuelCard; action: string }) {
         ? `Câu ${card.youSettled + 1}/${DUEL_SIZE}`
         : card.challenged
           ? "Bạn chưa chơi"
-          : "Sẵn sàng chơi";
+          : "Sẵn sàng chơi",
+  );
   const title = card.challenged ? `${card.opponentName} thách đấu bạn` : `vs ${card.opponentName}`;
 
   return (
@@ -91,14 +106,48 @@ function nameInitial(name: string | null | undefined): string {
   return Array.from(label)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
-function MatchupSide({ name, points }: { name: string; points: number | null }) {
+function MatchupSide({
+  name,
+  points,
+  winner,
+}: {
+  name: string;
+  points: number | null;
+  winner: boolean;
+}) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e0f2fe] text-[16px] font-extrabold text-[#0284c7]">
+      <span
+        className={`flex h-12 w-12 items-center justify-center rounded-2xl text-[16px] font-extrabold ${
+          winner
+            ? "bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1]"
+            : "bg-[#e0f2fe] text-[#0284c7]"
+        }`}
+      >
         {nameInitial(name)}
       </span>
-      <span className="mt-1 w-full truncate text-[14px] font-extrabold text-[#131b2e]">{name}</span>
-      <span className="text-[28px] font-extrabold leading-none tabular-nums text-[#131b2e]">{points ?? "–"}</span>
+      <span
+        className={`mt-1 w-full truncate text-[14px] font-extrabold ${
+          winner ? "text-[#0284c7]" : "text-[#131b2e]"
+        }`}
+      >
+        {name}
+      </span>
+      <span
+        className={`mt-1 text-[32px] font-extrabold leading-none tabular-nums ${
+          winner ? "text-[#0284c7]" : "text-[#131b2e]"
+        }`}
+      >
+        {points ?? "–"}
+      </span>
+      <span
+        className={`mt-1 text-[11px] font-extrabold uppercase tracking-wide ${
+          winner ? "text-[#0284c7]" : "invisible"
+        }`}
+        aria-hidden={winner ? undefined : true}
+      >
+        Thắng
+      </span>
     </div>
   );
 }
@@ -107,12 +156,19 @@ function MatchupCard({ card, action }: { card: DuelCard; action: string }) {
   const yourName = card.yourName || "Bạn";
   const opponentName = card.opponentName || "Học viên";
   const waiting = card.youSettled >= DUEL_SIZE && !card.opponentStarted;
-  const detail =
-    card.yourOutcome != null
-      ? `${outcomeLabel(card.yourOutcome)}${card.yourXp != null ? ` · +${card.yourXp} XP` : ""}`
-      : waiting
-        ? `${opponentName} chưa bắt đầu`
-        : `${opponentName} đang chơi`;
+  const finished = card.yourOutcome != null || card.expired;
+  const age = challengeAgeLabel(card.createdAt);
+  const note = finished
+    ? card.expired
+      ? age
+        ? `Hết hạn · ${age}`
+        : "Hết hạn"
+      : card.yourOutcome === "tie"
+        ? age
+          ? `Hòa · ${age}`
+          : "Hòa"
+        : age
+    : withDeadline(card, waiting ? `${opponentName} chưa bắt đầu` : `${opponentName} đang chơi`);
 
   return (
     <Link
@@ -120,13 +176,15 @@ function MatchupCard({ card, action }: { card: DuelCard; action: string }) {
       className="block rounded-[28px] bg-white px-4 py-4 shadow-[0_3px_0_0_#dae2fd] transition-transform active:translate-y-0.5"
     >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <MatchupSide name={yourName} points={card.yourPoints} />
-        <span className="pb-6 text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
-        <MatchupSide name={opponentName} points={card.opponentPoints} />
+        <MatchupSide name={yourName} points={card.yourPoints} winner={card.yourOutcome === "win"} />
+        <span className="pb-5 text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
+        <MatchupSide name={opponentName} points={card.opponentPoints} winner={card.yourOutcome === "loss"} />
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-[13px] font-semibold text-[#6e7881]">{detail}</span>
-        <span className="shrink-0 rounded-full bg-[#0284c7] px-3 py-1.5 text-[12px] font-extrabold text-white shadow-[0_2px_0_0_#0369a1]">
+      <div className="mt-2 flex flex-col items-center gap-2">
+        {note ? (
+          <span className="text-center text-[13px] font-semibold text-[#6e7881]">{note}</span>
+        ) : null}
+        <span className="rounded-full bg-[#0284c7] px-4 py-1.5 text-[12px] font-extrabold text-white shadow-[0_2px_0_0_#0369a1]">
           {action}
         </span>
       </div>
@@ -232,20 +290,37 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6">
         <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-sky-100">Đấu với bạn cùng lớp</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-sky-100">Đấu với bạn cùng lớp</p>
+            {studyFirst ? (
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20"
+                aria-hidden="true"
+              >
+                <span
+                  className="material-symbols-outlined text-[20px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  lock
+                </span>
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 text-[22px] font-extrabold leading-tight">15 câu giống nhau. Ai nhanh hơn được điểm.</p>
           <p className="mt-2 text-[13px] font-semibold text-sky-50">
-            Bạn đã học {home.studiedCount} câu. Thắng 50 XP, hòa 35 XP, thua 20 XP.
+            {studyFirst
+              ? `Đã khóa · Bạn đã học ${home.studiedCount}/${DUEL_SIZE} câu.`
+              : `Bạn đã học ${home.studiedCount} câu. Thắng 50 XP, hòa 35 XP, thua 20 XP. Hết ${DUEL_DEADLINE_DAYS} ngày không chơi thì người thách được ${DUEL_EXPIRE_CHALLENGER_XP} XP.`}
           </p>
           {studyFirst ? (
             <Link
               href={home.studyHref ?? "/"}
-              className="relative z-10 mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[17px] font-extrabold text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] transition-transform active:translate-y-0.5 active:shadow-[0_2px_0_0_#bae6fd]"
+              className="relative z-10 mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-center text-[16px] font-extrabold leading-tight text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] transition-transform active:translate-y-0.5 active:shadow-[0_2px_0_0_#bae6fd] sm:text-[17px]"
             >
               <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
                 menu_book
               </span>
-              Học ngay
+              Học thêm {Math.max(0, DUEL_SIZE - home.studiedCount)} câu để mở đấu
             </Link>
           ) : (
             <button

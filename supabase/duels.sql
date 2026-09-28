@@ -4,6 +4,9 @@
 -- and stores the first result. Any non-negative time is kept.
 -- Leaving a clip stores it as forfeited (no time). A finished duel pays
 -- 50 / 35 / 20 XP, which the leaderboard adds to overall XP.
+-- Once the challenger finishes, the challenged person has 3 days. If they
+-- miss that deadline the duel is expired: the challenger gets 35 XP and
+-- the challenged person gets 0.
 
 create table if not exists public.duels (
   id uuid primary key default gen_random_uuid(),
@@ -13,6 +16,7 @@ create table if not exists public.duels (
   completed_at timestamptz,
   challenger_points smallint,
   opponent_points smallint,
+  expired boolean not null default false,
   constraint duels_distinct_players check (challenger_id <> opponent_id),
   constraint duels_points_chk check (
     (completed_at is null and challenger_points is null and opponent_points is null)
@@ -77,8 +81,8 @@ create table if not exists public.duel_xp_awards (
   created_at timestamptz not null default now(),
   primary key (duel_id, user_id),
   constraint duel_xp_awards_amount_chk check (
-    (outcome = 'win' and xp = 50)
-    or (outcome = 'loss' and xp = 20)
+    (outcome = 'win' and xp in (50, 35))
+    or (outcome = 'loss' and xp in (20, 0))
     or (outcome = 'tie' and xp = 35)
   )
 );
@@ -135,4 +139,15 @@ alter table public.duel_plays add constraint duel_plays_time_chk check (
     and finished_at is not null
     and elapsed_ms >= 0
   )
+);
+
+-- Existing databases: 3-day deadline. A missed deadline pays 35 XP to the
+-- challenger (stored as a win) and 0 XP to the challenged person (a loss).
+alter table public.duels add column if not exists expired boolean not null default false;
+
+alter table public.duel_xp_awards drop constraint if exists duel_xp_awards_amount_chk;
+alter table public.duel_xp_awards add constraint duel_xp_awards_amount_chk check (
+  (outcome = 'win' and xp in (50, 35))
+  or (outcome = 'loss' and xp in (20, 0))
+  or (outcome = 'tie' and xp = 35)
 );

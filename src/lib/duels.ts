@@ -10,6 +10,12 @@ export const MAX_OPEN_WITH_CLASSMATE = 3;
 export const DUEL_WIN_XP = 50;
 export const DUEL_LOSS_XP = 20;
 export const DUEL_TIE_XP = 35;
+/** Days the challenged person has once the challenger has finished every clip. */
+export const DUEL_DEADLINE_DAYS = 3;
+export const DUEL_DEADLINE_MS = DUEL_DEADLINE_DAYS * 24 * 60 * 60 * 1000;
+/** Flat payout when the challenged person misses the deadline. */
+export const DUEL_EXPIRE_CHALLENGER_XP = 35;
+export const DUEL_EXPIRE_OPPONENT_XP = 0;
 export const MAX_ANSWER_CHARS = 400;
 
 export const DUEL_SCHEMA_HINT =
@@ -69,6 +75,10 @@ export type DuelView = {
   opponentPoints: number;
   nextPosition: number | null;
   startedAt: string | null;
+  /** Set when the challenged person missed the deadline. XP is flat, not scored from clips. */
+  expired: boolean;
+  /** When the challenged person's 3 days run out. Null before the challenge is released. */
+  expiresAt: string | null;
   clips: DuelClipView[];
 };
 
@@ -91,6 +101,9 @@ export type DuelCard = {
   yourXp: number | null;
   yourPoints: number | null;
   opponentPoints: number | null;
+  expired: boolean;
+  /** When the challenged person's 3 days run out. Null before release or after the duel closes. */
+  expiresAt: string | null;
 };
 
 export type DuelHome = {
@@ -287,7 +300,7 @@ function recountView(view: DuelView, clips: readonly DuelClipView[]): DuelView {
   });
   const pending = scored.find((clip) => clip.you.state === "pending" || clip.you.state === "active");
   const bothDone = scored.length >= DUEL_SIZE && scored.every((clip) => clip.winner !== "pending");
-  const award = bothDone ? awardForPoints(yourPoints, opponentPoints) : null;
+  const award = bothDone && !view.expired ? awardForPoints(yourPoints, opponentPoints) : null;
   return {
     ...view,
     clips: scored,
@@ -295,9 +308,9 @@ function recountView(view: DuelView, clips: readonly DuelClipView[]): DuelView {
     opponentPoints,
     nextPosition: pending?.position ?? null,
     complete: view.complete || bothDone,
-    yourOutcome: award?.leftOutcome ?? (bothDone ? view.yourOutcome : null),
-    yourXp: award?.leftXp ?? (bothDone ? view.yourXp : null),
-    opponentXp: award?.rightXp ?? (bothDone ? view.opponentXp : null),
+    yourOutcome: view.expired ? view.yourOutcome : (award?.leftOutcome ?? (bothDone ? view.yourOutcome : null)),
+    yourXp: view.expired ? view.yourXp : (award?.leftXp ?? (bothDone ? view.yourXp : null)),
+    opponentXp: view.expired ? view.opponentXp : (award?.rightXp ?? (bothDone ? view.opponentXp : null)),
   };
 }
 
@@ -320,6 +333,7 @@ export function withClipSettled(view: DuelView, position: number, result: LocalC
  * Keep a local result that has not been saved yet. A saved server result wins.
  */
 export function mergeDuelView(local: DuelView, server: DuelView): DuelView {
+  if (server.expired) return server;
   const clips = server.clips.map((remote) => {
     const mine = local.clips.find((clip) => clip.position === remote.position);
     if (!mine) return remote;
@@ -392,11 +406,13 @@ export function awardForPoints(
 }
 
 export function homeBucket(input: {
+  finished?: boolean;
   youStarted: boolean;
   youSettled: number;
   opponentSettled: number;
   clipCount?: number;
 }): HomeBucket {
+  if (input.finished) return "history";
   const clipCount = input.clipCount ?? DUEL_SIZE;
   const youDone = input.youSettled >= clipCount;
   const themDone = input.opponentSettled >= clipCount;
@@ -404,6 +420,59 @@ export function homeBucket(input: {
   if (!input.youStarted) return "incoming";
   if (!youDone) return "playing";
   return "waiting";
+}
+
+/**
+ * When the challenger finished every clip. The challenged person's 3 days
+ * start then, because that is when they can first play.
+ */
+export function challengeReleasedAt(
+  plays: readonly { state: string; finishedAt: string | null }[],
+  clipCount = DUEL_SIZE,
+): string | null {
+  const settled = plays.filter((play) => isSettledState(play.state));
+  if (settled.length < clipCount) return null;
+  let latestMs = Number.NEGATIVE_INFINITY;
+  let latestIso: string | null = null;
+  for (const play of settled) {
+    if (!play.finishedAt) continue;
+    const at = Date.parse(play.finishedAt);
+    if (!Number.isFinite(at) || at < latestMs) continue;
+    latestMs = at;
+    latestIso = new Date(at).toISOString();
+  }
+  return latestIso;
+}
+
+export function challengeExpiresAt(releasedAt: string | null): string | null {
+  if (!releasedAt) return null;
+  const released = Date.parse(releasedAt);
+  if (!Number.isFinite(released)) return null;
+  return new Date(released + DUEL_DEADLINE_MS).toISOString();
+}
+
+export function isChallengeExpired(expiresAt: string | null, now: Date): boolean {
+  if (!expiresAt) return false;
+  const deadline = Date.parse(expiresAt);
+  if (!Number.isFinite(deadline)) return false;
+  return now.getTime() >= deadline;
+}
+
+/** Remaining time, such as "Còn 2 ngày" or "Đối thủ còn 4 giờ". Null once the deadline has passed. */
+export function challengeLeftLabel(
+  expiresAt: string | null,
+  now: Date,
+  subject: "you" | "opponent",
+): string | null {
+  if (!expiresAt || isChallengeExpired(expiresAt, now)) return null;
+  const left = Date.parse(expiresAt) - now.getTime();
+  const prefix = subject === "opponent" ? "Đối thủ còn" : "Còn";
+  const day = 24 * 60 * 60 * 1000;
+  const hour = 60 * 60 * 1000;
+  const minute = 60 * 1000;
+  if (left >= day) return `${prefix} ${Math.ceil(left / day)} ngày`;
+  if (left >= hour) return `${prefix} ${Math.ceil(left / hour)} giờ`;
+  return `${prefix} ${Math.max(1, Math.ceil(left / minute))} phút`;
 }
 
 /** The opponent sees a duel only after the person who started it finishes all clips. */

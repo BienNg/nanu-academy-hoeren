@@ -22,14 +22,19 @@ import {
   weekKey,
 } from "@/lib/xp";
 import {
+  DUEL_EXPIRE_CHALLENGER_XP,
+  DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
   MAX_ANSWER_CHARS,
   MAX_OPEN_WITH_CLASSMATE,
   awardForPoints,
+  challengeExpiresAt,
+  challengeReleasedAt,
   clipWinner,
   emptyDuelHome,
   extractStudiedClips,
   homeBucket,
+  isChallengeExpired,
   isDuelId,
   isDuelSchemaMissing,
   isSettledState,
@@ -58,6 +63,30 @@ const CLIPS_TABLE = "duel_clips";
 const PLAYS_TABLE = "duel_plays";
 const XP_TABLE = "duel_xp_awards";
 const PROFILES_TABLE = "user_progress";
+const DUEL_COLUMNS_BASE =
+  "id, challenger_id, opponent_id, created_at, completed_at, challenger_points, opponent_points";
+const DUEL_COLUMNS = `${DUEL_COLUMNS_BASE}, expired`;
+/** While this is in the future, reads omit `expired` because that column is not in the database yet. */
+let skipExpiredColumnUntil = 0;
+let loggedMissingExpiredColumn = false;
+
+function missingExpiredColumn(message: string): boolean {
+  return /expired/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+function rememberMissingExpiredColumn(): void {
+  skipExpiredColumnUntil = Date.now() + 5 * 60 * 1000;
+  if (loggedMissingExpiredColumn) return;
+  loggedMissingExpiredColumn = true;
+  console.error(
+    "Supabase duel",
+    "Run the new statements at the bottom of supabase/duels.sql so a challenge can close after 3 days.",
+  );
+}
+
+function duelColumns(): string {
+  return Date.now() < skipExpiredColumnUntil ? DUEL_COLUMNS_BASE : DUEL_COLUMNS;
+}
 const PAGE_SIZE = 1000;
 
 type Profile = {
@@ -76,6 +105,7 @@ type DuelRow = {
   completed_at: string | null;
   challenger_points: number | null;
   opponent_points: number | null;
+  expired: boolean;
 };
 
 type ClipRow = {
@@ -431,16 +461,17 @@ async function openDuelsByOpponent(
 }
 
 async function viewerDuels(supabase: SupabaseClient, userId: string): Promise<DuelRow[] | null> {
-  const [asChallenger, asOpponent] = await Promise.all([
-    supabase
-      .from(DUELS_TABLE)
-      .select("id, challenger_id, opponent_id, created_at, completed_at, challenger_points, opponent_points")
-      .eq("challenger_id", userId),
-    supabase
-      .from(DUELS_TABLE)
-      .select("id, challenger_id, opponent_id, created_at, completed_at, challenger_points, opponent_points")
-      .eq("opponent_id", userId),
-  ]);
+  const load = (columns: string) =>
+    Promise.all([
+      supabase.from(DUELS_TABLE).select(columns).eq("challenger_id", userId),
+      supabase.from(DUELS_TABLE).select(columns).eq("opponent_id", userId),
+    ]);
+  let [asChallenger, asOpponent] = await load(duelColumns());
+  const firstError = asChallenger.error?.message ?? asOpponent.error?.message;
+  if (firstError && missingExpiredColumn(firstError)) {
+    rememberMissingExpiredColumn();
+    [asChallenger, asOpponent] = await load(DUEL_COLUMNS_BASE);
+  }
   if (asChallenger.error) {
     schemaGone(asChallenger.error.message);
     return null;
@@ -479,6 +510,7 @@ function duelFromRow(raw: unknown): DuelRow | null {
     completed_at: typeof row.completed_at === "string" ? row.completed_at : null,
     challenger_points: typeof row.challenger_points === "number" ? row.challenger_points : null,
     opponent_points: typeof row.opponent_points === "number" ? row.opponent_points : null,
+    expired: row.expired === true,
   };
 }
 
@@ -547,6 +579,11 @@ export async function getDuelHome(user: {
   id: string;
   email?: string | null;
 }): Promise<DuelHome> {
+  const prepared = getSupabaseAdmin();
+  if (prepared) {
+    const open = await viewerDuels(prepared, user.id);
+    if (open) await expireOverdueDuels(prepared, open, new Date());
+  }
   const context = await loadClassContext(user);
   if (!context.ready) {
     return { ...emptyDuelHome(false), viewerIsAdmin: context.viewerIsAdmin };
@@ -589,7 +626,9 @@ export async function getDuelHome(user: {
     .map((duel) => toCard(duel, user.id, plays, awards, context.names));
 
   for (const card of cards) {
+    const duel = duels.find((item) => item.id === card.id);
     const bucket = homeBucket({
+      finished: Boolean(duel?.completed_at),
       youStarted: card.youSettled > 0 || cardBucketStarted(card, duels, plays, user.id),
       youSettled: card.youSettled,
       opponentSettled: opponentSettledCount(card.id, user.id, duels, plays),
@@ -640,6 +679,7 @@ function opponentSettledCount(
 }
 
 function outcomeFromStored(duel: DuelRow, userId: string): DuelOutcome | null {
+  if (duel.expired) return duel.challenger_id === userId ? "win" : "loss";
   if (duel.challenger_points == null || duel.opponent_points == null) return null;
   const yours = duel.challenger_id === userId ? duel.challenger_points : duel.opponent_points;
   const theirs = duel.challenger_id === userId ? duel.opponent_points : duel.challenger_points;
@@ -672,6 +712,7 @@ function toCard(
   );
   const storedYours = youAreChallenger ? duel.challenger_points : duel.opponent_points;
   const storedTheirs = youAreChallenger ? duel.opponent_points : duel.challenger_points;
+  const challengerPlays = youAreChallenger ? yours : theirs;
   return {
     id: duel.id,
     yourName: names.get(userId) ?? "Bạn",
@@ -681,9 +722,19 @@ function toCard(
     youSettled: yours.filter((play) => isSettledState(play.state)).length,
     opponentStarted: theirs.length > 0,
     yourOutcome: award?.outcome ?? outcomeFromStored(duel, userId),
-    yourXp: award?.xp ?? null,
-    yourPoints: storedYours ?? live.left,
-    opponentPoints: storedTheirs ?? live.right,
+    yourXp:
+      award?.xp ??
+      (duel.expired ? (youAreChallenger ? DUEL_EXPIRE_CHALLENGER_XP : DUEL_EXPIRE_OPPONENT_XP) : null),
+    yourPoints: duel.expired ? null : (storedYours ?? live.left),
+    opponentPoints: duel.expired ? null : (storedTheirs ?? live.right),
+    expired: duel.expired,
+    expiresAt: duel.completed_at
+      ? null
+      : challengeExpiresAt(
+          challengeReleasedAt(
+            challengerPlays.map((play) => ({ state: play.state, finishedAt: play.finished_at })),
+          ),
+        ),
   };
 }
 
@@ -746,6 +797,11 @@ export async function createDuel(user: {
   id: string;
   email?: string | null;
 }): Promise<DuelCreateResult> {
+  const prepared = getSupabaseAdmin();
+  if (prepared) {
+    const open = await viewerDuels(prepared, user.id);
+    if (open) await expireOverdueDuels(prepared, open, new Date());
+  }
   const context = await loadClassContext(user);
   if (!context.ready) return { ok: false, block: "unavailable" };
   if (context.block !== "ok") return { ok: false, block: context.block };
@@ -812,27 +868,35 @@ export async function createDuel(user: {
 export async function countUnstartedChallenges(userId: string): Promise<number> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return 0;
-  const { data, error } = await supabase
-    .from(DUELS_TABLE)
-    .select("id, challenger_id")
-    .eq("opponent_id", userId)
-    .is("completed_at", null);
-  if (error) {
-    if (schemaGone(error.message)) return 0;
+  const load = (columns: string) =>
+    Promise.all([
+      supabase.from(DUELS_TABLE).select(columns).eq("challenger_id", userId).is("completed_at", null),
+      supabase.from(DUELS_TABLE).select(columns).eq("opponent_id", userId).is("completed_at", null),
+    ]);
+  let [asChallenger, asOpponent] = await load(duelColumns());
+  const firstError = asChallenger.error?.message ?? asOpponent.error?.message;
+  if (firstError && missingExpiredColumn(firstError)) {
+    rememberMissingExpiredColumn();
+    [asChallenger, asOpponent] = await load(DUEL_COLUMNS_BASE);
+  }
+  if (asChallenger.error || asOpponent.error) {
+    schemaGone(asChallenger.error?.message ?? asOpponent.error?.message ?? "");
     return 0;
   }
-  const duels = (data ?? []).flatMap((row) => {
-    const record = row as { id?: unknown; challenger_id?: unknown };
-    if (typeof record.id !== "string" || typeof record.challenger_id !== "string") return [];
-    return [{ id: record.id, challengerId: record.challenger_id }];
+  const duels = [...(asChallenger.data ?? []), ...(asOpponent.data ?? [])].flatMap((row) => {
+    const duel = duelFromRow(row);
+    return duel ? [duel] : [];
   });
   if (duels.length === 0) return 0;
+  const now = new Date();
+  const expired = await expireOverdueDuels(supabase, duels, now);
   const plays = await playsForDuels(
     supabase,
     duels.map((duel) => duel.id),
   );
   return duels.filter((duel) => {
-    const released = opponentCanSeeDuel(true, settledFor(plays, duel.id, duel.challengerId));
+    if (duel.opponent_id !== userId || expired.has(duel.id)) return false;
+    const released = opponentCanSeeDuel(true, settledFor(plays, duel.id, duel.challenger_id));
     const started = plays.some((play) => play.duel_id === duel.id && play.user_id === userId);
     return released && !started;
   }).length;
@@ -867,6 +931,14 @@ export async function actOnDuel(input: {
     if (!opponentCanSeeDuel(true, challengerSettled)) {
       return { ok: false, status: 404, error: "Not found" };
     }
+  }
+
+  await expireOverdueDuels(supabase, [duel], now);
+  const current = (await readDuel(supabase, input.duelId)) ?? duel;
+  if (current.completed_at) {
+    const finished = await readView(supabase, input.userId, input.duelId);
+    if (!finished) return { ok: false, status: 503, error: "Unavailable" };
+    return { ok: true, view: finished, feedback: null };
   }
 
   if (input.action === "open") {
@@ -911,11 +983,13 @@ function isClipPosition(position: number | null | undefined): position is number
 }
 
 async function readDuel(supabase: SupabaseClient, duelId: string): Promise<DuelRow | null> {
-  const { data, error } = await supabase
-    .from(DUELS_TABLE)
-    .select("id, challenger_id, opponent_id, created_at, completed_at, challenger_points, opponent_points")
-    .eq("id", duelId)
-    .maybeSingle();
+  const load = (columns: string) =>
+    supabase.from(DUELS_TABLE).select(columns).eq("id", duelId).maybeSingle();
+  let { data, error } = await load(duelColumns());
+  if (error && missingExpiredColumn(error.message)) {
+    rememberMissingExpiredColumn();
+    ({ data, error } = await load(DUEL_COLUMNS_BASE));
+  }
   if (error) {
     schemaGone(error.message);
     return null;
@@ -1226,6 +1300,98 @@ async function forfeitPosition(
   if (error) schemaGone(error.message);
 }
 
+async function expireOverdueDuels(
+  supabase: SupabaseClient,
+  duels: readonly DuelRow[],
+  now: Date,
+): Promise<Set<string>> {
+  const closed = new Set<string>();
+  if (Date.now() < skipExpiredColumnUntil) return closed;
+  const open = duels.filter((duel) => !duel.completed_at && !duel.expired);
+  if (open.length === 0) return closed;
+  const plays = await playsForDuels(
+    supabase,
+    open.map((duel) => duel.id),
+  );
+  for (const duel of open) {
+    const expiresAt = challengeExpiresAt(
+      challengeReleasedAt(
+        plays
+          .filter((play) => play.duel_id === duel.id && play.user_id === duel.challenger_id)
+          .map((play) => ({ state: play.state, finishedAt: play.finished_at })),
+      ),
+    );
+    if (!isChallengeExpired(expiresAt, now)) continue;
+    if (await closeExpiredDuel(supabase, duel.id, now)) closed.add(duel.id);
+  }
+  return closed;
+}
+
+async function closeExpiredDuel(supabase: SupabaseClient, duelId: string, now: Date): Promise<boolean> {
+  const duel = await readDuel(supabase, duelId);
+  if (Date.now() < skipExpiredColumnUntil) return false;
+  if (!duel || duel.completed_at) return Boolean(duel?.expired);
+  const plays = await readPlays(supabase, duelId);
+  const opponentDone =
+    plays.filter((play) => play.user_id === duel.opponent_id && isSettledState(play.state)).length >= DUEL_SIZE;
+  if (opponentDone) {
+    await finalizeIfReady(supabase, duelId, now);
+    return false;
+  }
+  const toPlay = (row: PlayRow): ClipPlay => ({
+    position: row.position,
+    state: row.state,
+    elapsedMs: row.state === "done" ? row.elapsed_ms : null,
+  });
+  const score = pointsFromPlays(
+    plays.filter((play) => play.user_id === duel.challenger_id).map(toPlay),
+    plays.filter((play) => play.user_id === duel.opponent_id).map(toPlay),
+  );
+  const stamp = {
+    week_key: weekKey(now),
+    day_key: dayKey(now),
+  };
+  const { error } = await supabase.from(XP_TABLE).upsert(
+    [
+      {
+        duel_id: duelId,
+        user_id: duel.challenger_id,
+        xp: DUEL_EXPIRE_CHALLENGER_XP,
+        outcome: "win",
+        ...stamp,
+      },
+      {
+        duel_id: duelId,
+        user_id: duel.opponent_id,
+        xp: DUEL_EXPIRE_OPPONENT_XP,
+        outcome: "loss",
+        ...stamp,
+      },
+    ],
+    { onConflict: "duel_id,user_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    schemaGone(error.message);
+    return false;
+  }
+  const updated = await supabase
+    .from(DUELS_TABLE)
+    .update({
+      completed_at: now.toISOString(),
+      challenger_points: score.left,
+      opponent_points: score.right,
+      expired: true,
+    })
+    .eq("id", duelId)
+    .is("completed_at", null)
+    .select("id");
+  if (updated.error) {
+    schemaGone(updated.error.message);
+    return false;
+  }
+  return (updated.data?.length ?? 0) > 0;
+}
+
 async function finalizeIfReady(supabase: SupabaseClient, duelId: string, now: Date): Promise<void> {
   const duel = await readDuel(supabase, duelId);
   if (!duel || duel.completed_at) return;
@@ -1389,22 +1555,44 @@ function buildView(input: {
   const active = yours.find((play) => play.state === "active");
   const pending = clips.find((clip) => clip.you.state === "pending");
   const bothDone = clips.length >= DUEL_SIZE && clips.every((clip) => clip.winner !== "pending");
-  const award = bothDone ? awardForPoints(yourPoints, opponentPoints) : null;
+  const youAreChallenger = input.duel.challenger_id === input.userId;
+  const scored = bothDone && !input.duel.expired ? awardForPoints(yourPoints, opponentPoints) : null;
   const yourAward = input.awards.find((item) => item.user_id === input.userId);
   const theirAward = input.awards.find((item) => item.user_id === opponentId);
+  const expireYours = input.duel.expired
+    ? youAreChallenger
+      ? DUEL_EXPIRE_CHALLENGER_XP
+      : DUEL_EXPIRE_OPPONENT_XP
+    : null;
+  const expireTheirs = input.duel.expired
+    ? youAreChallenger
+      ? DUEL_EXPIRE_OPPONENT_XP
+      : DUEL_EXPIRE_CHALLENGER_XP
+    : null;
+  const released = challengeReleasedAt(
+    input.plays
+      .filter((play) => play.user_id === input.duel.challenger_id)
+      .map((play) => ({ state: play.state, finishedAt: play.finished_at })),
+  );
 
   return {
     id: input.duel.id,
     yourName: input.yourName,
     opponentName: input.opponentName,
     complete: Boolean(input.duel.completed_at) || bothDone,
-    yourOutcome: yourAward?.outcome ?? award?.leftOutcome ?? null,
-    yourXp: yourAward?.xp ?? (award ? award.leftXp : null),
-    opponentXp: theirAward?.xp ?? (award ? award.rightXp : null),
+    yourOutcome:
+      yourAward?.outcome ??
+      (input.duel.expired ? (youAreChallenger ? "win" : "loss") : null) ??
+      scored?.leftOutcome ??
+      null,
+    yourXp: yourAward?.xp ?? expireYours ?? (scored ? scored.leftXp : null),
+    opponentXp: theirAward?.xp ?? expireTheirs ?? (scored ? scored.rightXp : null),
     yourPoints,
     opponentPoints,
     nextPosition: active?.position ?? pending?.position ?? null,
     startedAt: active?.started_at ?? null,
+    expired: input.duel.expired,
+    expiresAt: input.duel.completed_at ? null : challengeExpiresAt(released),
     clips,
   };
 }
