@@ -632,3 +632,238 @@ export function buildAdminActivityBoard(
     leaders: buildActivityLeaders(rows, days),
   };
 }
+
+function shiftUtcDay(day: string, delta: number): string {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().slice(0, 10);
+}
+
+function utcDayDiff(later: string, earlier: string): number {
+  const next = Date.parse(`${later}T00:00:00.000Z`);
+  const prev = Date.parse(`${earlier}T00:00:00.000Z`);
+  if (Number.isNaN(next) || Number.isNaN(prev)) return 0;
+  return Math.round((next - prev) / 86_400_000);
+}
+
+function isActiveOn(row: AdminUserRow, day: string): boolean {
+  return userActiveOnDay(row, day, dayWork(row.progress, day));
+}
+
+function firstSeenDay(row: AdminUserRow): string | null {
+  const days: string[] = [];
+  const add = (value: string | null | undefined) => {
+    const day = utcDay(value);
+    if (day) days.push(day);
+  };
+  add(row.signIns[0]);
+  add(row.lastSignInAt);
+  add(row.lastLoginAt);
+  add(row.progress.lastPracticeDate);
+  for (const day of row.progress.practiceDates ?? []) add(day);
+  for (const day of Object.keys(row.progress.activity ?? {})) add(day);
+  for (const visit of row.progress.visits ?? []) add(visit.startedAt);
+  days.sort();
+  return days[0] ?? null;
+}
+
+function lastActiveDay(row: AdminUserRow): string | null {
+  let best: string | null = utcDay(row.lastLoginAt);
+  const consider = (value: string | null | undefined) => {
+    const day = utcDay(value);
+    if (day && (!best || day > best)) best = day;
+  };
+  consider(row.lastSignInAt);
+  consider(row.progress.lastPracticeDate);
+  for (const day of row.progress.practiceDates ?? []) consider(day);
+  for (const day of Object.keys(row.progress.activity ?? {})) consider(day);
+  for (const visit of row.progress.visits ?? []) consider(visit.startedAt);
+  for (const entry of Object.values(row.progress.videos)) {
+    consider(entry.watchedAt);
+  }
+  for (const entry of Object.values(row.progress.learn)) {
+    consider(entry.completedAt);
+    consider(entry.studyCompletedAt);
+  }
+  return best;
+}
+
+export type AdminRetentionPoint = {
+  key: string;
+  label: string;
+  cohort: number;
+  returned: number;
+  rate: number;
+};
+
+export type AdminStreakBucket = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+export type AdminRetentionPerson = {
+  userId: string;
+  displayName: string;
+  className: string | null;
+  lastActiveDay: string | null;
+  daysAgo: number;
+  streakDays: number;
+};
+
+export type AdminRetentionBoard = {
+  returning: number;
+  newcomers: number;
+  d1Rate: number | null;
+  d1Cohort: number;
+  d1Returned: number;
+  onStreak: number;
+  lapsed: number;
+  stickiness: number | null;
+  d1: AdminRetentionPoint[];
+  streaks: AdminStreakBucket[];
+  streakLeaders: AdminRetentionPerson[];
+  lapsedPeople: AdminRetentionPerson[];
+};
+
+const STREAK_LEADERS_LIMIT = 8;
+const LAPSED_LIMIT = 12;
+
+const STREAK_BUCKETS: { key: string; label: string; matches: (days: number) => boolean }[] = [
+  { key: "0", label: "None", matches: (days) => days <= 0 },
+  { key: "1", label: "1 day", matches: (days) => days === 1 },
+  { key: "2-3", label: "2–3 days", matches: (days) => days >= 2 && days <= 3 },
+  { key: "4-7", label: "4–7 days", matches: (days) => days >= 4 && days <= 7 },
+  { key: "8+", label: "8+ days", matches: (days) => days >= 8 },
+];
+
+/**
+ * Comeback metrics for the Retention page. D1 is "active on day D, and
+ * again on D+1". The selected window still uses UTC calendar days.
+ */
+export function buildAdminRetentionBoard(
+  rows: readonly AdminUserRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminRetentionBoard {
+  const windowDays = adminRangeDayKeys(range, now);
+  const today = windowDays[0];
+  const oldest = windowDays[windowDays.length - 1];
+  const yesterday = shiftUtcDay(today, -1);
+  const scanDays = [...new Set([...windowDays, yesterday])];
+
+  const activeByUser = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const days = new Set<string>();
+    for (const day of scanDays) {
+      if (isActiveOn(row, day)) days.add(day);
+    }
+    activeByUser.set(row.userId, days);
+  }
+
+  let returning = 0;
+  let newcomers = 0;
+  let windowActives = 0;
+  let lastDayActives = 0;
+  let onStreak = 0;
+
+  const lapsedPeople: AdminRetentionPerson[] = [];
+  const streakLeaders: AdminRetentionPerson[] = [];
+
+  for (const row of rows) {
+    const activeDays = activeByUser.get(row.userId) ?? new Set();
+    const activeInWindow = windowDays.some((day) => activeDays.has(day));
+    const firstSeen = firstSeenDay(row);
+    const lastActive = lastActiveDay(row);
+
+    if (row.streakDays >= 2) {
+      onStreak += 1;
+      streakLeaders.push({
+        userId: row.userId,
+        displayName: row.displayName,
+        className: row.className,
+        lastActiveDay: lastActive,
+        daysAgo: lastActive ? utcDayDiff(today, lastActive) : 0,
+        streakDays: row.streakDays,
+      });
+    }
+
+    if (activeInWindow) {
+      windowActives += 1;
+      if (activeDays.has(today)) lastDayActives += 1;
+      if (firstSeen && firstSeen < oldest) returning += 1;
+      else newcomers += 1;
+    } else if (lastActive && lastActive < (range === "today" ? yesterday : oldest)) {
+      lapsedPeople.push({
+        userId: row.userId,
+        displayName: row.displayName,
+        className: row.className,
+        lastActiveDay: lastActive,
+        daysAgo: utcDayDiff(today, lastActive),
+        streakDays: row.streakDays,
+      });
+    }
+  }
+
+  const cohortDays =
+    range === "today" ? [yesterday] : [...windowDays].reverse().filter((day) => day < today);
+
+  let d1Cohort = 0;
+  let d1Returned = 0;
+  const d1: AdminRetentionPoint[] = [];
+
+  for (const day of cohortDays) {
+    const next = shiftUtcDay(day, 1);
+    let cohort = 0;
+    let returned = 0;
+    for (const row of rows) {
+      const activeDays = activeByUser.get(row.userId) ?? new Set();
+      if (!activeDays.has(day)) continue;
+      cohort += 1;
+      if (activeDays.has(next)) returned += 1;
+    }
+    d1Cohort += cohort;
+    d1Returned += returned;
+    if (cohort === 0) continue;
+    d1.push({
+      key: day,
+      label: formatUtcDayLabel(day),
+      cohort,
+      returned,
+      rate: Math.round((1000 * returned) / cohort) / 10,
+    });
+  }
+
+  const streaks = STREAK_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    count: rows.filter((row) => bucket.matches(row.streakDays)).length,
+  }));
+
+  streakLeaders.sort((a, b) => {
+    if (a.streakDays !== b.streakDays) return b.streakDays - a.streakDays;
+    return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+  });
+  lapsedPeople.sort((a, b) => {
+    if (a.daysAgo !== b.daysAgo) return a.daysAgo - b.daysAgo;
+    return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+  });
+
+  return {
+    returning,
+    newcomers,
+    d1Rate: d1Cohort === 0 ? null : Math.round((1000 * d1Returned) / d1Cohort) / 10,
+    d1Cohort,
+    d1Returned,
+    onStreak,
+    lapsed: lapsedPeople.length,
+    stickiness:
+      range === "today" || windowActives === 0
+        ? null
+        : Math.round((1000 * lastDayActives) / windowActives) / 10,
+    d1,
+    streaks,
+    streakLeaders: streakLeaders.slice(0, STREAK_LEADERS_LIMIT),
+    lapsedPeople: lapsedPeople.slice(0, LAPSED_LIMIT),
+  };
+}

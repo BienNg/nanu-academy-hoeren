@@ -123,7 +123,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
     label: "Engagement",
     items: [
       { href: "/admin/activity", label: "Activity", icon: "timeline", ready: true, ranged: true },
-      { href: "/admin/retention", label: "Retention", icon: "event_repeat" },
+      { href: "/admin/retention", label: "Retention", icon: "event_repeat", ready: true, ranged: true },
       { href: "/admin/xp", label: "XP", icon: "bolt" },
       { href: "/admin/duels", label: "Duels", icon: "swords" },
     ],

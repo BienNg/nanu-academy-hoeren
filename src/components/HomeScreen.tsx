@@ -150,7 +150,7 @@ function LevelCard({
         aria-disabled="true"
         aria-label={`Trình độ ${level.level} đang khóa. Nhờ giáo viên mở khóa.`}
         title="Nhờ giáo viên mở trình độ này"
-        className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-[#f8fafc] font-headline-sm opacity-85"
+        className="group flex w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-[#f8fafc] font-headline-sm opacity-85"
       >
         <div className="flex items-center gap-3.5 bg-[#f1f5f9] px-4 py-3.5">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#cbd5e1] text-[#64748b] shadow-[0_4px_0_0_#94a3b8]">
@@ -176,13 +176,6 @@ function LevelCard({
               Nhờ giáo viên mở khóa trình độ này
             </p>
           </div>
-
-          <div className="pt-2">
-            <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#e2e8f0] text-[14px] font-extrabold uppercase tracking-wide text-[#94a3b8] cursor-not-allowed">
-              <MaterialIcon name="lock" className="text-[18px]" />
-              <span>Đang khóa</span>
-            </span>
-          </div>
         </div>
       </div>
     );
@@ -192,7 +185,7 @@ function LevelCard({
     <Link
       href={`/learn/${level.slug}`}
       aria-label={`Trình độ ${level.level}`}
-      className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
+      className="group flex w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] active:translate-y-0.5"
     >
       <div className="flex items-center gap-3.5 bg-[#e0f2fe] px-4 py-3.5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1]">
@@ -217,13 +210,6 @@ function LevelCard({
           <p className="text-[12px] font-bold leading-snug text-[#6e7881]">
             Luyện nghe theo bài học CEFR
           </p>
-        </div>
-
-        <div className="pt-2">
-          <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
-            <span>Vào học</span>
-            <MaterialIcon name="arrow_forward" className="text-[18px] transition-transform duration-200 group-hover:translate-x-0.5" />
-          </span>
         </div>
       </div>
     </Link>
@@ -501,7 +487,7 @@ function BerufCard({
       aria-label={
         isComplete ? `${beruf.label} · Đã hoàn thành` : beruf.label
       }
-      className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
+      className="group flex w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] active:translate-y-0.5"
     >
       <div className="flex items-center gap-3.5 bg-[#e0f2fe] px-4 py-3.5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1]">
@@ -544,27 +530,6 @@ function BerufCard({
               style={{ width: `${Math.min(100, Math.max(percent > 0 ? 6 : 0, percent))}%` }}
             />
           </div>
-        </div>
-
-        <div className="pt-2">
-          <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
-            {isComplete ? (
-              <>
-                <MaterialIcon name="replay" className="text-[18px]" />
-                <span>Ôn tập</span>
-              </>
-            ) : percent > 0 ? (
-              <>
-                <MaterialIcon name="play_arrow" className="text-[18px]" filled />
-                <span>Tiếp tục</span>
-              </>
-            ) : (
-              <>
-                <MaterialIcon name="play_arrow" className="text-[18px]" filled />
-                <span>Bắt đầu</span>
-              </>
-            )}
-          </span>
         </div>
       </div>
     </Link>
