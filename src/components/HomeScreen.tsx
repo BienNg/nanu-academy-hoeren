@@ -398,7 +398,7 @@ function RankingPreview({ board }: { board: LeaderboardPayload }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-start justify-between gap-2">
-            <span className="truncate text-[11px] font-extrabold uppercase tracking-wider text-[#855300]">
+            <span className="min-w-0 truncate text-[11px] font-extrabold uppercase tracking-wider text-[#855300]">
               {eyebrow}
             </span>
             {board.ready && board.countdown ? (
