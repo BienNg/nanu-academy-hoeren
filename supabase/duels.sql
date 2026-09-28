@@ -158,3 +158,13 @@ alter table public.duel_xp_awards add constraint duel_xp_awards_amount_chk check
   or (outcome = 'loss' and xp in (20, 0))
   or (outcome = 'tie' and xp = 35)
 );
+
+-- A third kind: multiple choice (pick the right Vietnamese translation).
+-- `options` is the 4 answer options ({id, text, correct}[]) generated once
+-- at duel-creation time from the clip's own lektion/level, so every reload
+-- sees the same choices instead of a freshly (and possibly differently)
+-- generated set. Null for the other two kinds.
+alter table public.duel_clips add column if not exists options jsonb;
+alter table public.duel_clips drop constraint if exists duel_clips_kind_chk;
+alter table public.duel_clips add constraint duel_clips_kind_chk
+  check (kind in ('listening', 'order', 'multiple-choice'));

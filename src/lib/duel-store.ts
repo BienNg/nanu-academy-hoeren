@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt } from "@/lib/scoring";
 import { checkOrder } from "@/lib/sentence-order";
+import { buildMcOptions, isMultipleChoiceEligible } from "@/lib/multiple-choice";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
   firstUnlockedStudyHref,
@@ -103,6 +104,23 @@ function rememberMissingKindColumn(): void {
   );
 }
 
+let skipOptionsColumnUntil = 0;
+let loggedMissingOptionsColumn = false;
+
+function missingOptionsColumn(message: string): boolean {
+  return /options/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+function rememberMissingOptionsColumn(): void {
+  skipOptionsColumnUntil = Date.now() + 5 * 60 * 1000;
+  if (loggedMissingOptionsColumn) return;
+  loggedMissingOptionsColumn = true;
+  console.error(
+    "Supabase duel",
+    "Run the new statements at the bottom of supabase/duels.sql so a duel can store multiple-choice cards.",
+  );
+}
+
 function duelColumns(): string {
   return Date.now() < skipExpiredColumnUntil ? DUEL_COLUMNS_BASE : DUEL_COLUMNS;
 }
@@ -127,11 +145,15 @@ type DuelRow = {
   expired: boolean;
 };
 
+type McOptionRow = { id: string; text: string; correct: boolean };
+
 type ClipRow = {
   position: number;
   lesson_key: string;
   clip_id: string;
   kind: DuelCardKind;
+  /** The 4 answer options, generated once at duel-creation time. Only for multiple-choice cards. */
+  options: McOptionRow[] | null;
 };
 
 type PlayRow = {
@@ -164,6 +186,7 @@ export function listCatalogClips(): CatalogClip[] {
   if (catalogCache) return catalogCache;
   const rows: CatalogClip[] = [];
   for (const level of getCefrLevels()) {
+    const chapterClipLists: { chapterSlug: string; clips: ReturnType<typeof getChapterClips> }[] = [];
     for (const chapter of getLevelChapters(level.slug)) {
       let clips: ReturnType<typeof getChapterClips> = [];
       try {
@@ -171,21 +194,48 @@ export function listCatalogClips(): CatalogClip[] {
       } catch {
         continue;
       }
+      chapterClipLists.push({ chapterSlug: chapter.slug, clips });
+    }
+    // The whole level's clips, so multiple-choice distractors can be topped
+    // up from other lektionen when one lektion alone is too thin.
+    const levelClips = chapterClipLists.flatMap((entry) => entry.clips);
+    for (const { chapterSlug, clips } of chapterClipLists) {
       for (const clip of clips) {
         rows.push({
-          lessonKey: `${level.slug}/${chapter.slug}`,
-          chapterSlug: chapter.slug,
+          lessonKey: `${level.slug}/${chapterSlug}`,
+          chapterSlug,
           clipId: clip.id,
           script: clip.script,
           audioPath: clip.audioPath,
           translationVi: clip.translationVi,
           sentenceOrder: clip.sentenceOrder === true,
+          multipleChoice: isMultipleChoiceEligible(clip, clips, levelClips),
         });
       }
     }
   }
   catalogCache = rows;
   return rows;
+}
+
+/**
+ * The 4 answer options for one multiple-choice duel card, generated once at
+ * duel-creation time (not regenerated on every view read, so a reload always
+ * shows the same options). Distractors come from the clip's own lektion,
+ * topped up from the rest of the level — same rule as regular practice.
+ */
+function mcOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
+  if (!clip?.multipleChoice || !clip.translationVi) return null;
+  const levelSlug = clip.lessonKey.split("/")[0] ?? "";
+  const catalog = listCatalogClips();
+  const lektionClips = catalog.filter((item) => item.lessonKey === clip.lessonKey);
+  const levelClips = catalog.filter((item) => item.lessonKey.startsWith(`${levelSlug}/`));
+  const options = buildMcOptions(
+    { id: clip.clipId, translationVi: clip.translationVi },
+    lektionClips.map((item) => ({ id: item.clipId, translationVi: item.translationVi })),
+    levelClips.map((item) => ({ id: item.clipId, translationVi: item.translationVi })),
+  );
+  return options;
 }
 
 function catalogIndex(clips: readonly CatalogClip[]): Map<string, CatalogClip> {
@@ -558,6 +608,20 @@ function playFromRow(raw: unknown): PlayRow | null {
   };
 }
 
+function mcOptionsFromValue(value: unknown): McOptionRow[] | null {
+  if (!Array.isArray(value)) return null;
+  const options: McOptionRow[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") return null;
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== "string" || typeof row.text !== "string" || typeof row.correct !== "boolean") {
+      return null;
+    }
+    options.push({ id: row.id, text: row.text, correct: row.correct });
+  }
+  return options.length > 0 ? options : null;
+}
+
 function clipFromRow(raw: unknown): ClipRow | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
@@ -568,14 +632,25 @@ function clipFromRow(raw: unknown): ClipRow | null {
   ) {
     return null;
   }
-  const kind = row.kind === "order" ? "order" : "listening";
-  return { position: row.position, lesson_key: row.lesson_key, clip_id: row.clip_id, kind };
+  const kind: DuelCardKind =
+    row.kind === "order" ? "order" : row.kind === "multiple-choice" ? "multiple-choice" : "listening";
+  return {
+    position: row.position,
+    lesson_key: row.lesson_key,
+    clip_id: row.clip_id,
+    kind,
+    options: mcOptionsFromValue(row.options),
+  };
 }
 
 async function insertDuelClips(
   supabase: SupabaseClient,
   duelId: string,
-  cards: readonly { clip: { lessonKey: string; clipId: string }; kind: DuelCardKind }[],
+  cards: readonly {
+    clip: { lessonKey: string; clipId: string };
+    kind: DuelCardKind;
+    options?: McOptionRow[] | null;
+  }[],
 ): Promise<"ok" | "unavailable"> {
   const base = cards.map(({ clip }, position) => ({
     duel_id: duelId,
@@ -590,16 +665,33 @@ async function insertDuelClips(
     clip_id: clip.clipId,
     kind,
   }));
-  const includeKind = Date.now() >= skipKindColumnUntil;
-  const inserted = await supabase.from(CLIPS_TABLE).insert(includeKind ? withKind : base);
-  if (!inserted.error) return "ok";
-  if (missingKindColumn(inserted.error.message) && includeKind) {
-    rememberMissingKindColumn();
-    const retry = await supabase.from(CLIPS_TABLE).insert(base);
-    if (!retry.error) return "ok";
-    schemaGone(retry.error.message);
-    return "unavailable";
+  const withOptions = cards.map(({ clip, kind, options }, position) => ({
+    duel_id: duelId,
+    position,
+    lesson_key: clip.lessonKey,
+    clip_id: clip.clipId,
+    kind,
+    options: options ?? null,
+  }));
+
+  let includeKind = Date.now() >= skipKindColumnUntil;
+  let includeOptions = includeKind && Date.now() >= skipOptionsColumnUntil;
+  let rows: unknown[] = includeOptions ? withOptions : includeKind ? withKind : base;
+
+  let inserted = await supabase.from(CLIPS_TABLE).insert(rows);
+  if (inserted.error && includeOptions && missingOptionsColumn(inserted.error.message)) {
+    rememberMissingOptionsColumn();
+    includeOptions = false;
+    rows = withKind;
+    inserted = await supabase.from(CLIPS_TABLE).insert(rows);
   }
+  if (inserted.error && includeKind && missingKindColumn(inserted.error.message)) {
+    rememberMissingKindColumn();
+    includeKind = false;
+    rows = base;
+    inserted = await supabase.from(CLIPS_TABLE).insert(rows);
+  }
+  if (!inserted.error) return "ok";
   schemaGone(inserted.error.message);
   return "unavailable";
 }
@@ -885,9 +977,19 @@ export async function createDuel(user: {
     const cards = duelCardsFromClips(
       picked.map((clip) => {
         const known = catalog.get(studiedKey(clip.lessonKey, clip.clipId));
-        return { ...clip, sentenceOrder: known?.sentenceOrder === true };
+        return {
+          ...clip,
+          sentenceOrder: known?.sentenceOrder === true,
+          multipleChoice: known?.multipleChoice === true,
+        };
       }),
-    );
+    ).map((card) => ({
+      ...card,
+      options:
+        card.kind === "multiple-choice"
+          ? mcOptionsForClip(catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId)))
+          : null,
+    }));
     const created = await supabase
       .from(DUELS_TABLE)
       .insert({ challenger_id: user.id, opponent_id: opponentId })
@@ -1054,12 +1156,24 @@ async function readDuel(supabase: SupabaseClient, duelId: string): Promise<DuelR
 async function readClips(supabase: SupabaseClient, duelId: string): Promise<ClipRow[]> {
   const load = (columns: string) =>
     supabase.from(CLIPS_TABLE).select(columns).eq("duel_id", duelId).order("position", { ascending: true });
-  const columns =
-    Date.now() < skipKindColumnUntil ? "position, lesson_key, clip_id" : "position, lesson_key, clip_id, kind";
+  const base = "position, lesson_key, clip_id";
+  const withKind = `${base}, kind`;
+  const withOptions = `${withKind}, options`;
+
+  let columns = base;
+  if (Date.now() >= skipKindColumnUntil) columns = withKind;
+  if (columns === withKind && Date.now() >= skipOptionsColumnUntil) columns = withOptions;
+
   let { data, error } = await load(columns);
-  if (error && missingKindColumn(error.message)) {
+  if (error && columns === withOptions && missingOptionsColumn(error.message)) {
+    rememberMissingOptionsColumn();
+    columns = withKind;
+    ({ data, error } = await load(columns));
+  }
+  if (error && columns !== base && missingKindColumn(error.message)) {
     rememberMissingKindColumn();
-    ({ data, error } = await load("position, lesson_key, clip_id"));
+    columns = base;
+    ({ data, error } = await load(columns));
   }
   if (error) {
     schemaGone(error.message);
@@ -1225,6 +1339,24 @@ async function forfeitClip(
 
 const MAX_CLIP_MS = 30 * 60 * 1000;
 
+/**
+ * Server-side check for a multiple-choice duel card: the client already
+ * picked from pre-generated options (see `mcOptionsForClip`), so settling
+ * just has to compare the submitted option text against the clip's own
+ * canonical translation, not regenerate the options.
+ */
+function checkMcAnswer(
+  typed: string,
+  translationVi: string,
+): { accuracy: number; words: { word: string; status: string; typed?: string }[] } {
+  const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
+  const correct = typed.trim().length > 0 && normalize(typed) === normalize(translationVi);
+  return {
+    accuracy: correct ? 100 : 0,
+    words: [{ word: translationVi, status: correct ? "correct" : "incorrect", typed }],
+  };
+}
+
 async function settleClip(
   supabase: SupabaseClient,
   duelId: string,
@@ -1253,7 +1385,9 @@ async function settleClip(
   const result =
     clip.kind === "order"
       ? checkOrder(typed.split(/\s+/).filter(Boolean), known.script)
-      : scoreAttempt(typed, known.script);
+      : clip.kind === "multiple-choice"
+        ? checkMcAnswer(typed, known.translationVi ?? "")
+        : scoreAttempt(typed, known.script);
   const words = result.words.map((word) => ({
     word: word.word,
     status: word.status,
@@ -1607,6 +1741,7 @@ function buildView(input: {
         script: known?.script ?? null,
         audioPath: known?.audioPath ?? null,
         translationVi: known?.translationVi ?? null,
+        options: clip.options,
         you: {
           state: yourState,
           elapsedMs: you?.state === "done" ? you.elapsed_ms : null,

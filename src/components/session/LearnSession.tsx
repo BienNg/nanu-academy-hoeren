@@ -9,6 +9,10 @@ import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
+import { McCard } from "@/components/session/McCard";
+import { McFeedbackCard } from "@/components/session/McFeedbackCard";
+import { PairingCard } from "@/components/session/PairingCard";
+import { PairingFeedbackCard } from "@/components/session/PairingFeedbackCard";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -28,6 +32,9 @@ import {
   submitListeningRun,
 } from "@/lib/listening-runs";
 import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
+import { insertDiscreteCards } from "@/lib/practice-deck";
+import { checkMc, type McResult } from "@/lib/multiple-choice";
+import { checkPairing, type PairingPairAttempt, type PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -137,6 +144,8 @@ export function LearnSession({
   const [partCount, setPartCount] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [mcResult, setMcResult] = useState<McResult | null>(null);
+  const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [draft, setDraft] = useState("");
   const [summary, setSummary] = useState<PartSummary | null>(null);
   const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
@@ -179,7 +188,15 @@ export function LearnSession({
   useEffect(() => {
     if (status === "loading") return;
     if (phase !== "practice") return;
-    if (clipIndex !== 0 || scoreResult !== null || draft.length > 0) return;
+    if (
+      clipIndex !== 0 ||
+      scoreResult !== null ||
+      mcResult !== null ||
+      pairingResult !== null ||
+      draft.length > 0
+    ) {
+      return;
+    }
 
     if (clips.length === 0) {
       if (initializedSourceRef.current === "empty") return;
@@ -273,17 +290,21 @@ export function LearnSession({
     setBreakingIndex(null);
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
-    setPartCards(buildPracticeDeck(nextPartClips, clips));
+    setPartCards(insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []));
     setPartNumber(partNumber);
     setPartCount(listeningPartCount);
     setClipIndex(0);
     setScoreResult(null);
+    setMcResult(null);
+    setPairingResult(null);
     setDraft("");
   }, [
     status,
     phase,
     clipIndex,
     scoreResult,
+    mcResult,
+    pairingResult,
     draft,
     clipKey,
     chapterProgressKey,
@@ -305,7 +326,8 @@ export function LearnSession({
   const currentCard = partCards?.[clipIndex];
   const currentClip = currentCard?.clip;
   const ready = partCards !== null;
-  const isPerfect = scoreResult?.accuracy === 100;
+  const isPerfect =
+    scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
   const isLastPart = partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
   const exitLabel =
@@ -325,10 +347,10 @@ export function LearnSession({
     });
   }, [partCards, clipIndex, currentCard]);
 
-  const applyResult = (result: ScoreResult) => {
+  /** Kind-agnostic hearts/streak bookkeeping. Each handler sets its own result state first. */
+  const applyResult = (accuracy: number) => {
     if (!currentCard) return;
-    setScoreResult(result);
-    if (result.accuracy === 100) {
+    if (accuracy === 100) {
       playSuccessSound();
       return;
     }
@@ -349,12 +371,30 @@ export function LearnSession({
   const handleSubmit = (value: string) => {
     if (!currentClip) return;
     setDraft(value);
-    applyResult(scoreAttempt(value, currentClip.script));
+    const result = scoreAttempt(value, currentClip.script);
+    setScoreResult(result);
+    applyResult(result.accuracy);
   };
 
   const handleOrderSubmit = (selected: string[]) => {
     if (!currentClip) return;
-    applyResult(checkOrder(selected, currentClip.script));
+    const result = checkOrder(selected, currentClip.script);
+    setScoreResult(result);
+    applyResult(result.accuracy);
+  };
+
+  const handleMcSubmit = (selectedId: string) => {
+    if (!currentCard?.options) return;
+    const result = checkMc(selectedId, currentCard.options);
+    setMcResult(result);
+    applyResult(result.accuracy);
+  };
+
+  const handlePairingSubmit = (answer: PairingPairAttempt[]) => {
+    if (!currentCard?.pairItems) return;
+    const result = checkPairing(currentCard.pairItems, answer);
+    setPairingResult(result);
+    applyResult(result.accuracy);
   };
 
   const commitPart = () => {
@@ -452,6 +492,13 @@ export function LearnSession({
     router.push(finishRun ? nextChapterHref : pathHref);
   };
 
+  const resetCardResults = () => {
+    setScoreResult(null);
+    setMcResult(null);
+    setPairingResult(null);
+    setDraft("");
+  };
+
   const handleNext = () => {
     if (!partCards || !currentCard) return;
     if (heartsLeft <= 0) {
@@ -460,16 +507,14 @@ export function LearnSession({
     }
     if (!isPerfect) {
       setPartCards(requeueMissedClip(partCards, clipIndex));
-      setScoreResult(null);
-      setDraft("");
+      resetCardResults();
       return;
     }
     if (clipIndex + 1 >= partCards.length) {
       openCompleteScreen();
       return;
     }
-    setScoreResult(null);
-    setDraft("");
+    resetCardResults();
     setClipIndex((index) => index + 1);
   };
 
@@ -580,6 +625,42 @@ export function LearnSession({
                 translation={currentClip.translationVi}
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
+              />
+            ) : currentCard?.kind === "multiple-choice" && !mcResult ? (
+              <McCard
+                key={`mc-${currentCard.key}`}
+                prompt={currentClip.script}
+                options={currentCard.options ?? []}
+                onSubmit={handleMcSubmit}
+              />
+            ) : currentCard?.kind === "pairing" && !pairingResult ? (
+              <PairingCard
+                key={`pairing-${currentCard.key}`}
+                items={(currentCard.pairItems ?? []).map((clip) => ({
+                  id: clip.id,
+                  vi: clip.translationVi ?? "",
+                  de: clip.script,
+                }))}
+                onSubmit={handlePairingSubmit}
+              />
+            ) : currentCard?.kind === "multiple-choice" && mcResult ? (
+              <McFeedbackCard
+                result={mcResult}
+                options={currentCard.options ?? []}
+                clip={currentClip}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
+            ) : currentCard?.kind === "pairing" && pairingResult ? (
+              <PairingFeedbackCard
+                result={pairingResult}
+                items={(currentCard.pairItems ?? []).map((clip) => ({
+                  id: clip.id,
+                  vi: clip.translationVi ?? "",
+                  de: clip.script,
+                }))}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
               />
             ) : (
               <>

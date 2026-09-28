@@ -182,6 +182,7 @@ test("a local settle updates that clip and leaves the next one waiting", () => {
         script: "Hallo",
         audioPath: "a1-1/lektion-1/Hallo.mp3",
         translationVi: null,
+        options: null,
         you: { state: "pending" as const, elapsedMs: null },
         opponent: { state: "done" as const, elapsedMs: 4000 },
         winner: "pending" as const,
@@ -192,6 +193,7 @@ test("a local settle updates that clip and leaves the next one waiting", () => {
         script: "Tschüss",
         audioPath: "a1-1/lektion-1/Tschüss.mp3",
         translationVi: null,
+        options: null,
         you: { state: "pending" as const, elapsedMs: null },
         opponent: { state: "pending" as const, elapsedMs: null },
         winner: "pending" as const,
@@ -281,7 +283,7 @@ test("time labels use a comma", () => {
   assert.equal(formatDuelTime(65_000), "1:05");
 });
 
-test("a duel uses each clip once, as listening or sentence order", () => {
+test("a duel uses each clip once, as listening, sentence order, or multiple choice", () => {
   const cards = duelCardsFromClips([
     { lessonKey: "a1-1/lektion-4", clipId: "schon", sentenceOrder: true },
     { lessonKey: "a1-1/lektion-4", clipId: "der", sentenceOrder: false },
@@ -299,13 +301,33 @@ test("a duel uses each clip once, as listening or sentence order", () => {
   assert.equal(new Set(cards.map((card) => `${card.clip.lessonKey}/${card.clip.clipId}`)).size, cards.length);
 });
 
-test("sentence order can start without audio, and dictation still needs it", () => {
+test("sentence order beats multiple choice, which beats listening", () => {
+  const cards = duelCardsFromClips([
+    { lessonKey: "a1-1/lektion-4", clipId: "both", sentenceOrder: true, multipleChoice: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "mc-only", sentenceOrder: false, multipleChoice: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "neither", sentenceOrder: false, multipleChoice: false },
+  ]);
+  assert.deepEqual(
+    cards.map((card) => card.kind),
+    ["order", "multiple-choice", "listening"],
+  );
+});
+
+test("sentence order and multiple choice can start without audio, and dictation still needs it", () => {
   assert.equal(
     clipCanStart({ kind: "order", script: "Die Mutter ist sehr schön.", audioPath: null, translationVi: "Người mẹ rất đẹp." }),
     true,
   );
   assert.equal(
     clipCanStart({ kind: "order", script: "Die Mutter ist sehr schön.", audioPath: "x.mp3", translationVi: "  " }),
+    false,
+  );
+  assert.equal(
+    clipCanStart({ kind: "multiple-choice", script: "Hallo", audioPath: null, translationVi: "Xin chào" }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "multiple-choice", script: "Hallo", audioPath: "x.mp3", translationVi: "  " }),
     false,
   );
   assert.equal(

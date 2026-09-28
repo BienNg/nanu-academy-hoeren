@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
+import { McCard } from "@/components/session/McCard";
 import {
   DUEL_DEADLINE_DAYS,
   DUEL_EXPIRE_CHALLENGER_XP,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/duels";
 import { scoreAttempt } from "@/lib/scoring";
 import { buildWordBank, checkOrder } from "@/lib/sentence-order";
+import { checkMc } from "@/lib/multiple-choice";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
@@ -449,7 +451,16 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   };
 
   const submit = () => {
-    if (!draft.trim() || phase !== "play" || !clip?.script || clip.kind === "order" || clockStartRef.current == null) return;
+    if (
+      !draft.trim() ||
+      phase !== "play" ||
+      !clip?.script ||
+      clip.kind === "order" ||
+      clip.kind === "multiple-choice" ||
+      clockStartRef.current == null
+    ) {
+      return;
+    }
     const typed = draft.trim().slice(0, MAX_ANSWER_CHARS);
     const result = scoreAttempt(typed, clip.script);
     const words = result.words.map((word) => ({
@@ -477,6 +488,18 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       return;
     }
     finishCorrect(selected.join(" ").slice(0, MAX_ANSWER_CHARS));
+  };
+
+  const submitMc = (selectedId: string) => {
+    if (phase !== "play" || clip?.kind !== "multiple-choice" || clockStartRef.current == null) return;
+    const options = clip.options ?? [];
+    const result = checkMc(selectedId, options);
+    if (result.accuracy !== 100) {
+      setFeedback({ accuracy: result.accuracy, accepted: false, tooFast: false, words: [] });
+      return;
+    }
+    const correctText = options.find((option) => option.correct)?.text ?? "";
+    finishCorrect(correctText.slice(0, MAX_ANSWER_CHARS));
   };
 
   const confirmQuit = () => {
@@ -635,6 +658,13 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 translation={clip.translationVi ?? ""}
                 chips={orderBank}
                 onSubmit={submitOrder}
+              />
+            ) : clip.kind === "multiple-choice" ? (
+              <McCard
+                key={`mc-${clip.position}`}
+                prompt={clip.script ?? ""}
+                options={clip.options ?? []}
+                onSubmit={submitMc}
               />
             ) : clip.audioPath ? (
               <>

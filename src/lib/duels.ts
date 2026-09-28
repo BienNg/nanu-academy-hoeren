@@ -6,6 +6,8 @@
  * wins the clip. No time loses it.
  */
 
+import type { CardKind } from "./card-kinds.js";
+
 export const DUEL_SIZE = 15;
 export const MAX_OPEN_WITH_CLASSMATE = 3;
 export const DUEL_WIN_XP = 50;
@@ -28,7 +30,7 @@ const UUID =
 export type DuelOutcome = "win" | "loss" | "tie";
 export type MatchBlock = "ok" | "no_class" | "no_overlap" | "cap" | "admin" | "unavailable";
 export type PlayState = "active" | "done" | "forfeited";
-export type DuelCardKind = "listening" | "order";
+export type DuelCardKind = CardKind;
 export type HomeBucket = "incoming" | "playing" | "waiting" | "history";
 
 export type StudiedClip = {
@@ -45,6 +47,8 @@ export type CatalogClip = {
   translationVi?: string;
   /** True when this clip can be a sentence-order card. */
   sentenceOrder?: boolean;
+  /** True when this clip has enough same-word-count distractors for a multiple-choice card. */
+  multipleChoice?: boolean;
 };
 
 export type OpponentCandidate = {
@@ -65,17 +69,25 @@ export type DuelClipView = {
   script: string | null;
   audioPath: string | null;
   translationVi: string | null;
+  /** The 4 answer options, fixed at duel-creation time. Only for multiple-choice cards. */
+  options: { id: string; text: string; correct: boolean }[] | null;
   you: { state: PlayState | "pending"; elapsedMs: number | null };
   opponent: { state: PlayState | "pending" | "hidden"; elapsedMs: number | null };
   winner: "you" | "opponent" | "neither" | "pending";
 };
 
 /**
- * One card per clip. An eligible clip is sentence order; every other clip
- * stays dictation. A repeated clip is dropped so it cannot appear twice.
+ * One card per clip. An eligible clip is sentence order; failing that,
+ * multiple choice if it has enough distractors; every other clip stays
+ * dictation. A repeated clip is dropped so it cannot appear twice.
  */
 export function duelCardsFromClips<
-  T extends { lessonKey: string; clipId: string; sentenceOrder?: boolean },
+  T extends {
+    lessonKey: string;
+    clipId: string;
+    sentenceOrder?: boolean;
+    multipleChoice?: boolean;
+  },
 >(clips: readonly T[]): { clip: T; kind: DuelCardKind }[] {
   const seen = new Set<string>();
   const cards: { clip: T; kind: DuelCardKind }[] = [];
@@ -83,7 +95,12 @@ export function duelCardsFromClips<
     const key = studiedKey(clip.lessonKey, clip.clipId);
     if (seen.has(key)) continue;
     seen.add(key);
-    cards.push({ clip, kind: clip.sentenceOrder === true ? "order" : "listening" });
+    const kind: DuelCardKind = clip.sentenceOrder
+      ? "order"
+      : clip.multipleChoice
+        ? "multiple-choice"
+        : "listening";
+    cards.push({ clip, kind });
   }
   return cards;
 }
@@ -95,7 +112,9 @@ export function clipCanStart(clip: {
   translationVi?: string | null;
 } | null | undefined): boolean {
   if (!clip?.script) return false;
-  if (clip.kind === "order") return Boolean(clip.translationVi?.trim());
+  if (clip.kind === "order" || clip.kind === "multiple-choice") {
+    return Boolean(clip.translationVi?.trim());
+  }
   return Boolean(clip.audioPath);
 }
 

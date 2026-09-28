@@ -1,10 +1,13 @@
 /**
  * Sentence-order cards: the Vietnamese translation is shown, the German words
  * come shuffled as chips (with a few distractors) and the student taps them in order.
- * No imports so the node tests can compile this file on its own.
+ * Only imports the shared card-kinds type, so the node tests can still compile
+ * this file (plus that one dependency) on its own.
  */
 
-export type PracticeCardKind = "listening" | "order";
+import type { CardKind } from "./card-kinds.js";
+
+export type PracticeCardKind = CardKind;
 
 export type WordChip = {
   /** Stable per card, so repeated words stay distinct chips. */
@@ -12,7 +15,7 @@ export type WordChip = {
   text: string;
 };
 
-type OrderSourceClip = {
+export type OrderSourceClip = {
   id: string;
   script: string;
   translationVi?: string;
@@ -25,6 +28,10 @@ export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
   clip: C;
   /** Shuffled chips. Only on order cards. */
   bank?: WordChip[];
+  /** Four answer options. Only on multiple-choice cards. */
+  options?: { id: string; text: string; correct: boolean }[];
+  /** The 5 clips being paired. Only on pairing cards; `clip` is pairItems[0]. */
+  pairItems?: C[];
 };
 
 /** Same shape as ScoreResult in scoring.ts, so the feedback card can show it. */

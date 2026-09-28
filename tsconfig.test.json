@@ -19,9 +19,16 @@
     "src/lib/listening-runs.test.ts",
     "src/lib/xp.ts",
     "src/lib/xp.test.ts",
+    "src/lib/card-kinds.ts",
     "src/lib/duels.ts",
     "src/lib/duels.test.ts",
     "src/lib/sentence-order.ts",
-    "src/lib/sentence-order.test.ts"
+    "src/lib/sentence-order.test.ts",
+    "src/lib/multiple-choice.ts",
+    "src/lib/multiple-choice.test.ts",
+    "src/lib/pairing.ts",
+    "src/lib/pairing.test.ts",
+    "src/lib/practice-deck.ts",
+    "src/lib/practice-deck.test.ts"
   ]
 }
