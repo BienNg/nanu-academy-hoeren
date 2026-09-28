@@ -75,6 +75,8 @@ export type DuelView = {
   opponentPoints: number;
   nextPosition: number | null;
   startedAt: string | null;
+  /** When both sides finished, or the deadline closed the duel. */
+  completedAt: string | null;
   /** Set when the challenged person missed the deadline. XP is flat, not scored from clips. */
   expired: boolean;
   /** When the challenged person's 3 days run out. Null before the challenge is released. */
@@ -456,6 +458,21 @@ export function isChallengeExpired(expiresAt: string | null, now: Date): boolean
   const deadline = Date.parse(expiresAt);
   if (!Number.isFinite(deadline)) return false;
   return now.getTime() >= deadline;
+}
+
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Calendar age in Vietnam, such as "Hôm qua", "4 ngày trước", or "2 tuần trước". */
+export function completedAgoLabel(iso: string, now = new Date()): string | null {
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at)) return null;
+  const dayIndex = (ms: number) => Math.floor((ms + VIETNAM_OFFSET_MS) / 86_400_000);
+  const days = dayIndex(now.getTime()) - dayIndex(at);
+  if (days <= 0) return "Hôm nay";
+  if (days === 1) return "Hôm qua";
+  if (days < 7) return `${days} ngày trước`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? "1 tuần trước" : `${weeks} tuần trước`;
 }
 
 /** Remaining time, such as "Còn 2 ngày" or "Đối thủ còn 4 giờ". Null once the deadline has passed. */

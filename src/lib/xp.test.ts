@@ -8,9 +8,11 @@ import {
   formatWeekCountdown,
   googleProfileImage,
   isXpSchemaMissing,
+  previewLeaderboardRows,
   weekEndsAt,
   weekKey,
   type BoardPerson,
+  type LeaderboardRow,
   type LessonClip,
 } from "./xp.js";
 const NOW = new Date("2026-09-27T13:00:00.000Z");
@@ -203,6 +205,71 @@ test("class board lists the whole class and global keeps the top plus you", () =
   assert.equal(global.rows.at(-1)?.rank, null);
   assert.equal(global.rows.at(-1)?.gapBefore, true);
   assert.equal(global.yourRank, null);
+});
+
+function previewRow(rank: number, name: string, isYou = false): LeaderboardRow {
+  return {
+    rank,
+    name,
+    xp: 100 - rank,
+    isYou,
+    gapBefore: true,
+    won: 0,
+    tied: 0,
+    lost: 0,
+    image: null,
+  };
+}
+
+test("home ranking preview shows the window around you", () => {
+  const top = previewLeaderboardRows([
+    previewRow(1, "A"),
+    previewRow(2, "B", true),
+    previewRow(3, "C"),
+    previewRow(4, "D"),
+    previewRow(5, "E"),
+  ]);
+  assert.deepEqual(
+    top.map((row) => row.rank),
+    [1, 2, 3],
+  );
+  assert.equal(
+    top.some((row) => row.gapBefore),
+    false,
+  );
+
+  const middle = previewLeaderboardRows([
+    previewRow(1, "A"),
+    previewRow(2, "B"),
+    previewRow(3, "C"),
+    previewRow(4, "D"),
+    previewRow(5, "E", true),
+    previewRow(6, "F"),
+    previewRow(7, "G"),
+  ]);
+  assert.deepEqual(
+    middle.map((row) => `${row.rank}${row.gapBefore ? "*" : ""}`),
+    ["4*", "5", "6"],
+  );
+
+  const end = previewLeaderboardRows([
+    previewRow(1, "A"),
+    previewRow(2, "B"),
+    previewRow(3, "C"),
+    previewRow(4, "D", true),
+  ]);
+  assert.deepEqual(
+    end.map((row) => row.rank),
+    [2, 3, 4],
+  );
+  assert.equal(end[0]?.gapBefore, true);
+
+  const short = previewLeaderboardRows([previewRow(1, "A", true), previewRow(2, "B")]);
+  assert.deepEqual(
+    short.map((row) => row.rank),
+    [1, 2],
+  );
+  assert.equal(short[0]?.gapBefore, false);
 });
 
 test("ranking rows keep a google profile photo and drop anything else", () => {

@@ -9,6 +9,7 @@ import {
   challengeExpiresAt,
   challengeLeftLabel,
   challengeReleasedAt,
+  completedAgoLabel,
   clipWinner,
   extractStudiedClips,
   formatDuelTime,
@@ -169,6 +170,7 @@ test("a local settle updates that clip and leaves the next one waiting", () => {
     opponentPoints: 0,
     nextPosition: 0,
     startedAt: null,
+    completedAt: null,
     expired: false,
     expiresAt: null,
     clips: [
@@ -255,6 +257,16 @@ test("the challenged person has 3 days after the challenger finishes", () => {
   assert.equal(challengeLeftLabel(expires, onDeadline, "you"), null);
   assert.equal(DUEL_EXPIRE_CHALLENGER_XP, 35);
   assert.equal(DUEL_EXPIRE_OPPONENT_XP, 0);
+});
+
+test("a finished duel is dated in days, then weeks", () => {
+  const now = new Date("2026-09-28T03:00:00.000Z");
+  assert.equal(completedAgoLabel("2026-09-27T20:00:00.000Z", now), "Hôm nay");
+  assert.equal(completedAgoLabel("2026-09-27T16:00:00.000Z", now), "Hôm qua");
+  assert.equal(completedAgoLabel("2026-09-24T03:00:00.000Z", now), "4 ngày trước");
+  assert.equal(completedAgoLabel("2026-09-21T03:00:00.000Z", now), "1 tuần trước");
+  assert.equal(completedAgoLabel("2026-09-07T03:00:00.000Z", now), "3 tuần trước");
+  assert.equal(completedAgoLabel("not-a-date", now), null);
 });
 
 test("time labels use a comma", () => {

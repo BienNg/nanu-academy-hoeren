@@ -393,3 +393,18 @@ export function assembleLeaderboard(input: {
     })),
   };
 }
+
+const HOME_RANK_PREVIEW = 3;
+
+/** Short home-screen slice: top of the board, or the window around you when you sit lower. */
+export function previewLeaderboardRows(rows: readonly LeaderboardRow[]): LeaderboardRow[] {
+  const clean = rows.map((row) => ({ ...row, gapBefore: false }));
+  if (clean.length <= HOME_RANK_PREVIEW) return clean;
+  const youIndex = clean.findIndex((row) => row.isYou);
+  if (youIndex < HOME_RANK_PREVIEW) return clean.slice(0, HOME_RANK_PREVIEW);
+  const start = Math.min(youIndex - 1, clean.length - HOME_RANK_PREVIEW);
+  return clean.slice(start, start + HOME_RANK_PREVIEW).map((row, index) => ({
+    ...row,
+    gapBefore: index === 0 && start > 0,
+  }));
+}

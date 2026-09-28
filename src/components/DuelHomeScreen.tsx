@@ -6,11 +6,10 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBarStatus } from "@/components/TodayXpChip";
 import {
-  DUEL_DEADLINE_DAYS,
-  DUEL_EXPIRE_CHALLENGER_XP,
   DUEL_SCHEMA_HINT,
   DUEL_SIZE,
   challengeLeftLabel,
+  completedAgoLabel,
   type DuelCard,
   type DuelHome,
   type MatchBlock,
@@ -20,17 +19,6 @@ function isDuelHome(value: unknown): value is DuelHome {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<DuelHome>;
   return typeof record.ready === "boolean" && Array.isArray(record.history);
-}
-
-function challengeAgeLabel(iso: string, now = new Date()): string | null {
-  const at = Date.parse(iso);
-  if (!Number.isFinite(at)) return null;
-  const vietnam = 7 * 60 * 60 * 1000;
-  const dayIndex = (ms: number) => Math.floor((ms + vietnam) / 86_400_000);
-  const days = dayIndex(now.getTime()) - dayIndex(at);
-  if (days <= 0) return "Hôm nay";
-  if (days === 1) return "Hôm qua";
-  return `${days} ngày trước`;
 }
 
 function withDeadline(card: DuelCard, progress: string): string {
@@ -106,6 +94,22 @@ function nameInitial(name: string | null | undefined): string {
   return Array.from(label)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
+function WinnerCrown({ visible }: { visible: boolean }) {
+  return (
+    <span
+      className={`mb-1 flex h-4 items-end justify-center ${visible ? "text-[#f5b400]" : "invisible"}`}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 24 16" className="h-4 w-6" fill="currentColor">
+        <path d="M2 14h20L20.2 6.2 16 9.4 12 2.4 8 9.4 3.8 6.2 2 14z" />
+        <circle cx="3.6" cy="5.2" r="1.5" />
+        <circle cx="12" cy="2.2" r="1.5" />
+        <circle cx="20.4" cy="5.2" r="1.5" />
+      </svg>
+    </span>
+  );
+}
+
 function MatchupSide({
   name,
   points,
@@ -117,6 +121,7 @@ function MatchupSide({
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+      <WinnerCrown visible={winner} />
       <span
         className={`flex h-12 w-12 items-center justify-center rounded-2xl text-[16px] font-extrabold ${
           winner
@@ -157,17 +162,13 @@ function MatchupCard({ card, action }: { card: DuelCard; action: string }) {
   const opponentName = card.opponentName || "Học viên";
   const waiting = card.youSettled >= DUEL_SIZE && !card.opponentStarted;
   const finished = card.yourOutcome != null || card.expired;
-  const age = challengeAgeLabel(card.createdAt);
+  const age = finished ? completedAgoLabel(card.createdAt) : null;
   const note = finished
     ? card.expired
-      ? age
-        ? `Hết hạn · ${age}`
-        : "Hết hạn"
+      ? "Hết hạn"
       : card.yourOutcome === "tie"
-        ? age
-          ? `Hòa · ${age}`
-          : "Hòa"
-        : age
+        ? "Hòa"
+        : null
     : withDeadline(card, waiting ? `${opponentName} chưa bắt đầu` : `${opponentName} đang chơi`);
 
   return (
@@ -177,7 +178,12 @@ function MatchupCard({ card, action }: { card: DuelCard; action: string }) {
     >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <MatchupSide name={yourName} points={card.yourPoints} winner={card.yourOutcome === "win"} />
-        <span className="pb-5 text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
+        <span className="flex flex-col items-center gap-1 pb-5">
+          {age ? (
+            <span className="text-center text-[11px] font-bold leading-none text-[#6e7881]">{age}</span>
+          ) : null}
+          <span className="text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
+        </span>
         <MatchupSide name={opponentName} points={card.opponentPoints} winner={card.yourOutcome === "loss"} />
       </div>
       <div className="mt-2 flex flex-col items-center gap-2">
@@ -307,10 +313,10 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
             ) : null}
           </div>
           <p className="mt-1 text-[22px] font-extrabold leading-tight">15 câu giống nhau. Ai nhanh hơn được điểm.</p>
-          <p className="mt-2 text-[13px] font-semibold text-sky-50">
-            {studyFirst
-              ? `Đã khóa · Bạn đã học ${home.studiedCount}/${DUEL_SIZE} câu.`
-              : `Bạn đã học ${home.studiedCount} câu. Thắng 50 XP, hòa 35 XP, thua 20 XP. Hết ${DUEL_DEADLINE_DAYS} ngày không chơi thì người thách được ${DUEL_EXPIRE_CHALLENGER_XP} XP.`}
+          <p className="mt-2 text-[13px] font-semibold leading-snug text-sky-50">
+            {studyFirst ? `Đã khóa · Bạn đã học ${home.studiedCount}/${DUEL_SIZE} câu. ` : null}
+            Bạn sẽ thách một bạn cùng lớp ngẫu nhiên. Câu hỏi lấy từ những câu cả hai đã học. Thách
+            xong, chờ họ hoàn thành rồi xem ai giỏi hơn.
           </p>
           {studyFirst ? (
             <Link

@@ -1591,6 +1591,7 @@ function buildView(input: {
     opponentPoints,
     nextPosition: active?.position ?? pending?.position ?? null,
     startedAt: active?.started_at ?? null,
+    completedAt: input.duel.completed_at,
     expired: input.duel.expired,
     expiresAt: input.duel.completed_at ? null : challengeExpiresAt(released),
     clips,

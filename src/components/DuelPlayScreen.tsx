@@ -12,6 +12,7 @@ import {
   DUEL_SIZE,
   MAX_ANSWER_CHARS,
   challengeLeftLabel,
+  completedAgoLabel,
   formatDuelTime,
   isSettledState,
   mergeDuelView,
@@ -72,6 +73,27 @@ function opponentTime(clip: DuelClipView): string {
   if (clip.opponent.state === "hidden" || clip.opponent.state === "pending") return "Đang chờ";
   if (clip.opponent.state === "forfeited" || clip.opponent.elapsedMs == null) return "Bỏ";
   return formatDuelTime(clip.opponent.elapsedMs);
+}
+
+function completedWhen(view: DuelView): string | null {
+  if (!view.complete || !view.completedAt) return null;
+  return completedAgoLabel(view.completedAt);
+}
+
+function WinnerCrown({ visible }: { visible: boolean }) {
+  return (
+    <span
+      className={`mb-1 flex h-4 items-end justify-center ${visible ? "text-[#f5b400]" : "invisible"}`}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 24 16" className="h-4 w-6" fill="currentColor">
+        <path d="M2 14h20L20.2 6.2 16 9.4 12 2.4 8 9.4 3.8 6.2 2 14z" />
+        <circle cx="3.6" cy="5.2" r="1.5" />
+        <circle cx="12" cy="2.2" r="1.5" />
+        <circle cx="20.4" cy="5.2" r="1.5" />
+      </svg>
+    </span>
+  );
 }
 
 function resultHeadline(view: DuelView): string {
@@ -376,6 +398,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
     view?.expiresAt && !view.complete && phase !== "result"
       ? challengeLeftLabel(view.expiresAt, new Date(), "you")
       : null;
+  const finishedAgo = view ? completedWhen(view) : null;
 
   const submit = () => {
     if (!draft.trim() || phase !== "play" || !clip?.script || clockStartRef.current == null) return;
@@ -635,13 +658,20 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                 <div className="min-w-0 text-center">
+                  <WinnerCrown visible={view.complete && view.yourOutcome === "win"} />
                   <p className="truncate text-[14px] font-extrabold">{view.yourName}</p>
                   <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
                     {view.expired ? "–" : view.yourPoints}
                   </p>
                 </div>
-                <p className="text-[13px] font-extrabold tracking-wide text-sky-100">VS</p>
+                <div className="flex flex-col items-center gap-1">
+                  {finishedAgo ? (
+                    <p className="text-center text-[11px] font-bold leading-none text-sky-100">{finishedAgo}</p>
+                  ) : null}
+                  <p className="text-[13px] font-extrabold tracking-wide text-sky-100">VS</p>
+                </div>
                 <div className="min-w-0 text-center">
+                  <WinnerCrown visible={view.complete && view.yourOutcome === "loss"} />
                   <p className="truncate text-[14px] font-extrabold">{view.opponentName}</p>
                   <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
                     {view.expired ? "–" : view.opponentPoints}

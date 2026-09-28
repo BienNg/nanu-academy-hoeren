@@ -177,6 +177,24 @@ export function HomeScreenSkeleton() {
             <Bone className="mt-6 h-1.5 w-full rounded-full" />
             <Bone className="mt-5 h-[52px] w-full rounded-[16px]" />
           </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {Array.from({ length: 2 }, (_, index) => (
+              <div key={index} className="overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white">
+                <div className={`flex items-center gap-3 px-4 py-4 ${index === 0 ? "bg-[#e0f2fe]" : "bg-[#fff4d6]"}`}>
+                  <Bone className="h-14 w-14 rounded-2xl" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Bone className="h-3 w-16 rounded-full" />
+                    <Bone className="h-6 w-32 rounded-full" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 px-4 py-4">
+                  <Bone className="h-4 w-full rounded-full" />
+                  <Bone className="h-4 w-2/3 rounded-full" />
+                  <Bone className="h-12 w-full rounded-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
           <Bone className="h-7 w-56 rounded-full" />
           <div className="flex gap-4 overflow-hidden">
             {Array.from({ length: 3 }, (_, index) => (

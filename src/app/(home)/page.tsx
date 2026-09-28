@@ -8,6 +8,7 @@ import {
   hasInterviewAccess,
   withoutInterviewAccess,
 } from "@/lib/progress-store";
+import { getLeaderboard } from "@/lib/xp-store";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,15 @@ export default async function Home() {
   }
 
   const isAdmin = isAdminUser(session.user);
-  const storedAccess = isAdmin ? null : await getUserLevelAccess(session.user.id);
+  const [storedAccess, ranking] = await Promise.all([
+    isAdmin ? Promise.resolve(null) : getUserLevelAccess(session.user.id),
+    getLeaderboard({
+      viewerId: session.user.id,
+      viewerImage: session.user.image,
+      scope: "class",
+      range: "week",
+    }),
+  ]);
 
   return (
     <HomeScreen
@@ -40,6 +49,7 @@ export default async function Home() {
           : levels.map((level) => level.slug)
       }
       interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
+      ranking={ranking}
     />
   );
 }
