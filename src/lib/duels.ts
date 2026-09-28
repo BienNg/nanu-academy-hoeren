@@ -6,7 +6,7 @@
  * wins the clip. No time loses it.
  */
 
-import type { CardKind } from "./card-kinds.js";
+import type { CardKind } from "./card-kinds";
 
 export const DUEL_SIZE = 15;
 export const MAX_OPEN_WITH_CLASSMATE = 3;

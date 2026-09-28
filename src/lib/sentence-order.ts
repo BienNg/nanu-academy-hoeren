@@ -5,7 +5,7 @@
  * this file (plus that one dependency) on its own.
  */
 
-import type { CardKind } from "./card-kinds.js";
+import type { CardKind } from "./card-kinds";
 
 export type PracticeCardKind = CardKind;
 

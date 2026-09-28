@@ -6,7 +6,7 @@
  * aligning word order between Vietnamese and German that way is unreliable.
  */
 
-import { tokenizeSentence } from "./sentence-order.js";
+import { tokenizeSentence } from "./sentence-order";
 
 export const PAIRING_SET_SIZE = 5;
 export const MAX_PAIRING_WORDS = 3;

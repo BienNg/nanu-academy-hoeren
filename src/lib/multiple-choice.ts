@@ -5,7 +5,7 @@
  * length never gives away whether it's right.
  */
 
-import { tokenizeSentence } from "./sentence-order.js";
+import { tokenizeSentence } from "./sentence-order";
 
 export type McOption = {
   id: string;

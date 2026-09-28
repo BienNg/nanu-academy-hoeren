@@ -6,9 +6,9 @@
  * pairing.ts — that would make the three files a dependency cycle.
  */
 
-import type { OrderSourceClip, PracticeCard } from "./sentence-order.js";
-import { buildMcOptions } from "./multiple-choice.js";
-import { buildPairingSet } from "./pairing.js";
+import type { OrderSourceClip, PracticeCard } from "./sentence-order";
+import { buildMcOptions } from "./multiple-choice";
+import { buildPairingSet } from "./pairing";
 
 /**
  * Adds one multiple-choice card per eligible clip in `partClips`, and as many
