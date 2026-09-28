@@ -1,6 +1,17 @@
-import { getSessionClips } from "@/lib/content";
+import {
+  getAusbildungClipInventory,
+  getListedBerufe,
+  getSessionClips,
+} from "@/lib/content";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
-import { getCefrLevels, getChapterClips, getChapterVideos } from "@/lib/levels";
+import { shortBerufLabel } from "@/lib/admin-overview";
+import {
+  getCefrLevels,
+  getChapterClipInventory,
+  getChapterClips,
+  getChapterVideos,
+  listChapterFilesOnDisk,
+} from "@/lib/levels";
 
 function chapterClips(levelSlug: string, chapterSlug: string): { id: string; prompt: string }[] {
   try {
@@ -76,4 +87,203 @@ export function buildCefrProgressCatalog(): AdminCatalogCourse[] {
         clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
       })),
     }));
+}
+
+export type AdminCatalogLessonStatus = "ready" | "silent" | "stub" | "missing";
+
+export type AdminCatalogLessonRow = {
+  id: string;
+  label: string;
+  status: AdminCatalogLessonStatus;
+  listedClips: number;
+  playableClips: number;
+  missingAudio: number;
+  videos: number;
+  brokenVideos: number;
+};
+
+export type AdminCatalogLevelRow = {
+  slug: string;
+  label: string;
+  listedLessons: number;
+  readyLessons: number;
+  playableClips: number;
+  videos: number;
+  lessons: AdminCatalogLessonRow[];
+};
+
+export type AdminCatalogTrackRow = {
+  slug: string;
+  label: string;
+  shortLabel: string;
+  ready: boolean;
+  sharedPlayable: number;
+  ownPlayable: number;
+  missingAudio: number;
+};
+
+export type AdminCatalogIssue = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+export type AdminCatalogBoard = {
+  levelsListed: number;
+  levelsReady: number;
+  lessonsListed: number;
+  lessonsReady: number;
+  clipsPlayable: number;
+  clipsMissingAudio: number;
+  videosPlayable: number;
+  videosBroken: number;
+  tracksListed: number;
+  tracksReady: number;
+  interviewClips: number;
+  levels: AdminCatalogLevelRow[];
+  tracks: AdminCatalogTrackRow[];
+  issues: AdminCatalogIssue[];
+};
+
+const ISSUE_LIMIT = 12;
+
+function lessonStatus(
+  inventory: ReturnType<typeof getChapterClipInventory>,
+): AdminCatalogLessonStatus {
+  if (!inventory) return "missing";
+  if (inventory.playable > 0) return "ready";
+  if (inventory.listed > 0) return "silent";
+  return "stub";
+}
+
+/**
+ * Published curriculum: what learners can open, and what is listed but not playable.
+ */
+export function buildAdminCatalogBoard(): AdminCatalogBoard {
+  const urgent: AdminCatalogIssue[] = [];
+  const levels: AdminCatalogLevelRow[] = getCefrLevels().map((level) => {
+    const listedSlugs = new Set(level.chapters.map((chapter) => chapter.slug));
+    let silentClips = 0;
+    let silentLessons = 0;
+    const lessons: AdminCatalogLessonRow[] = level.chapters.map((chapter) => {
+      const inventory = getChapterClipInventory(level.slug, chapter.slug);
+      const videos = getChapterVideos(level.slug, chapter.slug);
+      const playableVideos = videos.filter((video) => video.videoId).length;
+      const brokenVideos = videos.length - playableVideos;
+      const status = lessonStatus(inventory);
+      const missingAudio = inventory?.missingAudio ?? 0;
+      if (missingAudio > 0) {
+        silentLessons += 1;
+        silentClips += missingAudio;
+      }
+      if (brokenVideos > 0) {
+        urgent.push({
+          id: `${level.slug}/${chapter.slug}-video`,
+          label: `${level.level} · ${chapter.label}`,
+          detail: `${brokenVideos} video URL${brokenVideos === 1 ? "" : "s"} could not be parsed.`,
+        });
+      }
+      return {
+        id: `${level.slug}/${chapter.slug}`,
+        label: chapter.label,
+        status,
+        listedClips: inventory?.listed ?? 0,
+        playableClips: inventory?.playable ?? 0,
+        missingAudio: inventory?.missingAudio ?? 0,
+        videos: playableVideos,
+        brokenVideos,
+      };
+    });
+
+    if (silentClips > 0) {
+      urgent.push({
+        id: `${level.slug}-silent`,
+        label: level.level,
+        detail: `${silentClips} clip${silentClips === 1 ? "" : "s"} listed without audio across ${silentLessons} lesson${silentLessons === 1 ? "" : "s"}.`,
+      });
+    }
+
+    for (const diskSlug of listChapterFilesOnDisk(level.slug)) {
+      if (listedSlugs.has(diskSlug)) continue;
+      urgent.push({
+        id: `${level.slug}/${diskSlug}-orphan`,
+        label: `${level.level} · ${diskSlug}`,
+        detail: "Lesson file on disk is not listed in chapters.json.",
+      });
+    }
+
+    return {
+      slug: level.slug,
+      label: level.level,
+      listedLessons: lessons.length,
+      readyLessons: lessons.filter((lesson) => lesson.status === "ready").length,
+      playableClips: lessons.reduce((sum, lesson) => sum + lesson.playableClips, 0),
+      videos: lessons.reduce((sum, lesson) => sum + lesson.videos, 0),
+      lessons,
+    };
+  });
+
+  const tracks: AdminCatalogTrackRow[] = getListedBerufe().map((beruf) => {
+    const inventory = getAusbildungClipInventory(beruf.slug);
+    const sharedPlayable = inventory?.sharedPlayable ?? 0;
+    const ownPlayable = inventory?.ownPlayable ?? 0;
+    const missingAudio = inventory
+      ? inventory.sharedListed -
+        inventory.sharedPlayable +
+        inventory.ownListed -
+        inventory.ownPlayable
+      : 0;
+    const ready = Boolean(inventory && ownPlayable + sharedPlayable > 0);
+    if (!inventory) {
+      urgent.push({
+        id: `track-${beruf.slug}-missing`,
+        label: beruf.label,
+        detail: "Listed as a profession, but the interview JSON is missing.",
+      });
+    } else if (missingAudio > 0) {
+      urgent.push({
+        id: `track-${beruf.slug}-audio`,
+        label: beruf.label,
+        detail: `${missingAudio} interview clip${missingAudio === 1 ? "" : "s"} listed without audio.`,
+      });
+    }
+    return {
+      slug: beruf.slug,
+      label: beruf.label,
+      shortLabel: shortBerufLabel(beruf.label),
+      ready,
+      sharedPlayable,
+      ownPlayable,
+      missingAudio,
+    };
+  });
+
+  const sharedPlayable = tracks[0]?.sharedPlayable ?? 0;
+  const interviewClips =
+    sharedPlayable + tracks.reduce((sum, track) => sum + track.ownPlayable, 0);
+
+  return {
+    levelsListed: levels.length,
+    levelsReady: levels.filter((level) => level.readyLessons > 0).length,
+    lessonsListed: levels.reduce((sum, level) => sum + level.listedLessons, 0),
+    lessonsReady: levels.reduce((sum, level) => sum + level.readyLessons, 0),
+    clipsPlayable: levels.reduce((sum, level) => sum + level.playableClips, 0),
+    clipsMissingAudio: levels.reduce(
+      (sum, level) =>
+        sum + level.lessons.reduce((inner, lesson) => inner + lesson.missingAudio, 0),
+      0,
+    ),
+    videosPlayable: levels.reduce((sum, level) => sum + level.videos, 0),
+    videosBroken: levels.reduce(
+      (sum, level) =>
+        sum + level.lessons.reduce((inner, lesson) => inner + lesson.brokenVideos, 0),
+      0,
+    ),
+    tracksListed: tracks.length,
+    tracksReady: tracks.filter((track) => track.ready).length,
+    interviewClips,
+    levels,
+    tracks,
+    issues: urgent.slice(0, ISSUE_LIMIT),
+  };
 }

@@ -170,6 +170,35 @@ export function getChapterClips(
     .map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
 }
 
+export type ChapterClipInventory = {
+  listed: number;
+  playable: number;
+  missingAudio: number;
+};
+
+/** Clips listed in JSON vs files that actually exist on disk. */
+export function getChapterClipInventory(
+  levelSlug: string,
+  chapterSlug: string,
+): ChapterClipInventory | null {
+  const file = loadChapterFile(levelSlug, chapterSlug);
+  if (!file) return null;
+  const listed = file.clips.filter(
+    (clip) => typeof clip.filename === "string" && clip.filename.length > 0,
+  ).length;
+  let playable = 0;
+  try {
+    playable = getChapterClips(levelSlug, chapterSlug).length;
+  } catch {
+    playable = 0;
+  }
+  return {
+    listed,
+    playable,
+    missingAudio: Math.max(0, listed - playable),
+  };
+}
+
 function toChapterVideo(entry: StoredVideo): ChapterVideo | null {
   const title = typeof entry.title === "string" ? entry.title.trim() : "";
   const url = typeof entry.url === "string" ? entry.url.trim() : "";

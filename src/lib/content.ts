@@ -86,6 +86,45 @@ function toSessionClip(clip: StoredClip, folder: string): SessionClip {
   };
 }
 
+export function getListedBerufe(): Ausbildungsberuf[] {
+  return catalogBerufe.map((beruf) => ({
+    id: beruf.id,
+    label: beruf.label,
+    slug: beruf.slug,
+  }));
+}
+
+export type AusbildungClipInventory = {
+  sharedListed: number;
+  sharedPlayable: number;
+  ownListed: number;
+  ownPlayable: number;
+};
+
+function ausbildungAudioExists(folder: string, filename: string): boolean {
+  return existsSync(join(process.cwd(), "public/audio/ausbildung", folder, filename));
+}
+
+/** Shared + profession clips listed in JSON vs MP3s on disk. */
+export function getAusbildungClipInventory(berufSlug: string): AusbildungClipInventory | null {
+  const onDisk = loadProfessionFilesFromDisk();
+  const professionFile = onDisk[berufSlug] ?? professionFiles[berufSlug];
+  if (!professionFile) return null;
+
+  const commonClips = (commonFile as StoredAusbildungFile).clips;
+  const ownClips = professionFile.clips;
+  return {
+    sharedListed: commonClips.length,
+    sharedPlayable: commonClips.filter((clip) =>
+      ausbildungAudioExists("common", clip.filename),
+    ).length,
+    ownListed: ownClips.length,
+    ownPlayable: ownClips.filter((clip) =>
+      ausbildungAudioExists(berufSlug, clip.filename),
+    ).length,
+  };
+}
+
 /**
  * Professions that appear in ausbildungsberufe.json AND have a real
  * src/data/ausbildung/<slug>.json with a non-empty clips array.
