@@ -1272,3 +1272,100 @@ export function buildAdminDuelBoard(
     recent: recent.slice(0, DUEL_LIST_LIMIT),
   };
 }
+
+export type AdminAccessLevelCount = {
+  slug: string;
+  label: string;
+  granted: number;
+  locked: number;
+};
+
+export type AdminAccessClassRow = {
+  key: string;
+  label: string;
+  students: number;
+  learners: number;
+  locked: number;
+  interview: number;
+  grantedBySlug: Record<string, number>;
+};
+
+export type AdminAccessBoard = {
+  students: number;
+  learners: number;
+  withLevel: number;
+  locked: number;
+  interview: number;
+  admins: number;
+  levels: AdminAccessLevelCount[];
+  classes: AdminAccessClassRow[];
+};
+
+function hasLevel(row: AdminUserRow, slug: string): boolean {
+  return row.isAdmin || row.levelAccess.includes(slug);
+}
+
+function hasInterview(row: AdminUserRow): boolean {
+  return row.isAdmin || row.interviewAccess;
+}
+
+/**
+ * Who can open which CEFR levels and the interview track.
+ * Admins count as unlocked everywhere and are excluded from "none".
+ */
+export function buildAdminAccessBoard(
+  people: readonly AdminUserRow[],
+  levels: readonly AdminLevelOption[],
+): AdminAccessBoard {
+  const learners = people.filter((row) => !row.isAdmin);
+  const withLevel = learners.filter((row) => row.levelAccess.length > 0).length;
+  const locked = learners.length - withLevel;
+  const interview = learners.filter((row) => row.interviewAccess).length;
+
+  const levelCounts: AdminAccessLevelCount[] = levels.map((level) => {
+    const granted = learners.filter((row) => row.levelAccess.includes(level.slug)).length;
+    return {
+      slug: level.slug,
+      label: level.level,
+      granted,
+      locked: learners.length - granted,
+    };
+  });
+
+  const classOptions = listAdminClasses(people);
+  const groups: { key: string; label: string }[] = [
+    ...classOptions.map((option) => ({ key: option.key, label: option.label })),
+  ];
+  if (people.some((row) => !classKey(row.className))) {
+    groups.push({ key: "", label: "Unassigned" });
+  }
+
+  const classes: AdminAccessClassRow[] = groups.map((group) => {
+    const members = usersInClass(people, group.key);
+    const classLearners = members.filter((row) => !row.isAdmin);
+    const grantedBySlug: Record<string, number> = {};
+    for (const level of levels) {
+      grantedBySlug[level.slug] = members.filter((row) => hasLevel(row, level.slug)).length;
+    }
+    return {
+      key: group.key,
+      label: group.label,
+      students: members.length,
+      learners: classLearners.length,
+      locked: classLearners.filter((row) => row.levelAccess.length === 0).length,
+      interview: members.filter((row) => hasInterview(row)).length,
+      grantedBySlug,
+    };
+  });
+
+  return {
+    students: people.length,
+    learners: learners.length,
+    withLevel,
+    locked,
+    interview,
+    admins: people.length - learners.length,
+    levels: levelCounts,
+    classes,
+  };
+}

@@ -105,7 +105,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/students", label: "Students", icon: "group", ready: true },
       { href: "/admin/classes", label: "Classes", icon: "school", ready: true },
-      { href: "/admin/access", label: "Access", icon: "lock" },
+      { href: "/admin/access", label: "Access", icon: "lock", ready: true },
     ],
   },
   {
