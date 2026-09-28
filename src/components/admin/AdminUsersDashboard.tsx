@@ -127,7 +127,7 @@ function LastLoginCell({ iso }: { iso: string | null }) {
   );
 }
 
-function ClassCell({
+export function ClassCell({
   userId,
   studentName,
   value,

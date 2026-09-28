@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { setAdminUserClass } from "@/app/admin/actions";
+import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import {
@@ -11,6 +14,7 @@ import {
 import {
   classKey,
   listAdminClasses,
+  normalizeClassName,
   usersInClass,
   type AdminUserRow,
 } from "@/lib/admin-overview";
@@ -169,16 +173,32 @@ export function AdminClassStats({
   courseCatalog,
   storeConfigured,
 }: AdminClassStatsProps) {
-  const classOptions = useMemo(() => listAdminClasses(rows), [rows]);
-  const unassignedCount = useMemo(
-    () => rows.filter((row) => !classKey(row.className)).length,
-    [rows],
-  );
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [classByUser, setClassByUser] = useState<Record<string, string | null>>({});
+  const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
+  const [classError, setClassError] = useState<string | null>(null);
+  const savingClassRef = useRef(new Set<string>());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<MemberSortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+
+  const liveRows = useMemo(
+    () =>
+      rows.map((row) =>
+        Object.hasOwn(classByUser, row.userId)
+          ? { ...row, className: classByUser[row.userId] }
+          : row,
+      ),
+    [rows, classByUser],
+  );
+  const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
+  const unassignedCount = useMemo(
+    () => liveRows.filter((row) => !classKey(row.className)).length,
+    [liveRows],
+  );
 
   const activeKey = useMemo(() => {
     const selectable = new Set(classOptions.map((option) => option.key));
@@ -192,7 +212,7 @@ export function AdminClassStats({
       ? "Unassigned"
       : (classOptions.find((option) => option.key === activeKey)?.label ?? "Class");
 
-  const classRows = useMemo(() => usersInClass(rows, activeKey), [rows, activeKey]);
+  const classRows = useMemo(() => usersInClass(liveRows, activeKey), [liveRows, activeKey]);
   const stats = useMemo(
     () => buildClassStats(classRows, courseCatalog),
     [classRows, courseCatalog],
@@ -209,16 +229,61 @@ export function AdminClassStats({
     return [...matched].sort((a, b) => compareMembers(a, b, sort, dir));
   }, [stats.members, query, sort, dir]);
 
+  const displayClass = useCallback(
+    (row: AdminUserRow): string | null => {
+      if (!row.className) return null;
+      return (
+        classOptions.find((option) => option.key === classKey(row.className))?.label ??
+        row.className
+      );
+    },
+    [classOptions],
+  );
+
   const detailRow = useMemo(() => {
-    const row = rows.find((item) => item.userId === detailUserId);
+    const row = liveRows.find((item) => item.userId === detailUserId);
     if (!row) return null;
-    const label =
-      classOptions.find((option) => option.key === classKey(row.className))?.label ??
-      row.className;
-    return { ...row, className: label };
-  }, [rows, detailUserId, classOptions]);
+    return { ...row, className: displayClass(row) };
+  }, [liveRows, detailUserId, displayClass]);
 
   const closeDetail = useCallback(() => setDetailUserId(null), []);
+
+  async function saveClass(row: AdminUserRow, nextRaw: string) {
+    if (savingClassRef.current.has(row.userId)) return;
+    savingClassRef.current.add(row.userId);
+    const previous = row.className;
+    const next = normalizeClassName(nextRaw);
+    setClassByUser((prev) => ({ ...prev, [row.userId]: next || null }));
+    setSavingClassIds((prev) =>
+      prev.includes(row.userId) ? prev : [...prev, row.userId],
+    );
+    setClassError(null);
+    try {
+      const result = await setAdminUserClass(row.userId, next);
+      if (!result.ok) {
+        setClassByUser((prev) => ({ ...prev, [row.userId]: previous }));
+        setClassError(result.error);
+        return;
+      }
+      setClassByUser((prev) => ({ ...prev, [row.userId]: result.className }));
+      const fromKey = classKey(previous);
+      const toKey = classKey(result.className);
+      setSelectedKey((current) => {
+        const viewing = current ?? activeKey;
+        if (viewing !== fromKey) return current;
+        const stillHere = liveRows.some(
+          (item) => item.userId !== row.userId && classKey(item.className) === fromKey,
+        );
+        return stillHere ? current : toKey;
+      });
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingClassRef.current.delete(row.userId);
+      setSavingClassIds((prev) => prev.filter((id) => id !== row.userId));
+    }
+  }
 
   function selectClass(key: string) {
     setSelectedKey(key);
@@ -313,9 +378,8 @@ export function AdminClassStats({
                     {activeLabel}
                   </h2>
                   <p className="mt-1 max-w-xl font-body-sm text-body-sm text-on-surface-variant">
-                    {classOptions.length === 0
-                      ? "Add a class on the user list, then return here to compare that group."
-                      : "Streaks, lessons, listening, and videos for everyone in this class."}
+                    Streaks, lessons, listening, and videos for everyone in this class.
+                    Assign a class from the student row.
                   </p>
                 </div>
               </div>
@@ -354,6 +418,12 @@ export function AdminClassStats({
                 />
               </div>
 
+              {classError ? (
+                <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+                  {classError}
+                </div>
+              ) : null}
+
               <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
                 <div className="flex flex-wrap items-center justify-between gap-space-12 border-b border-outline-variant/20 px-space-16 py-space-12">
                   <h3 className="font-headline-sm text-headline-sm text-on-surface">Students</h3>
@@ -378,6 +448,12 @@ export function AdminClassStats({
                     <thead className="bg-surface-container-low">
                       <tr>
                         <SortHeader label="User" column="name" sort={sort} dir={dir} onSort={handleSort} />
+                        <th
+                          scope="col"
+                          className="whitespace-nowrap px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
+                        >
+                          Class
+                        </th>
                         <SortHeader label="Last seen" column="lastLogin" sort={sort} dir={dir} onSort={handleSort} />
                         <SortHeader label="Streak" column="streak" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Courses" column="courses" sort={sort} dir={dir} align="right" onSort={handleSort} />
@@ -390,7 +466,7 @@ export function AdminClassStats({
                       {visibleMembers.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={7}
+                            colSpan={8}
                             className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                           >
                             No students in this class match your search.
@@ -399,6 +475,7 @@ export function AdminClassStats({
                       ) : (
                         visibleMembers.map((member) => {
                           const when = formatAbsoluteTime(member.lastLoginAt);
+                          const row = liveRows.find((item) => item.userId === member.userId);
                           return (
                             <tr
                               key={member.userId}
@@ -421,6 +498,18 @@ export function AdminClassStats({
                                   ) : null}
                                 </div>
                               </td>
+                              {row ? (
+                                <ClassCell
+                                  userId={row.userId}
+                                  studentName={row.displayName}
+                                  value={displayClass(row)}
+                                  suggestions={classOptions.map((option) => option.label)}
+                                  saving={savingClassIds.includes(row.userId)}
+                                  onSave={(next) => void saveClass(row, next)}
+                                />
+                              ) : (
+                                <td />
+                              )}
                               <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
                                 {when ? (
                                   <time dateTime={member.lastLoginAt ?? undefined}>{when}</time>
