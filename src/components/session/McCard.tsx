@@ -30,12 +30,9 @@ export function McCard({ prompt, options, onSubmit }: McCardProps) {
   return (
     <>
       <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-          Chọn nghĩa đúng · Richtige Bedeutung
-        </span>
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
-            <MaterialIcon name="quiz" className="text-[22px]" />
+            <MaterialIcon name="translate" className="text-[22px]" />
           </div>
           <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
             {prompt}
@@ -43,7 +40,7 @@ export function McCard({ prompt, options, onSubmit }: McCardProps) {
         </div>
       </section>
 
-      <section className="mt-4 flex flex-col gap-2 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
+      <section className="mt-4 grid grid-cols-2 gap-3 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
         {options.map((option) => {
           const isSelected = option.id === selectedId;
           return (
@@ -51,10 +48,10 @@ export function McCard({ prompt, options, onSubmit }: McCardProps) {
               key={option.id}
               type="button"
               onClick={() => setSelectedId(option.id)}
-              className={`flex min-h-11 items-center rounded-xl border px-3.5 py-2.5 text-left text-[17px] font-medium transition-colors ${
+              className={`flex min-h-[88px] items-center justify-center rounded-2xl border-2 border-b-4 px-3 py-3 text-center text-[16px] font-bold leading-snug transition-all active:translate-y-0.5 active:border-b-2 ${
                 isSelected
                   ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
-                  : "border-black/[0.08] border-b-[3px] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"
+                  : "border-[#e5e5e5] bg-white text-[#4b4b4b] hover:bg-[#f7f7f7]"
               }`}
             >
               {option.text}

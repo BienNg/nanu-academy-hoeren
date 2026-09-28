@@ -78,6 +78,47 @@ body {
   animation: heart-break 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
+@keyframes pairing-miss {
+  0% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-7px) rotate(-2deg);
+  }
+  36% {
+    transform: translateX(7px) rotate(2deg);
+  }
+  54% {
+    transform: translateX(-5px) rotate(-1deg);
+  }
+  72% {
+    transform: translateX(3px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.pairing-miss {
+  animation: pairing-miss 0.48s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes pairing-hit {
+  0% {
+    transform: scale(0.94);
+  }
+  55% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pairing-hit {
+  animation: pairing-hit 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .route-loading-bar {
     animation: none;
@@ -85,7 +126,9 @@ body {
   }
 
   .achievement-medal,
-  .heart-break {
+  .heart-break,
+  .pairing-miss,
+  .pairing-hit {
     animation: none;
   }
 }

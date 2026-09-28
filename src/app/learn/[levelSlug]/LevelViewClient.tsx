@@ -614,19 +614,13 @@ export default function LevelViewClient({
                   </div>
                   {isCompleted ? (
                     <AchievementMedal />
-                  ) : (
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                        isOpen
-                          ? "bg-[#e2e7ff] text-[#131b2e] shadow-[0_2px_0_0_#bec8d2]"
-                          : "bg-[#f1f5f9] text-[#94a3b8]"
-                      }`}
-                    >
+                  ) : !isOpen ? (
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f1f5f9] text-[#94a3b8]">
                       <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                        {isOpen ? "arrow_forward" : "lock"}
+                        lock
                       </span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 {isLocked && gateChapter ? (
                   <div className="flex items-start gap-2 text-[14px] font-medium leading-5 text-[#6e7881]">

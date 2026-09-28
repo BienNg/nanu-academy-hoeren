@@ -12,7 +12,6 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
 import { PairingCard } from "@/components/session/PairingCard";
-import { PairingFeedbackCard } from "@/components/session/PairingFeedbackCard";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -34,7 +33,7 @@ import {
 import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
 import { insertDiscreteCards } from "@/lib/practice-deck";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
-import { checkPairing, type PairingPairAttempt, type PairingResult } from "@/lib/pairing";
+import type { PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -158,6 +157,7 @@ export function LearnSession({
   const partStartedAtRef = useRef(0);
   const missedClipIdsRef = useRef(new Set<string>());
   const missedCardKeysRef = useRef(new Set<string>());
+  const pairingSolvedKeyRef = useRef<string | null>(null);
 
   const {
     completedLearnClipIdsFor,
@@ -285,6 +285,7 @@ export function LearnSession({
     partStartedAtRef.current = Date.now();
     missedClipIdsRef.current = new Set();
     missedCardKeysRef.current = new Set();
+    pairingSolvedKeyRef.current = null;
     failedRef.current = false;
     setHeartsLeft(LISTENING_HEARTS);
     setBreakingIndex(null);
@@ -390,11 +391,37 @@ export function LearnSession({
     applyResult(result.accuracy);
   };
 
-  const handlePairingSubmit = (answer: PairingPairAttempt[]) => {
+  /** One heart for the first miss on this card. Later wrong pairs only shake. */
+  const handlePairingMistake = () => {
+    if (!currentCard) return;
+    if (missedCardKeysRef.current.has(currentCard.key)) return;
+
+    recordWrongAttempt();
+    missedClipIdsRef.current.add(currentCard.clip.id);
+    missedCardKeysRef.current.add(currentCard.key);
+    const nextHearts = heartsLeft - 1;
+    setHeartsLeft(Math.max(0, nextHearts));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduceMotion) setBreakingIndex(nextHearts);
+    playHeartLostSound();
+  };
+
+  const handlePairingSolved = () => {
     if (!currentCard?.pairItems) return;
-    const result = checkPairing(currentCard.pairItems, answer);
-    setPairingResult(result);
-    applyResult(result.accuracy);
+    if (pairingSolvedKeyRef.current === currentCard.key) return;
+    pairingSolvedKeyRef.current = currentCard.key;
+    const pairs = currentCard.pairItems.map((clip) => ({
+      viClipId: clip.id,
+      deClipId: clip.id,
+      correct: true,
+    }));
+    setPairingResult({
+      accuracy: 100,
+      correctCount: pairs.length,
+      total: pairs.length,
+      pairs,
+    });
+    playSuccessSound();
   };
 
   const commitPart = () => {
@@ -633,7 +660,7 @@ export function LearnSession({
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}
               />
-            ) : currentCard?.kind === "pairing" && !pairingResult ? (
+            ) : currentCard?.kind === "pairing" ? (
               <PairingCard
                 key={`pairing-${currentCard.key}`}
                 items={(currentCard.pairItems ?? []).map((clip) => ({
@@ -641,24 +668,16 @@ export function LearnSession({
                   vi: clip.translationVi ?? "",
                   de: clip.script,
                 }))}
-                onSubmit={handlePairingSubmit}
+                onMistake={handlePairingMistake}
+                onSolved={handlePairingSolved}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
               />
             ) : currentCard?.kind === "multiple-choice" && mcResult ? (
               <McFeedbackCard
                 result={mcResult}
                 options={currentCard.options ?? []}
                 clip={currentClip}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
-              />
-            ) : currentCard?.kind === "pairing" && pairingResult ? (
-              <PairingFeedbackCard
-                result={pairingResult}
-                items={(currentCard.pairItems ?? []).map((clip) => ({
-                  id: clip.id,
-                  vi: clip.translationVi ?? "",
-                  de: clip.script,
-                }))}
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
               />
