@@ -13,9 +13,12 @@ import {
   clipsInStoredOrder,
   firstIncompletePartIndex,
   learnQueue,
+  openListeningParts,
+  preservedReviewOrder,
   sameClipOrderSet,
   requeueMissedClip,
   splitListeningParts,
+  withFinishedCatalogClips,
 } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
 import {
@@ -151,6 +154,7 @@ export function LearnSession({
     completedLearnRunClipIdsFor,
     learnRunClipOrderFor,
     learnChapterCompleted,
+    absorbLessonClips,
     markLearnChapterDone,
     setLearnRunOrder,
     commitLearnListeningPart,
@@ -186,26 +190,48 @@ export function LearnSession({
       return;
     }
 
+    const clipIds = clips.map((clip) => clip.id);
+    const absorbedCompleted = withFinishedCatalogClips(
+      clipIds,
+      completedIds,
+      chapterMarkedDone,
+    );
+    absorbLessonClips(chapterProgressKey, clipIds);
+
     const catalogDone =
       chapterMarkedDone ||
-      catalogCompletedCount(clips, completedIds) >= clips.length;
+      catalogCompletedCount(clips, absorbedCompleted) >= clips.length;
     if (catalogDone && !chapterMarkedDone) {
       markLearnChapterDone(chapterProgressKey);
     }
 
     const review = catalogDone;
     let order = runOrder;
-    let doneIds = review ? runCompletedIds : completedIds;
+    let doneIds = review ? runCompletedIds : absorbedCompleted;
 
     if (review && !sameClipOrderSet(clips, order)) {
-      order = stableRunOrder(chapterProgressKey, clips);
-      setLearnRunOrder(chapterProgressKey, order);
-      doneIds = [];
+      const preserved = preservedReviewOrder(clipIds, order, absorbedCompleted);
+      if (preserved) {
+        order = preserved;
+      } else {
+        order = stableRunOrder(chapterProgressKey, clips);
+        setLearnRunOrder(chapterProgressKey, order);
+        doneIds = [];
+      }
     }
 
     let ordered = review ? clipsInStoredOrder(clips, order) : clips;
     let parts = splitListeningParts(ordered);
     let partIndex = firstIncompletePartIndex(parts, doneIds);
+    let partNumber = partIndex + 1;
+    let listeningPartCount = parts.length;
+    if (!review) {
+      const open = openListeningParts(ordered, doneIds);
+      parts = open.parts;
+      partIndex = 0;
+      partNumber = open.partNumber;
+      listeningPartCount = open.partCount;
+    }
 
     if (review && partIndex < 0) {
       const staleKey = `${chapterProgressKey}:${order.join("|")}`;
@@ -221,6 +247,8 @@ export function LearnSession({
       ordered = clipsInStoredOrder(clips, order);
       parts = splitListeningParts(ordered);
       partIndex = 0;
+      partNumber = 1;
+      listeningPartCount = parts.length;
     }
 
     if (partIndex < 0) partIndex = 0;
@@ -228,7 +256,8 @@ export function LearnSession({
     const signature = [
       review ? "review" : "first",
       String(partIndex),
-      String(parts.length),
+      String(partNumber),
+      String(listeningPartCount),
       ordered.map((clip) => clip.id).join("|"),
       doneIds.join("|"),
     ].join("~");
@@ -244,8 +273,8 @@ export function LearnSession({
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
     setPartCards(buildPracticeDeck(nextPartClips));
-    setPartNumber(partIndex + 1);
-    setPartCount(parts.length);
+    setPartNumber(partNumber);
+    setPartCount(listeningPartCount);
     setClipIndex(0);
     setScoreResult(null);
     setDraft("");
@@ -261,6 +290,7 @@ export function LearnSession({
     completedKey,
     runCompletedKey,
     runOrderKey,
+    absorbLessonClips,
     markLearnChapterDone,
     setLearnRunOrder,
   ]);

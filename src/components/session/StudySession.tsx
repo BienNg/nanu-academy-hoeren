@@ -15,6 +15,7 @@ import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
   catalogCompletedCount,
   firstUnreviewedIndex,
+  withFinishedCatalogClips,
 } from "@/lib/progress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playSuccessSound } from "@/lib/sfx";
@@ -123,11 +124,22 @@ export function StudySession({
     resetLearnStudyProgress,
     reviewedLearnClipIdsFor,
     learnStudyRunCountFor,
+    learnStudyCompleted,
+    absorbLessonClips,
     incrementStudyRunDoneCount,
   } = useProgress();
 
   const chapterProgressKey = chapter.slug;
-  const reviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
+  const storedReviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
+  const studyFinished = learnStudyCompleted(chapterProgressKey);
+  const clipIds = useMemo(() => clips.map((clip) => clip.id), [clips]);
+  const reviewedIds = useMemo(
+    () =>
+      withFinishedCatalogClips(clipIds, storedReviewedIds, studyFinished, {
+        keepEmptyReplay: true,
+      }),
+    [clipIds, storedReviewedIds, studyFinished],
+  );
   const reviewedCount = catalogCompletedCount(clips, reviewedIds);
   const hubHref = `/learn/${level.slug}/${chapter.slug}`;
 
@@ -140,6 +152,10 @@ export function StudySession({
   const [draft, setDraft] = useState("");
   const [direction, setDirection] = useState(1);
   const [ready, setReady] = useState(false);
+  useEffect(() => {
+    absorbLessonClips(chapterProgressKey, clipIds);
+  }, [absorbLessonClips, chapterProgressKey, clipIds]);
+
   const initializedRef = useRef(false);
   const studyRunSavedRef = useRef(false);
   const startedCompleteRef = useRef(false);

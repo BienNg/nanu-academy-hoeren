@@ -7,6 +7,7 @@ import {
   bumpStreak,
   commitLearnPart,
   completedPartCount,
+  absorbAddedLessonClips,
   firstIncompletePartIndex,
   firstUnlockedStudyHref,
   incrementStudyRunCount,
@@ -15,6 +16,8 @@ import {
   markLearnClipReviewed,
   mergeProgress,
   normalizeProgress,
+  openListeningParts,
+  preservedReviewOrder,
   setLearnRunOrder,
   requeueMissedClip,
   splitListeningParts,
@@ -350,4 +353,93 @@ test("study clips already stored for today count beside listening days", () => {
   });
 
   assert.equal(activeStreakDays(progress, new Date("2026-09-28T12:00:00.000Z")), 2);
+});
+
+test("clips added to a finished lesson are marked completed and studied", () => {
+  const progress = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        currentClipIndex: 2,
+        completedClipIds: ["a", "b"],
+        completedAt: "2026-09-01T00:00:00.000Z",
+        reviewedClipIds: ["a", "b"],
+        studyRunCount: 1,
+        studyCompletedAt: "2026-09-01T00:00:00.000Z",
+        runCount: 1,
+        runCompletedClipIds: [],
+      },
+    },
+  });
+  const next = absorbAddedLessonClips(progress, [
+    { chapterSlug: "lektion-1", clipIds: ["a", "new", "b", "tail"] },
+  ]);
+  assert.deepEqual(next.learn["lektion-1"]?.completedClipIds, ["a", "b", "new", "tail"]);
+  assert.deepEqual(next.learn["lektion-1"]?.reviewedClipIds, ["a", "b", "new", "tail"]);
+  assert.equal(next.learn["lektion-1"]?.completedAt, "2026-09-01T00:00:00.000Z");
+  assert.equal(absorbAddedLessonClips(next, [
+    { chapterSlug: "lektion-1", clipIds: ["a", "new", "b", "tail"] },
+  ]), next);
+});
+
+test("a clip inserted into a finished part is kept, and a clip after it stays new", () => {
+  const ids = [...Array.from({ length: 11 }, (_, index) => `d${index}`), "old"];
+  const progress = normalizeProgress({
+    learn: {
+      "lektion-2": {
+        currentClipIndex: 11,
+        completedClipIds: ids.slice(0, 11),
+        reviewedClipIds: ["d0", "d1"],
+        runCount: 0,
+        runCompletedClipIds: ids.slice(0, 11),
+        studyRunCount: 0,
+      },
+    },
+  });
+  const catalog = ["d0", "fresh", ...ids.slice(1), "appended"];
+  const next = absorbAddedLessonClips(progress, [
+    { chapterSlug: "lektion-2", clipIds: catalog },
+  ]);
+  const completed = next.learn["lektion-2"]?.completedClipIds ?? [];
+  assert.equal(completed.includes("fresh"), true);
+  assert.equal(completed.includes("appended"), false);
+  assert.equal(completed.includes("old"), false);
+  assert.deepEqual(next.learn["lektion-2"]?.reviewedClipIds, ["d0", "d1", "fresh"]);
+
+  const open = openListeningParts(
+    catalog.map((id) => ({ id })),
+    completed,
+  );
+  assert.equal(open.parts[0]?.some((clip) => clip.id === "d0"), false);
+  assert.equal(open.parts.flat().some((clip) => clip.id === "fresh"), false);
+  assert.equal(open.parts.flat().some((clip) => clip.id === "appended"), true);
+  assert.equal(open.partNumber, 2);
+});
+
+test("a cleared study replay is not filled back in", () => {
+  const progress = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        currentClipIndex: 1,
+        completedClipIds: ["a"],
+        reviewedClipIds: [],
+        studyRunCount: 1,
+        studyCompletedAt: "2026-09-01T00:00:00.000Z",
+        runCount: 0,
+        runCompletedClipIds: [],
+      },
+    },
+  });
+  const next = absorbAddedLessonClips(progress, [
+    { chapterSlug: "lektion-1", clipIds: ["a", "b"] },
+  ]);
+  assert.deepEqual(next.learn["lektion-1"]?.reviewedClipIds, []);
+});
+
+test("an in-progress review keeps its order when new clips are already finished", () => {
+  assert.deepEqual(
+    preservedReviewOrder(["a", "b", "c"], ["b", "a"], ["a", "b", "c"]),
+    ["b", "a"],
+  );
+  assert.equal(preservedReviewOrder(["a", "b", "c"], ["b", "a"], ["a", "b"]), null);
+  assert.equal(preservedReviewOrder(["a", "b"], ["b", "a"], ["a", "b"]), null);
 });

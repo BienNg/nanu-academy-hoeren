@@ -11,6 +11,7 @@ import {
   clearStoredProgress,
   progressStorageKey,
   shouldReplaceLocalWithCloud,
+  absorbAddedLessonClips,
   commitLearnPart,
   incrementLearnRunCount,
   incrementStudyRunCount,
@@ -552,6 +553,16 @@ export function useProgress(
     [persist],
   );
 
+  const absorbLessonClips = useCallback(
+    (chapterSlug: string, clipIds: readonly string[]) => {
+      const current = readProgressSnapshot();
+      const next = absorbAddedLessonClips(current, [{ chapterSlug, clipIds }]);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const markLearnChapterDone = useCallback(
     (chapterSlug: string) => {
       const current = readProgressSnapshot();
@@ -775,6 +786,7 @@ export function useProgress(
     recordPracticeDay,
     markClipDone,
     markLearnClipDone,
+    absorbLessonClips,
     markLearnChapterDone,
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,

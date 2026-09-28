@@ -144,6 +144,25 @@ export function getAvailableLevels(): CefrLevel[] {
   );
 }
 
+/** Playable clip ids per lesson, in catalog order. Shared slugs are omitted. */
+export function listLessonClipCatalog(): { chapterSlug: string; clipIds: string[] }[] {
+  const counts = new Map<string, number>();
+  const rows: { chapterSlug: string; clipIds: string[] }[] = [];
+  for (const level of getCefrLevels()) {
+    for (const chapter of level.chapters) {
+      counts.set(chapter.slug, (counts.get(chapter.slug) ?? 0) + 1);
+      let clipIds: string[] = [];
+      try {
+        clipIds = getChapterClips(level.slug, chapter.slug).map((clip) => clip.id);
+      } catch {
+        clipIds = [];
+      }
+      rows.push({ chapterSlug: chapter.slug, clipIds });
+    }
+  }
+  return rows.filter((row) => counts.get(row.chapterSlug) === 1);
+}
+
 export function getChapterClips(
   levelSlug: string,
   chapterSlug: string,

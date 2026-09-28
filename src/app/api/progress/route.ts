@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { normalizeProgress, type StoredProgress } from "@/lib/progress";
+import { absorbAddedLessonClips, normalizeProgress, type StoredProgress } from "@/lib/progress";
+import { listLessonClipCatalog } from "@/lib/levels";
 import { syncStudiedClips } from "@/lib/duel-store";
 import {
   getCloudProgress,
@@ -51,8 +52,18 @@ export async function GET() {
   );
   if (access === "revoked") return revokedResponse();
 
-  const progress = await getCloudProgress(session.user.id);
-  await touchUserProfile(session.user.id, sessionProfile(session));
+  const stored = await getCloudProgress(session.user.id);
+  const progress = absorbAddedLessonClips(stored, listLessonClipCatalog());
+  if (JSON.stringify(progress) !== JSON.stringify(stored)) {
+    try {
+      await setCloudProgress(session.user.id, progress, sessionProfile(session));
+      await syncStudiedClips(session.user.id, progress);
+    } catch (error) {
+      console.error("absorbAddedLessonClips", error);
+    }
+  } else {
+    await touchUserProfile(session.user.id, sessionProfile(session));
+  }
   return NextResponse.json({ progress, configured: true });
 }
 
@@ -82,7 +93,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const progress = normalizeProgress(body as Partial<StoredProgress>);
+  const progress = absorbAddedLessonClips(
+    normalizeProgress(body as Partial<StoredProgress>),
+    listLessonClipCatalog(),
+  );
   const existing = await rejectCopiedInitialProgress(session.user.id, progress);
   if (existing) {
     return NextResponse.json({ progress: existing, ok: true, copied: true });

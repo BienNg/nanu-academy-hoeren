@@ -5,5 +5,301 @@
       "url": "https://youtu.be/Z0jn6rwvIxo"
     }
   ],
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag5-01-mein.mp3",
+      "script": "mein",
+      "translationVi": "của tôi (der/das)"
+    },
+    {
+      "filename": "a11-tag5-02-dein.mp3",
+      "script": "dein",
+      "translationVi": "của bạn (der/das)"
+    },
+    {
+      "filename": "a11-tag5-03-sein.mp3",
+      "script": "sein",
+      "translationVi": "của anh ấy / của nó (der/das)"
+    },
+    {
+      "filename": "a11-tag5-04-ihr-sie.mp3",
+      "script": "ihr",
+      "translationVi": "của cô ấy / của họ (der/das)"
+    },
+    {
+      "filename": "a11-tag5-05-ihr-formal.mp3",
+      "script": "Ihr",
+      "translationVi": "của Ông/Bà/Anh/Chị (lịch sự, der/das)"
+    },
+    {
+      "filename": "a11-tag5-06-euer.mp3",
+      "script": "euer",
+      "translationVi": "của các bạn (der/das)"
+    },
+    {
+      "filename": "a11-tag5-07-unser.mp3",
+      "script": "unser",
+      "translationVi": "của chúng ta / của chúng tôi (der/das)"
+    },
+    {
+      "filename": "a11-tag5-08-meine.mp3",
+      "script": "meine",
+      "translationVi": "của tôi (die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-09-deine.mp3",
+      "script": "deine",
+      "translationVi": "của bạn (die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-10-seine.mp3",
+      "script": "seine",
+      "translationVi": "của anh ấy / của nó (die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-11-ihre-sie.mp3",
+      "script": "ihre",
+      "translationVi": "của cô ấy / của họ (die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-12-ihre-formal.mp3",
+      "script": "Ihre",
+      "translationVi": "của Ông/Bà/Anh/Chị (lịch sự, die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-13-eure.mp3",
+      "script": "eure",
+      "translationVi": "của các bạn (die / số nhiều). Lưu ý: euer → eure, bỏ chữ e ở giữa"
+    },
+    {
+      "filename": "a11-tag5-14-unsere.mp3",
+      "script": "unsere",
+      "translationVi": "của chúng ta / của chúng tôi (die / số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-15-das-ist-mein-vater.mp3",
+      "script": "Das ist mein Vater.",
+      "translationVi": "Đây là bố của tôi."
+    },
+    {
+      "filename": "a11-tag5-16-das-ist-meine-mutter.mp3",
+      "script": "Das ist meine Mutter.",
+      "translationVi": "Đây là mẹ của tôi."
+    },
+    {
+      "filename": "a11-tag5-17-das-ist-sein-bruder.mp3",
+      "script": "Das ist sein Bruder.",
+      "translationVi": "Đây là anh/em trai của anh ấy."
+    },
+    {
+      "filename": "a11-tag5-18-das-ist-seine-schwester.mp3",
+      "script": "Das ist seine Schwester.",
+      "translationVi": "Đây là chị/em gái của anh ấy."
+    },
+    {
+      "filename": "a11-tag5-19-das-ist-unser-haus.mp3",
+      "script": "Das ist unser Haus.",
+      "translationVi": "Đây là nhà của chúng tôi."
+    },
+    {
+      "filename": "a11-tag5-20-das-handy.mp3",
+      "script": "das Handy",
+      "translationVi": "điện thoại di động"
+    },
+    {
+      "filename": "a11-tag5-21-wo-ist-dein-handy.mp3",
+      "script": "Wo ist dein Handy?",
+      "translationVi": "Điện thoại của bạn ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-22-die-tasche.mp3",
+      "script": "die Tasche",
+      "translationVi": "cái túi"
+    },
+    {
+      "filename": "a11-tag5-23-wo-ist-deine-tasche.mp3",
+      "script": "Wo ist deine Tasche?",
+      "translationVi": "Túi của bạn ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-24-das-buch.mp3",
+      "script": "das Buch",
+      "translationVi": "quyển sách"
+    },
+    {
+      "filename": "a11-tag5-25-das-ist-ihr-buch.mp3",
+      "script": "Das ist ihr Buch.",
+      "translationVi": "Đây là quyển sách của cô ấy."
+    },
+    {
+      "filename": "a11-tag5-26-die-katze.mp3",
+      "script": "die Katze",
+      "translationVi": "con mèo"
+    },
+    {
+      "filename": "a11-tag5-27-das-ist-ihre-katze.mp3",
+      "script": "Das ist ihre Katze.",
+      "translationVi": "Đây là con mèo của cô ấy."
+    },
+    {
+      "filename": "a11-tag5-28-der-name.mp3",
+      "script": "der Name",
+      "translationVi": "tên"
+    },
+    {
+      "filename": "a11-tag5-29-wie-ist-ihr-name.mp3",
+      "script": "Wie ist Ihr Name?",
+      "translationVi": "Tên của Ông/Bà là gì ạ?"
+    },
+    {
+      "filename": "a11-tag5-30-die-adresse.mp3",
+      "script": "die Adresse",
+      "translationVi": "địa chỉ"
+    },
+    {
+      "filename": "a11-tag5-31-wie-ist-ihre-adresse.mp3",
+      "script": "Wie ist Ihre Adresse?",
+      "translationVi": "Địa chỉ của Ông/Bà là gì ạ?"
+    },
+    {
+      "filename": "a11-tag5-32-das-auto.mp3",
+      "script": "das Auto",
+      "translationVi": "xe ô tô"
+    },
+    {
+      "filename": "a11-tag5-33-ist-das-euer-auto.mp3",
+      "script": "Ist das euer Auto?",
+      "translationVi": "Đây có phải là xe của các bạn không?"
+    },
+    {
+      "filename": "a11-tag5-34-sind-das-eure-kinder.mp3",
+      "script": "Sind das eure Kinder?",
+      "translationVi": "Đây có phải là các con của các bạn không?"
+    },
+    {
+      "filename": "a11-tag5-35-der-freund.mp3",
+      "script": "der Freund",
+      "translationVi": "người bạn (nam) / bạn trai"
+    },
+    {
+      "filename": "a11-tag5-36-die-freunde.mp3",
+      "script": "die Freunde",
+      "translationVi": "những người bạn (số nhiều)"
+    },
+    {
+      "filename": "a11-tag5-37-das-sind-unsere-freunde.mp3",
+      "script": "Das sind unsere Freunde.",
+      "translationVi": "Đây là những người bạn của chúng tôi."
+    },
+    {
+      "filename": "a11-tag5-38-das-ladekabel.mp3",
+      "script": "das Ladekabel",
+      "translationVi": "dây sạc điện thoại"
+    },
+    {
+      "filename": "a11-tag5-39-ist-das-dein-ladekabel.mp3",
+      "script": "Ist das dein Ladekabel?",
+      "translationVi": "Đây là sạc điện thoại của bạn à?"
+    },
+    {
+      "filename": "a11-tag5-40-sie-ist-meine-freundin.mp3",
+      "script": "Sie ist meine Freundin.",
+      "translationVi": "Cô ấy là bạn gái của tôi."
+    },
+    {
+      "filename": "a11-tag5-41-das-essen.mp3",
+      "script": "das Essen",
+      "translationVi": "đồ ăn"
+    },
+    {
+      "filename": "a11-tag5-42-wo-ist-mein-essen.mp3",
+      "script": "Wo ist mein Essen?",
+      "translationVi": "Đồ ăn của tôi đâu nhỉ?"
+    },
+    {
+      "filename": "a11-tag5-43-auch.mp3",
+      "script": "auch",
+      "translationVi": "cũng"
+    },
+    {
+      "filename": "a11-tag5-44-in-deutschland.mp3",
+      "script": "in Deutschland",
+      "translationVi": "ở nước Đức"
+    },
+    {
+      "filename": "a11-tag5-45-lebt-dein-freund-auch-in-deutschland.mp3",
+      "script": "Lebt dein Freund auch in Deutschland?",
+      "translationVi": "Bạn trai của bạn cũng sống ở Đức à?"
+    },
+    {
+      "filename": "a11-tag5-46-wo-lebt-deine-mutter.mp3",
+      "script": "Wo lebt deine Mutter?",
+      "translationVi": "Mẹ của bạn sống ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-47-liegen.mp3",
+      "script": "liegen",
+      "translationVi": "nằm (ở), để (ở)"
+    },
+    {
+      "filename": "a11-tag5-48-wo-liegt-meine-tasche.mp3",
+      "script": "Wo liegt meine Tasche?",
+      "translationVi": "Túi của tôi nằm ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-49-der-tisch.mp3",
+      "script": "der Tisch",
+      "translationVi": "cái bàn"
+    },
+    {
+      "filename": "a11-tag5-50-auf-dem-tisch.mp3",
+      "script": "auf dem Tisch",
+      "translationVi": "trên bàn"
+    },
+    {
+      "filename": "a11-tag5-51-deine-tasche-liegt-auf-dem-tisch.mp3",
+      "script": "Deine Tasche liegt auf dem Tisch.",
+      "translationVi": "Túi của bạn nằm trên bàn."
+    },
+    {
+      "filename": "a11-tag5-52-was-ist-deine-frage.mp3",
+      "script": "Was ist deine Frage?",
+      "translationVi": "Câu hỏi của bạn là gì?"
+    },
+    {
+      "filename": "a11-tag5-53-wo-ist-sein-buch.mp3",
+      "script": "Wo ist sein Buch?",
+      "translationVi": "Sách của anh ấy ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-54-das-moped.mp3",
+      "script": "das Moped",
+      "translationVi": "xe máy"
+    },
+    {
+      "filename": "a11-tag5-55-wo-ist-ihr-moped.mp3",
+      "script": "Wo ist ihr Moped?",
+      "translationVi": "Xe máy của cô ấy ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-56-wo-wohnen-deine-eltern.mp3",
+      "script": "Wo wohnen deine Eltern?",
+      "translationVi": "Bố mẹ của bạn sống ở đâu?"
+    },
+    {
+      "filename": "a11-tag5-57-ist-das-dein-buch.mp3",
+      "script": "Ist das dein Buch?",
+      "translationVi": "Đây có phải là quyển sách của bạn không?"
+    },
+    {
+      "filename": "a11-tag5-58-das-fahrrad.mp3",
+      "script": "das Fahrrad",
+      "translationVi": "xe đạp"
+    },
+    {
+      "filename": "a11-tag5-59-ist-das-dein-fahrrad.mp3",
+      "script": "Ist das dein Fahrrad?",
+      "translationVi": "Đây có phải là xe đạp của bạn không?"
+    }
+  ]
 }

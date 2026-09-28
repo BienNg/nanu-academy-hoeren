@@ -2144,6 +2144,116 @@ export function listeningPartCount(totalQuestions: number): number {
 }
 
 /**
+ * Clip ids that belong to work the learner already finished.
+ * A finished lesson includes every current clip. A finished prefix includes
+ * clips inserted into that prefix. Clips after the last finished id stay new.
+ * An empty finished list on a finished study lesson is a replay in progress
+ * and is left empty so "Xem lại" is not filled back in.
+ */
+export function withFinishedCatalogClips(
+  clipIds: readonly string[],
+  finishedIds: readonly string[],
+  unitFinished: boolean,
+  options?: { keepEmptyReplay?: boolean },
+): readonly string[] {
+  if (options?.keepEmptyReplay && unitFinished && finishedIds.length === 0) {
+    return finishedIds;
+  }
+  if (clipIds.length === 0) return finishedIds;
+  const inside = unitFinished
+    ? clipIds
+    : finishedPrefix(clipIds, finishedIds);
+  if (inside.length === 0) return finishedIds;
+  const have = new Set(finishedIds);
+  if (inside.every((id) => have.has(id))) return finishedIds;
+  return unionIds(finishedIds, inside);
+}
+
+function finishedPrefix(
+  clipIds: readonly string[],
+  finishedIds: readonly string[],
+): readonly string[] {
+  const done = new Set(finishedIds);
+  let lastFinished = -1;
+  for (let index = 0; index < clipIds.length; index += 1) {
+    const id = clipIds[index];
+    if (id && done.has(id)) lastFinished = index;
+  }
+  if (lastFinished < 0) return [];
+  return clipIds.slice(0, lastFinished + 1);
+}
+
+export type LessonClipCatalog = {
+  chapterSlug: string;
+  clipIds: readonly string[];
+};
+
+/**
+ * Mark clips added to a finished lesson, or inserted into an already finished
+ * stretch of one, as completed and studied. Appended clips in an unfinished
+ * lesson stay unfinished.
+ */
+export function absorbAddedLessonClips(
+  progress: StoredProgress,
+  lessons: readonly LessonClipCatalog[],
+): StoredProgress {
+  let next = progress;
+  for (const lesson of lessons) {
+    if (lesson.clipIds.length === 0) continue;
+    const entry = next.learn[lesson.chapterSlug];
+    if (!entry) continue;
+    const completedClipIds = withFinishedCatalogClips(
+      lesson.clipIds,
+      entry.completedClipIds,
+      Boolean(entry.completedAt),
+    );
+    const studyFinished = isStudyChapterCompleted(next, lesson.chapterSlug);
+    const reviewedClipIds = withFinishedCatalogClips(
+      lesson.clipIds,
+      entry.reviewedClipIds,
+      studyFinished,
+      { keepEmptyReplay: true },
+    );
+    if (
+      completedClipIds === entry.completedClipIds &&
+      reviewedClipIds === entry.reviewedClipIds
+    ) {
+      continue;
+    }
+    next = withLearnEntry(next, lesson.chapterSlug, {
+      ...entry,
+      completedClipIds: [...completedClipIds],
+      reviewedClipIds: [...reviewedClipIds],
+      currentClipIndex: completedClipIds.length,
+    });
+  }
+  return next;
+}
+
+/**
+ * Keep an in-progress review when the only catalog change is clips already
+ * marked finished. Returns null when the stored order should be replaced.
+ */
+export function preservedReviewOrder(
+  clipIds: readonly string[],
+  storedOrder: readonly string[] | null | undefined,
+  completedIds: readonly string[],
+): string[] | null {
+  if (!storedOrder || storedOrder.length === 0) return null;
+  const catalog = new Set(clipIds);
+  const seen = new Set<string>();
+  for (const id of storedOrder) {
+    if (!catalog.has(id) || seen.has(id)) return null;
+    seen.add(id);
+  }
+  const added = clipIds.filter((id) => !seen.has(id));
+  if (added.length === 0) return null;
+  const done = new Set(completedIds);
+  if (!added.every((id) => done.has(id))) return null;
+  return [...storedOrder];
+}
+
+/**
  * Split questions into even contiguous parts of 10–15.
  * Sizes differ by at most one, so the last part stays in that range too.
  * A lesson of 15 questions or fewer is a single part.
@@ -2163,6 +2273,31 @@ export function splitListeningParts<T>(clips: readonly T[]): T[][] {
     index += size;
   }
   return parts;
+}
+
+/**
+ * First-pass parts still left to play. Finished clips stay in earlier parts
+ * and are not dealt again when later clips are added.
+ */
+export function openListeningParts<T extends { id: string }>(
+  clips: readonly T[],
+  completedIds: readonly string[],
+): { parts: T[][]; partNumber: number; partCount: number } {
+  const done = new Set(completedIds);
+  const firstOpen = clips.findIndex((clip) => !done.has(clip.id));
+  if (firstOpen < 0) {
+    const parts = splitListeningParts(clips);
+    return { parts, partNumber: 1, partCount: parts.length };
+  }
+  const prefix = clips.slice(0, firstOpen);
+  const suffix = clips.slice(firstOpen);
+  const prefixParts = prefix.length > 0 ? splitListeningParts(prefix) : [];
+  const suffixParts = splitListeningParts(suffix);
+  return {
+    parts: suffixParts,
+    partNumber: prefixParts.length + 1,
+    partCount: prefixParts.length + suffixParts.length,
+  };
 }
 
 /** Clip count for one part. Review runs shuffle first, so the ids change and the size does not. */
