@@ -5,6 +5,9 @@ import {
   type StoredProgress,
 } from "@/lib/progress";
 import type { UserProgressListItem } from "@/lib/progress-store";
+import { dayKey } from "@/lib/xp";
+import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
+import type { AdminDuelRecord } from "@/lib/duel-store";
 
 export const ADMIN_PAGE_SIZE = 25;
 
@@ -865,5 +868,407 @@ export function buildAdminRetentionBoard(
     streaks,
     streakLeaders: streakLeaders.slice(0, STREAK_LEADERS_LIMIT),
     lapsedPeople: lapsedPeople.slice(0, LAPSED_LIMIT),
+  };
+}
+
+/** Vietnam calendar days in the window, newest first. Matches xp_awards.day_key. */
+export function adminRangeVietnamDayKeys(
+  range: AdminRange,
+  now = new Date(),
+): string[] {
+  const today = dayKey(now);
+  const days: string[] = [];
+  for (let index = 0; index < RANGE_DAYS[range]; index += 1) {
+    days.push(shiftUtcDay(today, -index));
+  }
+  return days;
+}
+
+export type AdminXpPoint = {
+  key: string;
+  label: string;
+  newXp: number;
+  reviewXp: number;
+  duelXp: number;
+  total: number;
+};
+
+export type AdminXpLeader = {
+  userId: string;
+  displayName: string;
+  className: string | null;
+  xp: number;
+  newXp: number;
+  reviewXp: number;
+  duelXp: number;
+};
+
+export type AdminXpLesson = {
+  lessonKey: string;
+  label: string;
+  xp: number;
+  awards: number;
+};
+
+export type AdminXpBoard = {
+  total: number;
+  newXp: number;
+  reviewXp: number;
+  duelXp: number;
+  earners: number;
+  points: AdminXpPoint[];
+  leaders: AdminXpLeader[];
+  lessons: AdminXpLesson[];
+};
+
+const XP_LEADER_LIMIT = 8;
+const XP_LESSON_LIMIT = 8;
+
+function formatLessonKey(lessonKey: string): string {
+  const [level, chapter] = lessonKey.split("/");
+  if (!level) return lessonKey;
+  const course = level.replace(/-/g, ".").toUpperCase();
+  if (!chapter) return course;
+  const lesson = chapter
+    .replace(/^lektion[-_]?/i, "Lektion ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${course} · ${lesson}`;
+}
+
+function emptyXpPoint(day: string): AdminXpPoint {
+  return {
+    key: day,
+    label: formatUtcDayLabel(day),
+    newXp: 0,
+    reviewXp: 0,
+    duelXp: 0,
+    total: 0,
+  };
+}
+
+/**
+ * Listening and duel XP over the selected window. Days are Asia/Ho_Chi_Minh
+ * calendar days, the same boundary as the learner leaderboard.
+ */
+export function buildAdminXpBoard(
+  people: readonly AdminUserRow[],
+  listening: readonly AdminListeningXpRow[],
+  duels: readonly AdminDuelXpRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminXpBoard {
+  const daysNewestFirst = adminRangeVietnamDayKeys(range, now);
+  const window = new Set(daysNewestFirst);
+  const points = [...daysNewestFirst].reverse().map((day) => emptyXpPoint(day));
+  const indexByDay = new Map(points.map((point, index) => [point.key, index]));
+
+  const byUser = new Map<
+    string,
+    { xp: number; newXp: number; reviewXp: number; duelXp: number }
+  >();
+  const ensureUser = (userId: string) => {
+    const current = byUser.get(userId) ?? { xp: 0, newXp: 0, reviewXp: 0, duelXp: 0 };
+    byUser.set(userId, current);
+    return current;
+  };
+
+  const byLesson = new Map<string, { xp: number; awards: number }>();
+
+  for (const row of listening) {
+    if (!window.has(row.dayKey)) continue;
+    const point = points[indexByDay.get(row.dayKey) ?? -1];
+    if (point) {
+      if (row.kind === "review") point.reviewXp += row.xp;
+      else point.newXp += row.xp;
+      point.total += row.xp;
+    }
+    const user = ensureUser(row.userId);
+    user.xp += row.xp;
+    if (row.kind === "review") user.reviewXp += row.xp;
+    else user.newXp += row.xp;
+    const lesson = byLesson.get(row.lessonKey) ?? { xp: 0, awards: 0 };
+    lesson.xp += row.xp;
+    lesson.awards += 1;
+    byLesson.set(row.lessonKey, lesson);
+  }
+
+  for (const row of duels) {
+    if (!window.has(row.dayKey)) continue;
+    const point = points[indexByDay.get(row.dayKey) ?? -1];
+    if (point) {
+      point.duelXp += row.xp;
+      point.total += row.xp;
+    }
+    const user = ensureUser(row.userId);
+    user.xp += row.xp;
+    user.duelXp += row.xp;
+  }
+
+  const names = new Map(people.map((row) => [row.userId, row]));
+  const leaders: AdminXpLeader[] = [...byUser.entries()]
+    .filter(([, totals]) => totals.xp > 0)
+    .map(([userId, totals]) => {
+      const person = names.get(userId);
+      return {
+        userId,
+        displayName: person?.displayName ?? userId,
+        className: person?.className ?? null,
+        ...totals,
+      };
+    });
+  leaders.sort((a, b) => {
+    if (a.xp !== b.xp) return b.xp - a.xp;
+    return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+  });
+
+  const lessons: AdminXpLesson[] = [...byLesson.entries()].map(([lessonKey, totals]) => ({
+    lessonKey,
+    label: formatLessonKey(lessonKey),
+    xp: totals.xp,
+    awards: totals.awards,
+  }));
+  lessons.sort((a, b) => {
+    if (a.xp !== b.xp) return b.xp - a.xp;
+    return b.awards - a.awards;
+  });
+
+  let newXp = 0;
+  let reviewXp = 0;
+  let duelXp = 0;
+  for (const point of points) {
+    newXp += point.newXp;
+    reviewXp += point.reviewXp;
+    duelXp += point.duelXp;
+  }
+
+  return {
+    total: newXp + reviewXp + duelXp,
+    newXp,
+    reviewXp,
+    duelXp,
+    earners: leaders.length,
+    points,
+    leaders: leaders.slice(0, XP_LEADER_LIMIT),
+    lessons: lessons.slice(0, XP_LESSON_LIMIT),
+  };
+}
+
+export type AdminDuelPoint = {
+  key: string;
+  label: string;
+  started: number;
+  finished: number;
+  expired: number;
+};
+
+export type AdminDuelLeader = {
+  userId: string;
+  displayName: string;
+  className: string | null;
+  wins: number;
+  losses: number;
+  ties: number;
+  played: number;
+};
+
+export type AdminDuelMatch = {
+  id: string;
+  challengerName: string;
+  opponentName: string;
+  createdAt: string;
+  completedAt: string | null;
+  result: string;
+  expired: boolean;
+};
+
+export type AdminDuelBoard = {
+  started: number;
+  finished: number;
+  expired: number;
+  open: number;
+  players: number;
+  points: AdminDuelPoint[];
+  leaders: AdminDuelLeader[];
+  waiting: AdminDuelMatch[];
+  recent: AdminDuelMatch[];
+};
+
+const DUEL_LEADER_LIMIT = 8;
+const DUEL_LIST_LIMIT = 12;
+
+function vietnamDayOf(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return dayKey(date);
+}
+
+function personLabel(
+  names: Map<string, AdminUserRow>,
+  userId: string,
+): string {
+  return names.get(userId)?.displayName ?? userId;
+}
+
+function scoredResult(duel: AdminDuelRecord): {
+  winnerId: string | null;
+  loserId: string | null;
+  tie: boolean;
+  label: string;
+} {
+  if (duel.expired) {
+    return {
+      winnerId: duel.challengerId,
+      loserId: duel.opponentId,
+      tie: false,
+      label: "Expired",
+    };
+  }
+  const left = duel.challengerPoints ?? 0;
+  const right = duel.opponentPoints ?? 0;
+  if (left === right) {
+    return {
+      winnerId: null,
+      loserId: null,
+      tie: true,
+      label: `Tie ${left}–${right}`,
+    };
+  }
+  const challengerWins = left > right;
+  return {
+    winnerId: challengerWins ? duel.challengerId : duel.opponentId,
+    loserId: challengerWins ? duel.opponentId : duel.challengerId,
+    tie: false,
+    label: `${left}–${right}`,
+  };
+}
+
+/**
+ * Match volume and outcomes. Days are Asia/Ho_Chi_Minh, matching duel XP.
+ */
+export function buildAdminDuelBoard(
+  people: readonly AdminUserRow[],
+  duels: readonly AdminDuelRecord[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminDuelBoard {
+  const daysNewestFirst = adminRangeVietnamDayKeys(range, now);
+  const window = new Set(daysNewestFirst);
+  const points = [...daysNewestFirst].reverse().map((day) => ({
+    key: day,
+    label: formatUtcDayLabel(day),
+    started: 0,
+    finished: 0,
+    expired: 0,
+  }));
+  const indexByDay = new Map(points.map((point, index) => [point.key, index]));
+  const names = new Map(people.map((row) => [row.userId, row]));
+  const tallies = new Map<
+    string,
+    { wins: number; losses: number; ties: number; played: number }
+  >();
+  const bump = (userId: string) => {
+    const current = tallies.get(userId) ?? { wins: 0, losses: 0, ties: 0, played: 0 };
+    tallies.set(userId, current);
+    return current;
+  };
+
+  const players = new Set<string>();
+  let started = 0;
+  let finished = 0;
+  let expired = 0;
+  const waiting: AdminDuelMatch[] = [];
+  const recent: AdminDuelMatch[] = [];
+
+  for (const duel of duels) {
+    const createdDay = vietnamDayOf(duel.createdAt);
+    const completedDay = vietnamDayOf(duel.completedAt);
+    const createdIn = createdDay != null && window.has(createdDay);
+    const completedIn = completedDay != null && window.has(completedDay);
+
+    if (createdIn) {
+      started += 1;
+      const point = points[indexByDay.get(createdDay)!];
+      if (point) point.started += 1;
+      players.add(duel.challengerId);
+      players.add(duel.opponentId);
+    }
+    if (completedIn) {
+      players.add(duel.challengerId);
+      players.add(duel.opponentId);
+      const point = points[indexByDay.get(completedDay)!];
+      if (duel.expired) {
+        expired += 1;
+        if (point) point.expired += 1;
+      } else {
+        finished += 1;
+        if (point) point.finished += 1;
+      }
+      const result = scoredResult(duel);
+      if (result.tie) {
+        bump(duel.challengerId).ties += 1;
+        bump(duel.opponentId).ties += 1;
+        bump(duel.challengerId).played += 1;
+        bump(duel.opponentId).played += 1;
+      } else if (result.winnerId && result.loserId) {
+        bump(result.winnerId).wins += 1;
+        bump(result.loserId).losses += 1;
+        bump(result.winnerId).played += 1;
+        bump(result.loserId).played += 1;
+      }
+      recent.push({
+        id: duel.id,
+        challengerName: personLabel(names, duel.challengerId),
+        opponentName: personLabel(names, duel.opponentId),
+        createdAt: duel.createdAt,
+        completedAt: duel.completedAt,
+        result: result.label,
+        expired: duel.expired,
+      });
+    }
+    if (!duel.completedAt) {
+      waiting.push({
+        id: duel.id,
+        challengerName: personLabel(names, duel.challengerId),
+        opponentName: personLabel(names, duel.opponentId),
+        createdAt: duel.createdAt,
+        completedAt: null,
+        result: "Waiting",
+        expired: false,
+      });
+    }
+  }
+
+  waiting.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  recent.sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+
+  const leaders: AdminDuelLeader[] = [...tallies.entries()].map(([userId, tally]) => {
+    const person = names.get(userId);
+    return {
+      userId,
+      displayName: person?.displayName ?? userId,
+      className: person?.className ?? null,
+      ...tally,
+    };
+  });
+  leaders.sort((a, b) => {
+    if (a.wins !== b.wins) return b.wins - a.wins;
+    if (a.ties !== b.ties) return b.ties - a.ties;
+    if (a.played !== b.played) return b.played - a.played;
+    return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+  });
+
+  return {
+    started,
+    finished,
+    expired,
+    open: waiting.length,
+    players: players.size,
+    points,
+    leaders: leaders.slice(0, DUEL_LEADER_LIMIT),
+    waiting: waiting.slice(0, DUEL_LIST_LIMIT),
+    recent: recent.slice(0, DUEL_LIST_LIMIT),
   };
 }

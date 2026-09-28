@@ -571,3 +571,117 @@ export async function getDuelLeaderboard(input: {
     board: "duel",
   });
 }
+
+export type AdminListeningXpRow = {
+  userId: string;
+  xp: number;
+  kind: "new" | "review";
+  lessonKey: string;
+  dayKey: string;
+};
+
+export type AdminDuelXpRow = {
+  userId: string;
+  xp: number;
+  dayKey: string;
+};
+
+export type AdminXpRead<T> = {
+  ready: boolean;
+  rows: T[];
+};
+
+async function listPagedXpRows<T>(
+  table: string,
+  columns: string,
+  fromDay: string,
+  toDay: string,
+  parse: (row: Record<string, unknown>) => T | null,
+  onMissing: (message: string) => boolean,
+  logLabel: string,
+): Promise<AdminXpRead<T>> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, rows: [] };
+
+  const rows: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .gte("day_key", fromDay)
+      .lte("day_key", toDay)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!onMissing(error.message)) {
+        console.error(logLabel, error.message);
+      }
+      return { ready: false, rows: [] };
+    }
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of page) {
+      const parsed = parse(row);
+      if (parsed) rows.push(parsed);
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, rows };
+    from += PAGE_SIZE;
+  }
+}
+
+/** Listening XP awarded in `[fromDay, toDay]` Vietnam calendar days. */
+export function listAdminListeningXp(
+  fromDay: string,
+  toDay: string,
+): Promise<AdminXpRead<AdminListeningXpRow>> {
+  return listPagedXpRows(
+    XP_TABLE,
+    "user_id, xp, kind, lesson_key, day_key",
+    fromDay,
+    toDay,
+    (row) => {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.lesson_key !== "string" ||
+        typeof row.day_key !== "string" ||
+        (row.kind !== "new" && row.kind !== "review")
+      ) {
+        return null;
+      }
+      return {
+        userId: row.user_id,
+        xp: row.xp,
+        kind: row.kind,
+        lessonKey: row.lesson_key,
+        dayKey: row.day_key,
+      };
+    },
+    isXpSchemaMissing,
+    "Supabase listAdminListeningXp",
+  );
+}
+
+/** Duel XP awarded in `[fromDay, toDay]` Vietnam calendar days. */
+export function listAdminDuelXp(
+  fromDay: string,
+  toDay: string,
+): Promise<AdminXpRead<AdminDuelXpRow>> {
+  return listPagedXpRows(
+    DUEL_XP_TABLE,
+    "user_id, xp, day_key",
+    fromDay,
+    toDay,
+    (row) => {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.day_key !== "string"
+      ) {
+        return null;
+      }
+      return { userId: row.user_id, xp: row.xp, dayKey: row.day_key };
+    },
+    isDuelSchemaMissing,
+    "Supabase listAdminDuelXp",
+  );
+}

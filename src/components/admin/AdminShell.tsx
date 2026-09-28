@@ -124,8 +124,8 @@ const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/activity", label: "Activity", icon: "timeline", ready: true, ranged: true },
       { href: "/admin/retention", label: "Retention", icon: "event_repeat", ready: true, ranged: true },
-      { href: "/admin/xp", label: "XP", icon: "bolt" },
-      { href: "/admin/duels", label: "Duels", icon: "swords" },
+      { href: "/admin/xp", label: "XP", icon: "bolt", ready: true, ranged: true },
+      { href: "/admin/duels", label: "Duels", icon: "swords", ready: true, ranged: true },
     ],
   },
   {

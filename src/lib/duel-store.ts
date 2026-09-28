@@ -1597,3 +1597,63 @@ function buildView(input: {
     clips,
   };
 }
+
+export type AdminDuelRecord = {
+  id: string;
+  challengerId: string;
+  opponentId: string;
+  createdAt: string;
+  completedAt: string | null;
+  challengerPoints: number | null;
+  opponentPoints: number | null;
+  expired: boolean;
+};
+
+function toAdminDuelRecord(duel: DuelRow): AdminDuelRecord {
+  return {
+    id: duel.id,
+    challengerId: duel.challenger_id,
+    opponentId: duel.opponent_id,
+    createdAt: duel.created_at,
+    completedAt: duel.completed_at,
+    challengerPoints: duel.challenger_points,
+    opponentPoints: duel.opponent_points,
+    expired: duel.expired,
+  };
+}
+
+/** Every stored duel. The admin page filters by Vietnam calendar day. */
+export async function listAdminDuels(): Promise<{
+  ready: boolean;
+  rows: AdminDuelRecord[];
+}> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, rows: [] };
+
+  const rows: AdminDuelRecord[] = [];
+  let from = 0;
+  let columns = duelColumns();
+  for (;;) {
+    const { data, error } = await supabase
+      .from(DUELS_TABLE)
+      .select(columns)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (missingExpiredColumn(error.message) && columns !== DUEL_COLUMNS_BASE) {
+        rememberMissingExpiredColumn();
+        columns = DUEL_COLUMNS_BASE;
+        continue;
+      }
+      schemaGone(error.message);
+      return { ready: false, rows: [] };
+    }
+    const page = (data ?? []) as unknown[];
+    for (const raw of page) {
+      const duel = duelFromRow(raw);
+      if (duel) rows.push(toAdminDuelRecord(duel));
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, rows };
+    from += PAGE_SIZE;
+  }
+}
