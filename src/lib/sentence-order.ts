@@ -38,6 +38,8 @@ export type OrderResult = {
 };
 
 const PUNCTUATION = /[.,?!:;"'„“”‚‘’«»…()\-–—]/g;
+/** Sentence marks at the edges of a word. Internal hyphens stay. */
+const EDGE_PUNCTUATION = /^[.,?!:;"'„“”‚‘’«»…()]+|[.,?!:;"'„“”‚‘’«»…()]+$/g;
 
 export function tokenizeSentence(script: string): string[] {
   return script.trim().split(/\s+/).filter(Boolean);
@@ -46,6 +48,14 @@ export function tokenizeSentence(script: string): string[] {
 /** Lowercase, punctuation removed. Only used for comparing. */
 export function normalizeToken(word: string): string {
   return word.toLowerCase().replace(PUNCTUATION, "");
+}
+
+/**
+ * Label shown on a chip. Periods, commas, and question marks are stripped so
+ * they cannot reveal which word ends the sentence.
+ */
+export function chipText(word: string): string {
+  return word.replace(EDGE_PUNCTUATION, "");
 }
 
 export const MIN_ORDER_WORDS = 3;
@@ -94,8 +104,9 @@ export function buildWordBank(
     for (const word of tokenizeSentence(other.script)) {
       const form = normalizeToken(word);
       if (!form || sentenceForms.has(form) || candidates.has(form)) continue;
-      // Chips show words without trailing punctuation from another sentence.
-      candidates.set(form, word.replace(/[.,?!:;]+$/g, ""));
+      const label = chipText(word);
+      if (!label) continue;
+      candidates.set(form, label);
     }
   }
   const distractors = shuffle([...candidates.values()], random).slice(
@@ -104,7 +115,10 @@ export function buildWordBank(
   );
 
   const chips: WordChip[] = [
-    ...words.map((text, index) => ({ id: `w${index}`, text })),
+    ...words.flatMap((text, index) => {
+      const label = chipText(text);
+      return label ? [{ id: `w${index}`, text: label }] : [];
+    }),
     ...distractors.map((text, index) => ({ id: `d${index}`, text })),
   ];
 
@@ -147,36 +161,13 @@ export function checkOrder(selected: readonly string[], script: string): OrderRe
   return { accuracy, words };
 }
 
-/**
- * One listening card per clip in the part's order, plus an order card for each
- * eligible clip. Each order card is inserted at a random later position after
- * its own listening card (with at least one card in between when possible),
- * so the chips never give away the dictation.
- */
+/** One listening card per clip, in part order. Sentence order is a duel card. */
 export function buildPracticeDeck<C extends OrderSourceClip>(
   partClips: readonly C[],
-  lessonClips: readonly OrderSourceClip[],
-  random: () => number = Math.random,
 ): PracticeCard<C>[] {
-  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
+  return partClips.map((clip) => ({
     key: `${clip.id}:listen`,
     kind: "listening",
     clip,
   }));
-  for (const clip of partClips) {
-    if (!clip.sentenceOrder) continue;
-    const listenAt = deck.findIndex(
-      (card) => card.kind === "listening" && card.clip.id === clip.id,
-    );
-    const earliest = Math.min(listenAt + 2, deck.length);
-    const span = deck.length - earliest + 1;
-    const at = earliest + Math.min(span - 1, Math.floor(random() * span));
-    deck.splice(at, 0, {
-      key: `${clip.id}:order`,
-      kind: "order",
-      clip,
-      bank: buildWordBank(clip, lessonClips, random),
-    });
-  }
-  return deck;
 }

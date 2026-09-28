@@ -12,6 +12,8 @@ import {
   completedAgoLabel,
   clipWinner,
   extractStudiedClips,
+  clipCanStart,
+  duelCardsFromClips,
   formatDuelTime,
   homeBucket,
   isChallengeExpired,
@@ -176,16 +178,20 @@ test("a local settle updates that clip and leaves the next one waiting", () => {
     clips: [
       {
         position: 0,
+        kind: "listening" as const,
         script: "Hallo",
         audioPath: "a1-1/lektion-1/Hallo.mp3",
+        translationVi: null,
         you: { state: "pending" as const, elapsedMs: null },
         opponent: { state: "done" as const, elapsedMs: 4000 },
         winner: "pending" as const,
       },
       {
         position: 1,
+        kind: "listening" as const,
         script: "Tschüss",
         audioPath: "a1-1/lektion-1/Tschüss.mp3",
+        translationVi: null,
         you: { state: "pending" as const, elapsedMs: null },
         opponent: { state: "pending" as const, elapsedMs: null },
         winner: "pending" as const,
@@ -273,6 +279,43 @@ test("time labels use a comma", () => {
   assert.equal(formatDuelTime(null), "Bỏ");
   assert.equal(formatDuelTime(1500), "1,5s");
   assert.equal(formatDuelTime(65_000), "1:05");
+});
+
+test("a duel uses each clip once, as listening or sentence order", () => {
+  const cards = duelCardsFromClips([
+    { lessonKey: "a1-1/lektion-4", clipId: "schon", sentenceOrder: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "der", sentenceOrder: false },
+    { lessonKey: "a1-1/lektion-4", clipId: "schon", sentenceOrder: true },
+    { lessonKey: "a1-1/lektion-3", clipId: "schon", sentenceOrder: false },
+  ]);
+  assert.deepEqual(
+    cards.map((card) => [card.clip.lessonKey, card.clip.clipId, card.kind]),
+    [
+      ["a1-1/lektion-4", "schon", "order"],
+      ["a1-1/lektion-4", "der", "listening"],
+      ["a1-1/lektion-3", "schon", "listening"],
+    ],
+  );
+  assert.equal(new Set(cards.map((card) => `${card.clip.lessonKey}/${card.clip.clipId}`)).size, cards.length);
+});
+
+test("sentence order can start without audio, and dictation still needs it", () => {
+  assert.equal(
+    clipCanStart({ kind: "order", script: "Die Mutter ist sehr schön.", audioPath: null, translationVi: "Người mẹ rất đẹp." }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "order", script: "Die Mutter ist sehr schön.", audioPath: "x.mp3", translationVi: "  " }),
+    false,
+  );
+  assert.equal(
+    clipCanStart({ kind: "listening", script: "der", audioPath: "der.mp3", translationVi: null }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "listening", script: "der", audioPath: null, translationVi: "mạo từ" }),
+    false,
+  );
 });
 
 test("schema hint only matches missing duel tables", () => {

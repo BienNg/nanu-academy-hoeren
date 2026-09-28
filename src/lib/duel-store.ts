@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt } from "@/lib/scoring";
+import { checkOrder } from "@/lib/sentence-order";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
   firstUnlockedStudyHref,
@@ -25,6 +26,7 @@ import {
   DUEL_EXPIRE_CHALLENGER_XP,
   DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
+  duelCardsFromClips,
   MAX_ANSWER_CHARS,
   MAX_OPEN_WITH_CLASSMATE,
   awardForPoints,
@@ -47,6 +49,7 @@ import {
   type CatalogClip,
   type ClipPlay,
   type DuelCard,
+  type DuelCardKind,
   type DuelClipView,
   type DuelFeedback,
   type DuelHome,
@@ -69,6 +72,8 @@ const DUEL_COLUMNS = `${DUEL_COLUMNS_BASE}, expired`;
 /** While this is in the future, reads omit `expired` because that column is not in the database yet. */
 let skipExpiredColumnUntil = 0;
 let loggedMissingExpiredColumn = false;
+let skipKindColumnUntil = 0;
+let loggedMissingKindColumn = false;
 
 function missingExpiredColumn(message: string): boolean {
   return /expired/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
@@ -81,6 +86,20 @@ function rememberMissingExpiredColumn(): void {
   console.error(
     "Supabase duel",
     "Run the new statements at the bottom of supabase/duels.sql so a challenge can close after 3 days.",
+  );
+}
+
+function missingKindColumn(message: string): boolean {
+  return /kind/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+function rememberMissingKindColumn(): void {
+  skipKindColumnUntil = Date.now() + 5 * 60 * 1000;
+  if (loggedMissingKindColumn) return;
+  loggedMissingKindColumn = true;
+  console.error(
+    "Supabase duel",
+    "Run the new statements at the bottom of supabase/duels.sql so a duel can store sentence-order cards.",
   );
 }
 
@@ -112,6 +131,7 @@ type ClipRow = {
   position: number;
   lesson_key: string;
   clip_id: string;
+  kind: DuelCardKind;
 };
 
 type PlayRow = {
@@ -158,6 +178,8 @@ export function listCatalogClips(): CatalogClip[] {
           clipId: clip.id,
           script: clip.script,
           audioPath: clip.audioPath,
+          translationVi: clip.translationVi,
+          sentenceOrder: clip.sentenceOrder === true,
         });
       }
     }
@@ -546,7 +568,40 @@ function clipFromRow(raw: unknown): ClipRow | null {
   ) {
     return null;
   }
-  return { position: row.position, lesson_key: row.lesson_key, clip_id: row.clip_id };
+  const kind = row.kind === "order" ? "order" : "listening";
+  return { position: row.position, lesson_key: row.lesson_key, clip_id: row.clip_id, kind };
+}
+
+async function insertDuelClips(
+  supabase: SupabaseClient,
+  duelId: string,
+  cards: readonly { clip: { lessonKey: string; clipId: string }; kind: DuelCardKind }[],
+): Promise<"ok" | "unavailable"> {
+  const base = cards.map(({ clip }, position) => ({
+    duel_id: duelId,
+    position,
+    lesson_key: clip.lessonKey,
+    clip_id: clip.clipId,
+  }));
+  const withKind = cards.map(({ clip, kind }, position) => ({
+    duel_id: duelId,
+    position,
+    lesson_key: clip.lessonKey,
+    clip_id: clip.clipId,
+    kind,
+  }));
+  const includeKind = Date.now() >= skipKindColumnUntil;
+  const inserted = await supabase.from(CLIPS_TABLE).insert(includeKind ? withKind : base);
+  if (!inserted.error) return "ok";
+  if (missingKindColumn(inserted.error.message) && includeKind) {
+    rememberMissingKindColumn();
+    const retry = await supabase.from(CLIPS_TABLE).insert(base);
+    if (!retry.error) return "ok";
+    schemaGone(retry.error.message);
+    return "unavailable";
+  }
+  schemaGone(inserted.error.message);
+  return "unavailable";
 }
 
 async function countOpenPair(
@@ -826,6 +881,13 @@ export async function createDuel(user: {
     const shared = sharedStudied(mine, context.studied.get(opponentId) ?? []);
     if (shared.length < DUEL_SIZE) continue;
     const picked = sampleItems(shared, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000);
+    const catalog = catalogIndex(listCatalogClips());
+    const cards = duelCardsFromClips(
+      picked.map((clip) => {
+        const known = catalog.get(studiedKey(clip.lessonKey, clip.clipId));
+        return { ...clip, sentenceOrder: known?.sentenceOrder === true };
+      }),
+    );
     const created = await supabase
       .from(DUELS_TABLE)
       .insert({ challenger_id: user.id, opponent_id: opponentId })
@@ -838,16 +900,8 @@ export async function createDuel(user: {
     const duelId = (created.data as { id?: unknown }).id;
     if (typeof duelId !== "string") return { ok: false, block: "unavailable" };
 
-    const clipInsert = await supabase.from(CLIPS_TABLE).insert(
-      picked.map((clip, position) => ({
-        duel_id: duelId,
-        position,
-        lesson_key: clip.lessonKey,
-        clip_id: clip.clipId,
-      })),
-    );
-    if (clipInsert.error) {
-      schemaGone(clipInsert.error.message);
+    const clipInsert = await insertDuelClips(supabase, duelId, cards);
+    if (clipInsert === "unavailable") {
       await supabase.from(DUELS_TABLE).delete().eq("id", duelId);
       return { ok: false, block: "unavailable" };
     }
@@ -998,11 +1052,15 @@ async function readDuel(supabase: SupabaseClient, duelId: string): Promise<DuelR
 }
 
 async function readClips(supabase: SupabaseClient, duelId: string): Promise<ClipRow[]> {
-  const { data, error } = await supabase
-    .from(CLIPS_TABLE)
-    .select("position, lesson_key, clip_id")
-    .eq("duel_id", duelId)
-    .order("position", { ascending: true });
+  const load = (columns: string) =>
+    supabase.from(CLIPS_TABLE).select(columns).eq("duel_id", duelId).order("position", { ascending: true });
+  const columns =
+    Date.now() < skipKindColumnUntil ? "position, lesson_key, clip_id" : "position, lesson_key, clip_id, kind";
+  let { data, error } = await load(columns);
+  if (error && missingKindColumn(error.message)) {
+    rememberMissingKindColumn();
+    ({ data, error } = await load("position, lesson_key, clip_id"));
+  }
   if (error) {
     schemaGone(error.message);
     return [];
@@ -1096,7 +1154,11 @@ async function skipMissingClips(
     const next = clips.find((clip) => !taken.has(clip.position));
     if (!next) return;
     const known = catalog.get(studiedKey(next.lesson_key, next.clip_id));
-    if (known?.script && known.audioPath) return;
+    const playable =
+      next.kind === "order"
+        ? Boolean(known?.script && known.translationVi?.trim())
+        : Boolean(known?.script && known.audioPath);
+    if (playable) return;
     const inserted = await insertPlay(supabase, {
       duel_id: duelId,
       user_id: userId,
@@ -1188,7 +1250,10 @@ async function settleClip(
   }
 
   const typed = text.trim().slice(0, MAX_ANSWER_CHARS);
-  const result = scoreAttempt(typed, known.script);
+  const result =
+    clip.kind === "order"
+      ? checkOrder(typed.split(/\s+/).filter(Boolean), known.script)
+      : scoreAttempt(typed, known.script);
   const words = result.words.map((word) => ({
     word: word.word,
     status: word.status,
@@ -1538,8 +1603,10 @@ function buildView(input: {
           : "pending";
       return {
         position: clip.position,
+        kind: clip.kind,
         script: known?.script ?? null,
         audioPath: known?.audioPath ?? null,
+        translationVi: known?.translationVi ?? null,
         you: {
           state: yourState,
           elapsedMs: you?.state === "done" ? you.elapsed_ms : null,

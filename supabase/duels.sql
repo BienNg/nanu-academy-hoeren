@@ -1,5 +1,6 @@
 -- Run once in Supabase → SQL Editor, after supabase/studied_clips.sql.
--- An asynchronous listening duel: both classmates get the same 15 clips.
+-- An asynchronous duel: both classmates get the same 15 clips.
+-- Each clip is dictation or sentence order, and it is stored once.
 -- The browser measures each clip. The server checks the typed answer
 -- and stores the first result. Any non-negative time is kept.
 -- Leaving a clip stores it as forfeited (no time). A finished duel pays
@@ -35,6 +36,7 @@ create table if not exists public.duel_clips (
   position smallint not null check (position between 0 and 14),
   lesson_key text not null,
   clip_id text not null,
+  kind text not null default 'listening' check (kind in ('listening', 'order')),
   primary key (duel_id, position),
   constraint duel_clips_unique_clip unique (duel_id, lesson_key, clip_id)
 );
@@ -140,6 +142,11 @@ alter table public.duel_plays add constraint duel_plays_time_chk check (
     and elapsed_ms >= 0
   )
 );
+
+-- Each clip is dictation or sentence order. Existing rows stay dictation.
+alter table public.duel_clips add column if not exists kind text not null default 'listening';
+alter table public.duel_clips drop constraint if exists duel_clips_kind_chk;
+alter table public.duel_clips add constraint duel_clips_kind_chk check (kind in ('listening', 'order'));
 
 -- Existing databases: 3-day deadline. A missed deadline pays 35 XP to the
 -- challenger (stored as a win) and 0 XP to the challenged person (a loss).

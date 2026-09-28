@@ -138,10 +138,10 @@ export function clipResultsForFinishedPart(
 }
 
 /**
- * One result per clip when a clip can appear as several cards
- * (listening plus sentence order). A clip passed only when every one of its
- * cards was cleared, and missed when any of its cards was wrong once.
- * A failed part leaves out clips that were only partly played and never missed.
+ * One result per clip. Practice uses one listening card per clip.
+ * A clip passed only when every one of its cards was cleared, and missed
+ * when any of its cards was wrong once. A failed part leaves out clips
+ * that were only partly played and never missed.
  */
 export function clipResultsForCardDeck(
   cards: readonly { clip: { id: string } }[],

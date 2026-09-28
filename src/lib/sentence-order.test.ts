@@ -64,7 +64,7 @@ test("word bank holds every sentence word plus distractors from other clips", ()
     const bank = buildWordBank(clip, lesson, seeded(seed));
     const sentence = bank.filter((chip) => chip.id.startsWith("w")).map((chip) => chip.text);
     const distractors = bank.filter((chip) => chip.id.startsWith("d"));
-    assert.deepEqual([...sentence].sort(), ["Sie?", "Wie", "heißen"].sort());
+    assert.deepEqual([...sentence].sort(), ["Sie", "Wie", "heißen"].sort());
     assert.equal(distractors.length, 1);
     const sentenceForms = new Set(["wie", "heißen", "sie"]);
     for (const chip of distractors) assert.ok(!sentenceForms.has(normalizeToken(chip.text)));
@@ -72,6 +72,19 @@ test("word bank holds every sentence word plus distractors from other clips", ()
     const start = bank.slice(0, 3).map((chip) => normalizeToken(chip.text)).join(" ");
     assert.notEqual(start, "wie heißen sie");
   }
+});
+
+test("chips drop sentence punctuation so it cannot mark the last word", () => {
+  const clip = {
+    id: "c5",
+    script: "Die Mutter ist sehr schön.",
+    translationVi: "Người mẹ rất đẹp.",
+  };
+  const bank = buildWordBank(clip, [clip], seeded(1));
+  assert.deepEqual(
+    bank.map((chip) => chip.text).sort(),
+    ["Die", "Mutter", "ist", "sehr", "schön"].sort(),
+  );
 });
 
 test("word bank works without other clips to borrow from", () => {
@@ -92,48 +105,18 @@ test("repeated words can be placed in either order", () => {
   assert.equal(checkOrder(["die", "Frau", "und", "die", "Kinder"], script).accuracy, 100);
 });
 
-test("deck has a listening card per clip and order cards after their listening card", () => {
-  for (let seed = 1; seed < 50; seed += 1) {
-    const deck = buildPracticeDeck(lesson, lesson, seeded(seed));
-    assert.equal(deck.filter((card) => card.kind === "listening").length, 4);
-    assert.equal(deck.filter((card) => card.kind === "order").length, 3);
-    assert.equal(new Set(deck.map((card) => card.key)).size, deck.length);
-    for (const [index, card] of deck.entries()) {
-      if (card.kind !== "order") continue;
-      const listen = deck.findIndex(
-        (other) => other.kind === "listening" && other.clip.id === card.clip.id,
-      );
-      assert.ok(listen < index, `order card for ${card.clip.id} came first`);
-      assert.ok(card.bank && card.bank.length > 0);
-    }
-  }
-});
-
-test("listening cards keep the part order and order cards come later, not right after", () => {
-  const clips = Array.from({ length: 10 }, (_, index) => ({
-    id: `c${index}`,
-    script: "a b c",
-    translationVi: "x",
-    sentenceOrder: index % 3 !== 0,
-  }));
-  for (let seed = 1; seed < 50; seed += 1) {
-    const deck = buildPracticeDeck(clips, clips, seeded(seed));
-    assert.deepEqual(
-      deck.filter((card) => card.kind === "listening").map((card) => card.clip.id),
-      clips.map((clip) => clip.id),
-    );
-    for (const [index, card] of deck.entries()) {
-      if (card.kind !== "order") continue;
-      const listen = deck.findIndex(
-        (other) => other.kind === "listening" && other.clip.id === card.clip.id,
-      );
-      assert.ok(index - listen >= 2, `order card for ${card.clip.id} came right after`);
-    }
-  }
+test("practice deck is one listening card per clip and never a sentence-order card", () => {
+  const deck = buildPracticeDeck(lesson);
+  assert.deepEqual(
+    deck.map((card) => card.clip.id),
+    lesson.map((clip) => clip.id),
+  );
+  assert.ok(deck.every((card) => card.kind === "listening"));
+  assert.equal(new Set(deck.map((card) => card.key)).size, deck.length);
 });
 
 test("a passed deck reports one result per clip", () => {
-  const deck = buildPracticeDeck(lesson, lesson, seeded(7));
+  const deck = buildPracticeDeck(lesson);
   const results = clipResultsForCardDeck(deck, new Set(["c2"]), false, deck.length - 1);
   assert.deepEqual(
     results.map((result) => result.clipId).sort(),

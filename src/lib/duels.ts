@@ -1,5 +1,6 @@
 /**
  * Asynchronous classmate duels. Both players get the same 15 studied clips.
+ * Each clip is either dictation or sentence order, and it appears once.
  * The browser scores and times a clip, then saves it in the background.
  * The server checks the answer and keeps the first result. A shorter time
  * wins the clip. No time loses it.
@@ -27,6 +28,7 @@ const UUID =
 export type DuelOutcome = "win" | "loss" | "tie";
 export type MatchBlock = "ok" | "no_class" | "no_overlap" | "cap" | "admin" | "unavailable";
 export type PlayState = "active" | "done" | "forfeited";
+export type DuelCardKind = "listening" | "order";
 export type HomeBucket = "incoming" | "playing" | "waiting" | "history";
 
 export type StudiedClip = {
@@ -40,6 +42,9 @@ export type CatalogClip = {
   clipId: string;
   script?: string;
   audioPath?: string;
+  translationVi?: string;
+  /** True when this clip can be a sentence-order card. */
+  sentenceOrder?: boolean;
 };
 
 export type OpponentCandidate = {
@@ -56,12 +61,43 @@ export type ClipPlay = {
 
 export type DuelClipView = {
   position: number;
+  kind: DuelCardKind;
   script: string | null;
   audioPath: string | null;
+  translationVi: string | null;
   you: { state: PlayState | "pending"; elapsedMs: number | null };
   opponent: { state: PlayState | "pending" | "hidden"; elapsedMs: number | null };
   winner: "you" | "opponent" | "neither" | "pending";
 };
+
+/**
+ * One card per clip. An eligible clip is sentence order; every other clip
+ * stays dictation. A repeated clip is dropped so it cannot appear twice.
+ */
+export function duelCardsFromClips<
+  T extends { lessonKey: string; clipId: string; sentenceOrder?: boolean },
+>(clips: readonly T[]): { clip: T; kind: DuelCardKind }[] {
+  const seen = new Set<string>();
+  const cards: { clip: T; kind: DuelCardKind }[] = [];
+  for (const clip of clips) {
+    const key = studiedKey(clip.lessonKey, clip.clipId);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cards.push({ clip, kind: clip.sentenceOrder === true ? "order" : "listening" });
+  }
+  return cards;
+}
+
+export function clipCanStart(clip: {
+  kind?: DuelCardKind;
+  script: string | null;
+  audioPath: string | null;
+  translationVi?: string | null;
+} | null | undefined): boolean {
+  if (!clip?.script) return false;
+  if (clip.kind === "order") return Boolean(clip.translationVi?.trim());
+  return Boolean(clip.audioPath);
+}
 
 export type DuelView = {
   id: string;
@@ -343,8 +379,10 @@ export function mergeDuelView(local: DuelView, server: DuelView): DuelView {
     return {
       ...remote,
       you: keepLocalYou ? mine.you : remote.you,
+      kind: remote.kind ?? mine.kind,
       script: remote.script ?? mine.script,
       audioPath: remote.audioPath ?? mine.audioPath,
+      translationVi: remote.translationVi ?? mine.translationVi,
     };
   });
   return recountView({ ...server, complete: server.complete }, clips);

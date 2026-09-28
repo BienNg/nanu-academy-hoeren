@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
+import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import {
   DUEL_DEADLINE_DAYS,
   DUEL_EXPIRE_CHALLENGER_XP,
@@ -12,6 +13,7 @@ import {
   DUEL_SIZE,
   MAX_ANSWER_CHARS,
   challengeLeftLabel,
+  clipCanStart,
   completedAgoLabel,
   formatDuelTime,
   isSettledState,
@@ -22,6 +24,7 @@ import {
   type DuelView,
 } from "@/lib/duels";
 import { scoreAttempt } from "@/lib/scoring";
+import { buildWordBank, checkOrder } from "@/lib/sentence-order";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
@@ -393,6 +396,25 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   }, [phase, livePosition]);
 
   const clip = view?.clips.find((item) => item.position === livePosition) ?? null;
+  const bankKey =
+    view?.clips
+      .map((item) => `${item.position}:${item.kind}:${item.script ?? ""}:${item.translationVi ?? ""}`)
+      .join("|") ?? "";
+  const orderBank = useMemo(() => {
+    const currentView = viewRef.current;
+    if (!currentView) return [];
+    const current = currentView.clips.find((item) => item.position === livePosition);
+    if (!current || current.kind !== "order" || !current.script) return [];
+    const pool = currentView.clips.flatMap((item) =>
+      item.script
+        ? [{ id: String(item.position), script: item.script, translationVi: item.translationVi ?? "" }]
+        : [],
+    );
+    return buildWordBank(
+      { id: String(current.position), script: current.script, translationVi: current.translationVi ?? "" },
+      pool,
+    );
+  }, [livePosition, bankKey]);
   const settledCount = view?.clips.filter((item) => isSettledState(item.you.state)).length ?? 0;
   const deadlineLabel =
     view?.expiresAt && !view.complete && phase !== "result"
@@ -400,10 +422,35 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       : null;
   const finishedAgo = view ? completedWhen(view) : null;
 
-  const submit = () => {
-    if (!draft.trim() || phase !== "play" || !clip?.script || clockStartRef.current == null) return;
-    const typed = draft.trim().slice(0, MAX_ANSWER_CHARS);
+  const finishCorrect = (text: string) => {
+    if (!clip || clockStartRef.current == null) return;
     const elapsedMs = Math.max(0, Date.now() - clockStartRef.current);
+    const current = viewRef.current;
+    if (!current) return;
+    playSuccessSound();
+    const next = withClipSettled(current, clip.position, { state: "done", elapsedMs });
+    playingPositionRef.current = null;
+    remember(next);
+    setFeedback(null);
+    setDraft("");
+    saveClip("settle", { position: clip.position, text, elapsedMs });
+    if (!hasPending(next)) {
+      if (next.yourOutcome === "win") playCelebrationSound();
+      setPhase("result");
+      return;
+    }
+    const upcoming = nextClip(next);
+    if (!upcoming || !clipCanStart(upcoming)) {
+      setError("Câu này không mở được.");
+      setPhase("error");
+      return;
+    }
+    startClip(upcoming.position);
+  };
+
+  const submit = () => {
+    if (!draft.trim() || phase !== "play" || !clip?.script || clip.kind === "order" || clockStartRef.current == null) return;
+    const typed = draft.trim().slice(0, MAX_ANSWER_CHARS);
     const result = scoreAttempt(typed, clip.script);
     const words = result.words.map((word) => ({
       word: word.word,
@@ -414,27 +461,22 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       setFeedback({ accuracy: result.accuracy, accepted: false, tooFast: false, words });
       return;
     }
-    const current = viewRef.current;
-    if (!current) return;
-    playSuccessSound();
-    const next = withClipSettled(current, clip.position, { state: "done", elapsedMs });
-    playingPositionRef.current = null;
-    remember(next);
-    setFeedback(null);
-    setDraft("");
-    saveClip("settle", { position: clip.position, text: typed, elapsedMs });
-    if (!hasPending(next)) {
-      if (next.yourOutcome === "win") playCelebrationSound();
-      setPhase("result");
+    finishCorrect(typed);
+  };
+
+  const submitOrder = (selected: string[]) => {
+    if (phase !== "play" || !clip?.script || clip.kind !== "order" || clockStartRef.current == null) return;
+    const result = checkOrder(selected, clip.script);
+    const words = result.words.map((word) => ({
+      word: word.word,
+      status: word.status,
+      ...(word.typed ? { typed: word.typed } : {}),
+    }));
+    if (result.accuracy !== 100) {
+      setFeedback({ accuracy: result.accuracy, accepted: false, tooFast: false, words });
       return;
     }
-    const upcoming = nextClip(next);
-    if (!upcoming?.script || !upcoming.audioPath) {
-      setError("Câu này không phát được.");
-      setPhase("error");
-      return;
-    }
-    startClip(upcoming.position);
+    finishCorrect(selected.join(" ").slice(0, MAX_ANSWER_CHARS));
   };
 
   const confirmQuit = () => {
@@ -449,8 +491,8 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       setPhase("result");
       return;
     }
-    if (!upcoming.script || !upcoming.audioPath) {
-      setError("Câu này không phát được.");
+    if (!clipCanStart(upcoming)) {
+      setError("Câu này không mở được.");
       return;
     }
     countdownStarts.delete(duelId);
@@ -539,7 +581,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             opponentName={view.opponentName}
             onDone={() => {
               const upcoming = nextClip(view);
-              if (!upcoming?.script || !upcoming.audioPath) {
+              if (!upcoming || !clipCanStart(upcoming)) {
                 setError("Không mở được câu đầu.");
                 setPhase("error");
                 return;
@@ -561,7 +603,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
           </section>
         ) : null}
 
-        {phase === "play" && clip?.audioPath ? (
+        {phase === "play" && clip && clipCanStart(clip) ? (
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1" aria-label="Tiến độ trận đấu">
               {view?.clips.map((item) => {
@@ -577,7 +619,6 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 );
               })}
             </div>
-            <AudioPlayerCard key={clip.position} audioPath={clip.audioPath} />
             {feedback && !feedback.accepted ? (
               <section className="rounded-2xl bg-white px-4 py-3 shadow-[0_3px_0_0_#fecdd3]">
                 <p className="text-[13px] font-extrabold text-[#be123c]">Chưa đúng. Sửa lại và gửi tiếp.</p>
@@ -588,44 +629,56 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             ) : null}
             {error ? <p className="text-[14px] font-bold text-[#be123c]">{error}</p> : null}
             {syncError ? <p className="text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#6e7881]" htmlFor="duel-answer">
-              Bản chép chính tả
-            </label>
-            <textarea
-              ref={textareaRef}
-              id="duel-answer"
-              rows={3}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  submit();
-                }
-              }}
-              placeholder="Gõ câu tiếng Đức bạn vừa nghe"
-              className="w-full resize-none rounded-[24px] bg-white px-4 py-4 text-[18px] font-semibold text-[#131b2e] shadow-[0_4px_0_0_#dae2fd] outline-none"
-            />
-            <div className="flex gap-1">
-              {SPECIAL_CHARS.map((char) => (
+            {clip.kind === "order" ? (
+              <SentenceOrderCard
+                key={`order-${clip.position}`}
+                translation={clip.translationVi ?? ""}
+                chips={orderBank}
+                onSubmit={submitOrder}
+              />
+            ) : clip.audioPath ? (
+              <>
+                <AudioPlayerCard key={clip.position} audioPath={clip.audioPath} />
+                <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#6e7881]" htmlFor="duel-answer">
+                  Bản chép chính tả
+                </label>
+                <textarea
+                  ref={textareaRef}
+                  id="duel-answer"
+                  rows={3}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder="Gõ câu tiếng Đức bạn vừa nghe"
+                  className="w-full resize-none rounded-[24px] bg-white px-4 py-4 text-[18px] font-semibold text-[#131b2e] shadow-[0_4px_0_0_#dae2fd] outline-none"
+                />
+                <div className="flex gap-1">
+                  {SPECIAL_CHARS.map((char) => (
+                    <button
+                      key={char}
+                      type="button"
+                      onClick={() => insertChar(char)}
+                      className="h-10 flex-1 rounded-xl bg-white text-[15px] font-extrabold text-[#131b2e] shadow-[0_3px_0_0_#dae2fd] active:translate-y-0.5"
+                    >
+                      {char}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={char}
                   type="button"
-                  onClick={() => insertChar(char)}
-                  className="h-10 flex-1 rounded-xl bg-white text-[15px] font-extrabold text-[#131b2e] shadow-[0_3px_0_0_#dae2fd] active:translate-y-0.5"
+                  disabled={!draft.trim()}
+                  onClick={() => submit()}
+                  className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
                 >
-                  {char}
+                  Kiểm tra
                 </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              disabled={!draft.trim()}
-              onClick={() => submit()}
-              className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
-            >
-              Kiểm tra
-            </button>
+              </>
+            ) : null}
           </div>
         ) : null}
 

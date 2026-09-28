@@ -19,7 +19,7 @@ export type SessionClip = {
   script: string;
   translationVi: string;
   audioPath: string;
-  /** Also practised as a sentence-order card. Only set for level lessons. */
+  /** Sentence-order card in a duel. Only set for level lessons. */
   sentenceOrder?: boolean;
 };
 
