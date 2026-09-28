@@ -9,6 +9,7 @@ import {
   buildAdminClipDifficultyBoard,
   clipAttempts,
   clipMissRate,
+  rankClipOutcomes,
   type ClipOutcomeTotal,
   type ListeningReadStatus,
 } from "@/lib/listening-runs";
@@ -28,6 +29,136 @@ function clipExcerpt(prompt: string): string {
   const trimmed = prompt.replace(/\s+/g, " ").trim();
   if (trimmed.length <= 90) return trimmed;
   return `${trimmed.slice(0, 87)}…`;
+}
+
+function outcomeCount(count: number, singular: string, plural: string): string {
+  return `${count.toLocaleString("en-GB")} ${count === 1 ? singular : plural}`;
+}
+
+function ClipRankPanel({
+  title,
+  icon,
+  empty,
+  rows,
+  catalog,
+  count,
+  countLabel,
+  students,
+}: {
+  title: string;
+  icon: string;
+  empty: string;
+  rows: readonly ClipOutcomeTotal[];
+  catalog: readonly AdminCatalogCourse[];
+  count: (row: ClipOutcomeTotal) => number;
+  countLabel: readonly [string, string];
+  students: (row: ClipOutcomeTotal) => number;
+}) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+      <div className="flex items-center gap-space-8 border-b border-outline-variant/20 px-space-16 py-space-12">
+        <MaterialIcon name={icon} className="text-[20px] text-primary" />
+        <h3 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h3>
+      </div>
+      {rows.length === 0 ? (
+        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
+          {empty}
+        </p>
+      ) : (
+        <ol>
+          {rows.map((row, index) => {
+            const described = describeCatalogClip(catalog, row.lessonKey, row.clipId);
+            const place = described.lesson
+              ? `${described.course} · ${described.lesson}`
+              : described.course;
+            const studentCount = students(row);
+            return (
+              <li
+                key={`${row.lessonKey}:${row.clipId}`}
+                className="flex items-start gap-space-12 border-b border-outline-variant/15 px-space-16 py-space-12 last:border-b-0"
+              >
+                <span className="mt-0.5 w-5 shrink-0 font-label-sm text-label-sm font-semibold tabular-nums text-outline">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-caption text-caption text-on-surface-variant">
+                    {place}
+                  </span>
+                  <span className="mt-0.5 block font-body-sm text-body-sm text-on-surface">
+                    {clipExcerpt(described.prompt)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
+                    {outcomeCount(count(row), countLabel[0], countLabel[1])}
+                  </span>
+                  <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
+                    {outcomeCount(studentCount, "student", "students")}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ListeningClipSection({
+  catalog,
+  status,
+  rows,
+}: {
+  catalog: readonly AdminCatalogCourse[];
+  status: ListeningReadStatus;
+  rows: readonly ClipOutcomeTotal[];
+}) {
+  const ranked = useMemo(() => rankClipOutcomes(rows), [rows]);
+
+  return (
+    <section aria-label="Listening clips" className="flex flex-col gap-space-12">
+      <div>
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">Listening clips</h2>
+        <p className="font-caption text-caption text-on-surface-variant">
+          All-time totals across every student. A clip they miss and then correct counts in
+          both lists.
+        </p>
+      </div>
+      {status === "missing" ? (
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-space-20 py-space-16 font-body-sm text-body-sm text-on-surface-variant">
+          {LISTENING_SCHEMA_HINT}
+        </div>
+      ) : status === "error" ? (
+        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+          Clip results could not be loaded.
+        </div>
+      ) : (
+        <div className="grid gap-space-12 lg:grid-cols-2">
+          <ClipRankPanel
+            title="Failed most"
+            icon="heart_broken"
+            empty="No clip has been missed yet."
+            rows={ranked.failed}
+            catalog={catalog}
+            count={(row) => row.failures}
+            countLabel={["miss", "misses"]}
+            students={(row) => row.studentsFailed}
+          />
+          <ClipRankPanel
+            title="Succeeded most"
+            icon="check_circle"
+            empty="No clip has been passed yet."
+            rows={ranked.succeeded}
+            catalog={catalog}
+            count={(row) => row.successes}
+            countLabel={["pass", "passes"]}
+            students={(row) => row.studentsPassed}
+          />
+        </div>
+      )}
+    </section>
+  );
 }
 
 function SummaryStat({
@@ -249,6 +380,10 @@ export function AdminClipDifficulty({
         />
       </section>
 
+      {storeConfigured ? (
+        <ListeningClipSection catalog={catalog} status={status} rows={rows} />
+      ) : null}
+
       <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
         <div className="flex flex-col gap-space-12 px-space-16 py-space-12">
           <div>
@@ -256,7 +391,7 @@ export function AdminClipDifficulty({
               Every clip with data
             </h2>
             <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Miss rate is misses ÷ (misses + passes). Overview only shows the top eight.
+              Miss rate is misses ÷ (misses + passes).
             </p>
           </div>
           <div className="flex flex-col gap-space-12 lg:flex-row lg:items-center">

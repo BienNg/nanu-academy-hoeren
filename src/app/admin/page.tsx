@@ -12,11 +12,9 @@ import {
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import { presentClipOutcomes } from "@/lib/listening-runs";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
-  listClipOutcomeTotals,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -56,16 +54,13 @@ export default async function AdminPage({
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
   const activity = buildAdminActivityStats(rows, range);
-  const clipOutcomes = presentClipOutcomes(
-    storeConfigured ? await listClipOutcomeTotals() : { status: "ready", rows: [] },
-  );
 
   return (
     <AdminOverview
       activity={activity}
       range={range}
       courseCatalog={courseCatalog}
-      clipOutcomes={clipOutcomes}
+      rows={rows}
       storeConfigured={storeConfigured}
     />
   );

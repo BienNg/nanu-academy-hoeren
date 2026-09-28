@@ -416,6 +416,24 @@ function emptyPoint(key: string, label: string): AdminActivityPoint {
   };
 }
 
+function isRowActiveInWindow(
+  row: AdminUserRow,
+  days: readonly string[],
+  window: ReadonlySet<string>,
+): boolean {
+  let touched = false;
+  let hasWork = false;
+
+  for (const day of days) {
+    const work = dayWork(row.progress, day);
+    if (work.videos > 0 || work.study > 0 || work.practice > 0) hasWork = true;
+    if (userTouchedDay(row.progress, day)) touched = true;
+  }
+
+  const lastSeenDay = utcDay(row.lastLoginAt);
+  return touched || hasWork || (lastSeenDay != null && window.has(lastSeenDay));
+}
+
 /** Totals over the selected window. Days are UTC calendar days, matching streaks. */
 export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
@@ -433,28 +451,19 @@ export function buildAdminActivityStats(
     let rowVideos = 0;
     let rowStudy = 0;
     let rowPractice = 0;
-    let touched = false;
 
     for (const day of days) {
       const work = dayWork(row.progress, day);
       rowVideos += work.videos;
       rowStudy += work.study;
       rowPractice += work.practice;
-      touched = touched || userTouchedDay(row.progress, day);
     }
 
     videosWatched += rowVideos;
     studyRuns += rowStudy;
     practiceRuns += rowPractice;
 
-    const lastSeenDay = utcDay(row.lastLoginAt);
-    const active =
-      touched ||
-      (lastSeenDay != null && window.has(lastSeenDay)) ||
-      rowVideos > 0 ||
-      rowStudy > 0 ||
-      rowPractice > 0;
-    if (active) activeUsers += 1;
+    if (isRowActiveInWindow(row, days, window)) activeUsers += 1;
   }
 
   return {
@@ -464,6 +473,19 @@ export function buildAdminActivityStats(
     studyRuns,
     practiceRuns,
   };
+}
+
+/** Users active in the window, most recently seen first — for the Overview's detailed list. */
+export function listActiveAdminUsers(
+  rows: readonly AdminUserRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminUserRow[] {
+  const days = adminRangeDayKeys(range, now);
+  const window = new Set(days);
+  return rows
+    .filter((row) => isRowActiveInWindow(row, days, window))
+    .sort((a, b) => b.lastLoginMs - a.lastLoginMs);
 }
 
 export type AdminActivityGrain = "hour" | "day";

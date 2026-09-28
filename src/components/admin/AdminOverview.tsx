@@ -1,20 +1,31 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
-import { describeCatalogClip, type AdminCatalogCourse } from "@/lib/admin-detail";
+import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
+  ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  listActiveAdminUsers,
+  paginateAdminUsers,
   type AdminActivityStats,
   type AdminRange,
+  type AdminUserRow,
 } from "@/lib/admin-overview";
-import {
-  LISTENING_SCHEMA_HINT,
-  type ClipOutcomeTotal,
-  type RankedClipOutcomes,
-} from "@/lib/listening-runs";
 
 function formatCount(value: number): string {
   return value.toLocaleString("en-GB");
+}
+
+function formatAbsoluteTime(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function ActivityStat({
@@ -46,134 +57,145 @@ function ActivityStat({
   );
 }
 
-function clipExcerpt(prompt: string): string {
-  const trimmed = prompt.replace(/\s+/g, " ").trim();
-  if (trimmed.length <= 110) return trimmed;
-  return `${trimmed.slice(0, 107)}…`;
-}
-
-function outcomeCount(count: number, singular: string, plural: string): string {
-  return `${count.toLocaleString("en-GB")} ${count === 1 ? singular : plural}`;
-}
-
-function ClipRankPanel({
-  title,
-  icon,
-  empty,
-  rows,
-  catalog,
-  count,
-  countLabel,
-  students,
+function ActiveUsersSection({
+  users,
+  window,
+  onSelect,
 }: {
-  title: string;
-  icon: string;
-  empty: string;
-  rows: readonly ClipOutcomeTotal[];
-  catalog: readonly AdminCatalogCourse[];
-  count: (row: ClipOutcomeTotal) => number;
-  countLabel: readonly [string, string];
-  students: (row: ClipOutcomeTotal) => number;
+  users: readonly AdminUserRow[];
+  window: string;
+  onSelect: (userId: string) => void;
 }) {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="flex items-center gap-space-8 border-b border-outline-variant/20 px-space-16 py-space-12">
-        <MaterialIcon name={icon} className="text-[20px] text-primary" />
-        <h3 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h3>
-      </div>
-      {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          {empty}
-        </p>
-      ) : (
-        <ol>
-          {rows.map((row, index) => {
-            const described = describeCatalogClip(catalog, row.lessonKey, row.clipId);
-            const place = described.lesson
-              ? `${described.course} · ${described.lesson}`
-              : described.course;
-            const studentCount = students(row);
-            return (
-              <li
-                key={`${row.lessonKey}:${row.clipId}`}
-                className="flex items-start gap-space-12 border-b border-outline-variant/15 px-space-16 py-space-12 last:border-b-0"
-              >
-                <span className="mt-0.5 w-5 shrink-0 font-label-sm text-label-sm font-semibold tabular-nums text-outline">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-caption text-caption text-on-surface-variant">
-                    {place}
-                  </span>
-                  <span className="mt-0.5 block font-body-sm text-body-sm text-on-surface">
-                    {clipExcerpt(described.prompt)}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="block font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
-                    {outcomeCount(count(row), countLabel[0], countLabel[1])}
-                  </span>
-                  <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
-                    {outcomeCount(studentCount, "student", "students")}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </div>
+  const [page, setPage] = useState(1);
+  const paged = useMemo(
+    () => paginateAdminUsers(users, page, ADMIN_PAGE_SIZE),
+    [users, page],
   );
-}
+  const rangeStart = paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
 
-function ListeningClipSection({
-  catalog,
-  outcomes,
-}: {
-  catalog: readonly AdminCatalogCourse[];
-  outcomes: RankedClipOutcomes;
-}) {
   return (
-    <section aria-label="Listening clips" className="flex flex-col gap-space-12">
+    <section aria-label="Active users" className="flex flex-col gap-space-12">
       <div>
-        <h2 className="font-headline-sm text-headline-sm text-on-surface">Listening clips</h2>
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">Active users</h2>
         <p className="font-caption text-caption text-on-surface-variant">
-          All-time totals across every student. A clip they miss and then correct counts in
-          both lists.
+          Everyone seen or practicing {window}. Click a row to open their detail.
         </p>
       </div>
-      {outcomes.status === "missing" ? (
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-space-20 py-space-16 font-body-sm text-body-sm text-on-surface-variant">
-          {LISTENING_SCHEMA_HINT}
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-left">
+            <thead className="bg-surface-container-low">
+              <tr>
+                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  User
+                </th>
+                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Class
+                </th>
+                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Last seen
+                </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Streak
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.pageRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
+                  >
+                    No one has been active {window}.
+                  </td>
+                </tr>
+              ) : (
+                paged.pageRows.map((row) => {
+                  const lastSeen = formatAbsoluteTime(row.lastLoginAt);
+                  return (
+                    <tr
+                      key={row.userId}
+                      tabIndex={0}
+                      onClick={() => onSelect(row.userId)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") onSelect(row.userId);
+                      }}
+                      className="cursor-pointer border-t border-outline-variant/20 hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                    >
+                      <td className="px-space-16 py-space-16">
+                        <div className="flex min-w-[14rem] flex-col">
+                          <span className="font-label-md text-label-md font-semibold text-on-surface">
+                            {row.displayName}
+                          </span>
+                          {row.email && row.email !== row.displayName ? (
+                            <span className="font-body-sm text-body-sm text-on-surface-variant">
+                              {row.email}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
+                        {row.className ?? (
+                          <span className="text-outline">No class</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
+                        {lastSeen ? (
+                          <time dateTime={row.lastLoginAt ?? undefined}>{lastSeen}</time>
+                        ) : (
+                          <span className="text-outline">Not seen yet</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-space-16 py-space-16 text-right">
+                        <span
+                          className={`inline-flex items-center gap-space-4 ${
+                            row.streakDays > 0 ? "text-on-surface" : "text-outline"
+                          }`}
+                        >
+                          <MaterialIcon
+                            name="local_fire_department"
+                            className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
+                            filled={row.streakDays > 0}
+                          />
+                          <span className="font-label-sm text-label-sm font-semibold tabular-nums">
+                            {row.streakDays}
+                          </span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : outcomes.status === "error" ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Clip results could not be loaded.
+
+        <div className="flex flex-wrap items-center justify-between gap-space-12 border-t border-outline-variant/20 px-space-16 py-space-12">
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            {paged.total === 0 ? "0 users" : `${rangeStart}–${rangeEnd} of ${paged.total}`}
+          </p>
+          <div className="flex items-center gap-space-8">
+            <button
+              type="button"
+              disabled={paged.page <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={paged.page >= paged.pageCount}
+              onClick={() => setPage((current) => Math.min(paged.pageCount, current + 1))}
+              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="grid gap-space-12 lg:grid-cols-2">
-          <ClipRankPanel
-            title="Failed most"
-            icon="heart_broken"
-            empty="No clip has been missed yet."
-            rows={outcomes.failed}
-            catalog={catalog}
-            count={(row) => row.failures}
-            countLabel={["miss", "misses"]}
-            students={(row) => row.studentsFailed}
-          />
-          <ClipRankPanel
-            title="Succeeded most"
-            icon="check_circle"
-            empty="No clip has been passed yet."
-            rows={outcomes.succeeded}
-            catalog={catalog}
-            count={(row) => row.successes}
-            countLabel={["pass", "passes"]}
-            students={(row) => row.studentsPassed}
-          />
-        </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -182,7 +204,7 @@ type AdminOverviewProps = {
   activity: AdminActivityStats;
   range: AdminRange;
   courseCatalog: readonly AdminCatalogCourse[];
-  clipOutcomes: RankedClipOutcomes;
+  rows: readonly AdminUserRow[];
   storeConfigured: boolean;
 };
 
@@ -190,65 +212,85 @@ export function AdminOverview({
   activity,
   range,
   courseCatalog,
-  clipOutcomes,
+  rows,
   storeConfigured,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
+  const activeUsers = useMemo(() => listActiveAdminUsers(rows, range), [rows, range]);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const detailRow = useMemo(
+    () => rows.find((row) => row.userId === detailUserId) ?? null,
+    [rows, detailUserId],
+  );
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
-      <AdminPageHeader
-        kicker="Admin"
-        title="Overview"
-        subtitle={`Platform activity ${window}. Days are UTC, the same boundary as streaks.`}
-      />
+    <>
+      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+        <AdminPageHeader
+          kicker="Admin"
+          title="Overview"
+          subtitle={`Platform activity ${window}. Days are UTC, the same boundary as streaks.`}
+        />
 
-      {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Cloud progress is not configured. This dashboard only counts learners who have
-          synced progress to Supabase.
-        </div>
+        {!storeConfigured ? (
+          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+            Cloud progress is not configured. This dashboard only counts learners who have
+            synced progress to Supabase.
+          </div>
+        ) : null}
+
+        <section aria-label="Activity" className="flex flex-col gap-space-12">
+          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
+            <ActivityStat
+              label="Users"
+              value={formatCount(activity.users)}
+              icon="group"
+              hint="Accounts with synced progress"
+            />
+            <ActivityStat
+              label="Active"
+              value={formatCount(activity.activeUsers)}
+              icon="person"
+              hint={`Seen or practiced ${window}`}
+            />
+            <ActivityStat
+              label="Videos watched"
+              value={formatCount(activity.videosWatched)}
+              icon="smart_display"
+              hint={`Marked watched ${window}`}
+            />
+            <ActivityStat
+              label="Study runs"
+              value={formatCount(activity.studyRuns)}
+              icon="menu_book"
+              hint={`Finished ${window}`}
+            />
+            <ActivityStat
+              label="Practice runs"
+              value={formatCount(activity.practiceRuns)}
+              icon="headphones"
+              hint={`Listening runs finished ${window}`}
+            />
+          </div>
+        </section>
+
+        {storeConfigured ? (
+          <ActiveUsersSection
+            users={activeUsers}
+            window={window}
+            onSelect={setDetailUserId}
+          />
+        ) : null}
+      </main>
+
+      {detailRow ? (
+        <StudentDetailModal
+          row={detailRow}
+          catalog={courseCatalog}
+          onClose={() => setDetailUserId(null)}
+        />
       ) : null}
-
-      <section aria-label="Activity" className="flex flex-col gap-space-12">
-        <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
-          <ActivityStat
-            label="Users"
-            value={formatCount(activity.users)}
-            icon="group"
-            hint="Accounts with synced progress"
-          />
-          <ActivityStat
-            label="Active"
-            value={formatCount(activity.activeUsers)}
-            icon="person"
-            hint={`Seen or practiced ${window}`}
-          />
-          <ActivityStat
-            label="Videos watched"
-            value={formatCount(activity.videosWatched)}
-            icon="smart_display"
-            hint={`Marked watched ${window}`}
-          />
-          <ActivityStat
-            label="Study runs"
-            value={formatCount(activity.studyRuns)}
-            icon="menu_book"
-            hint={`Finished ${window}`}
-          />
-          <ActivityStat
-            label="Practice runs"
-            value={formatCount(activity.practiceRuns)}
-            icon="headphones"
-            hint={`Listening runs finished ${window}`}
-          />
-        </div>
-      </section>
-
-      {storeConfigured ? (
-        <ListeningClipSection catalog={courseCatalog} outcomes={clipOutcomes} />
-      ) : null}
-    </main>
+    </>
   );
 }
