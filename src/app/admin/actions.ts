@@ -22,6 +22,14 @@ import {
   withoutInterviewAccess,
 } from "@/lib/progress-store";
 
+/**
+ * Every admin page reads the same user rows, so one layout-scoped call covers
+ * all of them and keeps new sections working without being listed here.
+ */
+function revalidateAdmin(): void {
+  revalidatePath("/admin", "layout");
+}
+
 export async function listAdminStudentRuns(
   userId: string,
   offset = 0,
@@ -67,8 +75,7 @@ export async function deleteAdminUser(
     return { ok: false, error: message };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/classes");
+  revalidateAdmin();
   return { ok: true };
 }
 
@@ -113,8 +120,7 @@ export async function setAdminUserLevelAccess(
     return { ok: false, error: message };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/classes");
+  revalidateAdmin();
   revalidatePath("/");
   return { ok: true, levelAccess };
 }
@@ -158,8 +164,7 @@ export async function setAdminUserInterviewAccess(
     return { ok: false, error: message };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/classes");
+  revalidateAdmin();
   revalidatePath("/");
   return { ok: true, interviewAccess };
 }
@@ -194,7 +199,6 @@ export async function setAdminUserClass(
     return { ok: false, error: message };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/classes");
+  revalidateAdmin();
   return { ok: true, className: normalized || null };
 }

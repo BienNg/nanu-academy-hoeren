@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { AdminClassStats } from "@/components/admin/AdminClassStats";
+import { AdminUsersDashboard } from "@/components/admin/AdminUsersDashboard";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   shortBerufLabel,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
+import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
@@ -17,11 +18,11 @@ import {
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Classes · Admin · NaNu Academy Hören",
+  title: "Students · Admin · NaNu Academy Hören",
   robots: { index: false, follow: false },
 };
 
-export default async function AdminClassesPage() {
+export default async function AdminStudentsPage() {
   await connection();
   const session = await requireAdmin();
 
@@ -33,6 +34,7 @@ export default async function AdminClassesPage() {
     totalClips: getSessionClips(beruf.slug).length,
   }));
   const courseCatalog = buildAdminCourseCatalog(tracks);
+  const levels = getCefrLevels().map(({ level, slug }) => ({ level, slug }));
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -48,10 +50,12 @@ export default async function AdminClassesPage() {
   );
 
   return (
-    <AdminClassStats
+    <AdminUsersDashboard
       rows={rows}
+      levels={levels}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
+      currentUserId={session.user.id}
     />
   );
 }

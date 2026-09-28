@@ -81,52 +81,53 @@ function ContinueCard({
   const displayIndex = Math.min(currentChapterIndex + 1, Math.max(totalChapters, 1));
 
   return (
-    <section className="flex flex-col gap-space-8 pt-space-4">
-      <div className="flex w-full flex-col gap-space-16 rounded-[32px] bg-white/80 backdrop-blur-xl border border-white/20 p-space-24 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-        <div className="flex items-start justify-between gap-space-12">
-          <div className="flex min-w-0 flex-col gap-space-4">
-            <div className="inline-flex items-center gap-space-6">
-              <span className="rounded-full bg-[#0066cc]/10 px-space-8 py-0.5 font-label-sm text-label-sm font-semibold text-[#0066cc]">
-                Đang học dở
-              </span>
-            </div>
-            <h2 className="mt-space-2 font-headline-sm text-headline-sm font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
+    <section className="pt-1">
+      <Link
+        href={href}
+        className="group relative flex w-full flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1] transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] active:translate-y-1.5 active:shadow-[0_1px_0_0_#0369a1]"
+      >
+        <span className="pointer-events-none absolute -right-3 -bottom-5 text-white opacity-15" aria-hidden="true">
+          <MaterialIcon name="flag_circle" className="text-[120px]" />
+        </span>
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-sky-100">
+              <MaterialIcon name="school" className="text-[16px]" filled />
+              Đang học dở
+            </span>
+            <h2 className="mt-1 text-[22px] font-extrabold leading-tight tracking-tight sm:text-[24px]">
               Trình độ {levelLabel} · {chapterLabel}
             </h2>
-            <p className="font-body-sm text-body-sm font-medium text-[#86868b]">
+            <p className="mt-0.5 text-[14px] font-bold text-sky-100">
               Luyện tập theo trình độ
             </p>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc]">
-            <MaterialIcon name="hearing" className="text-[24px]" />
-          </div>
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-t-2 border-white/40 bg-white text-[#0284c7] shadow-[0_4px_0_0_#0369a1]">
+            <MaterialIcon name="play_arrow" className="text-[34px]" filled />
+          </span>
         </div>
 
-        <div className="flex flex-col gap-space-4">
-          <div className="flex items-center justify-between font-caption text-caption font-medium text-[#86868b]">
+        <div className="relative mt-4 flex flex-col gap-1.5 border-t border-white/20 pt-3">
+          <div className="flex items-center justify-between text-[13px] font-extrabold">
             <span>
               Chương {displayIndex} / {Math.max(totalChapters, 1)}
               {percent >= 100 ? " · Đã hoàn thành" : " · Chưa hoàn thành"}
             </span>
-            <span className="font-semibold text-[#1d1d1f]">{percent}%</span>
+            <span className="tabular-nums">{percent}%</span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-black/20 p-0.5">
             <div
-              className="h-full rounded-full bg-[#0066cc] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="h-full rounded-full bg-[#ffc800] transition-[width] duration-500 ease-out"
               style={{ width: `${percent}%` }}
             />
           </div>
         </div>
 
-        <Link
-          href={href}
-          className="group flex h-[52px] w-full items-center justify-center gap-space-8 rounded-[16px] bg-[#0066cc] font-label-lg text-label-lg text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-        >
-          <MaterialIcon name="play_arrow" className="text-[20px]" filled />
-          <span>Tiếp tục · Weiter</span>
-          <MaterialIcon name="arrow_forward" className="text-[18px] transition-transform duration-300 group-hover:translate-x-1" />
-        </Link>
-      </div>
+        <span className="relative mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[15px] font-extrabold uppercase tracking-wide text-[#0284c7] shadow-[0_4px_0_0_#bae6fd] transition-transform group-active:translate-y-0.5 group-active:shadow-none">
+          Tiếp tục · Weiter
+          <MaterialIcon name="arrow_forward" className="text-[18px] transition-transform duration-200 group-hover:translate-x-0.5" />
+        </span>
+      </Link>
     </section>
   );
 }
@@ -149,24 +150,40 @@ function LevelCard({
         aria-disabled="true"
         aria-label={`Trình độ ${level.level} đang khóa. Nhờ giáo viên mở khóa.`}
         title="Nhờ giáo viên mở trình độ này"
-        className="flex min-h-[200px] w-[240px] shrink-0 flex-col justify-between gap-5 rounded-[28px] border border-black/[0.06] bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
+        className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-[#f8fafc] font-headline-sm opacity-85"
       >
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col">
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">
+        <div className="flex items-center gap-3.5 bg-[#f1f5f9] px-4 py-3.5">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#cbd5e1] text-[#64748b] shadow-[0_4px_0_0_#94a3b8]">
+            <MaterialIcon name="lock" className="text-[26px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748b]">
               Đã khóa
             </span>
-            <h3 className="mt-1 font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-              Trình độ {level.level}
-            </h3>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b]">
-            <MaterialIcon name="lock" className="text-[22px]" />
+            <span className="mt-0.5 block truncate text-[20px] font-extrabold leading-tight text-[#64748b]">
+              {level.level}
+            </span>
           </div>
         </div>
-        <p className="border-t border-black/[0.05] pt-4 text-[14px] font-medium leading-snug text-[#86868b]">
-          Nhờ giáo viên mở khóa
-        </p>
+
+        <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-[13px] font-bold text-[#86868b]">
+              <MaterialIcon name="menu_book" className="text-[17px]" />
+              <span>{chapterLabel}</span>
+            </div>
+            <p className="text-[12px] font-bold leading-snug text-[#86868b]">
+              Nhờ giáo viên mở khóa trình độ này
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#e2e8f0] text-[14px] font-extrabold uppercase tracking-wide text-[#94a3b8] cursor-not-allowed">
+              <MaterialIcon name="lock" className="text-[18px]" />
+              <span>Đang khóa</span>
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -175,27 +192,39 @@ function LevelCard({
     <Link
       href={`/learn/${level.slug}`}
       aria-label={`Trình độ ${level.level}`}
-      className="group flex min-h-[200px] w-[240px] shrink-0 flex-col justify-between gap-5 rounded-[28px] bg-white/80 backdrop-blur-xl border border-white/20 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
+      className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col">
-          <span className="text-[12px] font-semibold uppercase tracking-wider text-[#0066cc]">
+      <div className="flex items-center gap-3.5 bg-[#e0f2fe] px-4 py-3.5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1]">
+          <MaterialIcon name="hearing" className="text-[26px]" filled />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="block text-[11px] font-extrabold uppercase tracking-wider text-[#0284c7]">
             Trình độ
           </span>
-          <h3 className="mt-1 font-headline-sm text-[22px] font-bold text-[#1d1d1f] group-hover:text-[#0066cc] transition-colors duration-300" style={{ letterSpacing: "-0.015em" }}>
+          <span className="mt-0.5 block truncate text-[20px] font-extrabold leading-tight text-[#131b2e]">
             {level.level}
-          </h3>
-        </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7] text-[#0066cc] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[#0066cc] group-hover:text-white group-hover:scale-110">
-          <MaterialIcon name="hearing" className="text-[22px]" />
+          </span>
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-black/[0.05] pt-4 text-[14px] font-medium">
-        <span className="text-[#86868b]">{chapterLabel}</span>
-        <span className="flex items-center gap-0.5 font-semibold text-[#0066cc]">
-          Vào
-          <MaterialIcon name="arrow_forward" className="text-[16px] transition-transform duration-300 group-hover:translate-x-0.5" />
-        </span>
+
+      <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-[13px] font-bold text-[#3e4850]">
+            <MaterialIcon name="menu_book" className="text-[17px] text-[#6e7881]" />
+            <span>{chapterLabel} bài học</span>
+          </div>
+          <p className="text-[12px] font-bold leading-snug text-[#6e7881]">
+            Luyện nghe theo bài học CEFR
+          </p>
+        </div>
+
+        <div className="pt-2">
+          <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
+            <span>Vào học</span>
+            <MaterialIcon name="arrow_forward" className="text-[18px] transition-transform duration-200 group-hover:translate-x-0.5" />
+          </span>
+        </div>
       </div>
     </Link>
   );
@@ -215,9 +244,10 @@ function nameInitial(name: string): string {
   return Array.from(name)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
-function DuoButton({ children }: { children: string }) {
+function DuoButton({ children, icon }: { children: string; icon?: string }) {
   return (
-    <span className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#0284c7] text-[15px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all group-hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
+    <span className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0284c7] text-[15px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all group-hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
+      {icon ? <MaterialIcon name={icon} className="text-[20px]" filled /> : null}
       {children}
     </span>
   );
@@ -366,13 +396,13 @@ function DuelCta() {
         </p>
         <p
           className={`mt-2 text-[13px] font-extrabold leading-snug ${
-            challenges > 0 ? "text-[#e11d48]" : "text-[#6e7881]"
+            challenges > 0 ? "text-[#0284c7]" : "text-[#6e7881]"
           }`}
         >
           {waiting}
         </p>
         <div className="mt-auto pt-4">
-          <DuoButton>{challenges > 0 ? "Vào đấu" : "Đấu ngay"}</DuoButton>
+          <DuoButton icon="swords">{challenges > 0 ? "Vào đấu" : "Đấu ngay"}</DuoButton>
         </div>
       </div>
     </Link>
@@ -462,8 +492,6 @@ function BerufCard({
   const href = `/interview/${beruf.slug}`;
   const safeTotal = Math.max(totalClips, 0);
   const isComplete = safeTotal > 0 && percent >= 100;
-  const lessonLabel =
-    safeTotal > 0 ? `${completedCount}/${safeTotal} bài` : "Phỏng vấn";
   const title = berufDisplayLabel(beruf.label);
 
   return (
@@ -473,38 +501,71 @@ function BerufCard({
       aria-label={
         isComplete ? `${beruf.label} · Đã hoàn thành` : beruf.label
       }
-      className="group relative flex min-h-[220px] w-[200px] shrink-0 flex-col justify-between gap-3 overflow-hidden rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 active:scale-[0.97]"
+      className="group flex h-[215px] w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#0284c7]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
     >
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+      <div className="flex items-center gap-3.5 bg-[#e0f2fe] px-4 py-3.5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1]">
+          <MaterialIcon name={icon} className="text-[26px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block text-[11px] font-extrabold uppercase tracking-wider text-[#0284c7]">
+              Ausbildung
+            </span>
             {isComplete ? (
-              <MaterialIcon name="check_circle" className="text-[14px] text-[#34C759]" filled />
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-white px-2 py-0.5 text-[10px] font-extrabold text-[#0284c7] shadow-[0_2px_0_0_#bae6fd]">
+                <MaterialIcon name="check" className="text-[12px]" />
+                Xong
+              </span>
             ) : null}
-            Ausbildung
-          </span>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-hover:bg-[#0066cc] group-hover:text-white">
-            <MaterialIcon name={icon} className="text-[18px]" />
+          </div>
+          <h3 className="mt-0.5 truncate text-[16px] font-extrabold leading-tight text-[#131b2e]" title={title}>
+            {title}
+          </h3>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-[12px] font-extrabold">
+            <span className="text-[#6e7881]">
+              {safeTotal > 0 ? `${completedCount}/${safeTotal} bài đã học` : "Phỏng vấn"}
+            </span>
+            <span className={percent > 0 ? "text-[#0284c7]" : "text-[#86868b]"}>
+              {percent}%
+            </span>
+          </div>
+
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
+            <div
+              className={`h-full rounded-full bg-[#0284c7] transition-all duration-500 ease-out ${
+                percent > 0 ? "" : "opacity-0"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(percent > 0 ? 6 : 0, percent))}%` }}
+            />
           </div>
         </div>
-        <h3 className="mt-1 line-clamp-2 break-words font-headline-sm text-[16px] font-bold leading-snug text-[#1d1d1f] group-hover:text-[#0066cc] transition-colors duration-300 [overflow-wrap:anywhere]" style={{ letterSpacing: "-0.015em" }}>
-          {title}
-        </h3>
-      </div>
-      <div className="flex items-center justify-between gap-2 border-t border-black/[0.05] pt-3 text-[12px] font-medium">
-        <span className="min-w-0 truncate text-[#86868b]">
-          {lessonLabel}
-        </span>
-        {percent > 0 ? (
-          <span className="shrink-0 font-semibold text-[#0066cc]">
-            {percent}%
+
+        <div className="pt-2">
+          <span className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] transition-all hover:bg-[#0ea5e9] group-active:translate-y-1 group-active:shadow-none">
+            {isComplete ? (
+              <>
+                <MaterialIcon name="replay" className="text-[18px]" />
+                <span>Ôn tập</span>
+              </>
+            ) : percent > 0 ? (
+              <>
+                <MaterialIcon name="play_arrow" className="text-[18px]" filled />
+                <span>Tiếp tục</span>
+              </>
+            ) : (
+              <>
+                <MaterialIcon name="play_arrow" className="text-[18px]" filled />
+                <span>Bắt đầu</span>
+              </>
+            )}
           </span>
-        ) : (
-          <span className="flex shrink-0 items-center gap-0.5 font-semibold text-[#0066cc]">
-            Vào
-            <MaterialIcon name="arrow_forward" className="text-[14px] transition-transform duration-300 group-hover:translate-x-0.5" />
-          </span>
-        )}
+        </div>
       </div>
     </Link>
   );
@@ -591,13 +652,18 @@ export function HomeScreen({
             <RankingPreview board={ranking} />
           </section>
 
-          <section className="flex flex-col gap-space-12 mt-4">
-            <div className="flex flex-col gap-space-4">
-              <h2 className="font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-                Luyện tập theo trình độ
-              </h2>
+          <section className="mt-2 flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e0f2fe] text-[#0284c7] shadow-[0_2px_0_0_#bae6fd]">
+                  <MaterialIcon name="school" className="text-[20px]" filled />
+                </span>
+                <h2 className="text-[20px] font-extrabold tracking-tight text-[#131b2e] sm:text-[22px]">
+                  Luyện tập theo trình độ
+                </h2>
+              </div>
               {levels.some((level) => !unlockedLevelSlugs.includes(level.slug)) ? (
-                <p className="font-body-sm text-body-sm text-[#86868b]">
+                <p className="text-[13px] font-bold leading-snug text-[#6e7881]">
                   Ổ khóa nghĩa là trình độ chưa được mở. Nhờ giáo viên mở giúp bạn.
                 </p>
               ) : null}
@@ -614,11 +680,19 @@ export function HomeScreen({
           </section>
 
           {interviewAccess ? (
-            <section className="flex flex-col gap-space-12">
-              <div className="flex items-center justify-between">
-                <h2 className="font-headline-sm text-[22px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-                  Luyện phỏng vấn theo nghề
-                </h2>
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e0f2fe] text-[#0284c7] shadow-[0_2px_0_0_#bae6fd]">
+                    <MaterialIcon name="work" className="text-[20px]" />
+                  </span>
+                  <h2 className="text-[20px] font-extrabold tracking-tight text-[#131b2e] sm:text-[22px]">
+                    Luyện phỏng vấn theo nghề
+                  </h2>
+                </div>
+                <p className="text-[13px] font-bold leading-snug text-[#6e7881]">
+                  Luyện phản xạ và câu hỏi phỏng vấn thực tế theo từng ngành nghề
+                </p>
               </div>
               <div className="-mx-6 flex flex-nowrap gap-4 overflow-x-auto scroll-smooth px-6 pb-6 pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {[...berufe]

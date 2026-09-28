@@ -1,5 +1,5 @@
-import { AdminScreenSkeleton } from "@/components/RouteLoading";
+import { AdminContentSkeleton } from "@/components/RouteLoading";
 
 export default function Loading() {
-  return <AdminScreenSkeleton />;
+  return <AdminContentSkeleton />;
 }

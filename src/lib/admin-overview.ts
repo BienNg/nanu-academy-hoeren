@@ -238,14 +238,81 @@ export function usersInClass(
 export type AdminActivityStats = {
   users: number;
   activeUsers: number;
-  videosWatchedToday: number;
-  studyRunsToday: number;
-  practiceRunsToday: number;
+  videosWatched: number;
+  studyRuns: number;
+  practiceRuns: number;
 };
+
+/** Windows offered by the admin date-range pill. */
+export const ADMIN_RANGES = ["today", "7d", "30d", "90d"] as const;
+
+export type AdminRange = (typeof ADMIN_RANGES)[number];
+
+export const DEFAULT_ADMIN_RANGE: AdminRange = "30d";
+
+const RANGE_DAYS: Record<AdminRange, number> = {
+  today: 1,
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+};
+
+const RANGE_LABELS: Record<AdminRange, string> = {
+  today: "Today",
+  "7d": "7 days",
+  "30d": "30 days",
+  "90d": "90 days",
+};
+
+/** Unknown and missing values fall back to the default rather than throwing. */
+export function parseAdminRange(
+  value: string | string[] | undefined,
+): AdminRange {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return ADMIN_RANGES.find((range) => range === raw) ?? DEFAULT_ADMIN_RANGE;
+}
+
+export function adminRangeLabel(range: AdminRange): string {
+  return RANGE_LABELS[range];
+}
+
+export function adminRangeDays(range: AdminRange): number {
+  return RANGE_DAYS[range];
+}
+
+/** UTC calendar days in the window, newest first, matching the streak boundary. */
+export function adminRangeDayKeys(
+  range: AdminRange,
+  now = new Date(),
+): string[] {
+  const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const days: string[] = [];
+  for (let index = 0; index < RANGE_DAYS[range]; index += 1) {
+    days.push(new Date(end - index * 86_400_000).toISOString().slice(0, 10));
+  }
+  return days;
+}
 
 function utcDay(value: string | null | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
   return value.slice(0, 10);
+}
+
+function utcHour(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.getUTCHours();
+}
+
+function formatUtcDayLabel(day: string): string {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return day;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 function studyRunsOnDay(progress: StoredProgress, day: string): number {
@@ -274,44 +341,294 @@ function videosWatchedOnDay(progress: StoredProgress, day: string): number {
   return count;
 }
 
-/** Totals for the admin overview. "Today" is the UTC calendar day, matching streaks. */
+function activeSecondsOnDay(progress: StoredProgress, day: string): number {
+  const recorded = progress.activity?.[day]?.activeSeconds ?? 0;
+  let fromVisits = 0;
+  for (const visit of progress.visits ?? []) {
+    if (utcDay(visit.startedAt) === day) fromVisits += visit.activeSeconds;
+  }
+  return Math.max(recorded, fromVisits);
+}
+
+function dayWork(progress: StoredProgress, day: string): {
+  videos: number;
+  study: number;
+  practice: number;
+} {
+  return {
+    videos: videosWatchedOnDay(progress, day),
+    study: studyRunsOnDay(progress, day),
+    practice: practiceRunsOnDay(progress, day),
+  };
+}
+
+function userTouchedDay(progress: StoredProgress, day: string): boolean {
+  const dayActivity = progress.activity?.[day];
+  return (
+    progress.lastPracticeDate === day ||
+    (dayActivity?.activeSeconds ?? 0) > 0 ||
+    (dayActivity?.clips ?? 0) > 0 ||
+    (dayActivity?.exercises ?? 0) > 0 ||
+    (dayActivity?.videoSeconds ?? 0) > 0
+  );
+}
+
+function userActiveOnDay(
+  row: AdminUserRow,
+  day: string,
+  work: { videos: number; study: number; practice: number },
+): boolean {
+  return (
+    userTouchedDay(row.progress, day) ||
+    utcDay(row.lastLoginAt) === day ||
+    work.videos > 0 ||
+    work.study > 0 ||
+    work.practice > 0
+  );
+}
+
+function emptyPoint(key: string, label: string): AdminActivityPoint {
+  return {
+    key,
+    label,
+    activeUsers: 0,
+    activeSeconds: 0,
+    videosWatched: 0,
+    studyRuns: 0,
+    practiceRuns: 0,
+    clips: 0,
+  };
+}
+
+/** Totals over the selected window. Days are UTC calendar days, matching streaks. */
 export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
 ): AdminActivityStats {
-  const today = now.toISOString().slice(0, 10);
+  const days = adminRangeDayKeys(range, now);
+  const window = new Set(days);
   let activeUsers = 0;
-  let videosWatchedToday = 0;
-  let studyRunsToday = 0;
-  let practiceRunsToday = 0;
+  let videosWatched = 0;
+  let studyRuns = 0;
+  let practiceRuns = 0;
 
   for (const row of rows) {
-    const videos = videosWatchedOnDay(row.progress, today);
-    const studyRuns = studyRunsOnDay(row.progress, today);
-    const practiceRuns = practiceRunsOnDay(row.progress, today);
-    const todayActivity = row.progress.activity?.[today];
-    videosWatchedToday += videos;
-    studyRunsToday += studyRuns;
-    practiceRunsToday += practiceRuns;
+    let rowVideos = 0;
+    let rowStudy = 0;
+    let rowPractice = 0;
+    let touched = false;
 
+    for (const day of days) {
+      const work = dayWork(row.progress, day);
+      rowVideos += work.videos;
+      rowStudy += work.study;
+      rowPractice += work.practice;
+      touched = touched || userTouchedDay(row.progress, day);
+    }
+
+    videosWatched += rowVideos;
+    studyRuns += rowStudy;
+    practiceRuns += rowPractice;
+
+    const lastSeenDay = utcDay(row.lastLoginAt);
     const active =
-      utcDay(row.lastLoginAt) === today ||
-      row.progress.lastPracticeDate === today ||
-      videos > 0 ||
-      studyRuns > 0 ||
-      practiceRuns > 0 ||
-      (todayActivity?.activeSeconds ?? 0) > 0 ||
-      (todayActivity?.clips ?? 0) > 0 ||
-      (todayActivity?.exercises ?? 0) > 0 ||
-      (todayActivity?.videoSeconds ?? 0) > 0;
+      touched ||
+      (lastSeenDay != null && window.has(lastSeenDay)) ||
+      rowVideos > 0 ||
+      rowStudy > 0 ||
+      rowPractice > 0;
     if (active) activeUsers += 1;
   }
 
   return {
     users: rows.length,
     activeUsers,
-    videosWatchedToday,
-    studyRunsToday,
-    practiceRunsToday,
+    videosWatched,
+    studyRuns,
+    practiceRuns,
+  };
+}
+
+export type AdminActivityGrain = "hour" | "day";
+
+export type AdminActivityPoint = {
+  key: string;
+  label: string;
+  activeUsers: number;
+  activeSeconds: number;
+  videosWatched: number;
+  studyRuns: number;
+  practiceRuns: number;
+  clips: number;
+};
+
+export type AdminActivityLeader = {
+  userId: string;
+  displayName: string;
+  className: string | null;
+  activeSeconds: number;
+  videosWatched: number;
+  studyRuns: number;
+  practiceRuns: number;
+};
+
+export type AdminActivityBoard = {
+  grain: AdminActivityGrain;
+  points: AdminActivityPoint[];
+  leaders: AdminActivityLeader[];
+};
+
+const ACTIVITY_LEADER_LIMIT = 8;
+
+function buildDailyActivityPoints(
+  rows: readonly AdminUserRow[],
+  daysNewestFirst: readonly string[],
+): AdminActivityPoint[] {
+  const points = [...daysNewestFirst].reverse().map((day) =>
+    emptyPoint(day, formatUtcDayLabel(day)),
+  );
+  const indexByDay = new Map(points.map((point, index) => [point.key, index]));
+
+  for (const row of rows) {
+    for (const day of daysNewestFirst) {
+      const index = indexByDay.get(day);
+      if (index == null) continue;
+      const point = points[index];
+      const work = dayWork(row.progress, day);
+      if (userActiveOnDay(row, day, work)) point.activeUsers += 1;
+      point.activeSeconds += activeSecondsOnDay(row.progress, day);
+      point.videosWatched += work.videos;
+      point.studyRuns += work.study;
+      point.practiceRuns += work.practice;
+      point.clips += row.progress.activity?.[day]?.clips ?? 0;
+    }
+  }
+
+  return points;
+}
+
+function buildHourlyActivityPoints(
+  rows: readonly AdminUserRow[],
+  day: string,
+): AdminActivityPoint[] {
+  const points = Array.from({ length: 24 }, (_, hour) =>
+    emptyPoint(
+      `${day}T${String(hour).padStart(2, "0")}`,
+      `${String(hour).padStart(2, "0")}:00`,
+    ),
+  );
+  const usersByHour = Array.from({ length: 24 }, () => new Set<string>());
+
+  for (const row of rows) {
+    for (const visit of row.progress.visits ?? []) {
+      if (utcDay(visit.startedAt) !== day) continue;
+      const hour = utcHour(visit.startedAt);
+      if (hour == null) continue;
+      usersByHour[hour].add(row.userId);
+      points[hour].activeSeconds += visit.activeSeconds;
+      points[hour].clips += visit.clips.length;
+      points[hour].practiceRuns += visit.listeningRuns;
+    }
+
+    if (utcDay(row.lastLoginAt) === day) {
+      const hour = utcHour(row.lastLoginAt);
+      if (hour != null) usersByHour[hour].add(row.userId);
+    }
+
+    for (const entry of Object.values(row.progress.videos)) {
+      if (utcDay(entry.watchedAt) !== day) continue;
+      const hour = utcHour(entry.watchedAt);
+      if (hour == null) continue;
+      points[hour].videosWatched += 1;
+    }
+
+    const work = dayWork(row.progress, day);
+    if (userActiveOnDay(row, day, work) && usersByHour.every((set) => !set.has(row.userId))) {
+      // Seen that UTC day without a timestamped visit: count them at midnight
+      // rather than dropping them from the hourly chart.
+      usersByHour[0].add(row.userId);
+    }
+  }
+
+  return points.map((point, hour) => ({
+    ...point,
+    activeUsers: usersByHour[hour].size,
+  }));
+}
+
+function buildActivityLeaders(
+  rows: readonly AdminUserRow[],
+  days: readonly string[],
+): AdminActivityLeader[] {
+  const leaders: AdminActivityLeader[] = [];
+
+  for (const row of rows) {
+    let activeSeconds = 0;
+    let videosWatched = 0;
+    let studyRuns = 0;
+    let practiceRuns = 0;
+
+    for (const day of days) {
+      const work = dayWork(row.progress, day);
+      activeSeconds += activeSecondsOnDay(row.progress, day);
+      videosWatched += work.videos;
+      studyRuns += work.study;
+      practiceRuns += work.practice;
+    }
+
+    if (
+      activeSeconds <= 0 &&
+      videosWatched <= 0 &&
+      studyRuns <= 0 &&
+      practiceRuns <= 0
+    ) {
+      continue;
+    }
+
+    leaders.push({
+      userId: row.userId,
+      displayName: row.displayName,
+      className: row.className,
+      activeSeconds,
+      videosWatched,
+      studyRuns,
+      practiceRuns,
+    });
+  }
+
+  leaders.sort((a, b) => {
+    if (a.activeSeconds !== b.activeSeconds) return b.activeSeconds - a.activeSeconds;
+    const aWork = a.videosWatched + a.studyRuns + a.practiceRuns;
+    const bWork = b.videosWatched + b.studyRuns + b.practiceRuns;
+    if (aWork !== bWork) return bWork - aWork;
+    return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+  });
+
+  return leaders.slice(0, ACTIVITY_LEADER_LIMIT);
+}
+
+/**
+ * Time series for the Activity page. Multi-day windows are UTC days, oldest
+ * first. "Today" is 24 UTC hours so a single-day range still has a chart.
+ */
+export function buildAdminActivityBoard(
+  rows: readonly AdminUserRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminActivityBoard {
+  const days = adminRangeDayKeys(range, now);
+  if (range === "today") {
+    const day = days[0];
+    return {
+      grain: "hour",
+      points: buildHourlyActivityPoints(rows, day),
+      leaders: buildActivityLeaders(rows, days),
+    };
+  }
+  return {
+    grain: "day",
+    points: buildDailyActivityPoints(rows, days),
+    leaders: buildActivityLeaders(rows, days),
   };
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
@@ -10,19 +9,14 @@ import {
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
 } from "@/app/admin/actions";
+import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
-import { describeCatalogClip, type AdminCatalogCourse } from "@/lib/admin-detail";
-import {
-  LISTENING_SCHEMA_HINT,
-  type ClipOutcomeTotal,
-  type RankedClipOutcomes,
-} from "@/lib/listening-runs";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   CLASS_NAME_MAX_LENGTH,
   classKey,
   filterAdminUsers,
-  buildAdminActivityStats,
   listAdminClasses,
   normalizeClassName,
   paginateAdminUsers,
@@ -32,27 +26,6 @@ import {
   type AdminSortKey,
   type AdminUserRow,
 } from "@/lib/admin-overview";
-import { ProfileButton } from "@/components/ProfileButton";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={filled ? { fontVariationSettings: "'FILL' 1" } : undefined}
-      aria-hidden="true"
-    >
-      {name}
-    </span>
-  );
-}
 
 function SortHeader({
   label,
@@ -103,39 +76,6 @@ function formatAbsoluteTime(iso: string | null): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
-
-function ActivityStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
 }
 
 function StreakCell({ days }: { days: number }) {
@@ -382,78 +322,6 @@ function ClassCell({
   );
 }
 
-function AdminSectionLink({
-  href,
-  current,
-  children,
-}: {
-  href: string;
-  current: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={current ? "page" : undefined}
-      className={`inline-flex h-8 items-center rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-        current
-          ? "bg-surface-container-lowest text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-          : "text-on-surface-variant hover:text-on-surface"
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-export function AdminTopBar({
-  title,
-  section,
-  trailing,
-}: {
-  title: string;
-  section: "users" | "classes";
-  trailing?: React.ReactNode;
-}) {
-  return (
-    <header className="sticky top-0 z-50 w-full border-b border-outline-variant/30 bg-surface/90 pt-safe backdrop-blur-xl">
-      <div className="flex w-full flex-wrap items-center gap-x-space-16 gap-y-space-8 px-space-24 py-space-8 sm:h-16 sm:flex-nowrap sm:py-0">
-        <div className="flex min-w-0 flex-1 items-center gap-space-12">
-          <Link
-            href="/"
-            aria-label="Back to home"
-            className="-ml-space-8 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-container"
-          >
-            <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-          </Link>
-          <div className="flex min-w-0 flex-col">
-            <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
-              Admin
-            </p>
-            <h1 className="truncate font-headline-sm text-headline-sm tracking-tight text-on-surface">
-              {title}
-            </h1>
-          </div>
-        </div>
-        <nav
-          aria-label="Admin sections"
-          className="order-last flex w-full justify-center sm:order-none sm:w-auto"
-        >
-          <div className="inline-flex items-center rounded-full bg-surface-container p-1">
-            <AdminSectionLink href="/admin" current={section === "users"}>
-              Users
-            </AdminSectionLink>
-            <AdminSectionLink href="/admin/classes" current={section === "classes"}>
-              Classes
-            </AdminSectionLink>
-          </div>
-        </nav>
-        <div className="flex shrink-0 items-center gap-space-12">{trailing}</div>
-      </div>
-    </header>
-  );
-}
-
 function LevelAccessCell({
   row,
   levels,
@@ -542,144 +410,12 @@ function LevelAccessCell({
   );
 }
 
-function clipExcerpt(prompt: string): string {
-  const trimmed = prompt.replace(/\s+/g, " ").trim();
-  if (trimmed.length <= 110) return trimmed;
-  return `${trimmed.slice(0, 107)}…`;
-}
-
-function outcomeCount(count: number, singular: string, plural: string): string {
-  return `${count.toLocaleString("en-GB")} ${count === 1 ? singular : plural}`;
-}
-
-function ClipRankPanel({
-  title,
-  icon,
-  empty,
-  rows,
-  catalog,
-  count,
-  countLabel,
-  students,
-}: {
-  title: string;
-  icon: string;
-  empty: string;
-  rows: readonly ClipOutcomeTotal[];
-  catalog: readonly AdminCatalogCourse[];
-  count: (row: ClipOutcomeTotal) => number;
-  countLabel: readonly [string, string];
-  students: (row: ClipOutcomeTotal) => number;
-}) {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="flex items-center gap-space-8 border-b border-outline-variant/20 px-space-16 py-space-12">
-        <MaterialIcon name={icon} className="text-[20px] text-primary" />
-        <h3 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h3>
-      </div>
-      {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          {empty}
-        </p>
-      ) : (
-        <ol>
-          {rows.map((row, index) => {
-            const described = describeCatalogClip(catalog, row.lessonKey, row.clipId);
-            const place = described.lesson
-              ? `${described.course} · ${described.lesson}`
-              : described.course;
-            const studentCount = students(row);
-            return (
-              <li
-                key={`${row.lessonKey}:${row.clipId}`}
-                className="flex items-start gap-space-12 border-b border-outline-variant/15 px-space-16 py-space-12 last:border-b-0"
-              >
-                <span className="mt-0.5 w-5 shrink-0 font-label-sm text-label-sm font-semibold tabular-nums text-outline">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-caption text-caption text-on-surface-variant">
-                    {place}
-                  </span>
-                  <span className="mt-0.5 block font-body-sm text-body-sm text-on-surface">
-                    {clipExcerpt(described.prompt)}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="block font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
-                    {outcomeCount(count(row), countLabel[0], countLabel[1])}
-                  </span>
-                  <span className="mt-0.5 block font-caption text-caption text-on-surface-variant">
-                    {outcomeCount(studentCount, "student", "students")}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </div>
-  );
-}
-
-function ListeningClipSection({
-  catalog,
-  outcomes,
-}: {
-  catalog: readonly AdminCatalogCourse[];
-  outcomes: RankedClipOutcomes;
-}) {
-  return (
-    <section aria-label="Listening clips" className="flex flex-col gap-space-12">
-      <div>
-        <h2 className="font-headline-sm text-headline-sm text-on-surface">Listening clips</h2>
-        <p className="font-caption text-caption text-on-surface-variant">
-          Finished parts across every student. A clip they miss and then correct counts in both lists.
-        </p>
-      </div>
-      {outcomes.status === "missing" ? (
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-space-20 py-space-16 font-body-sm text-body-sm text-on-surface-variant">
-          {LISTENING_SCHEMA_HINT}
-        </div>
-      ) : outcomes.status === "error" ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Clip results could not be loaded.
-        </div>
-      ) : (
-        <div className="grid gap-space-12 lg:grid-cols-2">
-          <ClipRankPanel
-            title="Failed most"
-            icon="heart_broken"
-            empty="No clip has been missed yet."
-            rows={outcomes.failed}
-            catalog={catalog}
-            count={(row) => row.failures}
-            countLabel={["miss", "misses"]}
-            students={(row) => row.studentsFailed}
-          />
-          <ClipRankPanel
-            title="Succeeded most"
-            icon="check_circle"
-            empty="No clip has been passed yet."
-            rows={outcomes.succeeded}
-            catalog={catalog}
-            count={(row) => row.successes}
-            countLabel={["pass", "passes"]}
-            students={(row) => row.studentsPassed}
-          />
-        </div>
-      )}
-    </section>
-  );
-}
-
 type AdminUsersDashboardProps = {
   rows: AdminUserRow[];
   levels: readonly AdminLevelOption[];
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   currentUserId: string;
-  clipOutcomes: RankedClipOutcomes;
 };
 
 export function AdminUsersDashboard({
@@ -688,7 +424,6 @@ export function AdminUsersDashboard({
   courseCatalog,
   storeConfigured,
   currentUserId,
-  clipOutcomes,
 }: AdminUsersDashboardProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -836,11 +571,6 @@ export function AdminUsersDashboard({
     [rows, deletedIds, classFor],
   );
 
-  const activity = useMemo(
-    () => buildAdminActivityStats(visibleRows),
-    [visibleRows],
-  );
-
   const classOptions = useMemo(() => listAdminClasses(visibleRows), [visibleRows]);
 
   const displayClass = useCallback(
@@ -925,72 +655,23 @@ export function AdminUsersDashboard({
 
   return (
     <>
-      <AdminTopBar
-        title="User overview"
-        section="users"
-        trailing={
-          <>
+      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+        <AdminPageHeader
+          kicker="People"
+          title="Students"
+          subtitle="Assign classes, grant level access, and open a student for detail."
+          trailing={
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               {visibleRows.length} {visibleRows.length === 1 ? "user" : "users"}
             </p>
-            <ProfileButton />
-          </>
-        }
-      />
+          }
+        />
 
-      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-24 py-space-24">
         {!storeConfigured ? (
           <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
             Cloud progress is not configured. This dashboard only lists
             learners who have synced progress to Supabase.
           </div>
-        ) : null}
-
-        <section aria-label="Activity today" className="flex flex-col gap-space-12">
-          <div>
-            <h2 className="font-headline-sm text-headline-sm text-on-surface">
-              Activity
-            </h2>
-            <p className="font-caption text-caption text-on-surface-variant">
-              Today uses UTC, the same day boundary as streaks.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
-            <ActivityStat
-              label="Users"
-              value={formatCount(activity.users)}
-              icon="group"
-              hint="Accounts in this list"
-            />
-            <ActivityStat
-              label="Active today"
-              value={formatCount(activity.activeUsers)}
-              icon="person"
-              hint="Seen or practiced"
-            />
-            <ActivityStat
-              label="Videos watched"
-              value={formatCount(activity.videosWatchedToday)}
-              icon="smart_display"
-              hint="Marked watched today"
-            />
-            <ActivityStat
-              label="Study runs"
-              value={formatCount(activity.studyRunsToday)}
-              icon="menu_book"
-              hint="Finished today"
-            />
-            <ActivityStat
-              label="Practice runs"
-              value={formatCount(activity.practiceRunsToday)}
-              icon="headphones"
-              hint="Listening runs finished today"
-            />
-          </div>
-        </section>
-
-        {storeConfigured ? (
-          <ListeningClipSection catalog={courseCatalog} outcomes={clipOutcomes} />
         ) : null}
 
         <label className="relative w-full max-w-md">

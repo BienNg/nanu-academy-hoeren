@@ -1,6 +1,10 @@
-import { AdminUsersDashboard } from "@/components/admin/AdminUsersDashboard";
+import type { Metadata } from "next";
+import { connection } from "next/server";
+import { AdminOverview } from "@/components/admin/AdminOverview";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
+  buildAdminActivityStats,
+  parseAdminRange,
   shortBerufLabel,
   toAdminUserRow,
   withSessionIdentity,
@@ -8,7 +12,6 @@ import {
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import { getCefrLevels } from "@/lib/levels";
 import { presentClipOutcomes } from "@/lib/listening-runs";
 import {
   isProgressStoreConfigured,
@@ -17,10 +20,19 @@ import {
   touchUserProfile,
 } from "@/lib/progress-store";
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Overview · Admin · NaNu Academy Hören",
+  robots: { index: false, follow: false },
+};
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  await connection();
   const session = await requireAdmin();
+  const range = parseAdminRange((await searchParams).range);
 
   const berufe = getAvailableBerufe();
   const tracks: AdminTrackColumn[] = berufe.map((beruf) => ({
@@ -30,7 +42,6 @@ export default async function AdminPage() {
     totalClips: getSessionClips(beruf.slug).length,
   }));
   const courseCatalog = buildAdminCourseCatalog(tracks);
-  const levels = getCefrLevels().map(({ level, slug }) => ({ level, slug }));
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -44,18 +55,18 @@ export default async function AdminPage() {
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
+  const activity = buildAdminActivityStats(rows, range);
   const clipOutcomes = presentClipOutcomes(
     storeConfigured ? await listClipOutcomeTotals() : { status: "ready", rows: [] },
   );
 
   return (
-    <AdminUsersDashboard
-      rows={rows}
-      levels={levels}
+    <AdminOverview
+      activity={activity}
+      range={range}
       courseCatalog={courseCatalog}
-      storeConfigured={storeConfigured}
-      currentUserId={session.user.id}
       clipOutcomes={clipOutcomes}
+      storeConfigured={storeConfigured}
     />
   );
 }

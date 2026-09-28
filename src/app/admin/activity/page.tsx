@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { AdminClassStats } from "@/components/admin/AdminClassStats";
-import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
+import { AdminActivity } from "@/components/admin/AdminActivity";
 import {
-  shortBerufLabel,
+  buildAdminActivityBoard,
+  buildAdminActivityStats,
+  parseAdminRange,
   toAdminUserRow,
   withSessionIdentity,
-  type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
-import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
@@ -17,22 +16,18 @@ import {
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Classes · Admin · NaNu Academy Hören",
+  title: "Activity · Admin · NaNu Academy Hören",
   robots: { index: false, follow: false },
 };
 
-export default async function AdminClassesPage() {
+export default async function AdminActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   await connection();
   const session = await requireAdmin();
-
-  const berufe = getAvailableBerufe();
-  const tracks: AdminTrackColumn[] = berufe.map((beruf) => ({
-    slug: beruf.slug,
-    label: beruf.label,
-    shortLabel: shortBerufLabel(beruf.label),
-    totalClips: getSessionClips(beruf.slug).length,
-  }));
-  const courseCatalog = buildAdminCourseCatalog(tracks);
+  const range = parseAdminRange((await searchParams).range);
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -48,9 +43,10 @@ export default async function AdminClassesPage() {
   );
 
   return (
-    <AdminClassStats
-      rows={rows}
-      courseCatalog={courseCatalog}
+    <AdminActivity
+      activity={buildAdminActivityStats(rows, range)}
+      board={buildAdminActivityBoard(rows, range)}
+      range={range}
       storeConfigured={storeConfigured}
     />
   );

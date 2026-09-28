@@ -15,6 +15,15 @@ function rel(absolutePath) {
   return absolutePath.replace(`${repoRoot}/`, "");
 }
 
+/**
+ * macOS APFS returns NFD names from readdir while JSON and git store NFC
+ * (`ü` vs `u` + combining diaeresis). Compare both sides in NFC so a real
+ * matching file is not reported as an orphan.
+ */
+function nfc(name) {
+  return name.normalize("NFC");
+}
+
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -78,7 +87,7 @@ function checkContentFile(jsonPath, audioDir) {
       );
     }
 
-    listedFilenames.add(clip.filename);
+    listedFilenames.add(nfc(clip.filename));
     const audioPath = join(audioDir, clip.filename);
     if (!existsSync(audioPath)) {
       skippedMissingAudio.push(
@@ -120,7 +129,7 @@ function checkContentFile(jsonPath, audioDir) {
 
   const mp3Files = readdirSync(audioDir).filter((name) => name.endsWith(".mp3"));
   for (const mp3Name of mp3Files) {
-    if (!listedFilenames.has(mp3Name)) {
+    if (!listedFilenames.has(nfc(mp3Name))) {
       errors.push(
         `Orphaned audio file: ${rel(join(audioDir, mp3Name))} (no matching entry in ${jsonRel})`,
       );

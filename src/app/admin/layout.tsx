@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
@@ -13,12 +14,5 @@ export default async function AdminLayout({
 }>) {
   await requireAdmin();
 
-  return (
-    <div
-      data-layout="wide"
-      className="flex w-full flex-1 flex-col bg-surface"
-    >
-      {children}
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

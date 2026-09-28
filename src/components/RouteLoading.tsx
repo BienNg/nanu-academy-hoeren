@@ -363,9 +363,54 @@ export function AccountScreenSkeleton({ path }: { path?: string }) {
   );
 }
 
-export function AdminScreenSkeleton({ path }: { path?: string }) {
-  const backHref = backHrefFor(useResolvedPath(path));
+function AdminBody() {
+  return (
+    <main className="flex w-full flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+      <div className="flex flex-col gap-2">
+        <Bone className="h-3 w-16 rounded-full" />
+        <LoadingTitle />
+      </div>
+      <Bone className="h-12 w-full max-w-md rounded-full" />
+      <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div
+            key={index}
+            className="flex items-center gap-4 border-b border-outline-variant/15 px-4 py-4 last:border-b-0"
+          >
+            <Bone className="h-10 w-10 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Bone className="h-4 w-40 rounded-full" />
+              <Bone className="h-3 w-56 max-w-full rounded-full" />
+            </div>
+            <Bone className="hidden h-8 w-24 rounded-full sm:block" />
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
 
+/**
+ * Content-only fallback for `loading.tsx` inside `/admin`, which already renders
+ * below the sidebar and top bar that `AdminShell` provides.
+ */
+export function AdminContentSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      className="flex w-full flex-1 flex-col"
+    >
+      <LoadingBar />
+      <AdminBody />
+    </div>
+  );
+}
+
+/** Full-screen stand-in used by the navigation overlay, so it mirrors the shell. */
+export function AdminScreenSkeleton() {
   return (
     <div
       data-layout="wide"
@@ -373,40 +418,34 @@ export function AdminScreenSkeleton({ path }: { path?: string }) {
       aria-live="polite"
       aria-busy="true"
       aria-label="Đang tải nội dung"
-      className="flex min-h-dvh w-full flex-1 flex-col bg-surface"
+      className="flex min-h-dvh w-full flex-1 bg-surface"
     >
       <LoadingBar />
-      <header className="sticky top-0 z-50 w-full border-b border-outline-variant/30 bg-surface/90 pt-safe backdrop-blur-xl">
-        <div className="flex w-full items-center gap-3 px-6 py-2 sm:h-16">
-          <BackControl href={backHref} label={null} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-              Admin
-            </p>
-            <LoadingTitle />
-          </div>
-          <Bone className="hidden h-9 w-36 rounded-full sm:block" />
-          <Bone className="h-9 w-9 shrink-0 rounded-full" />
+      <aside className="hidden w-[16.25rem] shrink-0 flex-col border-r border-outline-variant/30 bg-white lg:flex">
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant/30 px-4">
+          <Bone className="h-9 w-9 rounded-xl" />
+          <Bone className="h-4 w-20 rounded-full" />
         </div>
-      </header>
-      <main className="flex w-full flex-1 flex-col gap-4 px-6 py-6">
-        <Bone className="h-12 w-full max-w-md rounded-full" />
-        <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-4 border-b border-outline-variant/15 px-4 py-4 last:border-b-0"
-            >
-              <Bone className="h-10 w-10 shrink-0 rounded-full" />
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <Bone className="h-4 w-40 rounded-full" />
-                <Bone className="h-3 w-56 max-w-full rounded-full" />
-              </div>
-              <Bone className="hidden h-8 w-24 rounded-full sm:block" />
+        <div className="flex flex-col gap-1 p-2">
+          {Array.from({ length: 9 }, (_, index) => (
+            <div key={index} className="flex h-10 items-center gap-3 px-3">
+              <Bone className="h-5 w-5 shrink-0 rounded" />
+              <Bone className="h-3 w-24 rounded-full" />
             </div>
           ))}
         </div>
-      </main>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-40 w-full border-b border-outline-variant/30 bg-surface/90 pt-safe backdrop-blur-xl">
+          <div className="flex h-16 w-full items-center gap-3 px-4 sm:px-6">
+            <Bone className="h-10 w-10 rounded-full lg:hidden" />
+            <div className="min-w-0 flex-1" />
+            <Bone className="hidden h-9 w-28 rounded-full sm:block" />
+            <Bone className="h-9 w-9 shrink-0 rounded-full" />
+          </div>
+        </header>
+        <AdminBody />
+      </div>
     </div>
   );
 }
@@ -417,7 +456,7 @@ export function ScreenForPath({ path }: { path: string }) {
   if (parts[0] === "account" || parts[0] === "session-ended") {
     return <AccountScreenSkeleton path={path} />;
   }
-  if (parts[0] === "admin") return <AdminScreenSkeleton path={path} />;
+  if (parts[0] === "admin") return <AdminScreenSkeleton />;
   if (parts[0] === "interview") {
     return <SessionScreenSkeleton kind="practice" path={path} />;
   }

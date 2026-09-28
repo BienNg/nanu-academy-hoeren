@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
-import { AdminTopBar } from "@/components/admin/AdminUsersDashboard";
 import {
   buildClassStats,
   type AdminCatalogCourse,
@@ -14,7 +14,6 @@ import {
   usersInClass,
   type AdminUserRow,
 } from "@/lib/admin-overview";
-import { ProfileButton } from "@/components/ProfileButton";
 
 type MemberSortKey =
   | "name"
@@ -26,26 +25,6 @@ type MemberSortKey =
   | "videos";
 
 type SortDir = "asc" | "desc";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={filled ? { fontVariationSettings: "'FILL' 1" } : undefined}
-      aria-hidden="true"
-    >
-      {name}
-    </span>
-  );
-}
 
 function formatAbsoluteTime(iso: string | null): string | null {
   if (!iso) return null;
@@ -268,20 +247,18 @@ export function AdminClassStats({
 
   return (
     <>
-      <AdminTopBar
-        title="Class stats"
-        section="classes"
-        trailing={
-          <>
+      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+        <AdminPageHeader
+          kicker="People"
+          title="Classes"
+          subtitle="Compare one class as a group, then open a student for detail."
+          trailing={
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               {classOptions.length} {classOptions.length === 1 ? "class" : "classes"}
             </p>
-            <ProfileButton />
-          </>
-        }
-      />
+          }
+        />
 
-      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-24 py-space-24">
         {!storeConfigured ? (
           <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
             Cloud progress is not configured. This view only includes learners
