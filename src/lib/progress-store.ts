@@ -228,6 +228,8 @@ export type UserProgressListItem = {
   userId: string;
   email: string | null;
   name: string | null;
+  /** Google profile photo, when the column exists and a sign-in stored one. */
+  image: string | null;
   lastLoginAt: string | null;
   updatedAt: string | null;
   /** CEFR slugs an admin has granted. Empty means every level stays locked. */
@@ -249,6 +251,7 @@ type RawProgressRow = {
   updated_at?: string | null;
   email?: string | null;
   name?: string | null;
+  image?: string | null;
   last_login_at?: string | null;
   deleted_at?: string | null;
   level_access?: unknown;
@@ -322,6 +325,7 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     userId: row.user_id,
     email: typeof row.email === "string" ? row.email : null,
     name: typeof row.name === "string" ? row.name : null,
+    image: googleProfileImage(row.image),
     lastLoginAt:
       typeof row.last_login_at === "string" ? row.last_login_at : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
@@ -605,6 +609,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
+    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",

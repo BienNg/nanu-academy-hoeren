@@ -8,7 +8,8 @@ create table if not exists public.user_progress (
   updated_at timestamptz not null default now(),
   email text,
   name text,
-  -- Google profile photo (https://lh3.googleusercontent.com/...). Ranking list only.
+  -- Google profile photo (https://lh3.googleusercontent.com/...).
+  -- Shown on the ranking list and on the admin Levels paths.
   image text,
   last_login_at timestamptz,
   deleted_at timestamptz,

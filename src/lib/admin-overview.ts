@@ -8,7 +8,7 @@ import type {
   AdminStoreProbe,
   UserProgressListItem,
 } from "@/lib/progress-store";
-import { dayKey } from "@/lib/xp";
+import { dayKey, googleProfileImage } from "@/lib/xp";
 import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
 import type { AdminDuelRecord } from "@/lib/duel-store";
 import type { AdminListeningRunRecord } from "@/lib/listening-runs";
@@ -37,6 +37,8 @@ export type AdminUserRow = {
   name: string | null;
   email: string | null;
   displayName: string;
+  /** Google profile photo, or null when none was stored. */
+  image: string | null;
   lastLoginAt: string | null;
   lastLoginMs: number;
   streakDays: number;
@@ -85,13 +87,19 @@ function displayNameFor(item: UserProgressListItem): string {
 
 export function withSessionIdentity(
   item: UserProgressListItem,
-  session: { id?: string | null; email?: string | null; name?: string | null },
+  session: {
+    id?: string | null;
+    email?: string | null;
+    name?: string | null;
+    image?: string | null;
+  },
 ): UserProgressListItem {
   if (!session.id || session.id !== item.userId) return item;
   return {
     ...item,
     email: item.email ?? session.email ?? null,
     name: item.name ?? session.name ?? null,
+    image: item.image ?? googleProfileImage(session.image),
   };
 }
 
@@ -105,6 +113,7 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     name: item.name,
     email: item.email,
     displayName: displayNameFor(item),
+    image: item.image ?? null,
     lastLoginAt,
     lastLoginMs: Number.isNaN(lastLoginMs) ? 0 : lastLoginMs,
     streakDays: activeStreakDays(progress),

@@ -394,6 +394,154 @@ export function projectStudentDetail(
   };
 }
 
+export type AdminLevelPathPerson = {
+  userId: string;
+  displayName: string;
+  image: string | null;
+  className: string | null;
+};
+
+export type AdminLevelPathMember = AdminLevelPathPerson & {
+  /** This student's projection of the level, or undefined when it is missing. */
+  course: AdminCourseDetail | undefined;
+};
+
+export type AdminLevelPathNode = {
+  id: string;
+  icon: string;
+  label: string;
+  /** Students whose current node this is. */
+  here: AdminLevelPathPerson[];
+};
+
+export type AdminLevelPathLesson = {
+  id: string;
+  label: string;
+  nodes: AdminLevelPathNode[];
+};
+
+export type AdminLevelPath = {
+  slug: string;
+  label: string;
+  /** Students with access who have started this level. */
+  studentCount: number;
+  lessons: AdminLevelPathLesson[];
+  /** Students with nothing left to do in this level. */
+  finished: AdminLevelPathPerson[];
+};
+
+type LevelNodeTemplate = {
+  id: string;
+  icon: string;
+  label: string;
+  kind: "video" | "activity";
+};
+
+/**
+ * The trail the learner level overview draws: every video of a Lektion, then
+ * Study, then Listening. Built from the catalog so every student is placed on
+ * the same nodes regardless of what they have touched.
+ */
+function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
+  const videos = lesson.videos.map((video) => ({
+    id: video.id,
+    icon: "smart_display",
+    label: video.title,
+    kind: "video" as const,
+  }));
+  if (lesson.clips.length === 0) return videos;
+  return [
+    ...videos,
+    ...(lesson.learnKey
+      ? [
+          {
+            id: `${lesson.id}-study`,
+            icon: "menu_book",
+            label: "Study",
+            kind: "activity" as const,
+          },
+        ]
+      : []),
+    {
+      id: `${lesson.id}-listening`,
+      icon: "headphones",
+      label: "Listening",
+      kind: "activity" as const,
+    },
+  ];
+}
+
+function nodeFinished(
+  lesson: AdminLessonDetail | undefined,
+  node: LevelNodeTemplate,
+): boolean {
+  if (!lesson) return false;
+  if (node.kind === "video") {
+    return lesson.videos.find((video) => video.id === node.id)?.status === "watched";
+  }
+  return (
+    lesson.activities.find((activity) => activity.id === node.id)?.status === "completed"
+  );
+}
+
+/**
+ * The level overview trail with every student parked on the first node they
+ * have not finished yet.
+ */
+export function buildLevelPath(
+  courses: readonly AdminCatalogCourse[],
+  levelSlug: string,
+  members: readonly AdminLevelPathMember[],
+): AdminLevelPath | null {
+  const catalog = courses.find((course) => course.id === levelSlug);
+  if (!catalog) return null;
+
+  const started = members.filter((member) => member.course?.started);
+  const lessons: AdminLevelPathLesson[] = catalog.lessons.map((lesson) => ({
+    id: lesson.id,
+    label: lesson.label,
+    nodes: levelNodeTemplates(lesson).map((node) => ({
+      id: node.id,
+      icon: node.icon,
+      label: node.label,
+      here: [],
+    })),
+  }));
+  const finished: AdminLevelPathPerson[] = [];
+
+  for (const member of started) {
+    const person: AdminLevelPathPerson = {
+      userId: member.userId,
+      displayName: member.displayName,
+      image: member.image,
+      className: member.className,
+    };
+    let placed = false;
+
+    catalog.lessons.forEach((lesson, lessonIndex) => {
+      const detail = member.course?.lessons.find((entry) => entry.id === lesson.id);
+      levelNodeTemplates(lesson).forEach((node, nodeIndex) => {
+        const target = lessons[lessonIndex]!.nodes[nodeIndex]!;
+        if (nodeFinished(detail, node) || placed) return;
+        target.here.push(person);
+        placed = true;
+      });
+    });
+
+    if (!placed) finished.push(person);
+  }
+
+  const studentCount = started.length;
+
+  return {
+    slug: catalog.id,
+    label: catalog.label,
+    studentCount,
+    lessons,
+    finished,
+  };
+}
+
 export type AdminVisitRange = VisitRange;
 
 export type AdminVisitDetailGroup = {
