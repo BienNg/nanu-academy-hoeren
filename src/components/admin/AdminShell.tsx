@@ -113,9 +113,9 @@ const ADMIN_NAV: AdminNavGroup[] = [
     label: "Learning",
     items: [
       { href: "/admin/content", label: "Catalog", icon: "library_books", ready: true },
-      { href: "/admin/content/clips", label: "Clip difficulty", icon: "graphic_eq" },
-      { href: "/admin/content/videos", label: "Videos", icon: "smart_display" },
-      { href: "/admin/runs", label: "Listening runs", icon: "headphones" },
+      { href: "/admin/content/clips", label: "Clip difficulty", icon: "graphic_eq", ready: true },
+      { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
+      { href: "/admin/runs", label: "Listening runs", icon: "headphones", ready: true, ranged: true },
     ],
   },
   {
@@ -131,7 +131,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
   {
     id: "system",
     label: "System",
-    items: [{ href: "/admin/health", label: "Health", icon: "monitor_heart" }],
+    items: [{ href: "/admin/health", label: "Health", icon: "monitor_heart", ready: true }],
   },
 ];
 
@@ -321,7 +321,7 @@ function AdminSidebar({
                 <NavRow
                   key={item.href}
                   item={item}
-                  active={isActiveHref(pathname, item.href)}
+                  active={activeItem(pathname)?.href === item.href}
                   collapsed={collapsed}
                   rangeQuery={rangeQuery}
                   onNavigate={onNavigate}

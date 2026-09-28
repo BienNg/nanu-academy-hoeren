@@ -4,10 +4,14 @@ import {
   normalizeProgress,
   type StoredProgress,
 } from "@/lib/progress";
-import type { UserProgressListItem } from "@/lib/progress-store";
+import type {
+  AdminStoreProbe,
+  UserProgressListItem,
+} from "@/lib/progress-store";
 import { dayKey } from "@/lib/xp";
 import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
 import type { AdminDuelRecord } from "@/lib/duel-store";
+import type { AdminListeningRunRecord } from "@/lib/listening-runs";
 
 export const ADMIN_PAGE_SIZE = 25;
 
@@ -1367,5 +1371,316 @@ export function buildAdminAccessBoard(
     admins: people.length - learners.length,
     levels: levelCounts,
     classes,
+  };
+}
+
+export type AdminListeningRunPoint = {
+  key: string;
+  label: string;
+  passed: number;
+  failed: number;
+};
+
+export type AdminListeningLessonStat = {
+  lessonKey: string;
+  runs: number;
+  passed: number;
+  failed: number;
+  accuracySum: number;
+};
+
+export type AdminListeningRunBoard = {
+  runs: number;
+  passed: number;
+  failed: number;
+  students: number;
+  avgAccuracy: number;
+  points: AdminListeningRunPoint[];
+  lessons: AdminListeningLessonStat[];
+  recent: AdminListeningRunRecord[];
+};
+
+const LISTENING_LESSON_LIMIT = 8;
+
+/**
+ * Finished listening parts stored in listening_runs. Days are UTC, matching Activity.
+ */
+export function buildAdminListeningRunBoard(
+  runs: readonly AdminListeningRunRecord[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminListeningRunBoard {
+  const daysNewestFirst = adminRangeDayKeys(range, now);
+  const window = new Set(daysNewestFirst);
+  const points = [...daysNewestFirst].reverse().map((day) => ({
+    key: day,
+    label: formatUtcDayLabel(day),
+    passed: 0,
+    failed: 0,
+  }));
+  const indexByDay = new Map(points.map((point, index) => [point.key, index]));
+  const students = new Set<string>();
+  const lessonMap = new Map<string, AdminListeningLessonStat>();
+  const recent: AdminListeningRunRecord[] = [];
+  let passed = 0;
+  let failed = 0;
+  let accuracySum = 0;
+
+  for (const run of runs) {
+    const day = utcDay(run.createdAt);
+    if (day == null || !window.has(day)) continue;
+    recent.push(run);
+    students.add(run.userId);
+    accuracySum += run.accuracy;
+    const point = points[indexByDay.get(day)!];
+    if (run.outcome === "success") {
+      passed += 1;
+      if (point) point.passed += 1;
+    } else {
+      failed += 1;
+      if (point) point.failed += 1;
+    }
+    const lesson = lessonMap.get(run.lessonKey) ?? {
+      lessonKey: run.lessonKey,
+      runs: 0,
+      passed: 0,
+      failed: 0,
+      accuracySum: 0,
+    };
+    lesson.runs += 1;
+    lesson.accuracySum += run.accuracy;
+    if (run.outcome === "success") lesson.passed += 1;
+    else lesson.failed += 1;
+    lessonMap.set(run.lessonKey, lesson);
+  }
+
+  const lessons = [...lessonMap.values()].sort((a, b) => {
+    if (a.failed !== b.failed) return b.failed - a.failed;
+    if (a.runs !== b.runs) return b.runs - a.runs;
+    return a.lessonKey.localeCompare(b.lessonKey);
+  });
+
+  recent.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  return {
+    runs: recent.length,
+    passed,
+    failed,
+    students: students.size,
+    avgAccuracy: recent.length === 0 ? 0 : Math.round(accuracySum / recent.length),
+    points,
+    lessons: lessons.slice(0, LISTENING_LESSON_LIMIT),
+    recent,
+  };
+}
+
+export type AdminHealthStatus = "ok" | "warn" | "fail" | "skip";
+
+export type AdminHealthCheck = {
+  id: string;
+  label: string;
+  group: "env" | "store" | "content";
+  status: AdminHealthStatus;
+  detail: string;
+  sqlFile?: string;
+};
+
+export type AdminHealthCatalogInput = {
+  lessonsReady: number;
+  lessonsListed: number;
+  clipsMissingAudio: number;
+  videosBroken: number;
+  tracksReady: number;
+  tracksListed: number;
+  issues: readonly { id: string; label: string; detail: string }[];
+};
+
+export type AdminHealthBoard = {
+  overall: Exclude<AdminHealthStatus, "skip">;
+  checkedAt: string;
+  envOk: number;
+  envTotal: number;
+  storeOk: number;
+  storeTotal: number;
+  contentIssues: number;
+  lessonsReady: number;
+  lessonsListed: number;
+  clipsMissingAudio: number;
+  videosBroken: number;
+  env: AdminHealthCheck[];
+  stores: AdminHealthCheck[];
+  content: AdminHealthCheck[];
+  issues: AdminHealthCatalogInput["issues"];
+};
+
+function envPresent(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+function listAdminHealthEnv(): AdminHealthCheck[] {
+  const slack = envPresent(process.env.SLACK_NEW_USER_WEBHOOK_URL);
+  return [
+    {
+      id: "auth-secret",
+      label: "AUTH_SECRET",
+      group: "env",
+      status: envPresent(process.env.AUTH_SECRET) ? "ok" : "fail",
+      detail: envPresent(process.env.AUTH_SECRET)
+        ? "Set. Sign-in sessions can be signed."
+        : "Missing. Google sign-in cannot mint a session.",
+    },
+    {
+      id: "auth-google-id",
+      label: "AUTH_GOOGLE_ID",
+      group: "env",
+      status: envPresent(process.env.AUTH_GOOGLE_ID) ? "ok" : "fail",
+      detail: envPresent(process.env.AUTH_GOOGLE_ID)
+        ? "Set."
+        : "Missing. Google login has no client id.",
+    },
+    {
+      id: "auth-google-secret",
+      label: "AUTH_GOOGLE_SECRET",
+      group: "env",
+      status: envPresent(process.env.AUTH_GOOGLE_SECRET) ? "ok" : "fail",
+      detail: envPresent(process.env.AUTH_GOOGLE_SECRET)
+        ? "Set."
+        : "Missing. Google login has no client secret.",
+    },
+    {
+      id: "supabase-url",
+      label: "Supabase URL",
+      group: "env",
+      status:
+        envPresent(process.env.SUPABASE_URL) ||
+        envPresent(process.env.NEXT_PUBLIC_SUPABASE_URL)
+          ? "ok"
+          : "fail",
+      detail:
+        envPresent(process.env.SUPABASE_URL) ||
+        envPresent(process.env.NEXT_PUBLIC_SUPABASE_URL)
+          ? "SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is set."
+          : "Neither SUPABASE_URL nor NEXT_PUBLIC_SUPABASE_URL is set.",
+    },
+    {
+      id: "supabase-service",
+      label: "Supabase service role",
+      group: "env",
+      status:
+        envPresent(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+        envPresent(process.env.SUPABASE_SECRET_KEY)
+          ? "ok"
+          : "fail",
+      detail:
+        envPresent(process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+        envPresent(process.env.SUPABASE_SECRET_KEY)
+          ? "SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY is set."
+          : "Neither service role key is set. Progress and awards cannot be stored.",
+    },
+    {
+      id: "slack-webhook",
+      label: "Slack new-user webhook",
+      group: "env",
+      status: "ok",
+      detail: slack
+        ? "SLACK_NEW_USER_WEBHOOK_URL is set."
+        : "Not set. New-user Slack pings are off.",
+    },
+  ];
+}
+
+function storeCheckStatus(probe: AdminStoreProbe): AdminHealthStatus {
+  if (probe.status === "ok") return "ok";
+  if (probe.status === "skipped") return "skip";
+  if (probe.severity === "warn") return "warn";
+  return "fail";
+}
+
+function rollup(
+  checks: readonly AdminHealthCheck[],
+): Exclude<AdminHealthStatus, "skip"> {
+  if (checks.some((check) => check.status === "fail")) return "fail";
+  if (checks.some((check) => check.status === "warn")) return "warn";
+  return "ok";
+}
+
+/**
+ * Current env, SQL, and disk-file problems. Not a date-ranged report.
+ */
+export function buildAdminHealthBoard(
+  stores: readonly AdminStoreProbe[],
+  catalog: AdminHealthCatalogInput,
+  now = new Date(),
+): AdminHealthBoard {
+  const env = listAdminHealthEnv();
+  const storeChecks: AdminHealthCheck[] = stores.map((probe) => ({
+    id: probe.id,
+    label: probe.label,
+    group: "store",
+    status: storeCheckStatus(probe),
+    detail: probe.detail,
+    sqlFile: probe.sqlFile,
+  }));
+
+  const content: AdminHealthCheck[] = [
+    {
+      id: "content-audio",
+      label: "Clip audio files",
+      group: "content",
+      status: catalog.clipsMissingAudio > 0 ? "warn" : "ok",
+      detail:
+        catalog.clipsMissingAudio > 0
+          ? `${catalog.clipsMissingAudio} listed CEFR clip${catalog.clipsMissingAudio === 1 ? "" : "s"} have no audio file.`
+          : "Every listed CEFR clip has audio.",
+    },
+    {
+      id: "content-videos",
+      label: "Lesson video URLs",
+      group: "content",
+      status: catalog.videosBroken > 0 ? "warn" : "ok",
+      detail:
+        catalog.videosBroken > 0
+          ? `${catalog.videosBroken} YouTube URL${catalog.videosBroken === 1 ? "" : "s"} could not be parsed.`
+          : "Every listed lesson video URL parses.",
+    },
+    {
+      id: "content-tracks",
+      label: "Interview tracks",
+      group: "content",
+      status: catalog.tracksReady < catalog.tracksListed ? "warn" : "ok",
+      detail: `${catalog.tracksReady} of ${catalog.tracksListed} listed professions have playable clips.`,
+    },
+    {
+      id: "content-issues",
+      label: "Urgent catalog files",
+      group: "content",
+      status: catalog.issues.length > 0 ? "warn" : "ok",
+      detail:
+        catalog.issues.length > 0
+          ? `${catalog.issues.length} missing-audio, broken-URL, orphan, or missing-JSON issue${catalog.issues.length === 1 ? "" : "s"}. Lesson tables stay on Catalog.`
+          : "No urgent disk-file issues.",
+    },
+  ];
+
+  const envRequired = env.filter((check) => check.id !== "slack-webhook");
+  const storeCounted = storeChecks.filter((check) => check.status !== "skip");
+  const overall = rollup([...envRequired, ...storeChecks, ...content]);
+
+  return {
+    overall,
+    checkedAt: now.toISOString(),
+    envOk: envRequired.filter((check) => check.status === "ok").length,
+    envTotal: envRequired.length,
+    storeOk: storeCounted.filter((check) => check.status === "ok").length,
+    storeTotal: storeCounted.length || storeChecks.length,
+    contentIssues: catalog.issues.length,
+    lessonsReady: catalog.lessonsReady,
+    lessonsListed: catalog.lessonsListed,
+    clipsMissingAudio: catalog.clipsMissingAudio,
+    videosBroken: catalog.videosBroken,
+    env,
+    stores: storeChecks,
+    content,
+    issues: catalog.issues,
   };
 }

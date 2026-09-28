@@ -135,6 +135,9 @@ export function formatWeekCountdown(endsAt: string, now: Date): string {
   return minutes === 1 ? "Còn 1 phút" : `Còn ${minutes} phút`;
 }
 
+export const XP_SCHEMA_HINT =
+  "Run supabase/xp_awards.sql once in the Supabase SQL editor.";
+
 export function isXpSchemaMissing(message: string): boolean {
   return (
     /xp_awards/i.test(message) &&

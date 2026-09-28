@@ -2,11 +2,14 @@ import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   ListeningSchemaError,
+  adminListeningRunFromRow,
   isListeningSchemaMissing,
   clipOutcomeTotalFromRow,
   storedListeningRunFromRow,
+  type AdminListeningRunRecord,
   type ClipOutcomeTotal,
   type ClipStatsRead,
+  type ListeningReadStatus,
   type ListeningRunInput,
   type StoredListeningRun,
   type StudentRunsPage,
@@ -1016,4 +1019,280 @@ export async function listClipOutcomeTotals(): Promise<ClipStatsRead> {
     .map((row) => clipOutcomeTotalFromRow(row))
     .filter((row): row is ClipOutcomeTotal => row != null);
   return { status: "ready", rows };
+}
+
+export async function listAdminListeningRuns(): Promise<{
+  status: ListeningReadStatus;
+  rows: AdminListeningRunRecord[];
+}> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { status: "error", rows: [] };
+
+  const rows: AdminListeningRunRecord[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select(
+        "id, user_id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (isListeningSchemaMissing(error.message)) return { status: "missing", rows: [] };
+      console.error("Supabase listAdminListeningRuns", error.message);
+      return { status: "error", rows: [] };
+    }
+    const page = (data ?? []) as unknown[];
+    for (const raw of page) {
+      const run = adminListeningRunFromRow(raw);
+      if (run) rows.push(run);
+    }
+    if (page.length < LIST_PAGE_SIZE) return { status: "ready", rows };
+    from += LIST_PAGE_SIZE;
+  }
+}
+
+export type AdminStoreProbeStatus = "ok" | "missing" | "error" | "skipped";
+
+export type AdminStoreProbe = {
+  id: string;
+  label: string;
+  sqlFile: string;
+  /** Missing tables fail Health. Missing columns that the app already degrades around warn. */
+  severity: "fail" | "warn";
+  status: AdminStoreProbeStatus;
+  detail: string;
+};
+
+type StoreProbeSpec = {
+  id: string;
+  label: string;
+  sqlFile: string;
+  severity: "fail" | "warn";
+  kind: "table" | "column" | "rpc";
+  table?: string;
+  column?: string;
+  rpc?: string;
+  dependsOn?: string;
+};
+
+const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
+  {
+    id: "user_progress",
+    label: "user_progress",
+    sqlFile: "supabase/user_progress.sql",
+    severity: "fail",
+    kind: "table",
+    table: TABLE,
+    column: "user_id",
+  },
+  {
+    id: "user_progress.image",
+    label: "user_progress.image",
+    sqlFile: "supabase/user_progress.sql",
+    severity: "warn",
+    kind: "column",
+    table: TABLE,
+    column: "image",
+    dependsOn: "user_progress",
+  },
+  {
+    id: "listening_runs",
+    label: "listening_runs",
+    sqlFile: "supabase/listening_runs.sql",
+    severity: "fail",
+    kind: "table",
+    table: RUNS_TABLE,
+    column: "id",
+  },
+  {
+    id: "clip_results",
+    label: "clip_results",
+    sqlFile: "supabase/listening_runs.sql",
+    severity: "fail",
+    kind: "table",
+    table: CLIPS_TABLE,
+    column: "id",
+  },
+  {
+    id: "clip_outcome_totals",
+    label: "clip_outcome_totals()",
+    sqlFile: "supabase/listening_runs.sql",
+    severity: "fail",
+    kind: "rpc",
+    rpc: TOTALS_RPC,
+    dependsOn: "clip_results",
+  },
+  {
+    id: "xp_awards",
+    label: "xp_awards",
+    sqlFile: "supabase/xp_awards.sql",
+    severity: "fail",
+    kind: "table",
+    table: XP_TABLE,
+    column: "run_id",
+  },
+  {
+    id: "studied_clips",
+    label: "studied_clips",
+    sqlFile: "supabase/studied_clips.sql",
+    severity: "fail",
+    kind: "table",
+    table: "studied_clips",
+    column: "user_id",
+  },
+  {
+    id: "duels",
+    label: "duels",
+    sqlFile: "supabase/duels.sql",
+    severity: "fail",
+    kind: "table",
+    table: "duels",
+    column: "id",
+  },
+  {
+    id: "duels.expired",
+    label: "duels.expired",
+    sqlFile: "supabase/duels.sql",
+    severity: "warn",
+    kind: "column",
+    table: "duels",
+    column: "expired",
+    dependsOn: "duels",
+  },
+  {
+    id: "duel_clips",
+    label: "duel_clips",
+    sqlFile: "supabase/duels.sql",
+    severity: "fail",
+    kind: "table",
+    table: "duel_clips",
+    column: "duel_id",
+  },
+  {
+    id: "duel_plays",
+    label: "duel_plays",
+    sqlFile: "supabase/duels.sql",
+    severity: "fail",
+    kind: "table",
+    table: "duel_plays",
+    column: "duel_id",
+  },
+  {
+    id: "duel_xp_awards",
+    label: "duel_xp_awards",
+    sqlFile: "supabase/duels.sql",
+    severity: "fail",
+    kind: "table",
+    table: "duel_xp_awards",
+    column: "duel_id",
+  },
+];
+
+function schemaObjectMissing(message: string, name: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (
+    new RegExp(escaped, "i").test(message) &&
+    /does not exist|schema cache|could not find/i.test(message)
+  );
+}
+
+function skippedProbe(spec: StoreProbeSpec, detail: string): AdminStoreProbe {
+  return {
+    id: spec.id,
+    label: spec.label,
+    sqlFile: spec.sqlFile,
+    severity: spec.severity,
+    status: "skipped",
+    detail,
+  };
+}
+
+async function runStoreProbe(
+  supabase: SupabaseClient,
+  spec: StoreProbeSpec,
+): Promise<AdminStoreProbe> {
+  const base = {
+    id: spec.id,
+    label: spec.label,
+    sqlFile: spec.sqlFile,
+    severity: spec.severity,
+  };
+
+  if (spec.kind === "rpc") {
+    const name = spec.rpc ?? TOTALS_RPC;
+    const { error } = await supabase.rpc(name).limit(1);
+    if (!error) {
+      return { ...base, status: "ok", detail: "Function is reachable." };
+    }
+    if (schemaObjectMissing(error.message, name)) {
+      return {
+        ...base,
+        status: "missing",
+        detail: `Function is not in the schema. Run ${spec.sqlFile}.`,
+      };
+    }
+    return { ...base, status: "error", detail: error.message };
+  }
+
+  const table = spec.table;
+  const column = spec.column;
+  if (!table || !column) {
+    return { ...base, status: "error", detail: "Probe is missing a table or column." };
+  }
+
+  const { error } = await supabase
+    .from(table)
+    .select(column, { count: "exact", head: true });
+  if (!error) {
+    return {
+      ...base,
+      status: "ok",
+      detail: spec.kind === "column" ? "Column is present." : "Table is reachable.",
+    };
+  }
+  if (schemaObjectMissing(error.message, spec.kind === "column" ? column : table)) {
+    return {
+      ...base,
+      status: "missing",
+      detail:
+        spec.kind === "column"
+          ? `Column is missing. Re-run the ALTER statements in ${spec.sqlFile}.`
+          : `Table is not in the schema. Run ${spec.sqlFile}.`,
+    };
+  }
+  return { ...base, status: "error", detail: error.message };
+}
+
+/**
+ * Head-only reads of the tables and RPCs admin pages depend on.
+ * Does not list rows. Missing env skips every probe.
+ */
+export async function probeAdminStores(): Promise<AdminStoreProbe[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return STORE_PROBE_SPECS.map((spec) =>
+      skippedProbe(spec, "Supabase URL or service role key is not set."),
+    );
+  }
+
+  const byId = new Map<string, AdminStoreProbe>();
+  for (const spec of STORE_PROBE_SPECS) {
+    if (spec.dependsOn) {
+      const parent = byId.get(spec.dependsOn);
+      if (!parent || parent.status !== "ok") {
+        const result = skippedProbe(
+          spec,
+          parent?.status === "missing"
+            ? `${spec.dependsOn} is missing, so this was not checked.`
+            : `${spec.dependsOn} is not reachable, so this was not checked.`,
+        );
+        byId.set(spec.id, result);
+        continue;
+      }
+    }
+    byId.set(spec.id, await runStoreProbe(supabase, spec));
+  }
+  return STORE_PROBE_SPECS.map((spec) => byId.get(spec.id)!);
 }

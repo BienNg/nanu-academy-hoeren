@@ -322,6 +322,64 @@ export function storedListeningRunFromRow(value: unknown): StoredListeningRun | 
   return { ...parsed, createdAt: row.created_at };
 }
 
+export type AdminListeningRunRecord = {
+  id: string;
+  userId: string;
+  lessonKey: string;
+  partNumber: number;
+  partCount: number;
+  outcome: ListeningRunOutcome;
+  accuracy: number;
+  answeredCount: number;
+  clipCount: number;
+  elapsedMs: number;
+  createdAt: string;
+};
+
+/** Run row without nested clip_results. Used by the admin listening-runs page. */
+export function adminListeningRunFromRow(value: unknown): AdminListeningRunRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || !UUID.test(row.id)) return null;
+  if (typeof row.user_id !== "string" || !row.user_id) return null;
+  if (typeof row.lesson_key !== "string" || !LESSON_KEY.test(row.lesson_key)) return null;
+  const outcome =
+    row.outcome === "success" || row.outcome === "fail" ? row.outcome : null;
+  if (!outcome) return null;
+  if (typeof row.created_at !== "string" || !row.created_at) return null;
+  const accuracy = integerIn(row.accuracy, 0, 100);
+  const partNumber = integerIn(row.part_number, 1, 99);
+  const partCount = integerIn(row.part_count, 1, 99);
+  const clipCount = integerIn(row.clip_count, 1, MAX_CLIPS);
+  const answeredCount = integerIn(row.answered_count, 1, MAX_CLIPS);
+  const elapsedMs = integerIn(row.elapsed_ms, 0, MAX_ELAPSED_MS);
+  if (
+    accuracy == null ||
+    partNumber == null ||
+    partCount == null ||
+    clipCount == null ||
+    answeredCount == null ||
+    elapsedMs == null ||
+    partNumber > partCount ||
+    answeredCount > clipCount
+  ) {
+    return null;
+  }
+  return {
+    id: row.id,
+    userId: row.user_id,
+    lessonKey: row.lesson_key,
+    partNumber,
+    partCount,
+    outcome,
+    accuracy,
+    answeredCount,
+    clipCount,
+    elapsedMs,
+    createdAt: row.created_at,
+  };
+}
+
 function compareRank(
   count: (row: ClipOutcomeTotal) => number,
   students: (row: ClipOutcomeTotal) => number,
@@ -354,4 +412,53 @@ export function presentClipOutcomes(read: ClipStatsRead): RankedClipOutcomes {
     return { status: read.status, failed: [], succeeded: [] };
   }
   return { status: "ready", ...rankClipOutcomes(read.rows) };
+}
+
+export function clipAttempts(row: ClipOutcomeTotal): number {
+  return row.failures + row.successes;
+}
+
+/** Share of stored outcomes that are misses. A corrected miss counts on both sides. */
+export function clipMissRate(row: ClipOutcomeTotal): number {
+  const attempts = clipAttempts(row);
+  return attempts === 0 ? 0 : row.failures / attempts;
+}
+
+const HARD_SAMPLE = 3;
+
+export type AdminClipDifficultyBoard = {
+  clips: number;
+  misses: number;
+  passes: number;
+  withMisses: number;
+  hardest: ClipOutcomeTotal | null;
+};
+
+/**
+ * All-time clip outcomes. Totals are not a date window; stored parts start when
+ * listening_runs.sql was applied.
+ */
+export function buildAdminClipDifficultyBoard(
+  rows: readonly ClipOutcomeTotal[],
+): AdminClipDifficultyBoard {
+  const seen = rows.filter((row) => clipAttempts(row) > 0);
+  const sampled = seen.filter((row) => clipAttempts(row) >= HARD_SAMPLE);
+  const pool = sampled.length > 0 ? sampled : seen;
+  let hardest: ClipOutcomeTotal | null = null;
+  for (const row of pool) {
+    if (!hardest) {
+      hardest = row;
+      continue;
+    }
+    const rate = clipMissRate(row) - clipMissRate(hardest);
+    const misses = row.failures - hardest.failures;
+    if (rate > 0 || (rate === 0 && misses > 0)) hardest = row;
+  }
+  return {
+    clips: seen.length,
+    misses: seen.reduce((sum, row) => sum + row.failures, 0),
+    passes: seen.reduce((sum, row) => sum + row.successes, 0),
+    withMisses: seen.filter((row) => row.failures > 0).length,
+    hardest,
+  };
 }

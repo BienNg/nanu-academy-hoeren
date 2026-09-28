@@ -4,7 +4,7 @@ import {
   getSessionClips,
 } from "@/lib/content";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
-import { shortBerufLabel } from "@/lib/admin-overview";
+import { shortBerufLabel, type AdminUserRow } from "@/lib/admin-overview";
 import {
   getCefrLevels,
   getChapterClipInventory,
@@ -12,6 +12,7 @@ import {
   getChapterVideos,
   listChapterFilesOnDisk,
 } from "@/lib/levels";
+import { lessonVideoProgressKey, lessonVideoStatus } from "@/lib/progress";
 
 function chapterClips(levelSlug: string, chapterSlug: string): { id: string; prompt: string }[] {
   try {
@@ -285,5 +286,85 @@ export function buildAdminCatalogBoard(): AdminCatalogBoard {
     levels,
     tracks,
     issues: urgent.slice(0, ISSUE_LIMIT),
+  };
+}
+
+export type AdminPublishedVideo = {
+  key: string;
+  levelSlug: string;
+  levelLabel: string;
+  chapterSlug: string;
+  lesson: string;
+  title: string;
+  url: string;
+  videoId: string | null;
+};
+
+/** Every lesson video in chapters JSON, including URLs that do not parse. */
+export function listPublishedLessonVideos(): AdminPublishedVideo[] {
+  const rows: AdminPublishedVideo[] = [];
+  for (const level of getCefrLevels()) {
+    for (const chapter of level.chapters) {
+      for (const video of getChapterVideos(level.slug, chapter.slug)) {
+        rows.push({
+          key: video.videoId
+            ? lessonVideoProgressKey(level.slug, chapter.slug, video.videoId)
+            : `${level.slug}/${chapter.slug}/${video.url}`,
+          levelSlug: level.slug,
+          levelLabel: level.level,
+          chapterSlug: chapter.slug,
+          lesson: chapter.label,
+          title: video.title,
+          url: video.url,
+          videoId: video.videoId,
+        });
+      }
+    }
+  }
+  return rows;
+}
+
+export type AdminVideoWatchRow = AdminPublishedVideo & {
+  watched: number;
+  started: number;
+};
+
+export type AdminVideoBoard = {
+  listed: number;
+  playable: number;
+  broken: number;
+  watchedOnce: number;
+  untouched: number;
+  rows: AdminVideoWatchRow[];
+};
+
+/**
+ * Lesson videos plus how many synced students marked them watched.
+ * Counts are all-time from progress, not the admin date pill.
+ */
+export function buildAdminVideoBoard(
+  people: readonly AdminUserRow[],
+): AdminVideoBoard {
+  const published = listPublishedLessonVideos();
+  const rows: AdminVideoWatchRow[] = published.map((video) => {
+    let watched = 0;
+    let started = 0;
+    if (video.videoId) {
+      for (const person of people) {
+        const status = lessonVideoStatus(person.progress.videos[video.key]);
+        if (status === "watched") watched += 1;
+        else if (status === "in-progress") started += 1;
+      }
+    }
+    return { ...video, watched, started };
+  });
+  const playable = rows.filter((row) => row.videoId);
+  return {
+    listed: rows.length,
+    playable: playable.length,
+    broken: rows.length - playable.length,
+    watchedOnce: playable.filter((row) => row.watched > 0).length,
+    untouched: playable.filter((row) => row.watched === 0 && row.started === 0).length,
+    rows,
   };
 }
