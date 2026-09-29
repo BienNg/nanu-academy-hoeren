@@ -1,5 +1,5 @@
-import { ChapterScreenSkeleton } from "@/components/RouteLoading";
+import { VideoLessonSkeleton } from "@/components/RouteLoading";
 
 export default function Loading() {
-  return <ChapterScreenSkeleton />;
+  return <VideoLessonSkeleton />;
 }

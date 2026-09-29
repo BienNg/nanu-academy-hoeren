@@ -290,12 +290,14 @@ function YouTubePane({
   savedPosition,
   urlStart,
   progressKey,
+  variant = "card",
 }: {
   videoId: string;
   title: string;
   savedPosition: number;
   urlStart: number;
   progressKey: string;
+  variant?: "card" | "page";
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -808,14 +810,18 @@ function YouTubePane({
     return <VideoError message={playbackError} />;
   }
 
+  const page = variant === "page";
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className={page ? "flex flex-col gap-3 sm:gap-4" : "flex flex-col gap-4"}>
       <div
         ref={frameRef}
-        className={`relative w-full overflow-hidden bg-[#1d1d1f] ${
+        className={`relative w-full overflow-hidden bg-[#131b2e] ${
           fullscreen
             ? "flex h-full items-center justify-center bg-black"
-            : "aspect-video rounded-[16px]"
+            : page
+              ? "aspect-video rounded-[24px] shadow-[0_8px_0_0_#c5d8ea] sm:rounded-[28px]"
+              : "aspect-video rounded-[16px]"
         }`}
       >
         <div
@@ -857,13 +863,24 @@ function YouTubePane({
         ) : null}
       </div>
 
+      <div
+        className={
+          page
+            ? "rounded-[24px] bg-white p-2.5 shadow-[0_4px_0_0_#e2e8f0] sm:p-3.5"
+            : undefined
+        }
+      >
       <div className="relative z-10 flex flex-nowrap items-center gap-1 sm:gap-3">
         <button
           type="button"
           onClick={togglePlay}
           disabled={!ready}
           aria-label={playing ? "Tạm dừng" : "Phát"}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc] text-white transition active:scale-95 disabled:bg-[#d2d2d7]"
+          className={
+            page
+              ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1] transition hover:bg-[#0ea5e9] active:translate-y-1 active:shadow-none disabled:bg-[#d2d2d7] disabled:shadow-none sm:h-14 sm:w-14"
+              : "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc] text-white transition active:scale-95 disabled:bg-[#d2d2d7]"
+          }
         >
           <MaterialIcon
             name={playing ? "pause" : "play_arrow"}
@@ -895,7 +912,9 @@ function YouTubePane({
           onTouchEnd={commitSeek}
           onKeyUp={commitSeek}
           onBlur={commitSeek}
-          className="h-11 w-0 min-w-0 flex-1 cursor-pointer accent-[#0066cc] disabled:cursor-not-allowed"
+          className={`h-11 w-0 min-w-0 flex-1 cursor-pointer disabled:cursor-not-allowed ${
+            page ? "accent-[#0284c7]" : "accent-[#0066cc]"
+          }`}
         />
         <span className="min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#86868b]">
           {formatClock(duration)}
@@ -973,7 +992,11 @@ function YouTubePane({
                     aria-checked={selected}
                     onClick={() => changeQuality(level)}
                     className={`flex h-11 w-full items-center justify-between gap-4 px-4 text-left text-[15px] font-semibold ${
-                      selected ? "text-[#0066cc]" : "text-[#1d1d1f]"
+                      selected
+                        ? page
+                          ? "text-[#0284c7]"
+                          : "text-[#0066cc]"
+                        : "text-[#1d1d1f]"
                     }`}
                   >
                     <span>{label}</span>
@@ -994,6 +1017,7 @@ function YouTubePane({
           ) : null}
         </div>
       </div>
+      </div>
 
       {!watched && (ended || nearEnd) ? (
         <button
@@ -1005,7 +1029,11 @@ function YouTubePane({
               durationSeconds: duration,
             })
           }
-          className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
+          className={
+            page
+              ? "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#58cc02] px-6 text-[15px] font-extrabold uppercase tracking-wider text-white shadow-[0_4px_0_0_#58a700] transition hover:bg-[#61e002] active:translate-y-1 active:shadow-none"
+              : "inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
+          }
         >
           <MaterialIcon name="check" className="text-[20px]" />
           Đánh dấu đã xem
@@ -1047,9 +1075,9 @@ export function VideoLessonCard({
   const selectedWatched = lessonVideoStatus(entry) === "watched";
 
   useLayoutEffect(() => {
-    if (pickedByUserRef.current || uncompletedIndex == null) return;
+    if (presentation === "page" || pickedByUserRef.current || uncompletedIndex == null) return;
     setSelectedIndex(uncompletedIndex);
-  }, [uncompletedIndex]);
+  }, [presentation, uncompletedIndex]);
 
   useEffect(() => {
     const keyChanged = prevProgressKeyRef.current !== progressKey;
@@ -1060,21 +1088,61 @@ export function VideoLessonCard({
     }
     const wasWatched = selectedWasWatchedRef.current;
     selectedWasWatchedRef.current = selectedWatched;
-    if (!wasWatched && selectedWatched && uncompletedIndex != null) {
+    if (
+      presentation !== "page" &&
+      !wasWatched &&
+      selectedWatched &&
+      uncompletedIndex != null
+    ) {
       pickedByUserRef.current = false;
       setSelectedIndex(uncompletedIndex);
     }
-  }, [progressKey, selectedWatched, uncompletedIndex]);
+  }, [presentation, progressKey, selectedWatched, uncompletedIndex]);
 
   if (!video) return null;
 
-  const shellClassName =
-    presentation === "page"
-      ? "flex flex-col gap-5"
-      : "flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-7";
+  const player =
+    video.videoId && progressKey ? (
+      <YouTubePane
+        key={progressKey}
+        variant={presentation}
+        videoId={video.videoId}
+        title={video.title}
+        savedPosition={entry?.positionSeconds ?? 0}
+        urlStart={video.startSeconds}
+        progressKey={progressKey}
+      />
+    ) : (
+      <VideoError message="Không phát được video này. Hãy kiểm tra lại liên kết YouTube." />
+    );
+
+  if (presentation === "page") {
+    const status = video.videoId ? lessonVideoStatus(entry) : null;
+    return (
+      <section className="flex w-full flex-col gap-4 sm:gap-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="min-w-0 truncate text-[22px] font-extrabold leading-tight tracking-tight text-[#131b2e] sm:text-[32px] lg:text-[36px]">
+            {video.title}
+          </h2>
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider sm:text-[12px] ${
+              status === "watched"
+                ? "bg-[#d7ffb8] text-[#3d6b00]"
+                : status === "in-progress"
+                  ? "bg-sky-100 text-[#0284c7]"
+                  : "bg-[#e8eef4] text-[#64748b]"
+            }`}
+          >
+            {status ? LESSON_VIDEO_STATUS_LABEL[status] : "Lỗi liên kết"}
+          </span>
+        </div>
+        {player}
+      </section>
+    );
+  }
 
   return (
-    <section className={shellClassName}>
+    <section className="flex flex-col gap-5 overflow-hidden rounded-[24px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-7">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#e8f2fc] text-[#0066cc]">
           <MaterialIcon name="smart_display" className="text-[24px]" filled />
@@ -1154,18 +1222,7 @@ export function VideoLessonCard({
         </ul>
       ) : null}
 
-      {video.videoId && progressKey ? (
-        <YouTubePane
-          key={progressKey}
-          videoId={video.videoId}
-          title={video.title}
-          savedPosition={entry?.positionSeconds ?? 0}
-          urlStart={video.startSeconds}
-          progressKey={progressKey}
-        />
-      ) : (
-        <VideoError message="Không phát được video này. Hãy kiểm tra lại liên kết YouTube." />
-      )}
+      {player}
     </section>
   );
 }
@@ -1184,51 +1241,50 @@ export function VideoLessonScreen({
   return (
     <main
       data-layout="wide"
-      className="relative flex min-h-dvh w-full max-w-none flex-1 flex-col items-center overflow-x-hidden bg-[#fbfbfd] selection:bg-[#0066cc] selection:text-white"
+      className="relative flex min-h-dvh w-full max-w-none flex-1 flex-col overflow-x-hidden bg-[#f7fbff] selection:bg-[#0284c7] selection:text-white"
       style={{
         fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+          "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif",
       }}
     >
-      <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
+      <header className="sticky top-0 z-50 w-full border-b border-sky-100 bg-white/85 pt-safe backdrop-blur-xl">
+        <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:h-16 sm:px-8">
           <Link
             href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
-            className="group flex shrink-0 items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
+            className="group flex h-11 w-fit items-center gap-1 rounded-full pr-2 text-[#0284c7] transition hover:bg-sky-50 active:translate-y-px"
           >
             <span className="material-symbols-outlined text-[20px] font-medium" aria-hidden="true">
               arrow_back_ios_new
             </span>
-            <span className="text-[17px] font-medium tracking-tight">Trở về</span>
+            <span className="text-[16px] font-extrabold tracking-tight sm:text-[17px]">Trở về</span>
           </Link>
-          <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#86868b]">
+          <div className="flex min-w-0 max-w-[46vw] flex-col items-center justify-center text-center sm:max-w-xs">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#0284c7]">
               {level.level}
             </span>
-            <h1
-              className="truncate text-[15px] font-bold tracking-tight text-[#1d1d1f]"
-              style={{ letterSpacing: "-0.015em" }}
-            >
+            <h1 className="truncate text-[15px] font-extrabold tracking-tight text-[#131b2e] sm:text-[17px]">
               {chapter.label}
             </h1>
           </div>
-          <ProfileButton />
+          <div className="flex justify-end">
+            <ProfileButton />
+          </div>
         </div>
       </header>
 
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden">
-        <div className="absolute -top-[20%] -left-[10%] h-[70%] w-[70vw] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
-        <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
-      </div>
-
-      <section className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pt-6 pb-24 sm:px-6">
-        <VideoLessonCard
-          presentation="page"
-          levelSlug={level.slug}
-          chapterSlug={chapter.slug}
-          videos={videos}
-          initialVideoId={initialVideoId}
-        />
+      <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:justify-center sm:px-8 sm:py-8 lg:py-10">
+        <div
+          className="flex w-full flex-col"
+          style={{ maxWidth: "min(100%, calc(58dvh * 16 / 9))" }}
+        >
+          <VideoLessonCard
+            presentation="page"
+            levelSlug={level.slug}
+            chapterSlug={chapter.slug}
+            videos={videos}
+            initialVideoId={initialVideoId}
+          />
+        </div>
       </section>
     </main>
   );

@@ -35,7 +35,10 @@ export default async function VideoLessonPage({
   }
 
   const videos = getChapterVideos(levelSlug, chapterSlug);
-  if (videos.length === 0) {
+  const video = requested
+    ? videos.find((item) => item.videoId === requested)
+    : videos[0];
+  if (!video) {
     notFound();
   }
 
@@ -43,8 +46,8 @@ export default async function VideoLessonPage({
     <VideoLessonScreen
       level={level}
       chapter={chapter}
-      videos={videos}
-      initialVideoId={requested ?? null}
+      videos={[video]}
+      initialVideoId={video.videoId}
     />
   );
 }

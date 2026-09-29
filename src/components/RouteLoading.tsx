@@ -450,6 +450,24 @@ export function AdminScreenSkeleton() {
   );
 }
 
+export function VideoLessonSkeleton({ path }: { path?: string }) {
+  return (
+    <ScreenFrame>
+      <LearnerHeader path={path} kicker="Video" />
+      <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center px-4 pt-4 sm:justify-center sm:px-8 sm:py-8">
+        <div className="flex w-full max-w-3xl flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <Bone className="h-8 w-48 rounded-full sm:h-10" />
+            <Bone className="h-7 w-20 rounded-full" />
+          </div>
+          <Bone className="aspect-video w-full rounded-[24px]" />
+          <Bone className="h-16 w-full rounded-[24px]" />
+        </div>
+      </section>
+    </ScreenFrame>
+  );
+}
+
 export function ScreenForPath({ path }: { path: string }) {
   const parts = path.split("/").filter(Boolean);
   if (parts.length === 0) return <HomeScreenSkeleton />;
@@ -459,6 +477,9 @@ export function ScreenForPath({ path }: { path: string }) {
   if (parts[0] === "admin") return <AdminScreenSkeleton />;
   if (parts[0] === "interview") {
     return <SessionScreenSkeleton kind="practice" path={path} />;
+  }
+  if (parts[0] === "learn" && parts[parts.length - 1] === "video") {
+    return <VideoLessonSkeleton path={path} />;
   }
   if (parts[0] === "learn" && parts[parts.length - 1] === "study") {
     return <SessionScreenSkeleton kind="study" path={path} />;
