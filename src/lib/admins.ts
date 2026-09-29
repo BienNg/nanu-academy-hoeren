@@ -1,4 +1,12 @@
-/** Hardcoded allowlist — checked server-side before admin data loads. */
+/**
+ * Full admins. Hardcoded so a database change cannot lock this role out or
+ * hand it to someone else. They can delete accounts and progress, and they
+ * can grant staff access.
+ *
+ * Staff (`user_progress.staff`) may open the dashboard, see every stat, and
+ * grant classes and courses. They cannot delete.
+ */
+export type AdminDashboardRole = "owner" | "staff";
 
 export const ADMIN_EMAILS = ["bien.nguyen19961@gmail.com"] as const;
 

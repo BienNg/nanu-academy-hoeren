@@ -19,11 +19,14 @@ import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
   containsAccountStamps,
+  levelAccessAfterPreUnlock,
+  normalizeGrantEmail,
   normalizeProgress,
   type StoredProgress,
 } from "@/lib/progress";
 
 const TABLE = "user_progress";
+const PENDING_ACCESS_TABLE = "pending_level_access";
 const RUNS_TABLE = "listening_runs";
 const CLIPS_TABLE = "clip_results";
 const XP_TABLE = "xp_awards";
@@ -42,6 +45,13 @@ export function hasInterviewAccess(slugs: readonly string[]): boolean {
 
 export function withoutInterviewAccess(slugs: readonly string[]): string[] {
   return slugs.filter((slug) => slug !== INTERVIEW_ACCESS_SLUG);
+}
+
+export { levelAccessAfterPreUnlock, normalizeGrantEmail };
+
+/** ILIKE pattern that matches this email and nothing wider. */
+function exactEmailIlike(email: string): string {
+  return email.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
 /** Vercel Marketplace may inject NEXT_PUBLIC_SUPABASE_URL; either works server-side. */
@@ -250,6 +260,11 @@ export type UserProgressListItem = {
   className: string | null;
   /** Google sign-ins from the last 90 days, newest last. Not app-open visits. */
   signIns: string[];
+  /**
+   * Limited dashboard access. Staff can see stats and grant classes and
+   * courses. Full admins are a separate allowlist and ignore this flag.
+   */
+  staff: boolean;
   progress: StoredProgress;
 };
 
@@ -267,6 +282,7 @@ type RawProgressRow = {
   level_access?: unknown;
   class_name?: unknown;
   sign_ins?: unknown;
+  staff?: unknown;
 };
 
 /** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
@@ -343,6 +359,7 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     interviewAccess: hasInterviewAccess(access),
     className: readClassName(row.class_name),
     signIns: readSignIns(row.sign_ins),
+    staff: row.staff === true,
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
 }
@@ -496,12 +513,24 @@ export async function recordUserSignIn(
     ...(image ? { image } : {}),
   };
   const isNewAccount = !row || Boolean(row.deleted_at);
+  const pendingSlugs = profile.email
+    ? await readPendingLevelSlugs(supabase, profile.email)
+    : null;
+  const nextLevelAccess = pendingSlugs
+    ? levelAccessAfterPreUnlock(
+        isNewAccount ? [] : await getUserLevelAccess(userId),
+        pendingSlugs,
+        isNewAccount,
+      )
+    : null;
   let imageSaved = !requestedImage;
+  let wroteAccount = false;
 
   if (row) {
     const patch = {
       ...identity,
       ...(signIns ? { sign_ins: signIns } : {}),
+      ...(nextLevelAccess ? { level_access: nextLevelAccess } : {}),
     };
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await supabase
@@ -520,12 +549,14 @@ export async function recordUserSignIn(
             console.error("Supabase recordUserSignIn update", retryError.message);
             return false;
           }
+          wroteAccount = true;
         }
       } else if (updateError) {
         console.error("Supabase recordUserSignIn update", updateError.message);
         return false;
-      } else if (image) {
-        imageSaved = true;
+      } else {
+        wroteAccount = true;
+        if (image) imageSaved = true;
       }
     }
   } else {
@@ -534,7 +565,7 @@ export async function recordUserSignIn(
       user_id: userId,
       data: structuredClone(DEFAULT_PROGRESS),
       updated_at: now,
-      level_access: [],
+      level_access: nextLevelAccess ?? [],
       ...(signIns ? { sign_ins: signIns } : {}),
       ...identity,
     };
@@ -547,14 +578,19 @@ export async function recordUserSignIn(
         console.error("Supabase recordUserSignIn insert", retryError.message);
         return false;
       }
+      wroteAccount = true;
     } else if (insertError) {
       console.error("Supabase recordUserSignIn insert", insertError.message);
       return false;
-    } else if (image) {
-      imageSaved = true;
+    } else {
+      wroteAccount = true;
+      if (image) imageSaved = true;
     }
   }
 
+  if (wroteAccount && pendingSlugs && profile.email) {
+    await forgetPendingLevelGrant(profile.email);
+  }
   if (isNewAccount) await notifyNewUser(profile);
   return imageSaved;
 }
@@ -619,7 +655,7 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
-    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins",
+    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, staff",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
@@ -718,6 +754,14 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   if (classError) {
     console.error("Supabase deleteUserAccount class_name", classError.message);
   }
+
+  const { error: staffError } = await supabase
+    .from(TABLE)
+    .update({ staff: false })
+    .eq("user_id", userId);
+  if (staffError) {
+    console.error("Supabase deleteUserAccount staff", staffError.message);
+  }
 }
 
 /**
@@ -737,6 +781,173 @@ export const getUserLevelAccess = cache(async (userId: string): Promise<string[]
   if (error || !data) return [];
   return readLevelAccess((data as { level_access?: unknown }).level_access);
 });
+
+export type PendingLevelGrant = {
+  email: string;
+  levelAccess: string[];
+  interviewAccess: boolean;
+  updatedAt: string | null;
+};
+
+function mapPendingGrant(row: {
+  email?: unknown;
+  level_access?: unknown;
+  updated_at?: unknown;
+}): PendingLevelGrant | null {
+  if (typeof row.email !== "string") return null;
+  const email = normalizeGrantEmail(row.email);
+  if (!email) return null;
+  const access = readLevelAccess(row.level_access);
+  return {
+    email,
+    levelAccess: withoutInterviewAccess(access),
+    interviewAccess: hasInterviewAccess(access),
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
+  };
+}
+
+/** Active account for this email, if one has already signed in. */
+export async function findActiveUserIdByEmail(email: string): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  const normalized = normalizeGrantEmail(email);
+  if (!supabase || !normalized) return null;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("user_id, deleted_at")
+    .ilike("email", exactEmailIlike(normalized))
+    .limit(5);
+
+  if (error) {
+    throw new Error(
+      `Could not check this email (${error.message}). Run supabase/user_progress.sql once.`,
+    );
+  }
+
+  const match = (data ?? []).find(
+    (row) =>
+      typeof row.user_id === "string" &&
+      row.user_id &&
+      !row.deleted_at,
+  );
+  return match && typeof match.user_id === "string" ? match.user_id : null;
+}
+
+/** `null` means the pending-grant table could not be read. */
+export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .select("email, level_access, updated_at")
+    .order("email", { ascending: true })
+    .limit(500);
+
+  if (error) {
+    const missingTable = /does not exist|schema cache|could not find/i.test(error.message);
+    if (!missingTable) {
+      console.error("Supabase listPendingLevelGrants", error.message);
+    }
+    return null;
+  }
+
+  const grants: PendingLevelGrant[] = [];
+  for (const row of data ?? []) {
+    const grant = mapPendingGrant(row);
+    if (grant && (grant.levelAccess.length > 0 || grant.interviewAccess)) {
+      grants.push(grant);
+    }
+  }
+  return grants;
+}
+
+async function readPendingLevelSlugs(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<string[] | null> {
+  const normalized = normalizeGrantEmail(email);
+  if (!normalized) return null;
+
+  const { data, error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .select("level_access")
+    .eq("email", normalized)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase readPendingLevelSlugs", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const slugs = readLevelAccess((data as { level_access?: unknown }).level_access);
+  return slugs.length > 0 ? slugs : null;
+}
+
+export async function upsertPendingLevelGrant(
+  email: string,
+  levelSlugs: readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+  const normalized = normalizeGrantEmail(email);
+  if (!normalized) {
+    throw new Error("Enter a valid email address.");
+  }
+  if (levelSlugs.length === 0) {
+    await deletePendingLevelGrant(normalized);
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from(PENDING_ACCESS_TABLE).upsert(
+    {
+      email: normalized,
+      level_access: [...levelSlugs],
+      updated_at: now,
+    },
+    { onConflict: "email" },
+  );
+
+  if (error) {
+    throw new Error(
+      `Could not save this pre-unlock (${error.message}). Run supabase/pending_level_access.sql once.`,
+    );
+  }
+}
+
+export async function deletePendingLevelGrant(email: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+  const normalized = normalizeGrantEmail(email);
+  if (!normalized) {
+    throw new Error("Enter a valid email address.");
+  }
+
+  const { error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .delete()
+    .eq("email", normalized);
+
+  if (error) {
+    throw new Error(
+      `Could not remove this pre-unlock (${error.message}). Run supabase/pending_level_access.sql once.`,
+    );
+  }
+}
+
+/** Best-effort. A failed delete is retried the next time this email signs in. */
+async function forgetPendingLevelGrant(email: string): Promise<void> {
+  try {
+    await deletePendingLevelGrant(email);
+  } catch (error) {
+    console.error("Supabase forgetPendingLevelGrant", error);
+  }
+}
 
 export async function getStoredUserEmail(userId: string): Promise<string | null> {
   const supabase = getSupabaseAdmin();
@@ -810,6 +1021,45 @@ export async function setUserClass(
   if (error) {
     throw new Error(
       `Could not update class (${error.message}). Run supabase/user_progress.sql once to add the class_name column.`,
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("This user has not signed in yet.");
+  }
+}
+
+/** True when this account may open the dashboard as staff. A missing column means no. */
+export const getUserStaff = cache(async (userId: string): Promise<boolean> => {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return false;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("staff")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return false;
+  return (data as { staff?: unknown }).staff === true;
+});
+
+/** Full admins only. Grants or removes staff dashboard access. */
+export async function setUserStaff(userId: string, staff: boolean): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ staff })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) {
+    throw new Error(
+      `Could not update staff access (${error.message}). Run supabase/user_progress.sql once to add the staff column.`,
     );
   }
 

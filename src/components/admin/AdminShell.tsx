@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -12,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { ProfileButton } from "@/components/ProfileButton";
+import type { AdminDashboardRole } from "@/lib/admins";
 import {
   ADMIN_RANGES,
   DEFAULT_ADMIN_RANGE,
@@ -47,6 +50,21 @@ function subscribeCollapsed(onChange: () => void): () => void {
 function writeCollapsed(next: boolean): void {
   window.localStorage.setItem(RAIL_STORAGE_KEY, next ? "1" : "0");
   for (const listener of railListeners) listener();
+}
+
+const AdminRoleContext = createContext<AdminDashboardRole>("staff");
+
+export function useAdminRole(): AdminDashboardRole {
+  return useContext(AdminRoleContext);
+}
+
+export function StaffBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f2fc] px-2 py-0.5 font-label-sm text-[11px] font-semibold text-[#0066cc]">
+      <MaterialIcon name="admin_panel_settings" className="text-[14px]" />
+      Staff
+    </span>
+  );
 }
 
 export function MaterialIcon({
@@ -257,6 +275,7 @@ function AdminSidebar({
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
+  const role = useAdminRole();
 
   return (
     <aside
@@ -267,7 +286,7 @@ function AdminSidebar({
       }`}
     >
       <div
-        className={`flex h-16 shrink-0 items-center gap-space-8 border-b border-outline-variant/30 px-space-16 ${
+        className={`flex min-h-16 shrink-0 items-center gap-space-8 border-b border-outline-variant/30 px-space-16 py-space-8 ${
           collapsed
             ? "lg:h-auto lg:flex-col lg:justify-center lg:gap-space-8 lg:px-space-8 lg:py-space-12"
             : ""
@@ -282,11 +301,16 @@ function AdminSidebar({
           <MaterialIcon name="hearing" className="text-[20px]" filled />
         </Link>
         <span
-          className={`min-w-0 flex-1 truncate font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface ${
-            collapsed ? "lg:hidden" : ""
-          }`}
+          className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
         >
-          Admin
+          <span className="block truncate font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">
+            Admin
+          </span>
+          {role === "staff" ? (
+            <span className="block truncate font-caption text-[11px] font-medium text-on-surface-variant">
+              Staff · cannot delete
+            </span>
+          ) : null}
         </span>
         <button
           type="button"
@@ -501,7 +525,13 @@ export function AdminPageHeader({
   );
 }
 
-export function AdminShell({ children }: { children: ReactNode }) {
+export function AdminShell({
+  children,
+  role,
+}: {
+  children: ReactNode;
+  role: AdminDashboardRole;
+}) {
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     readCollapsed,
@@ -531,6 +561,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, [open]);
 
   return (
+    <AdminRoleContext.Provider value={role}>
     <div
       data-layout="wide"
       className="flex min-h-dvh w-full flex-1 bg-surface"
@@ -573,5 +604,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {children}
       </div>
     </div>
+    </AdminRoleContext.Provider>
   );
 }

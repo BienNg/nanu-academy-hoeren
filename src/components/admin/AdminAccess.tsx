@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import {
+  removeAdminPendingAccess,
+  setAdminPendingAccess,
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
 } from "@/app/admin/actions";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
 import {
   ADMIN_PAGE_SIZE,
   buildAdminAccessBoard,
@@ -19,6 +21,7 @@ import {
   type AdminLevelOption,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import type { PendingLevelGrant } from "@/lib/progress-store";
 
 function formatCount(value: number): string {
   return value.toLocaleString("en-GB");
@@ -89,10 +92,14 @@ export function AdminAccess({
   rows,
   levels,
   storeConfigured,
+  pending,
+  pendingReady,
 }: {
   rows: AdminUserRow[];
   levels: readonly AdminLevelOption[];
   storeConfigured: boolean;
+  pending: PendingLevelGrant[];
+  pendingReady: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -105,8 +112,23 @@ export function AdminAccess({
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [savingInterviewIds, setSavingInterviewIds] = useState<string[]>([]);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [grantEmail, setGrantEmail] = useState("");
+  const [draftLevels, setDraftLevels] = useState<string[]>([]);
+  const [draftInterview, setDraftInterview] = useState(false);
+  const [savingGrant, setSavingGrant] = useState(false);
+  const [pendingRows, setPendingRows] = useState(pending);
+  const [savingPending, setSavingPending] = useState<string[]>([]);
   const savingRef = useRef(new Set<string>());
   const savingInterviewRef = useRef(new Set<string>());
+  const savingPendingRef = useRef(new Set<string>());
+  const pendingSignature = pending
+    .map((row) => `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}`)
+    .join("|");
+  const [seenPending, setSeenPending] = useState(pendingSignature);
+  if (seenPending !== pendingSignature) {
+    setSeenPending(pendingSignature);
+    setPendingRows(pending);
+  }
 
   function grantedFor(row: AdminUserRow): string[] {
     return accessByUser[row.userId] ?? row.levelAccess;
@@ -225,6 +247,136 @@ export function AdminAccess({
     }
   }
 
+  async function savePendingGrant() {
+    const email = grantEmail.trim();
+    if (!email || savingGrant) return;
+    if (draftLevels.length === 0 && !draftInterview) {
+      setAccessError("Choose at least one course.");
+      return;
+    }
+    setSavingGrant(true);
+    setAccessError(null);
+    try {
+      const result = await setAdminPendingAccess(email, draftLevels, draftInterview);
+      if (!result.ok) {
+        setAccessError(result.error);
+        return;
+      }
+      const grant = result.grant;
+      if (grant) {
+        setPendingRows((current) =>
+          [...current.filter((row) => row.email !== grant.email), grant].sort((a, b) =>
+            a.email.localeCompare(b.email),
+          ),
+        );
+      }
+      setGrantEmail("");
+      setDraftLevels([]);
+      setDraftInterview(false);
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      setSavingGrant(false);
+    }
+  }
+
+  async function togglePendingLevel(row: PendingLevelGrant, slug: string) {
+    if (savingPendingRef.current.has(row.email)) return;
+    savingPendingRef.current.add(row.email);
+    const current = row.levelAccess;
+    const next = current.includes(slug)
+      ? current.filter((item) => item !== slug)
+      : [...current, slug];
+    setPendingRows((prev) =>
+      prev.map((item) => (item.email === row.email ? { ...item, levelAccess: next } : item)),
+    );
+    setSavingPending((prev) => (prev.includes(row.email) ? prev : [...prev, row.email]));
+    setAccessError(null);
+    try {
+      const result = await setAdminPendingAccess(row.email, next, row.interviewAccess);
+      if (!result.ok) {
+        setPendingRows((prev) =>
+          prev.map((item) =>
+            item.email === row.email ? { ...item, levelAccess: current } : item,
+          ),
+        );
+        setAccessError(result.error);
+        return;
+      }
+      const grant = result.grant;
+      setPendingRows((prev) => {
+        if (!grant) return prev.filter((item) => item.email !== row.email);
+        return prev.map((item) => (item.email === row.email ? grant : item));
+      });
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingPendingRef.current.delete(row.email);
+      setSavingPending((prev) => prev.filter((email) => email !== row.email));
+    }
+  }
+
+  async function togglePendingInterview(row: PendingLevelGrant) {
+    if (savingPendingRef.current.has(row.email)) return;
+    savingPendingRef.current.add(row.email);
+    const next = !row.interviewAccess;
+    setPendingRows((prev) =>
+      prev.map((item) =>
+        item.email === row.email ? { ...item, interviewAccess: next } : item,
+      ),
+    );
+    setSavingPending((prev) => (prev.includes(row.email) ? prev : [...prev, row.email]));
+    setAccessError(null);
+    try {
+      const result = await setAdminPendingAccess(row.email, row.levelAccess, next);
+      if (!result.ok) {
+        setPendingRows((prev) =>
+          prev.map((item) =>
+            item.email === row.email ? { ...item, interviewAccess: row.interviewAccess } : item,
+          ),
+        );
+        setAccessError(result.error);
+        return;
+      }
+      const grant = result.grant;
+      setPendingRows((prev) => {
+        if (!grant) return prev.filter((item) => item.email !== row.email);
+        return prev.map((item) => (item.email === row.email ? grant : item));
+      });
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingPendingRef.current.delete(row.email);
+      setSavingPending((prev) => prev.filter((email) => email !== row.email));
+    }
+  }
+
+  async function removePending(email: string) {
+    if (savingPendingRef.current.has(email)) return;
+    savingPendingRef.current.add(email);
+    const previous = pendingRows;
+    setPendingRows((prev) => prev.filter((row) => row.email !== email));
+    setSavingPending((prev) => (prev.includes(email) ? prev : [...prev, email]));
+    setAccessError(null);
+    try {
+      const result = await removeAdminPendingAccess(email);
+      if (!result.ok) {
+        setPendingRows(previous);
+        setAccessError(result.error);
+        return;
+      }
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingPendingRef.current.delete(email);
+      setSavingPending((prev) => prev.filter((item) => item !== email));
+    }
+  }
+
   function handleQueryChange(value: string) {
     setQuery(value);
     setPage(1);
@@ -256,7 +408,7 @@ export function AdminAccess({
       <AdminPageHeader
         kicker="People"
         title="Access"
-        subtitle="Who can open each CEFR level and Luyện phỏng vấn. Admins are unlocked everywhere."
+        subtitle="Who can open each CEFR level and Luyện phỏng vấn, including emails that have not signed up yet. Admins are unlocked everywhere."
       />
 
       {!storeConfigured ? (
@@ -411,6 +563,143 @@ export function AdminAccess({
         </section>
       </div>
 
+      <section className="flex flex-col gap-space-16 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
+        <div>
+          <h2 className="font-label-md text-label-md font-semibold text-on-surface">
+            Pre-unlock
+          </h2>
+          <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+            Grant courses to an email that has not signed up yet. When they sign
+            in with Google using that address, those courses are already open.
+          </p>
+        </div>
+        {storeConfigured && !pendingReady ? (
+          <p className="rounded-2xl border border-error-container bg-error-container/40 px-space-16 py-space-12 font-body-sm text-body-sm text-on-error-container">
+            Pre-unlock is not ready yet. Run supabase/pending_level_access.sql once
+            in the Supabase SQL editor, then reload this page.
+          </p>
+        ) : null}
+        <form
+          className="flex flex-col gap-space-12"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void savePendingGrant();
+          }}
+        >
+          <label className="flex w-full max-w-md flex-col gap-space-8">
+            <span className="font-label-sm text-label-sm font-semibold text-on-surface">
+              Email
+            </span>
+            <input
+              type="email"
+              required
+              autoComplete="off"
+              value={grantEmail}
+              onChange={(event) => setGrantEmail(event.target.value)}
+              placeholder="student@email.com"
+              disabled={!storeConfigured || !pendingReady || savingGrant}
+              className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+            />
+          </label>
+          <div className="flex flex-wrap gap-space-8">
+            {levels.map((level) => {
+              const on = draftLevels.includes(level.slug);
+              return (
+                <GrantChip
+                  key={level.slug}
+                  label={level.level}
+                  on={on}
+                  disabled={!storeConfigured || !pendingReady || savingGrant}
+                  title={on ? `Remove ${level.level}` : `Grant ${level.level}`}
+                  onToggle={() =>
+                    setDraftLevels((current) =>
+                      current.includes(level.slug)
+                        ? current.filter((slug) => slug !== level.slug)
+                        : [...current, level.slug],
+                    )
+                  }
+                />
+              );
+            })}
+            <GrantChip
+              label="Phỏng vấn"
+              on={draftInterview}
+              disabled={!storeConfigured || !pendingReady || savingGrant}
+              title={
+                draftInterview
+                  ? "Remove Luyện phỏng vấn theo nghề"
+                  : "Grant Luyện phỏng vấn theo nghề"
+              }
+              onToggle={() => setDraftInterview((current) => !current)}
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              disabled={!storeConfigured || !pendingReady || savingGrant}
+              className="inline-flex h-11 items-center rounded-2xl bg-primary px-space-16 font-label-md text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {savingGrant ? "Saving…" : "Pre-unlock"}
+            </button>
+          </div>
+        </form>
+        {!pendingReady ? null : pendingRows.length === 0 ? (
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            No emails are waiting to sign up.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-outline-variant/20 border-t border-outline-variant/20">
+            {pendingRows.map((row) => {
+              const busy = savingPending.includes(row.email);
+              return (
+                <li
+                  key={row.email}
+                  className="flex flex-col gap-space-12 py-space-16 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="min-w-[12rem] font-label-md text-label-md font-semibold text-on-surface">
+                    {row.email}
+                  </p>
+                  <div className="flex flex-1 flex-wrap items-center gap-space-8">
+                    {levels.map((level) => {
+                      const on = row.levelAccess.includes(level.slug);
+                      return (
+                        <GrantChip
+                          key={level.slug}
+                          label={level.level}
+                          on={on}
+                          disabled={busy}
+                          title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
+                          onToggle={() => void togglePendingLevel(row, level.slug)}
+                        />
+                      );
+                    })}
+                    <GrantChip
+                      label="Phỏng vấn"
+                      on={row.interviewAccess}
+                      disabled={busy}
+                      title={
+                        row.interviewAccess
+                          ? "Hide Luyện phỏng vấn theo nghề"
+                          : "Show Luyện phỏng vấn theo nghề"
+                      }
+                      onToggle={() => void togglePendingInterview(row)}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void removePending(row.email)}
+                      className="inline-flex h-8 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-error disabled:opacity-50 hover:bg-error-container/40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <section className="flex flex-col gap-space-12 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
         <div className="flex flex-col gap-space-12 px-space-16 py-space-12">
           <div>
@@ -525,8 +814,11 @@ export function AdminAccess({
                     >
                       <td className="sticky left-0 z-10 bg-surface-container-lowest px-space-16 py-space-16">
                         <div className="flex min-w-[12rem] flex-col">
-                          <span className="font-label-md text-label-md font-semibold text-on-surface">
-                            {row.displayName}
+                          <span className="flex flex-wrap items-center gap-space-8">
+                            <span className="font-label-md text-label-md font-semibold text-on-surface">
+                              {row.displayName}
+                            </span>
+                            {row.staff && !row.isAdmin ? <StaffBadge /> : null}
                           </span>
                           {row.email && row.email !== row.displayName ? (
                             <span className="font-body-sm text-body-sm text-on-surface-variant">

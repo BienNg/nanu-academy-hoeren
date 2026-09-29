@@ -7,6 +7,7 @@ import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
+  listPendingLevelGrants,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -29,11 +30,18 @@ export default async function AdminAccessPage() {
   }
 
   const items = storeConfigured ? await listAllUserProgress() : [];
+  const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
 
   return (
-    <AdminAccess rows={rows} levels={levels} storeConfigured={storeConfigured} />
+    <AdminAccess
+      rows={rows}
+      levels={levels}
+      storeConfigured={storeConfigured}
+      pending={pending ?? []}
+      pendingReady={pending !== null}
+    />
   );
 }

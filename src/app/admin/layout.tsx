@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { isAdminUser } from "@/lib/admins";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
@@ -12,7 +13,8 @@ export default async function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const role = isAdminUser(session.user) ? "owner" : "staff";
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell role={role}>{children}</AdminShell>;
 }

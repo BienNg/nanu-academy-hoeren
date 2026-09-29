@@ -8,6 +8,8 @@ import {
   containsAccountStamps,
   normalizeProgress,
   progressStorageKey,
+  levelAccessAfterPreUnlock,
+  normalizeGrantEmail,
   shouldReplaceLocalWithCloud,
   type StoredProgress,
 } from "./progress.js";
@@ -154,4 +156,24 @@ test("a copied account is still detected after one extra answer", () => {
   assert.equal(containsAccountStamps(withOneMoreAnswer, previous), true);
   assert.equal(containsAccountStamps(ownWork, previous), false);
   assert.equal(containsAccountStamps(normalizeProgress({}), previous), false);
+});
+
+test("a pre-unlock email is stored in lowercase", () => {
+  assert.equal(normalizeGrantEmail("  Student@School.COM "), "student@school.com");
+  assert.equal(normalizeGrantEmail("not-an-email"), null);
+  assert.equal(normalizeGrantEmail(""), null);
+});
+
+test("signing up claims a pre-unlock and an existing account keeps its courses", () => {
+  assert.deepEqual(
+    levelAccessAfterPreUnlock([], ["a1-1", "interview"], true),
+    ["a1-1", "interview"],
+  );
+  assert.deepEqual(
+    levelAccessAfterPreUnlock(["a2-1"], ["a1-1", "a2-1"], false),
+    ["a2-1", "a1-1"],
+  );
+  assert.deepEqual(levelAccessAfterPreUnlock(["a1-1", "interview"], ["a1-1"], true), [
+    "a1-1",
+  ]);
 });

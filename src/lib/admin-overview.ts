@@ -46,6 +46,8 @@ export type AdminUserRow = {
   levelAccess: string[];
   interviewAccess: boolean;
   className: string | null;
+  /** Limited dashboard access. Not the full admin. */
+  staff: boolean;
   /** Google sign-ins, oldest first. Empty until the next real sign-in after this ships. */
   signIns: string[];
   lastSignInAt: string | null;
@@ -121,6 +123,7 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     levelAccess: item.levelAccess,
     interviewAccess: item.interviewAccess,
     className: item.className,
+    staff: item.staff === true,
     signIns: item.signIns ?? [],
     lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1] ?? null) : null,
     progress,

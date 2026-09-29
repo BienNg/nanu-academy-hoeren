@@ -22,7 +22,11 @@ create table if not exists public.user_progress (
   class_name text,
   -- Real Google sign-ins (Auth.js jwt callback with `account`). Not app visits.
   -- Kept about 90 days by the app. `last_login_at` stays "last seen".
-  sign_ins timestamptz[] not null default '{}'
+  sign_ins timestamptz[] not null default '{}',
+  -- Limited dashboard access. Staff can see every stat and grant classes and
+  -- courses. They cannot delete accounts or progress. Full admins are the
+  -- hardcoded allowlist and ignore this flag.
+  staff boolean not null default false
 );
 
 alter table public.user_progress
@@ -34,7 +38,8 @@ alter table public.user_progress
   add column if not exists revoked_before timestamptz,
   add column if not exists level_access text[] not null default '{}',
   add column if not exists class_name text,
-  add column if not exists sign_ins timestamptz[] not null default '{}';
+  add column if not exists sign_ins timestamptz[] not null default '{}',
+  add column if not exists staff boolean not null default false;
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);

@@ -9,6 +9,41 @@ export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 /** Fallback continue target when no totals / progress are available. */
 export const CONTINUE_BERUF_SLUG = "restaurantfachkraft";
 
+const GRANT_EMAIL_MAX = 254;
+
+/** Lowercased email used as the key for a grant made before sign-up. */
+export function normalizeGrantEmail(email: string): string | null {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || normalized.length > GRANT_EMAIL_MAX) return null;
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(normalized)) return null;
+  if (normalized.includes("..")) return null;
+  return normalized;
+}
+
+/**
+ * Courses to store when a pre-unlock is claimed at sign-in.
+ * A new account, or one returning after deletion, takes the grant as-is.
+ * An account that already exists keeps its courses and gains the new ones.
+ */
+export function levelAccessAfterPreUnlock(
+  current: readonly string[],
+  pending: readonly string[],
+  replace: boolean,
+): string[] {
+  if (replace) {
+    const slugs: string[] = [];
+    for (const slug of pending) {
+      if (!slugs.includes(slug)) slugs.push(slug);
+    }
+    return slugs;
+  }
+  const merged = [...current];
+  for (const slug of pending) {
+    if (!merged.includes(slug)) merged.push(slug);
+  }
+  return merged;
+}
+
 export type InterviewProgress = {
   /**
    * 0-based catalog position of the next unseen clip.

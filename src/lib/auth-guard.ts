@@ -4,6 +4,7 @@ import { isAdminUser } from "@/lib/admins";
 import {
   getUserInterviewAccess,
   getUserLevelAccess,
+  getUserStaff,
   resolveAccountAccess,
 } from "@/lib/progress-store";
 
@@ -88,11 +89,13 @@ export async function requireInterviewAccess(user: {
   }
 }
 
-/** Signed-in admins only. Non-admins get a 404 — no admin UI or data. */
+/**
+ * Full admins and staff. Everyone else gets a 404 — no admin UI or data.
+ * Staff can read stats and grant access; delete stays with the full admin.
+ */
 export async function requireAdmin() {
   const session = await requireUser();
-  if (!isAdminUser(session.user)) {
-    notFound();
-  }
-  return session;
+  if (isAdminUser(session.user)) return session;
+  if (session.user.id && (await getUserStaff(session.user.id))) return session;
+  notFound();
 }

@@ -22,17 +22,24 @@ import { commitAdminProgressClear, type StoredProgress } from "@/lib/progress";
 import {
   INTERVIEW_ACCESS_SLUG,
   deleteListeningRunsForLessons,
+  deletePendingLevelGrant,
   deleteUserAccount,
+  findActiveUserIdByEmail,
   getCloudProgress,
   getStoredUserEmail,
   getUserLevelAccess,
+  getUserStaff,
   hasInterviewAccess,
   isProgressStoreConfigured,
   listStudentListeningRuns,
+  normalizeGrantEmail,
   setCloudProgress,
   setUserClass,
   setUserLevelAccess,
+  setUserStaff,
+  upsertPendingLevelGrant,
   withoutInterviewAccess,
+  type PendingLevelGrant,
 } from "@/lib/progress-store";
 
 /**
@@ -41,6 +48,14 @@ import {
  */
 function revalidateAdmin(): void {
   revalidatePath("/admin", "layout");
+}
+
+/** Full admins and staff. Deletes stay on `isAdminUser` alone. */
+async function requireDashboardAdmin(): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.id) return false;
+  if (isAdminUser(session.user)) return true;
+  return getUserStaff(session.user.id);
 }
 
 function adminCourseCatalog() {
@@ -116,8 +131,7 @@ export async function listAdminStudentRuns(
   userId: string,
   offset = 0,
 ): Promise<({ ok: true } & StudentRunsPage) | { ok: false; error: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !isAdminUser(session.user)) {
+  if (!(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
   }
 
@@ -165,8 +179,7 @@ export async function setAdminUserLevelAccess(
   userId: string,
   levelSlugs: string[],
 ): Promise<{ ok: true; levelAccess: string[] } | { ok: false; error: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !isAdminUser(session.user)) {
+  if (!(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
   }
 
@@ -211,8 +224,7 @@ export async function setAdminUserInterviewAccess(
   userId: string,
   granted: boolean,
 ): Promise<{ ok: true; interviewAccess: boolean } | { ok: false; error: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !isAdminUser(session.user)) {
+  if (!(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
   }
 
@@ -251,12 +263,103 @@ export async function setAdminUserInterviewAccess(
   return { ok: true, interviewAccess };
 }
 
+function catalogGrantSlugs(levelSlugs: readonly string[], interview: boolean): string[] {
+  const catalog = getCefrLevels();
+  const requested = new Set(levelSlugs);
+  const levelAccess = catalog
+    .map((level) => level.slug)
+    .filter((slug) => requested.has(slug));
+  return interview ? [...levelAccess, INTERVIEW_ACCESS_SLUG] : levelAccess;
+}
+
+export async function setAdminPendingAccess(
+  email: string,
+  levelSlugs: string[],
+  interviewAccess: boolean,
+): Promise<
+  { ok: true; grant: PendingLevelGrant | null } | { ok: false; error: string }
+> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const normalized = normalizeGrantEmail(email);
+  if (!normalized) {
+    return { ok: false, error: "Enter a valid email address." };
+  }
+  if (isAdminUser({ email: normalized })) {
+    return { ok: false, error: "Admins already have access to every course." };
+  }
+
+  const slugs = catalogGrantSlugs(levelSlugs, interviewAccess === true);
+
+  try {
+    if (slugs.length === 0) {
+      await deletePendingLevelGrant(normalized);
+      revalidateAdmin();
+      return { ok: true, grant: null };
+    }
+
+    const existingId = await findActiveUserIdByEmail(normalized);
+    if (existingId) {
+      return {
+        ok: false,
+        error: "This email already has an account. Unlock courses for them in the list below.",
+      };
+    }
+
+    await upsertPendingLevelGrant(normalized, slugs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save pre-unlock";
+    return { ok: false, error: message };
+  }
+
+  revalidateAdmin();
+  return {
+    ok: true,
+    grant: {
+      email: normalized,
+      levelAccess: withoutInterviewAccess(slugs),
+      interviewAccess: hasInterviewAccess(slugs),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+export async function removeAdminPendingAccess(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const normalized = normalizeGrantEmail(email);
+  if (!normalized) {
+    return { ok: false, error: "Enter a valid email address." };
+  }
+
+  try {
+    await deletePendingLevelGrant(normalized);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to remove pre-unlock";
+    return { ok: false, error: message };
+  }
+
+  revalidateAdmin();
+  return { ok: true };
+}
+
 export async function setAdminUserClass(
   userId: string,
   className: string,
 ): Promise<{ ok: true; className: string | null } | { ok: false; error: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !isAdminUser(session.user)) {
+  if (!(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
   }
 
@@ -283,4 +386,40 @@ export async function setAdminUserClass(
 
   revalidateAdmin();
   return { ok: true, className: normalized || null };
+}
+
+export async function setAdminUserStaff(
+  userId: string,
+  staff: boolean,
+): Promise<{ ok: true; staff: boolean } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id || !isAdminUser(session.user)) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) {
+    return { ok: false, error: "Missing user id" };
+  }
+
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const email = await getStoredUserEmail(id);
+  if (isAdminUser({ id, email })) {
+    return { ok: false, error: "This account already has full admin access." };
+  }
+
+  const next = staff === true;
+  try {
+    await setUserStaff(id, next);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update staff access";
+    return { ok: false, error: message };
+  }
+
+  revalidateAdmin();
+  revalidatePath("/account");
+  return { ok: true, staff: next };
 }

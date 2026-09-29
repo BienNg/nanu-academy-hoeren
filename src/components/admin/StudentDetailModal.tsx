@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { deleteAdminStudentProgress, listAdminStudentRuns } from "@/app/admin/actions";
+import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import {
   describeCatalogClip,
   describeCatalogLesson,
@@ -821,6 +822,7 @@ export function StudentDetailModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const canDelete = useAdminRole() === "owner";
   const [progressOverride, setProgressOverride] = useState<{
     userId: string;
     progress: StoredProgress;
@@ -952,6 +954,7 @@ export function StudentDetailModal({
                   <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
                     Student
                   </p>
+                  {row.staff && !row.isAdmin ? <StaffBadge /> : null}
                   {row.className ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2.5 py-1 font-label-sm text-label-sm font-semibold text-on-surface">
                       <MaterialIcon name="school" className="text-[14px]" />
@@ -988,22 +991,24 @@ export function StudentDetailModal({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteError(null);
-                  setPendingDelete({
-                    scope: "all",
-                    label: "all progress",
-                    detail:
-                      "Courses, Lektionen, videos, listening, and visit history are cleared. The account, class, and level access stay.",
-                  });
-                }}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
-              >
-                <MaterialIcon name="delete" className="text-[18px]" />
-                <span className="hidden sm:inline">Delete progress</span>
-              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setPendingDelete({
+                      scope: "all",
+                      label: "all progress",
+                      detail:
+                        "Courses, Lektionen, videos, listening, and visit history are cleared. The account, class, and level access stay.",
+                    });
+                  }}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
+                >
+                  <MaterialIcon name="delete" className="text-[18px]" />
+                  <span className="hidden sm:inline">Delete progress</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}
@@ -1191,20 +1196,22 @@ export function StudentDetailModal({
                               />
                             </span>
                           </button>
-                          <div className="flex items-center pr-2">
-                            <DeleteProgressButton
-                              label={`Delete ${entry.shortLabel} progress`}
-                              onClick={() => {
-                                setDeleteError(null);
-                                setPendingDelete({
-                                  scope: "course",
-                                  courseId: entry.id,
-                                  label: entry.label,
-                                  detail: `Every Lektion in ${entry.label} is cleared.`,
-                                });
-                              }}
-                            />
-                          </div>
+                          {canDelete ? (
+                            <div className="flex items-center pr-2">
+                              <DeleteProgressButton
+                                label={`Delete ${entry.shortLabel} progress`}
+                                onClick={() => {
+                                  setDeleteError(null);
+                                  setPendingDelete({
+                                    scope: "course",
+                                    courseId: entry.id,
+                                    label: entry.label,
+                                    detail: `Every Lektion in ${entry.label} is cleared.`,
+                                  });
+                                }}
+                              />
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}
@@ -1231,7 +1238,7 @@ export function StudentDetailModal({
                             key={lesson.id}
                             lesson={lesson}
                             onDeleteLesson={
-                              lesson.status === "not-started"
+                              !canDelete || lesson.status === "not-started"
                                 ? undefined
                                 : () => {
                                     setDeleteError(null);
@@ -1244,17 +1251,21 @@ export function StudentDetailModal({
                                     });
                                   }
                             }
-                            onDeletePart={(part, label) => {
-                              setDeleteError(null);
-                              setPendingDelete({
-                                scope: "part",
-                                courseId: course.id,
-                                lessonId: lesson.id,
-                                part,
-                                label: `${lesson.label} · ${label}`,
-                                detail: `${label} in ${lesson.label} is cleared. The rest of the Lektion stays.`,
-                              });
-                            }}
+                            onDeletePart={
+                              canDelete
+                                ? (part, label) => {
+                                    setDeleteError(null);
+                                    setPendingDelete({
+                                      scope: "part",
+                                      courseId: course.id,
+                                      lessonId: lesson.id,
+                                      part,
+                                      label: `${lesson.label} · ${label}`,
+                                      detail: `${label} in ${lesson.label} is cleared. The rest of the Lektion stays.`,
+                                    });
+                                  }
+                                : undefined
+                            }
                           />
                         ))
                       )}

@@ -8,8 +8,9 @@ import {
   setAdminUserClass,
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
+  setAdminUserStaff,
 } from "@/app/admin/actions";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminPageHeader, MaterialIcon, StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -444,6 +445,14 @@ export function AdminUsersDashboard({
   const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [classError, setClassError] = useState<string | null>(null);
+  const [staffByUser, setStaffByUser] = useState<Record<string, boolean>>({});
+  const [staffPrompt, setStaffPrompt] = useState<{
+    row: AdminUserRow;
+    next: boolean;
+  } | null>(null);
+  const [staffSaving, setStaffSaving] = useState(false);
+  const [staffError, setStaffError] = useState<string | null>(null);
+  const isOwner = useAdminRole() === "owner";
   const savingRef = useRef(new Set<string>());
   const savingInterviewRef = useRef(new Set<string>());
   const savingClassRef = useRef(new Set<string>());
@@ -455,6 +464,12 @@ export function AdminUsersDashboard({
   function interviewFor(row: AdminUserRow): boolean {
     if (Object.hasOwn(interviewByUser, row.userId)) return interviewByUser[row.userId];
     return row.interviewAccess;
+  }
+
+  function staffFor(row: AdminUserRow): boolean {
+    if (row.isAdmin) return false;
+    if (Object.hasOwn(staffByUser, row.userId)) return staffByUser[row.userId];
+    return row.staff;
   }
 
   const classFor = useCallback(
@@ -594,8 +609,9 @@ export function AdminUsersDashboard({
       interviewAccess: Object.hasOwn(interviewByUser, row.userId)
         ? interviewByUser[row.userId]
         : row.interviewAccess,
+      staff: Object.hasOwn(staffByUser, row.userId) ? staffByUser[row.userId] : row.staff,
     };
-  }, [visibleRows, detailUserId, displayClass, accessByUser, interviewByUser]);
+  }, [visibleRows, detailUserId, displayClass, accessByUser, interviewByUser, staffByUser]);
 
   const filtered = useMemo(
     () => filterAdminUsers(visibleRows, query),
@@ -647,6 +663,27 @@ export function AdminUsersDashboard({
     });
   }
 
+  async function handleConfirmStaff() {
+    if (!staffPrompt || staffSaving) return;
+    setStaffSaving(true);
+    setStaffError(null);
+    const result = await setAdminUserStaff(staffPrompt.row.userId, staffPrompt.next);
+    if (!result.ok) {
+      setStaffError(result.error);
+      setStaffSaving(false);
+      return;
+    }
+    setStaffByUser((current) => ({
+      ...current,
+      [staffPrompt.row.userId]: result.staff,
+    }));
+    setStaffPrompt(null);
+    setStaffSaving(false);
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
   const closeDetail = useCallback(() => setDetailUserId(null), []);
 
   const rangeStart =
@@ -659,7 +696,11 @@ export function AdminUsersDashboard({
         <AdminPageHeader
           kicker="People"
           title="Students"
-          subtitle="Assign classes, grant level access, and open a student for detail."
+          subtitle={
+            isOwner
+              ? "Assign classes, grant courses, and choose staff. Staff see every stat and can grant access. Only you can delete."
+              : "Assign classes and grant courses. You can see every stat. Deleting accounts or progress stays with the main admin."
+          }
           trailing={
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               {visibleRows.length} {visibleRows.length === 1 ? "user" : "users"}
@@ -697,6 +738,11 @@ export function AdminUsersDashboard({
         {classError ? (
           <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
             {classError}
+          </div>
+        ) : null}
+        {staffError && !staffPrompt ? (
+          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+            {staffError}
           </div>
         ) : null}
 
@@ -741,19 +787,21 @@ export function AdminUsersDashboard({
                   >
                     Level access
                   </th>
-                  <th
-                    scope="col"
-                    className="sticky right-0 z-10 whitespace-nowrap bg-surface-container-low px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
-                  >
-                    Actions
-                  </th>
+                  {isOwner ? (
+                    <th
+                      scope="col"
+                      className="sticky right-0 z-10 whitespace-nowrap bg-surface-container-low px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
+                    >
+                      Actions
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={isOwner ? 6 : 5}
                       className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                     >
                       {visibleRows.length === 0
@@ -774,8 +822,11 @@ export function AdminUsersDashboard({
                     >
                       <td className="sticky left-0 z-10 bg-surface-container-lowest px-space-16 py-space-16 group-hover:bg-surface-container-low">
                         <div className="flex min-w-[14rem] flex-col">
-                          <span className="font-label-md text-label-md font-semibold text-on-surface">
-                            {row.displayName}
+                          <span className="flex flex-wrap items-center gap-space-8">
+                            <span className="font-label-md text-label-md font-semibold text-on-surface">
+                              {row.displayName}
+                            </span>
+                            {staffFor(row) ? <StaffBadge /> : null}
                           </span>
                           {row.email && row.email !== row.displayName ? (
                             <span className="font-body-sm text-body-sm text-on-surface-variant">
@@ -804,21 +855,58 @@ export function AdminUsersDashboard({
                         interviewSaving={savingInterviewIds.includes(row.userId)}
                         onToggleInterview={() => void toggleInterview(row)}
                       />
-                      <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setDeleteError(null);
-                            setConfirmRow(row);
-                          }}
-                          className="inline-flex h-9 items-center gap-space-4 rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-error transition-colors hover:bg-error-container"
-                          aria-label={`Delete ${row.displayName}`}
-                        >
-                          <MaterialIcon name="delete" className="text-[18px]" />
-                          Delete
-                        </button>
-                      </td>
+                      {isOwner ? (
+                        <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
+                          <div className="flex items-center justify-end gap-space-4">
+                            {row.isAdmin ? null : (
+                              <button
+                                type="button"
+                                aria-pressed={staffFor(row)}
+                                disabled={staffSaving}
+                                title={
+                                  staffFor(row)
+                                    ? "Remove dashboard access. Class and courses stay."
+                                    : "They can see every stat and grant classes and courses. They cannot delete."
+                                }
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setStaffError(null);
+                                  setStaffPrompt({ row, next: !staffFor(row) });
+                                }}
+                                className={`inline-flex h-9 items-center gap-space-4 rounded-xl px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-40 ${
+                                  staffFor(row)
+                                    ? "bg-[#e8f2fc] text-[#0066cc] hover:bg-[#d0e5fa]"
+                                    : "text-primary hover:bg-primary-fixed"
+                                }`}
+                                aria-label={
+                                  staffFor(row)
+                                    ? `Remove staff access from ${row.displayName}`
+                                    : `Give ${row.displayName} staff access`
+                                }
+                              >
+                                <MaterialIcon
+                                  name="admin_panel_settings"
+                                  className="text-[18px]"
+                                />
+                                Staff
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteError(null);
+                                setConfirmRow(row);
+                              }}
+                              className="inline-flex h-9 items-center gap-space-4 rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-error transition-colors hover:bg-error-container"
+                              aria-label={`Delete ${row.displayName}`}
+                            >
+                              <MaterialIcon name="delete" className="text-[18px]" />
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))
                 )}
@@ -924,6 +1012,76 @@ export function AdminUsersDashboard({
                 className="inline-flex h-11 items-center rounded-2xl bg-error px-space-16 font-label-md text-label-md text-on-error transition-opacity hover:opacity-90 disabled:opacity-40"
               >
                 {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {staffPrompt ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-space-24"
+          role="presentation"
+          onClick={() => {
+            if (!staffSaving) {
+              setStaffPrompt(null);
+              setStaffError(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-access-title"
+            className="w-full max-w-md rounded-3xl bg-surface-container-lowest p-space-24 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2
+              id="staff-access-title"
+              className="font-headline-sm text-headline-sm text-on-surface"
+            >
+              {staffPrompt.next ? "Give staff access?" : "Remove staff access?"}
+            </h2>
+            <p className="mt-space-8 font-body-md text-body-md text-on-surface-variant">
+              <span className="font-semibold text-on-surface">
+                {staffPrompt.row.email ?? staffPrompt.row.displayName}
+              </span>{" "}
+              {staffPrompt.next
+                ? "will be able to open this dashboard, see every stat, and grant classes and courses. They will not be able to delete accounts or progress."
+                : "will no longer open this dashboard. Their class and course access stay as they are."}
+            </p>
+            {staffError ? (
+              <p className="mt-space-12 font-body-sm text-body-sm text-error">
+                {staffError}
+              </p>
+            ) : null}
+            <div className="mt-space-24 flex justify-end gap-space-8">
+              <button
+                type="button"
+                disabled={staffSaving}
+                onClick={() => {
+                  setStaffPrompt(null);
+                  setStaffError(null);
+                }}
+                className="inline-flex h-11 items-center rounded-2xl px-space-16 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={staffSaving}
+                onClick={() => void handleConfirmStaff()}
+                className={`inline-flex h-11 items-center rounded-2xl px-space-16 font-label-md text-label-md transition-opacity hover:opacity-90 disabled:opacity-40 ${
+                  staffPrompt.next
+                    ? "bg-primary text-on-primary"
+                    : "bg-error text-on-error"
+                }`}
+              >
+                {staffSaving
+                  ? "Saving…"
+                  : staffPrompt.next
+                    ? "Give access"
+                    : "Remove access"}
               </button>
             </div>
           </div>
