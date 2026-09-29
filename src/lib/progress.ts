@@ -1,5 +1,8 @@
 /** Shared progress model — localStorage + cloud sync. */
 
+import { maxClipsPerPracticePart, MAX_PRACTICE_CARDS } from "./practice-deck";
+import type { OrderSourceClip } from "./sentence-order";
+
 export const STORAGE_KEY = "nanu-horen-progress";
 export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 
@@ -125,6 +128,40 @@ export type Visit = {
   wrongAttempts?: number;
 };
 
+/**
+ * One admin deletion. Stored on the progress document so a device that still
+ * has the old snapshot cannot merge it back. A clear is applied while either
+ * side has not acknowledged it; later work on that scope is kept.
+ */
+export type AdminLearnErase = {
+  key: string;
+  clipIds: string[];
+  study: boolean;
+  listening: boolean;
+};
+
+export type AdminInterviewErase = {
+  slug: string;
+  /** null removes the whole Ausbildung track. */
+  clipIds: string[] | null;
+};
+
+export type AdminProgressClear = {
+  id: string;
+  at: string;
+  scope: "all" | "scoped";
+  learn?: AdminLearnErase[];
+  videoKeys?: string[];
+  /** Prefixes end with `/` so `lektion-1` does not match `lektion-10`. */
+  videoPrefixes?: string[];
+  interview?: AdminInterviewErase[];
+  /** Visit keys: `a1-1/lektion-4` or `interview/koch`. */
+  visitLessons?: string[];
+  visitStudy?: boolean;
+  visitListening?: boolean;
+  visitVideo?: boolean;
+};
+
 export type StoredProgress = {
   interview: Record<string, InterviewProgress>;
   learn: Record<string, LearnProgress>;
@@ -140,6 +177,10 @@ export type StoredProgress = {
   activity?: Record<string, DayActivity>;
   /** Recent app-open periods. Capped at 60 visits or 90 days. */
   visits?: Visit[];
+  /** Admin deletions. The learner app cannot add or remove these. */
+  adminClears?: AdminProgressClear[];
+  /** Clear ids already applied on this snapshot. */
+  adminClearAck?: string[];
 };
 
 export type BerufProgressSummary = {
@@ -329,6 +370,119 @@ export function parseProgress(raw: string | null): StoredProgress {
   }
 }
 
+const CLEAR_KEEP = 40;
+const CLEAR_ID = /^[A-Za-z0-9-]{8,80}$/;
+
+function clearText(value: unknown, max: number): string {
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  if (!text || text.length > max || /[\u0000-\u001f\u007f]/.test(text)) return "";
+  return text;
+}
+
+function clearIdList(value: unknown, max: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const item of value) {
+    const id = clearText(item, 180);
+    if (!id || ids.includes(id)) continue;
+    ids.push(id);
+    if (ids.length >= max) break;
+  }
+  return ids;
+}
+
+function normalizeOneClear(value: unknown): AdminProgressClear | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const id = clearText(record.id, 80);
+  const at = clearText(record.at, 40);
+  if (!CLEAR_ID.test(id) || Number.isNaN(Date.parse(at))) return null;
+  if (record.scope === "all") return { id, at, scope: "all" };
+  if (record.scope !== "scoped") return null;
+
+  const learn: AdminLearnErase[] = [];
+  if (Array.isArray(record.learn)) {
+    for (const item of record.learn) {
+      if (!item || typeof item !== "object") continue;
+      const entry = item as Record<string, unknown>;
+      const key = clearText(entry.key, 120);
+      if (!key) continue;
+      learn.push({
+        key,
+        clipIds: clearIdList(entry.clipIds, 400),
+        study: entry.study === true,
+        listening: entry.listening === true,
+      });
+      if (learn.length >= 80) break;
+    }
+  }
+
+  const interview: AdminInterviewErase[] = [];
+  if (Array.isArray(record.interview)) {
+    for (const item of record.interview) {
+      if (!item || typeof item !== "object") continue;
+      const entry = item as Record<string, unknown>;
+      const slug = clearText(entry.slug, 80);
+      if (!slug) continue;
+      interview.push({
+        slug,
+        clipIds: entry.clipIds === null ? null : clearIdList(entry.clipIds, 400),
+      });
+      if (interview.length >= 20) break;
+    }
+  }
+
+  const videoKeys = clearIdList(record.videoKeys, 80);
+  const videoPrefixes = clearIdList(record.videoPrefixes, 40).filter((prefix) => prefix.endsWith("/"));
+  const visitLessons = clearIdList(record.visitLessons, 80);
+  const clear: AdminProgressClear = {
+    id,
+    at,
+    scope: "scoped",
+    ...(learn.length ? { learn } : {}),
+    ...(videoKeys.length ? { videoKeys } : {}),
+    ...(videoPrefixes.length ? { videoPrefixes } : {}),
+    ...(interview.length ? { interview } : {}),
+    ...(visitLessons.length ? { visitLessons } : {}),
+    ...(record.visitStudy === true ? { visitStudy: true } : {}),
+    ...(record.visitListening === true ? { visitListening: true } : {}),
+    ...(record.visitVideo === true ? { visitVideo: true } : {}),
+  };
+  if (
+    !clear.learn &&
+    !clear.videoKeys &&
+    !clear.videoPrefixes &&
+    !clear.interview &&
+    !clear.visitLessons
+  ) {
+    return null;
+  }
+  return clear;
+}
+
+function normalizeAdminClears(value: unknown): AdminProgressClear[] {
+  if (!Array.isArray(value)) return [];
+  const clears: AdminProgressClear[] = [];
+  for (const item of value) {
+    const clear = normalizeOneClear(item);
+    if (!clear || clears.some((entry) => entry.id === clear.id)) continue;
+    clears.push(clear);
+  }
+  return clears.slice(-CLEAR_KEEP);
+}
+
+function normalizeAdminClearAck(value: unknown, clears: readonly AdminProgressClear[]): string[] {
+  if (!Array.isArray(value) || clears.length === 0) return [];
+  const ids = new Set(clears.map((clear) => clear.id));
+  const ack: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !ids.has(item) || ack.includes(item)) continue;
+    ack.push(item);
+  }
+  return ack;
+}
+
 export function normalizeProgress(
   parsed: Partial<StoredProgress> | null | undefined,
 ): StoredProgress {
@@ -337,6 +491,8 @@ export function normalizeProgress(
   const videos = normalizeVideos(parsed?.videos);
   const activity = normalizeActivity(parsed?.activity);
   const visits = normalizeVisits(parsed?.visits);
+  const adminClears = normalizeAdminClears(parsed?.adminClears);
+  const adminClearAck = normalizeAdminClearAck(parsed?.adminClearAck, adminClears);
 
   return applyVisitRetention(
     {
@@ -356,6 +512,8 @@ export function normalizeProgress(
         : {}),
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
+      ...(adminClears.length ? { adminClears } : {}),
+      ...(adminClearAck.length ? { adminClearAck } : {}),
     },
     new Date(),
   );
@@ -530,7 +688,7 @@ export function mergeProgress(
   const activity = mergeActivity(a.activity, b.activity);
   const visits = mergeVisits(a.visits, b.visits);
 
-  return applyVisitRetention(
+  const merged = applyVisitRetention(
     {
       interview,
       learn,
@@ -545,6 +703,222 @@ export function mergeProgress(
     },
     new Date(),
   );
+
+  const clears = unionAdminClears(a.adminClears, b.adminClears);
+  if (clears.length === 0) return merged;
+
+  const ackA = new Set(a.adminClearAck ?? []);
+  const ackB = new Set(b.adminClearAck ?? []);
+  const pending = clears.filter((clear) => !ackA.has(clear.id) || !ackB.has(clear.id));
+  const ordered = [
+    ...pending.filter((clear) => clear.scope === "all"),
+    ...pending.filter((clear) => clear.scope !== "all"),
+  ];
+  let next = merged;
+  for (const clear of ordered) next = applyAdminProgressClear(next, clear);
+  return normalizeProgress({
+    ...next,
+    adminClears: clears,
+    adminClearAck: clears.map((clear) => clear.id),
+  });
+}
+
+function unionAdminClears(
+  left: readonly AdminProgressClear[] | undefined,
+  right: readonly AdminProgressClear[] | undefined,
+): AdminProgressClear[] {
+  const clears: AdminProgressClear[] = [];
+  for (const clear of [...(left ?? []), ...(right ?? [])]) {
+    if (clears.some((entry) => entry.id === clear.id)) continue;
+    clears.push(clear);
+  }
+  return clears.slice(-CLEAR_KEEP);
+}
+
+function withoutIds(ids: readonly string[], drop: ReadonlySet<string>): string[] {
+  return ids.filter((id) => !drop.has(id));
+}
+
+function learnSliceIsEmpty(entry: LearnProgress): boolean {
+  return (
+    entry.completedClipIds.length === 0 &&
+    entry.runCompletedClipIds.length === 0 &&
+    (entry.runClipOrder?.length ?? 0) === 0 &&
+    entry.reviewedClipIds.length === 0 &&
+    entry.runCount === 0 &&
+    entry.studyRunCount === 0 &&
+    !entry.completedAt &&
+    !entry.studyCompletedAt
+  );
+}
+
+function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): StoredProgress {
+  const current = progress.learn[slice.key];
+  if (!current || (!slice.study && !slice.listening) || slice.clipIds.length === 0) return progress;
+  const drop = new Set(slice.clipIds);
+  const nextEntry: LearnProgress = { ...current };
+  if (slice.listening) {
+    nextEntry.completedClipIds = withoutIds(current.completedClipIds, drop);
+    nextEntry.runCompletedClipIds = withoutIds(current.runCompletedClipIds, drop);
+    const order = current.runClipOrder ? withoutIds(current.runClipOrder, drop) : [];
+    if (order.length > 0) nextEntry.runClipOrder = order;
+    else delete nextEntry.runClipOrder;
+    delete nextEntry.completedAt;
+    nextEntry.runCount = 0;
+    nextEntry.currentClipIndex = nextEntry.runCompletedClipIds.length;
+  }
+  if (slice.study) {
+    nextEntry.reviewedClipIds = withoutIds(current.reviewedClipIds, drop);
+    delete nextEntry.studyCompletedAt;
+    nextEntry.studyRunCount = 0;
+  }
+  const learn = { ...progress.learn };
+  if (learnSliceIsEmpty(nextEntry)) delete learn[slice.key];
+  else learn[slice.key] = nextEntry;
+  return { ...progress, learn };
+}
+
+function eraseInterviewSlice(
+  progress: StoredProgress,
+  slice: AdminInterviewErase,
+): StoredProgress {
+  const interview = { ...progress.interview };
+  if (slice.clipIds === null) {
+    delete interview[slice.slug];
+    return { ...progress, interview };
+  }
+  const current = interview[slice.slug];
+  if (!current || slice.clipIds.length === 0) return progress;
+  const drop = new Set(slice.clipIds);
+  const completedClipIds = withoutIds(current.completedClipIds, drop);
+  if (completedClipIds.length === 0) {
+    delete interview[slice.slug];
+    return { ...progress, interview };
+  }
+  interview[slice.slug] = {
+    currentClipIndex: completedClipIds.length,
+    completedClipIds,
+  };
+  return { ...progress, interview };
+}
+
+function videoMatchesClear(key: string, clear: AdminProgressClear): boolean {
+  if (clear.videoKeys?.includes(key)) return true;
+  return clear.videoPrefixes?.some((prefix) => key.startsWith(prefix)) ?? false;
+}
+
+function eraseVideos(progress: StoredProgress, clear: AdminProgressClear): StoredProgress {
+  if (!clear.videoKeys?.length && !clear.videoPrefixes?.length) return progress;
+  const videos: Record<string, LessonVideoProgress> = {};
+  for (const [key, entry] of Object.entries(progress.videos)) {
+    if (!videoMatchesClear(key, clear)) videos[key] = entry;
+  }
+  return { ...progress, videos };
+}
+
+function uniqueVisitKeys(values: readonly (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+}
+
+function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
+  const lessons = new Set(clear.visitLessons ?? []);
+  const clips =
+    clear.visitStudy && lessons.size > 0
+      ? visit.clips.filter((clip) => !lessons.has(clip.lessonKey))
+      : visit.clips;
+  const videos = clear.visitVideo
+    ? visit.videos.filter((video) => !videoMatchesClear(video.key, clear))
+    : visit.videos;
+  const exerciseLessons =
+    clear.visitListening && lessons.size > 0
+      ? (visit.exerciseLessons ?? []).filter((lesson) => !lessons.has(lesson.lessonKey))
+      : (visit.exerciseLessons ?? []);
+  const next: Visit = {
+    ...visit,
+    clips,
+    videos,
+    lessons: uniqueVisitKeys([
+      ...clips.map((clip) => clip.lessonKey),
+      ...exerciseLessons.map((lesson) => lesson.lessonKey),
+      ...videos
+        .map((video) => lessonKeyFromVideo(video.key))
+        .filter((key): key is string => Boolean(key)),
+    ]),
+    exercisesCompleted: exerciseLessons.reduce((sum, lesson) => sum + lesson.completed, 0),
+    listeningRuns: exerciseLessons.reduce((sum, lesson) => sum + lesson.fullRuns, 0),
+  };
+  if (exerciseLessons.length > 0) next.exerciseLessons = exerciseLessons;
+  else delete next.exerciseLessons;
+  return next;
+}
+
+function eraseVisits(progress: StoredProgress, clear: AdminProgressClear): StoredProgress {
+  if (!progress.visits?.length) return progress;
+  if (!clear.visitStudy && !clear.visitListening && !clear.visitVideo) return progress;
+  return {
+    ...progress,
+    visits: progress.visits.map((visit) => stripVisit(visit, clear)),
+  };
+}
+
+function applyAdminProgressClear(
+  progress: StoredProgress,
+  clear: AdminProgressClear,
+): StoredProgress {
+  if (clear.scope === "all") return structuredClone(DEFAULT_PROGRESS);
+  let next = progress;
+  for (const slice of clear.learn ?? []) next = eraseLearnSlice(next, slice);
+  for (const slice of clear.interview ?? []) next = eraseInterviewSlice(next, slice);
+  next = eraseVideos(next, clear);
+  next = eraseVisits(next, clear);
+  return next;
+}
+
+/** Apply one admin deletion and remember it so a later sync cannot restore it. */
+export function commitAdminProgressClear(
+  progress: StoredProgress,
+  clear: AdminProgressClear,
+): StoredProgress {
+  const normalized = normalizeOneClear(clear);
+  if (!normalized) return progress;
+  const clears = unionAdminClears(
+    (progress.adminClears ?? []).filter((entry) => entry.id !== normalized.id),
+    [normalized],
+  );
+  const applied = applyAdminProgressClear(progress, normalized);
+  const adminClearAck = (progress.adminClearAck ?? []).filter(
+    (id) => id !== normalized.id && clears.some((entry) => entry.id === id),
+  );
+  return normalizeProgress({
+    ...applied,
+    adminClears: clears,
+    ...(adminClearAck.length > 0 ? { adminClearAck } : {}),
+  });
+}
+
+/**
+ * Learner uploads keep whatever deletions the server already stored.
+ * A device cannot invent a clear, and it cannot drop one.
+ */
+export function progressKeepingServerClears(
+  incoming: StoredProgress,
+  existing: StoredProgress,
+): StoredProgress {
+  if (!existing.adminClears?.length) {
+    if (!incoming.adminClears?.length && !incoming.adminClearAck?.length) return incoming;
+    const next: StoredProgress = { ...incoming };
+    delete next.adminClears;
+    delete next.adminClearAck;
+    return next;
+  }
+  return { ...incoming, adminClears: existing.adminClears };
 }
 
 export function lessonVideoProgressKey(
@@ -2111,36 +2485,32 @@ export function learnQueue<T extends { id: string }>(
   return clips.filter((clip) => !done.has(clip.id));
 }
 
-const LISTENING_PART_MIN_QUESTIONS = 10;
-const LISTENING_PART_MAX_QUESTIONS = 15;
-const LISTENING_PART_TARGET_QUESTIONS =
-  (LISTENING_PART_MIN_QUESTIONS + LISTENING_PART_MAX_QUESTIONS) / 2;
+function asOrderClip(clip: {
+  id: string;
+  script?: string;
+  translationVi?: string;
+  sentenceOrder?: boolean;
+}): OrderSourceClip {
+  return {
+    id: clip.id,
+    script: clip.script ?? "",
+    ...(clip.translationVi !== undefined ? { translationVi: clip.translationVi } : {}),
+    ...(clip.sentenceOrder !== undefined ? { sentenceOrder: clip.sentenceOrder } : {}),
+  };
+}
 
 /**
- * How many even parts of 10–15 questions a lesson should become.
- * When the total cannot be split without a part under 10, keep one longer part.
+ * How many even parts a lesson becomes so each part stays within the card cap.
+ * `maxPerPart` is the most clips one part may hold for this lesson.
  */
-export function listeningPartCount(totalQuestions: number): number {
+export function listeningPartCount(
+  totalQuestions: number,
+  maxPerPart: number = MAX_PRACTICE_CARDS,
+): number {
   if (totalQuestions <= 0) return 0;
-  if (totalQuestions <= LISTENING_PART_MAX_QUESTIONS) return 1;
-
-  let bestCount = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  const maxParts = Math.floor(totalQuestions / LISTENING_PART_MIN_QUESTIONS);
-  for (let count = 1; count <= maxParts; count += 1) {
-    const small = Math.floor(totalQuestions / count);
-    const large = small + (totalQuestions % count === 0 ? 0 : 1);
-    if (small < LISTENING_PART_MIN_QUESTIONS || large > LISTENING_PART_MAX_QUESTIONS) {
-      continue;
-    }
-    const distance = Math.abs(totalQuestions / count - LISTENING_PART_TARGET_QUESTIONS);
-    if (distance < bestDistance || (distance === bestDistance && count < bestCount)) {
-      bestDistance = distance;
-      bestCount = count;
-    }
-  }
-  if (bestCount > 0) return bestCount;
-  return Math.max(1, Math.floor(totalQuestions / LISTENING_PART_MIN_QUESTIONS));
+  const max = Math.max(1, maxPerPart);
+  if (totalQuestions <= max) return 1;
+  return Math.ceil(totalQuestions / max);
 }
 
 /**
@@ -2254,13 +2624,25 @@ export function preservedReviewOrder(
 }
 
 /**
- * Split questions into even contiguous parts of 10–15.
- * Sizes differ by at most one, so the last part stays in that range too.
- * A lesson of 15 questions or fewer is a single part.
+ * Split clips into even contiguous parts whose decks stay at or under
+ * 15 cards. Sizes differ by at most one. A lesson that already fits is one part.
+ * Pass `maxPerPart` to reuse the parent lesson's cap for a finished prefix
+ * or an open suffix, so a lighter stretch is not dealt as a longer run.
  */
-export function splitListeningParts<T>(clips: readonly T[]): T[][] {
+export function splitListeningParts<
+  T extends {
+    id: string;
+    script?: string;
+    translationVi?: string;
+    sentenceOrder?: boolean;
+  },
+>(clips: readonly T[], maxPerPart?: number): T[][] {
   if (clips.length === 0) return [];
-  const partCount = Math.min(listeningPartCount(clips.length), clips.length);
+  const max = Math.max(
+    1,
+    maxPerPart ?? maxClipsPerPracticePart(clips.map(asOrderClip)),
+  );
+  const partCount = Math.min(listeningPartCount(clips.length, max), clips.length);
   if (partCount <= 1) return [clips.slice()];
 
   const base = Math.floor(clips.length / partCount);
@@ -2279,20 +2661,28 @@ export function splitListeningParts<T>(clips: readonly T[]): T[][] {
  * First-pass parts still left to play. Finished clips stay in earlier parts
  * and are not dealt again when later clips are added.
  */
-export function openListeningParts<T extends { id: string }>(
+export function openListeningParts<
+  T extends {
+    id: string;
+    script?: string;
+    translationVi?: string;
+    sentenceOrder?: boolean;
+  },
+>(
   clips: readonly T[],
   completedIds: readonly string[],
 ): { parts: T[][]; partNumber: number; partCount: number } {
+  const maxPerPart = maxClipsPerPracticePart(clips.map(asOrderClip));
   const done = new Set(completedIds);
   const firstOpen = clips.findIndex((clip) => !done.has(clip.id));
   if (firstOpen < 0) {
-    const parts = splitListeningParts(clips);
+    const parts = splitListeningParts(clips, maxPerPart);
     return { parts, partNumber: 1, partCount: parts.length };
   }
   const prefix = clips.slice(0, firstOpen);
   const suffix = clips.slice(firstOpen);
-  const prefixParts = prefix.length > 0 ? splitListeningParts(prefix) : [];
-  const suffixParts = splitListeningParts(suffix);
+  const prefixParts = prefix.length > 0 ? splitListeningParts(prefix, maxPerPart) : [];
+  const suffixParts = splitListeningParts(suffix, maxPerPart);
   return {
     parts: suffixParts,
     partNumber: prefixParts.length + 1,
@@ -2300,16 +2690,23 @@ export function openListeningParts<T extends { id: string }>(
   };
 }
 
-/** Clip count for one part. Review runs shuffle first, so the ids change and the size does not. */
+/**
+ * Clip count for one part. Review runs shuffle first, so the ids change and
+ * the size does not. `maxPerPart` must be the lesson's card cap; without it,
+ * each clip is treated as one card.
+ */
 export function listeningPartSize(
   totalClips: number,
   partNumber: number,
   partCount: number,
+  maxPerPart: number = MAX_PRACTICE_CARDS,
 ): number | null {
   if (totalClips <= 0 || partNumber < 1 || partCount < 1) return null;
-  const parts = splitListeningParts(Array.from({ length: totalClips }, (_, index) => index));
-  if (parts.length !== partCount || partNumber > parts.length) return null;
-  return parts[partNumber - 1]?.length ?? null;
+  const count = listeningPartCount(totalClips, maxPerPart);
+  if (count !== partCount || partNumber > count) return null;
+  const base = Math.floor(totalClips / count);
+  const extra = totalClips % count;
+  return base + (partNumber - 1 < extra ? 1 : 0);
 }
 
 /** True when `order` is a permutation of the current catalog. */

@@ -4,13 +4,15 @@ import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
+import { StudyClipList } from "@/components/session/StudyClipList";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useId, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useEffect, useMemo, useRef, useState } from "react";
 import {
   projectStudentDetail,
   type AdminCatalogCourse,
   type AdminLessonDetail,
 } from "@/lib/admin-detail";
+import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
 type Chapter = {
@@ -347,6 +349,103 @@ function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
   );
 }
 
+type OpenDictionary = {
+  label: string;
+  clips: SessionClip[] | null;
+  error: boolean;
+};
+
+function LessonDictionaryModal({
+  title,
+  clips,
+  error,
+  onClose,
+}: {
+  title: string;
+  clips: SessionClip[] | null;
+  error: boolean;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-[#131b2e]/40 sm:items-center sm:p-6"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lesson-dictionary-title"
+        className="flex h-[min(100dvh,920px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] bg-[#fbfbfd] shadow-2xl sm:h-[min(85dvh,820px)] sm:rounded-[28px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-center gap-2 border-b border-black/[0.05] bg-[#fbfbfd]/90 px-3 py-3 backdrop-blur-xl sm:px-5">
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#0284c7] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+              close
+            </span>
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#86868b]">
+              Từ vựng
+            </p>
+            <h2
+              id="lesson-dictionary-title"
+              className="truncate text-[15px] font-bold tracking-tight text-[#1d1d1f]"
+            >
+              {title}
+            </h2>
+          </div>
+          <span className="w-11 shrink-0 text-right text-[13px] font-medium text-[#86868b]">
+            {clips ? clips.length : ""}
+          </span>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+          {error ? (
+            <p className="px-2 py-8 text-center text-[15px] font-medium text-[#86868b]">
+              Không tải được từ vựng. Thử lại sau.
+            </p>
+          ) : clips == null ? (
+            <div className="flex flex-col gap-3" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="h-14 animate-pulse rounded-2xl bg-[#f5f5f7]" />
+              ))}
+            </div>
+          ) : clips.length === 0 ? (
+            <p className="px-2 py-8 text-center text-[15px] font-medium text-[#86868b]">
+              Chưa có từ vựng cho Lektion này.
+            </p>
+          ) : (
+            <StudyClipList clips={clips} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AchievementMedal() {
   const uid = useId().replace(/:/g, "");
   const goldId = `achievement-gold-${uid}`;
@@ -390,13 +489,17 @@ export default function LevelViewClient({
   chapters,
   cefrCatalog,
   isAdmin = false,
+  loadLessonDictionary,
 }: {
   level: Level;
   chapters: Chapter[];
   cefrCatalog: readonly AdminCatalogCourse[];
   isAdmin?: boolean;
+  loadLessonDictionary: (chapterSlug: string) => Promise<SessionClip[]>;
 }) {
   const containerRef = useRef<HTMLElement>(null);
+  const dictionaryRequest = useRef(0);
+  const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -486,6 +589,30 @@ export default function LevelViewClient({
       window.clearTimeout(timer);
     };
   }, [focusReady, focusSlug, shouldReduceMotion]);
+
+  const closeDictionary = useCallback(() => {
+    dictionaryRequest.current += 1;
+    setDictionary(null);
+  }, []);
+
+  const openDictionary = useCallback(
+    (chapter: Chapter) => {
+      const request = dictionaryRequest.current + 1;
+      dictionaryRequest.current = request;
+      const label = `${level.level} - ${chapter.label}`;
+      setDictionary({ label, clips: null, error: false });
+      void loadLessonDictionary(chapter.slug)
+        .then((clips) => {
+          if (dictionaryRequest.current !== request) return;
+          setDictionary({ label, clips, error: false });
+        })
+        .catch(() => {
+          if (dictionaryRequest.current !== request) return;
+          setDictionary({ label, clips: null, error: true });
+        });
+    },
+    [level.level, loadLessonDictionary],
+  );
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -729,9 +856,10 @@ export default function LevelViewClient({
                   <ul className="relative flex w-full flex-col items-center gap-3 py-3">
                     {isOpen && nodes.some((node) => node.icon === "menu_book") ? (
                       <li className="absolute top-3 right-0 z-10">
-                        <Link
-                          href={`${lessonHref}/study?view=list`}
+                        <button
+                          type="button"
                           aria-label="Từ vựng"
+                          onClick={() => openDictionary(chapter)}
                           className="flex h-11 w-11 items-center justify-center rounded-full border-t-2 border-white bg-white text-[#0284c7] shadow-[0_4px_0_0_#bec8d2] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]"
                         >
                           <span
@@ -741,7 +869,7 @@ export default function LevelViewClient({
                           >
                             dictionary
                           </span>
-                        </Link>
+                        </button>
                       </li>
                     ) : null}
                     {nodes.map((node, nodeIndex) => (
@@ -757,6 +885,14 @@ export default function LevelViewClient({
         </motion.ul>
       </section>
     </main>
+    {dictionary ? (
+      <LessonDictionaryModal
+        title={dictionary.label}
+        clips={dictionary.clips}
+        error={dictionary.error}
+        onClose={closeDictionary}
+      />
+    ) : null}
     <BottomNav />
     </>
   );

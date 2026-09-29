@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { absorbAddedLessonClips, normalizeProgress, type StoredProgress } from "@/lib/progress";
+import {
+  absorbAddedLessonClips,
+  mergeProgress,
+  normalizeProgress,
+  progressKeepingServerClears,
+  type StoredProgress,
+} from "@/lib/progress";
 import { listLessonClipCatalog } from "@/lib/levels";
 import { syncStudiedClips } from "@/lib/duel-store";
 import {
@@ -93,14 +99,16 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const progress = absorbAddedLessonClips(
-    normalizeProgress(body as Partial<StoredProgress>),
-    listLessonClipCatalog(),
-  );
-  const existing = await rejectCopiedInitialProgress(session.user.id, progress);
+  const uploaded = normalizeProgress(body as Partial<StoredProgress>);
+  const existing = await rejectCopiedInitialProgress(session.user.id, uploaded);
   if (existing) {
     return NextResponse.json({ progress: existing, ok: true, copied: true });
   }
+  const stored = await getCloudProgress(session.user.id);
+  const progress = absorbAddedLessonClips(
+    mergeProgress(stored, progressKeepingServerClears(uploaded, stored)),
+    listLessonClipCatalog(),
+  );
   await setCloudProgress(session.user.id, progress, sessionProfile(session));
   try {
     await syncStudiedClips(session.user.id, progress);

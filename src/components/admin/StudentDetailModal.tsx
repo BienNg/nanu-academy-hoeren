@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { listAdminStudentRuns } from "@/app/admin/actions";
+import { useRouter } from "next/navigation";
+import { deleteAdminStudentProgress, listAdminStudentRuns } from "@/app/admin/actions";
 import {
   describeCatalogClip,
   describeCatalogLesson,
@@ -14,13 +15,15 @@ import {
   type AdminVideoDetail,
   type AdminVisitRange,
   type AdminVisitRow,
+  type StudentProgressPart,
+  type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import {
   LISTENING_SCHEMA_HINT,
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { formatActiveDuration } from "@/lib/progress";
+import { activeStreakDays, formatActiveDuration, type StoredProgress } from "@/lib/progress";
 import type { AdminUserRow } from "@/lib/admin-overview";
 
 function MaterialIcon({
@@ -132,6 +135,7 @@ function CircleMeter({
   detail,
   struggling = false,
   itemClassName = "w-24",
+  action,
 }: {
   percent: number;
   center: string;
@@ -140,6 +144,7 @@ function CircleMeter({
   detail?: string | null;
   struggling?: boolean;
   itemClassName?: string;
+  action?: ReactNode;
 }) {
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
@@ -182,6 +187,7 @@ function CircleMeter({
           {detail}
         </span>
       ) : null}
+      {action}
     </li>
   );
 }
@@ -193,9 +199,11 @@ function activityIcon(activity: AdminActivityCard): string {
 function ActivityMeter({
   activity,
   itemClassName,
+  action,
 }: {
   activity: AdminActivityCard;
   itemClassName?: string;
+  action?: ReactNode;
 }) {
   return (
     <CircleMeter
@@ -206,6 +214,7 @@ function ActivityMeter({
       detail={activity.note}
       struggling={activity.struggling}
       itemClassName={itemClassName}
+      action={action}
     />
   );
 }
@@ -219,9 +228,11 @@ function videoCenter(video: AdminVideoDetail): string {
 function VideoMeter({
   video,
   caption = "status",
+  action,
 }: {
   video: AdminVideoDetail;
   caption?: "status" | "title";
+  action?: ReactNode;
 }) {
   const completed = video.status === "watched";
   const statusLabel = completed ? null : video.status === "in-progress" ? "In progress" : "Not started";
@@ -239,16 +250,40 @@ function VideoMeter({
       }
       detail={showTitle ? null : statusLabel}
       itemClassName={showTitle ? "w-full min-w-0" : "w-24"}
+      action={action}
     />
+  );
+}
+
+function DeleteProgressButton({
+  label,
+  onClick,
+  className = "",
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-outline transition-colors hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] ${className}`}
+    >
+      <MaterialIcon name="delete" className="text-[18px]" />
+    </button>
   );
 }
 
 export function LessonContentMeters({
   lesson,
   videoCaption = "status",
+  onDeletePart,
 }: {
   lesson: AdminLessonDetail;
   videoCaption?: "status" | "title";
+  onDeletePart?: (part: StudentProgressPart, label: string) => void;
 }) {
   if (lesson.activities.length === 0 && lesson.videos.length === 0) return null;
 
@@ -263,20 +298,57 @@ export function LessonContentMeters({
       }
     >
       {lesson.videos.map((video) => (
-        <VideoMeter key={video.id} video={video} caption={videoCaption} />
-      ))}
-      {lesson.activities.map((activity) => (
-        <ActivityMeter
-          key={activity.id}
-          activity={activity}
-          itemClassName={aligned ? "w-full min-w-0" : undefined}
+        <VideoMeter
+          key={video.id}
+          video={video}
+          caption={videoCaption}
+          action={
+            onDeletePart && video.status !== "not-started" ? (
+              <DeleteProgressButton
+                label={`Delete ${video.title} progress`}
+                className="mt-1 h-7 w-7"
+                onClick={() => onDeletePart({ videoId: video.id }, video.title)}
+              />
+            ) : null
+          }
         />
       ))}
+      {lesson.activities.map((activity) => {
+        const part: StudentProgressPart | null = activity.id.endsWith("-study")
+          ? "study"
+          : activity.id.endsWith("-listening")
+            ? "listening"
+            : null;
+        return (
+          <ActivityMeter
+            key={activity.id}
+            activity={activity}
+            itemClassName={aligned ? "w-full min-w-0" : undefined}
+            action={
+              onDeletePart && part && activity.status !== "not-started" ? (
+                <DeleteProgressButton
+                  label={`Delete ${activity.label} progress`}
+                  className="mt-1 h-7 w-7"
+                  onClick={() => onDeletePart(part, activity.label)}
+                />
+              ) : null
+            }
+          />
+        );
+      })}
     </ul>
   );
 }
 
-function LessonBlock({ lesson }: { lesson: AdminLessonDetail }) {
+function LessonBlock({
+  lesson,
+  onDeleteLesson,
+  onDeletePart,
+}: {
+  lesson: AdminLessonDetail;
+  onDeleteLesson?: () => void;
+  onDeletePart?: (part: StudentProgressPart, label: string) => void;
+}) {
   const when = formatAbsoluteTime(lesson.lastActivityAt);
   const hasMeters = lesson.activities.length > 0 || lesson.videos.length > 0;
 
@@ -287,7 +359,7 @@ function LessonBlock({ lesson }: { lesson: AdminLessonDetail }) {
       }`}
     >
       <div className="flex items-center justify-between gap-space-8 border-b border-outline-variant/20 bg-surface-container-low px-space-16 py-space-12">
-        <div className="flex items-center gap-space-8">
+        <div className="flex min-w-0 items-center gap-space-8">
           {lesson.status === "completed" ? (
             <MaterialIcon name="check_circle" className="text-[18px] text-[#34C759]" filled />
           ) : lesson.status === "in-progress" ? (
@@ -295,15 +367,20 @@ function LessonBlock({ lesson }: { lesson: AdminLessonDetail }) {
           ) : (
             <MaterialIcon name="radio_button_unchecked" className="text-[18px] text-outline-variant" />
           )}
-          <h4 className="font-label-md text-label-md font-semibold text-on-surface">{lesson.label}</h4>
+          <h4 className="truncate font-label-md text-label-md font-semibold text-on-surface">{lesson.label}</h4>
         </div>
-        <span className="shrink-0 font-caption text-caption font-medium text-on-surface-variant">
-          {when ?? "No date"}
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="font-caption text-caption font-medium text-on-surface-variant">
+            {when ?? "No date"}
+          </span>
+          {onDeleteLesson ? (
+            <DeleteProgressButton label={`Delete ${lesson.label} progress`} onClick={onDeleteLesson} />
+          ) : null}
+        </div>
       </div>
       <div className="px-space-16 py-space-16">
         {hasMeters ? (
-          <LessonContentMeters lesson={lesson} />
+          <LessonContentMeters lesson={lesson} onDeletePart={onDeletePart} />
         ) : (
           <p className="font-body-sm text-body-sm text-outline">No cards in this lesson.</p>
         )}
@@ -584,9 +661,11 @@ function ListeningRunRow({
 function ListeningRunsSection({
   userId,
   catalog,
+  revision,
 }: {
   userId: string;
   catalog: readonly AdminCatalogCourse[];
+  revision: number;
 }) {
   const [page, setPage] = useState<StudentRunsPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -594,18 +673,19 @@ function ListeningRunsSection({
   const [openRunId, setOpenRunId] = useState<string | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
-  const visible = loadedFor === userId ? page : null;
+  const requestKey = `${userId}:${revision}`;
+  const visible = loadedFor === requestKey ? page : null;
 
   useEffect(() => {
     let cancelled = false;
     void listAdminStudentRuns(userId, 0).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
-        setLoadedFor(userId);
+        setLoadedFor(requestKey);
         setPage({ status: "error", runs: [], total: 0, passed: 0, failed: 0 });
         return;
       }
-      setLoadedFor(userId);
+      setLoadedFor(requestKey);
       setPage({
         status: result.status,
         runs: result.runs,
@@ -617,7 +697,7 @@ function ListeningRunsSection({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [requestKey, userId]);
 
   async function loadMore() {
     if (!visible || loadingMore || visible.runs.length >= visible.total) return;
@@ -740,9 +820,29 @@ export function StudentDetailModal({
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [progressOverride, setProgressOverride] = useState<{
+    userId: string;
+    progress: StoredProgress;
+  } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    (StudentProgressTarget & { label: string; detail: string }) | null
+  >(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [runsRevision, setRunsRevision] = useState(0);
+  const serverCaughtUp =
+    progressOverride?.userId === row.userId &&
+    (progressOverride.progress.adminClears ?? []).every((clear) =>
+      (row.progress.adminClears ?? []).some((entry) => entry.id === clear.id),
+    );
+  const progress =
+    progressOverride?.userId === row.userId && !serverCaughtUp
+      ? progressOverride.progress
+      : row.progress;
   const detail = useMemo(
-    () => projectStudentDetail(catalog, row.progress),
-    [catalog, row.progress],
+    () => projectStudentDetail(catalog, progress),
+    [catalog, progress],
   );
   const [courseId, setCourseId] = useState(detail.startedCourses[0]?.id ?? "");
   const course =
@@ -752,9 +852,10 @@ export function StudentDetailModal({
   const [range, setRange] = useState<AdminVisitRange>("7d");
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const visitLog = useMemo(
-    () => projectStudentVisits(catalog, row.progress, range),
-    [catalog, row.progress, range],
+    () => projectStudentVisits(catalog, progress, range),
+    [catalog, progress, range],
   );
+  const streakDays = activeStreakDays(progress);
   const lastLogin = formatAbsoluteTime(row.lastSignInAt);
   const lastSeen = formatAbsoluteTime(row.lastLoginAt);
   const summary = visitLog.summary;
@@ -762,7 +863,14 @@ export function StudentDetailModal({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (deleting) return;
+      if (pendingDelete) {
+        setPendingDelete(null);
+        setDeleteError(null);
+        return;
+      }
+      onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     const previousOverflow = document.body.style.overflow;
@@ -771,7 +879,40 @@ export function StudentDetailModal({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [onClose]);
+  }, [deleting, onClose, pendingDelete]);
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return;
+    const target: StudentProgressTarget =
+      pendingDelete.scope === "all"
+        ? { scope: "all" }
+        : pendingDelete.scope === "course"
+          ? { scope: "course", courseId: pendingDelete.courseId }
+          : pendingDelete.scope === "lesson"
+            ? {
+                scope: "lesson",
+                courseId: pendingDelete.courseId,
+                lessonId: pendingDelete.lessonId,
+              }
+            : {
+                scope: "part",
+                courseId: pendingDelete.courseId,
+                lessonId: pendingDelete.lessonId,
+                part: pendingDelete.part,
+              };
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteAdminStudentProgress(row.userId, target);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      return;
+    }
+    setProgressOverride({ userId: row.userId, progress: result.progress });
+    setRunsRevision((current) => current + 1);
+    setPendingDelete(null);
+    router.refresh();
+  }
 
   const identityFacts = [
     row.email && row.email !== row.displayName ? { label: "Email", value: row.email } : null,
@@ -783,7 +924,15 @@ export function StudentDetailModal({
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 sm:items-center sm:p-6 lg:p-10"
       role="presentation"
-      onClick={onClose}
+      onClick={() => {
+        if (deleting) return;
+        if (pendingDelete) {
+          setPendingDelete(null);
+          setDeleteError(null);
+          return;
+        }
+        onClose();
+      }}
     >
       <div
         role="dialog"
@@ -812,10 +961,10 @@ export function StudentDetailModal({
                   <span className="inline-flex items-center gap-space-4 rounded-full bg-surface-container px-2.5 py-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
                     <MaterialIcon
                       name="local_fire_department"
-                      className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
-                      filled={row.streakDays > 0}
+                      className={`text-[16px] ${streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
+                      filled={streakDays > 0}
                     />
-                    {row.streakDays} {row.streakDays === 1 ? "day" : "days"}
+                    {streakDays} {streakDays === 1 ? "day" : "days"}
                   </span>
                 </div>
                 <h2
@@ -838,14 +987,32 @@ export function StudentDetailModal({
                 </dl>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-on-surface transition-colors hover:bg-black/[0.08]"
-            >
-              <MaterialIcon name="close" className="text-[20px]" />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError(null);
+                  setPendingDelete({
+                    scope: "all",
+                    label: "all progress",
+                    detail:
+                      "Courses, Lektionen, videos, listening, and visit history are cleared. The account, class, and level access stay.",
+                  });
+                }}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
+              >
+                <MaterialIcon name="delete" className="text-[18px]" />
+                <span className="hidden sm:inline">Delete progress</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-on-surface transition-colors hover:bg-black/[0.08]"
+              >
+                <MaterialIcon name="close" className="text-[20px]" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -911,7 +1078,7 @@ export function StudentDetailModal({
                 )}
               </section>
 
-              <ListeningRunsSection userId={row.userId} catalog={catalog} />
+              <ListeningRunsSection userId={row.userId} catalog={catalog} revision={runsRevision} />
 
               <section aria-label="Sign-ins">
                 <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
@@ -981,43 +1148,64 @@ export function StudentDetailModal({
                     {detail.startedCourses.map((entry) => {
                       const selected = entry.id === course?.id;
                       return (
-                        <button
+                        <div
                           key={entry.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={selected}
-                          onClick={() => setCourseId(entry.id)}
-                          className={`flex w-full flex-col border-b border-black/[0.06] px-5 py-3.5 text-left last:border-b-0 ${
-                            selected ? "bg-primary-fixed" : "hover:bg-black/[0.02]"
+                          role="presentation"
+                          className={`flex items-stretch border-b border-black/[0.06] last:border-b-0 ${
+                            selected ? "bg-primary-fixed" : ""
                           }`}
                         >
-                          <span className="flex items-baseline justify-between gap-3">
-                            <span
-                              className={`min-w-0 font-label-md text-label-md ${
-                                selected ? "font-bold text-on-primary-fixed" : "font-semibold text-on-surface"
-                              }`}
-                            >
-                              {entry.shortLabel}
-                            </span>
-                            <span
-                              className={`shrink-0 font-label-sm text-label-sm font-semibold tabular-nums ${
-                                selected ? "text-primary" : "text-on-surface-variant"
-                              }`}
-                            >
-                              {entry.percent}%
-                            </span>
-                          </span>
-                          <span
-                            className={`mt-2 block h-1.5 overflow-hidden rounded-full ${
-                              selected ? "bg-primary-fixed-dim" : "bg-surface-container-highest"
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            onClick={() => setCourseId(entry.id)}
+                            className={`flex min-w-0 flex-1 flex-col px-5 py-3.5 text-left ${
+                              selected ? "" : "hover:bg-black/[0.02]"
                             }`}
                           >
+                            <span className="flex items-baseline justify-between gap-3">
+                              <span
+                                className={`min-w-0 font-label-md text-label-md ${
+                                  selected ? "font-bold text-on-primary-fixed" : "font-semibold text-on-surface"
+                                }`}
+                              >
+                                {entry.shortLabel}
+                              </span>
+                              <span
+                                className={`shrink-0 font-label-sm text-label-sm font-semibold tabular-nums ${
+                                  selected ? "text-primary" : "text-on-surface-variant"
+                                }`}
+                              >
+                                {entry.percent}%
+                              </span>
+                            </span>
                             <span
-                              className={`block h-full rounded-full ${selected ? "bg-primary" : "bg-outline"}`}
-                              style={{ width: `${entry.percent}%` }}
+                              className={`mt-2 block h-1.5 overflow-hidden rounded-full ${
+                                selected ? "bg-primary-fixed-dim" : "bg-surface-container-highest"
+                              }`}
+                            >
+                              <span
+                                className={`block h-full rounded-full ${selected ? "bg-primary" : "bg-outline"}`}
+                                style={{ width: `${entry.percent}%` }}
+                              />
+                            </span>
+                          </button>
+                          <div className="flex items-center pr-2">
+                            <DeleteProgressButton
+                              label={`Delete ${entry.shortLabel} progress`}
+                              onClick={() => {
+                                setDeleteError(null);
+                                setPendingDelete({
+                                  scope: "course",
+                                  courseId: entry.id,
+                                  label: entry.label,
+                                  detail: `Every Lektion in ${entry.label} is cleared.`,
+                                });
+                              }}
                             />
-                          </span>
-                        </button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -1038,7 +1226,37 @@ export function StudentDetailModal({
                           No lessons with content in this course yet.
                         </p>
                       ) : (
-                        lessons.map((lesson) => <LessonBlock key={lesson.id} lesson={lesson} />)
+                        lessons.map((lesson) => (
+                          <LessonBlock
+                            key={lesson.id}
+                            lesson={lesson}
+                            onDeleteLesson={
+                              lesson.status === "not-started"
+                                ? undefined
+                                : () => {
+                                    setDeleteError(null);
+                                    setPendingDelete({
+                                      scope: "lesson",
+                                      courseId: course.id,
+                                      lessonId: lesson.id,
+                                      label: lesson.label,
+                                      detail: `Study, listening, and videos in ${lesson.label} are cleared.`,
+                                    });
+                                  }
+                            }
+                            onDeletePart={(part, label) => {
+                              setDeleteError(null);
+                              setPendingDelete({
+                                scope: "part",
+                                courseId: course.id,
+                                lessonId: lesson.id,
+                                part,
+                                label: `${lesson.label} · ${label}`,
+                                detail: `${label} in ${lesson.label} is cleared. The rest of the Lektion stays.`,
+                              });
+                            }}
+                          />
+                        ))
                       )}
                     </div>
                   ) : null}
@@ -1054,6 +1272,62 @@ export function StudentDetailModal({
           </div>
         </div>
       </div>
+      {pendingDelete ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-6"
+          role="presentation"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (deleting) return;
+            setPendingDelete(null);
+            setDeleteError(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-progress-title"
+            className="w-full max-w-md rounded-3xl bg-surface-container-lowest p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2
+              id="delete-progress-title"
+              className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface"
+            >
+              Delete {pendingDelete.label}?
+            </h2>
+            <p className="mt-3 font-body-md text-body-md text-on-surface-variant">
+              {pendingDelete.detail} {row.displayName}&apos;s open app drops it the next time it syncs.
+            </p>
+            {deleteError ? (
+              <p className="mt-3 font-body-sm text-body-sm text-[#ff3b30]" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  setPendingDelete(null);
+                  setDeleteError(null);
+                }}
+                className="inline-flex h-10 items-center rounded-full px-4 font-label-sm text-label-sm font-semibold text-on-surface transition-colors hover:bg-black/[0.05] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+                className="inline-flex h-10 items-center rounded-full bg-[#ff3b30] px-4 font-label-sm text-label-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete progress"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

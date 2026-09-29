@@ -1,4 +1,12 @@
-import type { LearnProgress, StoredProgress, Visit, VisitSummary } from "@/lib/progress";
+import type {
+  AdminInterviewErase,
+  AdminLearnErase,
+  AdminProgressClear,
+  LearnProgress,
+  StoredProgress,
+  Visit,
+  VisitSummary,
+} from "@/lib/progress";
 import {
   daysBetweenUtc,
   describeVisitSignal,
@@ -941,4 +949,272 @@ export function describeCatalogClip(
     }
   }
   return { course: lessonKey, lesson: "", prompt: clipId };
+}
+
+export type StudentProgressPart = "study" | "listening" | { videoId: string };
+
+/** What an admin is deleting from one student's stored progress. */
+export type StudentProgressTarget =
+  | { scope: "all" }
+  | { scope: "course"; courseId: string }
+  | { scope: "lesson"; courseId: string; lessonId: string }
+  | { scope: "part"; courseId: string; lessonId: string; part: StudentProgressPart };
+
+export type ProgressHistoryWipe = {
+  /** Listening-run lesson keys, or every run this student has stored. */
+  runs: "all" | string[];
+  /** Studied-clip lesson keys, or every clip this student has stored. */
+  studied: "all" | string[];
+};
+
+type ProgressEraseSlice = {
+  learn: AdminLearnErase[];
+  videoKeys: string[];
+  videoPrefixes: string[];
+  interview: AdminInterviewErase[];
+  visitLessons: string[];
+  visitStudy: boolean;
+  visitListening: boolean;
+  visitVideo: boolean;
+  runs: string[];
+  studied: string[];
+};
+
+function emptyEraseSlice(): ProgressEraseSlice {
+  return {
+    learn: [],
+    videoKeys: [],
+    videoPrefixes: [],
+    interview: [],
+    visitLessons: [],
+    visitStudy: false,
+    visitListening: false,
+    visitVideo: false,
+    runs: [],
+    studied: [],
+  };
+}
+
+function pushUnique(list: string[], value: string | undefined): void {
+  if (!value || list.includes(value)) return;
+  list.push(value);
+}
+
+function addLearnErase(
+  slice: ProgressEraseSlice,
+  key: string | undefined,
+  clipIds: readonly string[],
+  study: boolean,
+  listening: boolean,
+): void {
+  if (!key || (!study && !listening)) return;
+  const existing = slice.learn.find((entry) => entry.key === key);
+  if (!existing) {
+    slice.learn.push({ key, clipIds: [...clipIds], study, listening });
+    return;
+  }
+  for (const id of clipIds) {
+    if (!existing.clipIds.includes(id)) existing.clipIds.push(id);
+  }
+  existing.study = existing.study || study;
+  existing.listening = existing.listening || listening;
+}
+
+function addLessonErase(
+  slice: ProgressEraseSlice,
+  lesson: AdminCatalogLesson,
+  part: "all" | StudentProgressPart,
+): void {
+  const clipIds = lesson.clips.map((clip) => clip.id);
+  const visitKey = lesson.videoKeyPrefix;
+  const study = part === "all" || part === "study";
+  const listening = part === "all" || part === "listening";
+  const video = part === "all" || typeof part === "object";
+
+  if (lesson.learnKey && (study || listening) && clipIds.length > 0) {
+    addLearnErase(slice, lesson.learnKey, clipIds, study, listening);
+    if (study) pushUnique(slice.studied, visitKey);
+    if (listening) {
+      pushUnique(slice.runs, visitKey);
+      pushUnique(slice.studied, visitKey);
+    }
+  }
+
+  if (lesson.interviewSlug && listening) {
+    const existing = slice.interview.find((entry) => entry.slug === lesson.interviewSlug);
+    if (!existing) {
+      slice.interview.push({ slug: lesson.interviewSlug, clipIds: [...clipIds] });
+    } else if (existing.clipIds) {
+      for (const id of clipIds) {
+        if (!existing.clipIds.includes(id)) existing.clipIds.push(id);
+      }
+    }
+  }
+
+  if (video && lesson.videoKeyPrefix) {
+    if (part === "all") {
+      pushUnique(slice.videoPrefixes, `${lesson.videoKeyPrefix}/`);
+    } else if (typeof part === "object") {
+      const known = lesson.videos.some((entry) => entry.id === part.videoId);
+      if (known) pushUnique(slice.videoKeys, `${lesson.videoKeyPrefix}/${part.videoId}`);
+    }
+  }
+
+  if (!visitKey) return;
+  if (study && lesson.learnKey) {
+    slice.visitStudy = true;
+    pushUnique(slice.visitLessons, visitKey);
+  }
+  if (listening && lesson.learnKey) {
+    slice.visitListening = true;
+    pushUnique(slice.visitLessons, visitKey);
+  }
+  if (video && (part === "all" || slice.videoKeys.length > 0)) {
+    slice.visitVideo = true;
+  }
+}
+
+function sliceToClear(
+  slice: ProgressEraseSlice,
+  id: string,
+  at: string,
+): AdminProgressClear | null {
+  const clear: AdminProgressClear = {
+    id,
+    at,
+    scope: "scoped",
+    ...(slice.learn.length ? { learn: slice.learn } : {}),
+    ...(slice.videoKeys.length ? { videoKeys: slice.videoKeys } : {}),
+    ...(slice.videoPrefixes.length ? { videoPrefixes: slice.videoPrefixes } : {}),
+    ...(slice.interview.length ? { interview: slice.interview } : {}),
+    ...(slice.visitLessons.length ? { visitLessons: slice.visitLessons } : {}),
+    ...(slice.visitStudy ? { visitStudy: true } : {}),
+    ...(slice.visitListening ? { visitListening: true } : {}),
+    ...(slice.visitVideo ? { visitVideo: true } : {}),
+  };
+  if (
+    !clear.learn &&
+    !clear.videoKeys &&
+    !clear.videoPrefixes &&
+    !clear.interview &&
+    !clear.visitLessons
+  ) {
+    return null;
+  }
+  return clear;
+}
+
+function findCatalogLesson(
+  catalog: readonly AdminCatalogCourse[],
+  courseId: string,
+  lessonId: string,
+): { course: AdminCatalogCourse; lesson: AdminCatalogLesson } | null {
+  const course = catalog.find((entry) => entry.id === courseId);
+  const lesson = course?.lessons.find((entry) => entry.id === lessonId);
+  if (!course || !lesson) return null;
+  return { course, lesson };
+}
+
+/**
+ * The stored deletion for one admin target, plus which listening-run and
+ * studied-clip rows to remove. Returns null when the target is not in the catalog.
+ */
+export function studentProgressClear(
+  catalog: readonly AdminCatalogCourse[],
+  target: StudentProgressTarget,
+  id: string,
+  at: string,
+): { clear: AdminProgressClear; history: ProgressHistoryWipe } | null {
+  if (target.scope === "all") {
+    return { clear: { id, at, scope: "all" }, history: { runs: "all", studied: "all" } };
+  }
+
+  if (target.scope === "course") {
+    const course = catalog.find((entry) => entry.id === target.courseId);
+    if (!course) return null;
+    if (course.kind === "ausbildung") {
+      const slug = course.lessons.find((lesson) => lesson.interviewSlug)?.interviewSlug ?? course.id;
+      return {
+        clear: {
+          id,
+          at,
+          scope: "scoped",
+          interview: [{ slug, clipIds: null }],
+          visitLessons: [`interview/${slug}`],
+          visitStudy: true,
+          visitListening: true,
+        },
+        history: { runs: [], studied: [] },
+      };
+    }
+    const slice = emptyEraseSlice();
+    for (const lesson of course.lessons) addLessonErase(slice, lesson, "all");
+    const clear = sliceToClear(slice, id, at);
+    if (!clear) return null;
+    return { clear, history: { runs: slice.runs, studied: slice.studied } };
+  }
+
+  const found =
+    target.scope === "lesson" || target.scope === "part"
+      ? findCatalogLesson(catalog, target.courseId, target.lessonId)
+      : null;
+  if (!found) return null;
+
+  if (target.scope === "lesson") {
+    if (found.course.kind === "ausbildung" && found.lesson.interviewSlug) {
+      return {
+        clear: {
+          id,
+          at,
+          scope: "scoped",
+          interview: [
+            {
+              slug: found.lesson.interviewSlug,
+              clipIds: found.lesson.clips.map((clip) => clip.id),
+            },
+          ],
+        },
+        history: { runs: [], studied: [] },
+      };
+    }
+    const slice = emptyEraseSlice();
+    addLessonErase(slice, found.lesson, "all");
+    const clear = sliceToClear(slice, id, at);
+    if (!clear) return null;
+    return { clear, history: { runs: slice.runs, studied: slice.studied } };
+  }
+
+  const part = target.part;
+  if (typeof part === "object") {
+    const videoId = part.videoId;
+    const known = found.lesson.videos.some((video) => video.id === videoId);
+    if (!known || !found.lesson.videoKeyPrefix) return null;
+  } else if (part === "study" && !found.lesson.learnKey) {
+    return null;
+  } else if (part === "listening" && found.lesson.clips.length === 0) {
+    return null;
+  }
+
+  if (found.course.kind === "ausbildung" && part === "listening" && found.lesson.interviewSlug) {
+    return {
+      clear: {
+        id,
+        at,
+        scope: "scoped",
+        interview: [
+          {
+            slug: found.lesson.interviewSlug,
+            clipIds: found.lesson.clips.map((clip) => clip.id),
+          },
+        ],
+      },
+      history: { runs: [], studied: [] },
+    };
+  }
+
+  const slice = emptyEraseSlice();
+  addLessonErase(slice, found.lesson, part);
+  const clear = sliceToClear(slice, id, at);
+  if (!clear) return null;
+  return { clear, history: { runs: slice.runs, studied: slice.studied } };
 }

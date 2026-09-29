@@ -895,6 +895,33 @@ async function deleteUserListeningRuns(
   throw new Error(`Could not delete listening runs (${error.message}).`);
 }
 
+/**
+ * Remove finished listening parts, and the XP rows that point at them.
+ * `lessonKeys` of `"all"` clears every run for the student.
+ */
+export async function deleteListeningRunsForLessons(
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Progress store is not configured");
+  if (lessonKeys !== "all" && lessonKeys.length === 0) return;
+
+  const xp = supabase.from(XP_TABLE).delete().eq("user_id", userId);
+  const xpQuery = lessonKeys === "all" ? xp : xp.in("lesson_key", [...lessonKeys]);
+  const xpResult = await xpQuery;
+  if (xpResult.error && !isXpSchemaMissing(xpResult.error.message)) {
+    throw new Error(`Could not delete XP (${xpResult.error.message}).`);
+  }
+
+  const runs = supabase.from(RUNS_TABLE).delete().eq("user_id", userId);
+  const runsQuery = lessonKeys === "all" ? runs : runs.in("lesson_key", [...lessonKeys]);
+  const runsResult = await runsQuery;
+  if (runsResult.error && !isListeningSchemaMissing(runsResult.error.message)) {
+    throw new Error(`Could not delete listening runs (${runsResult.error.message}).`);
+  }
+}
+
 async function deleteUserXpAwards(
   supabase: SupabaseClient,
   userId: string,

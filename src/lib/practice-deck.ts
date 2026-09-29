@@ -6,9 +6,86 @@
  * pairing.ts — that would make the three files a dependency cycle.
  */
 
-import type { OrderSourceClip, PracticeCard } from "./sentence-order";
-import { buildMcOptions } from "./multiple-choice";
-import { buildPairingSet } from "./pairing";
+import { buildPracticeDeck, type OrderSourceClip, type PracticeCard } from "./sentence-order";
+import { buildMcOptions, isMultipleChoiceEligible } from "./multiple-choice";
+import { buildPairingSet, isPairingItemEligible } from "./pairing";
+
+/** A practice run never deals more cards than this, including after a shuffle. */
+export const MAX_PRACTICE_CARDS = 15;
+
+function zeroRandom(): number {
+  return 0;
+}
+
+/** How many cards `partClips` become inside a lesson. Placement randomness does not change the count. */
+export function practiceCardCount<C extends OrderSourceClip>(
+  partClips: readonly C[],
+  lessonClips: readonly C[],
+): number {
+  return insertDiscreteCards(
+    buildPracticeDeck(partClips, lessonClips, zeroRandom),
+    partClips,
+    lessonClips,
+    [],
+    zeroRandom,
+  ).length;
+}
+
+function scriptKey(script: string): string {
+  return script.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Largest clip count that still stays within MAX_PRACTICE_CARDS for every
+ * subset of that size. One clip is at least one listening card, so the count
+ * never needs to exceed the card cap.
+ */
+export function maxClipsPerPracticePart<C extends OrderSourceClip>(
+  lessonClips: readonly C[],
+): number {
+  const total = lessonClips.length;
+  if (total === 0) return 0;
+
+  const scored = lessonClips.map((clip) => {
+    const multipleChoice =
+      Boolean(clip.translationVi?.trim()) && isMultipleChoiceEligible(clip, lessonClips);
+    return {
+      clip,
+      base: 1 + (clip.sentenceOrder ? 1 : 0) + (multipleChoice ? 1 : 0),
+      pairing: isPairingItemEligible(clip),
+      script: scriptKey(clip.script),
+    };
+  });
+
+  let allowed = 1;
+  const limit = Math.min(total, MAX_PRACTICE_CARDS);
+  const remaining = [...scored];
+  const chosen: C[] = [];
+  const seenPairingScripts = new Set<string>();
+
+  for (let k = 1; k <= limit; k += 1) {
+    let bestIndex = 0;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const candidate = remaining[index];
+      if (!candidate) continue;
+      const uniquePairing = candidate.pairing && !seenPairingScripts.has(candidate.script);
+      const score = candidate.base + (uniquePairing ? 0.5 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+    const next = remaining.splice(bestIndex, 1)[0];
+    if (!next) break;
+    chosen.push(next.clip);
+    if (next.pairing) seenPairingScripts.add(next.script);
+    if (practiceCardCount(chosen, lessonClips) > MAX_PRACTICE_CARDS) break;
+    allowed = k;
+  }
+
+  return allowed;
+}
 
 /**
  * Adds one multiple-choice card per eligible clip in `partClips`, and as many

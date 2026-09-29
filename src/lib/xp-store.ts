@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
+import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { listeningPartSize } from "@/lib/progress";
 import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
@@ -32,12 +33,17 @@ export type XpGrant = {
   kind: string | null;
 };
 
-function lessonClipsForXp(lessonKey: string): { id: string; script: string }[] {
+function lessonClipsForXp(lessonKey: string): { id: string; script: string; translationVi: string; sentenceOrder?: boolean }[] {
   const slash = lessonKey.indexOf("/");
   if (slash <= 0) return [];
   try {
     return getChapterClips(lessonKey.slice(0, slash), lessonKey.slice(slash + 1)).map(
-      (clip) => ({ id: clip.id, script: clip.script }),
+      (clip) => ({
+        id: clip.id,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        sentenceOrder: clip.sentenceOrder,
+      }),
     );
   } catch {
     return [];
@@ -121,7 +127,12 @@ export async function grantXpForListeningRun(
     levelSlug: slash > 0 ? input.lessonKey.slice(0, slash) : "",
     outcome: input.outcome,
     elapsedMs: input.elapsedMs,
-    expectedCount: listeningPartSize(lessonClips.length, input.partNumber, input.partCount),
+    expectedCount: listeningPartSize(
+      lessonClips.length,
+      input.partNumber,
+      input.partCount,
+      maxClipsPerPracticePart(lessonClips),
+    ),
     results: input.clips,
     lessonClips,
     priorDayKeys,

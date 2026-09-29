@@ -1,6 +1,7 @@
 import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
 import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
+import type { SessionClip } from "@/lib/content";
 import {
   countScriptWords,
   getAvailableChapters,
@@ -43,12 +44,32 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     };
   });
 
+  async function loadLessonDictionary(chapterSlug: string): Promise<SessionClip[]> {
+    "use server";
+    const current = await requireUser();
+    await requireLevelAccess(current.user, levelSlug);
+    const known = getLevelChapters(levelSlug).some((entry) => entry.slug === chapterSlug);
+    if (!known) return [];
+    try {
+      return getChapterClips(levelSlug, chapterSlug).map((clip) => ({
+        id: clip.id,
+        filename: clip.filename,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        audioPath: clip.audioPath,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   return (
     <LevelViewClient
       level={level}
       chapters={chaptersWithAudio}
       cefrCatalog={buildCefrProgressCatalog()}
       isAdmin={isAdminUser(session.user)}
+      loadLessonDictionary={loadLessonDictionary}
     />
   );
 }

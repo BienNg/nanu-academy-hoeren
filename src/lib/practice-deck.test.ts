@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPracticeDeck } from "./sentence-order.js";
-import { insertDiscreteCards } from "./practice-deck.js";
+import {
+  insertDiscreteCards,
+  maxClipsPerPracticePart,
+  practiceCardCount,
+  MAX_PRACTICE_CARDS,
+} from "./practice-deck.js";
 
 function seeded(seed: number): () => number {
   let state = seed;
@@ -68,6 +73,19 @@ test("each MC card is placed after its own clip's listening card", () => {
     const listenIndex = indexOfListening(deck, card.clip.id);
     assert.ok(mcIndex > listenIndex);
   }
+});
+
+test("the heaviest clips still fit in one run of at most 15 cards", () => {
+  const heavy = Array.from({ length: 8 }, (_, index) => ({
+    id: `h${index}`,
+    script: `wort ${index} satz`,
+    translationVi: `cụm ${index} tiếng`,
+    sentenceOrder: true,
+  }));
+  const maxClips = maxClipsPerPracticePart(heavy);
+  assert.equal(maxClips, 4);
+  assert.ok(practiceCardCount(heavy.slice(0, maxClips), heavy) <= MAX_PRACTICE_CARDS);
+  assert.ok(practiceCardCount(heavy.slice(0, maxClips + 1), heavy) > MAX_PRACTICE_CARDS);
 });
 
 test("no pairing card is added when fewer than 5 clips are pairing-eligible", () => {

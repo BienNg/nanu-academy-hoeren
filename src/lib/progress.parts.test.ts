@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { isSentenceOrderEligible } from "./sentence-order.js";
+import { maxClipsPerPracticePart, practiceCardCount, MAX_PRACTICE_CARDS } from "./practice-deck.js";
 import {
   activeStreakDays,
   bumpStreak,
@@ -23,7 +25,12 @@ import {
   splitListeningParts,
 } from "./progress.js";
 
-type Clip = { id: string; script: string };
+type Clip = {
+  id: string;
+  script: string;
+  translationVi?: string;
+  sentenceOrder?: boolean;
+};
 
 function questions(count: number): Clip[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -35,12 +42,19 @@ function questions(count: number): Clip[] {
 function lessonClips(level: string, chapter: string): Clip[] {
   const raw = JSON.parse(
     readFileSync(join("src/data/levels", level, `${chapter}.json`), "utf8"),
-  ) as { clips?: { filename: string; script: string }[] };
+  ) as {
+    clips?: { filename: string; script: string; translationVi?: string; noSentenceOrder?: boolean }[];
+  };
   return (raw.clips ?? [])
     .filter((clip) =>
       existsSync(join("public/audio", level, chapter, clip.filename)),
     )
-    .map((clip) => ({ id: clip.filename, script: clip.script }));
+    .map((clip) => ({
+      id: clip.filename,
+      script: clip.script,
+      translationVi: clip.translationVi ?? "",
+      sentenceOrder: isSentenceOrderEligible(clip),
+    }));
 }
 
 function seededShuffle<T>(items: readonly T[], seed: number): T[] {
@@ -58,25 +72,33 @@ function seededShuffle<T>(items: readonly T[], seed: number): T[] {
 
 function assertEvenParts(clips: readonly Clip[]): void {
   const parts = splitListeningParts(clips);
+  const maxClips = maxClipsPerPracticePart(clips);
   assert.deepEqual(
     parts.flat().map((clip) => clip.id),
     clips.map((clip) => clip.id),
   );
   const sizes = parts.map((part) => part.length);
-  if (clips.length <= 15) {
+  if (clips.length <= maxClips) {
     assert.deepEqual(sizes, [clips.length]);
     return;
   }
-  assert.equal(parts.length, Math.min(listeningPartCount(clips.length), clips.length));
+  assert.equal(parts.length, Math.min(listeningPartCount(clips.length, maxClips), clips.length));
   const smallest = Math.min(...sizes);
   const largest = Math.max(...sizes);
   assert.ok(
-    smallest >= 10 && largest <= 15 && largest - smallest <= 1,
-    `parts [${sizes.join(", ")}] are outside 10–15 questions`,
+    largest <= maxClips && largest - smallest <= 1,
+    `parts [${sizes.join(", ")}] are not an even split of at most ${maxClips} clips`,
   );
+  for (const part of parts) {
+    const cards = practiceCardCount(part, clips);
+    assert.ok(
+      cards <= MAX_PRACTICE_CARDS,
+      `a part of ${part.length} clips dealt ${cards} cards`,
+    );
+  }
 }
 
-test("listening lessons split into even parts of 10–15 questions", () => {
+test("listening lessons split so each run has at most 15 cards", () => {
   for (const chapter of ["lektion-1", "lektion-2", "lektion-3", "lektion-4"]) {
     const clips = lessonClips("a1-1", chapter);
     if (clips.length === 0) continue;
@@ -87,7 +109,7 @@ test("listening lessons split into even parts of 10–15 questions", () => {
   }
 });
 
-test("the last part stays in the 10–15 question range", () => {
+test("parts stay even and never hold more than 15 one-card clips", () => {
   assert.deepEqual(
     splitListeningParts(questions(21)).map((part) => part.length),
     [11, 10],
@@ -98,7 +120,7 @@ test("the last part stays in the 10–15 question range", () => {
   );
   assert.deepEqual(
     splitListeningParts(questions(16)).map((part) => part.length),
-    [16],
+    [8, 8],
   );
 });
 

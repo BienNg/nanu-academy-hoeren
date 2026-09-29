@@ -289,6 +289,25 @@ function studiedSignature(clips: readonly StudiedClip[]): string {
     .join("\u0001");
 }
 
+/** Drop studied clips so a later sync can write back only what progress still has. */
+export async function forgetStudiedClips(
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+  if (lessonKeys !== "all" && lessonKeys.length === 0) return;
+  studiedSynced.delete(userId);
+
+  const query = supabase.from(STUDIED_TABLE).delete().eq("user_id", userId);
+  const scoped = lessonKeys === "all" ? query : query.in("lesson_key", [...lessonKeys]);
+  const { error } = await scoped;
+  if (error) {
+    if (schemaGone(error.message)) return;
+    throw new Error(`Could not delete studied clips (${error.message}).`);
+  }
+}
+
 export async function syncStudiedClips(userId: string, progress: StoredProgress): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
