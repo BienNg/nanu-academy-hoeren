@@ -1,8 +1,10 @@
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import {
   getCefrLevel,
+  getChapterClipInventory,
   getChapterVideos,
   getLevelChapters,
+  type ChapterVideo,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
 import { VideoLessonScreen } from "@/components/VideoLessonCard";
@@ -11,6 +13,34 @@ type VideoLessonPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
   searchParams: Promise<{ video?: string | string[] }>;
 };
+
+/** The next path card after this video: the following video, or Study. */
+function nextLessonCard(
+  levelSlug: string,
+  chapterSlug: string,
+  videos: readonly ChapterVideo[],
+  current: ChapterVideo,
+): { href: string; label: string } | null {
+  const index = videos.findIndex(
+    (item) => item.videoId != null && item.videoId === current.videoId,
+  );
+  const following = (index >= 0 ? videos.slice(index + 1) : []).find(
+    (item) => item.videoId,
+  );
+  if (following?.videoId) {
+    return {
+      href: `/learn/${levelSlug}/${chapterSlug}/video?video=${encodeURIComponent(following.videoId)}`,
+      label: following.title,
+    };
+  }
+
+  const inventory = getChapterClipInventory(levelSlug, chapterSlug);
+  if (!inventory || inventory.playable === 0) return null;
+  return {
+    href: `/learn/${levelSlug}/${chapterSlug}/study`,
+    label: "Study",
+  };
+}
 
 export default async function VideoLessonPage({
   params,
@@ -48,6 +78,7 @@ export default async function VideoLessonPage({
       chapter={chapter}
       videos={[video]}
       initialVideoId={video.videoId}
+      nextCard={nextLessonCard(levelSlug, chapterSlug, videos, video)}
     />
   );
 }

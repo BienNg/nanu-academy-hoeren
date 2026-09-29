@@ -167,6 +167,8 @@ export function LearnSession({
     completedLearnRunClipIdsFor,
     learnRunClipOrderFor,
     learnChapterCompleted,
+    learnStudyCompleted,
+    progressReady,
     absorbLessonClips,
     markLearnChapterDone,
     setLearnRunOrder,
@@ -181,6 +183,7 @@ export function LearnSession({
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
   const chapterMarkedDone = learnChapterCompleted(chapterProgressKey);
+  const practiceLocked = clips.length > 0 && !learnStudyCompleted(chapterProgressKey);
   const completedKey = completedIds.join("\n");
   const runCompletedKey = runCompletedIds.join("\n");
   const runOrderKey = runOrder.join("\n");
@@ -189,7 +192,12 @@ export function LearnSession({
   // One part per visit. Ordered on the first pass, shuffled once per review run.
   // Progress is written only when the part ends, so leaving early restarts it.
   useEffect(() => {
-    if (status === "loading") return;
+    if (!progressReady || !practiceLocked) return;
+    router.replace(pathHref);
+  }, [progressReady, practiceLocked, router, pathHref]);
+
+  useEffect(() => {
+    if (status === "loading" || !progressReady || practiceLocked) return;
     if (phase !== "practice") return;
     if (
       clipIndex !== 0 ||

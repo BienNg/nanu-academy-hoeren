@@ -15,12 +15,18 @@ import { useProgress } from "@/lib/useProgress";
 import {
   loadYouTubeIframeApi,
   supportsProgrammaticVolume,
+  YT_CUED,
   YT_ENDED,
   YT_PAUSED,
   YT_PLAYING,
   YT_UNSTARTED,
   type YouTubePlayer,
 } from "@/lib/youtube";
+
+type NextLessonCard = {
+  href: string;
+  label: string;
+};
 
 type VideoLessonCardProps = {
   levelSlug: string;
@@ -29,6 +35,8 @@ type VideoLessonCardProps = {
   /** `page` is the full lesson video screen. `card` keeps the hub tile. */
   presentation?: "card" | "page";
   initialVideoId?: string | null;
+  /** Path card that follows this video. Shown once the video is marked watched. */
+  nextCard?: NextLessonCard | null;
 };
 
 export const LESSON_VIDEO_STATUS_LABEL: Record<LessonVideoStatus, string> = {
@@ -57,6 +65,10 @@ const MARK_WATCHED_LEAD_SECONDS = 10;
 const YOUTUBE_CHROME_CROP_PX = 60;
 
 const VIDEO_QUALITY_STORAGE_KEY = "nanu-video-quality";
+const VIDEO_SPEED_STORAGE_KEY = "nanu-video-speed";
+
+/** Rates the embedded player can actually apply. */
+const VIDEO_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
 /**
  * YouTube ignores setPlaybackQuality. It chooses the stream from the iframe's
@@ -112,6 +124,42 @@ function storeVideoQuality(value: string) {
     window.localStorage.setItem(VIDEO_QUALITY_STORAGE_KEY, value);
   } catch {
     // Ignore storage failures; the choice still applies for this view.
+  }
+}
+
+function isVideoSpeed(value: number): value is (typeof VIDEO_SPEEDS)[number] {
+  return (VIDEO_SPEEDS as readonly number[]).includes(value);
+}
+
+function readStoredVideoSpeed(): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const value = Number(window.localStorage.getItem(VIDEO_SPEED_STORAGE_KEY));
+    if (isVideoSpeed(value)) return value;
+  } catch {
+    // Private mode can reject storage reads.
+  }
+  return 1;
+}
+
+function storeVideoSpeed(value: number) {
+  try {
+    window.localStorage.setItem(VIDEO_SPEED_STORAGE_KEY, String(value));
+  } catch {
+    // Ignore storage failures; the choice still applies for this view.
+  }
+}
+
+function formatVideoSpeed(rate: number): string {
+  return `${rate}x`;
+}
+
+function applyPlaybackRate(player: YouTubePlayer, rate: number) {
+  try {
+    if (Math.abs(player.getPlaybackRate() - rate) < 0.01) return;
+    player.setPlaybackRate(rate);
+  } catch {
+    // Playback rate is unavailable until the player finishes loading.
   }
 }
 
@@ -291,6 +339,7 @@ function YouTubePane({
   urlStart,
   progressKey,
   variant = "card",
+  nextCard = null,
 }: {
   videoId: string;
   title: string;
@@ -298,6 +347,7 @@ function YouTubePane({
   urlStart: number;
   progressKey: string;
   variant?: "card" | "page";
+  nextCard?: NextLessonCard | null;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -350,6 +400,11 @@ function YouTubePane({
   const [actualQuality, setActualQuality] = useState("");
   const qualityRef = useRef("auto");
   const qualityControlRef = useRef<HTMLDivElement>(null);
+  const [speed, setSpeed] = useState(1);
+  const [speedOpen, setSpeedOpen] = useState(false);
+  const [availableSpeeds, setAvailableSpeeds] = useState<number[]>([]);
+  const speedRef = useRef(1);
+  const speedControlRef = useRef<HTMLDivElement>(null);
   const pendingQualityReloadRef = useRef(false);
   const qualityReloadUntilRef = useRef(0);
   const holdPauseRef = useRef(false);
@@ -383,6 +438,9 @@ function YouTubePane({
     const stored = readStoredVideoQuality();
     qualityRef.current = stored;
     setQuality(stored);
+    const storedSpeed = readStoredVideoSpeed();
+    speedRef.current = storedSpeed;
+    setSpeed(storedSpeed);
     setPrefsReady(true);
   }, []);
 
@@ -457,11 +515,19 @@ function YouTubePane({
               iframe.style.width = "100%";
               iframe.style.height = "100%";
               iframe.style.border = "none";
+              applyPlaybackRate(event.target, speedRef.current);
               setReady(true);
             },
             onStateChange: (event) => {
               if (cancelled) return;
               const state = event.data;
+              if (
+                state === YT_PLAYING ||
+                state === YT_PAUSED ||
+                state === YT_CUED
+              ) {
+                applyPlaybackRate(event.target, speedRef.current);
+              }
               if (state === YT_PLAYING) {
                 if (holdPauseRef.current) {
                   holdPauseRef.current = false;
@@ -541,6 +607,15 @@ function YouTubePane({
         const actual = active.getPlaybackQuality();
         if (actual) {
           setActualQuality((current) => (current === actual ? current : actual));
+        }
+        const rates = active.getAvailablePlaybackRates();
+        if (Array.isArray(rates) && rates.length > 0) {
+          setAvailableSpeeds((current) =>
+            current.length === rates.length &&
+            current.every((rate, index) => rate === rates[index])
+              ? current
+              : rates,
+          );
         }
       } catch {
         // Quality info is unavailable until the player finishes loading.
@@ -728,6 +803,7 @@ function YouTubePane({
                 suggestedQuality: selected,
               },
         );
+        applyPlaybackRate(player, speedRef.current);
       });
     }
 
@@ -756,6 +832,17 @@ function YouTubePane({
     setQuality(next);
   }
 
+  function changeSpeed(next: number) {
+    setSpeedOpen(false);
+    if (next === speedRef.current) return;
+    speedRef.current = next;
+    storeVideoSpeed(next);
+    setSpeed(next);
+    const player = playerRef.current;
+    if (!player) return;
+    applyPlaybackRate(player, next);
+  }
+
   function changeVolume(next: number) {
     const player = playerRef.current;
     if (!player || !volumeSupported) return;
@@ -771,7 +858,7 @@ function YouTubePane({
   }
 
   useEffect(() => {
-    if (!volumeOpen && !qualityOpen) return;
+    if (!volumeOpen && !qualityOpen && !speedOpen) return;
     function onPointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (volumeControlRef.current && !volumeControlRef.current.contains(target)) {
@@ -780,11 +867,15 @@ function YouTubePane({
       if (qualityControlRef.current && !qualityControlRef.current.contains(target)) {
         setQualityOpen(false);
       }
+      if (speedControlRef.current && !speedControlRef.current.contains(target)) {
+        setSpeedOpen(false);
+      }
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setVolumeOpen(false);
       setQualityOpen(false);
+      setSpeedOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -792,7 +883,7 @@ function YouTubePane({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [qualityOpen, volumeOpen]);
+  }, [qualityOpen, speedOpen, volumeOpen]);
 
   const menuQualities = (
     qualityLevels.some((level) => QUALITY_FRAME[level])
@@ -805,6 +896,13 @@ function YouTubePane({
         QUALITY_RANK.indexOf(a) - QUALITY_RANK.indexOf(b),
     );
   const qualityButtonLabel = QUALITY_LABEL[quality] ?? "Tự động";
+  const offeredSpeeds =
+    availableSpeeds.length > 0
+      ? VIDEO_SPEEDS.filter((rate) =>
+          availableSpeeds.some((available) => Math.abs(available - rate) < 0.01),
+        )
+      : VIDEO_SPEEDS;
+  const menuSpeeds = offeredSpeeds.length > 0 ? offeredSpeeds : VIDEO_SPEEDS;
 
   if (playbackError) {
     return <VideoError message={playbackError} />;
@@ -916,7 +1014,7 @@ function YouTubePane({
             page ? "accent-[#0284c7]" : "accent-[#0066cc]"
           }`}
         />
-        <span className="min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#86868b]">
+        <span className="hidden min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#86868b] min-[400px]:inline">
           {formatClock(duration)}
         </span>
         <div ref={volumeControlRef} className="relative shrink-0">
@@ -928,6 +1026,7 @@ function YouTubePane({
                 return;
               }
               setQualityOpen(false);
+              setSpeedOpen(false);
               setVolumeOpen((open) => !open);
             }}
             disabled={!ready}
@@ -954,11 +1053,67 @@ function YouTubePane({
             </div>
           ) : null}
         </div>
+        <div ref={speedControlRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setVolumeOpen(false);
+              setQualityOpen(false);
+              setSpeedOpen((open) => !open);
+            }}
+            disabled={!ready}
+            aria-label="Tốc độ phát"
+            aria-haspopup="menu"
+            aria-expanded={speedOpen}
+            className={`flex h-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] px-2.5 text-[13px] font-semibold tabular-nums transition active:scale-95 disabled:text-[#d2d2d7] sm:px-3 ${
+              speed === 1
+                ? "text-[#1d1d1f]"
+                : page
+                  ? "text-[#0284c7]"
+                  : "text-[#0066cc]"
+            }`}
+          >
+            {formatVideoSpeed(speed)}
+          </button>
+          {speedOpen ? (
+            <div
+              role="menu"
+              aria-label="Tốc độ phát"
+              className="absolute right-0 bottom-[calc(100%+8px)] z-20 min-w-[148px] overflow-hidden rounded-2xl border border-black/[0.06] bg-white py-1 shadow-[0_8px_24px_rgb(0,0,0,0.12)]"
+            >
+              {menuSpeeds.map((rate) => {
+                const selected = rate === speed;
+                return (
+                  <button
+                    key={rate}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    onClick={() => changeSpeed(rate)}
+                    className={`flex h-11 w-full items-center justify-between gap-4 px-4 text-left text-[15px] font-semibold tabular-nums ${
+                      selected
+                        ? page
+                          ? "text-[#0284c7]"
+                          : "text-[#0066cc]"
+                        : "text-[#1d1d1f]"
+                    }`}
+                  >
+                    <span>{formatVideoSpeed(rate)}</span>
+                    {selected ? (
+                      <MaterialIcon name="check" className="text-[18px]" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
         <div ref={qualityControlRef} className="relative shrink-0">
           <button
             type="button"
             onClick={() => {
               setVolumeOpen(false);
+              setSpeedOpen(false);
               setQualityOpen((open) => !open);
             }}
             disabled={!ready}
@@ -966,7 +1121,7 @@ function YouTubePane({
             aria-haspopup="menu"
             aria-expanded={qualityOpen}
             className={`flex h-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[13px] font-semibold text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7] ${
-              quality === "auto" ? "w-11" : "px-3"
+              quality === "auto" ? "w-11" : "px-2 min-[400px]:px-3"
             }`}
           >
             {quality === "auto" ? (
@@ -1039,6 +1194,22 @@ function YouTubePane({
           Đánh dấu đã xem
         </button>
       ) : null}
+      {watched && nextCard ? (
+        <Link
+          href={nextCard.href}
+          className={
+            page
+              ? "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#58cc02] px-6 text-[15px] font-extrabold text-white shadow-[0_4px_0_0_#58a700] transition hover:bg-[#61e002] active:translate-y-1 active:shadow-none"
+              : "inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-full bg-[#0066cc] px-5 text-[15px] font-semibold text-white transition active:scale-[0.98]"
+          }
+        >
+          <span className="uppercase tracking-wider">Tiếp theo</span>
+          <span className="max-w-[14rem] truncate font-bold tracking-normal">
+            {nextCard.label}
+          </span>
+          <MaterialIcon name="arrow_forward" className="text-[20px]" />
+        </Link>
+      ) : null}
     </div>
   );
 }
@@ -1049,6 +1220,7 @@ export function VideoLessonCard({
   videos,
   presentation = "card",
   initialVideoId = null,
+  nextCard = null,
 }: VideoLessonCardProps) {
   const { lessonVideoProgressFor } = useProgress();
   const requestedIndex = initialVideoId
@@ -1111,6 +1283,7 @@ export function VideoLessonCard({
         savedPosition={entry?.positionSeconds ?? 0}
         urlStart={video.startSeconds}
         progressKey={progressKey}
+        nextCard={nextCard}
       />
     ) : (
       <VideoError message="Không phát được video này. Hãy kiểm tra lại liên kết YouTube." />
@@ -1232,11 +1405,13 @@ export function VideoLessonScreen({
   chapter,
   videos,
   initialVideoId = null,
+  nextCard = null,
 }: {
   level: CefrLevel;
   chapter: LevelChapterMeta;
   videos: ChapterVideo[];
   initialVideoId?: string | null;
+  nextCard?: NextLessonCard | null;
 }) {
   return (
     <main
@@ -1283,6 +1458,7 @@ export function VideoLessonScreen({
             chapterSlug={chapter.slug}
             videos={videos}
             initialVideoId={initialVideoId}
+            nextCard={nextCard}
           />
         </div>
       </section>

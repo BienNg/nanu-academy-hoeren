@@ -809,8 +809,11 @@ export function useProgress(
     [progress, totalsBySlug],
   );
 
+  const progressReady = status === "authenticated" && activeUserId === userId;
+
   return {
     progress,
+    progressReady,
     continueLearning,
     continueLevel,
     progressFor,

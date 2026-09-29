@@ -10,6 +10,7 @@ import { TodayXpChip } from "@/components/TodayXpChip";
 import type { Ausbildungsberuf } from "@/lib/content";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
 import { useProgress } from "@/lib/useProgress";
+import { incomingChallengeLabel, type IncomingChallenge } from "@/lib/duels";
 import { previewLeaderboardRows, type LeaderboardPayload, type LeaderboardRow } from "@/lib/xp";
 
 export type LevelMeta = {
@@ -322,48 +323,70 @@ function rankDetail(board: LeaderboardPayload): string {
   return "Học thêm một bài để vượt lên.";
 }
 
-function useIncomingChallenges(): number {
-  const [count, setCount] = useState(0);
+function readIncomingChallenges(data: unknown): IncomingChallenge[] {
+  if (!data || typeof data !== "object") return [];
+  const list = (data as { challenges?: unknown }).challenges;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { id?: unknown; opponentName?: unknown; expiresAt?: unknown };
+    if (typeof row.id !== "string" || typeof row.opponentName !== "string") return [];
+    return [
+      {
+        id: row.id,
+        opponentName: row.opponentName,
+        expiresAt: typeof row.expiresAt === "string" ? row.expiresAt : null,
+      },
+    ];
+  });
+}
+
+function useIncomingChallenges(): IncomingChallenge[] {
+  const [challenges, setChallenges] = useState<IncomingChallenge[]>([]);
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/duels?badge=1")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: unknown) => {
-        if (cancelled || !data || typeof data !== "object") return;
-        const next = (data as { count?: unknown }).count;
-        setCount(typeof next === "number" && next > 0 ? next : 0);
-      })
-      .catch(() => {
-        if (!cancelled) setCount(0);
-      });
+    const load = () => {
+      void fetch("/api/duels?badge=1")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: unknown) => {
+          if (!cancelled) setChallenges(readIncomingChallenges(data));
+        })
+        .catch(() => {
+          if (!cancelled) setChallenges([]);
+        });
+    };
+    load();
+    window.addEventListener("focus", load);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", load);
     };
   }, []);
-  return count;
+  return challenges;
 }
 
 function DuelCta() {
   const challenges = useIncomingChallenges();
-  const waiting =
-    challenges > 0
-      ? challenges === 1
-        ? "1 lời thách đấu đang chờ bạn"
-        : `${challenges} lời thách đấu đang chờ bạn`
-      : "Một bạn cùng lớp ngẫu nhiên. Cùng những câu cả hai đã học.";
+  const open = challenges.length > 0;
+  const now = new Date();
+  const waiting = open
+    ? challenges
+        .map((challenge) => incomingChallengeLabel(challenge.opponentName, challenge.expiresAt, now))
+        .join(". ")
+    : "Một bạn cùng lớp ngẫu nhiên. Cùng những câu cả hai đã học.";
 
   return (
     <Link
       href="/duel"
-      aria-label={challenges > 0 ? `Vào Đấu, ${waiting}` : "Vào Đấu"}
+      aria-label={open ? `Vào Đấu, ${waiting}` : "Vào Đấu"}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
     >
       <div className="flex items-center gap-3 bg-[#e0f2fe] px-4 py-4">
         <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1]">
           <MaterialIcon name="swords" className="text-[28px]" filled />
-          {challenges > 0 ? (
+          {open ? (
             <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[11px] font-extrabold leading-none text-white">
-              {challenges > 9 ? "9+" : challenges}
+              {challenges.length > 9 ? "9+" : challenges.length}
             </span>
           ) : null}
         </span>
@@ -380,15 +403,19 @@ function DuelCta() {
         <p className="text-[14px] font-bold leading-snug text-[#3e4850]">
           15 câu giống nhau. Ai nhanh hơn được điểm.
         </p>
-        <p
-          className={`mt-2 text-[13px] font-extrabold leading-snug ${
-            challenges > 0 ? "text-[#0284c7]" : "text-[#6e7881]"
-          }`}
-        >
-          {waiting}
-        </p>
+        {open ? (
+          <ul className="mt-2 flex flex-col gap-1">
+            {challenges.map((challenge) => (
+              <li key={challenge.id} className="text-[13px] font-extrabold leading-snug text-[#0284c7]">
+                {incomingChallengeLabel(challenge.opponentName, challenge.expiresAt, now)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-[13px] font-extrabold leading-snug text-[#6e7881]">{waiting}</p>
+        )}
         <div className="mt-auto pt-4">
-          <DuoButton icon="swords">{challenges > 0 ? "Vào đấu" : "Đấu ngay"}</DuoButton>
+          <DuoButton icon="swords">{open ? "Vào đấu" : "Đấu ngay"}</DuoButton>
         </div>
       </div>
     </Link>

@@ -133,6 +133,31 @@ function lessonTrailNodes(
   return [...videos, ...activities];
 }
 
+function isVideoTrailNode(node: TrailNode): boolean {
+  return node.icon === "smart_display";
+}
+
+/**
+ * On an open Lektion, video nodes stay open so a leading run can be skipped.
+ * The first node after those videos is open too. Every later node stays locked
+ * until the node immediately before it is complete.
+ */
+function trailNodeLocked(
+  nodes: readonly TrailNode[],
+  index: number,
+  lessonOpen: boolean,
+): boolean {
+  if (!lessonOpen) return true;
+  const node = nodes[index];
+  if (!node || isVideoTrailNode(node)) return false;
+
+  let lead = 0;
+  while (lead < nodes.length && isVideoTrailNode(nodes[lead])) lead += 1;
+  if (index <= lead) return false;
+
+  return !nodes[index - 1]?.complete;
+}
+
 function PathCircle({
   icon,
   percent,
@@ -161,10 +186,13 @@ function PathCircle({
         >
           {icon}
         </span>
-        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#cbd5e1] text-[#475569] shadow-[0_1.5px_0_0_#94a3b8]">
-          <span className="material-symbols-outlined text-[12px]" aria-hidden="true">
-            lock
-          </span>
+        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#334155] shadow-[0_2px_0_0_#94a3b8]">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M12 2.25A4.75 4.75 0 0 0 7.25 7v2.25H6.5A2.25 2.25 0 0 0 4.25 11.5v8A2.25 2.25 0 0 0 6.5 21.75h11a2.25 2.25 0 0 0 2.25-2.25v-8A2.25 2.25 0 0 0 17.5 9.25h-.75V7A4.75 4.75 0 0 0 12 2.25Zm3.25 7V7a3.25 3.25 0 0 0-6.5 0v2.25h6.5Z"
+            />
+          </svg>
         </span>
       </span>
     );
@@ -334,16 +362,18 @@ function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
     </>
   );
 
+  const label = locked ? `${node.label}, đã khóa` : node.label;
+
   if (!locked && node.href) {
     return (
-      <Link href={node.href} aria-label={node.label} className={className}>
+      <Link href={node.href} aria-label={label} className={className}>
         {body}
       </Link>
     );
   }
 
   return (
-    <div className={className} aria-label={node.label}>
+    <div className={className} aria-label={label} aria-disabled={locked || undefined}>
       {body}
     </div>
   );
@@ -874,7 +904,10 @@ export default function LevelViewClient({
                     ) : null}
                     {nodes.map((node, nodeIndex) => (
                       <li key={node.key} className={PATH_SHIFT[nodeIndex % PATH_SHIFT.length]}>
-                        <PathStop node={node} locked={!isOpen} />
+                        <PathStop
+                          node={node}
+                          locked={trailNodeLocked(nodes, nodeIndex, isOpen)}
+                        />
                       </li>
                     ))}
                   </ul>

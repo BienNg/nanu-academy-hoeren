@@ -55,6 +55,7 @@ import {
   type DuelFeedback,
   type DuelHome,
   type DuelOutcome,
+  type IncomingChallenge,
   type DuelView,
   type MatchBlock,
   type PlayState,
@@ -1066,10 +1067,23 @@ export async function createDuel(user: {
   return { ok: false, block: blockedByCap ? "cap" : "no_overlap" };
 }
 
-/** Challenges the viewer has been sent and has not opened yet. */
-export async function countUnstartedChallenges(userId: string): Promise<number> {
+function challengeDeadline(
+  plays: readonly (PlayRow & { duel_id: string })[],
+  duel: DuelRow,
+): string | null {
+  return challengeExpiresAt(
+    challengeReleasedAt(
+      plays
+        .filter((play) => play.duel_id === duel.id && play.user_id === duel.challenger_id)
+        .map((play) => ({ state: play.state, finishedAt: play.finished_at })),
+    ),
+  );
+}
+
+/** Challenges the viewer has been sent and has not opened yet. Soonest deadline first. */
+export async function listUnstartedChallenges(userId: string): Promise<IncomingChallenge[]> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return 0;
+  if (!supabase) return [];
   const load = (columns: string) =>
     Promise.all([
       supabase.from(DUELS_TABLE).select(columns).eq("challenger_id", userId).is("completed_at", null),
@@ -1083,25 +1097,44 @@ export async function countUnstartedChallenges(userId: string): Promise<number> 
   }
   if (asChallenger.error || asOpponent.error) {
     schemaGone(asChallenger.error?.message ?? asOpponent.error?.message ?? "");
-    return 0;
+    return [];
   }
   const duels = [...(asChallenger.data ?? []), ...(asOpponent.data ?? [])].flatMap((row) => {
     const duel = duelFromRow(row);
     return duel ? [duel] : [];
   });
-  if (duels.length === 0) return 0;
+  if (duels.length === 0) return [];
   const now = new Date();
   const expired = await expireOverdueDuels(supabase, duels, now);
   const plays = await playsForDuels(
     supabase,
     duels.map((duel) => duel.id),
   );
-  return duels.filter((duel) => {
-    if (duel.opponent_id !== userId || expired.has(duel.id)) return false;
-    const released = opponentCanSeeDuel(true, settledFor(plays, duel.id, duel.challenger_id));
-    const started = plays.some((play) => play.duel_id === duel.id && play.user_id === userId);
-    return released && !started;
-  }).length;
+  const open = duels
+    .filter((duel) => {
+      if (duel.opponent_id !== userId || expired.has(duel.id)) return false;
+      const released = opponentCanSeeDuel(true, settledFor(plays, duel.id, duel.challenger_id));
+      const started = plays.some((play) => play.duel_id === duel.id && play.user_id === userId);
+      return released && !started;
+    })
+    .sort((left, right) => {
+      const leftAt = challengeDeadline(plays, left);
+      const rightAt = challengeDeadline(plays, right);
+      if (leftAt && rightAt && leftAt !== rightAt) return leftAt.localeCompare(rightAt);
+      if (leftAt && !rightAt) return -1;
+      if (!leftAt && rightAt) return 1;
+      return right.created_at.localeCompare(left.created_at);
+    });
+  if (open.length === 0) return [];
+  const names = await namesFor(
+    supabase,
+    open.map((duel) => duel.challenger_id),
+  );
+  return open.map((duel) => ({
+    id: duel.id,
+    opponentName: names.get(duel.challenger_id) ?? "Học viên",
+    expiresAt: challengeDeadline(plays, duel),
+  }));
 }
 
 export async function actOnDuel(input: {

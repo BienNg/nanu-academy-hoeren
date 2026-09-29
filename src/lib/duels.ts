@@ -176,6 +176,13 @@ export type DuelHome = {
   history: DuelCard[];
 };
 
+/** A challenge someone sent you that you have not opened yet. */
+export type IncomingChallenge = {
+  id: string;
+  opponentName: string;
+  expiresAt: string | null;
+};
+
 export function isDuelId(value: string): boolean {
   return UUID.test(value);
 }
@@ -530,6 +537,18 @@ export function completedAgoLabel(iso: string, now = new Date()): string | null 
   if (days < 7) return `${days} ngày trước`;
   const weeks = Math.floor(days / 7);
   return weeks === 1 ? "1 tuần trước" : `${weeks} tuần trước`;
+}
+
+/** Home-card line, such as "Lan thách đấu bạn · Còn 2 ngày". */
+export function incomingChallengeLabel(
+  opponentName: string,
+  expiresAt: string | null,
+  now: Date,
+): string {
+  const name = opponentName.trim() || "Học viên";
+  const who = `${name} thách đấu bạn`;
+  const left = challengeLeftLabel(expiresAt, now, "you");
+  return left ? `${who} · ${left}` : who;
 }
 
 /** Remaining time, such as "Còn 2 ngày" or "Đối thủ còn 4 giờ". Null once the deadline has passed. */

@@ -7,6 +7,7 @@ import {
   DUEL_SIZE,
   awardForPoints,
   challengeExpiresAt,
+  incomingChallengeLabel,
   challengeLeftLabel,
   challengeReleasedAt,
   completedAgoLabel,
@@ -262,6 +263,8 @@ test("the challenged person has 3 days after the challenger finishes", () => {
   assert.equal(challengeLeftLabel(expires, justBefore, "you"), "Còn 1 phút");
   const twoDaysLeft = new Date(Date.parse(expires!) - 2 * 24 * 60 * 60 * 1000);
   assert.equal(challengeLeftLabel(expires, twoDaysLeft, "opponent"), "Đối thủ còn 2 ngày");
+  assert.equal(incomingChallengeLabel("Lan", expires, twoDaysLeft), "Lan thách đấu bạn · Còn 2 ngày");
+  assert.equal(incomingChallengeLabel("  ", expires, onDeadline), "Học viên thách đấu bạn");
   assert.equal(challengeLeftLabel(expires, onDeadline, "you"), null);
   assert.equal(DUEL_EXPIRE_CHALLENGER_XP, 35);
   assert.equal(DUEL_EXPIRE_OPPONENT_XP, 0);

@@ -31,6 +31,9 @@ export type YouTubePlayer = {
   getAvailableQualityLevels: () => string[];
   getPlaybackQuality: () => string;
   setPlaybackQuality: (suggestedQuality: string) => void;
+  getAvailablePlaybackRates: () => number[];
+  getPlaybackRate: () => number;
+  setPlaybackRate: (suggestedRate: number) => void;
   loadVideoById: (video: {
     videoId: string;
     startSeconds?: number;
