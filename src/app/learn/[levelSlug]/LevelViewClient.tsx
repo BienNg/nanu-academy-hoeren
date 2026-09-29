@@ -5,13 +5,14 @@ import { BottomNav } from "@/components/BottomNav";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { StudyClipList } from "@/components/session/StudyClipList";
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { useCallback, useId, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   projectStudentDetail,
   type AdminCatalogCourse,
   type AdminLessonDetail,
 } from "@/lib/admin-detail";
+import { isStudyActivityId } from "@/lib/progress";
 import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -85,7 +86,6 @@ function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
   videoHref: (videoId: string) => string,
-  wordCount: number,
 ): TrailNode[] {
   if (!lesson) return [];
 
@@ -103,18 +103,11 @@ function lessonTrailNodes(
   }));
 
   const activities = lesson.activities.map((activity) => {
-    const isStudy = activity.id.endsWith("-study");
-    const wordLabel = wordCount > 0 ? `${wordCount} từ` : null;
-    const note = isStudy
-      ? activity.progressLabel
-        ? null
-        : wordLabel
-      : null;
+    const isStudy = isStudyActivityId(activity.id);
     const earnedStars = Math.min(3, lesson.runCount);
-    const primary = isStudy ? activity.progressLabel || note || null : null;
-    const secondary = isStudy && activity.progressLabel && note ? note : null;
+    const primary = isStudy ? activity.progressLabel || null : null;
     const label = isStudy
-      ? ["Study", activity.progressLabel || null, note].filter(Boolean).join(", ")
+      ? ["Study", activity.progressLabel || null].filter(Boolean).join(", ")
       : `Luyện tập, ${earnedStars} trên 3 sao`;
     return {
       key: activity.id,
@@ -124,7 +117,7 @@ function lessonTrailNodes(
       complete: activity.status === "completed",
       struggling: activity.struggling,
       primary,
-      secondary,
+      secondary: null,
       stars: isStudy ? null : earnedStars,
       label,
     };
@@ -328,7 +321,100 @@ function RunStars({ filled, locked }: { filled: number; locked: boolean }) {
   );
 }
 
-function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
+function lockedBubbleTitle(node: TrailNode): string {
+  if (node.icon === "menu_book") return "Học từ vựng";
+  if (node.icon === "fitness_center") return "Luyện tập";
+  const title = node.primary?.trim();
+  return title || "Bài học";
+}
+
+/** How far the card must slide so it stays on screen while the tail stays on the node. */
+function lockedBubbleShift(anchor: HTMLElement): number {
+  const rect = anchor.getBoundingClientRect();
+  const bubbleWidth = Math.min(18.5 * 16, window.innerWidth - 32);
+  const nodeCenter = rect.left + rect.width / 2;
+  const idealLeft = nodeCenter - bubbleWidth / 2;
+  const left = Math.min(Math.max(idealLeft, 16), window.innerWidth - 16 - bubbleWidth);
+  return left - idealLeft;
+}
+
+function LockedNodeBubble({
+  title,
+  shift,
+  bubbleId,
+  reduceMotion,
+}: {
+  title: string;
+  shift: number;
+  bubbleId: string;
+  reduceMotion: boolean;
+}) {
+  const x = `calc(-50% + ${shift}px)`;
+  const pop = reduceMotion
+    ? { duration: 0.15 }
+    : { type: "spring" as const, stiffness: 560, damping: 16, mass: 0.52 };
+
+  return (
+    <motion.div
+      id={bubbleId}
+      initial={reduceMotion ? { opacity: 0, x } : { opacity: 0, scale: 0.42, y: -4, x }}
+      animate={reduceMotion ? { opacity: 1, x } : { opacity: 1, scale: 1, y: 0, x }}
+      exit={
+        reduceMotion
+          ? { opacity: 0, x, transition: { duration: 0.12 } }
+          : { opacity: 0, scale: 0.62, y: -2, x, transition: { duration: 0.14, ease: "easeIn" } }
+      }
+      transition={pop}
+      style={{
+        transformOrigin: `calc(50% - ${shift}px) 0px`,
+        filter:
+          "drop-shadow(0 3px 0 rgba(0,0,0,0.05)) drop-shadow(0 10px 18px rgba(28,27,31,0.16))",
+      }}
+      className="absolute top-[calc(100%+8px)] left-1/2 z-30 w-[min(18.5rem,calc(100vw-2rem))]"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 12"
+        className="absolute -top-[11px] h-3 w-6 -translate-x-1/2"
+        style={{ left: `calc(50% - ${shift}px)` }}
+      >
+        <path d="M1.2 12 L12 1.2 L22.8 12 Z" fill="#ffffff" />
+      </svg>
+      <div className="rounded-2xl bg-white px-4 pt-3.5 pb-3.5">
+        <p className="text-[17px] font-extrabold leading-6 text-[#4b4b4b]">{title}</p>
+        <p className="mt-1 text-[15px] font-bold leading-5 text-[#777]">
+          Hoàn thành các bài phía trên để mở khóa!
+        </p>
+        <div
+          className="mt-3 flex h-12 items-center justify-center rounded-xl bg-[#e5e5e5] text-[15px] font-extrabold tracking-[0.14em] text-[#afafaf] shadow-[0_4px_0_0_#d1d1d1]"
+          aria-hidden="true"
+        >
+          ĐÃ KHÓA
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PathStop({
+  node,
+  locked,
+  bubbleOpen,
+  onLockedPress,
+  onDismiss,
+  reduceMotion,
+}: {
+  node: TrailNode;
+  locked: boolean;
+  bubbleOpen: boolean;
+  onLockedPress: () => void;
+  onDismiss: () => void;
+  reduceMotion: boolean;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const bubbleId = useId();
+  const [wiggle, setWiggle] = useState(0);
+  const [shift, setShift] = useState<number | null>(null);
   const className =
     "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]";
   const body = (
@@ -364,6 +450,49 @@ function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
 
   const label = locked ? `${node.label}, đã khóa` : node.label;
 
+  useLayoutEffect(() => {
+    if (!bubbleOpen || !rootRef.current) {
+      setShift(null);
+      return;
+    }
+    const place = () => {
+      if (!rootRef.current) return;
+      setShift(lockedBubbleShift(rootRef.current));
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [bubbleOpen]);
+
+  useEffect(() => {
+    if (!bubbleOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (rootRef.current?.contains(event.target as Node)) return;
+      onDismiss();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [bubbleOpen, onDismiss]);
+
+  useEffect(() => {
+    if (!bubbleOpen || shift == null || !rootRef.current) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    const bubbleBottom = rect.bottom + 168;
+    const limit = window.innerHeight - 96;
+    if (bubbleBottom <= limit) return;
+    window.scrollBy({
+      top: bubbleBottom - limit,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [bubbleOpen, shift, reduceMotion]);
+
   if (!locked && node.href) {
     return (
       <Link href={node.href} aria-label={label} className={className}>
@@ -372,9 +501,49 @@ function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
     );
   }
 
+  if (!locked) {
+    return (
+      <div className={className} aria-label={label}>
+        {body}
+      </div>
+    );
+  }
+
   return (
-    <div className={className} aria-label={label} aria-disabled={locked || undefined}>
-      {body}
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={bubbleOpen}
+        aria-controls={bubbleOpen ? bubbleId : undefined}
+        onClick={() => {
+          if (!reduceMotion) setWiggle((count) => count + 1);
+          onLockedPress();
+        }}
+        className={className}
+      >
+        <motion.span
+          key={wiggle}
+          className="flex flex-col items-center"
+          initial={{ x: 0 }}
+          animate={
+            wiggle === 0 || reduceMotion ? { x: 0 } : { x: [0, -8, 7, -6, 5, -2, 0] }
+          }
+          transition={{ duration: 0.38, ease: "easeInOut" }}
+        >
+          {body}
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {bubbleOpen && shift != null ? (
+          <LockedNodeBubble
+            title={lockedBubbleTitle(node)}
+            shift={shift}
+            bubbleId={bubbleId}
+            reduceMotion={reduceMotion}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -530,16 +699,26 @@ export default function LevelViewClient({
   const containerRef = useRef<HTMLElement>(null);
   const dictionaryRequest = useRef(0);
   const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
+  const [lockedBubbleId, setLockedBubbleId] = useState<string | null>(null);
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const { progress, completedLearnRunClipIdsFor, learnChapterCompleted, streakDays } =
+  const { progress, progressReady, completedLearnRunClipIdsFor, learnChapterCompleted, streakDays, settleStudyReviews } =
     useProgress();
   const courseDetail = useMemo(() => {
     return projectStudentDetail(cefrCatalog, progress).courses.find(
       (entry) => entry.id === level.slug,
     );
   }, [cefrCatalog, level.slug, progress]);
+  useEffect(() => {
+    if (!progressReady) return;
+    const course = cefrCatalog.find((entry) => entry.id === level.slug);
+    if (!course) return;
+    for (const lesson of course.lessons) {
+      if (!lesson.learnKey || lesson.clips.length === 0) continue;
+      settleStudyReviews(lesson.learnKey, lesson.clips);
+    }
+  }, [cefrCatalog, level.slug, progressReady, settleStudyReviews]);
   const lessonById = useMemo(
     () => new Map(courseDetail?.lessons.map((lesson) => [lesson.id, lesson]) ?? []),
     [courseDetail],
@@ -623,6 +802,14 @@ export default function LevelViewClient({
   const closeDictionary = useCallback(() => {
     dictionaryRequest.current += 1;
     setDictionary(null);
+  }, []);
+
+  const toggleLockedBubble = useCallback((id: string) => {
+    setLockedBubbleId((current) => (current === id ? null : id));
+  }, []);
+
+  const dismissLockedBubble = useCallback((id: string) => {
+    setLockedBubbleId((current) => (current === id ? null : current));
   }, []);
 
   const openDictionary = useCallback(
@@ -806,7 +993,6 @@ export default function LevelViewClient({
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
-              chapter.wordCount ?? 0,
             );
             const topicLine = lessonTopicCaption(
               lessonTopic(lessonDetail),
@@ -902,14 +1088,26 @@ export default function LevelViewClient({
                         </button>
                       </li>
                     ) : null}
-                    {nodes.map((node, nodeIndex) => (
-                      <li key={node.key} className={PATH_SHIFT[nodeIndex % PATH_SHIFT.length]}>
-                        <PathStop
-                          node={node}
-                          locked={trailNodeLocked(nodes, nodeIndex, isOpen)}
-                        />
-                      </li>
-                    ))}
+                    {nodes.map((node, nodeIndex) => {
+                      const bubbleId = `${chapter.slug}:${node.key}`;
+                      return (
+                        <li
+                          key={node.key}
+                          className={`${PATH_SHIFT[nodeIndex % PATH_SHIFT.length]} ${
+                            lockedBubbleId === bubbleId ? "relative z-30" : "relative"
+                          }`}
+                        >
+                          <PathStop
+                            node={node}
+                            locked={trailNodeLocked(nodes, nodeIndex, isOpen)}
+                            bubbleOpen={lockedBubbleId === bubbleId}
+                            onLockedPress={() => toggleLockedBubble(bubbleId)}
+                            onDismiss={() => dismissLockedBubble(bubbleId)}
+                            reduceMotion={shouldReduceMotion === true}
+                          />
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : null}
               </motion.li>

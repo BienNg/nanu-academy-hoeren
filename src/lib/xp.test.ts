@@ -5,6 +5,7 @@ import {
   assembleLeaderboard,
   dayKey,
   decidePartXp,
+  decideStudyPartXp,
   formatWeekCountdown,
   googleProfileImage,
   isXpSchemaMissing,
@@ -150,6 +151,39 @@ test("schema hint only matches a missing xp_awards table", () => {
     true,
   );
   assert.equal(isXpSchemaMissing("listening_runs does not exist"), false);
+  assert.equal(
+    isXpSchemaMissing("Could not find the table public.study_xp_awards in the schema cache"),
+    false,
+  );
+});
+
+test("a finished study part awards 15 XP", () => {
+  const paid = decideStudyPartXp({
+    elapsedMs: 12 * 2000,
+    expectedCount: 12,
+    clipCount: 12,
+    now: NOW,
+  });
+  assert.equal(paid.xp, 15);
+  assert.equal(paid.kind, "new");
+  assert.equal(paid.store, true);
+
+  const rushed = decideStudyPartXp({
+    elapsedMs: 1000,
+    expectedCount: 12,
+    clipCount: 12,
+    now: NOW,
+  });
+  assert.equal(rushed.kind, "rejected");
+  assert.equal(rushed.store, false);
+
+  const unknown = decideStudyPartXp({
+    elapsedMs: 60_000,
+    expectedCount: null,
+    clipCount: 12,
+    now: NOW,
+  });
+  assert.equal(unknown.kind, "rejected");
 });
 
 function person(

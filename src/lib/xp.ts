@@ -138,9 +138,21 @@ export function formatWeekCountdown(endsAt: string, now: Date): string {
 export const XP_SCHEMA_HINT =
   "Run supabase/xp_awards.sql once in the Supabase SQL editor.";
 
+export const STUDY_PART_XP = 15;
+
+export const STUDY_XP_SCHEMA_HINT =
+  "Run supabase/study_xp_awards.sql once in the Supabase SQL editor.";
+
 export function isXpSchemaMissing(message: string): boolean {
   return (
-    /xp_awards/i.test(message) &&
+    /(?<!study_)xp_awards/i.test(message) &&
+    /does not exist|schema cache|could not find the table/i.test(message)
+  );
+}
+
+export function isStudyXpSchemaMissing(message: string): boolean {
+  return (
+    /study_xp_awards/i.test(message) &&
     /does not exist|schema cache|could not find the table/i.test(message)
   );
 }
@@ -277,6 +289,79 @@ export function decidePartXp(input: {
     store: true,
     ...keys,
   };
+}
+
+/**
+ * Flat XP for one finished study part. The browser sends the clips and the
+ * time spent. This function decides the points.
+ */
+export function decideStudyPartXp(input: {
+  elapsedMs: number;
+  /** How many clips this part number must contain. Null when the part is not real. */
+  expectedCount: number | null;
+  clipCount: number;
+  now: Date;
+}): XpDecision {
+  const keys = {
+    dayKey: dayKey(input.now),
+    weekKey: weekKey(input.now),
+  };
+  const expected = input.expectedCount;
+  if (
+    expected == null ||
+    expected < 1 ||
+    input.clipCount !== expected ||
+    input.elapsedMs < expected * MIN_MS_PER_CLIP
+  ) {
+    return { xp: 0, kind: "rejected", store: false, ...keys };
+  }
+  return { xp: STUDY_PART_XP, kind: "new", store: true, ...keys };
+}
+
+const STUDY_XP_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type StudyXpInput = {
+  id: string;
+  lessonKey: string;
+  partNumber: number;
+  partCount: number;
+  elapsedMs: number;
+  clipIds: string[];
+};
+
+function studyInteger(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+    return null;
+  }
+  return value;
+}
+
+/** A finished study part the browser may submit. Null when the body is not one. */
+export function parseStudyXpInput(value: unknown): StudyXpInput | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.id !== "string" || !STUDY_XP_ID.test(record.id)) return null;
+  if (typeof record.lessonKey !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(record.lessonKey)) {
+    return null;
+  }
+  const partNumber = studyInteger(record.partNumber, 1, 99);
+  const partCount = studyInteger(record.partCount, 1, 99);
+  const elapsedMs = studyInteger(record.elapsedMs, 0, 24 * 60 * 60 * 1000);
+  if (partNumber == null || partCount == null || elapsedMs == null || partNumber > partCount) {
+    return null;
+  }
+  if (!Array.isArray(record.clipIds) || record.clipIds.length < 1 || record.clipIds.length > 12) {
+    return null;
+  }
+  const clipIds: string[] = [];
+  const seen = new Set<string>();
+  for (const id of record.clipIds) {
+    if (typeof id !== "string" || id.length < 1 || id.length > 200 || seen.has(id)) return null;
+    seen.add(id);
+    clipIds.push(id);
+  }
+  return { id: record.id, lessonKey: record.lessonKey, partNumber, partCount, elapsedMs, clipIds };
 }
 
 export function emptyLeaderboard(input: {

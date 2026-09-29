@@ -2315,6 +2315,64 @@ export function markLearnClipReviewed(
   return bumpStreak(next, now);
 }
 
+/** Save every clip in a study part at once. An unfinished part is not written. */
+export function commitStudyPart(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clipIds: readonly string[],
+  now = new Date(),
+): StoredProgress {
+  if (clipIds.length === 0) return progress;
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  return bumpStreak(
+    withLearnEntry(progress, chapterSlug, {
+      ...entry,
+      reviewedClipIds: unionIds(entry.reviewedClipIds, clipIds),
+    }),
+    now,
+  );
+}
+
+/**
+ * Drop reviews that sit in an unfinished study part.
+ * A finished lesson is left as stored, including an empty replay.
+ */
+export function settleStudyReviewedClips(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clips: readonly { id: string }[],
+): StoredProgress {
+  const entry = progress.learn[chapterSlug];
+  if (!entry || isStudyChapterCompleted(progress, chapterSlug)) return progress;
+  const kept = settledStudyReviewedIds(clips, entry.reviewedClipIds);
+  if (sameIdSet(kept, entry.reviewedClipIds)) return progress;
+  return withLearnEntry(progress, chapterSlug, {
+    ...entry,
+    reviewedClipIds: kept,
+  });
+}
+
+function sameIdSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const seen = new Set(left);
+  return right.every((id) => seen.has(id));
+}
+
+/** Drop reviews for one study part. Hearing progress and other parts stay. */
+export function clearReviewedClips(
+  progress: StoredProgress,
+  chapterSlug: string,
+  clipIds: readonly string[],
+): StoredProgress {
+  const entry = progress.learn[chapterSlug];
+  if (!entry || clipIds.length === 0) return progress;
+  const drop = new Set(clipIds);
+  return withLearnEntry(progress, chapterSlug, {
+    ...entry,
+    reviewedClipIds: entry.reviewedClipIds.filter((id) => !drop.has(id)),
+  });
+}
+
 /** Clears study / flashcard reviews. Hearing-exercise progress is kept. */
 export function resetLearnStudyProgress(
   progress: StoredProgress,
@@ -2742,6 +2800,87 @@ export function listeningPartSize(
   const base = Math.floor(totalClips / count);
   const extra = totalClips % count;
   return base + (partNumber - 1 < extra ? 1 : 0);
+}
+
+/** Most clips one study node may hold. Parts stay as even as that cap allows. */
+export const MAX_STUDY_CLIPS = 12;
+
+export function studyPartCount(totalClips: number): number {
+  return listeningPartCount(totalClips, MAX_STUDY_CLIPS);
+}
+
+/** Even contiguous study parts. A lesson that already fits is one part. */
+export function splitStudyParts<T extends { id: string }>(clips: readonly T[]): T[][] {
+  return splitListeningParts(clips, MAX_STUDY_CLIPS);
+}
+
+export function studyPartSize(
+  totalClips: number,
+  partNumber: number,
+  partCount: number,
+): number | null {
+  return listeningPartSize(totalClips, partNumber, partCount, MAX_STUDY_CLIPS);
+}
+
+/** 1-based part to play. One past the last part when every part is already finished. */
+export function firstIncompleteStudyPart<T extends { id: string }>(
+  parts: readonly (readonly T[])[],
+  reviewedIds: readonly string[],
+): number {
+  if (parts.length === 0) return 1;
+  const done = new Set(reviewedIds);
+  const index = parts.findIndex((part) => part.some((clip) => !done.has(clip.id)));
+  return index < 0 ? parts.length + 1 : index + 1;
+}
+
+/**
+ * Reviews that belong to finished study parts.
+ * Counting stops at the first unfinished part, so a part left in the middle
+ * does not count and its clips are dropped.
+ */
+export function settledStudyReviewedIds<T extends { id: string }>(
+  clips: readonly T[],
+  reviewedIds: readonly string[],
+): string[] {
+  const done = new Set(reviewedIds);
+  const kept: string[] = [];
+  for (const part of splitStudyParts(clips)) {
+    if (part.length === 0 || !part.every((clip) => done.has(clip.id))) break;
+    for (const clip of part) kept.push(clip.id);
+  }
+  return kept;
+}
+
+export function completedStudyPartCount<T extends { id: string }>(
+  clips: readonly T[],
+  reviewedIds: readonly string[],
+): { done: number; total: number } {
+  const parts = splitStudyParts(clips);
+  if (parts.length === 0) return { done: 0, total: 0 };
+  const open = firstIncompleteStudyPart(parts, settledStudyReviewedIds(clips, reviewedIds));
+  return { done: Math.min(open, parts.length + 1) - 1, total: parts.length };
+}
+
+export function studyActivityId(
+  lessonId: string,
+  partNumber: number,
+  partCount: number,
+): string {
+  return partCount <= 1 ? `${lessonId}-study` : `${lessonId}-study-${partNumber}`;
+}
+
+/** Part number on a study trail id, or null when the id is not a study node. */
+export function studyPartNumberFromActivityId(id: string): number | null {
+  const numbered = /-study-(\d+)$/.exec(id);
+  if (numbered) {
+    const part = Number(numbered[1]);
+    return part >= 1 ? part : null;
+  }
+  return id.endsWith("-study") ? 1 : null;
+}
+
+export function isStudyActivityId(id: string): boolean {
+  return studyPartNumberFromActivityId(id) != null;
 }
 
 /** True when `order` is a permutation of the current catalog. */

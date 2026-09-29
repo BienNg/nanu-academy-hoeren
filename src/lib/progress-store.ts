@@ -14,7 +14,7 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { googleProfileImage, isXpSchemaMissing } from "@/lib/xp";
+import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing } from "@/lib/xp";
 import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
@@ -1177,8 +1177,34 @@ async function deleteUserXpAwards(
   userId: string,
 ): Promise<void> {
   const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
-  if (!error || isXpSchemaMissing(error.message)) return;
+  if (!error || isXpSchemaMissing(error.message)) {
+    await deleteUserStudyXp(supabase, userId, "all");
+    return;
+  }
   throw new Error(`Could not delete XP (${error.message}).`);
+}
+
+async function deleteUserStudyXp(
+  supabase: SupabaseClient,
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  if (lessonKeys !== "all" && lessonKeys.length === 0) return;
+  const query = supabase.from("study_xp_awards").delete().eq("user_id", userId);
+  const scoped = lessonKeys === "all" ? query : query.in("lesson_key", [...lessonKeys]);
+  const { error } = await scoped;
+  if (!error || isStudyXpSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete study XP (${error.message}).`);
+}
+
+/** Remove study XP for the lessons an admin just cleared. */
+export async function deleteStudyXpForLessons(
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Progress store is not configured");
+  await deleteUserStudyXp(supabase, userId, lessonKeys);
 }
 
 /** Insert one finished part. A repeated id is ignored so a retry does not double-count. */
@@ -1424,6 +1450,15 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     kind: "table",
     table: XP_TABLE,
     column: "run_id",
+  },
+  {
+    id: "study_xp_awards",
+    label: "study_xp_awards",
+    sqlFile: "supabase/study_xp_awards.sql",
+    severity: "warn",
+    kind: "table",
+    table: "study_xp_awards",
+    column: "id",
   },
   {
     id: "studied_clips",

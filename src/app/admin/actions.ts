@@ -23,6 +23,7 @@ import {
   INTERVIEW_ACCESS_SLUG,
   deleteListeningRunsForLessons,
   deletePendingLevelGrant,
+  deleteStudyXpForLessons,
   deleteUserAccount,
   findActiveUserIdByEmail,
   getCloudProgress,
@@ -117,6 +118,7 @@ export async function deleteAdminStudentProgress(
     const progress = commitAdminProgressClear(current, built.clear);
     await setCloudProgress(id, progress);
     await deleteListeningRunsForLessons(id, built.history.runs);
+    await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
     await syncStudiedClips(id, progress);
     revalidateAdmin();

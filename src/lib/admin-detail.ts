@@ -12,6 +12,7 @@ import {
   describeVisitSignal,
   formatActiveDuration,
   lessonVideoStatus,
+  completedStudyPartCount,
   selectVisits,
   summarizeVisits,
   type VisitRange,
@@ -233,16 +234,24 @@ function projectLesson(
     (studyRunCount >= 1 ||
       reviewedCount >= clipTotal ||
       Boolean(learn?.studyCompletedAt));
+  const listeningStruggling =
+    clipTotal > 0 && runCount >= STRUGGLE_RUNS && listeningStatus !== "completed";
+  const studyParts = completedStudyPartCount(lesson.clips, [...reviewedIds]);
+  const studyDone =
+    studyCompletedOnce ||
+    (studyParts.total > 0 && studyParts.done >= studyParts.total);
   const studyStatus: LessonStatus =
     clipTotal === 0
       ? "not-started"
-      : studyCompletedOnce
+      : studyDone
         ? "completed"
-        : reviewedCount > 0
+        : studyParts.done > 0
           ? "in-progress"
           : "not-started";
-  const listeningStruggling =
-    clipTotal > 0 && runCount >= STRUGGLE_RUNS && listeningStatus !== "completed";
+  const studyNote =
+    studyRunCount > 0
+      ? `${studyRunCount} study ${studyRunCount === 1 ? "run" : "runs"}`
+      : null;
   const activities: AdminActivityCard[] =
     clipTotal === 0
       ? []
@@ -253,12 +262,9 @@ function projectLesson(
                   id: `${lesson.id}-study`,
                   label: "Study",
                   status: studyStatus,
-                  percent: studyCompletedOnce ? 100 : percentOf(reviewedCount, clipTotal),
-                  progressLabel: studyCompletedOnce ? "" : `${reviewedCount}/${clipTotal}`,
-                  note:
-                    studyRunCount > 0
-                      ? `${studyRunCount} study ${studyRunCount === 1 ? "run" : "runs"}`
-                      : null,
+                  percent: studyDone ? 100 : percentOf(studyParts.done, studyParts.total),
+                  progressLabel: studyDone ? "" : `${studyParts.done}/${studyParts.total}`,
+                  note: studyNote,
                   struggling: false,
                 } satisfies AdminActivityCard,
               ]
@@ -965,6 +971,8 @@ export type ProgressHistoryWipe = {
   runs: "all" | string[];
   /** Studied-clip lesson keys, or every clip this student has stored. */
   studied: "all" | string[];
+  /** Study-XP lesson keys, or every study award this student has stored. */
+  studyXp: "all" | string[];
 };
 
 type ProgressEraseSlice = {
@@ -978,6 +986,7 @@ type ProgressEraseSlice = {
   visitVideo: boolean;
   runs: string[];
   studied: string[];
+  studyXp: string[];
 };
 
 function emptyEraseSlice(): ProgressEraseSlice {
@@ -992,6 +1001,7 @@ function emptyEraseSlice(): ProgressEraseSlice {
     visitVideo: false,
     runs: [],
     studied: [],
+    studyXp: [],
   };
 }
 
@@ -1033,7 +1043,10 @@ function addLessonErase(
 
   if (lesson.learnKey && (study || listening) && clipIds.length > 0) {
     addLearnErase(slice, lesson.learnKey, clipIds, study, listening);
-    if (study) pushUnique(slice.studied, visitKey);
+    if (study) {
+      pushUnique(slice.studied, visitKey);
+      pushUnique(slice.studyXp, visitKey);
+    }
     if (listening) {
       pushUnique(slice.runs, visitKey);
       pushUnique(slice.studied, visitKey);
@@ -1126,7 +1139,10 @@ export function studentProgressClear(
   at: string,
 ): { clear: AdminProgressClear; history: ProgressHistoryWipe } | null {
   if (target.scope === "all") {
-    return { clear: { id, at, scope: "all" }, history: { runs: "all", studied: "all" } };
+    return {
+      clear: { id, at, scope: "all" },
+      history: { runs: "all", studied: "all", studyXp: "all" },
+    };
   }
 
   if (target.scope === "course") {
@@ -1144,14 +1160,17 @@ export function studentProgressClear(
           visitStudy: true,
           visitListening: true,
         },
-        history: { runs: [], studied: [] },
+        history: { runs: [], studied: [], studyXp: [] },
       };
     }
     const slice = emptyEraseSlice();
     for (const lesson of course.lessons) addLessonErase(slice, lesson, "all");
     const clear = sliceToClear(slice, id, at);
     if (!clear) return null;
-    return { clear, history: { runs: slice.runs, studied: slice.studied } };
+    return {
+      clear,
+      history: { runs: slice.runs, studied: slice.studied, studyXp: slice.studyXp },
+    };
   }
 
   const found =
@@ -1174,14 +1193,17 @@ export function studentProgressClear(
             },
           ],
         },
-        history: { runs: [], studied: [] },
+        history: { runs: [], studied: [], studyXp: [] },
       };
     }
     const slice = emptyEraseSlice();
     addLessonErase(slice, found.lesson, "all");
     const clear = sliceToClear(slice, id, at);
     if (!clear) return null;
-    return { clear, history: { runs: slice.runs, studied: slice.studied } };
+    return {
+      clear,
+      history: { runs: slice.runs, studied: slice.studied, studyXp: slice.studyXp },
+    };
   }
 
   const part = target.part;
@@ -1208,7 +1230,7 @@ export function studentProgressClear(
           },
         ],
       },
-      history: { runs: [], studied: [] },
+      history: { runs: [], studied: [], studyXp: [] },
     };
   }
 
@@ -1216,5 +1238,8 @@ export function studentProgressClear(
   addLessonErase(slice, found.lesson, part);
   const clear = sliceToClear(slice, id, at);
   if (!clear) return null;
-  return { clear, history: { runs: slice.runs, studied: slice.studied } };
+  return {
+    clear,
+    history: { runs: slice.runs, studied: slice.studied, studyXp: slice.studyXp },
+  };
 }

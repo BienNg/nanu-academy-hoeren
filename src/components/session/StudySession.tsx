@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
@@ -10,15 +11,17 @@ import { ClipContentCard } from "@/components/session/ClipContentCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
+import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { ProfileButton } from "@/components/ProfileButton";
+import { TodayXpChip } from "@/components/TodayXpChip";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
-  catalogCompletedCount,
-  firstUnreviewedIndex,
-  withFinishedCatalogClips,
+  firstIncompleteStudyPart,
+  settledStudyReviewedIds,
+  splitStudyParts,
 } from "@/lib/progress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playSuccessSound } from "@/lib/sfx";
+import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
 type StudyViewMode = "cards" | "list";
@@ -51,147 +54,107 @@ function MaterialIcon({
   );
 }
 
-function StudyComplete({
-  chapterLabel,
-  clipCount,
-  reviewedCount,
-  hubHref,
-  onReview,
-}: {
-  chapterLabel: string;
-  clipCount: number;
-  reviewedCount: number;
-  hubHref: string;
-  onReview: () => void;
-}) {
-  return (
-    <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 text-center">
-        <div className="relative mb-2 flex h-24 w-24 items-center justify-center">
-          <div
-            className="absolute inset-0 animate-ping rounded-full bg-[#0066cc]/15"
-            style={{ animationDuration: "3s" }}
-          />
-          <div className="absolute inset-2 rounded-full bg-[#0066cc]/10" />
-          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_8px_32px_rgba(0,102,204,0.28)]">
-            <MaterialIcon name="menu_book" className="text-[32px]" filled />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <h2
-            className="text-4xl font-bold tracking-tight text-[#1d1d1f]"
-            style={{ letterSpacing: "-0.02em" }}
-          >
-            Đã xem hết thẻ
-          </h2>
-          <p className="mx-auto max-w-[280px] text-lg font-medium leading-relaxed text-[#86868b] sm:max-w-sm">
-            Bạn đã xem {Math.min(reviewedCount, clipCount)} / {clipCount} câu
-            trong <span className="font-semibold text-[#1d1d1f]">{chapterLabel}</span>.
-          </p>
-        </div>
-
-        <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row-reverse sm:px-6">
-          <Link
-            href={`${hubHref}/practice`}
-            className="flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98] sm:flex-1"
-          >
-            Luyện nghe
-          </Link>
-          <button
-            type="button"
-            onClick={onReview}
-            className="flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#f5f5f7] px-6 text-[17px] font-semibold text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] sm:flex-1"
-          >
-            <MaterialIcon name="replay" className="text-[20px]" />
-            Xem lại
-          </button>
-        </div>
-      </div>
-    </main>
-  );
-}
-
 export function StudySession({
   level,
   chapter,
-  clips,
+  clips: allClips,
   initialViewMode = "cards",
 }: StudySessionProps) {
+  const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
   const {
-    markLearnClipReviewed,
     resetLearnStudyProgress,
     reviewedLearnClipIdsFor,
-    learnStudyRunCountFor,
     learnStudyCompleted,
     absorbLessonClips,
-    incrementStudyRunDoneCount,
+    progressReady,
+    commitStudyPartDone,
+    settleStudyReviews,
+    streakDays,
   } = useProgress();
 
   const chapterProgressKey = chapter.slug;
+  const lessonKey = `${level.slug}/${chapter.slug}`;
   const storedReviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
   const studyFinished = learnStudyCompleted(chapterProgressKey);
-  const clipIds = useMemo(() => clips.map((clip) => clip.id), [clips]);
-  const reviewedIds = useMemo(
+  const parts = useMemo(() => splitStudyParts(allClips), [allClips]);
+  const partCount = parts.length;
+  const settledIds = useMemo(
     () =>
-      withFinishedCatalogClips(clipIds, storedReviewedIds, studyFinished, {
-        keepEmptyReplay: true,
-      }),
-    [clipIds, storedReviewedIds, studyFinished],
+      studyFinished
+        ? storedReviewedIds
+        : settledStudyReviewedIds(allClips, storedReviewedIds),
+    [allClips, storedReviewedIds, studyFinished],
   );
-  const reviewedCount = catalogCompletedCount(clips, reviewedIds);
-  const hubHref = `/learn/${level.slug}/${chapter.slug}`;
+  const replaying = studyFinished && storedReviewedIds.length === 0;
+  const openPart = replaying ? 1 : firstIncompleteStudyPart(parts, settledIds);
+  const lessonAlreadyDone = !replaying && (studyFinished || openPart > partCount);
+  const allClipIds = useMemo(() => allClips.map((clip) => clip.id), [allClips]);
+  const pathHref = `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`;
 
   const [viewMode, setViewMode] = useState<StudyViewMode>(initialViewMode);
-  const [clipIndex, setClipIndex] = useState(() =>
-    firstUnreviewedIndex(clips, reviewedIds),
-  );
+  const [visitPart, setVisitPart] = useState<number | "done" | null>(null);
+  const [clipIndex, setClipIndex] = useState(0);
   const [phase, setPhase] = useState<StudyCardPhase>("study");
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
   const [direction, setDirection] = useState(1);
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    absorbLessonClips(chapterProgressKey, clipIds);
-  }, [absorbLessonClips, chapterProgressKey, clipIds]);
-
-  const initializedRef = useRef(false);
-  const studyRunSavedRef = useRef(false);
-  const startedCompleteRef = useRef(false);
+  const [xpTotal, setXpTotal] = useState<number | null>(null);
+  const [xpGrant, setXpGrant] = useState<{
+    xp: number | null;
+    kind: string | null;
+    pending: boolean;
+  } | null>(null);
+  const [summary, setSummary] = useState<{
+    questionCount: number;
+    accuracy: number;
+    elapsedMs: number;
+    finishRun: boolean;
+    partNumber: number;
+  } | null>(null);
+  const awardedXpRef = useRef(0);
+  const partStartedAtRef = useRef(0);
+  const committedRef = useRef(false);
+  const scoresRef = useRef<number[]>([]);
   const touchStartX = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    const startIndex = firstUnreviewedIndex(clips, reviewedIds);
-    startedCompleteRef.current = clips.length > 0 && startIndex >= clips.length;
-    setClipIndex(startIndex);
-    setReady(true);
-  }, [clips, reviewedIds]);
+  const activePart = typeof visitPart === "number" ? visitPart : openPart;
+  const clips = parts[activePart - 1] ?? [];
+  const partClipIds = useMemo(() => clips.map((clip) => clip.id), [clips]);
 
+  useEffect(() => {
+    absorbLessonClips(chapterProgressKey, allClipIds);
+  }, [absorbLessonClips, chapterProgressKey, allClipIds]);
+
+  useEffect(() => {
+    if (!progressReady || studyFinished) return;
+    settleStudyReviews(chapterProgressKey, allClips);
+  }, [progressReady, studyFinished, settleStudyReviews, chapterProgressKey, allClips]);
+
+  useEffect(() => {
+    if (!progressReady || visitPart != null) return;
+    setVisitPart(lessonAlreadyDone ? "done" : openPart);
+    partStartedAtRef.current = Date.now();
+    committedRef.current = false;
+    setClipIndex(0);
+    setPhase("study");
+    setScoreResult(null);
+    setDraft("");
+    setXpGrant(null);
+    setReady(true);
+  }, [progressReady, visitPart, lessonAlreadyDone, openPart]);
+
+  const [furthest, setFurthest] = useState(0);
   const currentClip = clips[clipIndex];
-  const complete = ready && (clips.length === 0 || clipIndex >= clips.length);
-  const isReviewed = currentClip
-    ? reviewedIds.includes(currentClip.id)
-    : false;
+  const complete =
+    visitPart === "done" || (ready && clips.length > 0 && clipIndex >= clips.length);
+  const lastPart = partCount > 0 && activePart >= partCount;
+  const isReviewed = furthest > clipIndex;
 
   const progressSegments = useMemo(() => {
-    return clips.map((clip, index) => {
-      if (index === clipIndex && currentClip) return "current";
-      if (reviewedIds.includes(clip.id)) return "done";
-      return "todo";
-    });
-  }, [clips, reviewedIds, clipIndex, currentClip]);
-
-  const rememberCurrent = useCallback(() => {
-    if (!currentClip) return;
-    markLearnClipReviewed(
-      chapterProgressKey,
-      currentClip.id,
-      `${level.slug}/${chapter.slug}`,
-    );
-  }, [currentClip, chapterProgressKey, markLearnClipReviewed, level.slug, chapter.slug]);
+    return clips.map((_, index) => (index < furthest ? "done" : "todo"));
+  }, [clips, furthest]);
 
   const clearAttempt = useCallback(() => {
     setScoreResult(null);
@@ -211,22 +174,34 @@ export function StudySession({
       setDraft(value);
       const result = scoreAttempt(value, currentClip.script);
       setScoreResult(result);
-      if (result.accuracy === 100) {
-        playSuccessSound();
-        rememberCurrent();
-      }
+      if (result.accuracy === 100) playSuccessSound();
     },
-    [currentClip, rememberCurrent],
+    [currentClip],
   );
 
   const finishRecall = useCallback(() => {
     if (!currentClip) return;
-    rememberCurrent();
+    const next = clipIndex + 1;
+    scoresRef.current[clipIndex] = scoreResult?.accuracy ?? 0;
+    if (next >= clips.length && clips.length > 0) {
+      const count = clips.length;
+      const total = scoresRef.current
+        .slice(0, count)
+        .reduce((sum, value) => sum + (value ?? 0), 0);
+      setSummary({
+        questionCount: count,
+        accuracy: Math.round(total / count),
+        elapsedMs: Math.max(0, Date.now() - partStartedAtRef.current),
+        finishRun: lastPart,
+        partNumber: activePart,
+      });
+    }
     clearAttempt();
     setDirection(1);
     setPhase("study");
-    setClipIndex((index) => index + 1);
-  }, [currentClip, rememberCurrent, clearAttempt]);
+    setFurthest((value) => Math.max(value, next));
+    setClipIndex(next);
+  }, [currentClip, clearAttempt, clipIndex, clips.length, scoreResult, lastPart, activePart]);
 
   const goPrev = useCallback(() => {
     if (phase === "recall") {
@@ -244,33 +219,79 @@ export function StudySession({
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
-    studyRunSavedRef.current = false;
-    startedCompleteRef.current = false;
+    committedRef.current = false;
+    partStartedAtRef.current = Date.now();
+    setXpGrant(null);
     clearAttempt();
     setPhase("study");
     setDirection(1);
+    setFurthest(0);
     setClipIndex(0);
+    setSummary(null);
+    scoresRef.current = [];
+    setVisitPart(1);
   };
 
   useEffect(() => {
-    if (!ready || !complete || studyRunSavedRef.current || clips.length === 0) {
+    if (!ready || !complete || visitPart === "done" || committedRef.current || partClipIds.length === 0) {
       return;
     }
-    const alreadyCounted = learnStudyRunCountFor(chapterProgressKey) > 0;
-    if (startedCompleteRef.current && alreadyCounted) {
-      studyRunSavedRef.current = true;
-      return;
-    }
-    incrementStudyRunDoneCount(chapterProgressKey);
-    studyRunSavedRef.current = true;
+    committedRef.current = true;
+    commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
+    const elapsedMs = Math.max(0, Date.now() - partStartedAtRef.current);
+    setXpGrant({ xp: null, kind: null, pending: true });
+    playCelebrationSound();
+    void fetch("/api/study-xp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        lessonKey,
+        partNumber: activePart,
+        partCount,
+        elapsedMs,
+        clipIds: partClipIds,
+      }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { xp?: unknown; kind?: unknown } | null) => {
+        setXpGrant({
+          xp: data && typeof data.xp === "number" ? data.xp : null,
+          kind: data && typeof data.kind === "string" ? data.kind : null,
+          pending: false,
+        });
+      })
+      .catch(() => {
+        setXpGrant({ xp: null, kind: null, pending: false });
+      });
   }, [
     ready,
     complete,
-    clips.length,
-    learnStudyRunCountFor,
-    incrementStudyRunDoneCount,
+    visitPart,
+    partClipIds,
+    commitStudyPartDone,
     chapterProgressKey,
+    lessonKey,
+    lastPart,
+    activePart,
+    partCount,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/xp")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { total?: unknown } | null) => {
+        if (cancelled || !data || typeof data.total !== "number") return;
+        setXpTotal(Math.max(0, data.total - awardedXpRef.current));
+      })
+      .catch(() => {
+        // The chip stays on a dash when the total cannot be read.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (viewMode !== "cards" || complete || !currentClip) return;
@@ -312,13 +333,18 @@ export function StudySession({
     if (delta > 56) goPrev();
   };
 
-  const displayNumber = Math.min(clipIndex + 1, clips.length);
+  const earnedXp =
+    xpGrant && !xpGrant.pending && typeof xpGrant.xp === "number" && xpGrant.xp > 0
+      ? xpGrant.xp
+      : 0;
+  if (earnedXp > 0) awardedXpRef.current = earnedXp;
   const recallPerfect = scoreResult?.accuracy === 100;
+  const openedFinishedLesson = visitPart === "done" && summary == null;
   const modeToggle = (
     <div
       role="tablist"
       aria-label="Chế độ học"
-      className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
+      className="inline-flex w-fit items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
     >
       <button
         type="button"
@@ -384,7 +410,9 @@ export function StudySession({
           </Link>
           <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
-              Học nội dung
+              {partCount > 1 && typeof visitPart === "number"
+                ? `Học nội dung · Phần ${activePart}/${partCount}`
+                : "Học nội dung"}
             </span>
             <h1
               className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
@@ -393,12 +421,35 @@ export function StudySession({
               {level.level} - {chapter.label}
             </h1>
           </div>
-          <ProfileButton />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
+            <ProfileButton />
+          </div>
         </div>
       </header>
 
-      {!ready ? (
+      {!ready || !progressReady || visitPart == null ? (
         <SessionContentSkeleton kind="study" />
+      ) : visitPart === "done" || complete ? (
+        <PartCompleteScreen
+          partNumber={summary?.partNumber ?? partCount}
+          partCount={partCount}
+          levelLabel={level.level}
+          chapterLabel={chapter.label}
+          questionCount={summary?.questionCount ?? allClips.length}
+          accuracy={summary?.accuracy ?? null}
+          elapsedMs={summary?.elapsedMs ?? null}
+          xp={openedFinishedLesson ? null : (xpGrant?.xp ?? null)}
+          xpKind={openedFinishedLesson ? null : (xpGrant?.kind ?? null)}
+          xpPending={openedFinishedLesson ? false : Boolean(xpGrant?.pending)}
+          streakDays={streakDays}
+          finishRun={summary?.finishRun ?? visitPart === "done"}
+          failed={false}
+          continueLabel="Về bài học"
+          onContinue={() => router.push(pathHref)}
+          secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
+          onSecondary={openedFinishedLesson ? beginReview : undefined}
+        />
       ) : clips.length === 0 ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <p className="text-lg font-medium text-[#86868b]">
@@ -417,35 +468,15 @@ export function StudySession({
             <StudyClipList clips={clips} />
           </div>
         </main>
-      ) : complete || !currentClip ? (
-        <StudyComplete
-          chapterLabel={`${level.level} - ${chapter.label}`}
-          clipCount={clips.length}
-          reviewedCount={reviewedCount}
-          hubHref={hubHref}
-          onReview={beginReview}
-        />
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
-            <header className="flex flex-col gap-4 pt-6 pb-4">
-              <div className="flex items-center justify-between gap-2">
-                {modeToggle}
-                <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#e8f2fc] px-3 py-1">
-                  <MaterialIcon
-                    name={phase === "recall" ? "hearing" : "menu_book"}
-                    className="text-[14px] text-[#0066cc]"
-                    filled
-                  />
-                  <span className="text-[12px] font-bold text-[#0066cc]">
-                    Thẻ {displayNumber} / {clips.length}
-                  </span>
-                </div>
-              </div>
+            <header className="flex flex-col items-start gap-4 pt-6 pb-4">
+              {modeToggle}
 
               <div
                 aria-label="Tiến độ học nội dung"
-                className="grid w-full gap-1.5"
+                className="grid w-full self-stretch gap-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${Math.max(clips.length, 1)}, minmax(0, 1fr))`,
                 }}
@@ -453,13 +484,12 @@ export function StudySession({
                 {progressSegments.map((segment, index) => (
                   <div
                     key={`seg-${index}`}
-                    className={`relative h-1.5 overflow-hidden rounded-full ${
-                      segment === "todo" ? "bg-[#e8e8ed]" : "bg-[#0066cc]"
-                    }`}
+                    className="relative h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]"
                   >
-                    {segment === "current" ? (
-                      <div className="absolute inset-0 animate-pulse bg-[#0066cc]" />
-                    ) : null}
+                    <div
+                      className="h-full origin-left rounded-full bg-[#0066cc] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                      style={{ transform: segment === "done" ? "scaleX(1)" : "scaleX(0)" }}
+                    />
                   </div>
                 ))}
               </div>

@@ -24,7 +24,13 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { activeStreakDays, formatActiveDuration, type StoredProgress } from "@/lib/progress";
+import {
+  activeStreakDays,
+  formatActiveDuration,
+  isStudyActivityId,
+  studyPartNumberFromActivityId,
+  type StoredProgress,
+} from "@/lib/progress";
 import type { AdminUserRow } from "@/lib/admin-overview";
 
 function MaterialIcon({
@@ -194,7 +200,7 @@ function CircleMeter({
 }
 
 function activityIcon(activity: AdminActivityCard): string {
-  return activity.id.endsWith("-study") ? "menu_book" : "headphones";
+  return isStudyActivityId(activity.id) ? "menu_book" : "headphones";
 }
 
 function ActivityMeter({
@@ -315,18 +321,20 @@ export function LessonContentMeters({
         />
       ))}
       {lesson.activities.map((activity) => {
-        const part: StudentProgressPart | null = activity.id.endsWith("-study")
+        const part: StudentProgressPart | null = isStudyActivityId(activity.id)
           ? "study"
           : activity.id.endsWith("-listening")
             ? "listening"
             : null;
+        const studyPart = studyPartNumberFromActivityId(activity.id);
+        const showStudyDelete = studyPart == null || studyPart === 1;
         return (
           <ActivityMeter
             key={activity.id}
             activity={activity}
             itemClassName={aligned ? "w-full min-w-0" : undefined}
             action={
-              onDeletePart && part && activity.status !== "not-started" ? (
+              onDeletePart && part && showStudyDelete && activity.status !== "not-started" ? (
                 <DeleteProgressButton
                   label={`Delete ${activity.label} progress`}
                   className="mt-1 h-7 w-7"

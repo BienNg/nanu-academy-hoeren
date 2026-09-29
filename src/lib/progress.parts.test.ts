@@ -23,6 +23,12 @@ import {
   setLearnRunOrder,
   requeueMissedClip,
   splitListeningParts,
+  splitStudyParts,
+  settledStudyReviewedIds,
+  completedStudyPartCount,
+  studyPartCount,
+  studyPartSize,
+  MAX_STUDY_CLIPS,
 } from "./progress.js";
 
 type Clip = {
@@ -129,6 +135,41 @@ test("a short lesson stays one part", () => {
   assert.equal(parts.length, 1);
   assert.equal(parts[0]?.length, 2);
   assert.equal(listeningPartSize(2, 1, 1), 2);
+});
+
+test("study parts stay even and never hold more than 12 clips", () => {
+  assert.deepEqual(
+    splitStudyParts(questions(12)).map((part) => part.length),
+    [12],
+  );
+  assert.deepEqual(
+    splitStudyParts(questions(13)).map((part) => part.length),
+    [7, 6],
+  );
+  assert.deepEqual(
+    splitStudyParts(questions(31)).map((part) => part.length),
+    [11, 10, 10],
+  );
+  const sizes = splitStudyParts(questions(107)).map((part) => part.length);
+  assert.equal(sizes.reduce((sum, size) => sum + size, 0), 107);
+  assert.equal(sizes.length, studyPartCount(107));
+  assert.ok(Math.max(...sizes) <= MAX_STUDY_CLIPS);
+  assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1);
+  assert.equal(studyPartSize(31, 1, 3), 11);
+  assert.equal(studyPartSize(31, 2, 3), 10);
+  assert.equal(studyPartSize(31, 1, 1), null);
+});
+
+test("an unfinished study part does not count and its clips are dropped", () => {
+  const clips = questions(107);
+  const reviewed = clips.slice(0, 31).map((clip) => clip.id);
+  const kept = settledStudyReviewedIds(clips, reviewed);
+  assert.equal(kept.length, 24);
+  assert.deepEqual(
+    completedStudyPartCount(clips, reviewed),
+    { done: 2, total: 9 },
+  );
+  assert.equal(kept.at(-1), clips[23]?.id);
 });
 
 test("part size follows the split, including a shuffled lesson of 21", () => {

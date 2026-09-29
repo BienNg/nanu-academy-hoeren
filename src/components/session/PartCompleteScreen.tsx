@@ -9,8 +9,8 @@ type PartCompleteScreenProps = {
   levelLabel: string;
   chapterLabel: string;
   questionCount: number;
-  accuracy: number;
-  elapsedMs: number;
+  accuracy: number | null;
+  elapsedMs: number | null;
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
@@ -19,6 +19,8 @@ type PartCompleteScreenProps = {
   failed: boolean;
   continueLabel: string;
   onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 };
 
 const CONFETTI = [
@@ -40,7 +42,8 @@ const CONFETTI = [
   { delay: 0.09, duration: 1.15, x: 168, y: -72, rotate: 50, color: "#34C759", w: 10, h: 14 },
 ] as const;
 
-function formatPartDuration(elapsedMs: number): string {
+function formatPartDuration(elapsedMs: number | null): string {
+  if (elapsedMs == null) return "—";
   const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -97,14 +100,16 @@ export function PartCompleteScreen({
   failed,
   continueLabel,
   onContinue,
+  secondaryLabel,
+  onSecondary,
 }: PartCompleteScreenProps) {
   const reduceMotion = useReducedMotion();
   const continueRef = useRef<HTMLButtonElement>(null);
-  const perfect = accuracy >= 100;
+  const perfect = accuracy != null && accuracy >= 100;
   const earned = !failed && (xpPending || xpKind) ? xpCaption(xp, xpKind) : null;
   const stats = [
     { label: "Câu", value: String(questionCount), color: "#0066cc" },
-    { label: "Chính xác", value: `${accuracy}%`, color: perfect ? "#34C759" : "#ff9f0a" },
+    { label: "Chính xác", value: accuracy == null ? "—" : `${accuracy}%`, color: perfect ? "#34C759" : "#ff9f0a" },
     { label: "Thời gian", value: formatPartDuration(elapsedMs), color: "#5e5ce6" },
   ];
 
@@ -325,6 +330,21 @@ export function PartCompleteScreen({
           >
             {continueLabel}
           </motion.button>
+          {secondaryLabel && onSecondary ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="mt-3 flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#f5f5f7] text-[17px] font-semibold text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98]"
+            >
+              <span
+                className="material-symbols-outlined text-[20px]"
+                aria-hidden="true"
+              >
+                replay
+              </span>
+              {secondaryLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </main>

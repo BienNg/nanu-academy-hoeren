@@ -25,9 +25,12 @@ import {
   markLearnChapterCompleted,
   markLearnClipCompleted,
   markLearnClipReviewed,
+  commitStudyPart,
+  settleStudyReviewedClips,
   resetBerufProgress,
   resetLearnProgress,
   resetLearnStudyProgress,
+  clearReviewedClips,
   mergeProgress,
   migrateLegacyProgress,
   normalizeProgress,
@@ -731,6 +734,41 @@ export function useProgress(
     [persist],
   );
 
+  const clearStudyClipReviews = useCallback(
+    (chapterSlug: string, clipIds: readonly string[]) => {
+      const next = clearReviewedClips(readProgressSnapshot(), chapterSlug, clipIds);
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const commitStudyPartDone = useCallback(
+    (chapterSlug: string, clipIds: readonly string[], lessonKey: string, finishRun: boolean) => {
+      const now = new Date();
+      let next = commitStudyPart(readProgressSnapshot(), chapterSlug, clipIds, now);
+      if (finishRun) next = incrementStudyRunCount(next, chapterSlug, now.toISOString());
+      let visitId = readVisitId();
+      for (const clipId of clipIds) {
+        const recorded = recordVisitClip(next, now, visitId, lessonKey, clipId);
+        visitId = recorded.visitId;
+        next = recorded.progress;
+      }
+      if (visitId) writeVisitId(visitId);
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const settleStudyReviews = useCallback(
+    (chapterSlug: string, clips: readonly { id: string }[]) => {
+      const current = readProgressSnapshot();
+      const next = settleStudyReviewedClips(current, chapterSlug, clips);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const saveVideoPosition = useCallback(
     (
       key: string,
@@ -851,6 +889,9 @@ export function useProgress(
     recordWrongAttempt,
     markLearnClipReviewed: markLearnClipReviewedFn,
     resetLearnStudyProgress: resetLearnStudyProgressFn,
+    clearStudyClipReviews,
+    commitStudyPartDone,
+    settleStudyReviews,
     reviewedLearnClipIdsFor: (chapterSlug: string) =>
       learnReviewedClipIds(progress, chapterSlug),
     lessonVideoProgressFor: (key: string): LessonVideoProgress | undefined =>

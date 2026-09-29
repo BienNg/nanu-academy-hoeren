@@ -3,15 +3,17 @@ import { isAdminUser } from "@/lib/admins";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
-import { listeningPartSize } from "@/lib/progress";
+import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
 import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
   dayKey,
   decidePartXp,
+  decideStudyPartXp,
   emptyLeaderboard,
   googleProfileImage,
+  isStudyXpSchemaMissing,
   isXpSchemaMissing,
   leaderboardClassKey,
   leaderboardDisplayName,
@@ -20,9 +22,11 @@ import {
   type LeaderboardPayload,
   type LeaderboardRange,
   type LeaderboardScope,
+  type StudyXpInput,
 } from "@/lib/xp";
 
 const XP_TABLE = "xp_awards";
+const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
@@ -175,6 +179,199 @@ export async function grantXpForListeningRun(
   return { ready: false, xp: null, kind: null };
 }
 
+type StudyAwardRow = {
+  user_id: string;
+  xp: number;
+  created_at: string;
+  day_key: string;
+  week_key: string;
+};
+
+function sameClipSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const seen = new Set(left);
+  if (seen.size !== left.length) return false;
+  return right.every((id) => seen.has(id));
+}
+
+/**
+ * Score one finished study part and store 15 XP.
+ * A missing study_xp_awards table leaves progress saved and reports ready: false.
+ */
+export async function grantStudyPartXp(
+  userId: string,
+  input: StudyXpInput,
+  now = new Date(),
+): Promise<XpGrant> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, xp: null, kind: null };
+
+  const existing = await supabase
+    .from(STUDY_XP_TABLE)
+    .select("xp")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (existing.error) {
+    if (!isStudyXpSchemaMissing(existing.error.message)) {
+      console.error("Supabase grantStudyXp lookup", existing.error.message);
+    }
+    return { ready: false, xp: null, kind: null };
+  }
+  if (existing.data) {
+    const row = existing.data as { xp?: unknown };
+    return {
+      ready: true,
+      xp: typeof row.xp === "number" ? row.xp : 0,
+      kind: "new",
+    };
+  }
+
+  const lessonClips = lessonClipsForXp(input.lessonKey);
+  const partCount = studyPartCount(lessonClips.length);
+  const part = splitStudyParts(lessonClips)[input.partNumber - 1] ?? [];
+  const matches =
+    input.partCount === partCount &&
+    sameClipSet(
+      input.clipIds,
+      part.map((clip) => clip.id),
+    );
+  const decision = decideStudyPartXp({
+    elapsedMs: input.elapsedMs,
+    expectedCount: matches
+      ? studyPartSize(lessonClips.length, input.partNumber, input.partCount)
+      : null,
+    clipCount: input.clipIds.length,
+    now,
+  });
+  if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };
+
+  const { error } = await supabase.from(STUDY_XP_TABLE).insert({
+    id: input.id,
+    user_id: userId,
+    lesson_key: input.lessonKey,
+    part_number: input.partNumber,
+    xp: decision.xp,
+    week_key: decision.weekKey,
+    day_key: decision.dayKey,
+  });
+  if (!error) return { ready: true, xp: decision.xp, kind: decision.kind };
+
+  if (error.code === "23505") {
+    const raced = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("xp")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (raced.data) {
+      const row = raced.data as { xp?: unknown };
+      return {
+        ready: true,
+        xp: typeof row.xp === "number" ? row.xp : 0,
+        kind: "new",
+      };
+    }
+    return { ready: true, xp: 0, kind: "repeat" };
+  }
+  if (!isStudyXpSchemaMissing(error.message)) {
+    console.error("Supabase grantStudyXp insert", error.message);
+  }
+  return { ready: false, xp: null, kind: null };
+}
+
+async function listUserStudyXp(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ xp: number; day_key: string; week_key: string }[]> {
+  const rows: { xp: number; day_key: string; week_key: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("xp, day_key, week_key")
+      .eq("user_id", userId)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase listUserStudyXp", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as { xp?: unknown; day_key?: unknown; week_key?: unknown }[];
+    for (const row of page) {
+      if (typeof row.xp !== "number" || typeof row.day_key !== "string" || typeof row.week_key !== "string") {
+        continue;
+      }
+      rows.push({ xp: row.xp, day_key: row.day_key, week_key: row.week_key });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+async function listStudyAwardRows(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<StudyAwardRow[]> {
+  const rows: StudyAwardRow[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from(STUDY_XP_TABLE)
+      .select("user_id, xp, created_at, day_key, week_key")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (range === "week") query = query.eq("week_key", weekKey(now));
+    const { data, error } = await query;
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase listStudyAwardRows", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      xp?: unknown;
+      created_at?: unknown;
+      day_key?: unknown;
+      week_key?: unknown;
+    }[];
+    for (const row of page) {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.created_at !== "string" ||
+        typeof row.day_key !== "string" ||
+        typeof row.week_key !== "string"
+      ) {
+        continue;
+      }
+      rows.push({
+        user_id: row.user_id,
+        xp: row.xp,
+        created_at: row.created_at,
+        day_key: row.day_key,
+        week_key: row.week_key,
+      });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+function mergeStudyAwards(totals: Map<string, XpTotal>, awards: readonly StudyAwardRow[]): void {
+  for (const award of awards) {
+    if (award.xp <= 0) continue;
+    const current = totals.get(award.user_id) ?? { xp: 0, reachedAt: null };
+    current.xp += award.xp;
+    if (!current.reachedAt || award.created_at > current.reachedAt) {
+      current.reachedAt = award.created_at;
+    }
+    totals.set(award.user_id, current);
+  }
+}
+
 export type UserXpTotals = {
   ready: boolean;
   today: number;
@@ -214,6 +411,7 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
   }
 
   const duelRows = await listUserDuelXp(supabase, userId);
+  const studyRows = await listUserStudyXp(supabase, userId);
   const todayKey = dayKey(now);
   const currentWeek = weekKey(now);
   let today = 0;
@@ -225,6 +423,11 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
     if (row.week_key === currentWeek) week += row.xp;
   }
   for (const row of duelRows) {
+    total += row.xp;
+    if (row.day_key === todayKey) today += row.xp;
+    if (row.week_key === currentWeek) week += row.xp;
+  }
+  for (const row of studyRows) {
     total += row.xp;
     if (row.day_key === todayKey) today += row.xp;
     if (row.week_key === currentWeek) week += row.xp;
@@ -484,6 +687,7 @@ async function readXpTotals(
       if (xp <= 0) continue;
       totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
     }
+    await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
     return totals;
   }
 
@@ -498,6 +702,7 @@ async function readXpTotals(
     }
     totals.set(award.user_id, current);
   }
+  await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
   return totals;
 }
 
