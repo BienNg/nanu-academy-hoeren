@@ -8,6 +8,7 @@ import {
   shortBerufLabel,
   toAdminUserRow,
   withSessionIdentity,
+  xpByUserOnDay,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
@@ -17,6 +18,8 @@ import {
   listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
+import { dayKey } from "@/lib/xp";
+import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
   title: "Overview · Admin · NaNu Academy Hören",
@@ -54,6 +57,10 @@ export default async function AdminPage({
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
   const activity = buildAdminActivityStats(rows, range);
+  const today = dayKey(new Date());
+  const xpReads = storeConfigured
+    ? await Promise.all([listAdminListeningXp(today, today), listAdminDuelXp(today, today)])
+    : null;
 
   return (
     <AdminOverview
@@ -62,6 +69,8 @@ export default async function AdminPage({
       courseCatalog={courseCatalog}
       rows={rows}
       storeConfigured={storeConfigured}
+      todayXp={xpByUserOnDay(xpReads?.[0].rows ?? [], xpReads?.[1].rows ?? [], today)}
+      todayXpReady={xpReads?.[0].ready === true}
     />
   );
 }

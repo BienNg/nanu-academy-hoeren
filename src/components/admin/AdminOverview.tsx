@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
@@ -26,6 +26,39 @@ function formatAbsoluteTime(iso: string | null): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+const RELATIVE_UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
+  { unit: "year", ms: 365 * 24 * 60 * 60 * 1000 },
+  { unit: "month", ms: 30 * 24 * 60 * 60 * 1000 },
+  { unit: "week", ms: 7 * 24 * 60 * 60 * 1000 },
+  { unit: "day", ms: 24 * 60 * 60 * 1000 },
+  { unit: "hour", ms: 60 * 60 * 1000 },
+  { unit: "minute", ms: 60 * 1000 },
+];
+
+function formatRelativeTime(iso: string, nowMs: number): string | null {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const delta = then - nowMs;
+  const abs = Math.abs(delta);
+  if (abs < 45_000) return "just now";
+  const format = new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" });
+  for (const { unit, ms } of RELATIVE_UNITS) {
+    if (abs >= ms) return format.format(Math.round(delta / ms), unit);
+  }
+  return format.format(Math.round(delta / 60_000), "minute");
+}
+
+function useNow(intervalMs = 30_000): number | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = window.setInterval(tick, intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 function ActivityStat({
@@ -60,13 +93,18 @@ function ActivityStat({
 function ActiveUsersSection({
   users,
   window,
+  todayXp,
+  todayXpReady,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
   window: string;
+  todayXp: Readonly<Record<string, number>>;
+  todayXpReady: boolean;
   onSelect: (userId: string) => void;
 }) {
   const [page, setPage] = useState(1);
+  const now = useNow();
   const paged = useMemo(
     () => paginateAdminUsers(users, page, ADMIN_PAGE_SIZE),
     [users, page],
@@ -114,6 +152,11 @@ function ActiveUsersSection({
               ) : (
                 paged.pageRows.map((row) => {
                   const lastSeen = formatAbsoluteTime(row.lastLoginAt);
+                  const relative =
+                    row.lastLoginAt && now != null
+                      ? formatRelativeTime(row.lastLoginAt, now)
+                      : null;
+                  const earnedToday = todayXp[row.userId] ?? 0;
                   return (
                     <tr
                       key={row.userId}
@@ -143,26 +186,50 @@ function ActiveUsersSection({
                       </td>
                       <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
                         {lastSeen ? (
-                          <time dateTime={row.lastLoginAt ?? undefined}>{lastSeen}</time>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <time dateTime={row.lastLoginAt ?? undefined}>{lastSeen}</time>
+                            {relative ? (
+                              <span className="font-caption text-caption text-on-surface-variant">
+                                {relative}
+                              </span>
+                            ) : null}
+                          </div>
                         ) : (
                           <span className="text-outline">Not seen yet</span>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-space-16 py-space-16 text-right">
-                        <span
-                          className={`inline-flex items-center gap-space-4 ${
-                            row.streakDays > 0 ? "text-on-surface" : "text-outline"
-                          }`}
-                        >
-                          <MaterialIcon
-                            name="local_fire_department"
-                            className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
-                            filled={row.streakDays > 0}
-                          />
-                          <span className="font-label-sm text-label-sm font-semibold tabular-nums">
-                            {row.streakDays}
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span
+                            className={`inline-flex items-center gap-space-4 ${
+                              row.streakDays > 0 ? "text-on-surface" : "text-outline"
+                            }`}
+                          >
+                            <MaterialIcon
+                              name="local_fire_department"
+                              className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
+                              filled={row.streakDays > 0}
+                            />
+                            <span className="font-label-sm text-label-sm font-semibold tabular-nums">
+                              {row.streakDays}
+                            </span>
                           </span>
-                        </span>
+                          {todayXpReady ? (
+                            <span
+                              className={`inline-flex items-center gap-0.5 font-caption text-caption tabular-nums ${
+                                earnedToday > 0 ? "text-on-surface" : "text-outline"
+                              }`}
+                              title="XP earned today"
+                            >
+                              <MaterialIcon
+                                name="bolt"
+                                className={`text-[14px] ${earnedToday > 0 ? "text-[#f59e0b]" : "text-outline"}`}
+                                filled={earnedToday > 0}
+                              />
+                              {earnedToday.toLocaleString("en-GB")} today
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -206,6 +273,8 @@ type AdminOverviewProps = {
   courseCatalog: readonly AdminCatalogCourse[];
   rows: readonly AdminUserRow[];
   storeConfigured: boolean;
+  todayXp: Readonly<Record<string, number>>;
+  todayXpReady: boolean;
 };
 
 export function AdminOverview({
@@ -214,6 +283,8 @@ export function AdminOverview({
   courseCatalog,
   rows,
   storeConfigured,
+  todayXp,
+  todayXpReady,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -279,6 +350,8 @@ export function AdminOverview({
           <ActiveUsersSection
             users={activeUsers}
             window={window}
+            todayXp={todayXp}
+            todayXpReady={todayXpReady}
             onSelect={setDetailUserId}
           />
         ) : null}

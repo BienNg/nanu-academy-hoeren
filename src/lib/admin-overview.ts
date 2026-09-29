@@ -1093,6 +1093,25 @@ export function buildAdminXpBoard(
   };
 }
 
+/** Listening plus duel XP for one Vietnam calendar day, keyed by user id. */
+export function xpByUserOnDay(
+  listening: readonly AdminListeningXpRow[],
+  duels: readonly AdminDuelXpRow[],
+  day: string,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  const add = (userId: string, xp: number) => {
+    totals[userId] = (totals[userId] ?? 0) + xp;
+  };
+  for (const row of listening) {
+    if (row.dayKey === day) add(row.userId, row.xp);
+  }
+  for (const row of duels) {
+    if (row.dayKey === day) add(row.userId, row.xp);
+  }
+  return totals;
+}
+
 export type AdminDuelPoint = {
   key: string;
   label: string;
