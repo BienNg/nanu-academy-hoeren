@@ -348,3 +348,25 @@ test("the duel board ranks by duel XP, then wins, and keeps losses on the global
   );
   assert.equal(board.rows.find((row) => row.name === "grind")?.lost, 10);
 });
+
+test("the blitzrunde board ranks by points, then rounds won", () => {
+  const people = [
+    person("low", 800, { won: 3 }),
+    person("tie-more-wins", 2400, { won: 2 }),
+    person("tie-fewer-wins", 2400, { won: 1 }),
+    person("you", 0),
+  ];
+  const board = assembleLeaderboard({
+    people,
+    viewerId: "you",
+    scope: "global",
+    range: "week",
+    now: NOW,
+    board: "blitzrunde",
+  });
+  assert.equal(board.board, "blitzrunde");
+  assert.deepEqual(
+    board.rows.filter((row) => row.xp > 0).map((row) => row.name),
+    ["tie-more-wins", "tie-fewer-wins", "low"],
+  );
+});

@@ -30,6 +30,8 @@
     "src/lib/pairing.ts",
     "src/lib/pairing.test.ts",
     "src/lib/practice-deck.ts",
-    "src/lib/practice-deck.test.ts"
+    "src/lib/practice-deck.test.ts",
+    "src/lib/blitzrunde.ts",
+    "src/lib/blitzrunde.test.ts"
   ]
 }

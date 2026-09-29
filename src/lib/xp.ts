@@ -53,7 +53,8 @@ export type BoardPerson = {
 
 export type LeaderboardScope = "class" | "global";
 export type LeaderboardRange = "week" | "all";
-export type LeaderboardBoard = "xp" | "duel";
+/** "blitzrunde" reuses the xp slot for Blitzrunde points (not XP) and `won` for rounds won. */
+export type LeaderboardBoard = "xp" | "duel" | "blitzrunde";
 
 export type LeaderboardRow = {
   rank: number | null;
@@ -392,7 +393,7 @@ export function emptyLeaderboard(input: {
 
 function comparePeople(left: BoardPerson, right: BoardPerson, board: LeaderboardBoard): number {
   if (left.xp !== right.xp) return right.xp - left.xp;
-  if (board === "duel" && (left.won ?? 0) !== (right.won ?? 0)) {
+  if (board !== "xp" && (left.won ?? 0) !== (right.won ?? 0)) {
     return (right.won ?? 0) - (left.won ?? 0);
   }
   if (left.xp > 0) {

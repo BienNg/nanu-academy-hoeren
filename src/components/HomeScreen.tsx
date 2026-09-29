@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { ProfileButton } from "@/components/ProfileButton";
 import { BottomNav } from "@/components/BottomNav";
+import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import type { Ausbildungsberuf } from "@/lib/content";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
@@ -627,6 +628,8 @@ export function HomeScreen({
 
       <main className="relative flex w-full flex-1 flex-col items-center">
         <div className="flex w-full max-w-4xl flex-col gap-space-24 px-6 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+          <BlitzrundeBanner />
+
           {continueLevel &&
           unlockedLevelSlugs.includes(continueLevel.levelSlug) ? (
             <ContinueCard

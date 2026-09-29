@@ -1044,6 +1044,21 @@ export const getUserStaff = cache(async (userId: string): Promise<boolean> => {
   return (data as { staff?: unknown }).staff === true;
 });
 
+/** The admin-set class label for one learner, or null when they have none. */
+export const getUserClassName = cache(async (userId: string): Promise<string | null> => {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return null;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("class_name")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return readClassName((data as { class_name?: unknown }).class_name);
+});
+
 /** Full admins only. Grants or removes staff dashboard access. */
 export async function setUserStaff(userId: string, staff: boolean): Promise<void> {
   const supabase = getSupabaseAdmin();

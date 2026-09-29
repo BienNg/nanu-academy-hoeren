@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { emptyLeaderboard, type LeaderboardBoard, type LeaderboardRange, type LeaderboardScope } from "@/lib/xp";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
-import { getDuelLeaderboard, getLeaderboard } from "@/lib/xp-store";
+import { getBlitzrundeLeaderboard, getDuelLeaderboard, getLeaderboard } from "@/lib/xp-store";
 
 function revokedResponse() {
   return NextResponse.json(
@@ -20,7 +20,7 @@ function readRange(value: string | null): LeaderboardRange {
 }
 
 function readBoard(value: string | null): LeaderboardBoard {
-  return value === "duel" ? "duel" : "xp";
+  return value === "duel" || value === "blitzrunde" ? value : "xp";
 }
 
 export async function GET(request: Request) {
@@ -50,6 +50,10 @@ export async function GET(request: Request) {
     now,
   };
   const payload =
-    board === "duel" ? await getDuelLeaderboard(boardInput) : await getLeaderboard(boardInput);
+    board === "duel"
+      ? await getDuelLeaderboard(boardInput)
+      : board === "blitzrunde"
+        ? await getBlitzrundeLeaderboard(boardInput)
+        : await getLeaderboard(boardInput);
   return NextResponse.json(payload);
 }

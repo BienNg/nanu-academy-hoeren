@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
+import { listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
@@ -906,6 +907,88 @@ export async function getDuelLeaderboard(input: {
     range: input.range,
     now,
     board: "duel",
+  });
+}
+
+/**
+ * Blitzrunde board: points from finished, ranked rounds (never XP). `xp` holds
+ * the points and `won` the rounds this student finished first in. Same class /
+ * global scope and week / all-time range as the other boards.
+ */
+export async function getBlitzrundeLeaderboard(input: {
+  viewerId: string;
+  viewerImage?: string | null;
+  scope: LeaderboardScope;
+  range: LeaderboardRange;
+  now?: Date;
+}): Promise<LeaderboardPayload> {
+  const now = input.now ?? new Date();
+  const blank = emptyLeaderboard({
+    scope: input.scope,
+    range: input.range,
+    now,
+    ready: false,
+    board: "blitzrunde",
+  });
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return blank;
+
+  const results = await listRankedResults({
+    weekKey: input.range === "week" ? weekKey(now) : undefined,
+    now,
+  });
+  if (!results) return blank;
+
+  const totals = new Map<string, { xp: number; reachedAt: string | null; won: number }>();
+  for (const result of results) {
+    const total = totals.get(result.userId) ?? { xp: 0, reachedAt: null, won: 0 };
+    total.xp += result.finalScore;
+    if (result.won) total.won += 1;
+    if (!total.reachedAt || result.submittedAt > total.reachedAt) total.reachedAt = result.submittedAt;
+    totals.set(result.userId, total);
+  }
+
+  const profiles = await listBoardProfiles(supabase);
+  const people: BoardPerson[] = profiles.map((row) => {
+    const total = totals.get(row.user_id);
+    const className = readClassName(row.class_name);
+    return {
+      userId: row.user_id,
+      name: leaderboardDisplayName(row.name),
+      classKey: leaderboardClassKey(className),
+      className,
+      isAdmin: isAdminUser({
+        id: row.user_id,
+        email: typeof row.email === "string" ? row.email : null,
+      }),
+      xp: total?.xp ?? 0,
+      reachedAt: total?.reachedAt ?? null,
+      won: total?.won ?? 0,
+      image: boardImage(row, input.viewerId, input.viewerImage),
+    };
+  });
+  if (!people.some((person) => person.userId === input.viewerId)) {
+    const total = totals.get(input.viewerId);
+    people.push({
+      userId: input.viewerId,
+      name: "Học viên",
+      classKey: "",
+      className: null,
+      isAdmin: false,
+      xp: total?.xp ?? 0,
+      reachedAt: total?.reachedAt ?? null,
+      won: total?.won ?? 0,
+      image: googleProfileImage(input.viewerImage),
+    });
+  }
+
+  return assembleLeaderboard({
+    people,
+    viewerId: input.viewerId,
+    scope: input.scope,
+    range: input.range,
+    now,
+    board: "blitzrunde",
   });
 }
 

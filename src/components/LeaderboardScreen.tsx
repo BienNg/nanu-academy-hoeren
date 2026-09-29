@@ -12,6 +12,7 @@ import {
   type LeaderboardRange,
   type LeaderboardScope,
 } from "@/lib/xp";
+import { BLITZRUNDE_SCHEMA_HINT } from "@/lib/blitzrunde";
 import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
 const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
@@ -85,6 +86,7 @@ function RankBadge({ rank }: { rank: number | null }) {
 const BOARD_OPTIONS: { id: LeaderboardBoard; label: string }[] = [
   { id: "xp", label: "XP" },
   { id: "duel", label: "Đấu" },
+  { id: "blitzrunde", label: "Blitzrunde" },
 ];
 
 const SCOPE_OPTIONS: { id: LeaderboardScope; label: string }[] = [
@@ -283,12 +285,14 @@ export function LeaderboardScreen({
                 >
                   bolt
                 </span>
-                {board.board === "duel" ? "XP đấu" : "XP của bạn"}
+                {board.board === "duel" ? "XP đấu" : board.board === "blitzrunde" ? "Điểm Blitzrunde" : "XP của bạn"}
               </p>
               {board.board === "duel" ? (
                 <p className="mt-2 text-[13px] font-bold text-sky-50">
                   {board.yourWon} thắng · {board.yourTied} hòa · {board.yourLost} thua
                 </p>
+              ) : board.board === "blitzrunde" && board.yourWon > 0 ? (
+                <p className="mt-2 text-[13px] font-bold text-sky-50">{board.yourWon} lần về nhất</p>
               ) : null}
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 shadow-[0_3px_0_0_rgba(3,105,161,0.45)]">
@@ -306,7 +310,9 @@ export function LeaderboardScreen({
               ? "Tài khoản giáo viên không hiện trên bảng."
               : board.board === "duel"
                 ? "XP từ trận đấu. Hạng theo XP đấu."
-                : "Điểm từ phần luyện nghe và đấu."}
+                : board.board === "blitzrunde"
+                  ? "Điểm từ các vòng Blitzrunde trên lớp. Không tính vào XP."
+                  : "Điểm từ phần luyện nghe và đấu."}
           </p>
           <span
             className="pointer-events-none absolute -right-3 -bottom-6 text-white/15 material-symbols-outlined text-[120px]"
@@ -324,6 +330,10 @@ export function LeaderboardScreen({
                 ? isAdmin
                   ? DUEL_SCHEMA_HINT
                   : "Bảng đấu sẽ hiện sau khi giáo viên bật tính năng này."
+                : board.board === "blitzrunde"
+                  ? isAdmin
+                    ? BLITZRUNDE_SCHEMA_HINT
+                    : "Bảng Blitzrunde sẽ hiện sau khi giáo viên bật tính năng này."
                 : isAdmin
                   ? "Chạy supabase/xp_awards.sql một lần trong Supabase, rồi hoàn thành một phần luyện nghe."
                   : "Bảng sẽ hiện sau khi giáo viên bật lưu điểm."}
@@ -347,7 +357,9 @@ export function LeaderboardScreen({
             <p className="mt-2 text-[14px] font-medium text-[#6e7881]">
               {board.board === "duel"
                 ? "Hoàn thành một trận đấu để lên bảng."
-                : "Hoàn thành một phần luyện nghe hoặc một trận đấu để lên bảng."}
+                : board.board === "blitzrunde"
+                  ? "Chơi một vòng Blitzrunde trên lớp để lên bảng."
+                  : "Hoàn thành một phần luyện nghe hoặc một trận đấu để lên bảng."}
             </p>
           </section>
         ) : (
@@ -383,6 +395,10 @@ export function LeaderboardScreen({
                       {board.board === "duel" ? (
                         <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#6e7881]">
                           {row.won}-{row.tied}-{row.lost}
+                        </span>
+                      ) : board.board === "blitzrunde" && row.won > 0 ? (
+                        <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#6e7881]">
+                          🥇 {row.won}
                         </span>
                       ) : null}
                       {row.isYou ? (
