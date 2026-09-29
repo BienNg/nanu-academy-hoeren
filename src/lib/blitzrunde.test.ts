@@ -20,7 +20,11 @@ import {
   seedToRandom,
   speedFactor,
   summarizeAnswers,
+  buildClassProgress,
+  pointsByClass,
+  totalsByUser,
   type AnswerRecord,
+  type BoardResult,
 } from "./blitzrunde";
 
 const lektion = [
@@ -259,4 +263,93 @@ test("heartbeat index must be within the deck", () => {
 test("schema hint only matches missing blitzrunde tables", () => {
   assert.equal(isBlitzrundeSchemaMissing("relation \"public.blitzrunde_sessions\" does not exist"), true);
   assert.equal(isBlitzrundeSchemaMissing("relation \"public.duels\" does not exist"), false);
+});
+
+function result(
+  sessionId: string,
+  userId: string,
+  finalScore: number,
+  rank: number,
+  classKey: string,
+  playedAt: string,
+): BoardResult {
+  return {
+    sessionId,
+    userId,
+    finalScore,
+    rank,
+    classKey,
+    classLabel: classKey.toUpperCase(),
+    lektionLabel: `Lektion ${sessionId.slice(1)}`,
+    playedAt,
+    weekKey: null,
+  };
+}
+
+// Tú plays two rounds in class a, then moves to class b and plays one there.
+const history = [
+  result("r1", "tu", 1000, 1, "a", "2026-09-01T10:00:00Z"),
+  result("r1", "hoa", 800, 2, "a", "2026-09-01T10:00:00Z"),
+  result("r1", "an", 500, 3, "a", "2026-09-01T10:00:00Z"),
+  result("r2", "tu", 900, 2, "a", "2026-09-08T10:00:00Z"),
+  result("r2", "hoa", 1200, 1, "a", "2026-09-08T10:00:00Z"),
+  result("r3", "hoa", 700, 1, "a", "2026-09-15T10:00:00Z"),
+  result("r4", "tu", 600, 2, "b", "2026-09-16T10:00:00Z"),
+  result("r4", "minh", 900, 1, "b", "2026-09-16T10:00:00Z"),
+];
+
+test("totals count points, gold, silver, bronze and rounds", () => {
+  const totals = totalsByUser(history);
+  assert.deepEqual(
+    { ...totals.get("tu"), lastAt: undefined },
+    { points: 2500, gold: 1, silver: 2, bronze: 0, rounds: 3, lastAt: undefined },
+  );
+  assert.equal(totals.get("an")?.bronze, 1);
+  assert.equal(totals.get("hoa")?.gold, 2);
+});
+
+test("points per class keep a switched student's history split", () => {
+  assert.deepEqual(
+    pointsByClass(history, "tu").map((entry) => [entry.classKey, entry.points, entry.rounds]),
+    [
+      ["a", 1900, 2],
+      ["b", 600, 1],
+    ],
+  );
+});
+
+test("class progress runs totals in date order and keeps points in the class they were earned", () => {
+  const progressA = buildClassProgress(history, "a", new Set(["hoa", "an"]));
+  assert.deepEqual(progressA?.rounds.map((round) => round.sessionId), ["r1", "r2", "r3"]);
+  const line = (userId: string) => progressA?.series.find((entry) => entry.userId === userId);
+  assert.deepEqual(line("hoa")?.totals, [800, 2000, 2700]);
+  // An is still in class a but skipped r2 and r3: the line stays flat.
+  assert.deepEqual(line("an")?.totals, [500, 500, 500]);
+  // Tú left class a after r2: the line stops there instead of running flat forever.
+  assert.deepEqual(line("tu")?.totals, [1000, 1900, null]);
+  assert.equal(line("tu")?.member, false);
+
+  const progressB = buildClassProgress(history, "b", new Set(["tu", "minh"]));
+  // In class b Tú starts from zero: points earned in a do not come along.
+  assert.deepEqual(progressB?.series.find((entry) => entry.userId === "tu")?.totals, [600]);
+});
+
+test("a student who joins a class later has no line before their first round there", () => {
+  const rows = [
+    result("r1", "hoa", 800, 1, "a", "2026-09-01T10:00:00Z"),
+    result("r2", "hoa", 700, 2, "a", "2026-09-08T10:00:00Z"),
+    result("r2", "new", 900, 1, "a", "2026-09-08T10:00:00Z"),
+  ];
+  const progress = buildClassProgress(rows, "a", new Set(["hoa", "new"]));
+  assert.deepEqual(progress?.series.find((entry) => entry.userId === "new")?.totals, [null, 900]);
+});
+
+test("progress keeps only the newest rounds but totals include older ones", () => {
+  const rows = [1, 2, 3, 4].map((day) =>
+    result(`r${day}`, "hoa", 100, 1, "a", `2026-09-0${day}T10:00:00Z`),
+  );
+  const progress = buildClassProgress(rows, "a", new Set(["hoa"]), 2);
+  assert.deepEqual(progress?.rounds.map((round) => round.sessionId), ["r3", "r4"]);
+  assert.deepEqual(progress?.series[0]?.totals, [300, 400]);
+  assert.equal(buildClassProgress(rows, "zzz", new Set()), null);
 });

@@ -396,3 +396,178 @@ export function formatRemaining(ms: number): string {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+
+// ── Board & class progress ─────────────────────────────────────────────────
+
+/** One student's result in one finished, ranked round, tagged with the class the round was played in. */
+export type BoardResult = {
+  sessionId: string;
+  userId: string;
+  finalScore: number;
+  rank: number;
+  classKey: string;
+  classLabel: string;
+  lektionLabel: string;
+  /** When the round ran (start time), ISO. */
+  playedAt: string;
+  weekKey: string | null;
+};
+
+export type BlitzTotals = {
+  points: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+  rounds: number;
+  lastAt: string | null;
+};
+
+export function emptyTotals(): BlitzTotals {
+  return { points: 0, gold: 0, silver: 0, bronze: 0, rounds: 0, lastAt: null };
+}
+
+export function totalsByUser(results: readonly BoardResult[]): Map<string, BlitzTotals> {
+  const totals = new Map<string, BlitzTotals>();
+  for (const result of results) {
+    const total = totals.get(result.userId) ?? emptyTotals();
+    total.points += result.finalScore;
+    total.rounds += 1;
+    if (result.rank === 1) total.gold += 1;
+    else if (result.rank === 2) total.silver += 1;
+    else if (result.rank === 3) total.bronze += 1;
+    if (!total.lastAt || result.playedAt > total.lastAt) total.lastAt = result.playedAt;
+    totals.set(result.userId, total);
+  }
+  return totals;
+}
+
+export type ClassPoints = { classKey: string; classLabel: string; points: number; rounds: number };
+
+/** One student's points per class they played in, most points first (label = newest spelling). */
+export function pointsByClass(results: readonly BoardResult[], userId: string): ClassPoints[] {
+  const byClass = new Map<string, ClassPoints & { labelAt: string }>();
+  for (const result of results) {
+    if (result.userId !== userId) continue;
+    const entry = byClass.get(result.classKey) ?? {
+      classKey: result.classKey,
+      classLabel: result.classLabel,
+      points: 0,
+      rounds: 0,
+      labelAt: "",
+    };
+    entry.points += result.finalScore;
+    entry.rounds += 1;
+    if (result.playedAt >= entry.labelAt) {
+      entry.classLabel = result.classLabel;
+      entry.labelAt = result.playedAt;
+    }
+    byClass.set(result.classKey, entry);
+  }
+  return [...byClass.values()]
+    .map((entry) => ({
+      classKey: entry.classKey,
+      classLabel: entry.classLabel,
+      points: entry.points,
+      rounds: entry.rounds,
+    }))
+    .sort((left, right) => right.points - left.points);
+}
+
+export type ProgressRound = { sessionId: string; lektionLabel: string; playedAt: string };
+export type ProgressSeries = { userId: string; totals: (number | null)[]; total: number; member: boolean };
+export type ClassProgress = {
+  classKey: string;
+  classLabel: string;
+  rounds: ProgressRound[];
+  series: ProgressSeries[];
+};
+
+export const PROGRESS_ROUND_LIMIT = 20;
+
+/**
+ * Each student's running Blitzrunde total over the rounds played in one class,
+ * in date order. Points stay with the class they were earned in:
+ * - a line starts at the student's first round in this class (null before,
+ *   so someone who joined later doesn't show a fake flat zero);
+ * - a current member who skips a round stays flat;
+ * - someone who has since left the class stops after their last round here.
+ * Only the newest `limit` rounds are returned, but totals include everything before.
+ */
+export function buildClassProgress(
+  results: readonly BoardResult[],
+  classKey: string,
+  currentMemberIds: ReadonlySet<string>,
+  limit: number = PROGRESS_ROUND_LIMIT,
+): ClassProgress | null {
+  const rows = results.filter((result) => result.classKey === classKey);
+  if (rows.length === 0) return null;
+
+  const roundMap = new Map<string, ProgressRound & { classLabel: string }>();
+  for (const row of rows) {
+    const round = roundMap.get(row.sessionId);
+    if (!round || row.playedAt < round.playedAt) {
+      roundMap.set(row.sessionId, {
+        sessionId: row.sessionId,
+        lektionLabel: row.lektionLabel,
+        playedAt: row.playedAt,
+        classLabel: row.classLabel,
+      });
+    }
+  }
+  const rounds = [...roundMap.values()].sort(
+    (left, right) => left.playedAt.localeCompare(right.playedAt) || left.sessionId.localeCompare(right.sessionId),
+  );
+  const roundIndex = new Map(rounds.map((round, index) => [round.sessionId, index]));
+
+  const playedByUser = new Map<string, Map<number, number>>();
+  for (const row of rows) {
+    const index = roundIndex.get(row.sessionId);
+    if (index == null) continue;
+    const played = playedByUser.get(row.userId) ?? new Map<number, number>();
+    played.set(index, (played.get(index) ?? 0) + row.finalScore);
+    playedByUser.set(row.userId, played);
+  }
+
+  const start = Math.max(0, rounds.length - limit);
+  const series: ProgressSeries[] = [];
+  for (const [userId, played] of playedByUser) {
+    const indexes = [...played.keys()];
+    const first = Math.min(...indexes);
+    const last = Math.max(...indexes);
+    const member = currentMemberIds.has(userId);
+    let running = 0;
+    const totals = rounds.map((_round, index) => {
+      running += played.get(index) ?? 0;
+      if (index < first) return null;
+      if (!member && index > last) return null;
+      return running;
+    });
+    const windowed = totals.slice(start);
+    if (windowed.every((value) => value == null)) continue;
+    series.push({ userId, totals: windowed, total: running, member });
+  }
+  series.sort((left, right) => right.total - left.total || left.userId.localeCompare(right.userId));
+
+  const newest = rounds[rounds.length - 1];
+  return {
+    classKey,
+    classLabel: newest?.classLabel ?? classKey,
+    rounds: rounds.slice(start).map((round) => ({
+      sessionId: round.sessionId,
+      lektionLabel: round.lektionLabel,
+      playedAt: round.playedAt,
+    })),
+    series,
+  };
+}
+
+/** Extra numbers the Blitzrunde board carries on top of the shared leaderboard payload. */
+export type BlitzrundeBoardExtras = {
+  yourSilver: number;
+  yourBronze: number;
+  yourRounds: number;
+  /** Your points in each class you played in, for the current range. */
+  yourByClass: ClassPoints[];
+  /** Running totals for your current class (all time), or null. */
+  progress: (ClassProgress & { names: Record<string, string>; youId: string }) | null;
+};

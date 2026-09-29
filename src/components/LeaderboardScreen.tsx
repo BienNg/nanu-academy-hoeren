@@ -13,6 +13,7 @@ import {
   type LeaderboardScope,
 } from "@/lib/xp";
 import { BLITZRUNDE_SCHEMA_HINT } from "@/lib/blitzrunde";
+import { BlitzrundeProgressChart } from "@/components/blitzrunde/BlitzrundeProgressChart";
 import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
 const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
@@ -80,6 +81,117 @@ function RankBadge({ rank }: { rank: number | null }) {
     >
       {rank}
     </span>
+  );
+}
+
+function MedalCount({ medal, count, label }: { medal: string; count: number; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-0.5 tabular-nums ${count === 0 ? "opacity-45" : ""}`} aria-label={`${count} ${label}`}>
+      <span aria-hidden="true">{medal}</span>
+      {count}
+    </span>
+  );
+}
+
+function BlitzSummary({
+  gold,
+  silver,
+  bronze,
+  rounds,
+  byClass,
+  currentClass,
+}: {
+  gold: number;
+  silver: number;
+  bronze: number;
+  rounds: number;
+  byClass: { classKey: string; classLabel: string; points: number }[];
+  currentClass: string | null;
+}) {
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] font-extrabold text-white">
+        <MedalCount medal="🥇" count={gold} label="huy chương vàng" />
+        <MedalCount medal="🥈" count={silver} label="huy chương bạc" />
+        <MedalCount medal="🥉" count={bronze} label="huy chương đồng" />
+        <span className="text-sky-50">· {rounds} vòng</span>
+      </p>
+      {byClass.length > 1 ? (
+        <p className="text-[12px] font-bold text-sky-50">
+          {byClass
+            .map((entry) => `${entry.classLabel === currentClass ? "Lớp này" : `Lớp ${entry.classLabel}`}: ${entry.points.toLocaleString("vi-VN")}`)
+            .join(" · ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function BlitzRowStats({ row }: { row: LeaderboardPayload["rows"][number] }) {
+  const rounds = row.rounds ?? 0;
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] font-bold text-[#6e7881]">
+      {row.won > 0 ? <MedalCount medal="🥇" count={row.won} label="vàng" /> : null}
+      {(row.silver ?? 0) > 0 ? <MedalCount medal="🥈" count={row.silver ?? 0} label="bạc" /> : null}
+      {(row.bronze ?? 0) > 0 ? <MedalCount medal="🥉" count={row.bronze ?? 0} label="đồng" /> : null}
+      <span>{rounds} vòng</span>
+      {row.former ? (
+        <span className="rounded-full bg-[#f1f3ff] px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#94a3b8]">
+          đã chuyển lớp
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function ClassProgressCard({
+  progress,
+  className,
+}: {
+  progress: NonNullable<NonNullable<LeaderboardPayload["blitzrunde"]>["progress"]>;
+  className: string | null;
+}) {
+  const you = progress.series.find((line) => line.userId === progress.youId);
+  const place = you ? progress.series.indexOf(you) + 1 : null;
+  return (
+    <section className="rounded-[28px] bg-white p-4 shadow-[0_4px_0_0_#dae2fd] sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#fef3c7] text-[#b45309] shadow-[0_3px_0_0_#fcd34d]">
+          <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+            trending_up
+          </span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#b45309]">
+            Tiến bộ · {className ?? "Lớp của bạn"}
+          </p>
+          <p className="text-[17px] font-extrabold leading-tight text-[#131b2e]">
+            {you && place
+              ? `Mọi lúc: hạng ${place} trong lớp · ${you.total.toLocaleString("vi-VN")} điểm`
+              : "Chơi một vòng để có đường của bạn"}
+          </p>
+          <p className="mt-0.5 text-[12px] font-bold text-[#6e7881]">
+            Tổng điểm cộng dồn sau mỗi vòng · {progress.rounds.length} vòng gần nhất
+          </p>
+        </div>
+      </div>
+      {progress.rounds.length >= 2 ? (
+        <div className="mt-3">
+          <BlitzrundeProgressChart
+            rounds={progress.rounds}
+            series={progress.series}
+            names={progress.names}
+            youId={progress.youId}
+            variant="student"
+            height={200}
+          />
+        </div>
+      ) : (
+        <p className="mt-3 rounded-2xl bg-[#f1f3ff] px-4 py-3 text-[13px] font-bold text-[#6e7881]">
+          Biểu đồ hiện khi lớp đã chơi ít nhất 2 vòng.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -272,6 +384,9 @@ export function LeaderboardScreen({
           <div className="relative z-10 flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-sky-100">
+                {board.board === "blitzrunde" && scope === "class" && board.className
+                  ? `${board.className} · `
+                  : ""}
                 {range === "week" ? "Tuần này" : "Mọi lúc"}
               </p>
               <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
@@ -291,8 +406,15 @@ export function LeaderboardScreen({
                 <p className="mt-2 text-[13px] font-bold text-sky-50">
                   {board.yourWon} thắng · {board.yourTied} hòa · {board.yourLost} thua
                 </p>
-              ) : board.board === "blitzrunde" && board.yourWon > 0 ? (
-                <p className="mt-2 text-[13px] font-bold text-sky-50">{board.yourWon} lần về nhất</p>
+              ) : board.board === "blitzrunde" && board.blitzrunde ? (
+                <BlitzSummary
+                  gold={board.yourWon}
+                  silver={board.blitzrunde.yourSilver}
+                  bronze={board.blitzrunde.yourBronze}
+                  rounds={board.blitzrunde.yourRounds}
+                  byClass={board.blitzrunde.yourByClass}
+                  currentClass={board.className}
+                />
               ) : null}
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 shadow-[0_3px_0_0_rgba(3,105,161,0.45)]">
@@ -364,6 +486,17 @@ export function LeaderboardScreen({
           </section>
         ) : (
           <>
+          {board.board === "blitzrunde" && scope === "class" && board.blitzrunde?.progress ? (
+            <ClassProgressCard progress={board.blitzrunde.progress} className={board.className} />
+          ) : null}
+          {board.board === "blitzrunde" && scope === "class" && board.className ? (
+            <p className="-mb-1 flex items-center gap-1.5 px-3 text-[11px] font-extrabold uppercase tracking-wide text-[#94a3b8]">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+                groups
+              </span>
+              Lớp {board.className} · chỉ tính các vòng chơi trong lớp này
+            </p>
+          ) : null}
           {board.board === "duel" ? (
             <p className="-mb-1 px-3 text-[11px] font-extrabold uppercase tracking-wide text-[#94a3b8]">
               Thắng-Hòa-Thua, rồi XP đấu
@@ -396,10 +529,6 @@ export function LeaderboardScreen({
                         <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#6e7881]">
                           {row.won}-{row.tied}-{row.lost}
                         </span>
-                      ) : board.board === "blitzrunde" && row.won > 0 ? (
-                        <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#6e7881]">
-                          🥇 {row.won}
-                        </span>
                       ) : null}
                       {row.isYou ? (
                         <span className="shrink-0 rounded-full bg-[#0284c7] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
@@ -407,6 +536,7 @@ export function LeaderboardScreen({
                         </span>
                       ) : null}
                     </span>
+                    {board.board === "blitzrunde" ? <BlitzRowStats row={row} /> : null}
                   </span>
                   <span className="flex shrink-0 items-center gap-0.5 text-[16px] font-extrabold tabular-nums text-[#f59e0b]">
                     <span

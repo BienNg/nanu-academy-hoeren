@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
+import {
+  buildClassProgress,
+  emptyTotals,
+  pointsByClass,
+  totalsByUser,
+  type BlitzrundeBoardExtras,
+} from "@/lib/blitzrunde";
 import { listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
@@ -912,8 +919,13 @@ export async function getDuelLeaderboard(input: {
 
 /**
  * Blitzrunde board: points from finished, ranked rounds (never XP). `xp` holds
- * the points and `won` the rounds this student finished first in. Same class /
- * global scope and week / all-time range as the other boards.
+ * the points, `won` / `silver` / `bronze` the placements, `rounds` how many
+ * ranked rounds were played.
+ *
+ * Points stay with the class a round was played in. The class board counts
+ * only rounds played in the viewer's current class: a student who moved in
+ * starts from zero there, and one who moved out stays listed (as `former`)
+ * with the points they earned here. The global board adds everything up.
  */
 export async function getBlitzrundeLeaderboard(input: {
   viewerId: string;
@@ -933,56 +945,67 @@ export async function getBlitzrundeLeaderboard(input: {
   const supabase = getSupabaseAdmin();
   if (!supabase) return blank;
 
-  const results = await listRankedResults({
-    weekKey: input.range === "week" ? weekKey(now) : undefined,
-    now,
-  });
-  if (!results) return blank;
-
-  const totals = new Map<string, { xp: number; reachedAt: string | null; won: number }>();
-  for (const result of results) {
-    const total = totals.get(result.userId) ?? { xp: 0, reachedAt: null, won: 0 };
-    total.xp += result.finalScore;
-    if (result.won) total.won += 1;
-    if (!total.reachedAt || result.submittedAt > total.reachedAt) total.reachedAt = result.submittedAt;
-    totals.set(result.userId, total);
-  }
+  const all = await listRankedResults({ now });
+  if (!all) return blank;
+  const currentWeek = weekKey(now);
+  const inRange = input.range === "week" ? all.filter((row) => row.weekKey === currentWeek) : all;
 
   const profiles = await listBoardProfiles(supabase);
-  const people: BoardPerson[] = profiles.map((row) => {
-    const total = totals.get(row.user_id);
+  const classOf = new Map(
+    profiles.map((row) => [row.user_id, leaderboardClassKey(readClassName(row.class_name))]),
+  );
+  const viewerClassKey = classOf.get(input.viewerId) ?? "";
+  const classScope = input.scope === "class" && viewerClassKey.length > 0;
+  const counted = classScope ? inRange.filter((row) => row.classKey === viewerClassKey) : inRange;
+  const totals = totalsByUser(counted);
+
+  const toPerson = (row: (typeof profiles)[number]): BoardPerson => {
+    const total = totals.get(row.user_id) ?? emptyTotals();
     const className = readClassName(row.class_name);
+    const ownKey = leaderboardClassKey(className);
+    const former = classScope && ownKey !== viewerClassKey;
     return {
       userId: row.user_id,
       name: leaderboardDisplayName(row.name),
-      classKey: leaderboardClassKey(className),
+      // On the class board, anyone who earned points in this class is ranked in it.
+      classKey: classScope ? viewerClassKey : ownKey,
       className,
       isAdmin: isAdminUser({
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,
       }),
-      xp: total?.xp ?? 0,
-      reachedAt: total?.reachedAt ?? null,
-      won: total?.won ?? 0,
+      xp: total.points,
+      reachedAt: total.lastAt,
+      won: total.gold,
+      silver: total.silver,
+      bronze: total.bronze,
+      rounds: total.rounds,
+      former,
       image: boardImage(row, input.viewerId, input.viewerImage),
     };
-  });
+  };
+  const people: BoardPerson[] = profiles
+    .filter((row) => !classScope || classOf.get(row.user_id) === viewerClassKey || totals.has(row.user_id))
+    .map(toPerson);
   if (!people.some((person) => person.userId === input.viewerId)) {
-    const total = totals.get(input.viewerId);
+    const total = totals.get(input.viewerId) ?? emptyTotals();
     people.push({
       userId: input.viewerId,
       name: "Học viên",
       classKey: "",
       className: null,
       isAdmin: false,
-      xp: total?.xp ?? 0,
-      reachedAt: total?.reachedAt ?? null,
-      won: total?.won ?? 0,
+      xp: total.points,
+      reachedAt: total.lastAt,
+      won: total.gold,
+      silver: total.silver,
+      bronze: total.bronze,
+      rounds: total.rounds,
       image: googleProfileImage(input.viewerImage),
     });
   }
 
-  return assembleLeaderboard({
+  const payload = assembleLeaderboard({
     people,
     viewerId: input.viewerId,
     scope: input.scope,
@@ -990,6 +1013,39 @@ export async function getBlitzrundeLeaderboard(input: {
     now,
     board: "blitzrunde",
   });
+
+  const yours = totals.get(input.viewerId) ?? emptyTotals();
+  let progress: BlitzrundeBoardExtras["progress"] = null;
+  if (viewerClassKey) {
+    const members = new Set(
+      profiles.filter((row) => classOf.get(row.user_id) === viewerClassKey).map((row) => row.user_id),
+    );
+    const built = buildClassProgress(all, viewerClassKey, members);
+    if (built) {
+      // Classmates' account ids never leave the server; the chart only needs a stable key per line.
+      const nameById = new Map(profiles.map((row) => [row.user_id, leaderboardDisplayName(row.name)]));
+      const names: Record<string, string> = {};
+      let youId = "";
+      const series = built.series.map((line, index) => {
+        const key = `s${index}`;
+        names[key] = nameById.get(line.userId) ?? leaderboardDisplayName(null);
+        if (line.userId === input.viewerId) youId = key;
+        return { ...line, userId: key };
+      });
+      progress = { ...built, series, names, youId };
+    }
+  }
+
+  return {
+    ...payload,
+    blitzrunde: {
+      yourSilver: yours.silver,
+      yourBronze: yours.bronze,
+      yourRounds: yours.rounds,
+      yourByClass: pointsByClass(inRange, input.viewerId),
+      progress,
+    },
+  };
 }
 
 export type AdminListeningXpRow = {

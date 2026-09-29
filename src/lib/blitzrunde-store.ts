@@ -17,6 +17,7 @@ import {
   type BlitzrundeCard,
   type BlitzrundeEndReason,
   type BlitzrundeFinishReason,
+  type BoardResult,
   type BlitzrundeKind,
   type BlitzrundeSourceClip,
   type BlitzrundeStatus,
@@ -827,46 +828,37 @@ export async function listAdminRounds(
 
 // ── Leaderboard rows ────────────────────────────────────────────────────────
 
-export type RankedResultRow = {
-  sessionId: string;
-  userId: string;
-  finalScore: number;
-  submittedAt: string;
-  won: boolean;
-};
-
 /**
- * Every submitted result from finished, ranked rounds (optionally one week).
- * `won` marks the student ranked first in their round. Unranked practice
- * rounds (one student) never reach the board.
+ * Every submitted result from finished, ranked rounds, each tagged with the
+ * class the round was played in (not the student's class today), the Lektion
+ * and its placement. Unranked practice rounds (one student) never count, and
+ * a running round only counts once it is over, because its winner can still
+ * change. Callers filter by week or class in memory.
  */
-export async function listRankedResults(input: {
-  weekKey?: string;
-  now?: Date;
-}): Promise<RankedResultRow[] | null> {
+export async function listRankedResults(input: { now?: Date } = {}): Promise<BoardResult[] | null> {
   const now = input.now ?? new Date();
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
-  let query = supabase
+  const { data, error } = await supabase
     .from(PARTICIPANTS_TABLE)
-    .select(PARTICIPANT_COLUMNS)
+    .select(`${PARTICIPANT_COLUMNS}, week_key`)
     .not("submitted_at", "is", null);
-  if (input.weekKey) query = query.eq("week_key", input.weekKey);
-  const { data, error } = await query;
   if (error) {
     logBlitz(error.message);
     return null;
   }
-  const participants = (data ?? []).flatMap((row) => {
-    const participant = participantFromRow(row);
-    return participant ? [participant] : [];
+  const participants = (data ?? []).flatMap((raw) => {
+    const participant = participantFromRow(raw);
+    if (!participant) return [];
+    const weekKeyValue = (raw as { week_key?: unknown }).week_key;
+    return [{ ...participant, week_key: typeof weekKeyValue === "string" ? weekKeyValue : null }];
   });
   if (participants.length === 0) return [];
 
   const sessionIds = [...new Set(participants.map((row) => row.session_id))];
   const { data: sessions, error: sessionsError } = await supabase
     .from(SESSIONS_TABLE)
-    .select("id, status, ends_at")
+    .select("id, status, class_key, class_label, level_slug, chapter_slug, created_at, starts_at, ends_at")
     .in("id", sessionIds)
     .eq("ranked", true)
     .in("status", ["active", "ended"]);
@@ -874,31 +866,41 @@ export async function listRankedResults(input: {
     logBlitz(sessionsError.message);
     return null;
   }
-  // A running round's winner can still change, so it only counts once over
-  // (an "active" row whose clock already ran out is over, just not re-read yet).
-  const rankedIds = new Set(
-    ((sessions ?? []) as { id?: unknown; status?: unknown; ends_at?: unknown }[]).flatMap((row) => {
-      if (typeof row.id !== "string") return [];
-      if (row.status === "ended") return [row.id];
-      const endsAt = typeof row.ends_at === "string" ? Date.parse(row.ends_at) : NaN;
-      return Number.isFinite(endsAt) && endsAt <= now.getTime() ? [row.id] : [];
-    }),
-  );
 
-  const bySession = new Map<string, ParticipantRow[]>();
+  type SessionInfo = { classKey: string; classLabel: string; lektionLabel: string; playedAt: string };
+  const finished = new Map<string, SessionInfo>();
+  for (const raw of (sessions ?? []) as Record<string, unknown>[]) {
+    const id = str(raw.id);
+    if (!id) continue;
+    const endsAt = str(raw.ends_at);
+    const over =
+      raw.status === "ended" || (endsAt != null && Number.isFinite(Date.parse(endsAt)) && Date.parse(endsAt) <= now.getTime());
+    if (!over) continue;
+    const labels = lektionLabel(str(raw.level_slug) ?? "", str(raw.chapter_slug) ?? "");
+    finished.set(id, {
+      classKey: str(raw.class_key) ?? "",
+      classLabel: str(raw.class_label) ?? "",
+      lektionLabel: `${labels.level} ${labels.lektion}`,
+      playedAt: str(raw.starts_at) ?? str(raw.created_at) ?? "",
+    });
+  }
+
+  const bySession = new Map<string, typeof participants>();
   for (const row of participants) {
-    if (!rankedIds.has(row.session_id)) continue;
+    if (!finished.has(row.session_id)) continue;
     const list = bySession.get(row.session_id) ?? [];
     list.push(row);
     bySession.set(row.session_id, list);
   }
 
-  const results: RankedResultRow[] = [];
+  const results: BoardResult[] = [];
   for (const [sessionId, rows] of bySession) {
+    const info = finished.get(sessionId);
+    if (!info) continue;
+    const weekByUser = new Map(rows.map((row) => [row.user_id, row.week_key]));
     const ranked = rankParticipants(
       rows.map((row) => ({
         userId: row.user_id,
-        submittedAt: row.submitted_at ?? "",
         finalScore: row.final_score ?? 0,
         answered: row.answered ?? 0,
         correct: row.correct ?? 0,
@@ -912,8 +914,12 @@ export async function listRankedResults(input: {
         sessionId,
         userId: entry.userId,
         finalScore: entry.finalScore,
-        submittedAt: entry.submittedAt,
-        won: entry.rank === 1,
+        rank: entry.rank,
+        classKey: info.classKey,
+        classLabel: info.classLabel,
+        lektionLabel: info.lektionLabel,
+        playedAt: info.playedAt,
+        weekKey: weekByUser.get(entry.userId) ?? null,
       });
     }
   }

@@ -147,3 +147,25 @@ body {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Blitzrunde progress chart: fade up once instead of per-line draw (which breaks on re-render). */
+@keyframes blitz-chart-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.blitz-chart-in {
+  animation: blitz-chart-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blitz-chart-in {
+    animation: none;
+  }
+}

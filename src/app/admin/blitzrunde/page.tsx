@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { AdminBlitzrunde, type BlitzrundeLevelOption } from "@/components/admin/AdminBlitzrunde";
-import { listAdminClasses, toAdminUserRow, withSessionIdentity } from "@/lib/admin-overview";
+import {
+  AdminBlitzrunde,
+  type AdminClassProgress,
+  type BlitzrundeLevelOption,
+} from "@/components/admin/AdminBlitzrunde";
+import { classKey, listAdminClasses, toAdminUserRow, withSessionIdentity } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
-import { listAdminRounds } from "@/lib/blitzrunde-store";
+import { buildClassProgress } from "@/lib/blitzrunde";
+import { listAdminRounds, listRankedResults } from "@/lib/blitzrunde-store";
 import { getAvailableChapters, getAvailableLevels } from "@/lib/levels";
 import { isProgressStoreConfigured, listAllUserProgress } from "@/lib/progress-store";
 
@@ -32,6 +37,21 @@ export default async function AdminBlitzrundePage() {
 
   const rounds = storeConfigured ? await listAdminRounds() : { ready: false, rounds: [] };
 
+  // Running totals per class. Results stay in the class the round was played in.
+  const results = storeConfigured && rounds.ready ? ((await listRankedResults()) ?? []) : [];
+  const names = Object.fromEntries(rows.map((row) => [row.userId, row.displayName]));
+  const progress: AdminClassProgress[] = [...new Set(results.map((result) => result.classKey))]
+    .flatMap((key) => {
+      const members = new Set(rows.filter((row) => classKey(row.className) === key).map((row) => row.userId));
+      const built = buildClassProgress(results, key, members);
+      if (!built) return [];
+      const lineNames = Object.fromEntries(built.series.map((line) => [line.userId, names[line.userId] ?? "Student"]));
+      return [{ ...built, names: lineNames }];
+    })
+    .sort((left, right) =>
+      (right.rounds[right.rounds.length - 1]?.playedAt ?? "").localeCompare(left.rounds[left.rounds.length - 1]?.playedAt ?? ""),
+    );
+
   return (
     <AdminBlitzrunde
       classes={classes}
@@ -40,6 +60,7 @@ export default async function AdminBlitzrundePage() {
       roundsReady={rounds.ready}
       schemaHint={"hint" in rounds ? rounds.hint : undefined}
       storeConfigured={storeConfigured}
+      progress={progress}
     />
   );
 }

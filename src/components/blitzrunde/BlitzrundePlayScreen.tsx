@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { McCard } from "@/components/session/McCard";
 import { PairingCard } from "@/components/session/PairingCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
+import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
 import {
   HEARTBEAT_MS,
   formatRemaining,
@@ -17,7 +18,7 @@ import {
   type BlitzrundeFinishReason,
   type BlitzrundeKind,
 } from "@/lib/blitzrunde";
-import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
+import type { StudentRoundView } from "@/lib/blitzrunde-store";
 import { checkMc } from "@/lib/multiple-choice";
 import { checkOrder } from "@/lib/sentence-order";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
@@ -136,52 +137,6 @@ function CardView({
       onSolved={() => onAnswer("pairing", -1, null)}
       onNext={() => {}}
     />
-  );
-}
-
-function Standings({ standings, youId }: { standings: ParticipantView[]; youId: string | null }) {
-  const ranked = standings.filter((entry) => entry.rank != null);
-  const missing = standings.filter((entry) => entry.rank == null);
-  return (
-    <ol className="flex flex-col gap-2">
-      {ranked.map((entry) => {
-        const you = entry.userId === youId;
-        const medal = entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : null;
-        return (
-          <li
-            key={entry.userId}
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${
-              you ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]" : "bg-white shadow-[0_3px_0_0_#e2e7ff]"
-            }`}
-          >
-            <span className="w-8 text-center text-[18px] font-extrabold tabular-nums text-[#6e7881]">
-              {medal ?? entry.rank}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-extrabold text-[#131b2e]">
-                {entry.name}
-                {you ? " (bạn)" : ""}
-              </span>
-              <span className="block text-[12px] font-bold text-[#6e7881]">
-                {entry.correct}/{entry.answered} đúng
-                {entry.completedDeck ? " · xong hết thẻ" : ""}
-                {entry.longestStreak > 1 ? ` · chuỗi ${entry.longestStreak}` : ""}
-              </span>
-            </span>
-            <span className="text-[18px] font-extrabold tabular-nums text-[#131b2e]">
-              {entry.finalScore.toLocaleString("vi-VN")}
-            </span>
-          </li>
-        );
-      })}
-      {missing.map((entry) => (
-        <li key={entry.userId} className="flex items-center gap-3 rounded-2xl bg-[#f1f3ff] px-4 py-3 opacity-70">
-          <span className="w-8 text-center text-[#6e7881]">—</span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-bold text-[#6e7881]">{entry.name}</span>
-          <span className="text-[12px] font-bold text-[#6e7881]">không có kết quả</span>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -466,11 +421,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
       );
     } else if (status === "ended" && round.standings) {
       body = (
-        <div className="flex flex-col gap-4 py-4">
-          <h2 className="text-center text-[22px] font-extrabold">Kết quả</h2>
-          <Standings standings={round.standings} youId={null} />
-          <HomeButton />
-        </div>
+        <BlitzrundeResults standings={round.standings} youId={null} ranked={round.meta.ranked} fallbackScore={0} />
       );
     } else {
       body = (
@@ -503,23 +454,13 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
   } else if (playing && flash) {
     body = <FlashPanel flash={flash} />;
   } else if (status === "ended" && round.standings) {
-    const you = round.standings.find((entry) => entry.userId === round.you?.userId) ?? round.you;
     body = (
-      <div className="flex flex-col gap-4 py-4">
-        <section className="rounded-[28px] bg-gradient-to-br from-[#f59e0b] to-[#fbbf24] p-5 text-center text-white shadow-[0_6px_0_0_#b45309]">
-          <p className="text-[13px] font-bold uppercase tracking-wider text-amber-50">
-            {round.meta.ranked ? "Kết quả" : "Luyện tập (không xếp hạng)"}
-          </p>
-          <p className="mt-2 text-[44px] font-extrabold leading-none tabular-nums">
-            {(you?.finalScore ?? score).toLocaleString("vi-VN")}
-          </p>
-          <p className="mt-2 text-[15px] font-extrabold">
-            {you?.rank != null ? `Hạng ${you.rank}/${round.standings.filter((entry) => entry.rank != null).length}` : "Chưa có kết quả"}
-          </p>
-        </section>
-        <Standings standings={round.standings} youId={round.you?.userId ?? null} />
-        <HomeButton />
-      </div>
+      <BlitzrundeResults
+        standings={round.standings}
+        youId={round.you?.userId ?? null}
+        ranked={round.meta.ranked}
+        fallbackScore={score}
+      />
     );
   } else {
     const reasonLine =

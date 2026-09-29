@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { BlitzrundeProgressChart } from "@/components/blitzrunde/BlitzrundeProgressChart";
 import {
   cancelBlitzrunde,
   createBlitzrunde,
@@ -21,6 +22,7 @@ import {
   type AnswerRecord,
   type BlitzrundeCard,
   type BlitzrundeKind,
+  type ClassProgress,
   type ParticipantStatus,
 } from "@/lib/blitzrunde";
 import type {
@@ -29,6 +31,8 @@ import type {
   DeckPreview,
   ParticipantView,
 } from "@/lib/blitzrunde-store";
+
+export type AdminClassProgress = ClassProgress & { names: Record<string, string> };
 
 export type BlitzrundeLevelOption = {
   slug: string;
@@ -593,6 +597,60 @@ function History({
   );
 }
 
+function ClassProgressSection({ progress }: { progress: AdminClassProgress[] }) {
+  const [classKey, setClassKey] = useState(progress[0]?.classKey ?? "");
+  const current = progress.find((entry) => entry.classKey === classKey) ?? progress[0];
+  if (!current) {
+    return (
+      <Card title="Class progress">
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          Charts appear after a class has finished a ranked round (2+ students).
+        </p>
+      </Card>
+    );
+  }
+  const leftCount = current.series.filter((line) => !line.member).length;
+  return (
+    <Card
+      title="Class progress"
+      hint={`Running total of Blitzrunde points per student, one point per ranked round (newest ${current.rounds.length}, by date). Points stay in the class they were earned in${leftCount > 0 ? "; students who moved away stop at their last round here" : ""}. Tap a name to highlight it.`}
+      trailing={
+        progress.length > 1 ? (
+          <select
+            className="h-9 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-space-12 font-body-sm text-body-sm text-on-surface"
+            value={current.classKey}
+            onChange={(event) => setClassKey(event.target.value)}
+            aria-label="Class"
+          >
+            {progress.map((entry) => (
+              <option key={entry.classKey} value={entry.classKey}>
+                {entry.classLabel}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="font-label-md text-label-md font-semibold text-on-surface">{current.classLabel}</span>
+        )
+      }
+    >
+      {current.rounds.length < 2 ? (
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          Only one ranked round so far — the line chart starts with the second round.
+        </p>
+      ) : (
+        <BlitzrundeProgressChart
+          key={current.classKey}
+          rounds={current.rounds}
+          series={current.series}
+          names={current.names}
+          variant="admin"
+          height={300}
+        />
+      )}
+    </Card>
+  );
+}
+
 export function AdminBlitzrunde({
   classes,
   levels,
@@ -600,6 +658,7 @@ export function AdminBlitzrunde({
   roundsReady,
   schemaHint,
   storeConfigured,
+  progress,
 }: {
   classes: AdminClassOption[];
   levels: BlitzrundeLevelOption[];
@@ -607,6 +666,7 @@ export function AdminBlitzrunde({
   roundsReady: boolean;
   schemaHint?: string;
   storeConfigured: boolean;
+  progress: AdminClassProgress[];
 }) {
   const [rounds, setRounds] = useState(initialRounds);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -722,6 +782,8 @@ export function AdminBlitzrunde({
           </button>
         </Banner>
       ) : null}
+
+      <ClassProgressSection progress={progress} />
 
       <History rounds={rounds} selectedId={selectedId} onSelect={setSelectedId} />
     </main>

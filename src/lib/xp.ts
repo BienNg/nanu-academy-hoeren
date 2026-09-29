@@ -8,6 +8,8 @@
  * Another pass of the same part on the same day pays nothing.
  */
 
+import type { BlitzrundeBoardExtras } from "./blitzrunde";
+
 export const REVIEW_DAILY_CAP = 30;
 export const MIN_MS_PER_CLIP = 2000;
 export const GLOBAL_LEADERBOARD_LIMIT = 50;
@@ -47,6 +49,12 @@ export type BoardPerson = {
   won?: number;
   tied?: number;
   lost?: number;
+  /** Blitzrunde board only: 2nd / 3rd places and rounds played. */
+  silver?: number;
+  bronze?: number;
+  rounds?: number;
+  /** Blitzrunde class board only: earned points here but has since moved to another class. */
+  former?: boolean;
   /** Google profile photo, or null when this person has none. */
   image?: string | null;
 };
@@ -66,6 +74,10 @@ export type LeaderboardRow = {
   tied: number;
   lost: number;
   image: string | null;
+  silver?: number;
+  bronze?: number;
+  rounds?: number;
+  former?: boolean;
 };
 
 export type LeaderboardPayload = {
@@ -83,6 +95,8 @@ export type LeaderboardPayload = {
   board: LeaderboardBoard;
   viewerIsAdmin: boolean;
   rows: LeaderboardRow[];
+  /** Only on the Blitzrunde board. */
+  blitzrunde?: BlitzrundeBoardExtras;
 };
 
 function pad(value: number): string {
@@ -396,6 +410,10 @@ function comparePeople(left: BoardPerson, right: BoardPerson, board: Leaderboard
   if (board !== "xp" && (left.won ?? 0) !== (right.won ?? 0)) {
     return (right.won ?? 0) - (left.won ?? 0);
   }
+  if (board === "blitzrunde") {
+    if ((left.silver ?? 0) !== (right.silver ?? 0)) return (right.silver ?? 0) - (left.silver ?? 0);
+    if ((left.bronze ?? 0) !== (right.bronze ?? 0)) return (right.bronze ?? 0) - (left.bronze ?? 0);
+  }
   if (left.xp > 0) {
     const leftTime = left.reachedAt ? Date.parse(left.reachedAt) : Number.POSITIVE_INFINITY;
     const rightTime = right.reachedAt ? Date.parse(right.reachedAt) : Number.POSITIVE_INFINITY;
@@ -479,6 +497,10 @@ export function assembleLeaderboard(input: {
       tied: entry.person.tied ?? 0,
       lost: entry.person.lost ?? 0,
       image: entry.person.image ?? null,
+      ...(entry.person.silver != null ? { silver: entry.person.silver } : {}),
+      ...(entry.person.bronze != null ? { bronze: entry.person.bronze } : {}),
+      ...(entry.person.rounds != null ? { rounds: entry.person.rounds } : {}),
+      ...(entry.person.former ? { former: true } : {}),
     })),
   };
 }
