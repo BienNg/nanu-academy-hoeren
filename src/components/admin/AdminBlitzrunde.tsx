@@ -13,6 +13,7 @@ import {
 } from "@/app/admin/blitzrunde/actions";
 import type { AdminClassOption } from "@/lib/admin-overview";
 import {
+  LATE_SUBMIT_MS,
   MIN_RANKED,
   THIN_DECK_WARNING,
   formatRemaining,
@@ -85,6 +86,15 @@ function formatSeconds(ms: number): string {
 
 function isLive(status: string): boolean {
   return status === "lobby" || status === "active";
+}
+
+/** Phones upload after the teacher ends. Keep reading until that window closes or every result is in. */
+function resultsStillOpen(round: AdminRoundView | null, selectedId: string | null): boolean {
+  if (!round || round.meta.id !== selectedId || round.meta.status !== "ended" || !round.meta.endedAt) return false;
+  if (round.participants.every((participant) => participant.submittedAt)) return false;
+  const ended = Date.parse(round.meta.endedAt);
+  if (!Number.isFinite(ended)) return false;
+  return Date.now() - ended < LATE_SUBMIT_MS;
 }
 
 function cardSummary(card: BlitzrundeCard | undefined): string {
@@ -614,7 +624,11 @@ export function AdminBlitzrunde({
   }, []);
 
   const selectedStatus = round?.meta.id === selectedId ? round.meta.status : null;
-  const polling = selectedStatus == null || isLive(selectedStatus);
+  const polling = selectedStatus == null || isLive(selectedStatus) || resultsStillOpen(round, selectedId);
+  const submittedCount =
+    round && round.meta.id === selectedId
+      ? round.participants.filter((participant) => participant.submittedAt).length
+      : 0;
 
   useEffect(() => {
     if (!selectedId) return;
@@ -652,10 +666,10 @@ export function AdminBlitzrunde({
     };
   }, [selectedStatus]);
 
-  // When a live round closes, the history row (winner, counts) is out of date.
+  // History (winner, finished count) updates when the round closes and again as late results arrive.
   useEffect(() => {
     if (selectedStatus && !isLive(selectedStatus)) refreshRounds();
-  }, [selectedStatus, refreshRounds]);
+  }, [selectedStatus, submittedCount, refreshRounds]);
 
   const liveRound = useMemo(() => rounds.find((entry) => isLive(entry.status)), [rounds]);
   const shown = round && round.meta.id === selectedId ? round : null;

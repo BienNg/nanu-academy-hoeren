@@ -194,6 +194,26 @@ test("participant status reflects submissions and heartbeats", () => {
   assert.equal(participantStatus({ sessionStatus: "active", submittedAt: fresh, lastSeenAt: old, now }), "finished");
   assert.equal(participantStatus({ sessionStatus: "ended", submittedAt: null, lastSeenAt: old, now }), "disconnected");
   assert.equal(participantStatus({ sessionStatus: "ended", submittedAt: null, lastSeenAt: null, now }), "no_result");
+  assert.equal(
+    participantStatus({
+      sessionStatus: "ended",
+      submittedAt: null,
+      lastSeenAt: fresh,
+      endedAt: "2026-09-29T09:59:30Z",
+      now,
+    }),
+    "playing",
+  );
+  assert.equal(
+    participantStatus({
+      sessionStatus: "ended",
+      submittedAt: null,
+      lastSeenAt: fresh,
+      endedAt: "2026-09-29T09:57:00Z",
+      now,
+    }),
+    "disconnected",
+  );
 });
 
 test("remaining time counts down from ends_at and never goes negative", () => {

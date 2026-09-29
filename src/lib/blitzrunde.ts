@@ -18,6 +18,8 @@ export const BLITZRUNDE_DURATION_MS = 7 * 60 * 1000;
 export const HEARTBEAT_MS = 15_000;
 /** Three missed heartbeats and a student counts as disconnected. */
 export const STALE_MS = 45_000;
+/** After the teacher ends a round, phones still have this long to upload a result. */
+export const LATE_SUBMIT_MS = 2 * 60 * 1000;
 export const MIN_RANKED = 2;
 /** Below this many cards the round is short; the admin picker warns. */
 export const THIN_DECK_WARNING = 10;
@@ -284,6 +286,7 @@ export function participantStatus(input: {
   sessionStatus: BlitzrundeStatus;
   submittedAt: string | null;
   lastSeenAt: string | null;
+  endedAt?: string | null;
   now: Date;
 }): ParticipantStatus {
   if (input.submittedAt) return "finished";
@@ -291,7 +294,19 @@ export function participantStatus(input: {
   if (input.sessionStatus === "active") {
     return isStale(input.lastSeenAt, input.now) ? "disconnected" : "playing";
   }
+  // The phone only notices an early end on its next heartbeat, then uploads.
+  // Until that lands, a student who was just seen is still in the round.
+  if (input.sessionStatus === "ended" && input.lastSeenAt && withinLateSubmit(input.endedAt, input.now)) {
+    return "playing";
+  }
   return input.lastSeenAt ? "disconnected" : "no_result";
+}
+
+function withinLateSubmit(endedAt: string | null | undefined, now: Date): boolean {
+  if (!endedAt) return false;
+  const closed = Date.parse(endedAt);
+  if (!Number.isFinite(closed)) return false;
+  return now.getTime() - closed <= LATE_SUBMIT_MS;
 }
 
 /** Milliseconds left in the round, never negative. */

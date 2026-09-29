@@ -7,6 +7,7 @@ import {
   computeEndsAt,
   deckKindCounts,
   isBlitzrundeSchemaMissing,
+  LATE_SUBMIT_MS,
   parseHeartbeatIndex,
   parseSubmitBundle,
   participantStatus,
@@ -33,8 +34,6 @@ const SESSION_COLUMNS =
   "id, created_by, class_key, class_label, level_slug, chapter_slug, seed, deck, status, ranked, created_at, starts_at, ends_at, ended_at, ended_reason";
 const PARTICIPANT_COLUMNS =
   "session_id, user_id, joined_at, last_seen_at, last_seen_index, final_score, answered, correct, completed_deck, avg_ms, longest_streak, finish_reason, submitted_at";
-/** A result that arrives this long after the round closed still counts (slow classroom wifi). */
-const LATE_SUBMIT_MS = 2 * 60 * 1000;
 
 export type StoreError = "unavailable" | "not_found" | "forbidden" | "conflict" | "invalid";
 export type StoreResult<T> = { ok: true; value: T } | { ok: false; error: StoreError; message?: string };
@@ -640,6 +639,7 @@ function toParticipantViews(
       sessionStatus: session.status,
       submittedAt: row.submitted_at,
       lastSeenAt: row.last_seen_at,
+      endedAt: session.ended_at,
       now,
     }),
     joinedAt: row.joined_at,
