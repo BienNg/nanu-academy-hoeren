@@ -28,3 +28,31 @@ alter table public.xp_awards enable row level security;
 
 revoke all on table public.xp_awards from anon, authenticated;
 grant select, insert, update, delete on table public.xp_awards to service_role;
+
+-- Leaderboard totals, summed in Postgres so the API reads one row per learner
+-- instead of every award ever given. Pass null for all time, or a week_key.
+-- The app falls back to summing rows itself until this function exists.
+create or replace function public.xp_leaderboard_totals(p_week_key text default null)
+returns table (
+  user_id text,
+  xp bigint,
+  reached_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    user_id,
+    sum(xp)::bigint as xp,
+    max(created_at) as reached_at
+  from public.xp_awards
+  where xp > 0
+    and (p_week_key is null or week_key = p_week_key)
+  group by user_id;
+$$;
+
+revoke all on function public.xp_leaderboard_totals(text) from public;
+revoke all on function public.xp_leaderboard_totals(text) from anon, authenticated;
+grant execute on function public.xp_leaderboard_totals(text) to service_role;

@@ -183,6 +183,7 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
       .from(XP_TABLE)
       .select("xp, day_key, week_key")
       .eq("user_id", userId)
+      .order("run_id")
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
       if (!isXpSchemaMissing(error.message)) {
@@ -243,6 +244,7 @@ async function listUserDuelXp(
       .from(DUEL_XP_TABLE)
       .select("xp, day_key, week_key")
       .eq("user_id", userId)
+      .order("duel_id")
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
       if (!isDuelSchemaMissing(error.message)) {
@@ -273,6 +275,8 @@ async function listDuelXpRows(
     let query = supabase
       .from(DUEL_XP_TABLE)
       .select("user_id, xp, outcome, created_at, day_key, week_key")
+      .order("duel_id")
+      .order("user_id")
       .range(from, from + PAGE_SIZE - 1);
     if (range === "week") query = query.eq("week_key", weekKey(now));
     const { data, error } = await query;
@@ -325,6 +329,7 @@ async function listXpAwardRows(
     let query = supabase
       .from(XP_TABLE)
       .select("user_id, xp, created_at")
+      .order("run_id")
       .range(from, from + PAGE_SIZE - 1);
     if (range === "week") query = query.eq("week_key", weekKey(now));
     const { data, error } = await query;
@@ -396,6 +401,151 @@ async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfile
   return [];
 }
 
+type XpTotal = { xp: number; reachedAt: string | null };
+
+type DuelTotal = XpTotal & {
+  /** Latest award with xp > 0. The XP board ignores zero-XP losses. */
+  positiveReachedAt: string | null;
+  won: number;
+  tied: number;
+  lost: number;
+};
+
+const XP_TOTALS_RPC = "xp_leaderboard_totals";
+const DUEL_TOTALS_RPC = "duel_xp_leaderboard_totals";
+const loggedMissingRpc = new Set<string>();
+
+function noteRpcFallback(name: string, message: string): void {
+  if (loggedMissingRpc.has(name)) return;
+  loggedMissingRpc.add(name);
+  console.error(`${name}() unavailable, summing rows instead. Re-run the SQL in supabase/.`, message);
+}
+
+/** Pages through a totals RPC. Null means the function is missing or failed. */
+async function readTotalsRpc(
+  supabase: SupabaseClient,
+  name: string,
+  weekKeyFilter: string | null,
+): Promise<Record<string, unknown>[] | null> {
+  const rows: Record<string, unknown>[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .rpc(name, { p_week_key: weekKeyFilter })
+      .order("user_id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      noteRpcFallback(name, error.message);
+      return null;
+    }
+    const page = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+function readCount(value: unknown): number {
+  const count = typeof value === "string" ? Number(value) : value;
+  return typeof count === "number" && Number.isFinite(count) ? count : 0;
+}
+
+function readStamp(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Positive XP per learner for the range. Null means the XP table is unreadable. */
+async function readXpTotals(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<Map<string, XpTotal> | null> {
+  const totals = new Map<string, XpTotal>();
+  const summed = await readTotalsRpc(
+    supabase,
+    XP_TOTALS_RPC,
+    range === "week" ? weekKey(now) : null,
+  );
+  if (summed) {
+    for (const row of summed) {
+      if (typeof row.user_id !== "string") continue;
+      const xp = readCount(row.xp);
+      if (xp <= 0) continue;
+      totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
+    }
+    return totals;
+  }
+
+  const awards = await listXpAwardRows(supabase, range, now);
+  if (!awards) return null;
+  for (const award of awards) {
+    if (award.xp <= 0) continue;
+    const current = totals.get(award.user_id) ?? { xp: 0, reachedAt: null };
+    current.xp += award.xp;
+    if (!current.reachedAt || award.created_at > current.reachedAt) {
+      current.reachedAt = award.created_at;
+    }
+    totals.set(award.user_id, current);
+  }
+  return totals;
+}
+
+/** Duel XP and results per learner for the range. */
+async function readDuelTotals(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<Map<string, DuelTotal> | "missing"> {
+  const totals = new Map<string, DuelTotal>();
+  const summed = await readTotalsRpc(
+    supabase,
+    DUEL_TOTALS_RPC,
+    range === "week" ? weekKey(now) : null,
+  );
+  if (summed) {
+    for (const row of summed) {
+      if (typeof row.user_id !== "string") continue;
+      totals.set(row.user_id, {
+        xp: readCount(row.xp),
+        reachedAt: readStamp(row.reached_at),
+        positiveReachedAt: readStamp(row.positive_reached_at),
+        won: readCount(row.won),
+        tied: readCount(row.tied),
+        lost: readCount(row.lost),
+      });
+    }
+    return totals;
+  }
+
+  const awards = await listDuelXpRows(supabase, range, now);
+  if (awards === "missing") return "missing";
+  for (const award of awards) {
+    const current = totals.get(award.user_id) ?? {
+      xp: 0,
+      reachedAt: null,
+      positiveReachedAt: null,
+      won: 0,
+      tied: 0,
+      lost: 0,
+    };
+    current.xp += award.xp;
+    if (award.outcome === "win") current.won += 1;
+    if (award.outcome === "tie") current.tied += 1;
+    if (award.outcome === "loss") current.lost += 1;
+    if (!current.reachedAt || award.created_at > current.reachedAt) {
+      current.reachedAt = award.created_at;
+    }
+    if (
+      award.xp > 0 &&
+      (!current.positiveReachedAt || award.created_at > current.positiveReachedAt)
+    ) {
+      current.positiveReachedAt = award.created_at;
+    }
+    totals.set(award.user_id, current);
+  }
+  return totals;
+}
+
 export async function getLeaderboard(input: {
   viewerId: string;
   viewerImage?: string | null;
@@ -413,30 +563,23 @@ export async function getLeaderboard(input: {
   const supabase = getSupabaseAdmin();
   if (!supabase) return blank;
 
-  const awards = await listXpAwardRows(supabase, input.range, now);
-  if (!awards) return blank;
+  const xpTotals = await readXpTotals(supabase, input.range, now);
+  if (!xpTotals) return blank;
 
   const totals = new Map<string, { xp: number; reachedAt: string | null }>();
-  for (const award of awards) {
-    if (award.xp <= 0) continue;
-    const current = totals.get(award.user_id) ?? { xp: 0, reachedAt: null };
-    current.xp += award.xp;
-    if (!current.reachedAt || award.created_at > current.reachedAt) {
-      current.reachedAt = award.created_at;
-    }
-    totals.set(award.user_id, current);
-  }
+  for (const [userId, total] of xpTotals) totals.set(userId, { ...total });
 
-  const duelAwards = await listDuelXpRows(supabase, input.range, now);
-  if (duelAwards !== "missing") {
-    for (const award of duelAwards) {
-      if (award.xp <= 0) continue;
-      const current = totals.get(award.user_id) ?? { xp: 0, reachedAt: null };
-      current.xp += award.xp;
-      if (!current.reachedAt || award.created_at > current.reachedAt) {
-        current.reachedAt = award.created_at;
+  const duelTotals = await readDuelTotals(supabase, input.range, now);
+  if (duelTotals !== "missing") {
+    for (const [userId, duel] of duelTotals) {
+      // Zero-XP duel losses do not place anyone on the XP board.
+      if (duel.xp <= 0 || !duel.positiveReachedAt) continue;
+      const current = totals.get(userId) ?? { xp: 0, reachedAt: null };
+      current.xp += duel.xp;
+      if (!current.reachedAt || duel.positiveReachedAt > current.reachedAt) {
+        current.reachedAt = duel.positiveReachedAt;
       }
-      totals.set(award.user_id, current);
+      totals.set(userId, current);
     }
   }
 
@@ -499,30 +642,8 @@ export async function getDuelLeaderboard(input: {
   const supabase = getSupabaseAdmin();
   if (!supabase) return blank;
 
-  const awards = await listDuelXpRows(supabase, input.range, now);
-  if (awards === "missing") return blank;
-
-  const totals = new Map<
-    string,
-    { xp: number; reachedAt: string | null; won: number; tied: number; lost: number }
-  >();
-  for (const award of awards) {
-    const current = totals.get(award.user_id) ?? {
-      xp: 0,
-      reachedAt: null,
-      won: 0,
-      tied: 0,
-      lost: 0,
-    };
-    current.xp += award.xp;
-    if (award.outcome === "win") current.won += 1;
-    if (award.outcome === "tie") current.tied += 1;
-    if (award.outcome === "loss") current.lost += 1;
-    if (!current.reachedAt || award.created_at > current.reachedAt) {
-      current.reachedAt = award.created_at;
-    }
-    totals.set(award.user_id, current);
-  }
+  const totals = await readDuelTotals(supabase, input.range, now);
+  if (totals === "missing") return blank;
 
   const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {

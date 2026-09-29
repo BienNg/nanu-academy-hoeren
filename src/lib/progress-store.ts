@@ -56,13 +56,21 @@ function supabaseServiceKey(): string | undefined {
   );
 }
 
+let adminClient: { url: string; key: string; client: SupabaseClient } | null = null;
+
+/** One stateless service-role client per server instance, reused across requests. */
 export function getSupabaseAdmin(): SupabaseClient | null {
   const url = supabaseUrl();
   const key = supabaseServiceKey();
   if (!url || !key) return null;
-  return createClient(url, key, {
+  if (adminClient && adminClient.url === url && adminClient.key === key) {
+    return adminClient.client;
+  }
+  const client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  adminClient = { url, key, client };
+  return client;
 }
 
 export function isProgressStoreConfigured(): boolean {
@@ -145,9 +153,11 @@ export async function rejectCopiedInitialProgress(
   const ownStamps = new Set(completedChapterStamps(ownProgress));
   if (incomingStamps.every((stamp) => ownStamps.has(stamp))) return null;
 
+  // Completion stamps live only under `learn`, so skip the rest of each
+  // document (visits, videos, activity) to keep this scan's egress small.
   const { data: others, error } = await supabase
     .from(TABLE)
-    .select("user_id, data")
+    .select("user_id, learn:data->learn")
     .neq("user_id", userId);
   if (error || !others) {
     if (error) console.error("Supabase rejectCopiedInitialProgress", error.message);
@@ -155,11 +165,11 @@ export async function rejectCopiedInitialProgress(
   }
 
   const copied = others.some((row) => {
-    const record = row as { user_id?: string; data?: unknown };
+    const record = row as { user_id?: string; learn?: unknown };
     if (!record.user_id || record.user_id === userId) return false;
     return containsAccountStamps(
       incoming,
-      normalizeProgress(asProgressData(record.data)),
+      normalizeProgress({ learn: record.learn as StoredProgress["learn"] }),
     );
   });
   if (!copied) return null;

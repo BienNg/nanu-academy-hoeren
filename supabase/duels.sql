@@ -168,3 +168,39 @@ alter table public.duel_clips add column if not exists options jsonb;
 alter table public.duel_clips drop constraint if exists duel_clips_kind_chk;
 alter table public.duel_clips add constraint duel_clips_kind_chk
   check (kind in ('listening', 'order', 'multiple-choice'));
+
+-- Duel leaderboard totals, summed in Postgres (one row per learner).
+-- `positive_*` only count awards with xp > 0, as the XP board does.
+-- Pass null for all time, or a week_key. The app falls back to summing rows
+-- itself until this function exists.
+create or replace function public.duel_xp_leaderboard_totals(p_week_key text default null)
+returns table (
+  user_id text,
+  xp bigint,
+  reached_at timestamptz,
+  positive_reached_at timestamptz,
+  won bigint,
+  tied bigint,
+  lost bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    user_id,
+    sum(xp)::bigint as xp,
+    max(created_at) as reached_at,
+    max(created_at) filter (where xp > 0) as positive_reached_at,
+    count(*) filter (where outcome = 'win') as won,
+    count(*) filter (where outcome = 'tie') as tied,
+    count(*) filter (where outcome = 'loss') as lost
+  from public.duel_xp_awards
+  where p_week_key is null or week_key = p_week_key
+  group by user_id;
+$$;
+
+revoke all on function public.duel_xp_leaderboard_totals(text) from public;
+revoke all on function public.duel_xp_leaderboard_totals(text) from anon, authenticated;
+grant execute on function public.duel_xp_leaderboard_totals(text) to service_role;

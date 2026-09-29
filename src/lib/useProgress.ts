@@ -53,6 +53,23 @@ import {
 /** Cached so useSyncExternalStore gets a stable reference when data is unchanged. */
 let cachedSnapshot: StoredProgress = DEFAULT_PROGRESS;
 let cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
+/**
+ * localStorage string (and key) that `cachedSnapshot` was last parsed from.
+ * React calls getSnapshot on every render of every consumer; when the stored
+ * string is unchanged we skip the parse + normalize + stringify round trip.
+ * Normalizing also prunes visits by the current date, so re-run it at least
+ * once a minute even when nothing was written.
+ */
+let cachedRaw: string | null = null;
+let cachedRawKey: string | null = null;
+let cachedRawAt = 0;
+const SNAPSHOT_REPARSE_MS = 60_000;
+
+function invalidateRawSnapshot(): void {
+  cachedRaw = null;
+  cachedRawKey = null;
+  cachedRawAt = 0;
+}
 
 /** Signed-in user whose local snapshot may be read or written. */
 let activeUserId: string | null = null;
@@ -66,10 +83,22 @@ let migratedUserId: string | null = null;
 
 function readProgressSnapshot(): StoredProgress {
   if (typeof window === "undefined" || !activeUserId) return DEFAULT_PROGRESS;
-  const progress = parseProgress(
-    window.localStorage.getItem(progressStorageKey(activeUserId)),
-  );
+  const key = progressStorageKey(activeUserId);
+  const raw = window.localStorage.getItem(key);
+  const now = Date.now();
+  if (
+    raw !== null &&
+    raw === cachedRaw &&
+    key === cachedRawKey &&
+    now - cachedRawAt < SNAPSHOT_REPARSE_MS
+  ) {
+    return cachedSnapshot;
+  }
+  const progress = parseProgress(raw);
   const serialized = JSON.stringify(progress);
+  cachedRaw = raw;
+  cachedRawKey = key;
+  cachedRawAt = now;
   if (serialized === cachedSerialized) {
     return cachedSnapshot;
   }
@@ -120,6 +149,7 @@ function writeProgress(progress: StoredProgress): void {
   const serialized = JSON.stringify(progress);
   cachedSerialized = serialized;
   cachedSnapshot = progress;
+  invalidateRawSnapshot();
   window.localStorage.setItem(progressStorageKey(activeUserId), serialized);
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }
@@ -128,6 +158,7 @@ function resetProgressMemory(): void {
   activeUserId = null;
   cachedSnapshot = DEFAULT_PROGRESS;
   cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
+  invalidateRawSnapshot();
   lastCloudSerialized = null;
 }
 
@@ -183,6 +214,7 @@ function bindProgressUser(userId: string): void {
   const progress = bindStoredProgress(window.localStorage, userId);
   cachedSerialized = JSON.stringify(progress);
   cachedSnapshot = progress;
+  invalidateRawSnapshot();
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }
 

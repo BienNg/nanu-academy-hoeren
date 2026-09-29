@@ -87,16 +87,39 @@ function toSessionClip(
   };
 }
 
+/**
+ * Lesson JSON and audio files only change with a deploy, so production keeps
+ * them in memory instead of re-reading disk on every request (the progress
+ * heartbeat walks the whole catalog). Development re-reads so edits show up.
+ */
+const cacheContent = process.env.NODE_ENV === "production";
+const chapterFileCache = new Map<string, StoredChapterFile | null>();
+const audioExistsCache = new Map<string, boolean>();
+
 function loadChapterFile(
   levelSlug: string,
   chapterSlug: string,
 ): StoredChapterFile | null {
   const path = join(levelsDir, levelSlug, `${chapterSlug}.json`);
-  if (!existsSync(path)) {
-    return null;
+  if (cacheContent && chapterFileCache.has(path)) {
+    return chapterFileCache.get(path) ?? null;
   }
-  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-  return isStoredChapterFile(parsed) ? parsed : null;
+  let file: StoredChapterFile | null = null;
+  if (existsSync(path)) {
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    file = isStoredChapterFile(parsed) ? parsed : null;
+  }
+  if (cacheContent) chapterFileCache.set(path, file);
+  return file;
+}
+
+function audioFileExists(path: string): boolean {
+  if (!cacheContent) return existsSync(path);
+  const cached = audioExistsCache.get(path);
+  if (cached !== undefined) return cached;
+  const exists = existsSync(path);
+  audioExistsCache.set(path, exists);
+  return exists;
 }
 
 /** All CEFR levels from the catalog (including ones with no Lektionen yet). */
@@ -188,7 +211,7 @@ export function getChapterClips(
 
   return file.clips
     .filter((clip) =>
-      existsSync(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
+      audioFileExists(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
     )
     .map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
 }

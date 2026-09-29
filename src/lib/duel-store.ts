@@ -273,11 +273,38 @@ function schemaGone(message: string): boolean {
 }
 
 /** Keep the studied-clip index aligned with one saved progress document. */
+/**
+ * Studied-clip sets this server instance already upserted, per user. Rows are
+ * insert-only, so re-sending an unchanged set (every visit heartbeat) is a
+ * no-op; the TTL still re-sends now and then in case rows were removed by hand.
+ */
+const STUDIED_SYNC_TTL_MS = 15 * 60 * 1000;
+const STUDIED_SYNC_MAX_USERS = 1000;
+const studiedSynced = new Map<string, { signature: string; at: number }>();
+
+function studiedSignature(clips: readonly StudiedClip[]): string {
+  return clips
+    .map((clip) => `${clip.lessonKey}\u0000${clip.clipId}`)
+    .sort()
+    .join("\u0001");
+}
+
 export async function syncStudiedClips(userId: string, progress: StoredProgress): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
   const clips = extractStudiedClips(progress.learn, listCatalogClips());
-  await upsertStudied(supabase, [{ userId, clips }]);
+  const signature = studiedSignature(clips);
+  const now = Date.now();
+  const previous = studiedSynced.get(userId);
+  if (previous && previous.signature === signature && now - previous.at < STUDIED_SYNC_TTL_MS) {
+    return;
+  }
+  if (await upsertStudied(supabase, [{ userId, clips }])) {
+    if (studiedSynced.size >= STUDIED_SYNC_MAX_USERS) studiedSynced.clear();
+    studiedSynced.set(userId, { signature, at: now });
+  } else {
+    studiedSynced.delete(userId);
+  }
 }
 
 async function upsertStudied(
