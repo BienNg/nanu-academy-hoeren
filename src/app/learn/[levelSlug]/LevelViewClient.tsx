@@ -186,7 +186,7 @@ function PathCircle({
         >
           {icon}
         </span>
-        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#334155] shadow-[0_2px_0_0_#94a3b8]">
+        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#94a3b8] shadow-[0_2px_0_0_#cbd5e1]">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
             <path
               fill="currentColor"

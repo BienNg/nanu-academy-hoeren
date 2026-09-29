@@ -22,7 +22,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   title: "NaNu Academy",
-  description: "German listening and dictation practice for Vietnamese learners",
+  description: "Luyện nghe và chính tả tiếng Đức dành cho người Việt",
 };
 
 export const viewport: Viewport = {
