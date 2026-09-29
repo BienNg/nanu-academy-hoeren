@@ -240,6 +240,15 @@ export function LeaderboardScreen({
               <TopBarStatus />
             </div>
           </div>
+        </div>
+      </header>
+
+      <main
+        className={`mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 ${
+          loading ? "opacity-70" : ""
+        }`}
+      >
+        <div className="flex flex-col gap-3">
           <BoardTabs board={boardKind} onChange={setBoardKind} />
           <div className="flex items-center gap-1 rounded-full bg-[#e2e7ff] p-1">
             <FilterGroup
@@ -257,13 +266,6 @@ export function LeaderboardScreen({
             />
           </div>
         </div>
-      </header>
-
-      <main
-        className={`mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 ${
-          loading ? "opacity-70" : ""
-        }`}
-      >
         <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">
           <div className="relative z-10 flex items-start justify-between gap-3">
             <div>

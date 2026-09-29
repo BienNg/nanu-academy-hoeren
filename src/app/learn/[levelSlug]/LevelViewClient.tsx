@@ -51,6 +51,8 @@ type TrailNode = {
   struggling: boolean;
   primary: string | null;
   secondary: string | null;
+  /** Finished practice runs shown as stars, capped at 3. Null hides the row. */
+  stars: number | null;
   label: string;
 };
 
@@ -94,6 +96,7 @@ function lessonTrailNodes(
     struggling: false,
     primary: video.title,
     secondary: null,
+    stars: null,
     label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
   }));
 
@@ -104,23 +107,23 @@ function lessonTrailNodes(
       ? activity.progressLabel
         ? null
         : wordLabel
-      : activity.note;
-    const primary = activity.progressLabel || note || null;
-    const secondary = activity.progressLabel && note ? note : null;
+      : null;
+    const earnedStars = Math.min(3, lesson.runCount);
+    const primary = isStudy ? activity.progressLabel || note || null : null;
+    const secondary = isStudy && activity.progressLabel && note ? note : null;
     const label = isStudy
       ? ["Study", activity.progressLabel || null, note].filter(Boolean).join(", ")
-      : `${activity.label}${
-          activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"
-        }${activity.note ? `, ${activity.note}` : ""}`;
+      : `Luyện tập, ${earnedStars} trên 3 sao`;
     return {
       key: activity.id,
-      icon: isStudy ? "menu_book" : "headphones",
+      icon: isStudy ? "menu_book" : "fitness_center",
       href: `${lessonHref}/${isStudy ? "study" : "practice"}`,
       percent: activity.percent,
       complete: activity.status === "completed",
       struggling: activity.struggling,
       primary,
       secondary,
+      stars: isStudy ? null : earnedStars,
       label,
     };
   });
@@ -215,6 +218,86 @@ function PathCircle({
   );
 }
 
+/** Chubby star in a 16×16 box. Points are eased so the shape reads as molded plastic. */
+const PLASTIC_STAR =
+  "M7.12 2.85 Q 8.00 1.10 8.88 2.85 L9.21 3.52 Q 10.09 5.28 12.03 5.57 L12.77 5.68 Q 14.70 5.97 13.31 7.35 L12.77 7.87 Q 11.38 9.25 11.70 11.18 L11.82 11.92 Q 12.14 13.85 10.40 12.95 L9.74 12.60 Q 8.00 11.70 6.26 12.60 L5.60 12.95 Q 3.86 13.85 4.18 11.92 L4.30 11.18 Q 4.62 9.25 3.23 7.87 L2.69 7.35 Q 1.30 5.97 3.23 5.68 L3.97 5.57 Q 5.91 5.28 6.79 3.52 Z";
+
+/**
+ * Three 16px stars, 18px center to center, bowed under the circle.
+ * The side stars drop 4px so the row follows the button, without changing the gap.
+ */
+const STAR_PLACEMENTS = [
+  { x: 0.45, y: 4, rotate: -14 },
+  { x: 18, y: 0, rotate: 0 },
+  { x: 35.55, y: 4, rotate: 14 },
+] as const;
+
+function RunStars({ filled, locked }: { filled: number; locked: boolean }) {
+  const uid = useId().replace(/:/g, "");
+  const earned = Math.min(3, Math.max(0, filled));
+  const gold = `star-gold-${uid}`;
+  const idle = `star-idle-${uid}`;
+  const lockedOn = `star-locked-on-${uid}`;
+  const lockedOff = `star-locked-off-${uid}`;
+
+  return (
+    <span className="mt-1.5 inline-flex" aria-hidden="true">
+      <svg viewBox="0 0 52 20.2" className="h-[20.2px] w-[52px] overflow-visible">
+        <defs>
+          <linearGradient id={gold} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFF8D6" />
+            <stop offset="38%" stopColor="#FFE07A" />
+            <stop offset="72%" stopColor="#FFC43A" />
+            <stop offset="100%" stopColor="#F09A14" />
+          </linearGradient>
+          <linearGradient id={idle} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="42%" stopColor="#F3F3F6" />
+            <stop offset="100%" stopColor="#E2E2E8" />
+          </linearGradient>
+          <linearGradient id={lockedOn} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F6EBD0" />
+            <stop offset="100%" stopColor="#E4D3A8" />
+          </linearGradient>
+          <linearGradient id={lockedOff} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F8FAFC" />
+            <stop offset="100%" stopColor="#E2E8F0" />
+          </linearGradient>
+        </defs>
+        {STAR_PLACEMENTS.map((place, index) => {
+          const on = index < earned;
+          const fill = locked
+            ? on
+              ? `url(#${lockedOn})`
+              : `url(#${lockedOff})`
+            : on
+              ? `url(#${gold})`
+              : `url(#${idle})`;
+          const rim = locked ? "#CBD5E1" : on ? "#E09412" : "#D2D2D8";
+          const clip = `star-clip-${uid}-${index}`;
+          return (
+            <g key={index} transform={`translate(${place.x} ${place.y}) rotate(${place.rotate} 8 8.2)`}>
+              <clipPath id={clip}>
+                <path d={PLASTIC_STAR} />
+              </clipPath>
+              <path d={PLASTIC_STAR} fill={fill} stroke={rim} strokeWidth="0.7" strokeLinejoin="round" />
+              <ellipse
+                cx="6.6"
+                cy="5.1"
+                rx="3.6"
+                ry="2.1"
+                fill="#FFFFFF"
+                opacity={on && !locked ? 0.78 : 0.9}
+                clipPath={`url(#${clip})`}
+              />
+            </g>
+          );
+        })}
+      </svg>
+    </span>
+  );
+}
+
 function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
   const className =
     "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]";
@@ -245,6 +328,7 @@ function PathStop({ node, locked }: { node: TrailNode; locked: boolean }) {
           {node.secondary}
         </span>
       ) : null}
+      {node.stars != null ? <RunStars filled={node.stars} locked={locked} /> : null}
     </>
   );
 
