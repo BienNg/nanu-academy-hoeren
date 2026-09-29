@@ -4,7 +4,7 @@ import { isAdminUser } from "@/lib/admins";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Admin · NaNu Academy Hören",
+  title: "Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 

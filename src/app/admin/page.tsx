@@ -22,7 +22,7 @@ import { dayKey } from "@/lib/xp";
 import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
-  title: "Overview · Admin · NaNu Academy Hören",
+  title: "Overview · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 

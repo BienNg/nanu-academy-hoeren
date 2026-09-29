@@ -17,7 +17,7 @@ import {
 import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
-  title: "XP · Admin · NaNu Academy Hören",
+  title: "XP · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 

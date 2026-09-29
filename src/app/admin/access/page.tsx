@@ -12,7 +12,7 @@ import {
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Access · Admin · NaNu Academy Hören",
+  title: "Access · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 

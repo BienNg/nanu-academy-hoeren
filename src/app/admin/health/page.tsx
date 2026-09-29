@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { probeAdminStores } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Health · Admin · NaNu Academy Hören",
+  title: "Health · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 
