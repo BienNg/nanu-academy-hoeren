@@ -38,6 +38,7 @@ import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
+import { TodayXpChip } from "@/components/TodayXpChip";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
@@ -150,6 +151,8 @@ export function LearnSession({
   const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
   const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
   const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
+  const [xpTotal, setXpTotal] = useState<number | null>(null);
+  const awardedXpRef = useRef(0);
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
   const completingRef = useRef(false);
@@ -324,6 +327,22 @@ export function LearnSession({
     return () => window.clearTimeout(timeout);
   }, [breakingIndex]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/xp")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { total?: unknown } | null) => {
+        if (cancelled || !data || typeof data.total !== "number") return;
+        setXpTotal(Math.max(0, data.total - awardedXpRef.current));
+      })
+      .catch(() => {
+        // The chip stays on a dash when the total cannot be read.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentCard = partCards?.[clipIndex];
   const currentClip = currentCard?.clip;
   const ready = partCards !== null;
@@ -338,6 +357,16 @@ export function LearnSession({
         ? "Lektion tiếp theo"
         : "Về trình độ";
   const showHearts = Boolean(partCards && partCards.length > 0 && phase !== "leaving");
+  if (
+    phase === "complete" &&
+    summary &&
+    !summary.xpPending &&
+    !summary.failed &&
+    typeof summary.xp === "number" &&
+    summary.xp > 0
+  ) {
+    awardedXpRef.current = summary.xp;
+  }
 
   const progressSegments = useMemo(() => {
     const total = partCards?.length ?? 0;
@@ -574,6 +603,7 @@ export function LearnSession({
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
+            <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
             {showHearts ? (
               <PartHearts remaining={heartsLeft} breakingIndex={breakingIndex} />
             ) : null}
