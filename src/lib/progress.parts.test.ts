@@ -18,6 +18,7 @@ import {
   incrementStudyRunCount,
   listeningPartCount,
   listeningPartSize,
+  MIN_PRACTICE_CLIPS,
   markLearnClipReviewed,
   mergeProgress,
   normalizeProgress,
@@ -87,27 +88,31 @@ function assertEvenParts(clips: readonly Clip[]): void {
     clips.map((clip) => clip.id),
   );
   const sizes = parts.map((part) => part.length);
-  if (clips.length <= maxClips) {
-    assert.deepEqual(sizes, [clips.length]);
-    return;
-  }
-  assert.equal(parts.length, Math.min(listeningPartCount(clips.length, maxClips), clips.length));
-  const smallest = Math.min(...sizes);
-  const largest = Math.max(...sizes);
-  assert.ok(
-    largest <= maxClips && largest - smallest <= 1,
-    `parts [${sizes.join(", ")}] are not an even split of at most ${maxClips} clips`,
-  );
-  for (const part of parts) {
-    const cards = practiceCardCount(part, clips);
-    assert.ok(
-      cards <= MAX_PRACTICE_CARDS,
-      `a part of ${part.length} clips dealt ${cards} cards`,
+  assert.equal(parts.length, listeningPartCount(clips.length, maxClips));
+  const bound = maxClips >= MIN_PRACTICE_CLIPS ? maxClips : MIN_PRACTICE_CLIPS;
+  parts.forEach((part, index) => {
+    assert.equal(
+      part.length,
+      listeningPartSize(clips.length, index + 1, parts.length, maxClips),
     );
-  }
+    assert.ok(
+      part.length <= bound,
+      `parts [${sizes.join(", ")}] grow past ${bound} clips`,
+    );
+    if (part.length < MIN_PRACTICE_CLIPS) {
+      assert.equal(index, parts.length - 1);
+    }
+    if (part.length <= maxClips) {
+      const cards = practiceCardCount(part, clips);
+      assert.ok(
+        cards <= MAX_PRACTICE_CARDS,
+        `a part of ${part.length} clips dealt ${cards} cards`,
+      );
+    }
+  });
 }
 
-test("listening lessons split so each run has at most 15 cards", () => {
+test("listening lessons split so each run aims for at most 20 cards", () => {
   for (const chapter of ["lektion-1", "lektion-2", "lektion-3", "lektion-4"]) {
     const clips = lessonClips("a1-1", chapter);
     if (clips.length === 0) continue;
@@ -118,18 +123,38 @@ test("listening lessons split so each run has at most 15 cards", () => {
   }
 });
 
-test("parts stay even and never hold more than 15 one-card clips", () => {
+test("parts stay even, aim for 20 one-card clips, and never drop below 6", () => {
   assert.deepEqual(
     splitListeningParts(questions(21)).map((part) => part.length),
     [11, 10],
   );
   assert.deepEqual(
     splitListeningParts(questions(32)).map((part) => part.length),
-    [11, 11, 10],
+    [16, 16],
   );
   assert.deepEqual(
     splitListeningParts(questions(16)).map((part) => part.length),
-    [8, 8],
+    [16],
+  );
+  assert.deepEqual(
+    splitListeningParts(questions(13), 4).map((part) => part.length),
+    [6, 6, 1],
+  );
+  assert.deepEqual(
+    splitListeningParts(questions(10), 4).map((part) => part.length),
+    [6, 4],
+  );
+  assert.deepEqual(
+    splitListeningParts(questions(5), 4).map((part) => part.length),
+    [5],
+  );
+  assert.deepEqual(
+    splitListeningParts(questions(22), 4).map((part) => part.length),
+    [6, 6, 6, 4],
+  );
+  assert.deepEqual(
+    splitListeningParts(questions(8), 4).map((part) => part.length),
+    [6, 2],
   );
 });
 
@@ -246,10 +271,10 @@ test("a review order survives part commits and resets when replaced", () => {
 });
 
 test("a rerun part stays finished when merged with a snapshot that lists every clip", () => {
-  const clips = questions(16);
+  const clips = questions(32);
   const ids = clips.map((clip) => clip.id);
   const order = [...ids].reverse();
-  const partOne = order.slice(0, 8);
+  const partOne = order.slice(0, 16);
   const base = {
     currentClipIndex: 0,
     completedClipIds: ids,
@@ -591,8 +616,14 @@ test("the next study part is the open one, and a finished lesson starts again at
 });
 
 test("the next listening part follows the first pass, then the stored shuffle", () => {
-  const clips = questions(16);
-  const first = nextListeningPart(clips, ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"], 0, undefined, []);
+  const clips = questions(32);
+  const first = nextListeningPart(
+    clips,
+    clips.slice(0, 16).map((clip) => clip.id),
+    0,
+    undefined,
+    [],
+  );
   assert.equal(first?.partNumber, 2);
   assert.equal(first?.rerun, false);
 
@@ -602,14 +633,14 @@ test("the next listening part follows the first pass, then the stored shuffle", 
   assert.equal(fresh?.freshReplay, true);
 
   const order = [...clips].reverse().map((clip) => clip.id);
-  const underway = nextListeningPart(clips, [], 1, order, order.slice(0, 8));
+  const underway = nextListeningPart(clips, [], 1, order, order.slice(0, 16));
   assert.equal(underway?.partNumber, 2);
   assert.equal(underway?.rerun, true);
   assert.equal(underway?.freshReplay, false);
 });
 
 test("a rerun ring stays full until the first part of that rerun is finished", () => {
-  const clips = questions(16);
+  const clips = questions(32);
   const idle = practiceRerunRing(clips, 1, undefined, []);
   assert.equal(idle.mastered, false);
   assert.equal(idle.percent, 100);

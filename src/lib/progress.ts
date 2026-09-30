@@ -2611,18 +2611,70 @@ function asOrderClip(clip: {
   };
 }
 
+/** Fewest clips one practice part may hold. A shorter lesson stays one part. */
+export const MIN_PRACTICE_CLIPS = 6;
+
 /**
- * How many even parts a lesson becomes so each part stays within the card cap.
- * `maxPerPart` is the most clips one part may hold for this lesson.
+ * Largest clip count a part may have.
+ * When the card cap already allows the clip minimum, that cap is the bound.
+ * When 6 clips already pass 20 cards, the bound is the minimum: a part grows
+ * no further, because more clips would only add cards.
+ */
+function partClipBound(maxPerPart: number, minPerPart: number): number {
+  const max = Math.max(1, maxPerPart);
+  const min = Math.max(1, minPerPart);
+  return max >= min ? max : min;
+}
+
+/**
+ * Part count and the size of each part.
+ * An even split is used when every part can stay inside the bound and still
+ * reach the clip minimum. Otherwise parts are filled to the bound and a
+ * shorter tail is left as the last part, instead of spreading those clips
+ * onto earlier parts.
+ */
+function partLayout(
+  total: number,
+  maxPerPart: number,
+  minPerPart: number,
+): { count: number; size: (partNumber: number) => number } {
+  if (total <= 0) return { count: 0, size: () => 0 };
+  const min = Math.max(1, minPerPart);
+  const bound = partClipBound(maxPerPart, minPerPart);
+  if (total <= bound) return { count: 1, size: () => total };
+
+  const evenCount = Math.ceil(total / bound);
+  const smallest = Math.floor(total / evenCount);
+  if (smallest >= min) {
+    const base = Math.floor(total / evenCount);
+    const extra = total % evenCount;
+    return {
+      count: evenCount,
+      size: (partNumber) => base + (partNumber - 1 < extra ? 1 : 0),
+    };
+  }
+
+  const full = Math.floor(total / bound);
+  const remainder = total % bound;
+  if (remainder === 0) return { count: full, size: () => bound };
+  return {
+    count: full + 1,
+    size: (partNumber) => (partNumber <= full ? bound : remainder),
+  };
+}
+
+/**
+ * How many parts a lesson becomes.
+ * Parts stay within the card cap when that still leaves at least
+ * `minPerPart` clips. When the card cap is below that minimum, parts are
+ * exactly the minimum, plus a shorter tail.
  */
 export function listeningPartCount(
   totalQuestions: number,
   maxPerPart: number = MAX_PRACTICE_CARDS,
+  minPerPart: number = MIN_PRACTICE_CLIPS,
 ): number {
-  if (totalQuestions <= 0) return 0;
-  const max = Math.max(1, maxPerPart);
-  if (totalQuestions <= max) return 1;
-  return Math.ceil(totalQuestions / max);
+  return partLayout(totalQuestions, maxPerPart, minPerPart).count;
 }
 
 /**
@@ -2736,10 +2788,15 @@ export function preservedReviewOrder(
 }
 
 /**
- * Split clips into even contiguous parts whose decks stay at or under
- * 15 cards. Sizes differ by at most one. A lesson that already fits is one part.
+ * Split clips into contiguous parts.
+ * A lesson that fits in the card cap is one part. Practice parts aim for at
+ * most 20 cards and at least 6 clips. When 6 clips already pass 20 cards,
+ * each part is 6 clips and the leftover tail stays short. Those leftover
+ * clips are not spread onto earlier parts, which is what turned a 6-clip
+ * part into 8.
  * Pass `maxPerPart` to reuse the parent lesson's cap for a finished prefix
  * or an open suffix, so a lighter stretch is not dealt as a longer run.
+ * Pass `minPerPart` of 1 for study, which has no clip minimum.
  */
 export function splitListeningParts<
   T extends {
@@ -2748,21 +2805,19 @@ export function splitListeningParts<
     translationVi?: string;
     sentenceOrder?: boolean;
   },
->(clips: readonly T[], maxPerPart?: number): T[][] {
+>(clips: readonly T[], maxPerPart?: number, minPerPart: number = MIN_PRACTICE_CLIPS): T[][] {
   if (clips.length === 0) return [];
   const max = Math.max(
     1,
     maxPerPart ?? maxClipsPerPracticePart(clips.map(asOrderClip)),
   );
-  const partCount = Math.min(listeningPartCount(clips.length, max), clips.length);
-  if (partCount <= 1) return [clips.slice()];
+  const layout = partLayout(clips.length, max, minPerPart);
+  if (layout.count <= 1) return [clips.slice()];
 
-  const base = Math.floor(clips.length / partCount);
-  const extra = clips.length % partCount;
   const parts: T[][] = [];
   let index = 0;
-  for (let part = 0; part < partCount; part += 1) {
-    const size = base + (part < extra ? 1 : 0);
+  for (let part = 1; part <= layout.count; part += 1) {
+    const size = layout.size(part);
     parts.push(clips.slice(index, index + size));
     index += size;
   }
@@ -2812,25 +2867,24 @@ export function listeningPartSize(
   partNumber: number,
   partCount: number,
   maxPerPart: number = MAX_PRACTICE_CARDS,
+  minPerPart: number = MIN_PRACTICE_CLIPS,
 ): number | null {
   if (totalClips <= 0 || partNumber < 1 || partCount < 1) return null;
-  const count = listeningPartCount(totalClips, maxPerPart);
-  if (count !== partCount || partNumber > count) return null;
-  const base = Math.floor(totalClips / count);
-  const extra = totalClips % count;
-  return base + (partNumber - 1 < extra ? 1 : 0);
+  const layout = partLayout(totalClips, maxPerPart, minPerPart);
+  if (layout.count !== partCount || partNumber > layout.count) return null;
+  return layout.size(partNumber);
 }
 
 /** Most clips one study node may hold. Parts stay as even as that cap allows. */
 export const MAX_STUDY_CLIPS = 12;
 
 export function studyPartCount(totalClips: number): number {
-  return listeningPartCount(totalClips, MAX_STUDY_CLIPS);
+  return listeningPartCount(totalClips, MAX_STUDY_CLIPS, 1);
 }
 
 /** Even contiguous study parts. A lesson that already fits is one part. */
 export function splitStudyParts<T extends { id: string }>(clips: readonly T[]): T[][] {
-  return splitListeningParts(clips, MAX_STUDY_CLIPS);
+  return splitListeningParts(clips, MAX_STUDY_CLIPS, 1);
 }
 
 export function studyPartSize(
@@ -2838,7 +2892,7 @@ export function studyPartSize(
   partNumber: number,
   partCount: number,
 ): number | null {
-  return listeningPartSize(totalClips, partNumber, partCount, MAX_STUDY_CLIPS);
+  return listeningPartSize(totalClips, partNumber, partCount, MAX_STUDY_CLIPS, 1);
 }
 
 /** 1-based part to play. One past the last part when every part is already finished. */

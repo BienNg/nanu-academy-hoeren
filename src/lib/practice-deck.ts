@@ -10,8 +10,11 @@ import { buildPracticeDeck, type OrderSourceClip, type PracticeCard } from "./se
 import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "./multiple-choice";
 import { buildPairingSet, isPairingItemEligible } from "./pairing";
 
-/** A practice run never deals more cards than this, including after a shuffle. */
-export const MAX_PRACTICE_CARDS = 15;
+/**
+ * Target card cap for one practice part, including after a shuffle.
+ * The part split may deal more so a part is not shorter than the clip minimum.
+ */
+export const MAX_PRACTICE_CARDS = 20;
 
 function zeroRandom(): number {
   return 0;

@@ -79,7 +79,7 @@ test("each MC card is placed after its own clip's listening card", () => {
   }
 });
 
-test("the heaviest clips still fit in one run of at most 15 cards", () => {
+test("the heaviest clips still fit in one run of at most 20 cards", () => {
   const heavy = Array.from({ length: 8 }, (_, index) => ({
     id: `h${index}`,
     script: `wort ${index} satz`,
@@ -87,7 +87,7 @@ test("the heaviest clips still fit in one run of at most 15 cards", () => {
     sentenceOrder: true,
   }));
   const maxClips = maxClipsPerPracticePart(heavy);
-  assert.equal(maxClips, 3);
+  assert.equal(maxClips, 4);
   assert.ok(practiceCardCount(heavy.slice(0, maxClips), heavy) <= MAX_PRACTICE_CARDS);
   assert.ok(practiceCardCount(heavy.slice(0, maxClips + 1), heavy) > MAX_PRACTICE_CARDS);
 });
