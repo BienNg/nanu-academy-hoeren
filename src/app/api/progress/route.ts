@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
@@ -5,6 +6,7 @@ import {
   mergeProgress,
   normalizeProgress,
   progressKeepingServerClears,
+  signInContextFromHeaders,
   type StoredProgress,
 } from "@/lib/progress";
 import { listLessonClipCatalog } from "@/lib/levels";
@@ -12,6 +14,7 @@ import { syncStudiedClips } from "@/lib/duel-store";
 import {
   getCloudProgress,
   isProgressStoreConfigured,
+  recordAppUse,
   rejectCopiedInitialProgress,
   resolveAccountAccess,
   setCloudProgress,
@@ -33,6 +36,14 @@ function sessionProfile(session: {
     name: session.user.name,
     image: session.user.image,
   };
+}
+
+async function noteAppUse(userId: string): Promise<void> {
+  try {
+    await recordAppUse(userId, signInContextFromHeaders(await headers()));
+  } catch (error) {
+    console.error("Failed to record app use", error);
+  }
 }
 
 export async function GET() {
@@ -70,6 +81,7 @@ export async function GET() {
   } else {
     await touchUserProfile(session.user.id, sessionProfile(session));
   }
+  await noteAppUse(session.user.id);
   return NextResponse.json({ progress, configured: true });
 }
 
@@ -102,6 +114,7 @@ export async function PUT(request: Request) {
   const uploaded = normalizeProgress(body as Partial<StoredProgress>);
   const existing = await rejectCopiedInitialProgress(session.user.id, uploaded);
   if (existing) {
+    await noteAppUse(session.user.id);
     return NextResponse.json({ progress: existing, ok: true, copied: true });
   }
   const stored = await getCloudProgress(session.user.id);
@@ -115,5 +128,6 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error("syncStudiedClips", error);
   }
+  await noteAppUse(session.user.id);
   return NextResponse.json({ progress, ok: true });
 }

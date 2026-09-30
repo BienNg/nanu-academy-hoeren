@@ -3379,6 +3379,285 @@ export function shouldReplaceLocalWithCloud(
   return nowMs - authAtSeconds * 1000 < FRESH_SIGN_IN_MS;
 }
 
+export const SIGN_IN_KEEP_MS = 90 * 24 * 60 * 60 * 1000;
+export const SIGN_IN_KEEP_COUNT = 120;
+
+/** Set before Google sign-in and before each progress sync, then read on the server. */
+export const SIGN_IN_DEVICE_COOKIE = "nanu-signin-device";
+
+export type SignInDevice = "mobile" | "tablet" | "desktop";
+
+export type SignInRecord = {
+  at: string;
+  device: SignInDevice | null;
+  browser: string | null;
+  location: string | null;
+};
+
+export type SignInContext = {
+  device: SignInDevice | null;
+  browser: string | null;
+  location: string | null;
+};
+
+const SIGN_IN_DEVICES = new Set<SignInDevice>(["mobile", "tablet", "desktop"]);
+
+export function signInDeviceLabel(device: SignInDevice): string {
+  if (device === "mobile") return "Mobile";
+  if (device === "tablet") return "Tablet";
+  return "Desktop";
+}
+
+/** One line for the admin sign-in list. Null when this login predates the extra fields. */
+export function signInSummary(entry: SignInRecord): string | null {
+  const parts = [
+    entry.device ? signInDeviceLabel(entry.device) : null,
+    entry.browser,
+    entry.location,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function signInDeviceCookie(device: SignInDevice, secure = false): string {
+  const base = `${SIGN_IN_DEVICE_COOKIE}=${device}; Path=/; Max-Age=600; SameSite=Lax`;
+  return secure ? `${base}; Secure` : base;
+}
+
+export function parseSignInDevice(value: string | null | undefined): SignInDevice | null {
+  const device = value?.trim().toLowerCase();
+  if (device === "mobile" || device === "tablet" || device === "desktop") return device;
+  return null;
+}
+
+/**
+ * Phone, tablet, or desktop from the browser that started sign-in.
+ * iPadOS reports a desktop User-Agent, so a touch-point count from the
+ * account page is what marks that iPad as a tablet.
+ */
+export function classifySignInDevice(input: {
+  userAgent?: string | null;
+  maxTouchPoints?: number | null;
+  mobileClientHint?: boolean | null;
+}): SignInDevice | null {
+  const ua = input.userAgent?.trim() ?? "";
+  const touch = input.maxTouchPoints ?? 0;
+  if (!ua && input.mobileClientHint == null && touch <= 1) return null;
+  if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) return "tablet";
+  if (touch > 1 && /Macintosh/i.test(ua)) return "tablet";
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return "tablet";
+  if (input.mobileClientHint === true) return "mobile";
+  if (/Mobi|iPhone|iPod|Windows Phone|BlackBerry/i.test(ua)) return "mobile";
+  if (/Android/i.test(ua)) return "mobile";
+  if (!ua) return input.mobileClientHint === false ? "desktop" : null;
+  return "desktop";
+}
+
+/** A short browser name. Empty when the User-Agent is missing. */
+export function browserFromUserAgent(userAgent: string | null | undefined): string | null {
+  const ua = userAgent?.trim() ?? "";
+  if (!ua) return null;
+  if (/Edg(e|A|iOS)?\//.test(ua)) return "Edge";
+  if (/OPR\/|Opera/.test(ua)) return "Opera";
+  if (/SamsungBrowser\//.test(ua)) return "Samsung Internet";
+  if (/Firefox\/|FxiOS\//.test(ua)) return "Firefox";
+  if (/CriOS\/|Chrome\//.test(ua)) return "Chrome";
+  if (/Safari\//.test(ua)) return "Safari";
+  return "Other";
+}
+
+export function deviceFromCookieHeader(cookieHeader: string | null | undefined): SignInDevice | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() !== SIGN_IN_DEVICE_COOKIE) continue;
+    const raw = part.slice(separator + 1).trim();
+    try {
+      return parseSignInDevice(decodeURIComponent(raw));
+    } catch {
+      return parseSignInDevice(raw);
+    }
+  }
+  return null;
+}
+
+type HeaderReader = { get(name: string): string | null };
+
+function cleanSignInText(value: string | null | undefined, max: number): string | null {
+  if (!value) return null;
+  let text = value.trim();
+  try {
+    text = decodeURIComponent(text.replace(/\+/g, " "));
+  } catch {
+    text = value.trim();
+  }
+  text = text.replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.slice(0, max);
+}
+
+/** City and country from the hosting platform's request headers. Not a street address. */
+export function locationFromHeaders(headerList: HeaderReader): string | null {
+  const city = cleanSignInText(headerList.get("x-vercel-ip-city"), 60);
+  const country = cleanSignInText(headerList.get("x-vercel-ip-country"), 2)?.toUpperCase() ?? null;
+  const countryCode = country && /^[A-Z]{2}$/.test(country) ? country : null;
+  if (city && countryCode) return `${city}, ${countryCode}`;
+  if (city) return city;
+  return countryCode;
+}
+
+export function signInContextFromHeaders(headerList: HeaderReader): SignInContext {
+  const userAgent = headerList.get("user-agent");
+  const hinted = deviceFromCookieHeader(headerList.get("cookie"));
+  const mobileHint = headerList.get("sec-ch-ua-mobile");
+  const mobileClientHint = mobileHint === "?1" ? true : mobileHint === "?0" ? false : null;
+  return {
+    device:
+      hinted ??
+      classifySignInDevice({
+        userAgent,
+        mobileClientHint,
+      }),
+    browser: browserFromUserAgent(userAgent),
+    location: locationFromHeaders(headerList),
+  };
+}
+
+function signInInstant(value: string, cutoff: number): string | null {
+  const time = Date.parse(value);
+  if (Number.isNaN(time) || time < cutoff) return null;
+  return new Date(time).toISOString();
+}
+
+function signInRecordFromUnknown(value: unknown, cutoff: number): SignInRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.at !== "string") return null;
+  const at = signInInstant(row.at, cutoff);
+  if (!at) return null;
+  const device =
+    typeof row.device === "string" && SIGN_IN_DEVICES.has(row.device as SignInDevice)
+      ? (row.device as SignInDevice)
+      : null;
+  const browser = cleanSignInText(typeof row.browser === "string" ? row.browser : null, 40);
+  const location = cleanSignInText(typeof row.location === "string" ? row.location : null, 80);
+  return { at, device, browser, location };
+}
+
+function signInStamps(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "{}") return [];
+  const inner =
+    trimmed.startsWith("{") && trimmed.endsWith("}") ? trimmed.slice(1, -1) : trimmed;
+  if (!inner) return [];
+  return inner.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
+}
+
+/**
+ * Google sign-ins from the last 90 days, oldest first.
+ * Timestamp-only rows stay in the list with empty device, browser, and location.
+ * A structured row with the same instant replaces that placeholder.
+ */
+export function readSignInRecords(
+  log: unknown,
+  stamps: unknown,
+  now = Date.now(),
+): SignInRecord[] {
+  const cutoff = now - SIGN_IN_KEEP_MS;
+  const byAt = new Map<string, SignInRecord>();
+  for (const stamp of signInStamps(stamps)) {
+    const at = signInInstant(stamp, cutoff);
+    if (!at || byAt.has(at)) continue;
+    byAt.set(at, { at, device: null, browser: null, location: null });
+  }
+  const entries = Array.isArray(log) ? log : [];
+  for (const item of entries) {
+    const record = signInRecordFromUnknown(item, cutoff);
+    if (record) byAt.set(record.at, record);
+  }
+  return [...byAt.values()]
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .slice(-SIGN_IN_KEEP_COUNT);
+}
+
+export function trimSignInStamps(values: readonly string[], now = Date.now()): string[] {
+  return readSignInRecords(null, values, now).map((entry) => entry.at);
+}
+
+/** Structured log only. Older timestamp-only sign-ins stay on `sign_ins`. */
+export function nextSignInLog(
+  existing: unknown,
+  entry: SignInRecord,
+  now = Date.now(),
+): SignInRecord[] {
+  const prior = Array.isArray(existing) ? existing : [];
+  return readSignInRecords([...prior, entry], [], now);
+}
+
+export type AppUseRecord = SignInRecord & {
+  /** Last time this visit was still open. A later request inside the idle gap updates this. */
+  seenAt: string;
+};
+
+/** One row per visit. Refresh `seenAt` while they keep using the app, instead of adding a row. */
+export const APP_USE_REFRESH_MS = 5 * 60 * 1000;
+export const APP_USE_KEEP_COUNT = 300;
+
+function appUseFromUnknown(value: unknown, cutoff: number): AppUseRecord | null {
+  const base = signInRecordFromUnknown(value, cutoff);
+  if (!base || !value || typeof value !== "object") return null;
+  const raw = (value as Record<string, unknown>).seenAt;
+  const seenAt = typeof raw === "string" ? signInInstant(raw, 0) : null;
+  return { ...base, seenAt: seenAt ?? base.at };
+}
+
+function sameAppUseContext(a: SignInRecord, b: SignInRecord): boolean {
+  return a.device === b.device && a.browser === b.browser && a.location === b.location;
+}
+
+/** App opens from the last 90 days, oldest first. Not Google sign-ins. */
+export function readAppUseRecords(log: unknown, now = Date.now()): AppUseRecord[] {
+  const cutoff = now - SIGN_IN_KEEP_MS;
+  if (!Array.isArray(log)) return [];
+  const records: AppUseRecord[] = [];
+  for (const item of log) {
+    const record = appUseFromUnknown(item, cutoff);
+    if (record) records.push(record);
+  }
+  return records.sort((a, b) => a.at.localeCompare(b.at)).slice(-APP_USE_KEEP_COUNT);
+}
+
+/**
+ * Continue the latest visit when the device, browser, and city match and they
+ * were here within the last 15 minutes. Otherwise start a new visit.
+ */
+export function nextAppUseLog(
+  existing: unknown,
+  entry: SignInRecord,
+  now = Date.now(),
+): { records: AppUseRecord[]; changed: boolean } {
+  const records = readAppUseRecords(existing, now);
+  const incoming: AppUseRecord = { ...entry, seenAt: entry.at };
+  const last = records[records.length - 1];
+  if (last && sameAppUseContext(last, incoming)) {
+    const seenMs = Date.parse(last.seenAt);
+    if (!Number.isNaN(seenMs) && now - seenMs < VISIT_IDLE_MS) {
+      if (now - seenMs < APP_USE_REFRESH_MS) return { records, changed: false };
+      const refreshed = records.slice(0, -1);
+      refreshed.push({ ...last, seenAt: incoming.at });
+      return { records: refreshed, changed: true };
+    }
+  }
+  return {
+    records: [...records, incoming].slice(-APP_USE_KEEP_COUNT),
+    changed: true,
+  };
+}
+
 /** Chapter completion timestamps. A copied account keeps the original stamps. */
 export function completedChapterStamps(progress: StoredProgress): string[] {
   const stamps: string[] = [];

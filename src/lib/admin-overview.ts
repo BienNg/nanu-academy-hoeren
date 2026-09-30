@@ -2,6 +2,8 @@ import { isAdminUser } from "@/lib/admins";
 import {
   activeStreakDays,
   normalizeProgress,
+  type AppUseRecord,
+  type SignInRecord,
   type StoredProgress,
 } from "@/lib/progress";
 import type {
@@ -48,8 +50,10 @@ export type AdminUserRow = {
   className: string | null;
   /** Limited dashboard access. Not the full admin. */
   staff: boolean;
-  /** Google sign-ins, oldest first. Empty until the next real sign-in after this ships. */
-  signIns: string[];
+  /** Google sign-ins, oldest first. Older rows have no device, browser, or location. */
+  signIns: SignInRecord[];
+  /** Learner app visits, oldest first. */
+  appUses: AppUseRecord[];
   lastSignInAt: string | null;
   progress: StoredProgress;
 };
@@ -125,7 +129,8 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     className: item.className,
     staff: item.staff === true,
     signIns: item.signIns ?? [],
-    lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1] ?? null) : null,
+    appUses: item.appUses ?? [],
+    lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1]?.at ?? null) : null,
     progress,
   };
 }
@@ -772,7 +777,7 @@ function firstSeenDay(row: AdminUserRow): string | null {
     const day = calendarDay(value);
     if (day) days.push(day);
   };
-  add(row.signIns[0]);
+  add(row.signIns[0]?.at);
   add(row.lastSignInAt);
   add(row.lastLoginAt);
   add(row.progress.lastPracticeDate);

@@ -8,7 +8,7 @@ import {
   studentProgressClear,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
-import { getCefrLevels } from "@/lib/levels";
+import { getCefrLevels, getChapterClips } from "@/lib/levels";
 import {
   CLASS_NAME_MAX_LENGTH,
   normalizeClassName,
@@ -17,7 +17,8 @@ import {
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
-import type { StudentRunsPage } from "@/lib/listening-runs";
+import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
+import { practiceCardCount } from "@/lib/practice-deck";
 import { commitAdminProgressClear, type StoredProgress } from "@/lib/progress";
 import {
   INTERVIEW_ACCESS_SLUG,
@@ -129,6 +130,28 @@ export async function deleteAdminStudentProgress(
   }
 }
 
+/** Older runs did not store a card count. A finished part that lists every clip can be rebuilt. */
+function withPartCardCount(run: StoredListeningRun): StoredListeningRun {
+  if (run.cardCount != null) return run;
+  if (run.clips.length !== run.clipCount) return run;
+  const slash = run.lessonKey.indexOf("/");
+  if (slash <= 0) return run;
+  let lessonClips;
+  try {
+    lessonClips = getChapterClips(run.lessonKey.slice(0, slash), run.lessonKey.slice(slash + 1));
+  } catch {
+    return run;
+  }
+  const byId = new Map(lessonClips.map((clip) => [clip.id, clip]));
+  const partClips = [];
+  for (const result of run.clips) {
+    const clip = byId.get(result.clipId);
+    if (!clip) return run;
+    partClips.push(clip);
+  }
+  return { ...run, cardCount: practiceCardCount(partClips, lessonClips) };
+}
+
 export async function listAdminStudentRuns(
   userId: string,
   offset = 0,
@@ -145,7 +168,7 @@ export async function listAdminStudentRuns(
 
   const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
   const page = await listStudentListeningRuns(id, start);
-  return { ok: true, ...page };
+  return { ok: true, ...page, runs: page.runs.map(withPartCardCount) };
 }
 
 export async function deleteAdminUser(

@@ -1,5 +1,7 @@
 /** Finished listening parts, passed or out of hearts. Append-only in Supabase. */
 
+import { CARD_KINDS, type CardKind } from "./card-kinds";
+
 export type ListeningRunOutcome = "success" | "fail";
 
 export type ClipRunResult = {
@@ -8,6 +10,8 @@ export type ClipRunResult = {
   passed: boolean;
   /** Wrong at least once. A later correction keeps this true. */
   missed: boolean;
+  /** Card kinds that were wrong. Empty on runs stored before this was recorded. */
+  missedKinds?: CardKind[];
 };
 
 export type ListeningRunInput = {
@@ -19,6 +23,8 @@ export type ListeningRunInput = {
   accuracy: number;
   answeredCount: number;
   clipCount: number;
+  /** Cards dealt in the part. Absent on runs stored before this was recorded. */
+  cardCount?: number;
   elapsedMs: number;
   clips: ClipRunResult[];
 };
@@ -63,6 +69,8 @@ export const LISTENING_SCHEMA_HINT =
   "Finished practice parts are not being stored yet. Run supabase/listening_runs.sql once in the Supabase SQL editor.";
 
 const MAX_CLIPS = 40;
+/** Listening, order, both choice cards, typing, and pairing can stack on one part. */
+const MAX_CARDS = 240;
 const MAX_ELAPSED_MS = 6 * 60 * 60 * 1000;
 const LESSON_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID =
@@ -94,6 +102,28 @@ function isClipId(value: string): boolean {
 
 function wasMissed(clipId: string, missedClipIds: ReadonlySet<string>): boolean {
   return missedClipIds.has(clipId) || missedClipIds.has(clipId.trim());
+}
+
+function orderedMissedKinds(kinds: Iterable<string> | undefined): CardKind[] | undefined {
+  if (!kinds) return undefined;
+  const present = new Set(kinds);
+  const ordered = CARD_KINDS.filter((kind) => present.has(kind));
+  return ordered.length > 0 ? ordered : undefined;
+}
+
+function readMissedKinds(value: unknown, missed: boolean): CardKind[] | undefined {
+  if (!missed || !Array.isArray(value)) return undefined;
+  return orderedMissedKinds(value.filter((item): item is string => typeof item === "string"));
+}
+
+function withMissedKinds(
+  clipId: string,
+  missed: boolean,
+  missedKinds: ReadonlyMap<string, ReadonlySet<CardKind>> | undefined,
+): Pick<ClipRunResult, "missedKinds"> {
+  if (!missed) return {};
+  const kinds = orderedMissedKinds(missedKinds?.get(clipId) ?? missedKinds?.get(clipId.trim()));
+  return kinds ? { missedKinds: kinds } : {};
 }
 
 /**
@@ -148,6 +178,7 @@ export function clipResultsForCardDeck(
   missedClipIds: ReadonlySet<string>,
   failed: boolean,
   cardIndex: number,
+  missedKinds?: ReadonlyMap<string, ReadonlySet<CardKind>>,
 ): ClipRunResult[] {
   if (cards.length === 0) return [];
   const clipOrder: string[] = [];
@@ -160,11 +191,15 @@ export function clipResultsForCardDeck(
   });
 
   if (!failed) {
-    return clipOrder.map((clipId) => ({
-      clipId,
-      passed: true,
-      missed: wasMissed(clipId, missedClipIds),
-    }));
+    return clipOrder.map((clipId) => {
+      const missed = wasMissed(clipId, missedClipIds);
+      return {
+        clipId,
+        passed: true,
+        missed,
+        ...withMissedKinds(clipId, missed, missedKinds),
+      };
+    });
   }
 
   const cursor = Math.min(Math.max(0, Math.floor(cardIndex)), cards.length - 1);
@@ -174,7 +209,12 @@ export function clipResultsForCardDeck(
     const passed = clipId !== currentId && (lastCardAt.get(clipId) ?? 0) < cursor;
     const missed = wasMissed(clipId, missedClipIds) || clipId === currentId;
     if (!passed && !missed) continue;
-    results.push({ clipId, passed, missed });
+    results.push({
+      clipId,
+      passed,
+      missed,
+      ...withMissedKinds(clipId, missed, missedKinds),
+    });
   }
   return results;
 }
@@ -193,6 +233,8 @@ export function parseListeningRunInput(value: unknown): ListeningRunInput | null
   const clipCount = integerIn(record.clipCount, 1, MAX_CLIPS);
   const answeredCount = integerIn(record.answeredCount, 1, MAX_CLIPS);
   const elapsedMs = integerIn(record.elapsedMs, 0, MAX_ELAPSED_MS);
+  const cardCount =
+    record.cardCount == null ? undefined : integerIn(record.cardCount, 1, MAX_CARDS);
   if (
     accuracy == null ||
     partNumber == null ||
@@ -200,6 +242,7 @@ export function parseListeningRunInput(value: unknown): ListeningRunInput | null
     clipCount == null ||
     answeredCount == null ||
     elapsedMs == null ||
+    cardCount === null ||
     partNumber > partCount ||
     answeredCount > clipCount ||
     !Array.isArray(record.clips) ||
@@ -219,7 +262,13 @@ export function parseListeningRunInput(value: unknown): ListeningRunInput | null
     if (!clip.passed && !clip.missed) return null;
     if (seen.has(clip.clipId)) return null;
     seen.add(clip.clipId);
-    clips.push({ clipId: clip.clipId, passed: clip.passed, missed: clip.missed });
+    const missedKinds = readMissedKinds(clip.missedKinds, clip.missed === true);
+    clips.push({
+      clipId: clip.clipId,
+      passed: clip.passed,
+      missed: clip.missed,
+      ...(missedKinds ? { missedKinds } : {}),
+    });
   }
 
   if (outcome === "success") {
@@ -237,6 +286,7 @@ export function parseListeningRunInput(value: unknown): ListeningRunInput | null
     accuracy,
     answeredCount,
     clipCount,
+    ...(cardCount != null ? { cardCount } : {}),
     elapsedMs,
     clips,
   };
@@ -249,6 +299,7 @@ export function buildListeningRunRecord(input: {
   failed: boolean;
   accuracy: number;
   clipCount: number;
+  cardCount?: number;
   elapsedMs: number;
   clips: readonly { id: string }[];
   missedClipIds: ReadonlySet<string>;
@@ -273,6 +324,7 @@ export function buildListeningRunRecord(input: {
     accuracy: input.accuracy,
     answeredCount: clips.length,
     clipCount: input.clipCount,
+    cardCount: input.cardCount,
     elapsedMs: input.elapsedMs,
     clips,
   });
@@ -343,9 +395,15 @@ export function storedListeningRunFromRow(value: unknown): StoredListeningRun | 
       const passed = clip.passed === true;
       const missed = clip.missed === true;
       if (!passed && !missed) return null;
+      const missedKinds = readMissedKinds(clip.missed_kinds, missed);
       return {
         position: readCount(clip.position),
-        clip: { clipId: clip.clip_id, passed, missed },
+        clip: {
+          clipId: clip.clip_id,
+          passed,
+          missed,
+          ...(missedKinds ? { missedKinds } : {}),
+        },
       };
     })
     .filter((item): item is { position: number; clip: ClipRunResult } => item != null)
@@ -361,6 +419,7 @@ export function storedListeningRunFromRow(value: unknown): StoredListeningRun | 
     accuracy: row.accuracy,
     answeredCount: row.answered_count,
     clipCount: row.clip_count,
+    cardCount: row.card_count,
     elapsedMs: row.elapsed_ms,
     clips,
   });

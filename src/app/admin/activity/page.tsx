@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminActivity } from "@/components/admin/AdminActivity";
 import {
-  buildAdminActivityBoard,
-  buildAdminActivityStats,
   parseAdminRange,
   toAdminUserRow,
   withSessionIdentity,
@@ -44,8 +42,7 @@ export default async function AdminActivityPage({
 
   return (
     <AdminActivity
-      activity={buildAdminActivityStats(rows, range)}
-      board={buildAdminActivityBoard(rows, range)}
+      rows={rows}
       range={range}
       storeConfigured={storeConfigured}
     />

@@ -1,16 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  APP_USE_REFRESH_MS,
   FRESH_SIGN_IN_MS,
+  SIGN_IN_DEVICE_COOKIE,
+  VISIT_IDLE_MS,
   STORAGE_KEY,
   bindStoredProgress,
+  browserFromUserAgent,
+  classifySignInDevice,
   clearStoredProgress,
   containsAccountStamps,
+  levelAccessAfterPreUnlock,
+  locationFromHeaders,
+  nextAppUseLog,
+  nextSignInLog,
+  normalizeGrantEmail,
   normalizeProgress,
   progressStorageKey,
-  levelAccessAfterPreUnlock,
-  normalizeGrantEmail,
+  readSignInRecords,
   shouldReplaceLocalWithCloud,
+  signInContextFromHeaders,
+  signInSummary,
   type StoredProgress,
 } from "./progress.js";
 
@@ -162,6 +173,119 @@ test("a pre-unlock email is stored in lowercase", () => {
   assert.equal(normalizeGrantEmail("  Student@School.COM "), "student@school.com");
   assert.equal(normalizeGrantEmail("not-an-email"), null);
   assert.equal(normalizeGrantEmail(""), null);
+});
+
+test("a sign-in records device, browser, and city", () => {
+  const now = Date.parse("2026-09-30T16:00:00.000Z");
+  const headers = new Map<string, string>([
+    ["user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit Safari/604.1"],
+    ["cookie", `${SIGN_IN_DEVICE_COOKIE}=mobile`],
+    ["x-vercel-ip-city", "Ho%20Chi%20Minh%20City"],
+    ["x-vercel-ip-country", "VN"],
+  ]);
+  const context = signInContextFromHeaders({
+    get(name) {
+      return headers.get(name) ?? null;
+    },
+  });
+  assert.equal(context.device, "mobile");
+  assert.equal(context.browser, "Safari");
+  assert.equal(context.location, "Ho Chi Minh City, VN");
+
+  const older = "2026-09-01T00:00:00.000Z";
+  const records = readSignInRecords(
+    nextSignInLog(
+      [],
+      {
+        at: new Date(now).toISOString(),
+        device: context.device,
+        browser: context.browser,
+        location: context.location,
+      },
+      now,
+    ),
+    [older],
+    now,
+  );
+  assert.deepEqual(
+    records.map((entry) => entry.at),
+    [older, new Date(now).toISOString()],
+  );
+  assert.equal(signInSummary(records[0]), null);
+  assert.equal(signInSummary(records[1]), "Mobile · Safari · Ho Chi Minh City, VN");
+});
+
+test("an app visit stays one row until they leave or switch device", () => {
+  const start = Date.parse("2026-09-30T10:00:00.000Z");
+  const use = {
+    at: new Date(start).toISOString(),
+    device: "mobile" as const,
+    browser: "Safari",
+    location: "Hanoi, VN",
+  };
+  const opened = nextAppUseLog([], use, start);
+  assert.equal(opened.changed, true);
+  assert.equal(opened.records.length, 1);
+
+  const soon = start + 60_000;
+  const stillHere = nextAppUseLog(
+    opened.records,
+    { ...use, at: new Date(soon).toISOString() },
+    soon,
+  );
+  assert.equal(stillHere.changed, false);
+  assert.equal(stillHere.records.length, 1);
+
+  const refreshedAt = start + APP_USE_REFRESH_MS + 1000;
+  const refreshed = nextAppUseLog(
+    opened.records,
+    { ...use, at: new Date(refreshedAt).toISOString() },
+    refreshedAt,
+  );
+  assert.equal(refreshed.changed, true);
+  assert.equal(refreshed.records.length, 1);
+  assert.equal(refreshed.records[0]?.at, use.at);
+  assert.equal(refreshed.records[0]?.seenAt, new Date(refreshedAt).toISOString());
+
+  const returnedAt = refreshedAt + VISIT_IDLE_MS + 1000;
+  const returned = nextAppUseLog(
+    refreshed.records,
+    { ...use, at: new Date(returnedAt).toISOString() },
+    returnedAt,
+  );
+  assert.equal(returned.records.length, 2);
+
+  const switched = nextAppUseLog(
+    returned.records,
+    { ...use, at: new Date(returnedAt + 1000).toISOString(), device: "desktop" },
+    returnedAt + 1000,
+  );
+  assert.equal(switched.records.length, 3);
+  assert.equal(switched.records[2]?.device, "desktop");
+});
+
+test("sign-in device treats an iPad desktop user agent as a tablet", () => {
+  assert.equal(
+    classifySignInDevice({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit Safari/605.1.15",
+      maxTouchPoints: 5,
+    }),
+    "tablet",
+  );
+  assert.equal(
+    classifySignInDevice({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit Safari/605.1.15",
+      maxTouchPoints: 0,
+    }),
+    "desktop",
+  );
+  assert.equal(
+    browserFromUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    ),
+    "Edge",
+  );
+  assert.equal(locationFromHeaders({ get: () => null }), null);
 });
 
 test("signing up claims a pre-unlock and an existing account keeps its courses", () => {

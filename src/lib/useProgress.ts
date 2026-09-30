@@ -8,7 +8,9 @@ import {
   activeStreakDays,
   bumpStreak,
   bindStoredProgress,
+  classifySignInDevice,
   clearStoredProgress,
+  signInDeviceCookie,
   progressStorageKey,
   shouldReplaceLocalWithCloud,
   absorbAddedLessonClips,
@@ -47,6 +49,7 @@ import {
   toContinueLearning,
   toContinueLevelLearning,
   touchVisit,
+  VISIT_IDLE_MS,
   type BerufProgressSummary,
   type ContinueLevelCatalogEntry,
   type LessonVideoProgress,
@@ -240,7 +243,8 @@ function handleRevokedAccount(): void {
 }
 
 const VISIT_ID_KEY = "nanu-horen-visit-id";
-const VISIT_SYNC_MS = 60_000;
+/** Local visit clock. The full progress document uploads on hide, and once per visit while the tab stays open. */
+const VISIT_TICK_MS = 60_000;
 
 let visitTracking = false;
 let visitCleanup: (() => void) | null = null;
@@ -269,7 +273,18 @@ function progressSyncIsCurrent(userId: string, generation: number): boolean {
   return !cloudPushSuppressed && activeUserId === userId && syncGeneration === generation;
 }
 
+/** Lets the progress request classify tablets, including iPad desktop user agents. */
+export function rememberClientDevice(): void {
+  const device = classifySignInDevice({
+    userAgent: navigator.userAgent,
+    maxTouchPoints: navigator.maxTouchPoints,
+  });
+  if (!device) return;
+  document.cookie = signInDeviceCookie(device, window.location.protocol === "https:");
+}
+
 async function pushCloudProgress(progress: StoredProgress): Promise<void> {
+  rememberClientDevice();
   if (cloudPushSuppressed || !activeUserId) return;
   const userId = activeUserId;
   const generation = syncGeneration;
@@ -317,7 +332,7 @@ function queueVisitCloudSync(): void {
     const snapshot = readProgressSnapshot();
     if (JSON.stringify(snapshot) === lastCloudSerialized) return;
     void pushCloudProgress(snapshot);
-  }, VISIT_SYNC_MS);
+  }, VISIT_IDLE_MS);
 }
 
 function flushVisitCloudSync(): void {
@@ -403,7 +418,7 @@ export function startVisitTracking(): () => void {
     onVisitTick();
   }
 
-  const timer = window.setInterval(onVisitTick, VISIT_SYNC_MS);
+  const timer = window.setInterval(onVisitTick, VISIT_TICK_MS);
   document.addEventListener("visibilitychange", onVisibility);
   window.addEventListener("pagehide", onPageHide);
   visitCleanup = () => {
@@ -432,6 +447,7 @@ async function pullAndMergeCloudProgress(
   generation: number,
   replaceLocal: boolean,
 ): Promise<void> {
+  rememberClientDevice();
   try {
     const response = await fetch("/api/progress");
     if (!progressSyncIsCurrent(userId, generation)) return;

@@ -20,8 +20,16 @@ import {
   completedChapterStamps,
   containsAccountStamps,
   levelAccessAfterPreUnlock,
+  nextAppUseLog,
+  nextSignInLog,
   normalizeGrantEmail,
   normalizeProgress,
+  readAppUseRecords,
+  readSignInRecords,
+  trimSignInStamps,
+  type AppUseRecord,
+  type SignInContext,
+  type SignInRecord,
   type StoredProgress,
 } from "@/lib/progress";
 
@@ -118,8 +126,48 @@ function isMissingImageColumn(message: string): boolean {
   return /image/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
 }
 
+function isMissingSignInLogColumn(message: string): boolean {
+  return /sign_in_log/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+function isMissingAppUsesColumn(message: string): boolean {
+  return /app_uses/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
 let loggedMissingImageColumn = false;
 let imageColumnRetryAt = 0;
+let loggedMissingSignInLogColumn = false;
+let signInLogColumnRetryAt = 0;
+let loggedMissingAppUsesColumn = false;
+let appUsesColumnRetryAt = 0;
+
+function appUseWritesPaused(): boolean {
+  return Date.now() < appUsesColumnRetryAt;
+}
+
+function noteMissingAppUsesColumn(message: string): void {
+  appUsesColumnRetryAt = Date.now() + 60_000;
+  if (loggedMissingAppUsesColumn) return;
+  loggedMissingAppUsesColumn = true;
+  console.error(
+    "user_progress.app_uses is missing. Re-run supabase/user_progress.sql.",
+    message,
+  );
+}
+
+function signInLogWritesPaused(): boolean {
+  return Date.now() < signInLogColumnRetryAt;
+}
+
+function noteMissingSignInLogColumn(message: string): void {
+  signInLogColumnRetryAt = Date.now() + 60_000;
+  if (loggedMissingSignInLogColumn) return;
+  loggedMissingSignInLogColumn = true;
+  console.error(
+    "user_progress.sign_in_log is missing. Re-run supabase/user_progress.sql.",
+    message,
+  );
+}
 
 function imageWritesPaused(): boolean {
   return Date.now() < imageColumnRetryAt;
@@ -258,8 +306,10 @@ export type UserProgressListItem = {
   interviewAccess: boolean;
   /** Admin-only class label. Never returned by the learner progress API. */
   className: string | null;
-  /** Google sign-ins from the last 90 days, newest last. Not app-open visits. */
-  signIns: string[];
+  /** Google sign-ins from the last 90 days, oldest first. Not app-open visits. */
+  signIns: SignInRecord[];
+  /** Learner app visits from the last 90 days, oldest first. */
+  appUses: AppUseRecord[];
   /**
    * Limited dashboard access. Staff can see stats and grant classes and
    * courses. Full admins are a separate allowlist and ignore this flag.
@@ -282,6 +332,8 @@ type RawProgressRow = {
   level_access?: unknown;
   class_name?: unknown;
   sign_ins?: unknown;
+  sign_in_log?: unknown;
+  app_uses?: unknown;
   staff?: unknown;
 };
 
@@ -323,26 +375,12 @@ function parsePostgresTextArray(value: string): string[] {
   return inner.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
 }
 
-const SIGN_IN_KEEP_MS = 90 * 24 * 60 * 60 * 1000;
-const SIGN_IN_KEEP_COUNT = 120;
-
 export function trimSignIns(values: readonly string[], now = Date.now()): string[] {
-  const cutoff = now - SIGN_IN_KEEP_MS;
-  const stamps = new Set<string>();
-  for (const value of values) {
-    const time = Date.parse(value);
-    if (Number.isNaN(time) || time < cutoff) continue;
-    stamps.add(new Date(time).toISOString());
-  }
-  return [...stamps].sort().slice(-SIGN_IN_KEEP_COUNT);
+  return trimSignInStamps(values, now);
 }
 
-function readSignIns(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return trimSignIns(value.filter((item): item is string => typeof item === "string"));
-  }
-  if (typeof value === "string") return trimSignIns(parsePostgresTextArray(value));
-  return [];
+function readSignIns(log: unknown, stamps: unknown): SignInRecord[] {
+  return readSignInRecords(log, stamps);
 }
 
 function mapProgressRow(row: RawProgressRow): UserProgressListItem {
@@ -358,7 +396,8 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     levelAccess: withoutInterviewAccess(access),
     interviewAccess: hasInterviewAccess(access),
     className: readClassName(row.class_name),
-    signIns: readSignIns(row.sign_ins),
+    signIns: readSignIns(row.sign_in_log, row.sign_ins),
+    appUses: readAppUseRecords(row.app_uses),
     staff: row.staff === true,
     progress: normalizeProgress(row.data as Partial<StoredProgress>),
   };
@@ -445,25 +484,83 @@ export async function touchUserProfile(
   }
 }
 
+/**
+ * One visit while a signed-in learner loads or saves progress.
+ * The same device, browser, and city within 15 minutes stays one row.
+ * A missing `app_uses` column is ignored until the SQL is re-run.
+ */
+export async function recordAppUse(
+  userId: string,
+  context: SignInContext,
+  at = new Date(),
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId || appUseWritesPaused()) return;
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("app_uses")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    if (isMissingAppUsesColumn(error.message)) {
+      noteMissingAppUsesColumn(error.message);
+      return;
+    }
+    console.error("Supabase recordAppUse read", error.message);
+    return;
+  }
+  if (!data) return;
+
+  const stampedAt = at.toISOString();
+  const next = nextAppUseLog(
+    (data as { app_uses?: unknown }).app_uses,
+    {
+      at: stampedAt,
+      device: context.device,
+      browser: context.browser,
+      location: context.location,
+    },
+    at.getTime(),
+  );
+  if (!next.changed) return;
+
+  const { error: updateError } = await supabase
+    .from(TABLE)
+    .update({ app_uses: next.records })
+    .eq("user_id", userId);
+  if (updateError && isMissingAppUsesColumn(updateError.message)) {
+    noteMissingAppUsesColumn(updateError.message);
+    return;
+  }
+  if (updateError) console.error("Supabase recordAppUse update", updateError.message);
+}
+
 type SignInRow = {
   deleted_at?: string | null;
   sign_ins?: unknown;
+  sign_in_log?: unknown;
   class_name?: unknown;
 };
 
 /**
- * `sign_ins` is optional until `supabase/user_progress.sql` has been re-run.
- * A missing column must not skip the new-account Slack notice.
+ * `sign_ins` and `sign_in_log` are optional until `supabase/user_progress.sql`
+ * has been re-run. A missing column must not skip the new-account Slack notice.
  */
 async function readSignInRow(
   supabase: SupabaseClient,
   userId: string,
-): Promise<{ row: SignInRow | null; hasSignIns: boolean } | null> {
-  const attempts: { columns: string; hasSignIns: boolean }[] = [
-    { columns: "user_id, deleted_at, sign_ins, class_name", hasSignIns: true },
-    { columns: "user_id, deleted_at, sign_ins", hasSignIns: true },
-    { columns: "user_id, deleted_at", hasSignIns: false },
-    { columns: "user_id", hasSignIns: false },
+): Promise<{ row: SignInRow | null; hasSignIns: boolean; hasSignInLog: boolean } | null> {
+  const attempts: { columns: string; hasSignIns: boolean; hasSignInLog: boolean }[] = [
+    {
+      columns: "user_id, deleted_at, sign_ins, sign_in_log, class_name",
+      hasSignIns: true,
+      hasSignInLog: true,
+    },
+    { columns: "user_id, deleted_at, sign_ins, class_name", hasSignIns: true, hasSignInLog: false },
+    { columns: "user_id, deleted_at, sign_ins", hasSignIns: true, hasSignInLog: false },
+    { columns: "user_id, deleted_at", hasSignIns: false, hasSignInLog: false },
+    { columns: "user_id", hasSignIns: false, hasSignInLog: false },
   ];
 
   let lastMessage = "read failed";
@@ -477,6 +574,7 @@ async function readSignInRow(
       return {
         row: (data as SignInRow | null) ?? null,
         hasSignIns: attempt.hasSignIns,
+        hasSignInLog: attempt.hasSignInLog,
       };
     }
     lastMessage = error.message;
@@ -496,6 +594,7 @@ export async function recordUserSignIn(
   userId: string,
   profile: UserProfileTouch = {},
   at = new Date(),
+  context: SignInContext = { device: null, browser: null, location: null },
 ): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   if (!supabase || !userId) return false;
@@ -503,10 +602,24 @@ export async function recordUserSignIn(
   const existing = await readSignInRow(supabase, userId);
   if (!existing) return false;
 
-  const { row, hasSignIns } = existing;
+  const { row, hasSignIns, hasSignInLog } = existing;
+  const stampedAt = at.toISOString();
   const signIns = hasSignIns
-    ? trimSignIns([...readSignIns(row?.sign_ins), at.toISOString()], at.getTime())
+    ? trimSignIns([...readSignInRecords(null, row?.sign_ins).map((entry) => entry.at), stampedAt], at.getTime())
     : null;
+  const signInLog =
+    hasSignInLog && !signInLogWritesPaused()
+      ? nextSignInLog(
+          row?.sign_in_log,
+          {
+            at: stampedAt,
+            device: context.device,
+            browser: context.browser,
+            location: context.location,
+          },
+          at.getTime(),
+        )
+      : null;
   const requestedImage = googleProfileImage(profile.image);
   const image = requestedImage && !imageWritesPaused() ? requestedImage : null;
   const identity = {
@@ -533,17 +646,29 @@ export async function recordUserSignIn(
   let wroteAccount = false;
 
   if (row) {
-    const patch = {
+    let patch: Record<string, unknown> = {
       ...identity,
       ...(signIns ? { sign_ins: signIns } : {}),
+      ...(signInLog ? { sign_in_log: signInLog } : {}),
       ...(nextLevelAccess ? { level_access: nextLevelAccess } : {}),
       ...(nextClass ? { class_name: nextClass } : {}),
     };
     if (Object.keys(patch).length > 0) {
-      const { error: updateError } = await supabase
-        .from(TABLE)
-        .update(patch)
-        .eq("user_id", userId);
+      let updateError = (
+        await supabase.from(TABLE).update(patch).eq("user_id", userId)
+      ).error;
+      if (updateError && signInLog && isMissingSignInLogColumn(updateError.message)) {
+        noteMissingSignInLogColumn(updateError.message);
+        const { sign_in_log: _log, ...withoutLog } = patch;
+        patch = withoutLog;
+        if (Object.keys(patch).length > 0) {
+          updateError = (
+            await supabase.from(TABLE).update(patch).eq("user_id", userId)
+          ).error;
+        } else {
+          updateError = null;
+        }
+      }
       if (updateError && image && isMissingImageColumn(updateError.message)) {
         noteMissingImageColumn(updateError.message);
         const { image: _image, ...withoutImage } = patch;
@@ -568,16 +693,23 @@ export async function recordUserSignIn(
     }
   } else {
     const now = at.toISOString();
-    const payload = {
+    let payload: Record<string, unknown> = {
       user_id: userId,
       data: structuredClone(DEFAULT_PROGRESS),
       updated_at: now,
       level_access: nextLevelAccess ?? [],
       ...(nextClass ? { class_name: nextClass } : {}),
       ...(signIns ? { sign_ins: signIns } : {}),
+      ...(signInLog ? { sign_in_log: signInLog } : {}),
       ...identity,
     };
-    const { error: insertError } = await supabase.from(TABLE).insert(payload);
+    let insertError = (await supabase.from(TABLE).insert(payload)).error;
+    if (insertError && signInLog && isMissingSignInLogColumn(insertError.message)) {
+      noteMissingSignInLogColumn(insertError.message);
+      const { sign_in_log: _log, ...withoutLog } = payload;
+      payload = withoutLog;
+      insertError = (await supabase.from(TABLE).insert(payload)).error;
+    }
     if (insertError && image && isMissingImageColumn(insertError.message)) {
       noteMissingImageColumn(insertError.message);
       const { image: _image, ...withoutImage } = payload;
@@ -663,6 +795,8 @@ export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
   // Widest column set first, so a table that predates a migration still lists
   // users instead of failing outright.
   const columnSets = [
+    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, app_uses, staff",
+    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, staff",
     "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, staff",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
     "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
@@ -1287,24 +1421,30 @@ export async function insertListeningRun(
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Progress store is not configured");
 
-  const { data, error } = await supabase
+  const runRow = (withCards: boolean) => ({
+    id: input.id,
+    user_id: userId,
+    lesson_key: input.lessonKey,
+    part_number: input.partNumber,
+    part_count: input.partCount,
+    outcome: input.outcome,
+    accuracy: input.accuracy,
+    answered_count: input.answeredCount,
+    clip_count: input.clipCount,
+    elapsed_ms: input.elapsedMs,
+    ...(withCards && input.cardCount != null ? { card_count: input.cardCount } : {}),
+  });
+
+  let { data, error } = await supabase
     .from(RUNS_TABLE)
-    .upsert(
-      {
-        id: input.id,
-        user_id: userId,
-        lesson_key: input.lessonKey,
-        part_number: input.partNumber,
-        part_count: input.partCount,
-        outcome: input.outcome,
-        accuracy: input.accuracy,
-        answered_count: input.answeredCount,
-        clip_count: input.clipCount,
-        elapsed_ms: input.elapsedMs,
-      },
-      { onConflict: "id", ignoreDuplicates: true },
-    )
+    .upsert(runRow(true), { onConflict: "id", ignoreDuplicates: true })
     .select("id");
+  if (error && schemaObjectMissing(error.message, "card_count")) {
+    ({ data, error } = await supabase
+      .from(RUNS_TABLE)
+      .upsert(runRow(false), { onConflict: "id", ignoreDuplicates: true })
+      .select("id"));
+  }
 
   if (error) {
     throwIfListeningSchemaMissing(error.message);
@@ -1312,7 +1452,7 @@ export async function insertListeningRun(
   }
   if (!data || data.length === 0 || input.clips.length === 0) return;
 
-  const { error: clipError } = await supabase.from(CLIPS_TABLE).insert(
+  const clipRows = (withKinds: boolean) =>
     input.clips.map((clip, position) => ({
       run_id: input.id,
       user_id: userId,
@@ -1321,8 +1461,13 @@ export async function insertListeningRun(
       passed: clip.passed,
       missed: clip.missed,
       position,
-    })),
-  );
+      ...(withKinds ? { missed_kinds: clip.missed ? (clip.missedKinds ?? []) : [] } : {}),
+    }));
+
+  let { error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(true));
+  if (clipError && schemaObjectMissing(clipError.message, "missed_kinds")) {
+    ({ error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(false)));
+  }
   if (!clipError) return;
 
   const { error: rollbackError } = await supabase.from(RUNS_TABLE).delete().eq("id", input.id);
@@ -1360,15 +1505,35 @@ export async function listStudentListeningRuns(
 
   const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
   try {
-    const list = await supabase
-      .from(RUNS_TABLE)
-      .select(
-        "id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at, clip_results(clip_id, passed, missed, position)",
-      )
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(start, start + STUDENT_RUN_PAGE - 1);
+    const studentRunsSelect = (columns: string) =>
+      supabase
+        .from(RUNS_TABLE)
+        .select(columns)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(start, start + STUDENT_RUN_PAGE - 1);
+
+    const runColumns =
+      "id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at";
+    const selectRuns = (withCards: boolean, withKinds: boolean) =>
+      studentRunsSelect(
+        `${withCards ? `${runColumns}, card_count` : runColumns}, clip_results(clip_id, passed, missed, position${
+          withKinds ? ", missed_kinds" : ""
+        })`,
+      );
+
+    let withCards = true;
+    let withKinds = true;
+    let list = await selectRuns(withCards, withKinds);
+    if (list.error && schemaObjectMissing(list.error.message, "card_count")) {
+      withCards = false;
+      list = await selectRuns(withCards, withKinds);
+    }
+    if (list.error && schemaObjectMissing(list.error.message, "missed_kinds")) {
+      withKinds = false;
+      list = await selectRuns(withCards, withKinds);
+    }
 
     if (list.error) {
       if (isListeningSchemaMissing(list.error.message)) return emptyStudentRuns("missing");
@@ -1600,6 +1765,16 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     column: "id",
   },
   {
+    id: "listening_runs.card_count",
+    label: "listening_runs.card_count",
+    sqlFile: "supabase/clip_result_kinds.sql",
+    severity: "warn",
+    kind: "column",
+    table: RUNS_TABLE,
+    column: "card_count",
+    dependsOn: "listening_runs",
+  },
+  {
     id: "clip_results",
     label: "clip_results",
     sqlFile: "supabase/listening_runs.sql",
@@ -1607,6 +1782,16 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     kind: "table",
     table: CLIPS_TABLE,
     column: "id",
+  },
+  {
+    id: "clip_results.missed_kinds",
+    label: "clip_results.missed_kinds",
+    sqlFile: "supabase/clip_result_kinds.sql",
+    severity: "warn",
+    kind: "column",
+    table: CLIPS_TABLE,
+    column: "missed_kinds",
+    dependsOn: "clip_results",
   },
   {
     id: "clip_outcome_totals",
