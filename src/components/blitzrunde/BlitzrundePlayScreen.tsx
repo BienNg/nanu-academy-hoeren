@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { McCard } from "@/components/session/McCard";
 import { PairingCard } from "@/components/session/PairingCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
+import { BlitzrundeCountdown, BlitzrundeLobby } from "@/components/blitzrunde/BlitzrundeLobby";
 import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
 import {
   HEARTBEAT_MS,
@@ -28,6 +29,8 @@ const RESULTS_POLL_MS = 4000;
 const TICK_MS = 250;
 const FLASH_MS = 650;
 const SUBMIT_RETRY_MS = [0, 1500, 3000, 6000, 12000, 20000];
+/** Below this much time left, go straight to the first card instead of counting down. */
+const COUNTDOWN_MIN_LEFT_MS = 20_000;
 
 type Play = { index: number; startedAt: number };
 type Flash = { accuracy: number; points: number };
@@ -152,6 +155,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
   const [done, setDone] = useState<BlitzrundeFinishReason | null>(null);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(false);
 
   const skewRef = useRef(0);
   const playRef = useRef<Play | null>(null);
@@ -163,6 +167,8 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
   const endsAtRef = useRef<string | null>(null);
   const deckLengthRef = useRef(0);
   const aliveRef = useRef(true);
+  const sawLobbyRef = useRef(false);
+  const countdownRef = useRef(false);
 
   const base = `/api/blitzrunde/${sessionId}`;
 
@@ -195,6 +201,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
       deckLengthRef.current = next.deck?.length ?? 0;
       setRound(next);
       setLoadError(null);
+      if (next.meta.status === "lobby") sawLobbyRef.current = true;
       // Start playing the first time the deck shows up for a student who has not finished.
       if (
         next.meta.status === "active" &&
@@ -202,9 +209,17 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
         next.deck.length > 0 &&
         !next.you?.submittedAt &&
         !playRef.current &&
+        !countdownRef.current &&
         !finishedRef.current
       ) {
-        startPlay(0);
+        // Count down only for students who waited in the lobby, not on a reload into a running round.
+        const left = remainingMs(next.meta.endsAt, Date.now() + skewRef.current);
+        if (sawLobbyRef.current && left > COUNTDOWN_MIN_LEFT_MS) {
+          countdownRef.current = true;
+          setCountdown(true);
+        } else {
+          startPlay(0);
+        }
       }
     } catch {
       if (aliveRef.current) setLoadError("Mất kết nối. Đang thử lại…");
@@ -391,6 +406,12 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
     [finish, startPlay],
   );
 
+  const endCountdown = useCallback(() => {
+    setCountdown(false);
+    if (!aliveRef.current || finishedRef.current || playRef.current) return;
+    startPlay(0);
+  }, [startPlay]);
+
   const onPairingMistake = useCallback(() => {
     mistakesRef.current += 1;
   }, []);
@@ -434,13 +455,9 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
       );
     }
   } else if (status === "lobby") {
-    body = (
-      <Message
-        icon="groups"
-        title="Bạn đã vào phòng!"
-        body={`${round.joinedCount} bạn đang chờ. Giáo viên sẽ bắt đầu sớm — 7 phút, càng nhanh và đúng càng nhiều điểm.`}
-      />
-    );
+    body = <BlitzrundeLobby round={round} />;
+  } else if (countdown) {
+    body = <BlitzrundeCountdown onDone={endCountdown} />;
   } else if (playing && card) {
     body = (
       <div className="flex flex-col gap-4">

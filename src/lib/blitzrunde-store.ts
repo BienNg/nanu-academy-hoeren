@@ -677,7 +677,11 @@ export type StudentRoundView = {
   joinedCount: number;
   /** The standings, once the round is over. */
   standings: ParticipantView[] | null;
+  /** Who is in the room, in join order: only in the lobby, and only for someone who joined. */
+  players: LobbyPlayer[] | null;
 };
+
+export type LobbyPlayer = { name: string; isYou: boolean; joinedAt: string };
 
 export async function getStudentRound(
   sessionId: string,
@@ -694,9 +698,10 @@ export async function getStudentRound(
 
   const mine = participants.find((row) => row.user_id === userId) ?? null;
   const over = session.status === "ended" || session.status === "cancelled";
+  const inLobby = session.status === "lobby" && Boolean(mine);
   const names = await namesFor(
     supabase,
-    over ? participants.map((row) => row.user_id) : mine ? [userId] : [],
+    over || inLobby ? participants.map((row) => row.user_id) : mine ? [userId] : [],
   );
   const views = toParticipantViews(session, participants, names, now);
   return {
@@ -709,6 +714,13 @@ export async function getStudentRound(
       you: views.find((view) => view.userId === userId) ?? null,
       joinedCount: participants.length,
       standings: over ? views : null,
+      players: inLobby
+        ? participants.map((row) => ({
+            name: names.get(row.user_id) ?? leaderboardDisplayName(null),
+            isYou: row.user_id === userId,
+            joinedAt: row.joined_at,
+          }))
+        : null,
     },
   };
 }
