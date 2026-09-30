@@ -329,13 +329,13 @@ const PLASTIC_STAR =
   "M7.12 2.85 Q 8.00 1.10 8.88 2.85 L9.21 3.52 Q 10.09 5.28 12.03 5.57 L12.77 5.68 Q 14.70 5.97 13.31 7.35 L12.77 7.87 Q 11.38 9.25 11.70 11.18 L11.82 11.92 Q 12.14 13.85 10.40 12.95 L9.74 12.60 Q 8.00 11.70 6.26 12.60 L5.60 12.95 Q 3.86 13.85 4.18 11.92 L4.30 11.18 Q 4.62 9.25 3.23 7.87 L2.69 7.35 Q 1.30 5.97 3.23 5.68 L3.97 5.57 Q 5.91 5.28 6.79 3.52 Z";
 
 /**
- * Three 16px stars, 18px center to center, bowed under the circle.
- * The side stars drop 4px so the row follows the button, without changing the gap.
+ * Three 16px stars, 18px center to center, cupped under the circle.
+ * The middle star drops 4px so the row wraps the bottom of the button, without changing the gap.
  */
 const STAR_PLACEMENTS = [
-  { x: 0.45, y: 4, rotate: -14 },
-  { x: 18, y: 0, rotate: 0 },
-  { x: 35.55, y: 4, rotate: 14 },
+  { x: 0.45, y: 0, rotate: -14 },
+  { x: 18, y: 4, rotate: 0 },
+  { x: 35.55, y: 0, rotate: 14 },
 ] as const;
 
 function RunStars({ filled, locked }: { filled: number; locked: boolean }) {
