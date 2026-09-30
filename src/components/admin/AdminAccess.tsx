@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import {
   removeAdminPendingAccess,
   setAdminPendingAccess,
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
 } from "@/app/admin/actions";
+import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
 import {
   ADMIN_PAGE_SIZE,
@@ -88,6 +90,270 @@ function GrantChip({
   );
 }
 
+const INTERVIEW_LABEL = "Phỏng vấn";
+
+function courseSummary(
+  levels: readonly AdminLevelOption[],
+  levelAccess: readonly string[],
+  interview: boolean,
+): string {
+  const labels = [
+    ...levels.filter((level) => levelAccess.includes(level.slug)).map((level) => level.level),
+    ...(interview ? [INTERVIEW_LABEL] : []),
+  ];
+  return labels.length === 0 ? "Choose courses" : labels.join(", ");
+}
+
+function useMenuBox(open: boolean, anchorRef: RefObject<HTMLElement | null>) {
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    function place() {
+      const node = anchorRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const width = Math.max(rect.width, 240);
+      const menuHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top =
+        spaceBelow < menuHeight && rect.top > spaceBelow
+          ? Math.max(8, rect.top - menuHeight - 6)
+          : rect.bottom + 6;
+      setBox({
+        top,
+        left: Math.min(Math.max(8, rect.left), window.innerWidth - width - 8),
+        width,
+      });
+    }
+
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, anchorRef]);
+
+  return box;
+}
+
+function CoursePicker({
+  label,
+  levels,
+  levelAccess,
+  interview,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  levels: readonly AdminLevelOption[];
+  levelAccess: readonly string[];
+  interview: boolean;
+  disabled: boolean;
+  onChange: (levelAccess: string[], interview: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const box = useMenuBox(open, buttonRef);
+  const summary = courseSummary(levels, levelAccess, interview);
+  const chosen = summary !== "Choose courses";
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  function toggleLevel(slug: string) {
+    const next = levelAccess.includes(slug)
+      ? levelAccess.filter((item) => item !== slug)
+      : [...levelAccess, slug];
+    onChange(next, interview);
+  }
+
+  const menu =
+    open && box && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={label}
+            className="fixed z-[80] max-h-72 overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            style={{ top: box.top, left: box.left, width: box.width }}
+          >
+            {levels.map((level) => {
+              const on = levelAccess.includes(level.slug);
+              return (
+                <button
+                  key={level.slug}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => toggleLevel(level.slug)}
+                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
+                >
+                  <MaterialIcon
+                    name={on ? "check_box" : "check_box_outline_blank"}
+                    className={`text-[18px] ${on ? "text-primary" : "text-outline"}`}
+                  />
+                  <span className="truncate">{level.level}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              role="option"
+              aria-selected={interview}
+              onClick={() => onChange([...levelAccess], !interview)}
+              className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
+            >
+              <MaterialIcon
+                name={interview ? "check_box" : "check_box_outline_blank"}
+                className={`text-[18px] ${interview ? "text-primary" : "text-outline"}`}
+              />
+              <span className="truncate">{INTERVIEW_LABEL}</span>
+            </button>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div className="relative min-w-[12rem]">
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex h-11 w-full items-center justify-between gap-space-8 rounded-2xl border px-space-16 text-left font-body-md text-body-md outline-none transition-colors disabled:opacity-50 ${
+          open
+            ? "border-primary-container ring-2 ring-primary-fixed"
+            : "border-outline-variant/50 hover:bg-surface-container"
+        } ${chosen ? "text-on-surface" : "text-outline"}`}
+      >
+        <span className="truncate">{summary}</span>
+        <MaterialIcon name="expand_more" className="shrink-0 text-[20px] text-on-surface-variant" />
+      </button>
+      {menu}
+    </div>
+  );
+}
+
+function ClassNameField({
+  value,
+  suggestions,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  suggestions: readonly string[];
+  disabled: boolean;
+  onChange: (next: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const box = useMenuBox(open, inputRef);
+  const needle = classKey(value);
+  const matches = suggestions.filter((label) => !needle || classKey(label).includes(needle));
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (inputRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
+
+  const menu =
+    open && box && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            aria-label="Classes"
+            className="fixed z-[80] max-h-60 overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            style={{ top: box.top, left: box.left, width: box.width }}
+          >
+            {matches.length === 0 ? (
+              <p className="px-space-12 py-space-8 font-body-sm text-body-sm text-on-surface-variant">
+                {suggestions.length === 0
+                  ? "Type a class name."
+                  : "No matching classes. This name will be created."}
+              </p>
+            ) : (
+              matches.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="option"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onChange(label);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
+                >
+                  <MaterialIcon name="school" className="text-[16px] text-primary" />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        disabled={disabled}
+        maxLength={64}
+        autoComplete="off"
+        placeholder="Class name"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+        }}
+        className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+      />
+      {menu}
+    </div>
+  );
+}
+
 export function AdminAccess({
   rows,
   levels,
@@ -115,6 +381,7 @@ export function AdminAccess({
   const [grantEmail, setGrantEmail] = useState("");
   const [draftLevels, setDraftLevels] = useState<string[]>([]);
   const [draftInterview, setDraftInterview] = useState(false);
+  const [draftClass, setDraftClass] = useState("");
   const [savingGrant, setSavingGrant] = useState(false);
   const [pendingRows, setPendingRows] = useState(pending);
   const [savingPending, setSavingPending] = useState<string[]>([]);
@@ -122,7 +389,10 @@ export function AdminAccess({
   const savingInterviewRef = useRef(new Set<string>());
   const savingPendingRef = useRef(new Set<string>());
   const pendingSignature = pending
-    .map((row) => `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}`)
+    .map(
+      (row) =>
+        `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}:${row.className ?? ""}`,
+    )
     .join("|");
   const [seenPending, setSeenPending] = useState(pendingSignature);
   if (seenPending !== pendingSignature) {
@@ -250,14 +520,20 @@ export function AdminAccess({
   async function savePendingGrant() {
     const email = grantEmail.trim();
     if (!email || savingGrant) return;
-    if (draftLevels.length === 0 && !draftInterview) {
-      setAccessError("Choose at least one course.");
+    const className = draftClass.trim();
+    if (draftLevels.length === 0 && !draftInterview && !className) {
+      setAccessError("Choose a course or a class.");
       return;
     }
     setSavingGrant(true);
     setAccessError(null);
     try {
-      const result = await setAdminPendingAccess(email, draftLevels, draftInterview);
+      const result = await setAdminPendingAccess(
+        email,
+        draftLevels,
+        draftInterview,
+        className,
+      );
       if (!result.ok) {
         setAccessError(result.error);
         return;
@@ -273,6 +549,7 @@ export function AdminAccess({
       setGrantEmail("");
       setDraftLevels([]);
       setDraftInterview(false);
+      setDraftClass("");
       startTransition(() => {
         router.refresh();
       });
@@ -281,76 +558,41 @@ export function AdminAccess({
     }
   }
 
-  async function togglePendingLevel(row: PendingLevelGrant, slug: string) {
-    if (savingPendingRef.current.has(row.email)) return;
-    savingPendingRef.current.add(row.email);
-    const current = row.levelAccess;
-    const next = current.includes(slug)
-      ? current.filter((item) => item !== slug)
-      : [...current, slug];
+  async function savePendingRow(previous: PendingLevelGrant, next: PendingLevelGrant) {
+    if (savingPendingRef.current.has(previous.email)) return;
+    savingPendingRef.current.add(previous.email);
     setPendingRows((prev) =>
-      prev.map((item) => (item.email === row.email ? { ...item, levelAccess: next } : item)),
+      prev.map((item) => (item.email === previous.email ? next : item)),
     );
-    setSavingPending((prev) => (prev.includes(row.email) ? prev : [...prev, row.email]));
+    setSavingPending((prev) =>
+      prev.includes(previous.email) ? prev : [...prev, previous.email],
+    );
     setAccessError(null);
     try {
-      const result = await setAdminPendingAccess(row.email, next, row.interviewAccess);
+      const result = await setAdminPendingAccess(
+        next.email,
+        next.levelAccess,
+        next.interviewAccess,
+        next.className ?? "",
+      );
       if (!result.ok) {
         setPendingRows((prev) =>
-          prev.map((item) =>
-            item.email === row.email ? { ...item, levelAccess: current } : item,
-          ),
+          prev.map((item) => (item.email === previous.email ? previous : item)),
         );
         setAccessError(result.error);
         return;
       }
       const grant = result.grant;
       setPendingRows((prev) => {
-        if (!grant) return prev.filter((item) => item.email !== row.email);
-        return prev.map((item) => (item.email === row.email ? grant : item));
+        if (!grant) return prev.filter((item) => item.email !== previous.email);
+        return prev.map((item) => (item.email === previous.email ? grant : item));
       });
       startTransition(() => {
         router.refresh();
       });
     } finally {
-      savingPendingRef.current.delete(row.email);
-      setSavingPending((prev) => prev.filter((email) => email !== row.email));
-    }
-  }
-
-  async function togglePendingInterview(row: PendingLevelGrant) {
-    if (savingPendingRef.current.has(row.email)) return;
-    savingPendingRef.current.add(row.email);
-    const next = !row.interviewAccess;
-    setPendingRows((prev) =>
-      prev.map((item) =>
-        item.email === row.email ? { ...item, interviewAccess: next } : item,
-      ),
-    );
-    setSavingPending((prev) => (prev.includes(row.email) ? prev : [...prev, row.email]));
-    setAccessError(null);
-    try {
-      const result = await setAdminPendingAccess(row.email, row.levelAccess, next);
-      if (!result.ok) {
-        setPendingRows((prev) =>
-          prev.map((item) =>
-            item.email === row.email ? { ...item, interviewAccess: row.interviewAccess } : item,
-          ),
-        );
-        setAccessError(result.error);
-        return;
-      }
-      const grant = result.grant;
-      setPendingRows((prev) => {
-        if (!grant) return prev.filter((item) => item.email !== row.email);
-        return prev.map((item) => (item.email === row.email ? grant : item));
-      });
-      startTransition(() => {
-        router.refresh();
-      });
-    } finally {
-      savingPendingRef.current.delete(row.email);
-      setSavingPending((prev) => prev.filter((email) => email !== row.email));
+      savingPendingRef.current.delete(previous.email);
+      setSavingPending((prev) => prev.filter((email) => email !== previous.email));
     }
   }
 
@@ -569,8 +811,9 @@ export function AdminAccess({
             Pre-unlock
           </h2>
           <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-            Grant courses to an email that has not signed up yet. When they sign
-            in with Google using that address, those courses are already open.
+            Grant courses and a class to an email that has not signed up yet.
+            When they sign in with Google using that address, those courses are
+            already open and they join that class.
           </p>
         </div>
         {storeConfigured && !pendingReady ? (
@@ -586,53 +829,50 @@ export function AdminAccess({
             void savePendingGrant();
           }}
         >
+          <div className="grid gap-space-12 sm:grid-cols-2">
+            <label className="flex min-w-0 flex-col gap-space-8">
+              <span className="font-label-sm text-label-sm font-semibold text-on-surface">
+                Email
+              </span>
+              <input
+                type="email"
+                required
+                autoComplete="off"
+                value={grantEmail}
+                onChange={(event) => setGrantEmail(event.target.value)}
+                placeholder="student@email.com"
+                disabled={!storeConfigured || !pendingReady || savingGrant}
+                className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-space-8">
+              <span className="font-label-sm text-label-sm font-semibold text-on-surface">
+                Class
+              </span>
+              <ClassNameField
+                value={draftClass}
+                suggestions={classOptions.map((option) => option.label)}
+                disabled={!storeConfigured || !pendingReady || savingGrant}
+                onChange={setDraftClass}
+              />
+            </label>
+          </div>
           <label className="flex w-full max-w-md flex-col gap-space-8">
             <span className="font-label-sm text-label-sm font-semibold text-on-surface">
-              Email
+              Courses
             </span>
-            <input
-              type="email"
-              required
-              autoComplete="off"
-              value={grantEmail}
-              onChange={(event) => setGrantEmail(event.target.value)}
-              placeholder="student@email.com"
+            <CoursePicker
+              label="Courses to pre-unlock"
+              levels={levels}
+              levelAccess={draftLevels}
+              interview={draftInterview}
               disabled={!storeConfigured || !pendingReady || savingGrant}
-              className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+              onChange={(nextLevels, nextInterview) => {
+                setDraftLevels(nextLevels);
+                setDraftInterview(nextInterview);
+              }}
             />
           </label>
-          <div className="flex flex-wrap gap-space-8">
-            {levels.map((level) => {
-              const on = draftLevels.includes(level.slug);
-              return (
-                <GrantChip
-                  key={level.slug}
-                  label={level.level}
-                  on={on}
-                  disabled={!storeConfigured || !pendingReady || savingGrant}
-                  title={on ? `Remove ${level.level}` : `Grant ${level.level}`}
-                  onToggle={() =>
-                    setDraftLevels((current) =>
-                      current.includes(level.slug)
-                        ? current.filter((slug) => slug !== level.slug)
-                        : [...current, level.slug],
-                    )
-                  }
-                />
-              );
-            })}
-            <GrantChip
-              label="Phỏng vấn"
-              on={draftInterview}
-              disabled={!storeConfigured || !pendingReady || savingGrant}
-              title={
-                draftInterview
-                  ? "Remove Luyện phỏng vấn theo nghề"
-                  : "Grant Luyện phỏng vấn theo nghề"
-              }
-              onToggle={() => setDraftInterview((current) => !current)}
-            />
-          </div>
           <div>
             <button
               type="submit"
@@ -648,55 +888,70 @@ export function AdminAccess({
             No emails are waiting to sign up.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-outline-variant/20 border-t border-outline-variant/20">
-            {pendingRows.map((row) => {
-              const busy = savingPending.includes(row.email);
-              return (
-                <li
-                  key={row.email}
-                  className="flex flex-col gap-space-12 py-space-16 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <p className="min-w-[12rem] font-label-md text-label-md font-semibold text-on-surface">
-                    {row.email}
-                  </p>
-                  <div className="flex flex-1 flex-wrap items-center gap-space-8">
-                    {levels.map((level) => {
-                      const on = row.levelAccess.includes(level.slug);
-                      return (
-                        <GrantChip
-                          key={level.slug}
-                          label={level.level}
-                          on={on}
+          <div className="overflow-x-auto border-t border-outline-variant/20">
+            <table className="min-w-full border-collapse text-left">
+              <thead>
+                <tr className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  <th className="px-space-4 py-space-12">Email</th>
+                  <th className="px-space-16 py-space-12">Class</th>
+                  <th className="px-space-16 py-space-12">Courses</th>
+                  <th className="w-28 px-space-4 py-space-12 text-right">
+                    <span className="sr-only">Remove</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingRows.map((row) => {
+                  const busy = savingPending.includes(row.email);
+                  return (
+                    <tr key={row.email} className="border-t border-outline-variant/20">
+                      <td className="px-space-4 py-space-12">
+                        <p className="min-w-[12rem] font-label-md text-label-md font-semibold text-on-surface">
+                          {row.email}
+                        </p>
+                      </td>
+                      <ClassCell
+                        userId={row.email}
+                        studentName={row.email}
+                        value={row.className}
+                        suggestions={classOptions.map((option) => option.label)}
+                        saving={busy}
+                        onSave={(next) =>
+                          void savePendingRow(row, { ...row, className: next || null })
+                        }
+                      />
+                      <td className="min-w-[14rem] px-space-16 py-space-12">
+                        <CoursePicker
+                          label={`Courses for ${row.email}`}
+                          levels={levels}
+                          levelAccess={row.levelAccess}
+                          interview={row.interviewAccess}
                           disabled={busy}
-                          title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
-                          onToggle={() => void togglePendingLevel(row, level.slug)}
+                          onChange={(nextLevels, nextInterview) =>
+                            void savePendingRow(row, {
+                              ...row,
+                              levelAccess: nextLevels,
+                              interviewAccess: nextInterview,
+                            })
+                          }
                         />
-                      );
-                    })}
-                    <GrantChip
-                      label="Phỏng vấn"
-                      on={row.interviewAccess}
-                      disabled={busy}
-                      title={
-                        row.interviewAccess
-                          ? "Hide Luyện phỏng vấn theo nghề"
-                          : "Show Luyện phỏng vấn theo nghề"
-                      }
-                      onToggle={() => void togglePendingInterview(row)}
-                    />
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removePending(row.email)}
-                      className="inline-flex h-8 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-error disabled:opacity-50 hover:bg-error-container/40"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      </td>
+                      <td className="px-space-4 py-space-12 text-right">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void removePending(row.email)}
+                          className="inline-flex h-8 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-error hover:bg-error-container/40 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

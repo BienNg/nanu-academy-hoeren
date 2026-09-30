@@ -278,6 +278,7 @@ export async function setAdminPendingAccess(
   email: string,
   levelSlugs: string[],
   interviewAccess: boolean,
+  className = "",
 ): Promise<
   { ok: true; grant: PendingLevelGrant | null } | { ok: false; error: string }
 > {
@@ -297,9 +298,13 @@ export async function setAdminPendingAccess(
   }
 
   const slugs = catalogGrantSlugs(levelSlugs, interviewAccess === true);
+  const storedClass = normalizeClassName(className);
+  if (storedClass.length > CLASS_NAME_MAX_LENGTH) {
+    return { ok: false, error: "Class names can be at most 64 characters." };
+  }
 
   try {
-    if (slugs.length === 0) {
+    if (slugs.length === 0 && !storedClass) {
       await deletePendingLevelGrant(normalized);
       revalidateAdmin();
       return { ok: true, grant: null };
@@ -313,7 +318,7 @@ export async function setAdminPendingAccess(
       };
     }
 
-    await upsertPendingLevelGrant(normalized, slugs);
+    await upsertPendingLevelGrant(normalized, slugs, storedClass || null);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save pre-unlock";
     return { ok: false, error: message };
@@ -326,6 +331,7 @@ export async function setAdminPendingAccess(
       email: normalized,
       levelAccess: withoutInterviewAccess(slugs),
       interviewAccess: hasInterviewAccess(slugs),
+      className: storedClass || null,
       updatedAt: new Date().toISOString(),
     },
   };

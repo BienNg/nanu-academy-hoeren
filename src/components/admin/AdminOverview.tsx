@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { setAdminUserClass } from "@/app/admin/actions";
+import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  classKey,
   formatAdminTimestamp,
   adminRangeVietnamDayKeys,
   listActiveAdminUsers,
+  listAdminClasses,
+  normalizeClassName,
   paginateAdminUsers,
   videoMinutesInRange,
   type AdminActivityStats,
@@ -100,6 +106,11 @@ function ActiveUsersSection({
   rangeXpReady,
   studyPartsByUser,
   practicePartsByUser,
+  classSuggestions,
+  savingClassIds,
+  classError,
+  displayClass,
+  onSaveClass,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
@@ -109,6 +120,11 @@ function ActiveUsersSection({
   rangeXpReady: boolean;
   studyPartsByUser: Readonly<Record<string, number>> | null;
   practicePartsByUser: Readonly<Record<string, number>> | null;
+  classSuggestions: readonly string[];
+  savingClassIds: readonly string[];
+  classError: string | null;
+  displayClass: (row: AdminUserRow) => string | null;
+  onSaveClass: (row: AdminUserRow, next: string) => void;
   onSelect: (userId: string) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -131,6 +147,11 @@ function ActiveUsersSection({
           Everyone seen or practicing {window}. Click a row to open their detail.
         </p>
       </div>
+      {classError ? (
+        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+          {classError}
+        </div>
+      ) : null}
       <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
@@ -202,11 +223,14 @@ function ActiveUsersSection({
                           ) : null}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
-                        {row.className ?? (
-                          <span className="text-outline">No class</span>
-                        )}
-                      </td>
+                      <ClassCell
+                        userId={row.userId}
+                        studentName={row.displayName}
+                        value={displayClass(row)}
+                        suggestions={classSuggestions}
+                        saving={savingClassIds.includes(row.userId)}
+                        onSave={(next) => onSaveClass(row, next)}
+                      />
                       <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
                         {lastSeen ? (
                           <div className="flex flex-col items-start gap-0.5">
@@ -338,14 +362,71 @@ export function AdminOverview({
   practiceParts,
   practicePartsByUser,
 }: AdminOverviewProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
-  const activeUsers = useMemo(() => listActiveAdminUsers(rows, range), [rows, range]);
-  const [detailUserId, setDetailUserId] = useState<string | null>(null);
-  const detailRow = useMemo(
-    () => rows.find((row) => row.userId === detailUserId) ?? null,
-    [rows, detailUserId],
+  const [classByUser, setClassByUser] = useState<Record<string, string | null>>({});
+  const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
+  const [classError, setClassError] = useState<string | null>(null);
+  const savingClassRef = useRef(new Set<string>());
+  const liveRows = useMemo(
+    () =>
+      rows.map((row) =>
+        Object.hasOwn(classByUser, row.userId)
+          ? { ...row, className: classByUser[row.userId] }
+          : row,
+      ),
+    [rows, classByUser],
   );
+  const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
+  const activeUsers = useMemo(
+    () => listActiveAdminUsers(liveRows, range),
+    [liveRows, range],
+  );
+  const displayClass = useCallback(
+    (row: AdminUserRow): string | null => {
+      if (!row.className) return null;
+      return (
+        classOptions.find((option) => option.key === classKey(row.className))?.label ??
+        row.className
+      );
+    },
+    [classOptions],
+  );
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const detailRow = useMemo(() => {
+    const row = liveRows.find((item) => item.userId === detailUserId);
+    if (!row) return null;
+    return { ...row, className: displayClass(row) };
+  }, [liveRows, detailUserId, displayClass]);
+
+  async function saveClass(row: AdminUserRow, nextRaw: string) {
+    if (savingClassRef.current.has(row.userId)) return;
+    savingClassRef.current.add(row.userId);
+    const previous = row.className;
+    const next = normalizeClassName(nextRaw);
+    setClassByUser((prev) => ({ ...prev, [row.userId]: next || null }));
+    setSavingClassIds((prev) =>
+      prev.includes(row.userId) ? prev : [...prev, row.userId],
+    );
+    setClassError(null);
+    try {
+      const result = await setAdminUserClass(row.userId, next);
+      if (!result.ok) {
+        setClassByUser((prev) => ({ ...prev, [row.userId]: previous }));
+        setClassError(result.error);
+        return;
+      }
+      setClassByUser((prev) => ({ ...prev, [row.userId]: result.className }));
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingClassRef.current.delete(row.userId);
+      setSavingClassIds((prev) => prev.filter((id) => id !== row.userId));
+    }
+  }
 
   return (
     <>
@@ -419,6 +500,11 @@ export function AdminOverview({
             rangeXpReady={rangeXpReady}
             studyPartsByUser={studyPartsByUser}
             practicePartsByUser={practicePartsByUser}
+            classSuggestions={classOptions.map((option) => option.label)}
+            savingClassIds={savingClassIds}
+            classError={classError}
+            displayClass={displayClass}
+            onSaveClass={(row, next) => void saveClass(row, next)}
             onSelect={setDetailUserId}
           />
         ) : null}

@@ -448,6 +448,7 @@ export async function touchUserProfile(
 type SignInRow = {
   deleted_at?: string | null;
   sign_ins?: unknown;
+  class_name?: unknown;
 };
 
 /**
@@ -459,6 +460,7 @@ async function readSignInRow(
   userId: string,
 ): Promise<{ row: SignInRow | null; hasSignIns: boolean } | null> {
   const attempts: { columns: string; hasSignIns: boolean }[] = [
+    { columns: "user_id, deleted_at, sign_ins, class_name", hasSignIns: true },
     { columns: "user_id, deleted_at, sign_ins", hasSignIns: true },
     { columns: "user_id, deleted_at", hasSignIns: false },
     { columns: "user_id", hasSignIns: false },
@@ -513,16 +515,20 @@ export async function recordUserSignIn(
     ...(image ? { image } : {}),
   };
   const isNewAccount = !row || Boolean(row.deleted_at);
-  const pendingSlugs = profile.email
-    ? await readPendingLevelSlugs(supabase, profile.email)
+  const pending = profile.email
+    ? await readPendingGrantForSignIn(supabase, profile.email)
     : null;
-  const nextLevelAccess = pendingSlugs
-    ? levelAccessAfterPreUnlock(
-        isNewAccount ? [] : await getUserLevelAccess(userId),
-        pendingSlugs,
-        isNewAccount,
-      )
-    : null;
+  const nextLevelAccess =
+    pending && pending.slugs.length > 0
+      ? levelAccessAfterPreUnlock(
+          isNewAccount ? [] : await getUserLevelAccess(userId),
+          pending.slugs,
+          isNewAccount,
+        )
+      : null;
+  const existingClass = readClassName(row?.class_name);
+  const nextClass =
+    pending?.className && (isNewAccount || !existingClass) ? pending.className : null;
   let imageSaved = !requestedImage;
   let wroteAccount = false;
 
@@ -531,6 +537,7 @@ export async function recordUserSignIn(
       ...identity,
       ...(signIns ? { sign_ins: signIns } : {}),
       ...(nextLevelAccess ? { level_access: nextLevelAccess } : {}),
+      ...(nextClass ? { class_name: nextClass } : {}),
     };
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await supabase
@@ -566,6 +573,7 @@ export async function recordUserSignIn(
       data: structuredClone(DEFAULT_PROGRESS),
       updated_at: now,
       level_access: nextLevelAccess ?? [],
+      ...(nextClass ? { class_name: nextClass } : {}),
       ...(signIns ? { sign_ins: signIns } : {}),
       ...identity,
     };
@@ -588,7 +596,7 @@ export async function recordUserSignIn(
     }
   }
 
-  if (wroteAccount && pendingSlugs && profile.email) {
+  if (wroteAccount && pending && profile.email) {
     await forgetPendingLevelGrant(profile.email);
   }
   if (isNewAccount) await notifyNewUser(profile);
@@ -786,12 +794,14 @@ export type PendingLevelGrant = {
   email: string;
   levelAccess: string[];
   interviewAccess: boolean;
+  className: string | null;
   updatedAt: string | null;
 };
 
 function mapPendingGrant(row: {
   email?: unknown;
   level_access?: unknown;
+  class_name?: unknown;
   updated_at?: unknown;
 }): PendingLevelGrant | null {
   if (typeof row.email !== "string") return null;
@@ -802,8 +812,17 @@ function mapPendingGrant(row: {
     email,
     levelAccess: withoutInterviewAccess(access),
     interviewAccess: hasInterviewAccess(access),
+    className: readClassName(row.class_name),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
   };
+}
+
+function pendingGrantIsActive(grant: PendingLevelGrant): boolean {
+  return grant.levelAccess.length > 0 || grant.interviewAccess || Boolean(grant.className);
+}
+
+function isMissingPendingClassColumn(message: string): boolean {
+  return /class_name/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
 }
 
 /** Active account for this email, if one has already signed in. */
@@ -838,11 +857,21 @@ export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | nu
   const supabase = getSupabaseAdmin();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(PENDING_ACCESS_TABLE)
-    .select("email, level_access, updated_at")
+    .select("email, level_access, class_name, updated_at")
     .order("email", { ascending: true })
     .limit(500);
+
+  if (error && isMissingPendingClassColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("email, level_access, updated_at")
+      .order("email", { ascending: true })
+      .limit(500);
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   if (error) {
     const missingTable = /does not exist|schema cache|could not find/i.test(error.message);
@@ -855,38 +884,51 @@ export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | nu
   const grants: PendingLevelGrant[] = [];
   for (const row of data ?? []) {
     const grant = mapPendingGrant(row);
-    if (grant && (grant.levelAccess.length > 0 || grant.interviewAccess)) {
+    if (grant && pendingGrantIsActive(grant)) {
       grants.push(grant);
     }
   }
   return grants;
 }
 
-async function readPendingLevelSlugs(
+async function readPendingGrantForSignIn(
   supabase: SupabaseClient,
   email: string,
-): Promise<string[] | null> {
+): Promise<{ slugs: string[]; className: string | null } | null> {
   const normalized = normalizeGrantEmail(email);
   if (!normalized) return null;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(PENDING_ACCESS_TABLE)
-    .select("level_access")
+    .select("level_access, class_name")
     .eq("email", normalized)
     .maybeSingle();
 
+  if (error && isMissingPendingClassColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("level_access")
+      .eq("email", normalized)
+      .maybeSingle();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
+
   if (error) {
-    console.error("Supabase readPendingLevelSlugs", error.message);
+    console.error("Supabase readPendingGrantForSignIn", error.message);
     return null;
   }
   if (!data) return null;
   const slugs = readLevelAccess((data as { level_access?: unknown }).level_access);
-  return slugs.length > 0 ? slugs : null;
+  const className = readClassName((data as { class_name?: unknown }).class_name);
+  if (slugs.length === 0 && !className) return null;
+  return { slugs, className };
 }
 
 export async function upsertPendingLevelGrant(
   email: string,
   levelSlugs: readonly string[],
+  className: string | null = null,
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
@@ -896,20 +938,35 @@ export async function upsertPendingLevelGrant(
   if (!normalized) {
     throw new Error("Enter a valid email address.");
   }
-  if (levelSlugs.length === 0) {
+  const storedClass = readClassName(className);
+  if (levelSlugs.length === 0 && !storedClass) {
     await deletePendingLevelGrant(normalized);
     return;
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase.from(PENDING_ACCESS_TABLE).upsert(
-    {
-      email: normalized,
-      level_access: [...levelSlugs],
-      updated_at: now,
-    },
-    { onConflict: "email" },
-  );
+  const payload = {
+    email: normalized,
+    level_access: [...levelSlugs],
+    class_name: storedClass,
+    updated_at: now,
+  };
+  let { error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .upsert(payload, { onConflict: "email" });
+
+  if (error && isMissingPendingClassColumn(error.message)) {
+    if (storedClass) {
+      throw new Error(
+        "Could not save this class. Run supabase/pending_level_access.sql again to add class_name.",
+      );
+    }
+    const { class_name: _className, ...withoutClass } = payload;
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .upsert(withoutClass, { onConflict: "email" });
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(
