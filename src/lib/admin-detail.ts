@@ -485,22 +485,36 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
   ];
 }
 
+function nodeStatus(
+  lesson: AdminLessonDetail | undefined,
+  node: LevelNodeTemplate,
+): LessonStatus | AdminVideoDetail["status"] | undefined {
+  if (!lesson) return undefined;
+  if (node.kind === "video") {
+    return lesson.videos.find((video) => video.id === node.id)?.status;
+  }
+  return lesson.activities.find((activity) => activity.id === node.id)?.status;
+}
+
 function nodeFinished(
   lesson: AdminLessonDetail | undefined,
   node: LevelNodeTemplate,
 ): boolean {
-  if (!lesson) return false;
-  if (node.kind === "video") {
-    return lesson.videos.find((video) => video.id === node.id)?.status === "watched";
-  }
-  return (
-    lesson.activities.find((activity) => activity.id === node.id)?.status === "completed"
-  );
+  const status = nodeStatus(lesson, node);
+  return status === "watched" || status === "completed";
+}
+
+function nodeStarted(
+  lesson: AdminLessonDetail | undefined,
+  node: LevelNodeTemplate,
+): boolean {
+  const status = nodeStatus(lesson, node);
+  return status != null && status !== "not-started";
 }
 
 /**
- * The level overview trail with every student parked on the first node they
- * have not finished yet.
+ * The level overview trail with every student parked on the latest node they
+ * have started. A student who has finished every node leaves the trail.
  */
 export function buildLevelPath(
   courses: readonly AdminCatalogCourse[],
@@ -530,19 +544,22 @@ export function buildLevelPath(
       image: member.image,
       className: member.className,
     };
-    let placed = false;
+    let latest: { lessonIndex: number; nodeIndex: number } | null = null;
+    let unfinished = false;
 
     catalog.lessons.forEach((lesson, lessonIndex) => {
       const detail = member.course?.lessons.find((entry) => entry.id === lesson.id);
       levelNodeTemplates(lesson).forEach((node, nodeIndex) => {
-        const target = lessons[lessonIndex]!.nodes[nodeIndex]!;
-        if (nodeFinished(detail, node) || placed) return;
-        target.here.push(person);
-        placed = true;
+        if (!nodeFinished(detail, node)) unfinished = true;
+        if (nodeStarted(detail, node)) latest = { lessonIndex, nodeIndex };
       });
     });
 
-    if (!placed) finished.push(person);
+    if (latest && unfinished) {
+      lessons[latest.lessonIndex]!.nodes[latest.nodeIndex]!.here.push(person);
+    } else if (!unfinished) {
+      finished.push(person);
+    }
   }
 
   const studentCount = started.length;

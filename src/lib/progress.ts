@@ -2950,6 +2950,60 @@ export function completedPartCount<T extends { id: string }>(
   return index === -1 ? parts.length : index;
 }
 
+export type PracticeRerunRing = {
+  /** Three finished passes. The path shows a gold button and hides the ring. */
+  mastered: boolean;
+  /**
+   * Share of the current rerun that is finished.
+   * 100 while that rerun has no finished part yet.
+   */
+  percent: number;
+  doneParts: number;
+  partCount: number;
+};
+
+/**
+ * Ring for a practice node whose first pass is already finished.
+ * A new shuffled order is one rerun. The ring stays full until the first
+ * part of that rerun is finished, then it fills with each finished part.
+ * The third finished pass is mastered and the ring is no longer shown.
+ */
+export function practiceRerunRing<
+  T extends {
+    id: string;
+    script?: string;
+    translationVi?: string;
+    sentenceOrder?: boolean;
+  },
+>(
+  clips: readonly T[],
+  runCount: number,
+  runOrder: readonly string[] | null | undefined,
+  runCompletedIds: readonly string[],
+): PracticeRerunRing {
+  const partCount = clips.length === 0 ? 0 : splitListeningParts(clips).length;
+  if (runCount >= 3) {
+    return { mastered: true, percent: 100, doneParts: partCount, partCount };
+  }
+
+  let doneParts = 0;
+  if (partCount > 0 && runOrder && sameClipOrderSet(clips, runOrder)) {
+    const orderedParts = splitListeningParts(clipsInStoredOrder(clips, runOrder));
+    const finished = completedPartCount(orderedParts, runCompletedIds);
+    if (finished > 0 && finished < orderedParts.length) doneParts = finished;
+  }
+
+  if (doneParts <= 0 || partCount === 0) {
+    return { mastered: false, percent: 100, doneParts: 0, partCount };
+  }
+  return {
+    mastered: false,
+    percent: Math.round((doneParts / partCount) * 100),
+    doneParts,
+    partCount,
+  };
+}
+
 /** Completed ids that still exist in the current catalog. */
 export function catalogCompletedCount<T extends { id: string }>(
   clips: readonly T[],

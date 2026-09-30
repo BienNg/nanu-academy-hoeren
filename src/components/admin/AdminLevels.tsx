@@ -325,7 +325,7 @@ export function AdminLevels({
       <AdminPageHeader
         kicker="Learning"
         title="Levels"
-        subtitle="The learner level overview, one level at a time. Each student sits on the first node they have not finished."
+        subtitle="The learner level overview, one level at a time. Each student sits on the latest node they have started."
       />
 
       {!storeConfigured ? (

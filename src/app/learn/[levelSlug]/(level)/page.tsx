@@ -37,6 +37,12 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       ...chapter,
       hasAudio: availableSlugs.has(chapter.slug),
       clipCount: clips.length,
+      practiceClips: clips.map((clip) => ({
+        id: clip.id,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        sentenceOrder: clip.sentenceOrder,
+      })),
       wordCount: clips.reduce(
         (total, clip) => total + countScriptWords(clip.script),
         0,

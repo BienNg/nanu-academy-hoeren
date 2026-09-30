@@ -12,7 +12,7 @@ import {
   type AdminCatalogCourse,
   type AdminLessonDetail,
 } from "@/lib/admin-detail";
-import { isStudyActivityId } from "@/lib/progress";
+import { isStudyActivityId, practiceRerunRing, type PracticeRerunRing } from "@/lib/progress";
 import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -23,6 +23,12 @@ type Chapter = {
   hasAudio?: boolean;
   clipCount?: number;
   wordCount?: number;
+  practiceClips?: {
+    id: string;
+    script: string;
+    translationVi?: string;
+    sentenceOrder?: boolean;
+  }[];
 };
 
 type Level = {
@@ -56,6 +62,10 @@ type TrailNode = {
   secondary: string | null;
   /** Finished practice runs shown as stars, capped at 3. Null hides the row. */
   stars: number | null;
+  /** Parts finished inside the current rerun. Null on the first pass. */
+  rerun: { percent: number; doneParts: number; partCount: number } | null;
+  /** Three finished passes. The button is gold and the ring is hidden. */
+  mastered: boolean;
   label: string;
 };
 
@@ -86,6 +96,7 @@ function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
   videoHref: (videoId: string) => string,
+  practiceRing: PracticeRerunRing | null,
 ): TrailNode[] {
   if (!lesson) return [];
 
@@ -99,26 +110,44 @@ function lessonTrailNodes(
     primary: video.title,
     secondary: null,
     stars: null,
+    rerun: null,
+    mastered: false,
     label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
   }));
 
   const activities = lesson.activities.map((activity) => {
     const isStudy = isStudyActivityId(activity.id);
     const earnedStars = Math.min(3, lesson.runCount);
+    const rerun =
+      !isStudy && practiceRing && !practiceRing.mastered
+        ? {
+            percent: practiceRing.percent,
+            doneParts: practiceRing.doneParts,
+            partCount: practiceRing.partCount,
+          }
+        : null;
+    const mastered = !isStudy && Boolean(practiceRing?.mastered);
     const primary = isStudy ? activity.progressLabel || null : null;
     const label = isStudy
       ? ["Study", activity.progressLabel || null].filter(Boolean).join(", ")
-      : `Luyện tập, ${earnedStars} trên 3 sao`;
+      : [
+          `Luyện tập, ${earnedStars} trên 3 sao`,
+          rerun && rerun.doneParts > 0 ? `${rerun.doneParts} trên ${rerun.partCount} phần` : null,
+        ]
+          .filter(Boolean)
+          .join(", ");
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "fitness_center",
       href: `${lessonHref}/${isStudy ? "study" : "practice"}`,
       percent: activity.percent,
-      complete: activity.status === "completed",
+      complete: activity.status === "completed" || mastered,
       struggling: activity.struggling,
       primary,
       secondary: null,
       stars: isStudy ? null : earnedStars,
+      rerun,
+      mastered,
       label,
     };
   });
@@ -151,23 +180,78 @@ function trailNodeLocked(
   return !nodes[index - 1]?.complete;
 }
 
+function ProgressRing({
+  percent,
+  track,
+  stroke,
+  fromBottom = false,
+}: {
+  percent: number;
+  track: string;
+  stroke: string;
+  /** Start at the bottom so a short arc is not hidden by the check badge. */
+  fromBottom?: boolean;
+}) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(100, Math.max(0, percent));
+  const dashOffset = circumference * (1 - clamped / 100);
+
+  return (
+    <svg
+      className={`absolute inset-1 ${fromBottom ? "rotate-90" : "-rotate-90"}`}
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+    >
+      <circle cx="32" cy="32" r={radius} fill="none" stroke={track} strokeWidth="5" />
+      {clamped > 0 ? (
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="5"
+          strokeLinecap={clamped >= 100 ? "butt" : "round"}
+          strokeDasharray={circumference}
+          strokeDashoffset={clamped >= 100 ? 0 : dashOffset}
+        />
+      ) : null}
+    </svg>
+  );
+}
+
+function DoneBadge({ onGold = false }: { onGold?: boolean }) {
+  return (
+    <span
+      className={`absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full shadow-[0_2px_0_0_#855300] ${
+        onGold ? "bg-white text-[#684000]" : "bg-[#fea619] text-[#684000]"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
+        check
+      </span>
+    </span>
+  );
+}
+
 function PathCircle({
   icon,
   percent,
   complete,
   locked,
   struggling,
+  rerunPercent,
+  mastered,
 }: {
   icon: string;
   percent: number;
   complete: boolean;
   locked: boolean;
   struggling: boolean;
+  rerunPercent: number | null;
+  mastered: boolean;
 }) {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.min(100, Math.max(0, percent));
-  const dashOffset = circumference * (1 - clamped / 100);
   const ring = struggling ? "#ff9500" : "#0284c7";
 
   if (locked) {
@@ -191,46 +275,45 @@ function PathCircle({
     );
   }
 
-  if (complete) {
+  if (mastered) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[#0284c7] text-white shadow-[0_6px_0_0_#0369a1]">
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#ffc43a] text-[#684000] shadow-[0_6px_0_0_#e09412]">
         <span
           className="material-symbols-outlined text-[30px]"
           style={{ fontVariationSettings: "'FILL' 1" }}
         >
           {icon}
         </span>
-        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#fea619] text-[#684000] shadow-[0_2px_0_0_#855300]">
-          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-            check
-          </span>
+        <DoneBadge onGold />
+      </span>
+    );
+  }
+
+  if (complete) {
+    return (
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[#0284c7] text-white shadow-[0_6px_0_0_#0369a1]">
+        {rerunPercent != null ? (
+          <ProgressRing
+            percent={rerunPercent}
+            track="#0369a1"
+            stroke="#ffffff"
+            fromBottom
+          />
+        ) : null}
+        <span
+          className="material-symbols-outlined text-[30px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          {icon}
         </span>
+        <DoneBadge />
       </span>
     );
   }
 
   return (
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-      <svg
-        className="absolute inset-1 -rotate-90"
-        viewBox="0 0 64 64"
-        aria-hidden="true"
-      >
-        <circle cx="32" cy="32" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="5" />
-        {clamped > 0 ? (
-          <circle
-            cx="32"
-            cy="32"
-            r={radius}
-            fill="none"
-            stroke={ring}
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-          />
-        ) : null}
-      </svg>
+      <ProgressRing percent={percent} track="#e2e8f0" stroke={ring} />
       <span
         className="material-symbols-outlined text-[26px] text-[#0284c7]"
         style={{ fontVariationSettings: "'FILL' 1" }}
@@ -425,6 +508,8 @@ function PathStop({
         complete={node.complete}
         locked={locked}
         struggling={node.struggling}
+        rerunPercent={node.rerun?.percent ?? null}
+        mastered={node.mastered}
       />
       {node.primary ? (
         <span
@@ -703,8 +788,15 @@ export default function LevelViewClient({
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const { progress, progressReady, completedLearnRunClipIdsFor, learnChapterCompleted, streakDays, settleStudyReviews } =
-    useProgress();
+  const {
+    progress,
+    progressReady,
+    completedLearnRunClipIdsFor,
+    learnRunClipOrderFor,
+    learnChapterCompleted,
+    streakDays,
+    settleStudyReviews,
+  } = useProgress();
   const courseDetail = useMemo(() => {
     return projectStudentDetail(cefrCatalog, progress).courses.find(
       (entry) => entry.id === level.slug,
@@ -988,11 +1080,27 @@ export default function LevelViewClient({
             const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
             const lessonHref = `/learn/${level.slug}/${chapter.slug}`;
+            const listeningDone = Boolean(
+              lessonDetail?.activities.some(
+                (activity) =>
+                  !isStudyActivityId(activity.id) &&
+                  (activity.status === "completed" || (lessonDetail?.runCount ?? 0) >= 1),
+              ),
+            );
+            const practiceRing = listeningDone
+              ? practiceRerunRing(
+                  chapter.practiceClips ?? [],
+                  lessonDetail?.runCount ?? 0,
+                  learnRunClipOrderFor(chapter.slug),
+                  completedLearnRunClipIdsFor(chapter.slug),
+                )
+              : null;
             const nodes = lessonTrailNodes(
               lessonDetail,
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
+              practiceRing,
             );
             const topicLine = lessonTopicCaption(
               lessonTopic(lessonDetail),

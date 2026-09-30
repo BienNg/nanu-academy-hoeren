@@ -9,6 +9,7 @@ import {
   bumpStreak,
   commitLearnPart,
   completedPartCount,
+  practiceRerunRing,
   absorbAddedLessonClips,
   firstIncompletePartIndex,
   firstUnlockedStudyHref,
@@ -496,6 +497,25 @@ test("a cleared study replay is not filled back in", () => {
     { chapterSlug: "lektion-1", clipIds: ["a", "b"] },
   ]);
   assert.deepEqual(next.learn["lektion-1"]?.reviewedClipIds, []);
+});
+
+test("a rerun ring stays full until the first part of that rerun is finished", () => {
+  const clips = questions(16);
+  const idle = practiceRerunRing(clips, 1, undefined, []);
+  assert.equal(idle.mastered, false);
+  assert.equal(idle.percent, 100);
+  assert.equal(idle.doneParts, 0);
+  assert.equal(idle.partCount, 2);
+
+  const order = clips.map((clip) => clip.id);
+  const firstPart = splitListeningParts(clips)[0]?.map((clip) => clip.id) ?? [];
+  const started = practiceRerunRing(clips, 1, order, firstPart);
+  assert.equal(started.doneParts, 1);
+  assert.equal(started.percent, 50);
+
+  const mastered = practiceRerunRing(clips, 3, order, firstPart);
+  assert.equal(mastered.mastered, true);
+  assert.equal(mastered.percent, 100);
 });
 
 test("an in-progress review keeps its order when new clips are already finished", () => {
