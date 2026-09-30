@@ -371,12 +371,18 @@ function YouTubePane({
   const scrubbingRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
   const userStartedRef = useRef(false);
+  const userPausedRef = useRef(false);
+  const autoplayAttemptedRef = useRef(false);
+  const autoplayHeardRef = useRef(false);
+  const autoplayMuteTimerRef = useRef<number | null>(null);
+  /** After the ending is reached, later saves keep the resume spot at 0. */
+  const pinResumeAtStartRef = useRef(false);
   const lastPeriodicSaveRef = useRef(0);
   const samplePositionRef = useRef<number | null>(null);
   const pendingPlayedRef = useRef(0);
   const titleRef = useRef(title);
   const durationRef = useRef(0);
-  const { saveVideoPosition, setVideoWatched, lessonVideoProgressFor } =
+  const { saveVideoPosition, setVideoWatched, lessonVideoProgressFor, progressReady } =
     useProgress();
   const entry = lessonVideoProgressFor(progressKey);
   const watched = Boolean(entry?.watchedAt);
@@ -465,7 +471,7 @@ function YouTubePane({
       });
     };
     const persist = (seconds: number, force = false) => {
-      flushPlayback(seconds, force);
+      flushPlayback(pinResumeAtStartRef.current ? 0 : seconds, force);
     };
     const resumeAt =
       savedRef.current > 0 ? savedRef.current : urlStartRef.current;
@@ -497,7 +503,7 @@ function YouTubePane({
                 event.target.seekTo(resumeAt, true);
                 setCurrentTime(resumeAt);
               }
-              event.target.pauseVideo();
+              if (variant !== "page") event.target.pauseVideo();
               const total = readDuration(event.target);
               if (total > 0) {
                 durationRef.current = total;
@@ -535,6 +541,11 @@ function YouTubePane({
                   setPlaying(false);
                   return;
                 }
+                autoplayHeardRef.current = true;
+                if (autoplayMuteTimerRef.current !== null) {
+                  window.clearTimeout(autoplayMuteTimerRef.current);
+                  autoplayMuteTimerRef.current = null;
+                }
                 userStartedRef.current = true;
                 samplePositionRef.current = readTime(event.target);
                 setPlaying(true);
@@ -546,6 +557,7 @@ function YouTubePane({
               } else if (state === YT_ENDED) {
                 setPlaying(false);
                 setEnded(true);
+                pinResumeAtStartRef.current = true;
                 const total = readDuration(event.target);
                 if (total > 0) {
                   setDuration(total);
@@ -646,6 +658,10 @@ function YouTubePane({
     return () => {
       cancelled = true;
       window.clearInterval(poll);
+      if (autoplayMuteTimerRef.current !== null) {
+        window.clearTimeout(autoplayMuteTimerRef.current);
+        autoplayMuteTimerRef.current = null;
+      }
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", flush);
       flush();
@@ -656,7 +672,7 @@ function YouTubePane({
       }
       playerRef.current = null;
     };
-  }, [prefsReady, progressKey, title, videoId]);
+  }, [prefsReady, progressKey, title, variant, videoId]);
 
   useEffect(() => {
     if (!ready || userStartedRef.current) return;
@@ -669,6 +685,69 @@ function YouTubePane({
     setCurrentTime(target);
   }, [ready, savedPosition, urlStart]);
 
+  useEffect(() => {
+    if (variant !== "page" || !ready || !progressReady || autoplayAttemptedRef.current) {
+      return;
+    }
+    const player = playerRef.current;
+    if (!player) return;
+    autoplayAttemptedRef.current = true;
+    const target = savedRef.current > 0 ? savedRef.current : urlStartRef.current;
+    if (target >= 1 && Math.abs(readTime(player) - target) >= 1) {
+      player.seekTo(target, true);
+      setCurrentTime(target);
+    }
+    userStartedRef.current = true;
+    try {
+      player.unMute();
+      setMuted(false);
+      player.playVideo();
+    } catch {
+      // A browser can reject unmuted playback. The timer below starts it muted.
+    }
+    autoplayMuteTimerRef.current = window.setTimeout(() => {
+      autoplayMuteTimerRef.current = null;
+      const active = playerRef.current;
+      if (!active || autoplayHeardRef.current || userPausedRef.current) return;
+      try {
+        active.mute();
+        setMuted(true);
+        active.playVideo();
+      } catch {
+        // Playback stays paused until the learner presses play.
+      }
+    }, 1500);
+  }, [progressReady, ready, variant]);
+
+  useEffect(() => {
+    const leadReached =
+      duration > MARK_WATCHED_LEAD_SECONDS &&
+      currentTime >= duration - MARK_WATCHED_LEAD_SECONDS;
+    const finishedShort =
+      ended && duration > 0 && duration <= MARK_WATCHED_LEAD_SECONDS;
+    if (!leadReached && !finishedShort) return;
+    const alreadyPinned = pinResumeAtStartRef.current;
+    pinResumeAtStartRef.current = true;
+    if (!watched) {
+      setVideoWatched(progressKey, true, {
+        title,
+        positionSeconds: currentTime,
+        durationSeconds: duration,
+      });
+      return;
+    }
+    if (!alreadyPinned) saveVideoPosition(progressKey, 0, true);
+  }, [
+    currentTime,
+    duration,
+    ended,
+    progressKey,
+    saveVideoPosition,
+    setVideoWatched,
+    title,
+    watched,
+  ]);
+
   const nearEnd =
     duration > 0 &&
     currentTime >= Math.max(0, duration - MARK_WATCHED_LEAD_SECONDS);
@@ -677,8 +756,13 @@ function YouTubePane({
     const player = playerRef.current;
     if (!player) return;
     userStartedRef.current = true;
-    if (playing) player.pauseVideo();
-    else player.playVideo();
+    if (playing) {
+      userPausedRef.current = true;
+      player.pauseVideo();
+    } else {
+      userPausedRef.current = false;
+      player.playVideo();
+    }
   }
 
   function seekTo(seconds: number) {
@@ -686,6 +770,11 @@ function YouTubePane({
     if (!player) return;
     userStartedRef.current = true;
     const next = Math.max(0, seconds);
+    const total = durationRef.current;
+    const stillInEnding =
+      total > MARK_WATCHED_LEAD_SECONDS &&
+      next >= total - MARK_WATCHED_LEAD_SECONDS;
+    if (!stillInEnding) pinResumeAtStartRef.current = false;
     pendingSeekRef.current = next;
     samplePositionRef.current = next;
     setCurrentTime(next);
@@ -699,7 +788,11 @@ function YouTubePane({
     const time = pendingSeekRef.current ?? (player ? readTime(player) : currentTime);
     pendingSeekRef.current = null;
     setCurrentTime(time);
-    saveVideoPosition(progressKey, time, true);
+    saveVideoPosition(
+      progressKey,
+      pinResumeAtStartRef.current ? 0 : time,
+      true,
+    );
   }
 
   function toggleMute() {
@@ -1249,13 +1342,14 @@ function YouTubePane({
       {!watched && (ended || nearEnd) ? (
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
+            pinResumeAtStartRef.current = true;
             setVideoWatched(progressKey, true, {
               title,
               positionSeconds: currentTime,
               durationSeconds: duration,
-            })
-          }
+            });
+          }}
           className={
             page
               ? "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#58cc02] px-6 text-[15px] font-extrabold uppercase tracking-wider text-white shadow-[0_4px_0_0_#58a700] transition hover:bg-[#61e002] active:translate-y-1 active:shadow-none"

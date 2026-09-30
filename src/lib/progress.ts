@@ -1012,7 +1012,7 @@ export function setLessonVideoWatched(
   if (!key) return progress;
   const current = progress.videos[key];
   const nextEntry: LessonVideoProgress = {
-    positionSeconds: current?.positionSeconds ?? 0,
+    positionSeconds: watched ? 0 : (current?.positionSeconds ?? 0),
     updatedAt: now,
   };
   if (watched) nextEntry.watchedAt = now;
