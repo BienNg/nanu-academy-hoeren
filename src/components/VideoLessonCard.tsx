@@ -60,6 +60,7 @@ function firstUncompletedVideoIndex(
 }
 
 const MARK_WATCHED_LEAD_SECONDS = 10;
+const FULLSCREEN_CONTROLS_HIDE_MS = 2000;
 
 /** Shifts the embed so YouTube's title and Share / Save sit outside the clip. */
 const YOUTUBE_CHROME_CROP_PX = 60;
@@ -399,6 +400,9 @@ function YouTubePane({
   const volumeSupported = useProgrammaticVolume();
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [controlsHeld, setControlsHeld] = useState(false);
+  const [controlsEpoch, setControlsEpoch] = useState(0);
   const [prefsReady, setPrefsReady] = useState(false);
   const [quality, setQuality] = useState("auto");
   const [qualityOpen, setQualityOpen] = useState(false);
@@ -439,6 +443,60 @@ function YouTubePane({
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!fullscreen) {
+      setControlsVisible(true);
+      setControlsHeld(false);
+      return;
+    }
+    setControlsVisible(true);
+    setControlsEpoch((epoch) => epoch + 1);
+  }, [fullscreen]);
+
+  useEffect(() => {
+    if (!controlsHeld) return;
+    function release() {
+      setControlsHeld(false);
+      setControlsEpoch((epoch) => epoch + 1);
+    }
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, [controlsHeld]);
+
+  useEffect(() => {
+    if (!fullscreen || !controlsVisible || controlsHeld) return;
+    if (volumeOpen || qualityOpen || speedOpen) return;
+    const timer = window.setTimeout(
+      () => setControlsVisible(false),
+      FULLSCREEN_CONTROLS_HIDE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [
+    controlsEpoch,
+    controlsHeld,
+    controlsVisible,
+    fullscreen,
+    qualityOpen,
+    speedOpen,
+    volumeOpen,
+  ]);
+
+  function toggleFullscreenChrome() {
+    if (controlsVisible) {
+      setVolumeOpen(false);
+      setQualityOpen(false);
+      setSpeedOpen(false);
+      setControlsVisible(false);
+      return;
+    }
+    setControlsVisible(true);
+    setControlsEpoch((epoch) => epoch + 1);
+  }
 
   useLayoutEffect(() => {
     const stored = readStoredVideoQuality();
@@ -1065,10 +1123,31 @@ function YouTubePane({
         ) : null}
       </div>
 
+      {fullscreen ? (
+        <button
+          type="button"
+          onClick={toggleFullscreenChrome}
+          aria-label={controlsVisible ? "Ẩn điều khiển" : "Hiện điều khiển"}
+          className="absolute inset-0 z-10"
+        />
+      ) : null}
+
       <div
+        onPointerDown={
+          fullscreen
+            ? () => {
+                setControlsHeld(true);
+              }
+            : undefined
+        }
+        aria-hidden={fullscreen && !controlsVisible ? true : undefined}
         className={
           fullscreen
-            ? "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] sm:px-5 sm:pt-12 sm:pb-4"
+            ? `absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] transition-transform duration-300 ease-out sm:px-5 sm:pt-12 sm:pb-4 ${
+                controlsVisible
+                  ? "translate-y-0"
+                  : "pointer-events-none translate-y-full"
+              }`
             : page
               ? "rounded-[24px] bg-white p-2.5 shadow-[0_4px_0_0_#e2e8f0] sm:p-3.5"
               : undefined
