@@ -1,0 +1,149 @@
+{
+  "scenes": [
+    {
+      "id": "termine",
+      "label": "Ankommen & Termine",
+      "labelVi": "Đón khách & lịch hẹn",
+      "clips": [
+        {
+          "filename": "nagel-termin-01.mp3",
+          "script": "Guten Tag, haben Sie einen Termin?",
+          "translationVi": "Xin chào, chị có lịch hẹn không ạ?"
+        },
+        {
+          "filename": "nagel-termin-02.mp3",
+          "script": "Ich hätte gern einen Termin für Maniküre.",
+          "translationVi": "Tôi muốn đặt lịch làm móng tay.",
+          "replies": [
+            {
+              "text": "Gerne. Wann passt es Ihnen?",
+              "correct": true
+            },
+            {
+              "text": "Was willst du?",
+              "whyVi": "Dùng \"du\" với khách là không lịch sự."
+            },
+            {
+              "text": "Das macht dreißig Euro.",
+              "whyVi": "Khách chưa làm móng, chưa đến lúc tính tiền."
+            }
+          ]
+        },
+        {
+          "filename": "nagel-termin-03.mp3",
+          "script": "Ich komme am Dienstag um halb vier.",
+          "translationVi": "Tôi đến vào thứ Ba lúc ba giờ rưỡi.",
+          "answer": "15:30"
+        },
+        {
+          "filename": "nagel-termin-04.mp3",
+          "script": "Bitte nehmen Sie kurz Platz.",
+          "translationVi": "Mời chị ngồi chờ một chút."
+        }
+      ]
+    },
+    {
+      "id": "beratung",
+      "label": "Beratung",
+      "labelVi": "Tư vấn",
+      "clips": [
+        {
+          "filename": "nagel-beratung-01.mp3",
+          "script": "Möchten Sie Gel oder Shellac?",
+          "translationVi": "Chị muốn làm gel hay sơn shellac?"
+        },
+        {
+          "filename": "nagel-beratung-02.mp3",
+          "script": "Bitte nicht so lang, ich arbeite viel mit den Händen.",
+          "translationVi": "Đừng dài quá nhé, tôi làm việc nhiều bằng tay.",
+          "replies": [
+            {
+              "text": "Alles klar, dann mache ich sie kurz.",
+              "correct": true
+            },
+            {
+              "text": "Lange Nägel sind schöner.",
+              "whyVi": "Không nên cãi lại mong muốn của khách."
+            },
+            {
+              "text": "Um vierzehn Uhr.",
+              "whyVi": "Câu trả lời không liên quan đến câu hỏi."
+            }
+          ]
+        },
+        {
+          "filename": "nagel-beratung-03.mp3",
+          "script": "die Nagelfeile",
+          "translationVi": "cái dũa móng",
+          "image": "nagelfeile.webp"
+        },
+        {
+          "filename": "nagel-beratung-04.mp3",
+          "script": "der Nagellack",
+          "translationVi": "sơn móng tay",
+          "image": "nagellack.webp"
+        },
+        {
+          "filename": "nagel-beratung-05.mp3",
+          "script": "die Nagelhaut",
+          "translationVi": "da quanh móng",
+          "image": "nagelhaut.webp"
+        },
+        {
+          "filename": "nagel-beratung-06.mp3",
+          "script": "der Nagellackentferner",
+          "translationVi": "nước tẩy sơn móng",
+          "image": "nagellackentferner.webp"
+        },
+        {
+          "filename": "nagel-beratung-07.mp3",
+          "script": "das Handtuch",
+          "translationVi": "khăn tay",
+          "image": "handtuch.webp"
+        }
+      ]
+    },
+    {
+      "id": "bezahlen",
+      "label": "Bezahlen",
+      "labelVi": "Thanh toán",
+      "clips": [
+        {
+          "filename": "nagel-bezahlen-01.mp3",
+          "script": "Das macht fünfunddreißig Euro fünfzig.",
+          "translationVi": "Tổng cộng là ba mươi lăm euro năm mươi.",
+          "answer": "35,50"
+        },
+        {
+          "filename": "nagel-bezahlen-02.mp3",
+          "script": "Kann ich mit Karte zahlen?",
+          "translationVi": "Tôi trả bằng thẻ được không?",
+          "replies": [
+            {
+              "text": "Ja, natürlich. Halten Sie die Karte einfach hier dran.",
+              "correct": true
+            },
+            {
+              "text": "Ja, gib mal her.",
+              "whyVi": "Quá suồng sã với khách."
+            },
+            {
+              "text": "Das macht fünfunddreißig Euro.",
+              "whyVi": "Không trả lời câu hỏi của khách."
+            }
+          ]
+        },
+        {
+          "filename": "nagel-bezahlen-03.mp3",
+          "script": "Stimmt so, der Rest ist für Sie.",
+          "translationVi": "Không cần thối lại, phần còn lại là của bạn."
+        },
+        {
+          "filename": "nagel-bezahlen-04.mp3",
+          "script": "Vielen Dank und bis zum nächsten Mal!",
+          "translationVi": "Cảm ơn chị nhiều, hẹn gặp lại lần sau!"
+        }
+      ]
+    }
+  ]
+}

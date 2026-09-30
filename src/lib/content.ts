@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import ausbildungsberufeFile from "@/data/ausbildungsberufe.json";
 import commonFile from "@/data/ausbildung/common.json";
+import type { LivingReply } from "@/lib/living-content";
 
 type StoredClip = {
   filename: string;
@@ -21,6 +22,12 @@ export type SessionClip = {
   audioPath: string;
   /** Sentence-order card in a duel. Only set for level lessons. */
   sentenceOrder?: boolean;
+  /** "Was sagst du?" replies. Only on Leben-in-Deutschland clips. */
+  replies?: LivingReply[];
+  /** Zahlen-Ohr answer (price, time). Only on Leben-in-Deutschland clips. */
+  answer?: string;
+  /** Public image URL for pairing cards. Only on Leben-in-Deutschland clips. */
+  imageUrl?: string;
 };
 
 export type Ausbildungsberuf = {
