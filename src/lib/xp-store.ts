@@ -11,14 +11,15 @@ import { classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-s
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
-import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
-import { getSupabaseAdmin, getUserClassName, readClassName } from "@/lib/progress-store";
+import { learnRunCount, listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
+import { getCloudProgress, getSupabaseAdmin, getUserClassName, readClassName } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
   dayKey,
   decidePartXp,
   decideStudyPartXp,
+  passesAlreadyFinished,
   emptyLeaderboard,
   googleProfileImage,
   isStudyXpSchemaMissing,
@@ -163,13 +164,22 @@ export async function grantXpForListeningRun(
     };
   }
 
-  const finishedPasses = await finishedListeningPasses(
+  const recordedFinishes = await finishedListeningPasses(
     supabase,
     userId,
     input.lessonKey,
     input.id,
   );
-  if (finishedPasses == null) return { ready: false, xp: null, kind: null };
+  if (recordedFinishes == null) return { ready: false, xp: null, kind: null };
+  const stored = await getCloudProgress(userId);
+  const slash = input.lessonKey.indexOf("/");
+  const chapterSlug = slash > 0 ? input.lessonKey.slice(slash + 1) : "";
+  const finishedPasses = passesAlreadyFinished({
+    partNumber: input.partNumber,
+    partCount: input.partCount,
+    storedRunCount: chapterSlug ? learnRunCount(stored, chapterSlug) : 0,
+    recordedFinishes,
+  });
 
   const lessonClips = lessonClipsForXp(input.lessonKey);
   const decision = decidePartXp({

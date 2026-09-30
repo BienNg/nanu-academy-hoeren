@@ -319,7 +319,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
       ? record.runCompletedClipIds.filter(
           (id): id is string => typeof id === "string",
         )
-      : normalized.completedClipIds,
+      : [],
     ...(runClipOrder.length > 0 ? { runClipOrder } : {}),
     reviewedClipIds: Array.isArray(record.reviewedClipIds)
       ? record.reviewedClipIds.filter(
@@ -600,20 +600,51 @@ function unionIds(left: readonly string[], right: readonly string[]): string[] {
   return Array.from(new Set([...left, ...right]));
 }
 
-function pickRunClipOrder(
+type RunCursor = { order: string[]; done: string[] };
+
+/** Completed ids count only inside the stored shuffle. Ids with no order are not a cursor. */
+function runCursor(entry: LearnProgress | undefined): RunCursor {
+  const order = entry?.runClipOrder ?? [];
+  if (order.length === 0) return { order: [], done: [] };
+  const done = new Set(entry?.runCompletedClipIds ?? []);
+  return { order: [...order], done: order.filter((id) => done.has(id)) };
+}
+
+function sameRunOrder(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+/**
+ * One shuffle plus the parts finished inside it.
+ * A higher run count owns the cursor. Equal counts keep an in-progress
+ * shuffle, and do not fold another snapshot's finished-pass ids into it.
+ */
+function mergeRunCursors(
   left: LearnProgress | undefined,
   right: LearnProgress | undefined,
-  runCompletedClipIds: readonly string[],
-): string[] | undefined {
-  const orders = [left?.runClipOrder ?? [], right?.runClipOrder ?? []].filter(
-    (order) => order.length > 0,
-  );
-  if (orders.length === 0) return undefined;
-  const done = new Set(runCompletedClipIds);
-  const score = (order: readonly string[]) =>
-    order.filter((id) => done.has(id)).length;
-  orders.sort((a, b) => score(b) - score(a));
-  return orders[0];
+  leftCount: number,
+  rightCount: number,
+): RunCursor {
+  if (leftCount !== rightCount) {
+    const ahead = leftCount > rightCount ? left : right;
+    const cursor = runCursor(ahead);
+    if (cursor.order.length === 0) return { order: [], done: [] };
+    return cursor;
+  }
+
+  const a = runCursor(left);
+  const b = runCursor(right);
+  if (a.order.length === 0) return b;
+  if (b.order.length === 0) return a;
+  if (sameRunOrder(a.order, b.order)) {
+    const done = new Set([...a.done, ...b.done]);
+    return { order: a.order, done: a.order.filter((id) => done.has(id)) };
+  }
+
+  const aComplete = a.done.length === a.order.length;
+  const bComplete = b.done.length === b.order.length;
+  if (aComplete !== bComplete) return aComplete ? b : a;
+  return a.done.length >= b.done.length ? a : b;
 }
 
 function mergeLearnEntry(
@@ -631,21 +662,9 @@ function mergeLearnEntry(
   const leftCount = left?.runCount ?? 0;
   const rightCount = right?.runCount ?? 0;
   const runCount = Math.max(leftCount, rightCount);
-  const ahead =
-    leftCount === rightCount ? undefined : leftCount > rightCount ? left : right;
-  // Finishing a run clears its order. The further-ahead snapshot wins, so an
-  // older in-progress cursor is not merged back in.
-  const aheadFinishedRun = Boolean(ahead) && (ahead?.runClipOrder?.length ?? 0) === 0;
-
-  let runCompletedClipIds = unionIds(
-    left?.runCompletedClipIds ?? [],
-    right?.runCompletedClipIds ?? [],
-  );
-  let runClipOrder = pickRunClipOrder(left, right, runCompletedClipIds);
-  if (ahead && aheadFinishedRun) {
-    runCompletedClipIds = [];
-    runClipOrder = undefined;
-  }
+  const cursor = mergeRunCursors(left, right, leftCount, rightCount);
+  const runCompletedClipIds = cursor.done;
+  const runClipOrder = cursor.order.length > 0 ? cursor.order : undefined;
 
   return {
     ...mergedBase,

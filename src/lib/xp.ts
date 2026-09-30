@@ -208,6 +208,24 @@ export function googleProfileImage(value: unknown): string | null {
   return url.toString();
 }
 
+/**
+ * Full passes already finished before this part.
+ * Progress remembers passes from before run history existed. On the last
+ * part that count may already include the pass being finished now.
+ */
+export function passesAlreadyFinished(input: {
+  partNumber: number;
+  partCount: number;
+  storedRunCount: number;
+  recordedFinishes: number;
+}): number {
+  const stored = Math.max(0, Math.floor(input.storedRunCount));
+  const recorded = Math.max(0, Math.floor(input.recordedFinishes));
+  const fromProgress =
+    input.partNumber === input.partCount && input.partCount > 0 ? stored - 1 : stored;
+  return Math.max(recorded, fromProgress);
+}
+
 /** XP for one part from how many full passes of that lesson are already finished. */
 export function xpForFinishedPasses(
   finishedPasses: number,

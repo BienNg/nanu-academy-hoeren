@@ -245,6 +245,69 @@ test("a review order survives part commits and resets when replaced", () => {
   );
 });
 
+test("a rerun part stays finished when merged with a snapshot that lists every clip", () => {
+  const clips = questions(16);
+  const ids = clips.map((clip) => clip.id);
+  const order = [...ids].reverse();
+  const partOne = order.slice(0, 8);
+  const base = {
+    currentClipIndex: 0,
+    completedClipIds: ids,
+    runCount: 1,
+    reviewedClipIds: [] as string[],
+    studyRunCount: 0,
+    completedAt: "2026-09-27T00:00:00.000Z",
+  };
+  const partial = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        ...base,
+        runCompletedClipIds: partOne,
+        runClipOrder: order,
+      },
+    },
+  });
+  const finishedPass = normalizeProgress({
+    learn: {
+      "lektion-1": {
+        ...base,
+        runCompletedClipIds: ids,
+      },
+    },
+  });
+  const merged = mergeProgress(finishedPass, partial);
+  assert.deepEqual(merged.learn["lektion-1"]?.runClipOrder, order);
+  assert.deepEqual(merged.learn["lektion-1"]?.runCompletedClipIds, partOne);
+  const next = nextListeningPart(
+    clips,
+    ids,
+    1,
+    merged.learn["lektion-1"]?.runClipOrder,
+    merged.learn["lektion-1"]?.runCompletedClipIds ?? [],
+  );
+  assert.equal(next?.partNumber, 2);
+  assert.equal(next?.freshReplay, false);
+});
+
+test("a missing run cursor does not copy the finished lesson into the rerun", () => {
+  const progress = normalizeProgress(
+    JSON.parse(`{
+      "learn": {
+        "lektion-1": {
+          "currentClipIndex": 4,
+          "completedClipIds": ["a", "b", "c", "d"],
+          "runCount": 1,
+          "reviewedClipIds": [],
+          "studyRunCount": 0,
+          "completedAt": "2026-09-27T00:00:00.000Z"
+        }
+      }
+    }`),
+  );
+  assert.deepEqual(progress.learn["lektion-1"]?.runCompletedClipIds, []);
+  assert.equal(progress.learn["lektion-1"]?.runClipOrder, undefined);
+});
+
 test("a finished run drops an older in-progress cursor when snapshots merge", () => {
   const base = {
     currentClipIndex: 0,

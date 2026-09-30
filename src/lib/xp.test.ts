@@ -5,6 +5,7 @@ import {
   dayKey,
   decidePartXp,
   decideStudyPartXp,
+  passesAlreadyFinished,
   formatWeekCountdown,
   googleProfileImage,
   isXpSchemaMissing,
@@ -86,6 +87,36 @@ test("a listening part pays 35, then 20, then 10 after three passes", () => {
   assert.equal(mastered.xp, 10);
   assert.equal(mastered.kind, "review");
   assert.equal(mastered.store, true);
+});
+
+test("a rerun part uses the stored pass when run history has not caught up", () => {
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 2,
+      partCount: 6,
+      storedRunCount: 1,
+      recordedFinishes: 0,
+    }),
+    1,
+  );
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 6,
+      partCount: 6,
+      storedRunCount: 1,
+      recordedFinishes: 0,
+    }),
+    0,
+  );
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 6,
+      partCount: 6,
+      storedRunCount: 2,
+      recordedFinishes: 1,
+    }),
+    1,
+  );
 });
 
 test("failed, too-fast, and mismatched runs do not earn XP", () => {

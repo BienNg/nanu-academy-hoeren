@@ -292,6 +292,8 @@ async function pushCloudProgress(progress: StoredProgress): Promise<void> {
     if (!response.ok) return;
     const data = (await response.json()) as { progress?: unknown };
     if (!progressSyncIsCurrent(userId, generation) || data.progress == null) return;
+    // A newer local write happened while this request was in flight.
+    if (JSON.stringify(readProgressSnapshot()) !== JSON.stringify(progress)) return;
     const saved = normalizeProgress(data.progress as Partial<StoredProgress>);
     if (JSON.stringify(saved) === JSON.stringify(progress)) return;
     writeProgress(saved);
