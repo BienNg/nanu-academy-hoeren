@@ -1,9 +1,13 @@
 -- Run once in Supabase → SQL Editor (free project is fine).
--- One row per listening part that earned ranked XP (first pass, or the
--- first review of that part on a later day). The Next.js API writes these
--- with the service role key after it scores the listening run.
--- A repeated pass the same day is not stored. Failed parts are not stored.
+-- One row per listening part that earned ranked XP. A later run of the same
+-- lesson, including a shuffled run on the same day, earns another row.
+-- The Next.js API writes these with the service role key after it scores
+-- the listening run. Failed parts are not stored.
 -- Learners never send an XP number.
+--
+-- Existing projects that already created xp_awards_part_day also need
+-- supabase/xp_awards_reruns.sql. That unique key blocks a second award for
+-- the same part number on the same day.
 
 create table if not exists public.xp_awards (
   run_id uuid primary key references public.listening_runs (id) on delete cascade,
@@ -14,8 +18,7 @@ create table if not exists public.xp_awards (
   kind text not null check (kind in ('new', 'review')),
   week_key text not null,
   day_key text not null,
-  created_at timestamptz not null default now(),
-  constraint xp_awards_part_day unique (user_id, lesson_key, part_number, day_key)
+  created_at timestamptz not null default now()
 );
 
 create index if not exists xp_awards_week_user_idx

@@ -24,6 +24,7 @@ import {
   splitListeningParts,
   withFinishedCatalogClips,
 } from "@/lib/progress";
+import { isAdminUser } from "@/lib/admins";
 import { useProgress } from "@/lib/useProgress";
 import {
   buildListeningRunRecord,
@@ -137,7 +138,7 @@ export function LearnSession({
   hasNextChapter,
 }: LearnSessionProps) {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: authSession, status } = useSession();
   const [partClips, setPartClips] = useState<SessionClip[] | null>(null);
   const [partCards, setPartCards] = useState<PracticeCard<SessionClip>[] | null>(null);
   const [partNumber, setPartNumber] = useState(1);
@@ -183,7 +184,13 @@ export function LearnSession({
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
   const chapterMarkedDone = learnChapterCompleted(chapterProgressKey);
-  const practiceLocked = clips.length > 0 && !learnStudyCompleted(chapterProgressKey);
+  const adminBypass =
+    status === "authenticated" && isAdminUser(authSession?.user ?? {});
+  const practiceLocked =
+    status !== "loading" &&
+    !adminBypass &&
+    clips.length > 0 &&
+    !learnStudyCompleted(chapterProgressKey);
   const completedKey = completedIds.join("\n");
   const runCompletedKey = runCompletedIds.join("\n");
   const runOrderKey = runOrder.join("\n");

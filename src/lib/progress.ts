@@ -2851,6 +2851,113 @@ export function settledStudyReviewedIds<T extends { id: string }>(
   return kept;
 }
 
+export type NextPart = {
+  partNumber: number;
+  partCount: number;
+  /** Clips the learner will see if they start now. */
+  clips: { id: string; script?: string }[];
+  /** A later pass of a lesson that was already finished once. */
+  rerun: boolean;
+  /** The stored pass is complete, so starting clears it and begins at part 1. */
+  freshReplay: boolean;
+};
+
+/**
+ * The study part a tap would open.
+ * A finished lesson offers part 1 of a new pass. A pass already underway
+ * offers the first part that still has an unreviewed clip.
+ */
+export function nextStudyPart<T extends { id: string; script?: string }>(
+  clips: readonly T[],
+  reviewedIds: readonly string[],
+  studyRunCount: number,
+): NextPart | null {
+  const parts = splitStudyParts(clips);
+  if (parts.length === 0) return null;
+  const finished = studyRunCount > 0;
+  const replaying = finished && reviewedIds.length === 0;
+  const settled = finished ? reviewedIds : settledStudyReviewedIds(clips, reviewedIds);
+  const open = replaying ? 1 : firstIncompleteStudyPart(parts, settled);
+  const freshReplay = finished && !replaying && open > parts.length;
+  const partNumber = freshReplay ? 1 : Math.min(open, parts.length);
+  const part = parts[partNumber - 1] ?? [];
+  return {
+    partNumber,
+    partCount: parts.length,
+    clips: part.map((clip) => ({ id: clip.id, script: clip.script })),
+    rerun: finished,
+    freshReplay,
+  };
+}
+
+/**
+ * The listening part a tap would open.
+ * The first pass follows catalog order. A later pass follows the stored
+ * shuffle, or part 1 of a new shuffle when that pass is not underway.
+ */
+export function nextListeningPart<
+  T extends {
+    id: string;
+    script?: string;
+    translationVi?: string;
+    sentenceOrder?: boolean;
+  },
+>(
+  clips: readonly T[],
+  completedIds: readonly string[],
+  runCount: number,
+  runOrder: readonly string[] | null | undefined,
+  runCompletedIds: readonly string[],
+): NextPart | null {
+  if (clips.length === 0) return null;
+  if (runCount <= 0) {
+    const open = openListeningParts(clips, completedIds);
+    const part = open.parts[0] ?? [];
+    return {
+      partNumber: open.partNumber,
+      partCount: open.partCount,
+      clips: part.map((clip) => ({ id: clip.id, script: clip.script })),
+      rerun: false,
+      freshReplay: false,
+    };
+  }
+
+  if (!runOrder || !sameClipOrderSet(clips, runOrder)) {
+    const parts = splitListeningParts(clips);
+    const part = parts[0] ?? [];
+    return {
+      partNumber: 1,
+      partCount: parts.length,
+      clips: part.map((clip) => ({ id: clip.id, script: clip.script })),
+      rerun: true,
+      freshReplay: true,
+    };
+  }
+
+  const ordered = clipsInStoredOrder(clips, runOrder);
+  const parts = splitListeningParts(ordered);
+  const index = firstIncompletePartIndex(parts, runCompletedIds);
+  if (index < 0) {
+    const fresh = splitListeningParts(clips);
+    const part = fresh[0] ?? [];
+    return {
+      partNumber: 1,
+      partCount: fresh.length,
+      clips: part.map((clip) => ({ id: clip.id, script: clip.script })),
+      rerun: true,
+      freshReplay: true,
+    };
+  }
+  const part = parts[index] ?? [];
+  return {
+    partNumber: index + 1,
+    partCount: parts.length,
+    clips: part.map((clip) => ({ id: clip.id, script: clip.script })),
+    rerun: true,
+    freshReplay: false,
+  };
+}
+
 export function completedStudyPartCount<T extends { id: string }>(
   clips: readonly T[],
   reviewedIds: readonly string[],

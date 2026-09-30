@@ -2,16 +2,22 @@
  * Ranked XP for a finished listening part.
  * The browser never sends a point total. The server scores the run.
  *
- * A part pays a flat amount. More clips do not add points. Longer sentences
- * and a higher CEFR band do. The first pass of a part is full XP. The first
- * pass on a later day is review XP (40%), and review stops at 30 per day.
- * Another pass of the same part on the same day pays nothing.
+ * A part pays a fixed amount. More clips, longer sentences, and the CEFR
+ * band do not change it. The first pass pays 35. The second and third pay
+ * 20. Every pass after that pays 10. A new shuffled run on the same day
+ * is another pass and pays again.
  */
 
 import type { BlitzrundeBoardExtras } from "./blitzrunde";
 
-export const REVIEW_DAILY_CAP = 30;
 export const MIN_MS_PER_CLIP = 2000;
+/** Finished passes of one lesson before a part pays the mastered amount. */
+export const MASTERED_PASSES = 3;
+export const LISTENING_FIRST_PART_XP = 35;
+export const LISTENING_RERUN_PART_XP = 20;
+export const MASTERED_PART_XP = 10;
+export const STUDY_FIRST_PART_XP = 20;
+export const STUDY_RERUN_PART_XP = 10;
 export const GLOBAL_LEADERBOARD_LIMIT = 50;
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -153,8 +159,6 @@ export function formatWeekCountdown(endsAt: string, now: Date): string {
 export const XP_SCHEMA_HINT =
   "Run supabase/xp_awards.sql once in the Supabase SQL editor.";
 
-export const STUDY_PART_XP = 15;
-
 export const STUDY_XP_SCHEMA_HINT =
   "Run supabase/study_xp_awards.sql once in the Supabase SQL editor.";
 
@@ -202,39 +206,15 @@ export function googleProfileImage(value: unknown): string | null {
   return url.toString();
 }
 
-function bandBase(levelSlug: string): number {
-  if (levelSlug.startsWith("a1")) return 20;
-  if (levelSlug.startsWith("a2")) return 26;
-  if (levelSlug.startsWith("b1")) return 34;
-  if (levelSlug.startsWith("b2")) return 44;
-  return 20;
-}
-
-function scriptWords(script: string): number {
-  return script.trim().split(/\s+/).filter(Boolean).length;
-}
-
-function applyWordFactor(raw: number, averageWords: number): number {
-  if (averageWords < 3) return raw;
-  if (averageWords < 7) return Math.round((raw * 115) / 100);
-  return Math.round((raw * 130) / 100);
-}
-
-function rawPartXp(
-  levelSlug: string,
-  clips: readonly { script: string; missed: boolean }[],
-): number {
-  if (clips.length === 0) return 0;
-  const firstTry = clips.filter((clip) => !clip.missed).length;
-  const accuracyBonus = Math.round((10 * firstTry) / clips.length);
-  const words = clips.reduce((sum, clip) => sum + scriptWords(clip.script), 0);
-  return applyWordFactor(bandBase(levelSlug) + accuracyBonus, words / clips.length);
-}
-
-function reviewAmount(raw: number, reviewXpToday: number): number {
-  const uncapped = Math.round((raw * 40) / 100);
-  const room = Math.max(0, REVIEW_DAILY_CAP - Math.max(0, reviewXpToday));
-  return Math.min(uncapped, room);
+/** XP for one part from how many full passes of that lesson are already finished. */
+export function xpForFinishedPasses(
+  finishedPasses: number,
+  firstXp: number,
+  rerunXp: number,
+): { xp: number; kind: "new" | "review" } {
+  if (finishedPasses <= 0) return { xp: firstXp, kind: "new" };
+  if (finishedPasses >= MASTERED_PASSES) return { xp: MASTERED_PART_XP, kind: "review" };
+  return { xp: rerunXp, kind: "review" };
 }
 
 function rejected(now: Date): XpDecision {
@@ -248,15 +228,14 @@ function rejected(now: Date): XpDecision {
 }
 
 export function decidePartXp(input: {
-  levelSlug: string;
   outcome: "success" | "fail";
   elapsedMs: number;
   /** How many clips this part number must contain. Null when the part is not real. */
   expectedCount: number | null;
   results: readonly XpClipResult[];
   lessonClips: readonly LessonClip[];
-  priorDayKeys: readonly string[];
-  reviewXpToday: number;
+  /** Full listening passes of this lesson already finished, not counting this part. */
+  finishedPasses: number;
   now: Date;
 }): XpDecision {
   const now = input.now;
@@ -277,33 +256,22 @@ export function decidePartXp(input: {
     byId.set(clip.id, clip);
   }
 
-  const scored: { script: string; missed: boolean }[] = [];
   const seen = new Set<string>();
   for (const result of input.results) {
     if (seen.has(result.clipId) || !result.passed) return rejected(now);
     seen.add(result.clipId);
     const clip = byId.get(result.clipId);
     if (!clip) return rejected(now);
-    scored.push({ script: clip.script, missed: result.missed });
   }
 
   if (input.elapsedMs < expected * MIN_MS_PER_CLIP) return rejected(now);
 
-  const today = keys.dayKey;
-  if (input.priorDayKeys.includes(today)) {
-    return { xp: 0, kind: "repeat", store: false, ...keys };
-  }
-
-  const raw = rawPartXp(input.levelSlug, scored);
-  if (input.priorDayKeys.length === 0) {
-    return { xp: raw, kind: "new", store: true, ...keys };
-  }
-  return {
-    xp: reviewAmount(raw, input.reviewXpToday),
-    kind: "review",
-    store: true,
-    ...keys,
-  };
+  const award = xpForFinishedPasses(
+    input.finishedPasses,
+    LISTENING_FIRST_PART_XP,
+    LISTENING_RERUN_PART_XP,
+  );
+  return { ...award, store: true, ...keys };
 }
 
 /**
@@ -315,6 +283,8 @@ export function decideStudyPartXp(input: {
   /** How many clips this part number must contain. Null when the part is not real. */
   expectedCount: number | null;
   clipCount: number;
+  /** Full study passes of this lesson already finished, not counting this part. */
+  finishedPasses: number;
   now: Date;
 }): XpDecision {
   const keys = {
@@ -330,7 +300,12 @@ export function decideStudyPartXp(input: {
   ) {
     return { xp: 0, kind: "rejected", store: false, ...keys };
   }
-  return { xp: STUDY_PART_XP, kind: "new", store: true, ...keys };
+  const award = xpForFinishedPasses(
+    input.finishedPasses,
+    STUDY_FIRST_PART_XP,
+    STUDY_RERUN_PART_XP,
+  );
+  return { ...award, store: true, ...keys };
 }
 
 const STUDY_XP_ID =

@@ -36,6 +36,7 @@ import {
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
+const RUNS_TABLE = "listening_runs";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
 
@@ -60,6 +61,72 @@ function lessonClipsForXp(lessonKey: string): { id: string; script: string; tran
   } catch {
     return [];
   }
+}
+
+/**
+ * Full listening passes already stored for this lesson, excluding the run
+ * being scored. A pass is one successful last part. Null when the read fails.
+ */
+async function finishedListeningPasses(
+  supabase: SupabaseClient,
+  userId: string,
+  lessonKey: string,
+  currentRunId: string,
+): Promise<number | null> {
+  let from = 0;
+  let finished = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select("id, part_number, part_count")
+      .eq("user_id", userId)
+      .eq("lesson_key", lessonKey)
+      .eq("outcome", "success")
+      .order("created_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error("Supabase finishedListeningPasses", error.message);
+      return null;
+    }
+    const page = (data ?? []) as {
+      id?: unknown;
+      part_number?: unknown;
+      part_count?: unknown;
+    }[];
+    for (const row of page) {
+      if (row.id === currentRunId) continue;
+      if (typeof row.part_number === "number" && row.part_number === row.part_count) {
+        finished += 1;
+      }
+    }
+    if (page.length < PAGE_SIZE) return finished;
+    from += PAGE_SIZE;
+  }
+}
+
+/**
+ * Full study passes already paid for this lesson. One pass is one award per
+ * part. The part being scored is not stored yet. Null when the read fails.
+ */
+async function finishedStudyPasses(
+  supabase: SupabaseClient,
+  userId: string,
+  lessonKey: string,
+  partCount: number,
+): Promise<number | null> {
+  if (partCount < 1) return null;
+  const { count, error } = await supabase
+    .from(STUDY_XP_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("lesson_key", lessonKey);
+  if (error) {
+    if (!isStudyXpSchemaMissing(error.message)) {
+      console.error("Supabase finishedStudyPasses", error.message);
+    }
+    return null;
+  }
+  return Math.floor((count ?? 0) / partCount);
 }
 
 /**
@@ -96,47 +163,16 @@ export async function grantXpForListeningRun(
     };
   }
 
-  const prior = await supabase
-    .from(XP_TABLE)
-    .select("day_key")
-    .eq("user_id", userId)
-    .eq("lesson_key", input.lessonKey)
-    .eq("part_number", input.partNumber);
-  if (prior.error) {
-    if (!isXpSchemaMissing(prior.error.message)) {
-      console.error("Supabase grantXp prior", prior.error.message);
-    }
-    return { ready: false, xp: null, kind: null };
-  }
-
-  const priorDayKeys = ((prior.data ?? []) as { day_key?: unknown }[]).flatMap((row) =>
-    typeof row.day_key === "string" ? [row.day_key] : [],
+  const finishedPasses = await finishedListeningPasses(
+    supabase,
+    userId,
+    input.lessonKey,
+    input.id,
   );
-  const today = dayKey(now);
-  let reviewXpToday = 0;
-  if (!priorDayKeys.includes(today)) {
-    const reviews = await supabase
-      .from(XP_TABLE)
-      .select("xp")
-      .eq("user_id", userId)
-      .eq("day_key", today)
-      .eq("kind", "review");
-    if (reviews.error) {
-      if (!isXpSchemaMissing(reviews.error.message)) {
-        console.error("Supabase grantXp reviews", reviews.error.message);
-      }
-      return { ready: false, xp: null, kind: null };
-    }
-    reviewXpToday = ((reviews.data ?? []) as { xp?: unknown }[]).reduce(
-      (sum, row) => sum + (typeof row.xp === "number" ? row.xp : 0),
-      0,
-    );
-  }
+  if (finishedPasses == null) return { ready: false, xp: null, kind: null };
 
   const lessonClips = lessonClipsForXp(input.lessonKey);
-  const slash = input.lessonKey.indexOf("/");
   const decision = decidePartXp({
-    levelSlug: slash > 0 ? input.lessonKey.slice(0, slash) : "",
     outcome: input.outcome,
     elapsedMs: input.elapsedMs,
     expectedCount: listeningPartSize(
@@ -147,8 +183,7 @@ export async function grantXpForListeningRun(
     ),
     results: input.clips,
     lessonClips,
-    priorDayKeys,
-    reviewXpToday,
+    finishedPasses,
     now,
   });
   if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };
@@ -203,7 +238,8 @@ function sameClipSet(left: readonly string[], right: readonly string[]): boolean
 }
 
 /**
- * Score one finished study part and store 15 XP.
+ * Score one finished study part.
+ * The first pass of the lesson pays 20 per part. Every later pass pays 10.
  * A missing study_xp_awards table leaves progress saved and reports ready: false.
  */
 export async function grantStudyPartXp(
@@ -243,12 +279,17 @@ export async function grantStudyPartXp(
       input.clipIds,
       part.map((clip) => clip.id),
     );
+  const finishedPasses = matches
+    ? await finishedStudyPasses(supabase, userId, input.lessonKey, partCount)
+    : 0;
+  if (finishedPasses == null) return { ready: false, xp: null, kind: null };
   const decision = decideStudyPartXp({
     elapsedMs: input.elapsedMs,
     expectedCount: matches
       ? studyPartSize(lessonClips.length, input.partNumber, input.partCount)
       : null,
     clipCount: input.clipIds.length,
+    finishedPasses,
     now,
   });
   if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };

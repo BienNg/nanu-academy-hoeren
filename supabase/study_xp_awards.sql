@@ -1,5 +1,6 @@
 -- Run once in Supabase → SQL Editor (free project is fine).
--- One row per finished study part. Each successful run awards 15 XP.
+-- One row per finished study part. The first pass of a lesson awards 20 XP
+-- per part. Every later pass awards 10.
 -- The Next.js API writes these with the service role key after it checks
 -- that the part matches the lesson and was not instant. Learners never
 -- send an XP number. A repeated submit of the same id does not pay twice.

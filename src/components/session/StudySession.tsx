@@ -32,6 +32,8 @@ type StudySessionProps = {
   chapter: LevelChapterMeta;
   clips: SessionClip[];
   initialViewMode?: StudyViewMode;
+  /** Open a finished lesson again from part 1. */
+  startReplay?: boolean;
 };
 
 function MaterialIcon({
@@ -59,6 +61,7 @@ export function StudySession({
   chapter,
   clips: allClips,
   initialViewMode = "cards",
+  startReplay = false,
 }: StudySessionProps) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
@@ -134,6 +137,19 @@ export function StudySession({
 
   useEffect(() => {
     if (!progressReady || visitPart != null) return;
+    if (startReplay && studyFinished && storedReviewedIds.length > 0) {
+      resetLearnStudyProgress(chapterProgressKey);
+      setVisitPart(1);
+      partStartedAtRef.current = Date.now();
+      committedRef.current = false;
+      setClipIndex(0);
+      setPhase("study");
+      setScoreResult(null);
+      setDraft("");
+      setXpGrant(null);
+      setReady(true);
+      return;
+    }
     setVisitPart(lessonAlreadyDone ? "done" : openPart);
     partStartedAtRef.current = Date.now();
     committedRef.current = false;
@@ -143,7 +159,17 @@ export function StudySession({
     setDraft("");
     setXpGrant(null);
     setReady(true);
-  }, [progressReady, visitPart, lessonAlreadyDone, openPart]);
+  }, [
+    progressReady,
+    visitPart,
+    lessonAlreadyDone,
+    openPart,
+    startReplay,
+    studyFinished,
+    storedReviewedIds,
+    resetLearnStudyProgress,
+    chapterProgressKey,
+  ]);
 
   const [furthest, setFurthest] = useState(0);
   const currentClip = clips[clipIndex];

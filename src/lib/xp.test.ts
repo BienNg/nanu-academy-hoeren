@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  REVIEW_DAILY_CAP,
   assembleLeaderboard,
   dayKey,
   decidePartXp,
@@ -38,14 +37,12 @@ function decide(
   lesson: LessonClip[] = clips(10),
 ) {
   return decidePartXp({
-    levelSlug: "a1-1",
     outcome: "success",
     elapsedMs: lesson.length * 2000,
     expectedCount: lesson.length,
     results: results(lesson.map((clip) => clip.id)),
     lessonClips: lesson,
-    priorDayKeys: [],
-    reviewXpToday: 0,
+    finishedPasses: 0,
     now: NOW,
     ...overrides,
   });
@@ -67,49 +64,28 @@ test("countdown uses days, then hours", () => {
   assert.equal(formatWeekCountdown(weekEndsAt(earlier), earlier), "Còn 3 ngày");
 });
 
-test("a perfect short A1 part pays 30 and a retried one pays less", () => {
-  assert.equal(decide().xp, 30);
+test("a listening part pays 35, then 20, then 10 after three passes", () => {
+  assert.equal(decide().xp, 35);
   assert.equal(decide().kind, "new");
-  const lesson = clips(10);
-  const retried = decide({
+  const lesson = clips(10, "Ich heiße Anna und wohne in Berlin");
+  const missed = decide({
+    lessonClips: lesson,
     results: results(
       lesson.map((clip) => clip.id),
       2,
     ),
   });
-  assert.equal(retried.xp, 25);
-});
+  assert.equal(missed.xp, 35);
 
-test("longer sentences and higher bands pay more than short A1 clips", () => {
-  const sentences = clips(10, "Ich heiße Anna und wohne in Berlin");
-  assert.equal(decide({}, sentences).xp, 39);
-  assert.equal(decide({ levelSlug: "b1-2" }).xp, 44);
-  assert.equal(decide({ levelSlug: "b2-1" }).xp, 54);
-});
+  const second = decide({ finishedPasses: 1 });
+  assert.equal(second.xp, 20);
+  assert.equal(second.kind, "review");
+  assert.equal(decide({ finishedPasses: 2 }).xp, 20);
 
-test("review pays 40 percent until the daily cap, then the same part pays nothing", () => {
-  const reviewed = decide({ priorDayKeys: ["2026-09-26"] });
-  assert.equal(reviewed.kind, "review");
-  assert.equal(reviewed.xp, 12);
-  assert.equal(reviewed.store, true);
-
-  const nearCap = decide({
-    priorDayKeys: ["2026-09-26"],
-    reviewXpToday: REVIEW_DAILY_CAP - 5,
-  });
-  assert.equal(nearCap.xp, 5);
-
-  const capped = decide({
-    priorDayKeys: ["2026-09-26"],
-    reviewXpToday: REVIEW_DAILY_CAP,
-  });
-  assert.equal(capped.xp, 0);
-  assert.equal(capped.kind, "review");
-
-  const again = decide({ priorDayKeys: ["2026-09-27"] });
-  assert.equal(again.kind, "repeat");
-  assert.equal(again.xp, 0);
-  assert.equal(again.store, false);
+  const mastered = decide({ finishedPasses: 3 });
+  assert.equal(mastered.xp, 10);
+  assert.equal(mastered.kind, "review");
+  assert.equal(mastered.store, true);
 });
 
 test("failed, too-fast, and mismatched runs do not earn XP", () => {
@@ -131,7 +107,7 @@ test("a shuffled review part is scored by size, not catalog order", () => {
     lesson,
   );
   assert.equal(award.kind, "new");
-  assert.equal(award.xp, 30);
+  assert.equal(award.xp, 35);
   assert.equal(
     decide(
       {
@@ -157,21 +133,43 @@ test("schema hint only matches a missing xp_awards table", () => {
   );
 });
 
-test("a finished study part awards 15 XP", () => {
+test("a study part pays 20 on the first pass and 10 after that", () => {
   const paid = decideStudyPartXp({
     elapsedMs: 12 * 2000,
     expectedCount: 12,
     clipCount: 12,
+    finishedPasses: 0,
     now: NOW,
   });
-  assert.equal(paid.xp, 15);
+  assert.equal(paid.xp, 20);
   assert.equal(paid.kind, "new");
   assert.equal(paid.store, true);
+
+  const rerun = decideStudyPartXp({
+    elapsedMs: 12 * 2000,
+    expectedCount: 12,
+    clipCount: 12,
+    finishedPasses: 1,
+    now: NOW,
+  });
+  assert.equal(rerun.xp, 10);
+  assert.equal(rerun.kind, "review");
+  assert.equal(
+    decideStudyPartXp({
+      elapsedMs: 12 * 2000,
+      expectedCount: 12,
+      clipCount: 12,
+      finishedPasses: 3,
+      now: NOW,
+    }).xp,
+    10,
+  );
 
   const rushed = decideStudyPartXp({
     elapsedMs: 1000,
     expectedCount: 12,
     clipCount: 12,
+    finishedPasses: 0,
     now: NOW,
   });
   assert.equal(rushed.kind, "rejected");
@@ -181,6 +179,7 @@ test("a finished study part awards 15 XP", () => {
     elapsedMs: 60_000,
     expectedCount: null,
     clipCount: 12,
+    finishedPasses: 0,
     now: NOW,
   });
   assert.equal(unknown.kind, "rejected");

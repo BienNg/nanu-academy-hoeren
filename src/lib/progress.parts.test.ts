@@ -9,6 +9,8 @@ import {
   bumpStreak,
   commitLearnPart,
   completedPartCount,
+  nextListeningPart,
+  nextStudyPart,
   practiceRerunRing,
   absorbAddedLessonClips,
   firstIncompletePartIndex,
@@ -497,6 +499,50 @@ test("a cleared study replay is not filled back in", () => {
     { chapterSlug: "lektion-1", clipIds: ["a", "b"] },
   ]);
   assert.deepEqual(next.learn["lektion-1"]?.reviewedClipIds, []);
+});
+
+test("the next study part is the open one, and a finished lesson starts again at part 1", () => {
+  const clips = questions(16);
+  const first = nextStudyPart(clips, [], 0);
+  assert.equal(first?.partNumber, 1);
+  assert.equal(first?.rerun, false);
+  assert.equal(first?.clips.length, 8);
+
+  const mid = nextStudyPart(
+    clips,
+    clips.slice(0, 8).map((clip) => clip.id),
+    0,
+  );
+  assert.equal(mid?.partNumber, 2);
+  assert.equal(mid?.rerun, false);
+
+  const again = nextStudyPart(
+    clips,
+    clips.map((clip) => clip.id),
+    1,
+  );
+  assert.equal(again?.partNumber, 1);
+  assert.equal(again?.rerun, true);
+  assert.equal(again?.freshReplay, true);
+  assert.equal(again?.clips.length, 8);
+});
+
+test("the next listening part follows the first pass, then the stored shuffle", () => {
+  const clips = questions(16);
+  const first = nextListeningPart(clips, ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"], 0, undefined, []);
+  assert.equal(first?.partNumber, 2);
+  assert.equal(first?.rerun, false);
+
+  const fresh = nextListeningPart(clips, clips.map((clip) => clip.id), 1, undefined, []);
+  assert.equal(fresh?.partNumber, 1);
+  assert.equal(fresh?.rerun, true);
+  assert.equal(fresh?.freshReplay, true);
+
+  const order = [...clips].reverse().map((clip) => clip.id);
+  const underway = nextListeningPart(clips, [], 1, order, order.slice(0, 8));
+  assert.equal(underway?.partNumber, 2);
+  assert.equal(underway?.rerun, true);
+  assert.equal(underway?.freshReplay, false);
 });
 
 test("a rerun ring stays full until the first part of that rerun is finished", () => {

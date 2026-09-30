@@ -12,7 +12,21 @@ import {
   type AdminCatalogCourse,
   type AdminLessonDetail,
 } from "@/lib/admin-detail";
-import { isStudyActivityId, practiceRerunRing, type PracticeRerunRing } from "@/lib/progress";
+import {
+  isStudyActivityId,
+  nextListeningPart,
+  nextStudyPart,
+  practiceRerunRing,
+  type NextPart,
+  type PracticeRerunRing,
+} from "@/lib/progress";
+import {
+  LISTENING_FIRST_PART_XP,
+  LISTENING_RERUN_PART_XP,
+  STUDY_FIRST_PART_XP,
+  STUDY_RERUN_PART_XP,
+  xpForFinishedPasses,
+} from "@/lib/xp";
 import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -66,8 +80,41 @@ type TrailNode = {
   rerun: { percent: number; doneParts: number; partCount: number } | null;
   /** Three finished passes. The button is gold and the ring is hidden. */
   mastered: boolean;
+  /** Start card shown before the page opens. Null keeps a direct link. */
+  start: StartOffer | null;
   label: string;
 };
+
+type StartOffer = {
+  title: string;
+  exercise: string;
+  detail: string;
+  xp: number;
+  href: string;
+};
+
+function clipUnit(clips: readonly { script?: string }[]): "từ" | "câu" {
+  const sentence = clips.some(
+    (clip) => (clip.script ?? "").trim().split(/\s+/).filter(Boolean).length > 1,
+  );
+  return sentence ? "câu" : "từ";
+}
+
+function startOffer(
+  title: string,
+  part: NextPart,
+  xp: number,
+  href: string,
+): StartOffer {
+  const unit = clipUnit(part.clips);
+  return {
+    title,
+    exercise: `Bài tập ${part.partNumber} / ${part.partCount}`,
+    detail: part.rerun ? `Ôn ${part.clips.length} ${unit}` : `Học ${part.clips.length} ${unit} mới`,
+    xp,
+    href,
+  };
+}
 
 function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
   const titles =
@@ -97,6 +144,7 @@ function lessonTrailNodes(
   lessonHref: string,
   videoHref: (videoId: string) => string,
   practiceRing: PracticeRerunRing | null,
+  starts: { study: StartOffer | null; practice: StartOffer | null },
 ): TrailNode[] {
   if (!lesson) return [];
 
@@ -112,6 +160,7 @@ function lessonTrailNodes(
     stars: null,
     rerun: null,
     mastered: false,
+    start: null,
     label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
   }));
 
@@ -148,6 +197,7 @@ function lessonTrailNodes(
       stars: isStudy ? null : earnedStars,
       rerun,
       mastered,
+      start: isStudy ? starts.study : starts.practice,
       label,
     };
   });
@@ -162,13 +212,16 @@ function isVideoTrailNode(node: TrailNode): boolean {
 /**
  * On an open Lektion, video nodes stay open so a leading run can be skipped.
  * The first node after those videos is open too. Every later node stays locked
- * until the node immediately before it is complete.
+ * until the node immediately before it is complete. Admins skip that sequence
+ * on a real Lektion. Coming soon lessons stay locked for everyone.
  */
 function trailNodeLocked(
   nodes: readonly TrailNode[],
   index: number,
   lessonOpen: boolean,
+  unlockAll = false,
 ): boolean {
+  if (unlockAll && lessonOpen) return false;
   if (!lessonOpen) return true;
   const node = nodes[index];
   if (!node || isVideoTrailNode(node)) return false;
@@ -421,6 +474,60 @@ function lockedBubbleShift(anchor: HTMLElement): number {
   return left - idealLeft;
 }
 
+function StartNodeBubble({
+  offer,
+  shift,
+  bubbleId,
+  reduceMotion,
+}: {
+  offer: StartOffer;
+  shift: number;
+  bubbleId: string;
+  reduceMotion: boolean;
+}) {
+  const x = `calc(-50% + ${shift}px)`;
+  const pop = reduceMotion
+    ? { duration: 0.15 }
+    : { type: "spring" as const, stiffness: 560, damping: 16, mass: 0.52 };
+
+  return (
+    <motion.div
+      id={bubbleId}
+      role="dialog"
+      aria-label={offer.title}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.82, x }}
+      animate={{ opacity: 1, y: 0, scale: 1, x }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.9, x }}
+      transition={pop}
+      style={{
+        transformOrigin: `calc(50% - ${shift}px) 0px`,
+        filter: "drop-shadow(0 3px 0 rgba(3,105,161,0.35)) drop-shadow(0 10px 18px rgba(3,105,161,0.28))",
+      }}
+      className="absolute top-[calc(100%+8px)] left-1/2 z-30 w-[min(18.5rem,calc(100vw-2rem))]"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 12"
+        className="absolute -top-[11px] h-3 w-6 -translate-x-1/2"
+        style={{ left: `calc(50% - ${shift}px)` }}
+      >
+        <path d="M1.2 12 L12 1.2 L22.8 12 Z" fill="#0284c7" />
+      </svg>
+      <div className="rounded-2xl bg-[#0284c7] px-4 pt-3.5 pb-3.5 text-white">
+        <p className="text-[17px] font-extrabold leading-6">{offer.title}</p>
+        <p className="mt-1 text-[15px] font-bold leading-5 text-white/80">{offer.exercise}</p>
+        <p className="text-[15px] font-bold leading-5 text-white/80">{offer.detail}</p>
+        <Link
+          href={offer.href}
+          className="mt-3 flex h-12 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[#0284c7] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5"
+        >
+          {`BẮT ĐẦU  +${offer.xp} XP`}
+        </Link>
+      </div>
+    </motion.div>
+  );
+}
+
 function LockedNodeBubble({
   title,
   shift,
@@ -577,6 +684,33 @@ function PathStop({
       behavior: reduceMotion ? "auto" : "smooth",
     });
   }, [bubbleOpen, shift, reduceMotion]);
+
+  if (!locked && node.start) {
+    return (
+      <div ref={rootRef} className="relative">
+        <button
+          type="button"
+          aria-label={label}
+          aria-expanded={bubbleOpen}
+          aria-controls={bubbleOpen ? bubbleId : undefined}
+          onClick={onLockedPress}
+          className={className}
+        >
+          {body}
+        </button>
+        <AnimatePresence>
+          {bubbleOpen && shift != null ? (
+            <StartNodeBubble
+              offer={node.start}
+              shift={shift}
+              bubbleId={bubbleId}
+              reduceMotion={reduceMotion}
+            />
+          ) : null}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   if (!locked && node.href) {
     return (
@@ -791,9 +925,13 @@ export default function LevelViewClient({
   const {
     progress,
     progressReady,
+    completedLearnClipIdsFor,
     completedLearnRunClipIdsFor,
     learnRunClipOrderFor,
+    learnRunCountFor,
+    learnStudyRunCountFor,
     learnChapterCompleted,
+    reviewedLearnClipIdsFor,
     streakDays,
     settleStudyReviews,
   } = useProgress();
@@ -1095,12 +1233,49 @@ export default function LevelViewClient({
                   completedLearnRunClipIdsFor(chapter.slug),
                 )
               : null;
+            const practiceClips = chapter.practiceClips ?? [];
+            const studyPart = nextStudyPart(
+              practiceClips,
+              reviewedLearnClipIdsFor(chapter.slug),
+              learnStudyRunCountFor(chapter.slug),
+            );
+            const listeningPart = nextListeningPart(
+              practiceClips,
+              completedLearnClipIdsFor(chapter.slug),
+              learnRunCountFor(chapter.slug),
+              learnRunClipOrderFor(chapter.slug),
+              completedLearnRunClipIdsFor(chapter.slug),
+            );
+            const studyPasses = learnStudyRunCountFor(chapter.slug);
+            const listeningPasses = learnRunCountFor(chapter.slug);
             const nodes = lessonTrailNodes(
               lessonDetail,
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
               practiceRing,
+              {
+                study: studyPart
+                  ? startOffer(
+                      "Học từ vựng",
+                      studyPart,
+                      xpForFinishedPasses(studyPasses, STUDY_FIRST_PART_XP, STUDY_RERUN_PART_XP).xp,
+                      studyPart.freshReplay ? `${lessonHref}/study?replay=1` : `${lessonHref}/study`,
+                    )
+                  : null,
+                practice: listeningPart
+                  ? startOffer(
+                      "Luyện tập",
+                      listeningPart,
+                      xpForFinishedPasses(
+                        listeningPasses,
+                        LISTENING_FIRST_PART_XP,
+                        LISTENING_RERUN_PART_XP,
+                      ).xp,
+                      `${lessonHref}/practice`,
+                    )
+                  : null,
+              },
             );
             const topicLine = lessonTopicCaption(
               lessonTopic(lessonDetail),
@@ -1207,7 +1382,7 @@ export default function LevelViewClient({
                         >
                           <PathStop
                             node={node}
-                            locked={trailNodeLocked(nodes, nodeIndex, isOpen)}
+                            locked={trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin)}
                             bubbleOpen={lockedBubbleId === bubbleId}
                             onLockedPress={() => toggleLockedBubble(bubbleId)}
                             onDismiss={() => dismissLockedBubble(bubbleId)}
