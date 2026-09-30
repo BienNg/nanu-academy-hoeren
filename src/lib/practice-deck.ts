@@ -47,11 +47,11 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
   if (total === 0) return 0;
 
   const scored = lessonClips.map((clip) => {
-    const multipleChoice =
-      Boolean(clip.translationVi?.trim()) && isMultipleChoiceEligible(clip, lessonClips);
+    const hasTranslation = Boolean(clip.translationVi?.trim());
+    const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
     return {
       clip,
-      base: 1 + (clip.sentenceOrder ? 1 : 0) + (multipleChoice ? 1 : 0),
+      base: 1 + (clip.sentenceOrder && hasTranslation ? 1 : 0) + (multipleChoice ? 1 : 0),
       pairing: isPairingItemEligible(clip),
       script: scriptKey(clip.script),
     };

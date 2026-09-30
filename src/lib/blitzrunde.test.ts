@@ -59,6 +59,25 @@ test("the same seed always builds the same deck, a different seed shuffles it", 
   );
 });
 
+test("a clip with an empty Vietnamese translation is left out of the deck", () => {
+  const withLetter = [
+    { id: "eszett", script: "ß", translationVi: "" },
+    ...lektion,
+  ];
+  const deck = buildBlitzrundeDeck({
+    lektionClips: withLetter,
+    levelClips: withLetter,
+    seed: "letter",
+  });
+  for (const card of deck) {
+    if (card.kind === "pairing") {
+      assert.ok(!card.clipIds.includes("eszett"));
+    } else {
+      assert.notEqual(card.clipId, "eszett");
+    }
+  }
+});
+
 test("the deck never has listening cards and positions run 0..n-1", () => {
   const deck = buildBlitzrundeDeck({ lektionClips: lektion, levelClips: level, seed: "pos" });
   assert.ok(deck.length > 0);

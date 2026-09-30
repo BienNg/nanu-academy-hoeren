@@ -88,6 +88,21 @@ test("the heaviest clips still fit in one run of at most 15 cards", () => {
   assert.ok(practiceCardCount(heavy.slice(0, maxClips + 1), heavy) > MAX_PRACTICE_CARDS);
 });
 
+test("a clip with an empty Vietnamese translation is a listening card only", () => {
+  const letter = { id: "eszett", script: "ß", translationVi: "", sentenceOrder: true };
+  const clips = [letter, ...partClips];
+  const base = buildPracticeDeck(clips, clips, seeded(9));
+  const deck = insertDiscreteCards(base, clips, clips, [], seeded(10));
+
+  const letterCards = deck.filter(
+    (card) => card.clip.id === letter.id || card.pairItems?.some((item) => item.id === letter.id),
+  );
+  assert.deepEqual(
+    letterCards.map((card) => card.kind),
+    ["listening"],
+  );
+});
+
 test("no pairing card is added when fewer than 5 clips are pairing-eligible", () => {
   const thin = partClips.slice(0, 4);
   const base = buildPracticeDeck(thin, thin, seeded(7));

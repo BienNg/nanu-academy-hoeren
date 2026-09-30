@@ -185,7 +185,7 @@ export function buildPracticeDeck<C extends OrderSourceClip>(
     clip,
   }));
   for (const clip of partClips) {
-    if (!clip.sentenceOrder) continue;
+    if (!clip.sentenceOrder || !clip.translationVi?.trim()) continue;
     const listenAt = deck.findIndex(
       (card) => card.kind === "listening" && card.clip.id === clip.id,
     );
