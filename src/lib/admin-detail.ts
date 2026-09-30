@@ -547,13 +547,16 @@ export function buildLevelPath(
     let latest: { lessonIndex: number; nodeIndex: number } | null = null;
     let unfinished = false;
 
-    catalog.lessons.forEach((lesson, lessonIndex) => {
+    for (let lessonIndex = 0; lessonIndex < catalog.lessons.length; lessonIndex++) {
+      const lesson = catalog.lessons[lessonIndex]!;
       const detail = member.course?.lessons.find((entry) => entry.id === lesson.id);
-      levelNodeTemplates(lesson).forEach((node, nodeIndex) => {
+      const nodes = levelNodeTemplates(lesson);
+      for (let nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) {
+        const node = nodes[nodeIndex]!;
         if (!nodeFinished(detail, node)) unfinished = true;
         if (nodeStarted(detail, node)) latest = { lessonIndex, nodeIndex };
-      });
-    });
+      }
+    }
 
     if (latest && unfinished) {
       lessons[latest.lessonIndex]!.nodes[latest.nodeIndex]!.here.push(person);
