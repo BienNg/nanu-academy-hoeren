@@ -269,6 +269,9 @@ export type AdminRange = (typeof ADMIN_RANGES)[number];
 
 export const DEFAULT_ADMIN_RANGE: AdminRange = "30d";
 
+/** Overview opens on today. Other ranged pages keep the 30-day default. */
+export const OVERVIEW_ADMIN_RANGE: AdminRange = "today";
+
 const RANGE_DAYS: Record<AdminRange, number> = {
   today: 1,
   "7d": 7,
@@ -283,12 +286,13 @@ const RANGE_LABELS: Record<AdminRange, string> = {
   "90d": "90 days",
 };
 
-/** Unknown and missing values fall back to the default rather than throwing. */
+/** Unknown and missing values fall back to `fallback` rather than throwing. */
 export function parseAdminRange(
   value: string | string[] | undefined,
+  fallback: AdminRange = DEFAULT_ADMIN_RANGE,
 ): AdminRange {
   const raw = Array.isArray(value) ? value[0] : value;
-  return ADMIN_RANGES.find((range) => range === raw) ?? DEFAULT_ADMIN_RANGE;
+  return ADMIN_RANGES.find((range) => range === raw) ?? fallback;
 }
 
 export function adminRangeLabel(range: AdminRange): string {
@@ -437,12 +441,18 @@ function isRowActiveInWindow(
   return touched || hasWork || (lastSeenDay != null && window.has(lastSeenDay));
 }
 
+/** Students only. Admins and staff (teachers) stay out of engagement totals. */
+function learnerRows(rows: readonly AdminUserRow[]): AdminUserRow[] {
+  return rows.filter((row) => !row.isAdmin && !row.staff);
+}
+
 /** Totals over the selected window. Days are UTC calendar days, matching streaks. */
 export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
 ): AdminActivityStats {
+  const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
   const window = new Set(days);
   let activeUsers = 0;
@@ -450,7 +460,7 @@ export function buildAdminActivityStats(
   let studyRuns = 0;
   let practiceRuns = 0;
 
-  for (const row of rows) {
+  for (const row of learners) {
     let rowVideos = 0;
     let rowStudy = 0;
     let rowPractice = 0;
@@ -470,7 +480,7 @@ export function buildAdminActivityStats(
   }
 
   return {
-    users: rows.length,
+    users: learners.length,
     activeUsers,
     videosWatched,
     studyRuns,
@@ -486,7 +496,7 @@ export function listActiveAdminUsers(
 ): AdminUserRow[] {
   const days = adminRangeDayKeys(range, now);
   const window = new Set(days);
-  return rows
+  return learnerRows(rows)
     .filter((row) => isRowActiveInWindow(row, days, window))
     .sort((a, b) => b.lastLoginMs - a.lastLoginMs);
 }
@@ -658,19 +668,20 @@ export function buildAdminActivityBoard(
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
 ): AdminActivityBoard {
+  const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
   if (range === "today") {
     const day = days[0];
     return {
       grain: "hour",
-      points: buildHourlyActivityPoints(rows, day),
-      leaders: buildActivityLeaders(rows, days),
+      points: buildHourlyActivityPoints(learners, day),
+      leaders: buildActivityLeaders(learners, days),
     };
   }
   return {
     grain: "day",
-    points: buildDailyActivityPoints(rows, days),
-    leaders: buildActivityLeaders(rows, days),
+    points: buildDailyActivityPoints(learners, days),
+    leaders: buildActivityLeaders(learners, days),
   };
 }
 
@@ -1093,21 +1104,21 @@ export function buildAdminXpBoard(
   };
 }
 
-/** Listening plus duel XP for one Vietnam calendar day, keyed by user id. */
-export function xpByUserOnDay(
+/** Listening plus duel XP for the given Vietnam calendar days, keyed by user id. */
+export function xpByUserInDays(
   listening: readonly AdminListeningXpRow[],
   duels: readonly AdminDuelXpRow[],
-  day: string,
+  days: ReadonlySet<string>,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   const add = (userId: string, xp: number) => {
     totals[userId] = (totals[userId] ?? 0) + xp;
   };
   for (const row of listening) {
-    if (row.dayKey === day) add(row.userId, row.xp);
+    if (days.has(row.dayKey)) add(row.userId, row.xp);
   }
   for (const row of duels) {
-    if (row.dayKey === day) add(row.userId, row.xp);
+    if (days.has(row.dayKey)) add(row.userId, row.xp);
   }
   return totals;
 }

@@ -90,17 +90,24 @@ function ActivityStat({
   );
 }
 
+function xpRangeTitle(range: AdminRange): string {
+  if (range === "today") return "XP earned today";
+  return `XP earned in the last ${adminRangeLabel(range).toLowerCase()}`;
+}
+
 function ActiveUsersSection({
   users,
   window,
-  todayXp,
-  todayXpReady,
+  range,
+  rangeXp,
+  rangeXpReady,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
   window: string;
-  todayXp: Readonly<Record<string, number>>;
-  todayXpReady: boolean;
+  range: AdminRange;
+  rangeXp: Readonly<Record<string, number>>;
+  rangeXpReady: boolean;
   onSelect: (userId: string) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -109,6 +116,7 @@ function ActiveUsersSection({
     () => paginateAdminUsers(users, page, ADMIN_PAGE_SIZE),
     [users, page],
   );
+  const xpTitle = xpRangeTitle(range);
   const rangeStart = paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
   const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
 
@@ -156,7 +164,7 @@ function ActiveUsersSection({
                     row.lastLoginAt && now != null
                       ? formatRelativeTime(row.lastLoginAt, now)
                       : null;
-                  const earnedToday = todayXp[row.userId] ?? 0;
+                  const earned = rangeXp[row.userId] ?? 0;
                   return (
                     <tr
                       key={row.userId}
@@ -214,19 +222,19 @@ function ActiveUsersSection({
                               {row.streakDays}
                             </span>
                           </span>
-                          {todayXpReady ? (
+                          {rangeXpReady ? (
                             <span
                               className={`inline-flex items-center gap-0.5 font-caption text-caption tabular-nums ${
-                                earnedToday > 0 ? "text-on-surface" : "text-outline"
+                                earned > 0 ? "text-on-surface" : "text-outline"
                               }`}
-                              title="XP earned today"
+                              title={xpTitle}
                             >
                               <MaterialIcon
                                 name="bolt"
-                                className={`text-[14px] ${earnedToday > 0 ? "text-[#f59e0b]" : "text-outline"}`}
-                                filled={earnedToday > 0}
+                                className={`text-[14px] ${earned > 0 ? "text-[#f59e0b]" : "text-outline"}`}
+                                filled={earned > 0}
                               />
-                              {earnedToday.toLocaleString("en-GB")} today
+                              {earned.toLocaleString("en-GB")}
                             </span>
                           ) : null}
                         </div>
@@ -273,8 +281,8 @@ type AdminOverviewProps = {
   courseCatalog: readonly AdminCatalogCourse[];
   rows: readonly AdminUserRow[];
   storeConfigured: boolean;
-  todayXp: Readonly<Record<string, number>>;
-  todayXpReady: boolean;
+  rangeXp: Readonly<Record<string, number>>;
+  rangeXpReady: boolean;
 };
 
 export function AdminOverview({
@@ -283,8 +291,8 @@ export function AdminOverview({
   courseCatalog,
   rows,
   storeConfigured,
-  todayXp,
-  todayXpReady,
+  rangeXp,
+  rangeXpReady,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -314,16 +322,16 @@ export function AdminOverview({
         <section aria-label="Activity" className="flex flex-col gap-space-12">
           <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
             <ActivityStat
-              label="Users"
+              label="All students"
               value={formatCount(activity.users)}
               icon="group"
-              hint="Accounts with synced progress"
+              hint="Every account, including inactive"
             />
             <ActivityStat
               label="Active"
               value={formatCount(activity.activeUsers)}
               icon="person"
-              hint={`Seen or practiced ${window}`}
+              hint={`Used the app ${window}`}
             />
             <ActivityStat
               label="Videos watched"
@@ -350,8 +358,9 @@ export function AdminOverview({
           <ActiveUsersSection
             users={activeUsers}
             window={window}
-            todayXp={todayXp}
-            todayXpReady={todayXpReady}
+            range={range}
+            rangeXp={rangeXp}
+            rangeXpReady={rangeXpReady}
             onSelect={setDetailUserId}
           />
         ) : null}

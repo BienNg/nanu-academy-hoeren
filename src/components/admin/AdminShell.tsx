@@ -19,6 +19,7 @@ import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import {
   ADMIN_RANGES,
   DEFAULT_ADMIN_RANGE,
+  OVERVIEW_ADMIN_RANGE,
   adminRangeLabel,
   parseAdminRange,
   type AdminRange,
@@ -173,10 +174,14 @@ function activeItem(pathname: string): AdminNavItem | null {
   return best;
 }
 
+function defaultRangeForHref(href: string): AdminRange {
+  return href === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+}
+
 function withAdminRange(href: string, range: string | null): string {
   if (
     !range ||
-    range === DEFAULT_ADMIN_RANGE ||
+    range === defaultRangeForHref(href) ||
     !(ADMIN_RANGES as readonly string[]).includes(range)
   ) {
     return href;
@@ -401,12 +406,13 @@ function RangePill() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const current = parseAdminRange(searchParams.get("range") ?? undefined);
+  const fallback = pathname === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+  const current = parseAdminRange(searchParams.get("range") ?? undefined, fallback);
 
   const select = useCallback(
     (range: AdminRange) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (range === DEFAULT_ADMIN_RANGE) {
+      if (range === fallback) {
         params.delete("range");
       } else {
         params.set("range", range);
@@ -414,7 +420,7 @@ function RangePill() {
       const query = params.toString();
       router.push(query ? `${pathname}?${query}` : pathname);
     },
-    [router, pathname, searchParams],
+    [router, pathname, searchParams, fallback],
   );
 
   return (
@@ -468,9 +474,8 @@ function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
         <Link
           href="/"
-          className="hidden h-9 shrink-0 items-center gap-space-4 rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:inline-flex"
+          className="hidden h-9 shrink-0 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:inline-flex"
         >
-          <MaterialIcon name="arrow_back" className="text-[16px]" />
           Learner app
         </Link>
 
