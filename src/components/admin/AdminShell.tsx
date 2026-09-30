@@ -15,6 +15,7 @@ import {
 } from "react";
 import { ProfileButton } from "@/components/ProfileButton";
 import type { AdminDashboardRole } from "@/lib/admins";
+import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import {
   ADMIN_RANGES,
   DEFAULT_ADMIN_RANGE,
@@ -145,7 +146,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/retention", label: "Retention", icon: "event_repeat", ready: true, ranged: true },
       { href: "/admin/xp", label: "XP", icon: "bolt", ready: true, ranged: true },
       { href: "/admin/duels", label: "Duels", icon: "swords", ready: true, ranged: true },
-      { href: "/admin/blitzrunde", label: "Blitzrunde", icon: "electric_bolt", ready: true },
+      { href: "/admin/blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, ready: true },
     ],
   },
   {

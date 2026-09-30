@@ -14,6 +14,7 @@ import {
 } from "@/app/admin/blitzrunde/actions";
 import type { AdminClassOption } from "@/lib/admin-overview";
 import {
+  BLITZRUNDE_ICON,
   LATE_SUBMIT_MS,
   MIN_RANKED,
   THIN_DECK_WARNING,
@@ -292,7 +293,7 @@ function CreateRound({
           disabled={disabled || busy || !classLabel || !chapterSlug || current?.total === 0}
           onClick={() => void create()}
         >
-          <MaterialIcon name="electric_bolt" className="text-[18px]" />
+          <MaterialIcon name={BLITZRUNDE_ICON} className="text-[18px]" />
           {busy ? "Opening…" : "Open lobby"}
         </button>
       </div>
