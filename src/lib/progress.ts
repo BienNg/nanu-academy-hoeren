@@ -2585,6 +2585,7 @@ function asOrderClip(clip: {
   sentenceOrder?: boolean;
   answer?: string;
   replies?: OrderSourceClip["replies"];
+  imageUrl?: string;
 }): OrderSourceClip {
   return {
     id: clip.id,
@@ -2593,6 +2594,7 @@ function asOrderClip(clip: {
     ...(clip.sentenceOrder !== undefined ? { sentenceOrder: clip.sentenceOrder } : {}),
     ...(clip.answer !== undefined ? { answer: clip.answer } : {}),
     ...(clip.replies !== undefined ? { replies: clip.replies } : {}),
+    ...(clip.imageUrl !== undefined ? { imageUrl: clip.imageUrl } : {}),
   };
 }
 

@@ -69,13 +69,14 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
     const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
     const germanChoice = hasTranslation && isGermanChoiceEligible(clip, lessonClips);
     // Must mirror the cards buildPracticeDeck and insertDiscreteCards deal per clip.
+    const viDrills = !clip.answer && !clip.imageUrl;
     const base = clip.answer
       ? 1 + (multipleChoice ? 1 : 0)
       : 1 +
         (clip.sentenceOrder && hasTranslation ? 1 : 0) +
         (multipleChoice ? 1 : 0) +
-        (hasTranslation ? 1 : 0) +
-        (germanChoice ? 1 : 0) +
+        (viDrills && hasTranslation ? 1 : 0) +
+        (viDrills && germanChoice ? 1 : 0) +
         (hasReplyChoice(clip) ? 1 : 0);
     return {
       clip,
@@ -186,7 +187,8 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
 
   for (const clip of partClips) {
     // A number clip's script is spelled out; typing it from Vietnamese is not the skill.
-    if (!clip.translationVi?.trim() || clip.answer) continue;
+    // A picture word is drilled by picture pairing instead, which keeps 5 of them in one part.
+    if (!clip.translationVi?.trim() || clip.answer || clip.imageUrl) continue;
     const anchorIndex = listeningIndexOf(clip.id);
     if (anchorIndex === -1) continue;
     insertAfter(anchorIndex, {
@@ -197,7 +199,7 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
   }
 
   for (const clip of partClips) {
-    if (!clip.translationVi?.trim() || !clip.script.trim() || clip.answer) continue;
+    if (!clip.translationVi?.trim() || !clip.script.trim() || clip.answer || clip.imageUrl) continue;
     const options = buildDeMcOptions(clip, lessonClips, levelClips, random);
     if (!options) continue;
     const anchorIndex = listeningIndexOf(clip.id);

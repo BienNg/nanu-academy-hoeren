@@ -186,3 +186,18 @@ test("card counting matches the dealt deck for Living clips", () => {
     practiceCardCount(withoutReplies, withoutReplies) + 1,
   );
 });
+
+test("five picture words fit one part and get a picture pairing card", () => {
+  const words = [
+    ["w1", "die Nagelfeile", "cái dũa móng"],
+    ["w2", "der Nagellack", "sơn móng tay"],
+    ["w3", "die Nagelhaut", "da quanh móng"],
+    ["w4", "der Nagellackentferner", "nước tẩy sơn móng"],
+    ["w5", "das Handtuch", "khăn tay"],
+  ].map(([id, script, translationVi]) => ({ id, script, translationVi, imageUrl: `/images/${id}.webp` }));
+  assert.equal(maxClipsPerPracticePart(words), 5);
+  const deck = insertDiscreteCards(buildPracticeDeck(words, words, seeded(8)), words, words, [], seeded(9));
+  assert.equal(deck.filter((card) => card.kind === "pairing").length, 1);
+  assert.ok(!deck.some((card) => card.kind === "vi-input" || card.kind === "vi-choice"));
+  assert.ok(deck.length <= MAX_PRACTICE_CARDS);
+});

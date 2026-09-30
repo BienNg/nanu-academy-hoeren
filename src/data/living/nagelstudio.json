@@ -70,33 +70,40 @@
               "whyVi": "Câu trả lời không liên quan đến câu hỏi."
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "id": "werkzeug",
+      "label": "Werkzeug & Produkte",
+      "labelVi": "Dụng cụ & sản phẩm",
+      "clips": [
         {
-          "filename": "nagel-beratung-03.mp3",
+          "filename": "nagel-werkzeug-01.mp3",
           "script": "die Nagelfeile",
           "translationVi": "cái dũa móng",
           "image": "nagelfeile.webp"
         },
         {
-          "filename": "nagel-beratung-04.mp3",
+          "filename": "nagel-werkzeug-02.mp3",
           "script": "der Nagellack",
           "translationVi": "sơn móng tay",
           "image": "nagellack.webp"
         },
         {
-          "filename": "nagel-beratung-05.mp3",
+          "filename": "nagel-werkzeug-03.mp3",
           "script": "die Nagelhaut",
           "translationVi": "da quanh móng",
           "image": "nagelhaut.webp"
         },
         {
-          "filename": "nagel-beratung-06.mp3",
+          "filename": "nagel-werkzeug-04.mp3",
           "script": "der Nagellackentferner",
           "translationVi": "nước tẩy sơn móng",
           "image": "nagellackentferner.webp"
         },
         {
-          "filename": "nagel-beratung-07.mp3",
+          "filename": "nagel-werkzeug-05.mp3",
           "script": "das Handtuch",
           "translationVi": "khăn tay",
           "image": "handtuch.webp"

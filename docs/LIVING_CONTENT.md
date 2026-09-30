@@ -91,6 +91,10 @@ Short words (up to 3 German words) with a translation are dealt as pairing cards
 With `image`, the picture shows instead of the Vietnamese text. Put the file in
 `public/images/living/<slug>/`. A missing picture falls back to the text.
 
+A pairing card needs 5 short words **in the same practice part**. Long scenes are split into
+parts of up to 15 cards, so keep picture words together, ideally in a vocabulary scene of
+their own (see `werkzeug` in the sample file).
+
 ```json
 { "filename": "nagel-beratung-03.mp3", "script": "die Nagelfeile", "translationVi": "cái dũa móng", "image": "nagelfeile.webp" }
 ```

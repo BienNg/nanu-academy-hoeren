@@ -61,6 +61,7 @@ type XpLessonClip = {
   sentenceOrder?: boolean;
   answer?: string;
   replies?: { text: string; correct: boolean; whyVi?: string }[];
+  imageUrl?: string;
 };
 
 /**
@@ -77,6 +78,7 @@ function lessonClipsForXp(lessonKey: string): XpLessonClip[] {
       sentenceOrder: clip.sentenceOrder,
       ...(clip.answer ? { answer: clip.answer } : {}),
       ...(clip.replies ? { replies: clip.replies } : {}),
+      ...(clip.imageUrl ? { imageUrl: clip.imageUrl } : {}),
     }));
   }
   const slash = lessonKey.indexOf("/");

@@ -34,6 +34,8 @@ export type OrderSourceClip = {
   answer?: string;
   /** Leben in Deutschland: replies for a "Was sagst du?" card. */
   replies?: readonly { text: string; correct: boolean; whyVi?: string }[];
+  /** Leben in Deutschland: picture shown in pairing cards. */
+  imageUrl?: string;
 };
 
 export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
