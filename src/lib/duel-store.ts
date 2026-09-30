@@ -15,7 +15,7 @@ import {
   getSupabaseAdmin,
   getUserLevelAccess,
   readClassName,
-  withoutInterviewAccess,
+  withoutReservedAccess,
 } from "@/lib/progress-store";
 import {
   dayKey,
@@ -822,7 +822,7 @@ export async function getDuelHome(user: {
   home.studiedCount = context.studiedCount;
   home.viewerIsAdmin = context.viewerIsAdmin;
   if (!context.viewerIsAdmin && context.studiedCount < DUEL_SIZE) {
-    const access = withoutInterviewAccess(await getUserLevelAccess(user.id));
+    const access = withoutReservedAccess(await getUserLevelAccess(user.id));
     home.studyHref = firstUnlockedStudyHref(
       context.viewerProgress,
       studyUnlockLevels(),

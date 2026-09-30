@@ -8,6 +8,7 @@ import {
   setAdminPendingAccess,
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
+  setAdminUserLivingAccess,
 } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
@@ -92,14 +93,19 @@ function GrantChip({
 
 const INTERVIEW_LABEL = "Phỏng vấn";
 
+export type AdminWorkplaceOption = { slug: string; label: string };
+
 function courseSummary(
   levels: readonly AdminLevelOption[],
   levelAccess: readonly string[],
   interview: boolean,
+  workplaces: readonly AdminWorkplaceOption[],
+  living: readonly string[],
 ): string {
   const labels = [
     ...levels.filter((level) => levelAccess.includes(level.slug)).map((level) => level.level),
     ...(interview ? [INTERVIEW_LABEL] : []),
+    ...workplaces.filter((workplace) => living.includes(workplace.slug)).map((workplace) => workplace.label),
   ];
   return labels.length === 0 ? "Choose courses" : labels.join(", ");
 }
@@ -145,6 +151,8 @@ function CoursePicker({
   levels,
   levelAccess,
   interview,
+  workplaces,
+  living,
   disabled,
   onChange,
 }: {
@@ -152,14 +160,16 @@ function CoursePicker({
   levels: readonly AdminLevelOption[];
   levelAccess: readonly string[];
   interview: boolean;
+  workplaces: readonly AdminWorkplaceOption[];
+  living: readonly string[];
   disabled: boolean;
-  onChange: (levelAccess: string[], interview: boolean) => void;
+  onChange: (levelAccess: string[], interview: boolean, living: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const box = useMenuBox(open, buttonRef);
-  const summary = courseSummary(levels, levelAccess, interview);
+  const summary = courseSummary(levels, levelAccess, interview, workplaces, living);
   const chosen = summary !== "Choose courses";
 
   useLayoutEffect(() => {
@@ -184,7 +194,14 @@ function CoursePicker({
     const next = levelAccess.includes(slug)
       ? levelAccess.filter((item) => item !== slug)
       : [...levelAccess, slug];
-    onChange(next, interview);
+    onChange(next, interview, [...living]);
+  }
+
+  function toggleWorkplace(slug: string) {
+    const next = living.includes(slug)
+      ? living.filter((item) => item !== slug)
+      : [...living, slug];
+    onChange([...levelAccess], interview, next);
   }
 
   const menu =
@@ -221,7 +238,7 @@ function CoursePicker({
               type="button"
               role="option"
               aria-selected={interview}
-              onClick={() => onChange([...levelAccess], !interview)}
+              onClick={() => onChange([...levelAccess], !interview, [...living])}
               className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
             >
               <MaterialIcon
@@ -230,6 +247,25 @@ function CoursePicker({
               />
               <span className="truncate">{INTERVIEW_LABEL}</span>
             </button>
+            {workplaces.map((workplace) => {
+              const on = living.includes(workplace.slug);
+              return (
+                <button
+                  key={workplace.slug}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => toggleWorkplace(workplace.slug)}
+                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
+                >
+                  <MaterialIcon
+                    name={on ? "check_box" : "check_box_outline_blank"}
+                    className={`text-[18px] ${on ? "text-primary" : "text-outline"}`}
+                  />
+                  <span className="truncate">Leben in DE · {workplace.label}</span>
+                </button>
+              );
+            })}
           </div>,
           document.body,
         )
@@ -357,12 +393,14 @@ function ClassNameField({
 export function AdminAccess({
   rows,
   levels,
+  workplaces,
   storeConfigured,
   pending,
   pendingReady,
 }: {
   rows: AdminUserRow[];
   levels: readonly AdminLevelOption[];
+  workplaces: readonly AdminWorkplaceOption[];
   storeConfigured: boolean;
   pending: PendingLevelGrant[];
   pendingReady: boolean;
@@ -375,12 +413,14 @@ export function AdminAccess({
   const [page, setPage] = useState(1);
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]>>({});
   const [interviewByUser, setInterviewByUser] = useState<Record<string, boolean>>({});
+  const [livingByUser, setLivingByUser] = useState<Record<string, string[]>>({});
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [savingInterviewIds, setSavingInterviewIds] = useState<string[]>([]);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [grantEmail, setGrantEmail] = useState("");
   const [draftLevels, setDraftLevels] = useState<string[]>([]);
   const [draftInterview, setDraftInterview] = useState(false);
+  const [draftLiving, setDraftLiving] = useState<string[]>([]);
   const [draftClass, setDraftClass] = useState("");
   const [savingGrant, setSavingGrant] = useState(false);
   const [pendingRows, setPendingRows] = useState(pending);
@@ -391,7 +431,7 @@ export function AdminAccess({
   const pendingSignature = pending
     .map(
       (row) =>
-        `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}:${row.className ?? ""}`,
+        `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}:${row.livingAccess.join(",")}:${row.className ?? ""}`,
     )
     .join("|");
   const [seenPending, setSeenPending] = useState(pendingSignature);
@@ -409,6 +449,10 @@ export function AdminAccess({
     return row.interviewAccess;
   }
 
+  function livingFor(row: AdminUserRow): string[] {
+    return livingByUser[row.userId] ?? row.livingAccess;
+  }
+
   const liveRows = useMemo(
     () =>
       rows.map((row) => ({
@@ -417,8 +461,9 @@ export function AdminAccess({
         interviewAccess: Object.hasOwn(interviewByUser, row.userId)
           ? interviewByUser[row.userId]
           : row.interviewAccess,
+        livingAccess: livingByUser[row.userId] ?? row.livingAccess,
       })),
-    [rows, accessByUser, interviewByUser],
+    [rows, accessByUser, interviewByUser, livingByUser],
   );
 
   const board = useMemo(
@@ -517,11 +562,48 @@ export function AdminAccess({
     }
   }
 
+  async function toggleLiving(row: AdminUserRow, workplaceSlug: string) {
+    if (
+      row.isAdmin ||
+      savingRef.current.has(row.userId) ||
+      savingInterviewRef.current.has(row.userId)
+    ) {
+      return;
+    }
+    // Grants for one user share a single level_access list, so saves never overlap.
+    savingInterviewRef.current.add(row.userId);
+    const current = livingFor(row);
+    const granted = !current.includes(workplaceSlug);
+    const next = granted
+      ? [...current, workplaceSlug]
+      : current.filter((slug) => slug !== workplaceSlug);
+    setLivingByUser((prev) => ({ ...prev, [row.userId]: next }));
+    setSavingInterviewIds((prev) =>
+      prev.includes(row.userId) ? prev : [...prev, row.userId],
+    );
+    setAccessError(null);
+    try {
+      const result = await setAdminUserLivingAccess(row.userId, workplaceSlug, granted);
+      if (!result.ok) {
+        setLivingByUser((prev) => ({ ...prev, [row.userId]: current }));
+        setAccessError(result.error);
+        return;
+      }
+      setLivingByUser((prev) => ({ ...prev, [row.userId]: result.livingAccess }));
+      startTransition(() => {
+        router.refresh();
+      });
+    } finally {
+      savingInterviewRef.current.delete(row.userId);
+      setSavingInterviewIds((prev) => prev.filter((id) => id !== row.userId));
+    }
+  }
+
   async function savePendingGrant() {
     const email = grantEmail.trim();
     if (!email || savingGrant) return;
     const className = draftClass.trim();
-    if (draftLevels.length === 0 && !draftInterview && !className) {
+    if (draftLevels.length === 0 && !draftInterview && draftLiving.length === 0 && !className) {
       setAccessError("Choose a course or a class.");
       return;
     }
@@ -533,6 +615,7 @@ export function AdminAccess({
         draftLevels,
         draftInterview,
         className,
+        draftLiving,
       );
       if (!result.ok) {
         setAccessError(result.error);
@@ -549,6 +632,7 @@ export function AdminAccess({
       setGrantEmail("");
       setDraftLevels([]);
       setDraftInterview(false);
+      setDraftLiving([]);
       setDraftClass("");
       startTransition(() => {
         router.refresh();
@@ -574,6 +658,7 @@ export function AdminAccess({
         next.levelAccess,
         next.interviewAccess,
         next.className ?? "",
+        next.livingAccess,
       );
       if (!result.ok) {
         setPendingRows((prev) =>
@@ -650,7 +735,7 @@ export function AdminAccess({
       <AdminPageHeader
         kicker="People"
         title="Access"
-        subtitle="Who can open each CEFR level and Luyện phỏng vấn, including emails that have not signed up yet. Admins are unlocked everywhere."
+        subtitle="Who can open each CEFR level, Luyện phỏng vấn and Leben in Deutschland, including emails that have not signed up yet. Admins are unlocked everywhere."
       />
 
       {!storeConfigured ? (
@@ -668,7 +753,7 @@ export function AdminAccess({
 
       <section
         aria-label="Access totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-6"
       >
         <SummaryStat
           label="Students"
@@ -693,6 +778,12 @@ export function AdminAccess({
           value={formatCount(board.interview)}
           icon="record_voice_over"
           hint="Learners who can open Luyện phỏng vấn"
+        />
+        <SummaryStat
+          label="Leben in DE"
+          value={formatCount(board.living)}
+          icon="storefront"
+          hint="Learners with at least one workplace"
         />
         <SummaryStat
           label="Admins"
@@ -866,10 +957,13 @@ export function AdminAccess({
               levels={levels}
               levelAccess={draftLevels}
               interview={draftInterview}
+              workplaces={workplaces}
+              living={draftLiving}
               disabled={!storeConfigured || !pendingReady || savingGrant}
-              onChange={(nextLevels, nextInterview) => {
+              onChange={(nextLevels, nextInterview, nextLiving) => {
                 setDraftLevels(nextLevels);
                 setDraftInterview(nextInterview);
+                setDraftLiving(nextLiving);
               }}
             />
           </label>
@@ -926,12 +1020,15 @@ export function AdminAccess({
                           levels={levels}
                           levelAccess={row.levelAccess}
                           interview={row.interviewAccess}
+                          workplaces={workplaces}
+                          living={row.livingAccess}
                           disabled={busy}
-                          onChange={(nextLevels, nextInterview) =>
+                          onChange={(nextLevels, nextInterview, nextLiving) =>
                             void savePendingRow(row, {
                               ...row,
                               levelAccess: nextLevels,
                               interviewAccess: nextInterview,
+                              livingAccess: nextLiving,
                             })
                           }
                         />
@@ -1056,6 +1153,7 @@ export function AdminAccess({
                 paged.pageRows.map((row) => {
                   const granted = grantedFor(row);
                   const interview = interviewFor(row);
+                  const living = livingFor(row);
                   const busy =
                     savingIds.includes(row.userId) ||
                     savingInterviewIds.includes(row.userId);
@@ -1117,6 +1215,23 @@ export function AdminAccess({
                               }
                               onToggle={() => void toggleInterview(row)}
                             />
+                            {workplaces.map((workplace) => {
+                              const on = living.includes(workplace.slug);
+                              return (
+                                <GrantChip
+                                  key={`living-${workplace.slug}`}
+                                  label={workplace.label}
+                                  on={on}
+                                  disabled={busy}
+                                  title={
+                                    on
+                                      ? `Hide Leben in Deutschland · ${workplace.label}`
+                                      : `Show Leben in Deutschland · ${workplace.label}`
+                                  }
+                                  onToggle={() => void toggleLiving(row, workplace.slug)}
+                                />
+                              );
+                            })}
                           </div>
                         )}
                       </td>

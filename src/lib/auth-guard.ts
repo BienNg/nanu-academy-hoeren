@@ -4,6 +4,7 @@ import { isAdminUser } from "@/lib/admins";
 import {
   getUserInterviewAccess,
   getUserLevelAccess,
+  getUserLivingAccess,
   getUserStaff,
   resolveAccountAccess,
 } from "@/lib/progress-store";
@@ -85,6 +86,24 @@ export async function requireInterviewAccess(user: {
   }
   const granted = await getUserInterviewAccess(user.id);
   if (!granted) {
+    redirect("/");
+  }
+}
+
+/**
+ * Admins can open every Leben-in-Deutschland workplace. Everyone else needs
+ * the `living-<workplace>` grant, and a missing grant sends them back to Home.
+ */
+export async function requireLivingAccess(
+  user: { id?: string | null; email?: string | null },
+  workplaceSlug: string,
+): Promise<void> {
+  if (isAdminUser(user)) return;
+  if (!user.id) {
+    redirect("/");
+  }
+  const granted = await getUserLivingAccess(user.id);
+  if (!granted.includes(workplaceSlug)) {
     redirect("/");
   }
 }

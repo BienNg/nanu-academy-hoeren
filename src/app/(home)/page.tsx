@@ -6,7 +6,7 @@ import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
 import {
   getUserLevelAccess,
   hasInterviewAccess,
-  withoutInterviewAccess,
+  withoutReservedAccess,
 } from "@/lib/progress-store";
 import { getLeaderboard } from "@/lib/xp-store";
 
@@ -45,7 +45,7 @@ export default async function Home() {
       interviewClipTotals={interviewClipTotals}
       unlockedLevelSlugs={
         storedAccess
-          ? withoutInterviewAccess(storedAccess)
+          ? withoutReservedAccess(storedAccess)
           : levels.map((level) => level.slug)
       }
       interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
