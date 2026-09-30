@@ -42,6 +42,7 @@ import {
   withoutInterviewAccess,
   type PendingLevelGrant,
 } from "@/lib/progress-store";
+import { forgetReviewItems } from "@/lib/review-store";
 
 /**
  * Every admin page reads the same user rows, so one layout-scoped call covers
@@ -120,6 +121,7 @@ export async function deleteAdminStudentProgress(
     await deleteListeningRunsForLessons(id, built.history.runs);
     await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
+    await forgetReviewItems(id, built.history.runs);
     await syncStudiedClips(id, progress);
     revalidateAdmin();
     return { ok: true, progress };
@@ -167,6 +169,7 @@ export async function deleteAdminUser(
 
   try {
     await deleteUserAccount(id);
+    await forgetReviewItems(id, "all");
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to delete account";

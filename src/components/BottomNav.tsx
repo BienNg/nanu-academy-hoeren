@@ -11,13 +11,16 @@ const ITEMS = [
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/" || pathname.startsWith("/learn");
+  if (href === "/") {
+    return pathname === "/" || pathname.startsWith("/learn") || pathname.startsWith("/review");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [challenges, setChallenges] = useState(0);
+  const [reviewsDue, setReviewsDue] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +34,16 @@ export function BottomNav() {
         })
         .catch(() => {
           if (!cancelled) setChallenges(0);
+        });
+      void fetch("/api/review")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: unknown) => {
+          if (cancelled || !data || typeof data !== "object") return;
+          const due = (data as { due?: unknown }).due;
+          setReviewsDue(typeof due === "number" && due > 0 ? due : 0);
+        })
+        .catch(() => {
+          if (!cancelled) setReviewsDue(0);
         });
     };
     load();
@@ -49,8 +62,13 @@ export function BottomNav() {
       <div className="mx-auto flex h-16 w-full max-w-md items-stretch justify-around px-2">
         {ITEMS.map((item) => {
           const active = isCurrent(pathname, item.href);
-          const badge = item.href === "/duel" ? challenges : 0;
-          const label = badge > 0 ? `${item.label}, ${badge} lời thách đấu chưa chơi` : item.label;
+          const badge = item.href === "/duel" ? challenges : item.href === "/" ? reviewsDue : 0;
+          const label =
+            badge === 0
+              ? item.label
+              : item.href === "/"
+                ? `${item.label}, ${badge} câu cần ôn tập`
+                : `${item.label}, ${badge} lời thách đấu chưa chơi`;
           return (
             <Link
               key={item.href}

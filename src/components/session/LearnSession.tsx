@@ -64,6 +64,8 @@ type PartSummary = {
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
+  /** Clips missed at least once. They come back in Ôn tập tomorrow. */
+  missedCount: number;
 };
 
 function PartHearts({
@@ -534,6 +536,7 @@ export function LearnSession({
       xp: null,
       xpKind: null,
       xpPending: Boolean(run) && !failed,
+      missedCount: results.filter((clip) => clip.missed).length,
     });
     if (!failed) {
       commitPart();
@@ -646,6 +649,11 @@ export function LearnSession({
           failed={failedRun}
           continueLabel={exitLabel}
           onContinue={continueAfterPart}
+          note={
+            summary.missedCount > 0
+              ? `${summary.missedCount} câu sai sẽ quay lại trong phần Ôn tập`
+              : null
+          }
         />
       ) : !currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
