@@ -303,6 +303,30 @@ export function adminRangeDays(range: AdminRange): number {
   return RANGE_DAYS[range];
 }
 
+/** Inclusive start and exclusive end of the Vietnam window, as UTC instants. */
+export function adminRangeVietnamInterval(
+  range: AdminRange,
+  now = new Date(),
+): { from: string; to: string } {
+  const days = adminRangeVietnamDayKeys(range, now);
+  const oldest = days[days.length - 1] ?? days[0];
+  const newest = days[0];
+  const [year, month, day] = newest.split("-").map(Number);
+  const nextDay = new Date(Date.UTC(year, (month ?? 1) - 1, day) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return {
+    from: vietnamDayStartIso(oldest),
+    to: vietnamDayStartIso(nextDay),
+  };
+}
+
+/** Midnight in Asia/Ho_Chi_Minh for a `YYYY-MM-DD` calendar day. */
+function vietnamDayStartIso(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, (month ?? 1) - 1, date) - 7 * 60 * 60 * 1000).toISOString();
+}
+
 /** UTC calendar days in the window, newest first, matching the streak boundary. */
 export function adminRangeDayKeys(
   range: AdminRange,

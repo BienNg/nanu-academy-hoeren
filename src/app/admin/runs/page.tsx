@@ -15,12 +15,13 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
   listAdminListeningRuns,
+  listAdminMissedClipIds,
   listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Listening runs · Admin · NaNu Academy",
+  title: "Practice · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 
@@ -58,15 +59,23 @@ export default async function AdminListeningRunsPage({
   const runs = storeConfigured
     ? await listAdminListeningRuns()
     : { status: "error" as const, rows: [] };
+  const board = buildAdminListeningRunBoard(runs.rows, range);
+  const missedClipIds =
+    storeConfigured && runs.status === "ready"
+      ? await listAdminMissedClipIds(
+          board.recent.filter((run) => run.accuracy < 100).map((run) => run.id),
+        )
+      : {};
 
   return (
     <AdminListeningRuns
-      board={buildAdminListeningRunBoard(runs.rows, range)}
+      board={board}
       people={people}
       catalog={catalog}
       range={range}
       status={runs.status}
       storeConfigured={storeConfigured}
+      missedClipIds={missedClipIds}
     />
   );
 }

@@ -239,12 +239,12 @@ function LessonsTable({ rows }: { rows: readonly AdminXpLesson[] }) {
           Lessons that paid
         </h2>
         <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          Listening parts only. Duel XP has no lesson.
+          Practice parts only. Duel XP has no lesson.
         </p>
       </div>
       {rows.length === 0 ? (
         <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          No listening parts paid XP in this window.
+          No practice parts paid XP in this window.
         </p>
       ) : (
         <table className="w-full min-w-[28rem] border-collapse text-left">
@@ -319,7 +319,7 @@ export function AdminXp({
           label="Total XP"
           value={formatCount(board.total)}
           icon="bolt"
-          hint={`Listening and duels ${window}`}
+          hint={`Practice and duels ${window}`}
         />
         <SummaryStat
           label="First pass"

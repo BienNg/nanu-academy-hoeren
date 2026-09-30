@@ -378,7 +378,7 @@ export function AdminClassStats({
                     {activeLabel}
                   </h2>
                   <p className="mt-1 max-w-xl font-body-sm text-body-sm text-on-surface-variant">
-                    Streaks, lessons, listening, and videos for everyone in this class.
+                    Streaks, lessons, practice runs, and videos for everyone in this class.
                     Assign a class from the student row.
                   </p>
                 </div>
@@ -407,7 +407,7 @@ export function AdminClassStats({
                   icon="check_circle"
                 />
                 <SummaryStat
-                  label="Listening"
+                  label="Practice runs"
                   value={formatCount(stats.listeningRepetitions)}
                   icon="headphones"
                 />
@@ -458,7 +458,7 @@ export function AdminClassStats({
                         <SortHeader label="Streak" column="streak" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Courses" column="courses" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Lessons" column="lessons" sort={sort} dir={dir} align="right" onSort={handleSort} />
-                        <SortHeader label="Listening" column="listening" sort={sort} dir={dir} align="right" onSort={handleSort} />
+                        <SortHeader label="Practice runs" column="listening" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Videos" column="videos" sort={sort} dir={dir} align="right" onSort={handleSort} />
                       </tr>
                     </thead>

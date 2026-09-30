@@ -283,6 +283,10 @@ type AdminOverviewProps = {
   storeConfigured: boolean;
   rangeXp: Readonly<Record<string, number>>;
   rangeXpReady: boolean;
+  studyParts: number | null;
+  /** Whole listening lessons finished in the Vietnam window. Null keeps the UTC activity count. */
+  practiceRuns: number | null;
+  practiceParts: number | null;
 };
 
 export function AdminOverview({
@@ -293,6 +297,9 @@ export function AdminOverview({
   storeConfigured,
   rangeXp,
   rangeXpReady,
+  studyParts,
+  practiceRuns,
+  practiceParts,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -320,7 +327,7 @@ export function AdminOverview({
         ) : null}
 
         <section aria-label="Activity" className="flex flex-col gap-space-12">
-          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-4">
             <ActivityStat
               label="All students"
               value={formatCount(activity.users)}
@@ -343,13 +350,25 @@ export function AdminOverview({
               label="Study runs"
               value={formatCount(activity.studyRuns)}
               icon="menu_book"
-              hint={`Finished ${window}`}
+              hint={`Whole study lessons finished ${window}`}
+            />
+            <ActivityStat
+              label="Study parts"
+              value={studyParts == null ? "—" : formatCount(studyParts)}
+              icon="auto_stories"
+              hint={`Study parts finished ${window}, Vietnam time`}
             />
             <ActivityStat
               label="Practice runs"
-              value={formatCount(activity.practiceRuns)}
+              value={formatCount(practiceRuns ?? activity.practiceRuns)}
               icon="headphones"
-              hint={`Listening runs finished ${window}`}
+              hint={`Whole practice lessons finished ${window}, Vietnam time`}
+            />
+            <ActivityStat
+              label="Practice parts"
+              value={practiceParts == null ? "—" : formatCount(practiceParts)}
+              icon="hearing"
+              hint={`Practice parts finished ${window}, Vietnam time`}
             />
           </div>
         </section>

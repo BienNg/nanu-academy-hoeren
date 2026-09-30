@@ -263,7 +263,7 @@ export function AdminHealth({ board }: { board: AdminHealthBoard }) {
         <Link href="/admin/content" className="font-semibold text-primary underline-offset-2 hover:underline">
           Catalog
         </Link>
-        . Clip miss rates and finished parts stay on Clip difficulty and Listening runs.
+        . Clip miss rates and finished parts stay on Practice clip difficulty and Practice.
       </p>
     </main>
   );

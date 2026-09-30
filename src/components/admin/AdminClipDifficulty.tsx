@@ -117,9 +117,9 @@ function ListeningClipSection({
   const ranked = useMemo(() => rankClipOutcomes(rows), [rows]);
 
   return (
-    <section aria-label="Listening clips" className="flex flex-col gap-space-12">
+    <section aria-label="Practice clips" className="flex flex-col gap-space-12">
       <div>
-        <h2 className="font-headline-sm text-headline-sm text-on-surface">Listening clips</h2>
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">Practice clips</h2>
         <p className="font-caption text-caption text-on-surface-variant">
           All-time totals across every student. A clip they miss and then correct counts in
           both lists.
@@ -318,8 +318,8 @@ export function AdminClipDifficulty({
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
       <AdminPageHeader
         kicker="Learning"
-        title="Clip difficulty"
-        subtitle="All-time misses and passes from finished listening parts. A miss that is later corrected counts on both sides."
+        title="Practice clip difficulty"
+        subtitle="All-time misses and passes from finished practice parts. A miss that is later corrected counts on both sides."
       />
 
       {!storeConfigured ? (
@@ -341,7 +341,7 @@ export function AdminClipDifficulty({
       ) : null}
 
       <section
-        aria-label="Clip difficulty totals"
+        aria-label="Practice clip difficulty totals"
         className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
       >
         <SummaryStat
@@ -521,7 +521,7 @@ export function AdminClipDifficulty({
                     className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                   >
                     {rows.length === 0
-                      ? "No finished listening parts have clip results yet."
+                      ? "No finished practice parts have clip results yet."
                       : "No clips match this filter."}
                   </td>
                 </tr>

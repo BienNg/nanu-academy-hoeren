@@ -4,6 +4,7 @@ import { AdminOverview } from "@/components/admin/AdminOverview";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   adminRangeVietnamDayKeys,
+  adminRangeVietnamInterval,
   buildAdminActivityStats,
   OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
@@ -17,10 +18,11 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
+  countAdminPracticeParts,
   listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
-import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
+import { countAdminStudyParts, listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
   title: "Overview · Admin · NaNu Academy",
@@ -64,6 +66,16 @@ export default async function AdminPage({
   const xpReads = storeConfigured
     ? await Promise.all([listAdminListeningXp(fromDay, toDay), listAdminDuelXp(fromDay, toDay)])
     : null;
+  const partWindow = adminRangeVietnamInterval(range);
+  const learnerIds = new Set(
+    rows.filter((row) => !row.isAdmin && !row.staff).map((row) => row.userId),
+  );
+  const partCounts = storeConfigured
+    ? await Promise.all([
+        countAdminStudyParts(fromDay, toDay, learnerIds),
+        countAdminPracticeParts(partWindow.from, partWindow.to, learnerIds),
+      ])
+    : null;
 
   return (
     <AdminOverview
@@ -78,6 +90,15 @@ export default async function AdminPage({
         new Set(xpDays),
       )}
       rangeXpReady={xpReads?.[0].ready === true}
+      studyParts={
+        partCounts == null ? 0 : partCounts[0].ready ? partCounts[0].count : null
+      }
+      practiceRuns={
+        partCounts == null ? null : partCounts[1].ready ? partCounts[1].runs : null
+      }
+      practiceParts={
+        partCounts == null ? 0 : partCounts[1].ready ? partCounts[1].parts : null
+      }
     />
   );
 }

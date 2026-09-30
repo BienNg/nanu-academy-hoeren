@@ -196,7 +196,7 @@ function WorkChart({
     grain === "hour"
       ? [
           { key: "clips", name: "Clips studied", color: STUDY },
-          { key: "practiceRuns", name: "Listening runs", color: PRACTICE },
+          { key: "practiceRuns", name: "Practice runs", color: PRACTICE },
           { key: "videosWatched", name: "Videos watched", color: VIDEOS },
         ]
       : [
@@ -427,7 +427,7 @@ export function AdminActivity({
           label="Practice runs"
           value={formatCount(activity.practiceRuns)}
           icon="headphones"
-          hint={`Listening runs finished ${window}`}
+          hint={`Practice runs finished ${window}`}
         />
       </section>
 
@@ -446,8 +446,8 @@ export function AdminActivity({
           title={board.grain === "hour" ? "Work during those hours" : "Study, practice, and videos"}
           hint={
             board.grain === "hour"
-              ? "Clips and listening runs come from visits. Videos use the watched timestamp."
-              : "Finished study runs, listening runs, and videos marked watched."
+              ? "Study clips and practice runs come from visits. Videos use the watched timestamp."
+              : "Finished study runs, practice runs, and videos marked watched."
           }
         >
           <WorkChart data={board.points} grain={board.grain} />

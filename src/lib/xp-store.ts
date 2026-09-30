@@ -1160,6 +1160,40 @@ async function listPagedXpRows<T>(
   }
 }
 
+/** Finished study parts on Vietnam `day_key`s in `[fromDay, toDay]`, for the given students. */
+export async function countAdminStudyParts(
+  fromDay: string,
+  toDay: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; count: number }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, count: 0 };
+  if (learnerIds.size === 0) return { ready: true, count: 0 };
+
+  let count = 0;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("user_id")
+      .gte("day_key", fromDay)
+      .lte("day_key", toDay)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase countAdminStudyParts", error.message);
+      }
+      return { ready: false, count: 0 };
+    }
+    const page = (data ?? []) as { user_id?: unknown }[];
+    for (const row of page) {
+      if (typeof row.user_id === "string" && learnerIds.has(row.user_id)) count += 1;
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, count };
+    from += PAGE_SIZE;
+  }
+}
+
 /** Listening XP awarded in `[fromDay, toDay]` Vietnam calendar days. */
 export function listAdminListeningXp(
   fromDay: string,

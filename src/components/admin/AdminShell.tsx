@@ -134,9 +134,9 @@ const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/levels", label: "Levels", icon: "route", ready: true },
       { href: "/admin/content", label: "Catalog", icon: "library_books", ready: true },
-      { href: "/admin/content/clips", label: "Clip difficulty", icon: "graphic_eq", ready: true },
+      { href: "/admin/content/clips", label: "Practice clip difficulty", icon: "graphic_eq", ready: true },
       { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
-      { href: "/admin/runs", label: "Listening runs", icon: "headphones", ready: true, ranged: true },
+      { href: "/admin/runs", label: "Practice", icon: "headphones", ready: true, ranged: true },
     ],
   },
   {
