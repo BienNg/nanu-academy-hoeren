@@ -12,7 +12,7 @@ import {
   previewBlitzrundeDeck,
   startBlitzrunde,
 } from "@/app/admin/blitzrunde/actions";
-import type { AdminClassOption } from "@/lib/admin-overview";
+import { formatAdminTimestamp, type AdminClassOption } from "@/lib/admin-overview";
 import {
   BLITZRUNDE_ICON,
   LATE_SUBMIT_MS,
@@ -73,16 +73,7 @@ const SECONDARY =
   "inline-flex h-10 items-center justify-center gap-space-8 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-space-16 font-label-md text-label-md font-semibold text-on-surface transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40";
 
 function formatWhen(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAdminTimestamp(iso) ?? "—";
 }
 
 function formatSeconds(ms: number): string {

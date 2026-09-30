@@ -1362,10 +1362,16 @@ export async function countAdminPracticeParts(
   fromIso: string,
   toIso: string,
   learnerIds: ReadonlySet<string>,
-): Promise<{ ready: boolean; parts: number; runs: number }> {
+): Promise<{
+  ready: boolean;
+  parts: number;
+  runs: number;
+  passedByUser: Record<string, number>;
+}> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return { ready: false, parts: 0, runs: 0 };
-  if (learnerIds.size === 0) return { ready: true, parts: 0, runs: 0 };
+  const passedByUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, parts: 0, runs: 0, passedByUser };
+  if (learnerIds.size === 0) return { ready: true, parts: 0, runs: 0, passedByUser };
 
   let parts = 0;
   let runs = 0;
@@ -1381,7 +1387,7 @@ export async function countAdminPracticeParts(
       if (!isListeningSchemaMissing(error.message)) {
         console.error("Supabase countAdminPracticeParts", error.message);
       }
-      return { ready: false, parts: 0, runs: 0 };
+      return { ready: false, parts: 0, runs: 0, passedByUser };
     }
     const page = (data ?? []) as {
       user_id?: unknown;
@@ -1392,15 +1398,16 @@ export async function countAdminPracticeParts(
     for (const row of page) {
       if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
       parts += 1;
+      if (row.outcome !== "success") continue;
+      passedByUser[row.user_id] = (passedByUser[row.user_id] ?? 0) + 1;
       if (
-        row.outcome === "success" &&
         typeof row.part_number === "number" &&
         row.part_number === row.part_count
       ) {
         runs += 1;
       }
     }
-    if (page.length < LIST_PAGE_SIZE) return { ready: true, parts, runs };
+    if (page.length < LIST_PAGE_SIZE) return { ready: true, parts, runs, passedByUser };
     from += LIST_PAGE_SIZE;
   }
 }

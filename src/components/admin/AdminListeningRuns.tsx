@@ -20,6 +20,7 @@ import {
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  formatAdminTimestamp,
   type AdminListeningLessonStat,
   type AdminListeningRunBoard,
   type AdminListeningRunPoint,
@@ -38,15 +39,7 @@ function formatCount(value: number): string {
 }
 
 function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAdminTimestamp(iso) ?? "—";
 }
 
 function formatElapsed(ms: number): string {
@@ -331,7 +324,7 @@ export function AdminListeningRuns({
       <AdminPageHeader
         kicker="Learning"
         title="Practice"
-        subtitle={`Finished practice parts ${window}. Days are UTC, the same boundary as Activity.`}
+        subtitle={`Finished practice parts ${window}. Times are Vietnam.`}
       />
 
       {!storeConfigured ? (
@@ -390,7 +383,7 @@ export function AdminListeningRuns({
 
       <ChartCard
         title="Parts by day"
-        hint="UTC days. A part is counted on the day it finished."
+        hint="Vietnam days. A part is counted on the day it finished."
       >
         <RunChart data={board.points} />
       </ChartCard>

@@ -7,8 +7,11 @@ import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  formatAdminTimestamp,
+  adminRangeVietnamDayKeys,
   listActiveAdminUsers,
   paginateAdminUsers,
+  videoMinutesInRange,
   type AdminActivityStats,
   type AdminRange,
   type AdminUserRow,
@@ -19,13 +22,7 @@ function formatCount(value: number): string {
 }
 
 function formatAbsoluteTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminTimestamp(iso);
 }
 
 const RELATIVE_UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
@@ -101,6 +98,8 @@ function ActiveUsersSection({
   range,
   rangeXp,
   rangeXpReady,
+  studyPartsByUser,
+  practicePartsByUser,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
@@ -108,6 +107,8 @@ function ActiveUsersSection({
   range: AdminRange;
   rangeXp: Readonly<Record<string, number>>;
   rangeXpReady: boolean;
+  studyPartsByUser: Readonly<Record<string, number>> | null;
+  practicePartsByUser: Readonly<Record<string, number>> | null;
   onSelect: (userId: string) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -117,6 +118,8 @@ function ActiveUsersSection({
     [users, page],
   );
   const xpTitle = xpRangeTitle(range);
+  const vietnamDays = useMemo(() => adminRangeVietnamDayKeys(range), [range]);
+  const partTitle = range === "today" ? "Finished today" : `Finished ${window}`;
   const rangeStart = paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
   const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
 
@@ -145,13 +148,22 @@ function ActiveUsersSection({
                 <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
                   Streak
                 </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Study parts
+                </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Practice parts
+                </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Video
+                </th>
               </tr>
             </thead>
             <tbody>
               {paged.pageRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={7}
                     className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                   >
                     No one has been active {window}.
@@ -165,6 +177,9 @@ function ActiveUsersSection({
                       ? formatRelativeTime(row.lastLoginAt, now)
                       : null;
                   const earned = rangeXp[row.userId] ?? 0;
+                  const studyParts = studyPartsByUser?.[row.userId] ?? 0;
+                  const practiceParts = practicePartsByUser?.[row.userId] ?? 0;
+                  const videoMinutes = videoMinutesInRange(row.progress, vietnamDays);
                   return (
                     <tr
                       key={row.userId}
@@ -239,6 +254,24 @@ function ActiveUsersSection({
                           ) : null}
                         </div>
                       </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={partTitle}
+                      >
+                        {studyPartsByUser == null ? "—" : formatCount(studyParts)}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={`${partTitle}. Passed parts only.`}
+                      >
+                        {practicePartsByUser == null ? "—" : formatCount(practiceParts)}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={`Video played ${window}`}
+                      >
+                        {videoMinutes === 0 ? "0 min" : `${formatCount(videoMinutes)} min`}
+                      </td>
                     </tr>
                   );
                 })
@@ -284,9 +317,11 @@ type AdminOverviewProps = {
   rangeXp: Readonly<Record<string, number>>;
   rangeXpReady: boolean;
   studyParts: number | null;
-  /** Whole listening lessons finished in the Vietnam window. Null keeps the UTC activity count. */
+  studyPartsByUser: Readonly<Record<string, number>> | null;
+  /** Whole listening lessons finished in the Vietnam window. Null keeps the activity count. */
   practiceRuns: number | null;
   practiceParts: number | null;
+  practicePartsByUser: Readonly<Record<string, number>> | null;
 };
 
 export function AdminOverview({
@@ -298,8 +333,10 @@ export function AdminOverview({
   rangeXp,
   rangeXpReady,
   studyParts,
+  studyPartsByUser,
   practiceRuns,
   practiceParts,
+  practicePartsByUser,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -316,7 +353,7 @@ export function AdminOverview({
         <AdminPageHeader
           kicker="Admin"
           title="Overview"
-          subtitle={`Platform activity ${window}. Days are UTC, the same boundary as streaks.`}
+          subtitle={`Platform activity ${window}. Times are Vietnam.`}
         />
 
         {!storeConfigured ? (
@@ -380,6 +417,8 @@ export function AdminOverview({
             range={range}
             rangeXp={rangeXp}
             rangeXpReady={rangeXpReady}
+            studyPartsByUser={studyPartsByUser}
+            practicePartsByUser={practicePartsByUser}
             onSelect={setDetailUserId}
           />
         ) : null}

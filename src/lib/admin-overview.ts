@@ -327,29 +327,48 @@ function vietnamDayStartIso(day: string): string {
   return new Date(Date.UTC(year, (month ?? 1) - 1, date) - 7 * 60 * 60 * 1000).toISOString();
 }
 
-/** UTC calendar days in the window, newest first, matching the streak boundary. */
+/** Vietnam calendar days in the window, newest first. */
 export function adminRangeDayKeys(
   range: AdminRange,
   now = new Date(),
 ): string[] {
-  const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const days: string[] = [];
-  for (let index = 0; index < RANGE_DAYS[range]; index += 1) {
-    days.push(new Date(end - index * 86_400_000).toISOString().slice(0, 10));
-  }
-  return days;
+  return adminRangeVietnamDayKeys(range, now);
 }
 
-function utcDay(value: string | null | undefined): string | null {
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Calendar day for an admin chart. A full timestamp uses Asia/Ho_Chi_Minh.
+ * A date-only `YYYY-MM-DD` is already a calendar key and stays as written.
+ */
+function calendarDay(value: string | null | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
-  return value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return dayKey(date);
 }
 
-function utcHour(value: string | null | undefined): number | null {
+function vietnamHour(value: string | null | undefined): number | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.getUTCHours();
+  return new Date(date.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
+}
+
+/** Clock time in Asia/Ho_Chi_Minh, e.g. "30 Sept 2026, 11:40". */
+export function formatAdminTimestamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function formatUtcDayLabel(day: string): string {
@@ -366,7 +385,7 @@ function studyRunsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.studyRuns ?? 0;
   let firstCompletions = 0;
   for (const entry of Object.values(progress.learn)) {
-    if (utcDay(entry.studyCompletedAt) === day) firstCompletions += 1;
+    if (calendarDay(entry.studyCompletedAt) === day) firstCompletions += 1;
   }
   return Math.max(recorded, firstCompletions);
 }
@@ -375,15 +394,36 @@ function practiceRunsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.practiceRuns ?? 0;
   let firstCompletions = 0;
   for (const entry of Object.values(progress.learn)) {
-    if (utcDay(entry.completedAt) === day) firstCompletions += 1;
+    if (calendarDay(entry.completedAt) === day) firstCompletions += 1;
   }
   return Math.max(recorded, firstCompletions);
+}
+
+/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
+export function videoMinutesInRange(
+  progress: StoredProgress,
+  days: readonly string[],
+): number {
+  const fromVisits = new Map<string, number>();
+  for (const visit of progress.visits ?? []) {
+    const day = calendarDay(visit.startedAt);
+    if (!day) continue;
+    const seconds = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
+    fromVisits.set(day, (fromVisits.get(day) ?? 0) + seconds);
+  }
+  let seconds = 0;
+  for (const day of days) {
+    const recorded = progress.activity?.[day]?.videoSeconds ?? 0;
+    seconds += Math.max(recorded, fromVisits.get(day) ?? 0);
+  }
+  if (seconds <= 0) return 0;
+  return Math.max(1, Math.round(seconds / 60));
 }
 
 function videosWatchedOnDay(progress: StoredProgress, day: string): number {
   let count = 0;
   for (const entry of Object.values(progress.videos)) {
-    if (utcDay(entry.watchedAt) === day) count += 1;
+    if (calendarDay(entry.watchedAt) === day) count += 1;
   }
   return count;
 }
@@ -392,7 +432,7 @@ function activeSecondsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.activeSeconds ?? 0;
   let fromVisits = 0;
   for (const visit of progress.visits ?? []) {
-    if (utcDay(visit.startedAt) === day) fromVisits += visit.activeSeconds;
+    if (calendarDay(visit.startedAt) === day) fromVisits += visit.activeSeconds;
   }
   return Math.max(recorded, fromVisits);
 }
@@ -427,7 +467,7 @@ function userActiveOnDay(
 ): boolean {
   return (
     userTouchedDay(row.progress, day) ||
-    utcDay(row.lastLoginAt) === day ||
+    calendarDay(row.lastLoginAt) === day ||
     work.videos > 0 ||
     work.study > 0 ||
     work.practice > 0
@@ -461,7 +501,7 @@ function isRowActiveInWindow(
     if (userTouchedDay(row.progress, day)) touched = true;
   }
 
-  const lastSeenDay = utcDay(row.lastLoginAt);
+  const lastSeenDay = calendarDay(row.lastLoginAt);
   return touched || hasWork || (lastSeenDay != null && window.has(lastSeenDay));
 }
 
@@ -470,7 +510,7 @@ function learnerRows(rows: readonly AdminUserRow[]): AdminUserRow[] {
   return rows.filter((row) => !row.isAdmin && !row.staff);
 }
 
-/** Totals over the selected window. Days are UTC calendar days, matching streaks. */
+/** Totals over the selected window. Days are Asia/Ho_Chi_Minh. */
 export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
@@ -597,8 +637,8 @@ function buildHourlyActivityPoints(
 
   for (const row of rows) {
     for (const visit of row.progress.visits ?? []) {
-      if (utcDay(visit.startedAt) !== day) continue;
-      const hour = utcHour(visit.startedAt);
+      if (calendarDay(visit.startedAt) !== day) continue;
+      const hour = vietnamHour(visit.startedAt);
       if (hour == null) continue;
       usersByHour[hour].add(row.userId);
       points[hour].activeSeconds += visit.activeSeconds;
@@ -606,21 +646,21 @@ function buildHourlyActivityPoints(
       points[hour].practiceRuns += visit.listeningRuns;
     }
 
-    if (utcDay(row.lastLoginAt) === day) {
-      const hour = utcHour(row.lastLoginAt);
+    if (calendarDay(row.lastLoginAt) === day) {
+      const hour = vietnamHour(row.lastLoginAt);
       if (hour != null) usersByHour[hour].add(row.userId);
     }
 
     for (const entry of Object.values(row.progress.videos)) {
-      if (utcDay(entry.watchedAt) !== day) continue;
-      const hour = utcHour(entry.watchedAt);
+      if (calendarDay(entry.watchedAt) !== day) continue;
+      const hour = vietnamHour(entry.watchedAt);
       if (hour == null) continue;
       points[hour].videosWatched += 1;
     }
 
     const work = dayWork(row.progress, day);
     if (userActiveOnDay(row, day, work) && usersByHour.every((set) => !set.has(row.userId))) {
-      // Seen that UTC day without a timestamped visit: count them at midnight
+      // Seen that Vietnam day without a timestamped visit: count them at midnight
       // rather than dropping them from the hourly chart.
       usersByHour[0].add(row.userId);
     }
@@ -684,8 +724,8 @@ function buildActivityLeaders(
 }
 
 /**
- * Time series for the Activity page. Multi-day windows are UTC days, oldest
- * first. "Today" is 24 UTC hours so a single-day range still has a chart.
+ * Time series for the Activity page. Multi-day windows are Vietnam days, oldest
+ * first. "Today" is 24 hours in Asia/Ho_Chi_Minh.
  */
 export function buildAdminActivityBoard(
   rows: readonly AdminUserRow[],
@@ -729,7 +769,7 @@ function isActiveOn(row: AdminUserRow, day: string): boolean {
 function firstSeenDay(row: AdminUserRow): string | null {
   const days: string[] = [];
   const add = (value: string | null | undefined) => {
-    const day = utcDay(value);
+    const day = calendarDay(value);
     if (day) days.push(day);
   };
   add(row.signIns[0]);
@@ -744,9 +784,9 @@ function firstSeenDay(row: AdminUserRow): string | null {
 }
 
 function lastActiveDay(row: AdminUserRow): string | null {
-  let best: string | null = utcDay(row.lastLoginAt);
+  let best: string | null = calendarDay(row.lastLoginAt);
   const consider = (value: string | null | undefined) => {
-    const day = utcDay(value);
+    const day = calendarDay(value);
     if (day && (!best || day > best)) best = day;
   };
   consider(row.lastSignInAt);
@@ -815,7 +855,7 @@ const STREAK_BUCKETS: { key: string; label: string; matches: (days: number) => b
 
 /**
  * Comeback metrics for the Retention page. D1 is "active on day D, and
- * again on D+1". The selected window still uses UTC calendar days.
+ * again on D+1". The selected window uses Asia/Ho_Chi_Minh calendar days.
  */
 export function buildAdminRetentionBoard(
   rows: readonly AdminUserRow[],
@@ -1491,7 +1531,7 @@ export type AdminListeningRunBoard = {
 const LISTENING_LESSON_LIMIT = 8;
 
 /**
- * Finished listening parts stored in listening_runs. Days are UTC, matching Activity.
+ * Finished practice parts stored in listening_runs. Days are Asia/Ho_Chi_Minh.
  */
 export function buildAdminListeningRunBoard(
   runs: readonly AdminListeningRunRecord[],
@@ -1515,7 +1555,7 @@ export function buildAdminListeningRunBoard(
   let accuracySum = 0;
 
   for (const run of runs) {
-    const day = utcDay(run.createdAt);
+    const day = calendarDay(run.createdAt);
     if (day == null || !window.has(day)) continue;
     recent.push(run);
     students.add(run.userId);

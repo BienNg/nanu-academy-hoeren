@@ -109,7 +109,7 @@ export type LessonVideoProgress = {
 export type LessonVideoStatus = "not-started" | "in-progress" | "watched";
 
 /**
- * Finished work on one UTC day. The admin dashboard reads this for "today".
+ * Finished work on one UTC day. The admin dashboard places timestamped events on Vietnam days; this bucket stays the UTC date it was saved under.
  * Clip, exercise, video, and active-time totals are filled from visits and
  * kept when a visit ages out, so the student card and the overview share them.
  */

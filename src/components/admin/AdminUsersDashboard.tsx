@@ -20,6 +20,7 @@ import {
   filterAdminUsers,
   listAdminClasses,
   normalizeClassName,
+  formatAdminTimestamp,
   paginateAdminUsers,
   sortAdminUsers,
   type AdminLevelOption,
@@ -70,13 +71,7 @@ function SortHeader({
 }
 
 function formatAbsoluteTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminTimestamp(iso);
 }
 
 function StreakCell({ days }: { days: number }) {

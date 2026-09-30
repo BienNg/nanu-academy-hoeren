@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
+  formatAdminTimestamp,
   type AdminHealthBoard,
   type AdminHealthCheck,
   type AdminHealthStatus,
@@ -13,15 +14,7 @@ function formatCount(value: number): string {
 }
 
 function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAdminTimestamp(iso) ?? "—";
 }
 
 function overallCopy(status: AdminHealthBoard["overall"]): {
@@ -169,7 +162,7 @@ export function AdminHealth({ board }: { board: AdminHealthBoard }) {
       />
 
       <p className="font-caption text-caption text-on-surface-variant">
-        Checked {formatWhen(board.checkedAt)} UTC. Values are never shown.
+        Checked {formatWhen(board.checkedAt)}. Values are never shown.
       </p>
 
       <section

@@ -1165,10 +1165,11 @@ export async function countAdminStudyParts(
   fromDay: string,
   toDay: string,
   learnerIds: ReadonlySet<string>,
-): Promise<{ ready: boolean; count: number }> {
+): Promise<{ ready: boolean; count: number; byUser: Record<string, number> }> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return { ready: false, count: 0 };
-  if (learnerIds.size === 0) return { ready: true, count: 0 };
+  const byUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, count: 0, byUser };
+  if (learnerIds.size === 0) return { ready: true, count: 0, byUser };
 
   let count = 0;
   let from = 0;
@@ -1183,13 +1184,15 @@ export async function countAdminStudyParts(
       if (!isStudyXpSchemaMissing(error.message)) {
         console.error("Supabase countAdminStudyParts", error.message);
       }
-      return { ready: false, count: 0 };
+      return { ready: false, count: 0, byUser };
     }
     const page = (data ?? []) as { user_id?: unknown }[];
     for (const row of page) {
-      if (typeof row.user_id === "string" && learnerIds.has(row.user_id)) count += 1;
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      count += 1;
+      byUser[row.user_id] = (byUser[row.user_id] ?? 0) + 1;
     }
-    if (page.length < PAGE_SIZE) return { ready: true, count };
+    if (page.length < PAGE_SIZE) return { ready: true, count, byUser };
     from += PAGE_SIZE;
   }
 }

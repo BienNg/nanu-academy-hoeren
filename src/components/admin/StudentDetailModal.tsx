@@ -31,7 +31,7 @@ import {
   studyPartNumberFromActivityId,
   type StoredProgress,
 } from "@/lib/progress";
-import type { AdminUserRow } from "@/lib/admin-overview";
+import { formatAdminTimestamp, type AdminUserRow } from "@/lib/admin-overview";
 
 function MaterialIcon({
   name,
@@ -54,13 +54,7 @@ function MaterialIcon({
 }
 
 function formatAbsoluteTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminTimestamp(iso);
 }
 
 function formatClock(seconds: number): string {
