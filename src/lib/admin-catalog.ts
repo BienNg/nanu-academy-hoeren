@@ -12,6 +12,13 @@ import {
   getChapterVideos,
   listChapterFilesOnDisk,
 } from "@/lib/levels";
+import {
+  getLivingInventory,
+  getLivingSceneClips,
+  getLivingScenes,
+  getLivingWorkplaces,
+} from "@/lib/living";
+import { livingAccessSlug } from "@/lib/living-content";
 import { lessonVideoProgressKey, lessonVideoStatus } from "@/lib/progress";
 
 function chapterClips(levelSlug: string, chapterSlug: string): { id: string; prompt: string }[] {
@@ -74,13 +81,32 @@ export function buildAdminCourseCatalog(
     })),
   }));
 
-  return [...ausbildung, ...levels];
+  const living: AdminCatalogCourse[] = getLivingWorkplaces().map((workplace) => ({
+    id: livingAccessSlug(workplace.slug),
+    label: `Leben in DE · ${workplace.label}`,
+    shortLabel: workplace.label,
+    kind: "cefr",
+    living: true,
+    lessons: getLivingScenes(workplace.slug).map((scene) => ({
+      id: `${livingAccessSlug(workplace.slug)}-${scene.id}`,
+      label: scene.label,
+      learnKey: scene.progressKey,
+      videoKeyPrefix: scene.lessonKey,
+      clips: getLivingSceneClips(workplace.slug, scene.id).map((clip) => ({
+        id: clip.id,
+        prompt: clip.script,
+      })),
+      videos: [],
+    })),
+  }));
+
+  return [...ausbildung, ...levels, ...living];
 }
 
 /** CEFR courses with clip ids only, so learner pages can project the same meters as admin. */
 export function buildCefrProgressCatalog(): AdminCatalogCourse[] {
   return buildAdminCourseCatalog([])
-    .filter((course) => course.kind === "cefr")
+    .filter((course) => course.kind === "cefr" && !course.living)
     .map((course) => ({
       ...course,
       lessons: course.lessons.map((lesson) => ({
@@ -258,6 +284,34 @@ export function buildAdminCatalogBoard(): AdminCatalogBoard {
       missingAudio,
     };
   });
+
+  for (const workplace of getLivingWorkplaces()) {
+    const scenes = getLivingInventory(workplace.slug);
+    if (scenes.length === 0) {
+      urgent.push({
+        id: `living-${workplace.slug}-missing`,
+        label: `Leben in DE · ${workplace.label}`,
+        detail: `Listed in workplaces.json, but src/data/living/${workplace.slug}.json has no scenes.`,
+      });
+      continue;
+    }
+    const missingAudio = scenes.reduce((sum, scene) => sum + scene.listed - scene.playable, 0);
+    const missingImages = scenes.reduce((sum, scene) => sum + scene.missingImages, 0);
+    if (missingAudio > 0) {
+      urgent.push({
+        id: `living-${workplace.slug}-audio`,
+        label: `Leben in DE · ${workplace.label}`,
+        detail: `${missingAudio} clip${missingAudio === 1 ? "" : "s"} listed without audio across ${scenes.filter((scene) => scene.listed > scene.playable).length} scene(s).`,
+      });
+    }
+    if (missingImages > 0) {
+      urgent.push({
+        id: `living-${workplace.slug}-images`,
+        label: `Leben in DE · ${workplace.label}`,
+        detail: `${missingImages} picture${missingImages === 1 ? "" : "s"} missing; those pairing cards show text instead.`,
+      });
+    }
+  }
 
   const sharedPlayable = tracks[0]?.sharedPlayable ?? 0;
   const interviewClips =
