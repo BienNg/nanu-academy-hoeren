@@ -6,6 +6,7 @@ import {
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
 import { LearnSession } from "@/components/session/LearnSession";
+import { levelSessionCourse } from "@/lib/session-course";
 
 type LearnPracticePageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
@@ -35,8 +36,7 @@ export default async function LearnPracticePage({
 
   return (
     <LearnSession
-      level={level}
-      chapter={chapter}
+      course={levelSessionCourse(level, chapter)}
       clips={clips}
       nextChapterHref={
         nextChapter

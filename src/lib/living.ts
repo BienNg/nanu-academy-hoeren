@@ -180,3 +180,13 @@ export function livingLessonLabels(): Map<string, { workplace: LivingWorkplace; 
   }
   return labels;
 }
+
+/** Playable clip ids per scene, keyed like progress.learn, for absorbing added clips. */
+export function listLivingClipCatalog(): { chapterSlug: string; clipIds: string[] }[] {
+  return getLivingWorkplaces().flatMap((workplace) =>
+    getLivingScenes(workplace.slug).map((scene) => ({
+      chapterSlug: scene.progressKey,
+      clipIds: getLivingSceneClips(workplace.slug, scene.id).map((clip) => clip.id),
+    })),
+  );
+}

@@ -61,6 +61,10 @@ export function backHrefFor(path: string): string | null {
     }
     if (parts.length === 2) return "/";
   }
+  if (parts[0] === "living") {
+    if (parts.length >= 3 && parts[1]) return `/living/${parts[1]}`;
+    return "/";
+  }
   if (parts[0] === "interview" || parts[0] === "account") return "/";
   if (parts[0] === "admin" && parts.length > 1) return "/admin";
   if (parts[0] === "admin") return "/";
@@ -215,10 +219,16 @@ export function HomeScreenSkeleton() {
   );
 }
 
-export function LevelScreenSkeleton({ path }: { path?: string }) {
+export function LevelScreenSkeleton({
+  path,
+  kicker = "Luyện tập theo trình độ",
+}: {
+  path?: string;
+  kicker?: string;
+}) {
   return (
     <ScreenFrame>
-      <LearnerHeader path={path} kicker="Luyện tập theo trình độ" />
+      <LearnerHeader path={path} kicker={kicker} />
       <section className="relative z-10 flex w-full flex-col items-center px-6 pb-16 pt-16 text-center">
         <Bone className="h-4 w-40 rounded-full" />
         <Bone className="mt-6 h-16 w-64 max-w-full rounded-2xl" />
@@ -477,6 +487,15 @@ export function ScreenForPath({ path }: { path: string }) {
   if (parts[0] === "admin") return <AdminScreenSkeleton />;
   if (parts[0] === "interview") {
     return <SessionScreenSkeleton kind="practice" path={path} />;
+  }
+  if (parts[0] === "living" && parts[parts.length - 1] === "study") {
+    return <SessionScreenSkeleton kind="study" path={path} />;
+  }
+  if (parts[0] === "living" && parts[parts.length - 1] === "practice") {
+    return <SessionScreenSkeleton kind="practice" path={path} />;
+  }
+  if (parts[0] === "living") {
+    return <LevelScreenSkeleton path={path} kicker="Leben in Deutschland" />;
   }
   if (parts[0] === "learn" && parts[parts.length - 1] === "video") {
     return <VideoLessonSkeleton path={path} />;

@@ -3,9 +3,11 @@ import { isAdminUser } from "@/lib/admins";
 import { requireUser } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
+import { getAvailableWorkplaces, getLivingScenes } from "@/lib/living";
 import {
   getUserLevelAccess,
   hasInterviewAccess,
+  livingAccessFrom,
   withoutReservedAccess,
 } from "@/lib/progress-store";
 import { getLeaderboard } from "@/lib/xp-store";
@@ -37,6 +39,17 @@ export default async function Home() {
     }),
   ]);
 
+  const livingGranted = storedAccess ? livingAccessFrom(storedAccess) : null;
+  const workplaces = getAvailableWorkplaces()
+    .filter((workplace) => !livingGranted || livingGranted.includes(workplace.slug))
+    .map((workplace) => ({
+      slug: workplace.slug,
+      label: workplace.label,
+      labelVi: workplace.labelVi ?? null,
+      icon: workplace.icon ?? null,
+      scenes: getLivingScenes(workplace.slug).map((scene) => ({ progressKey: scene.progressKey })),
+    }));
+
   return (
     <HomeScreen
       berufe={berufe}
@@ -50,6 +63,7 @@ export default async function Home() {
       }
       interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
       ranking={ranking}
+      workplaces={workplaces}
     />
   );
 }

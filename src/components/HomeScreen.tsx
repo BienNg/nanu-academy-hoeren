@@ -32,6 +32,16 @@ type HomeScreenProps = {
   interviewAccess?: boolean;
   /** Class board for this week, same default the Xếp hạng tab opens on. */
   ranking: LeaderboardPayload;
+  /** Leben-in-Deutschland workplaces this learner may open. Empty hides the section. */
+  workplaces?: HomeWorkplace[];
+};
+
+export type HomeWorkplace = {
+  slug: string;
+  label: string;
+  labelVi: string | null;
+  icon: string | null;
+  scenes: { progressKey: string }[];
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -482,6 +492,70 @@ function RankingPreview({ board }: { board: LeaderboardPayload }) {
   );
 }
 
+function WorkplaceCard({
+  workplace,
+  doneScenes,
+}: {
+  workplace: HomeWorkplace;
+  doneScenes: number;
+}) {
+  const total = workplace.scenes.length;
+  const percent = total === 0 ? 0 : Math.round((doneScenes / total) * 100);
+  const isComplete = total > 0 && doneScenes >= total;
+
+  return (
+    <Link
+      href={`/living/${workplace.slug}`}
+      aria-label={isComplete ? `${workplace.label} · Đã hoàn thành` : workplace.label}
+      className="group flex w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white font-headline-sm transition-all hover:border-[#e11d48]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e11d48] active:translate-y-0.5"
+    >
+      <div className="flex items-center gap-3.5 bg-[#ffe4e6] px-4 py-3.5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e11d48] text-white shadow-[0_4px_0_0_#be123c]">
+          <MaterialIcon name={workplace.icon ?? "storefront"} className="text-[26px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block text-[11px] font-extrabold uppercase tracking-wider text-[#e11d48]">
+              Arbeitsplatz
+            </span>
+            {isComplete ? (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-white px-2 py-0.5 text-[10px] font-extrabold text-[#e11d48] shadow-[0_2px_0_0_#fecdd3]">
+                <MaterialIcon name="check" className="text-[12px]" />
+                Xong
+              </span>
+            ) : null}
+          </div>
+          <h3 className="mt-0.5 truncate text-[16px] font-extrabold leading-tight text-[#131b2e]">
+            {workplace.label}
+          </h3>
+          {workplace.labelVi ? (
+            <p className="truncate text-[12px] font-bold text-[#6e7881]">{workplace.labelVi}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-[12px] font-extrabold">
+            <span className="text-[#6e7881]">
+              {doneScenes}/{total} tình huống
+            </span>
+            <span className={percent > 0 ? "text-[#e11d48]" : "text-[#86868b]"}>{percent}%</span>
+          </div>
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
+            <div
+              className={`h-full rounded-full bg-[#e11d48] transition-all duration-500 ease-out ${
+                percent > 0 ? "" : "opacity-0"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(percent > 0 ? 6 : 0, percent))}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function berufDisplayLabel(label: string) {
   return label.split(" / ")[0]?.trim() || label;
 }
@@ -567,9 +641,10 @@ export function HomeScreen({
   unlockedLevelSlugs = [],
   interviewAccess = false,
   ranking,
+  workplaces = [],
 }: HomeScreenProps) {
   const { data: session } = useSession();
-  const { continueLevel, progressFor, streakDays } =
+  const { continueLevel, progressFor, streakDays, learnChapterCompleted } =
     useProgress(interviewClipTotals, levelCatalog);
   const firstName =
     session?.user?.name?.trim().split(/\s+/)[0] ?? "bạn";
@@ -702,6 +777,35 @@ export function HomeScreen({
                       />
                     );
                   })}
+              </div>
+            </section>
+          ) : null}
+
+          {workplaces.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#ffe4e6] text-[#e11d48] shadow-[0_2px_0_0_#fecdd3]">
+                    <MaterialIcon name="storefront" className="text-[20px]" />
+                  </span>
+                  <h2 className="text-[20px] font-extrabold tracking-tight text-[#131b2e] sm:text-[22px]">
+                    Leben in Deutschland
+                  </h2>
+                </div>
+                <p className="text-[13px] font-bold leading-snug text-[#6e7881]">
+                  Tiếng Đức cho công việc hằng ngày: nghe khách, trả lời đúng, hiểu giá và giờ hẹn
+                </p>
+              </div>
+              <div className="-mx-6 flex flex-nowrap gap-4 overflow-x-auto scroll-smooth px-6 pb-6 pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {workplaces.map((workplace) => (
+                  <WorkplaceCard
+                    key={workplace.slug}
+                    workplace={workplace}
+                    doneScenes={
+                      workplace.scenes.filter((scene) => learnChapterCompleted(scene.progressKey)).length
+                    }
+                  />
+                ))}
               </div>
             </section>
           ) : null}

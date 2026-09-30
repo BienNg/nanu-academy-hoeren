@@ -8,6 +8,7 @@ import {
   type StoredProgress,
 } from "@/lib/progress";
 import { listLessonClipCatalog } from "@/lib/levels";
+import { listLivingClipCatalog } from "@/lib/living";
 import { syncStudiedClips } from "@/lib/duel-store";
 import {
   getCloudProgress,
@@ -59,7 +60,7 @@ export async function GET() {
   if (access === "revoked") return revokedResponse();
 
   const stored = await getCloudProgress(session.user.id);
-  const progress = absorbAddedLessonClips(stored, listLessonClipCatalog());
+  const progress = absorbAddedLessonClips(stored, [...listLessonClipCatalog(), ...listLivingClipCatalog()]);
   if (JSON.stringify(progress) !== JSON.stringify(stored)) {
     try {
       await setCloudProgress(session.user.id, progress, sessionProfile(session));
@@ -107,7 +108,7 @@ export async function PUT(request: Request) {
   const stored = await getCloudProgress(session.user.id);
   const progress = absorbAddedLessonClips(
     mergeProgress(stored, progressKeepingServerClears(uploaded, stored)),
-    listLessonClipCatalog(),
+    [...listLessonClipCatalog(), ...listLivingClipCatalog()],
   );
   await setCloudProgress(session.user.id, progress, sessionProfile(session));
   try {

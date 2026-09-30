@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
@@ -44,8 +44,7 @@ import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
 type LearnSessionProps = {
-  level: CefrLevel;
-  chapter: LevelChapterMeta;
+  course: SessionCourse;
   clips: SessionClip[];
   nextChapterHref: string;
   hasNextChapter: boolean;
@@ -131,8 +130,7 @@ function stableRunOrder(chapterSlug: string, clips: readonly SessionClip[]): str
 }
 
 export function LearnSession({
-  level,
-  chapter,
+  course,
   clips,
   nextChapterHref,
   hasNextChapter,
@@ -177,9 +175,9 @@ export function LearnSession({
     recordWrongAttempt,
     streakDays,
   } = useProgress();
-  const chapterProgressKey = chapter.slug;
-  const lessonKey = `${level.slug}/${chapter.slug}`;
-  const pathHref = `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`;
+  const chapterProgressKey = course.progressKey;
+  const lessonKey = course.lessonKey;
+  const pathHref = course.pathHref;
   const completedIds = completedLearnClipIdsFor(chapterProgressKey);
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
@@ -369,8 +367,8 @@ export function LearnSession({
     failedRun || !isLastPart
       ? "Về bài học"
       : hasNextChapter
-        ? "Lektion tiếp theo"
-        : "Về trình độ";
+        ? course.nextLessonLabel
+        : course.finishLabel;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase !== "leaving");
   if (
     phase === "complete" &&
@@ -603,7 +601,7 @@ export function LearnSession({
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
-            href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
+            href={pathHref}
             aria-label="Quay lại"
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
@@ -614,7 +612,7 @@ export function LearnSession({
               Luyện tập
             </span>
             <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-              {level.level} - {chapter.label}
+              {course.title}
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -633,8 +631,8 @@ export function LearnSession({
         <PartCompleteScreen
           partNumber={partNumber}
           partCount={partCount}
-          levelLabel={level.level}
-          chapterLabel={chapter.label}
+          levelLabel={course.groupLabel}
+          chapterLabel={course.lessonLabel}
           questionCount={summary.questionCount}
           accuracy={summary.accuracy}
           elapsedMs={summary.elapsedMs}

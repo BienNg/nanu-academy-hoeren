@@ -6,6 +6,7 @@ import {
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
 import { StudySession } from "@/components/session/StudySession";
+import { levelSessionCourse } from "@/lib/session-course";
 
 type LearnStudyPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
@@ -39,8 +40,7 @@ export default async function LearnStudyPage({
 
   return (
     <StudySession
-      level={level}
-      chapter={chapter}
+      course={levelSessionCourse(level, chapter)}
       clips={clips}
       initialViewMode={requestedView === "list" ? "list" : "cards"}
       startReplay={requestedReplay === "1"}
