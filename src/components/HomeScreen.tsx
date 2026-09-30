@@ -91,22 +91,17 @@ function ContinueCard({
         <span className="pointer-events-none absolute -right-3 -bottom-5 text-white opacity-15" aria-hidden="true">
           <MaterialIcon name="flag_circle" className="text-[120px]" />
         </span>
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-sky-100">
-              <MaterialIcon name="school" className="text-[16px]" filled />
-              Đang học dở
-            </span>
-            <h2 className="mt-1 text-[22px] font-extrabold leading-tight tracking-tight sm:text-[24px]">
-              Trình độ {levelLabel} · {chapterLabel}
-            </h2>
-            <p className="mt-0.5 text-[14px] font-bold text-sky-100">
-              Luyện tập theo trình độ
-            </p>
-          </div>
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-t-2 border-white/40 bg-white text-[#0284c7] shadow-[0_4px_0_0_#0369a1]">
-            <MaterialIcon name="play_arrow" className="text-[34px]" filled />
+        <div className="relative min-w-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-sky-100">
+            <MaterialIcon name="school" className="text-[16px]" filled />
+            Đang học dở
           </span>
+          <h2 className="mt-1 text-[22px] font-extrabold leading-tight tracking-tight sm:text-[24px]">
+            Trình độ {levelLabel} · {chapterLabel}
+          </h2>
+          <p className="mt-0.5 text-[14px] font-bold text-sky-100">
+            Luyện tập theo trình độ
+          </p>
         </div>
 
         <div className="relative mt-4 flex flex-col gap-1.5 border-t border-white/20 pt-3">

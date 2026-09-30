@@ -213,14 +213,16 @@ const RANGE_OPTIONS: { id: LeaderboardRange; label: string }[] = [
 
 function BoardTabs({
   board,
+  options,
   onChange,
 }: {
   board: LeaderboardBoard;
+  options: typeof BOARD_OPTIONS;
   onChange: (board: LeaderboardBoard) => void;
 }) {
   return (
     <div className="flex rounded-full bg-[#e8eef6] p-1" role="tablist" aria-label="Loại bảng">
-      {BOARD_OPTIONS.map((option) => {
+      {options.map((option) => {
         const active = board === option.id;
         return (
           <button
@@ -405,6 +407,14 @@ export function LeaderboardScreen({
     };
   }, [scope, range, boardKind]);
 
+  const boardOptions = BOARD_OPTIONS.filter(
+    (option) => option.id !== "blitzrunde" || board.blitzrundeAvailable,
+  );
+
+  useEffect(() => {
+    if (!board.blitzrundeAvailable && boardKind === "blitzrunde") setBoardKind("xp");
+  }, [board.blitzrundeAvailable, boardKind]);
+
   const emptyClass = board.ready && scope === "class" && !board.className;
   const emptyGlobal =
     board.ready && scope === "global" && board.rows.every((row) => row.xp === 0);
@@ -442,7 +452,7 @@ export function LeaderboardScreen({
         }`}
       >
         <div className="flex flex-col gap-3">
-          <BoardTabs board={boardKind} onChange={setBoardKind} />
+          <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             <ScopeTabs scope={scope} onChange={setScope} />
             <RangeMenu range={range} onChange={setRange} />

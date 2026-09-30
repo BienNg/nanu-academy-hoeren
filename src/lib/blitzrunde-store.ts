@@ -391,6 +391,24 @@ export type LiveRound = {
   submitted: boolean;
 };
 
+/** True once this class has a round that left the lobby. Cancelled lobbies do not count. */
+export async function classHasStartedBlitzrunde(classKey: string): Promise<boolean> {
+  if (!classKey) return false;
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from(SESSIONS_TABLE)
+    .select("id")
+    .eq("class_key", classKey)
+    .in("status", ["active", "ended"])
+    .limit(1);
+  if (error) {
+    logBlitz(error.message);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 /** The open round for this learner's class, if any. Drives the home-screen banner. */
 export async function getLiveRoundForUser(userId: string, now: Date = new Date()): Promise<LiveRound | null> {
   const supabase = getSupabaseAdmin();
