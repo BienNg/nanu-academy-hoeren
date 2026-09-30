@@ -116,9 +116,145 @@ function LastLoginCell({ iso }: { iso: string | null }) {
     );
   }
 
+  const comma = absolute.indexOf(", ");
+  const date = comma === -1 ? absolute : absolute.slice(0, comma);
+  const time = comma === -1 ? null : absolute.slice(comma + 2);
+
   return (
-    <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
-      <time dateTime={iso}>{absolute}</time>
+    <td className="px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
+      <time dateTime={iso} className="flex flex-col">
+        <span className="whitespace-nowrap">{date}</span>
+        {time ? (
+          <span className="whitespace-nowrap text-on-surface-variant">{time}</span>
+        ) : null}
+      </time>
+    </td>
+  );
+}
+
+function RowActionsMenu({
+  name,
+  isAdmin,
+  isStaff,
+  staffSaving,
+  onStaff,
+  onDelete,
+}: {
+  name: string;
+  isAdmin: boolean;
+  isStaff: boolean;
+  staffSaving: boolean;
+  onStaff: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    function place() {
+      const button = buttonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const width = 220;
+      const height = isAdmin ? 52 : 96;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top =
+        spaceBelow < height + 8 && rect.top > spaceBelow
+          ? Math.max(8, rect.top - height - 6)
+          : rect.bottom + 6;
+      setBox({
+        top,
+        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+      });
+    }
+
+    function onPointer(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, isAdmin]);
+
+  const menu =
+    open && box && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${name}`}
+            className="fixed z-[80] w-[220px] overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            style={{ top: box.top, left: box.left }}
+          >
+            {isAdmin ? null : (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={staffSaving}
+                onClick={() => {
+                  setOpen(false);
+                  onStaff();
+                }}
+                className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40"
+              >
+                <MaterialIcon name="admin_panel_settings" className="text-[18px] text-primary" />
+                {isStaff ? "Remove staff" : "Make staff"}
+              </button>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-error hover:bg-error-container"
+            >
+              <MaterialIcon name="delete" className="text-[18px]" />
+              Delete
+            </button>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <td
+      className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Actions for ${name}`}
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+      >
+        <MaterialIcon name="more_vert" className="text-[20px]" />
+      </button>
+      {menu}
     </td>
   );
 }
@@ -785,9 +921,9 @@ export function AdminUsersDashboard({
                   {isOwner ? (
                     <th
                       scope="col"
-                      className="sticky right-0 z-10 whitespace-nowrap bg-surface-container-low px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
+                      className="sticky right-0 z-10 w-14 bg-surface-container-low px-space-12 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
                     >
-                      Actions
+                      <span className="sr-only">Actions</span>
                     </th>
                   ) : null}
                 </tr>
@@ -851,56 +987,20 @@ export function AdminUsersDashboard({
                         onToggleInterview={() => void toggleInterview(row)}
                       />
                       {isOwner ? (
-                        <td className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low">
-                          <div className="flex items-center justify-end gap-space-4">
-                            {row.isAdmin ? null : (
-                              <button
-                                type="button"
-                                aria-pressed={staffFor(row)}
-                                disabled={staffSaving}
-                                title={
-                                  staffFor(row)
-                                    ? "Remove dashboard access. Class and courses stay."
-                                    : "They can see every stat and grant classes and courses. They cannot delete."
-                                }
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setStaffError(null);
-                                  setStaffPrompt({ row, next: !staffFor(row) });
-                                }}
-                                className={`inline-flex h-9 items-center gap-space-4 rounded-xl px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-40 ${
-                                  staffFor(row)
-                                    ? "bg-[#e8f2fc] text-[#0066cc] hover:bg-[#d0e5fa]"
-                                    : "text-primary hover:bg-primary-fixed"
-                                }`}
-                                aria-label={
-                                  staffFor(row)
-                                    ? `Remove staff access from ${row.displayName}`
-                                    : `Give ${row.displayName} staff access`
-                                }
-                              >
-                                <MaterialIcon
-                                  name="admin_panel_settings"
-                                  className="text-[18px]"
-                                />
-                                Staff
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setDeleteError(null);
-                                setConfirmRow(row);
-                              }}
-                              className="inline-flex h-9 items-center gap-space-4 rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-error transition-colors hover:bg-error-container"
-                              aria-label={`Delete ${row.displayName}`}
-                            >
-                              <MaterialIcon name="delete" className="text-[18px]" />
-                              Delete
-                            </button>
-                          </div>
-                        </td>
+                        <RowActionsMenu
+                          name={row.displayName}
+                          isAdmin={row.isAdmin}
+                          isStaff={staffFor(row)}
+                          staffSaving={staffSaving}
+                          onStaff={() => {
+                            setStaffError(null);
+                            setStaffPrompt({ row, next: !staffFor(row) });
+                          }}
+                          onDelete={() => {
+                            setDeleteError(null);
+                            setConfirmRow(row);
+                          }}
+                        />
                       ) : null}
                     </tr>
                   ))
