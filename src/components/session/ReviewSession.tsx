@@ -8,7 +8,6 @@ import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
-import { PairingCard } from "@/components/session/PairingCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { ProfileButton } from "@/components/ProfileButton";
@@ -26,7 +25,7 @@ import { useProgress } from "@/lib/useProgress";
 type ReviewSessionProps = {
   /** Clips graded by this session. */
   clips: ReviewClip[];
-  /** Mixed cards for those clips: listening, order, multiple choice, pairing. */
+  /** Mixed cards for those clips: listening, order and multiple choice. */
   cards: ReviewCard[];
   /** All clips due today, including ones beyond this session. */
   dueCount: number;
@@ -69,11 +68,10 @@ function clipKeyOf(clip: ReviewClip): string {
 }
 
 /**
- * One spaced-repetition session with the same card kinds as practice.
+ * One spaced-repetition session: listening, sentence-order and
+ * multiple-choice cards (no pairing, see buildReviewCards in review-store).
  * No hearts. A wrong answer sends the card further back in the queue, and
  * its clip counts as missed (back to box 0) when the session is stored.
- * Pairing mistakes are not graded: a wrong pair does not say which clip was
- * forgotten, and each paired clip has its own listening card anyway.
  */
 export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionProps) {
   const router = useRouter();
@@ -83,7 +81,6 @@ export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionPr
   const [draft, setDraft] = useState("");
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [mcResult, setMcResult] = useState<McResult | null>(null);
-  const [pairingSolved, setPairingSolved] = useState(false);
   const [summary, setSummary] = useState<ReviewSummaryState | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [xpTotal, setXpTotal] = useState<number | null>(null);
@@ -111,7 +108,7 @@ export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionPr
   const currentCard = queue[index];
   const current = currentCard?.clip;
   const isPerfect =
-    scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingSolved;
+    scoreResult?.accuracy === 100 || mcResult?.accuracy === 100;
   const remainingToday = Math.max(0, dueCount - clips.length);
   const xpGain = summary && !summary.xpPending && summary.xp ? summary.xp : 0;
 
@@ -157,16 +154,9 @@ export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionPr
     applyResult(result.accuracy);
   };
 
-  const handlePairingSolved = () => {
-    if (pairingSolved) return;
-    setPairingSolved(true);
-    playSuccessSound();
-  };
-
   const resetCardResults = () => {
     setScoreResult(null);
     setMcResult(null);
-    setPairingSolved(false);
     setDraft("");
   };
 
@@ -379,19 +369,6 @@ export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionPr
                 prompt={current.script}
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}
-              />
-            ) : currentCard.kind === "pairing" ? (
-              <PairingCard
-                key={`pairing-${currentCard.key}:${index}`}
-                items={(currentCard.pairItems ?? []).map((clip) => ({
-                  id: clip.id,
-                  vi: clip.translationVi ?? "",
-                  de: clip.script,
-                }))}
-                onMistake={recordWrongAttempt}
-                onSolved={handlePairingSolved}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
               />
             ) : currentCard.kind === "multiple-choice" && mcResult ? (
               <McFeedbackCard

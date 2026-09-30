@@ -5,7 +5,7 @@ import { listCatalogClips } from "@/lib/duel-store";
 import type { CatalogClip } from "@/lib/duels";
 import { getCefrLevel, getChapterClips } from "@/lib/levels";
 import type { ClipRunResult } from "@/lib/listening-runs";
-import { insertDiscreteCards, MAX_PRACTICE_CARDS, practiceCardCount } from "@/lib/practice-deck";
+import { insertDiscreteCards, MAX_PRACTICE_CARDS } from "@/lib/practice-deck";
 import { buildPracticeDeck, type PracticeCard } from "@/lib/sentence-order";
 import {
   getSupabaseAdmin,
@@ -331,10 +331,28 @@ export type ReviewDeck = {
   ready: boolean;
   /** Clips graded by this session, most overdue first. */
   clips: ReviewClip[];
-  /** Listening, order, multiple-choice and pairing cards for those clips. */
+  /** Listening, order and multiple-choice cards for those clips. */
   cards: ReviewCard[];
   due: number;
 };
+
+/**
+ * Practice cards for one lesson's clips, without pairing cards: a wrong pair
+ * does not say which clip was forgotten, so it cannot grade a review.
+ */
+function lessonReviewCards(
+  group: readonly ReviewClip[],
+  lesson: readonly ReviewClip[],
+  random: () => number = Math.random,
+): ReviewCard[] {
+  return insertDiscreteCards(buildPracticeDeck(group, lesson, random), group, lesson, [], random).filter(
+    (card) => card.kind !== "pairing",
+  );
+}
+
+function zeroRandom(): number {
+  return 0;
+}
 
 /**
  * Mixed cards for the picked clips, built per lesson with the same rules as
@@ -346,12 +364,25 @@ function buildReviewCards(
   clips: readonly ReviewClip[],
   lessonClips: ReadonlyMap<string, SessionClip[]>,
 ): { clips: ReviewClip[]; cards: ReviewCard[] } {
+  const lessons = new Map<string, ReviewClip[]>();
+  const lessonFor = (clip: ReviewClip): ReviewClip[] => {
+    const cached = lessons.get(clip.lessonKey);
+    if (cached) return cached;
+    const lesson = (lessonClips.get(clip.lessonKey) ?? []).map((entry) => ({
+      ...entry,
+      lessonKey: clip.lessonKey,
+      lessonLabel: clip.lessonLabel,
+    }));
+    lessons.set(clip.lessonKey, lesson);
+    return lesson;
+  };
+
   const groups = new Map<string, ReviewClip[]>();
   const kept: ReviewClip[] = [];
   const cardCount = () => {
     let total = 0;
-    for (const [lessonKey, group] of groups) {
-      total += practiceCardCount(group, lessonClips.get(lessonKey) ?? group);
+    for (const group of groups.values()) {
+      total += lessonReviewCards(group, lessonFor(group[0]!), zeroRandom).length;
     }
     return total;
   };
@@ -367,17 +398,13 @@ function buildReviewCards(
     kept.push(clip);
   }
 
-  const decks = [...groups].map(([lessonKey, group]) => {
-    const label = group[0]?.lessonLabel ?? lessonKey;
-    const lesson: ReviewClip[] = (lessonClips.get(lessonKey) ?? group).map((clip) => ({
-      ...clip,
-      lessonKey,
-      lessonLabel: label,
-    }));
-    const deck = insertDiscreteCards(buildPracticeDeck(group, lesson), group, lesson, []);
+  const decks = [...groups].map(([lessonKey, group]) =>
     // Clip ids repeat across lessons, so card keys carry the lesson too.
-    return deck.map((card) => ({ ...card, key: `${lessonKey}|${card.key}` }));
-  });
+    lessonReviewCards(group, lessonFor(group[0]!)).map((card) => ({
+      ...card,
+      key: `${lessonKey}|${card.key}`,
+    })),
+  );
   return { clips: kept, cards: interleaveDecks(decks) };
 }
 
