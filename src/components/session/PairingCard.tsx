@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-type PairingItem = { id: string; vi: string; de: string };
+/** `image` (a public URL) replaces the Vietnamese text in the left column. */
+type PairingItem = { id: string; vi: string; de: string; image?: string };
 
 type PairingCardProps = {
   items: PairingItem[];
@@ -146,7 +148,9 @@ export function PairingCard({
           Ghép từ · Wörter zuordnen
         </span>
         <p className="text-[15px] font-medium text-[#86868b]">
-          Chạm một từ mỗi cột. Đúng thì xanh ngay, sai thì thử lại.
+          {items.some((item) => item.image)
+            ? "Chạm một hình và một từ. Đúng thì xanh ngay, sai thì thử lại."
+            : "Chạm một từ mỗi cột. Đúng thì xanh ngay, sai thì thử lại."}
         </p>
       </section>
 
@@ -162,13 +166,21 @@ export function PairingCard({
                 disabled={matched || Boolean(wrong) || solved}
                 aria-pressed={pendingVi === item.id || matched}
                 onClick={() => tapVi(item.id)}
-                className={`min-h-11 rounded-xl border px-3 py-2.5 text-left text-[15px] font-medium motion-reduce:animate-none disabled:cursor-default disabled:opacity-100 ${chipClass(
-                  pendingVi === item.id,
-                  matched,
-                  isWrong,
-                )}`}
+                className={`min-h-11 rounded-xl border px-3 py-2.5 text-left text-[15px] font-medium motion-reduce:animate-none disabled:cursor-default disabled:opacity-100 ${
+                  item.image ? "flex items-center justify-center py-1.5" : ""
+                } ${chipClass(pendingVi === item.id, matched, isWrong)}`}
               >
-                {item.vi}
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={item.vi}
+                    width={96}
+                    height={96}
+                    className="h-14 w-14 object-contain"
+                  />
+                ) : (
+                  item.vi
+                )}
               </button>
             );
           })}

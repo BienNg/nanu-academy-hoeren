@@ -12,6 +12,8 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
 import { PairingCard } from "@/components/session/PairingCard";
+import { NumberInputCard } from "@/components/session/NumberInputCard";
+import { checkNumberAnswer } from "@/lib/living-content";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -419,6 +421,24 @@ export function LearnSession({
     applyResult(result.accuracy);
   };
 
+  const handleNumberSubmit = (value: string) => {
+    if (!currentClip?.answer) return;
+    setDraft(value);
+    const correct = checkNumberAnswer(value, currentClip.answer);
+    const result: ScoreResult = {
+      accuracy: correct ? 100 : 0,
+      words: [
+        {
+          word: currentClip.answer,
+          status: correct ? "correct" : "incorrect",
+          typed: value.trim(),
+        },
+      ],
+    };
+    setScoreResult(result);
+    applyResult(result.accuracy);
+  };
+
   const handleOrderSubmit = (selected: string[]) => {
     if (!currentClip) return;
     const result = checkOrder(selected, currentClip.script);
@@ -696,6 +716,31 @@ export function LearnSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
               />
+            ) : currentCard?.kind === "reply-choice" && !mcResult ? (
+              <>
+                <AudioPlayerCard
+                  key={`reply-audio-${currentCard.key}`}
+                  audioPath={currentClip.audioPath}
+                />
+                <div className="mt-4">
+                  <McCard
+                    key={`reply-${currentCard.key}`}
+                    prompt="Was sagst du? · Bạn trả lời thế nào?"
+                    options={currentCard.options ?? []}
+                    onSubmit={handleMcSubmit}
+                    layout="list"
+                    icon="forum"
+                  />
+                </div>
+              </>
+            ) : currentCard?.kind === "reply-choice" && mcResult ? (
+              <McFeedbackCard
+                result={mcResult}
+                options={currentCard.options ?? []}
+                clip={currentClip}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
             ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && !mcResult ? (
               <McCard
                 key={`mc-${currentCard.key}`}
@@ -710,6 +755,7 @@ export function LearnSession({
                   id: clip.id,
                   vi: clip.translationVi ?? "",
                   de: clip.script,
+                  ...(clip.imageUrl ? { image: clip.imageUrl } : {}),
                 }))}
                 onMistake={handlePairingMistake}
                 onSolved={handlePairingSolved}
@@ -764,6 +810,11 @@ export function LearnSession({
                     onNext={handleNext}
                     nextLabel="Tiếp theo"
                     skipOnMistake
+                  />
+                ) : currentCard?.kind === "number-input" ? (
+                  <NumberInputCard
+                    key={`number-${currentCard.key}`}
+                    onSubmit={handleNumberSubmit}
                   />
                 ) : (
                   <DictationInputCard

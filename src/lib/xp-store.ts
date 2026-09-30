@@ -10,6 +10,7 @@ import {
 import { classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
+import { getLivingClipsForLessonKey } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
 import { getSupabaseAdmin, getUserClassName, readClassName } from "@/lib/progress-store";
@@ -46,7 +47,31 @@ export type XpGrant = {
   kind: string | null;
 };
 
-function lessonClipsForXp(lessonKey: string): { id: string; script: string; translationVi: string; sentenceOrder?: boolean }[] {
+type XpLessonClip = {
+  id: string;
+  script: string;
+  translationVi: string;
+  sentenceOrder?: boolean;
+  answer?: string;
+  replies?: { text: string; correct: boolean; whyVi?: string }[];
+};
+
+/**
+ * The lesson's clips with every field that changes how many cards a clip
+ * becomes, so the part size checked here matches the one the browser dealt.
+ */
+function lessonClipsForXp(lessonKey: string): XpLessonClip[] {
+  const living = getLivingClipsForLessonKey(lessonKey);
+  if (living) {
+    return living.map((clip) => ({
+      id: clip.id,
+      script: clip.script,
+      translationVi: clip.translationVi,
+      sentenceOrder: clip.sentenceOrder,
+      ...(clip.answer ? { answer: clip.answer } : {}),
+      ...(clip.replies ? { replies: clip.replies } : {}),
+    }));
+  }
   const slash = lessonKey.indexOf("/");
   if (slash <= 0) return [];
   try {

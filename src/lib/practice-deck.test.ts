@@ -113,3 +113,76 @@ test("no pairing card is added when fewer than 5 clips are pairing-eligible", ()
   const deck = insertDiscreteCards(base, thin, thin, [], seeded(8));
   assert.equal(deck.filter((card) => card.kind === "pairing").length, 0);
 });
+
+const livingClips = [
+  {
+    id: "n1",
+    script: "Das macht fünfunddreißig Euro fünfzig.",
+    translationVi: "Tổng cộng là ba mươi lăm euro năm mươi.",
+    sentenceOrder: false,
+    answer: "35,50",
+  },
+  {
+    id: "r1",
+    script: "Kann ich mit Karte zahlen?",
+    translationVi: "Tôi trả bằng thẻ được không?",
+    sentenceOrder: true,
+    replies: [
+      { text: "Ja, natürlich.", correct: true },
+      { text: "Gib mal her.", correct: false, whyVi: "Quá suồng sã" },
+      { text: "Um drei Uhr.", correct: false, whyVi: "Không liên quan" },
+    ],
+  },
+  {
+    id: "p1",
+    script: "Bitte nehmen Sie kurz Platz.",
+    translationVi: "Mời chị ngồi chờ một chút.",
+    sentenceOrder: true,
+  },
+];
+
+test("a number clip is dealt as a number-input card instead of dictation", () => {
+  const base = buildPracticeDeck(livingClips, livingClips, seeded(3));
+  const deck = insertDiscreteCards(base, livingClips, livingClips, [], seeded(4));
+  const numberCards = deck.filter((card) => card.clip.id === "n1");
+  const kinds = numberCards.map((card) => card.kind);
+  assert.ok(kinds.includes("number-input"));
+  assert.ok(!kinds.includes("listening"));
+  assert.ok(!kinds.includes("order"));
+  assert.ok(!kinds.includes("vi-input"));
+  assert.ok(!kinds.includes("vi-choice"));
+  assert.equal(kinds.filter((kind) => kind === "number-input").length, 1);
+});
+
+test("a clip with replies gets one reply-choice card after its listening card", () => {
+  const base = buildPracticeDeck(livingClips, livingClips, seeded(5));
+  const deck = insertDiscreteCards(base, livingClips, livingClips, [], seeded(6));
+  const listenAt = indexOfListening(deck, "r1");
+  const replyCards = deck.filter((card) => card.kind === "reply-choice");
+  assert.equal(replyCards.length, 1);
+  const replyAt = deck.indexOf(replyCards[0]!);
+  assert.ok(replyAt > listenAt);
+  const options = replyCards[0]?.options ?? [];
+  assert.equal(options.length, 3);
+  assert.equal(options.filter((option) => option.correct).length, 1);
+  assert.equal(options.find((option) => option.text === "Gib mal her.")?.explanation, "Quá suồng sã");
+  assert.ok(!deck.some((card) => card.kind === "reply-choice" && card.clip.id !== "r1"));
+});
+
+test("card counting matches the dealt deck for Living clips", () => {
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const deck = insertDiscreteCards(
+      buildPracticeDeck(livingClips, livingClips, seeded(seed)),
+      livingClips,
+      livingClips,
+      [],
+      seeded(seed + 100),
+    );
+    assert.equal(deck.length, practiceCardCount(livingClips, livingClips));
+  }
+  const withoutReplies = livingClips.map((clip) => ({ ...clip, replies: undefined }));
+  assert.equal(
+    practiceCardCount(livingClips, livingClips),
+    practiceCardCount(withoutReplies, withoutReplies) + 1,
+  );
+});
