@@ -8,6 +8,7 @@ import {
   hasInterviewAccess,
   withoutInterviewAccess,
 } from "@/lib/progress-store";
+import { getReviewSummary } from "@/lib/review-store";
 import { getLeaderboard } from "@/lib/xp-store";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function Home() {
   }
 
   const isAdmin = isAdminUser(session.user);
-  const [storedAccess, ranking] = await Promise.all([
+  const [storedAccess, ranking, review] = await Promise.all([
     isAdmin ? Promise.resolve(null) : getUserLevelAccess(session.user.id),
     getLeaderboard({
       viewerId: session.user.id,
@@ -35,6 +36,7 @@ export default async function Home() {
       scope: "class",
       range: "week",
     }),
+    getReviewSummary({ id: session.user.id, email: session.user.email }),
   ]);
 
   return (
@@ -50,6 +52,7 @@ export default async function Home() {
       }
       interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
       ranking={ranking}
+      review={review}
     />
   );
 }

@@ -21,6 +21,12 @@ type PartCompleteScreenProps = {
   onContinue: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Replaces the default heading, e.g. for a review session. */
+  title?: string;
+  /** Replaces the default part subtitle. */
+  subtitle?: string;
+  /** One line under the stats, e.g. how many clips come back in review. */
+  note?: string | null;
 };
 
 const CONFETTI = [
@@ -75,6 +81,9 @@ function xpCaption(xp: number | null, kind: string | null): { value: string; not
   if (kind === "repeat") {
     return { value: "+0 XP", note: "Phần này đã được tính hôm nay" };
   }
+  if (kind === "capped") {
+    return { value: "+0 XP", note: "Đã đủ 3 lượt ôn tập có XP hôm nay" };
+  }
   if (kind === "review" && (xp ?? 0) === 0) {
     return { value: "+0 XP", note: "Đã đủ 30 XP ôn tập hôm nay" };
   }
@@ -102,6 +111,9 @@ export function PartCompleteScreen({
   onContinue,
   secondaryLabel,
   onSecondary,
+  title,
+  subtitle,
+  note,
 }: PartCompleteScreenProps) {
   const reduceMotion = useReducedMotion();
   const continueRef = useRef<HTMLButtonElement>(null);
@@ -220,7 +232,7 @@ export function PartCompleteScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: reduceMotion ? 0 : 0.18, duration: 0.3 }}
         >
-          {failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!"}
+          {title ?? (failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!")}
         </motion.h2>
         <motion.p
           className="mt-2 text-[17px] font-medium text-[#86868b]"
@@ -228,7 +240,7 @@ export function PartCompleteScreen({
           animate={{ opacity: 1 }}
           transition={{ delay: reduceMotion ? 0 : 0.24, duration: 0.25 }}
         >
-          {subtitleFor(failed, finishRun, partNumber, partCount)}
+          {subtitle ?? subtitleFor(failed, finishRun, partNumber, partCount)}
         </motion.p>
 
         {earned ? (
@@ -279,6 +291,15 @@ export function PartCompleteScreen({
             </motion.div>
           ))}
         </div>
+
+        {note ? (
+          <p className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-semibold text-[#7c3aed]">
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+              replay
+            </span>
+            {note}
+          </p>
+        ) : null}
 
         {perfect && !failed ? (
           <motion.div

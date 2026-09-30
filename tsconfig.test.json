@@ -32,6 +32,8 @@
     "src/lib/practice-deck.ts",
     "src/lib/practice-deck.test.ts",
     "src/lib/blitzrunde.ts",
-    "src/lib/blitzrunde.test.ts"
+    "src/lib/blitzrunde.test.ts",
+    "src/lib/review.ts",
+    "src/lib/review.test.ts"
   ]
 }

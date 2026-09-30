@@ -164,7 +164,7 @@ export const STUDY_XP_SCHEMA_HINT =
 
 export function isXpSchemaMissing(message: string): boolean {
   return (
-    /(?<!study_)xp_awards/i.test(message) &&
+    /(?<!study_|review_)xp_awards/i.test(message) &&
     /does not exist|schema cache|could not find the table/i.test(message)
   );
 }

@@ -10,6 +10,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import type { Ausbildungsberuf } from "@/lib/content";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
+import type { ReviewSummary } from "@/lib/review";
 import { useProgress } from "@/lib/useProgress";
 import { incomingChallengeLabel, type IncomingChallenge } from "@/lib/duels";
 import { previewLeaderboardRows, type LeaderboardPayload, type LeaderboardRow } from "@/lib/xp";
@@ -32,6 +33,8 @@ type HomeScreenProps = {
   interviewAccess?: boolean;
   /** Class board for this week, same default the Xếp hạng tab opens on. */
   ranking: LeaderboardPayload;
+  /** Spaced-repetition clips due today. */
+  review: ReviewSummary;
 };
 
 const BERUF_ICON: Record<string, string> = {
@@ -131,6 +134,65 @@ function ContinueCard({
         </span>
       </Link>
     </section>
+  );
+}
+
+/**
+ * Spaced repetition entry. Hidden until the learner has a review schedule;
+ * after that it shows either today's due count or a quiet "done" line.
+ */
+function ReviewCard({ review }: { review: ReviewSummary }) {
+  if (!review.ready || review.total === 0) return null;
+
+  if (review.due === 0) {
+    return (
+      <section
+        aria-label="Ôn tập"
+        className="flex items-center gap-3 rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-3 font-headline-sm"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#dcfce7] text-[#16a34a]">
+          <MaterialIcon name="task_alt" className="text-[22px]" filled />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[15px] font-extrabold leading-tight text-[#131b2e]">
+            Đã ôn xong hôm nay
+          </span>
+          <span className="block text-[13px] font-bold text-[#6e7881]">
+            Câu tiếp theo sẽ quay lại vào ngày mai hoặc muộn hơn.
+          </span>
+        </span>
+      </section>
+    );
+  }
+
+  return (
+    <Link
+      href="/review"
+      aria-label={`Ôn tập, ${review.due} câu cần ôn hôm nay`}
+      className="group flex items-center gap-3 overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-4 font-headline-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7]"
+    >
+      <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#7c3aed] text-white shadow-[0_4px_0_0_#5b21b6]">
+        <MaterialIcon name="replay" className="text-[28px]" />
+        <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[11px] font-extrabold leading-none text-white">
+          {review.due > 99 ? "99+" : review.due}
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-extrabold uppercase tracking-wider text-[#7c3aed]">
+          Ôn tập · Wiederholen
+        </span>
+        <span className="mt-0.5 block text-[18px] font-extrabold leading-tight text-[#131b2e]">
+          {review.due} câu cần ôn hôm nay
+        </span>
+        <span className="mt-0.5 block text-[13px] font-bold leading-snug text-[#6e7881]">
+          Nghe lại những câu sắp quên, mỗi lần tối đa 10 câu.
+        </span>
+      </span>
+      <MaterialIcon
+        name="arrow_forward"
+        className="shrink-0 text-[22px] text-[#7c3aed] transition-transform duration-200 group-hover:translate-x-0.5"
+      />
+    </Link>
   );
 }
 
@@ -572,6 +634,7 @@ export function HomeScreen({
   unlockedLevelSlugs = [],
   interviewAccess = false,
   ranking,
+  review,
 }: HomeScreenProps) {
   const { data: session } = useSession();
   const { continueLevel, progressFor, streakDays } =
@@ -641,6 +704,8 @@ export function HomeScreen({
               href={continueLevel.href}
             />
           ) : null}
+
+          <ReviewCard review={review} />
 
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
             <DuelCta />

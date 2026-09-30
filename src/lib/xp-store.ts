@@ -13,6 +13,7 @@ import { getChapterClips } from "@/lib/levels";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
 import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
+import { isReviewSchemaMissing } from "@/lib/review";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
@@ -35,6 +36,7 @@ import {
 
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
+const REVIEW_XP_TABLE = "review_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const RUNS_TABLE = "listening_runs";
 const PROFILES_TABLE = "user_progress";
@@ -327,22 +329,28 @@ export async function grantStudyPartXp(
   return { ready: false, xp: null, kind: null };
 }
 
+/** Study and review XP share a row shape: `xp`, `day_key`, `week_key`, keyed by `id`. */
+function isSideXpSchemaMissing(message: string): boolean {
+  return isStudyXpSchemaMissing(message) || isReviewSchemaMissing(message);
+}
+
 async function listUserStudyXp(
   supabase: SupabaseClient,
   userId: string,
+  table: string = STUDY_XP_TABLE,
 ): Promise<{ xp: number; day_key: string; week_key: string }[]> {
   const rows: { xp: number; day_key: string; week_key: string }[] = [];
   let from = 0;
   for (;;) {
     const { data, error } = await supabase
-      .from(STUDY_XP_TABLE)
+      .from(table)
       .select("xp, day_key, week_key")
       .eq("user_id", userId)
       .order("id")
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
-      if (!isStudyXpSchemaMissing(error.message)) {
-        console.error("Supabase listUserStudyXp", error.message);
+      if (!isSideXpSchemaMissing(error.message)) {
+        console.error("Supabase listUserStudyXp", table, error.message);
       }
       return rows;
     }
@@ -362,20 +370,21 @@ async function listStudyAwardRows(
   supabase: SupabaseClient,
   range: LeaderboardRange,
   now: Date,
+  table: string = STUDY_XP_TABLE,
 ): Promise<StudyAwardRow[]> {
   const rows: StudyAwardRow[] = [];
   let from = 0;
   for (;;) {
     let query = supabase
-      .from(STUDY_XP_TABLE)
+      .from(table)
       .select("user_id, xp, created_at, day_key, week_key")
       .order("id")
       .range(from, from + PAGE_SIZE - 1);
     if (range === "week") query = query.eq("week_key", weekKey(now));
     const { data, error } = await query;
     if (error) {
-      if (!isStudyXpSchemaMissing(error.message)) {
-        console.error("Supabase listStudyAwardRows", error.message);
+      if (!isSideXpSchemaMissing(error.message)) {
+        console.error("Supabase listStudyAwardRows", table, error.message);
       }
       return rows;
     }
@@ -460,7 +469,10 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
   }
 
   const duelRows = await listUserDuelXp(supabase, userId);
-  const studyRows = await listUserStudyXp(supabase, userId);
+  const studyRows = [
+    ...(await listUserStudyXp(supabase, userId)),
+    ...(await listUserStudyXp(supabase, userId, REVIEW_XP_TABLE)),
+  ];
   const todayKey = dayKey(now);
   const currentWeek = weekKey(now);
   let today = 0;
@@ -737,6 +749,7 @@ async function readXpTotals(
       totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
     }
     await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+    await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now, REVIEW_XP_TABLE));
     return totals;
   }
 
@@ -752,6 +765,7 @@ async function readXpTotals(
     totals.set(award.user_id, current);
   }
   await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+  await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now, REVIEW_XP_TABLE));
   return totals;
 }
 
