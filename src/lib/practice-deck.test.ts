@@ -40,10 +40,14 @@ test("layers exactly one pairing card and one MC card per eligible clip onto the
   const listening = deck.filter((card) => card.kind === "listening");
   const pairing = deck.filter((card) => card.kind === "pairing");
   const mc = deck.filter((card) => card.kind === "multiple-choice");
+  const viInput = deck.filter((card) => card.kind === "vi-input");
+  const viChoice = deck.filter((card) => card.kind === "vi-choice");
 
   assert.equal(listening.length, 6);
   assert.equal(pairing.length, 1);
   assert.equal(mc.length, 5); // c1-c5, never c6
+  assert.equal(viInput.length, 6);
+  assert.equal(viChoice.length, 6);
 
   assert.equal(pairing[0]?.pairItems?.length, 5);
   assert.ok(!mc.some((card) => card.clip.id === "c6"));
@@ -68,10 +72,10 @@ test("each MC card is placed after its own clip's listening card", () => {
   const deck = insertDiscreteCards(base, partClips, partClips, [], seeded(6));
 
   for (const card of deck) {
-    if (card.kind !== "multiple-choice") continue;
-    const mcIndex = deck.indexOf(card);
+    if (card.kind !== "multiple-choice" && card.kind !== "vi-choice" && card.kind !== "vi-input") continue;
+    const cardIndex = deck.indexOf(card);
     const listenIndex = indexOfListening(deck, card.clip.id);
-    assert.ok(mcIndex > listenIndex);
+    assert.ok(cardIndex > listenIndex);
   }
 });
 
@@ -83,7 +87,7 @@ test("the heaviest clips still fit in one run of at most 15 cards", () => {
     sentenceOrder: true,
   }));
   const maxClips = maxClipsPerPracticePart(heavy);
-  assert.equal(maxClips, 4);
+  assert.equal(maxClips, 3);
   assert.ok(practiceCardCount(heavy.slice(0, maxClips), heavy) <= MAX_PRACTICE_CARDS);
   assert.ok(practiceCardCount(heavy.slice(0, maxClips + 1), heavy) > MAX_PRACTICE_CARDS);
 });

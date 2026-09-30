@@ -27,11 +27,6 @@
       "translationVi": "của cô ấy / của họ (der/das)"
     },
     {
-      "filename": "a11-tag5-05-ihr-formal.mp3",
-      "script": "Ihr",
-      "translationVi": "của Ông/Bà/Anh/Chị (lịch sự, der/das)"
-    },
-    {
       "filename": "a11-tag5-06-euer.mp3",
       "script": "euer",
       "translationVi": "của các bạn (der/das)"
@@ -60,11 +55,6 @@
       "filename": "a11-tag5-11-ihre-sie.mp3",
       "script": "ihre",
       "translationVi": "của cô ấy / của họ (die / số nhiều)"
-    },
-    {
-      "filename": "a11-tag5-12-ihre-formal.mp3",
-      "script": "Ihre",
-      "translationVi": "của Ông/Bà/Anh/Chị (lịch sự, die / số nhiều)"
     },
     {
       "filename": "a11-tag5-13-eure.mp3",
@@ -140,11 +130,6 @@
       "filename": "a11-tag5-27-das-ist-ihre-katze.mp3",
       "script": "Das ist ihre Katze.",
       "translationVi": "Đây là con mèo của cô ấy."
-    },
-    {
-      "filename": "a11-tag5-28-der-name.mp3",
-      "script": "der Name",
-      "translationVi": "tên"
     },
     {
       "filename": "a11-tag5-29-wie-ist-ihr-name.mp3",

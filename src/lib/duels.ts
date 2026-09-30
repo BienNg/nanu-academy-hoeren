@@ -49,6 +49,8 @@ export type CatalogClip = {
   sentenceOrder?: boolean;
   /** True when this clip has enough same-word-count distractors for a multiple-choice card. */
   multipleChoice?: boolean;
+  /** True when this clip has enough same-length German distractors for a Vietnamese prompt. */
+  germanChoice?: boolean;
 };
 
 export type OpponentCandidate = {
@@ -85,6 +87,7 @@ export function duelCardsFromClips<
   T extends {
     lessonKey: string;
     clipId: string;
+    translationVi?: string;
     sentenceOrder?: boolean;
     multipleChoice?: boolean;
   },
@@ -95,11 +98,14 @@ export function duelCardsFromClips<
     const key = studiedKey(clip.lessonKey, clip.clipId);
     if (seen.has(key)) continue;
     seen.add(key);
-    const kind: DuelCardKind = clip.sentenceOrder
-      ? "order"
-      : clip.multipleChoice
-        ? "multiple-choice"
-        : "listening";
+    const translated = Boolean(clip.translationVi?.trim());
+    const kind: DuelCardKind = !translated
+      ? "listening"
+      : clip.sentenceOrder
+        ? "order"
+        : clip.multipleChoice
+          ? "multiple-choice"
+          : "listening";
     cards.push({ clip, kind });
   }
   return cards;
@@ -112,7 +118,7 @@ export function clipCanStart(clip: {
   translationVi?: string | null;
 } | null | undefined): boolean {
   if (!clip?.script) return false;
-  if (clip.kind === "order" || clip.kind === "multiple-choice") {
+  if (clip.kind === "order" || clip.kind === "multiple-choice" || clip.kind === "vi-choice" || clip.kind === "vi-input") {
     return Boolean(clip.translationVi?.trim());
   }
   return Boolean(clip.audioPath);

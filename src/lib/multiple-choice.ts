@@ -21,7 +21,7 @@ export type McResult = {
 
 export const MC_OPTION_COUNT = 4;
 
-type ViSource = { id: string; translationVi?: string };
+type ViSource = { id: string; script?: string; translationVi?: string };
 
 function normalizeVi(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -36,17 +36,18 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
   return next;
 }
 
-/** Other clips' translations with the same word count as `correctVi`, deduped. */
+/** Other clips' texts with the same word count as the correct answer, deduped. */
 function collectCandidates(
   wordCount: number,
   excludeClipId: string,
   seen: Set<string>,
   pool: readonly ViSource[],
+  textOf: (clip: ViSource) => string | undefined,
 ): string[] {
   const found: string[] = [];
   for (const other of pool) {
     if (other.id === excludeClipId) continue;
-    const text = other.translationVi;
+    const text = textOf(other);
     if (!text || !text.trim()) continue;
     const normalized = normalizeVi(text);
     if (seen.has(normalized)) continue;
@@ -75,9 +76,10 @@ export function mcDistractors(
   if (wordCount === 0) return null;
 
   const seen = new Set<string>([normalizeVi(correctVi)]);
-  let pool = collectCandidates(wordCount, excludeClipId, seen, lektionClips);
+  const textOf = (clip: ViSource) => clip.translationVi;
+  let pool = collectCandidates(wordCount, excludeClipId, seen, lektionClips, textOf);
   if (pool.length < count) {
-    pool = [...pool, ...collectCandidates(wordCount, excludeClipId, seen, levelClips)];
+    pool = [...pool, ...collectCandidates(wordCount, excludeClipId, seen, levelClips, textOf)];
   }
   if (pool.length < count) return null;
 
@@ -111,6 +113,64 @@ export function buildMcOptions(
 
   const options: McOption[] = [
     { id: "correct", text: clip.translationVi.trim(), correct: true },
+    ...distractors.map((text, index) => ({ id: `d${index}`, text, correct: false })),
+  ];
+  return shuffle(options, random);
+}
+
+/**
+ * Vietnamese prompt, four German options. Distractors match the correct
+ * script's word count and are drawn from the lektion, then the rest of the level.
+ */
+export function deMcDistractors(
+  correctDe: string,
+  excludeClipId: string,
+  lektionClips: readonly ViSource[],
+  levelClips: readonly ViSource[] = [],
+  count: number = MC_OPTION_COUNT - 1,
+  random: () => number = Math.random,
+): string[] | null {
+  const wordCount = tokenizeSentence(correctDe).length;
+  if (wordCount === 0) return null;
+
+  const seen = new Set<string>([normalizeVi(correctDe)]);
+  const textOf = (clip: ViSource) => (clip.translationVi?.trim() ? clip.script : undefined);
+  let pool = collectCandidates(wordCount, excludeClipId, seen, lektionClips, textOf);
+  if (pool.length < count) {
+    pool = [...pool, ...collectCandidates(wordCount, excludeClipId, seen, levelClips, textOf)];
+  }
+  if (pool.length < count) return null;
+
+  return shuffle(pool, random).slice(0, count);
+}
+
+export function isGermanChoiceEligible(
+  clip: { id: string; script?: string; translationVi?: string },
+  lektionClips: readonly ViSource[],
+  levelClips: readonly ViSource[] = [],
+): boolean {
+  if (!clip.translationVi?.trim() || !clip.script?.trim()) return false;
+  return deMcDistractors(clip.script, clip.id, lektionClips, levelClips) !== null;
+}
+
+export function buildDeMcOptions(
+  clip: { id: string; script: string },
+  lektionClips: readonly ViSource[],
+  levelClips: readonly ViSource[] = [],
+  random: () => number = Math.random,
+): McOption[] | null {
+  const distractors = deMcDistractors(
+    clip.script,
+    clip.id,
+    lektionClips,
+    levelClips,
+    MC_OPTION_COUNT - 1,
+    random,
+  );
+  if (!distractors) return null;
+
+  const options: McOption[] = [
+    { id: "correct", text: clip.script.trim(), correct: true },
     ...distractors.map((text, index) => ({ id: `d${index}`, text, correct: false })),
   ];
   return shuffle(options, random);

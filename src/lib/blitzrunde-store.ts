@@ -153,7 +153,7 @@ function participantFromRow(raw: unknown): ParticipantRow | null {
   };
 }
 
-const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "pairing"];
+const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "vi-choice", "vi-input", "pairing"];
 
 function answerFromRow(raw: unknown): AnswerRow | null {
   if (!raw || typeof raw !== "object") return null;

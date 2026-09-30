@@ -4,4 +4,10 @@
  * the node tests can compile this file on its own.
  */
 
-export type CardKind = "listening" | "order" | "multiple-choice" | "pairing";
+export type CardKind =
+  | "listening"
+  | "order"
+  | "multiple-choice"
+  | "vi-choice"
+  | "vi-input"
+  | "pairing";

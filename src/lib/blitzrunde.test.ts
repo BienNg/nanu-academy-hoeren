@@ -83,7 +83,7 @@ test("the deck never has listening cards and positions run 0..n-1", () => {
   assert.ok(deck.length > 0);
   deck.forEach((card, index) => assert.equal(card.position, index));
   for (const card of deck) {
-    assert.ok(["order", "multiple-choice", "pairing"].includes(card.kind));
+    assert.ok(["order", "multiple-choice", "vi-choice", "vi-input", "pairing"].includes(card.kind));
   }
 });
 
@@ -108,6 +108,7 @@ test("order cards carry the script and a word bank, MC cards exactly one correct
   const counts = deckKindCounts(deck);
   assert.ok(counts.order >= 1);
   assert.ok(counts["multiple-choice"] >= 1);
+  assert.ok(counts["vi-input"] >= 1);
   for (const card of deck) {
     if (card.kind === "order") {
       assert.ok(card.script.length > 0);

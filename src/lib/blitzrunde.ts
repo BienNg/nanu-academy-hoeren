@@ -11,7 +11,7 @@
  */
 
 import { buildWordBank, isSentenceOrderEligible, type WordChip } from "./sentence-order";
-import { buildMcOptions, type McOption } from "./multiple-choice";
+import { buildDeMcOptions, buildMcOptions, type McOption } from "./multiple-choice";
 import { buildPairingSet, PAIRING_SET_SIZE } from "./pairing";
 
 /** Material Symbol for Blitzrunde. `bolt` stays reserved for XP. */
@@ -44,7 +44,7 @@ export function isBlitzrundeSchemaMissing(message: string): boolean {
   );
 }
 
-export type BlitzrundeKind = "order" | "multiple-choice" | "pairing";
+export type BlitzrundeKind = "order" | "multiple-choice" | "vi-choice" | "vi-input" | "pairing";
 export type BlitzrundeStatus = "lobby" | "active" | "ended" | "cancelled";
 export type BlitzrundeEndReason = "time_up" | "teacher_ended";
 export type BlitzrundeFinishReason = "deck_done" | "time_up" | "teacher_ended";
@@ -67,6 +67,20 @@ export type BlitzrundeCard =
       clipId: string;
       prompt: string;
       options: McOption[];
+    }
+  | {
+      position: number;
+      kind: "vi-choice";
+      clipId: string;
+      prompt: string;
+      options: McOption[];
+    }
+  | {
+      position: number;
+      kind: "vi-input";
+      clipId: string;
+      prompt: string;
+      script: string;
     }
   | {
       position: number;
@@ -110,6 +124,8 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 type UnplacedCard =
   | Omit<Extract<BlitzrundeCard, { kind: "order" }>, "position">
   | Omit<Extract<BlitzrundeCard, { kind: "multiple-choice" }>, "position">
+  | Omit<Extract<BlitzrundeCard, { kind: "vi-choice" }>, "position">
+  | Omit<Extract<BlitzrundeCard, { kind: "vi-input" }>, "position">
   | Omit<Extract<BlitzrundeCard, { kind: "pairing" }>, "position">;
 
 /**
@@ -166,13 +182,34 @@ export function buildBlitzrundeDeck(input: {
     );
     if (!options) continue;
     cards.push({ kind: "multiple-choice", clipId: clip.id, prompt: clip.script, options });
+    cards.push({
+      kind: "vi-input",
+      clipId: clip.id,
+      prompt: translationVi.trim(),
+      script: clip.script,
+    });
+    const germanOptions = buildDeMcOptions(clip, input.lektionClips, input.levelClips, random);
+    if (germanOptions) {
+      cards.push({
+        kind: "vi-choice",
+        clipId: clip.id,
+        prompt: translationVi.trim(),
+        options: germanOptions,
+      });
+    }
   }
 
   return shuffle(cards, random).map((card, position) => ({ ...card, position }) as BlitzrundeCard);
 }
 
 export function deckKindCounts(deck: readonly { kind: BlitzrundeKind }[]): Record<BlitzrundeKind, number> {
-  const counts: Record<BlitzrundeKind, number> = { order: 0, "multiple-choice": 0, pairing: 0 };
+  const counts: Record<BlitzrundeKind, number> = {
+    order: 0,
+    "multiple-choice": 0,
+    "vi-choice": 0,
+    "vi-input": 0,
+    pairing: 0,
+  };
   for (const card of deck) counts[card.kind] += 1;
   return counts;
 }
@@ -330,7 +367,7 @@ function boundedInt(value: unknown, min: number, max: number): number | null {
   return value;
 }
 
-const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "pairing"];
+const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "vi-choice", "vi-input", "pairing"];
 const FINISH_REASONS: readonly BlitzrundeFinishReason[] = ["deck_done", "time_up", "teacher_ended"];
 
 function parseAnswerValue(kind: BlitzrundeKind, value: unknown): AnswerRecord["answer"] | undefined {
@@ -344,8 +381,11 @@ function parseAnswerValue(kind: BlitzrundeKind, value: unknown): AnswerRecord["a
     }
     return words;
   }
-  if (kind === "multiple-choice") {
+  if (kind === "multiple-choice" || kind === "vi-choice") {
     return typeof value === "string" && value.length <= 20 ? value : undefined;
+  }
+  if (kind === "vi-input") {
+    return typeof value === "string" && value.length <= 400 ? value : undefined;
   }
   return boundedInt(value, 0, 99) ?? undefined;
 }

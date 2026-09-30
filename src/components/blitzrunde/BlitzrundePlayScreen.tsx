@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { McCard } from "@/components/session/McCard";
 import { PairingCard } from "@/components/session/PairingCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/blitzrunde";
 import type { StudentRoundView } from "@/lib/blitzrunde-store";
 import { checkMc } from "@/lib/multiple-choice";
+import { scoreAttempt } from "@/lib/scoring";
 import { checkOrder } from "@/lib/sentence-order";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 
@@ -104,6 +106,23 @@ function FlashPanel({ flash }: { flash: Flash }) {
   );
 }
 
+function ViInput({
+  prompt,
+  script,
+  onSubmit,
+}: {
+  prompt: string;
+  script: string;
+  onSubmit: (typed: string, accuracy: number) => void;
+}) {
+  return (
+    <DictationInputCard
+      prompt={prompt}
+      onSubmit={(value) => onSubmit(value, scoreAttempt(value, script).accuracy)}
+    />
+  );
+}
+
 function CardView({
   card,
   onAnswer,
@@ -123,13 +142,24 @@ function CardView({
       />
     );
   }
-  if (card.kind === "multiple-choice") {
+  if (card.kind === "multiple-choice" || card.kind === "vi-choice") {
     return (
       <McCard
         key={`mc-${card.position}`}
         prompt={card.prompt}
         options={card.options}
-        onSubmit={(selectedId) => onAnswer("multiple-choice", checkMc(selectedId, card.options).accuracy, selectedId)}
+        onSubmit={(selectedId) =>
+          onAnswer(card.kind, checkMc(selectedId, card.options).accuracy, selectedId)
+        }
+      />
+    );
+  }
+  if (card.kind === "vi-input") {
+    return (
+      <ViInput
+        prompt={card.prompt}
+        script={card.script}
+        onSubmit={(typed, accuracy) => onAnswer("vi-input", accuracy, typed)}
       />
     );
   }

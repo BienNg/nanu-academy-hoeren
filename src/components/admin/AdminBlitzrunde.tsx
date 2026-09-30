@@ -46,6 +46,8 @@ const POLL_MS = 2000;
 const KIND_LABEL: Record<BlitzrundeKind, string> = {
   order: "Sentence order",
   "multiple-choice": "Multiple choice",
+  "vi-choice": "Vietnamese → German choice",
+  "vi-input": "Vietnamese → type German",
   pairing: "Pairing",
 };
 
@@ -96,15 +98,21 @@ function resultsStillOpen(round: AdminRoundView | null, selectedId: string | nul
 function cardSummary(card: BlitzrundeCard | undefined): string {
   if (!card) return "—";
   if (card.kind === "order") return card.translationVi;
-  if (card.kind === "multiple-choice") return card.prompt;
+  if (card.kind === "multiple-choice" || card.kind === "vi-choice" || card.kind === "vi-input") return card.prompt;
   return card.items.map((item) => item.de).join(" · ");
 }
 
 function answerSummary(answer: AnswerRecord, card: BlitzrundeCard | undefined): string {
   if (answer.kind === "order" && Array.isArray(answer.answer)) return answer.answer.join(" ");
-  if (answer.kind === "multiple-choice" && typeof answer.answer === "string" && card?.kind === "multiple-choice") {
+  if (
+    (answer.kind === "multiple-choice" || answer.kind === "vi-choice") &&
+    typeof answer.answer === "string" &&
+    card &&
+    (card.kind === "multiple-choice" || card.kind === "vi-choice")
+  ) {
     return card.options.find((option) => option.id === answer.answer)?.text ?? answer.answer;
   }
+  if (answer.kind === "vi-input" && typeof answer.answer === "string") return answer.answer;
   if (answer.kind === "pairing" && typeof answer.answer === "number") {
     return answer.answer === 0 ? "No wrong pairs" : `${answer.answer} wrong pair${answer.answer === 1 ? "" : "s"}`;
   }

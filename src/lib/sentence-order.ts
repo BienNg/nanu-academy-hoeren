@@ -108,6 +108,7 @@ export function buildWordBank(
   const candidates = new Map<string, string>();
   for (const other of lessonClips) {
     if (other.id === clip.id) continue;
+    if (!other.translationVi?.trim()) continue;
     for (const word of tokenizeSentence(other.script)) {
       const form = normalizeToken(word);
       if (!form || sentenceForms.has(form) || candidates.has(form)) continue;

@@ -7,7 +7,7 @@
  */
 
 import { buildPracticeDeck, type OrderSourceClip, type PracticeCard } from "./sentence-order";
-import { buildMcOptions, isMultipleChoiceEligible } from "./multiple-choice";
+import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "./multiple-choice";
 import { buildPairingSet, isPairingItemEligible } from "./pairing";
 
 /** A practice run never deals more cards than this, including after a shuffle. */
@@ -48,10 +48,16 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
 
   const scored = lessonClips.map((clip) => {
     const hasTranslation = Boolean(clip.translationVi?.trim());
-    const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
-    return {
-      clip,
-      base: 1 + (clip.sentenceOrder && hasTranslation ? 1 : 0) + (multipleChoice ? 1 : 0),
+      const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
+      const germanChoice = hasTranslation && isGermanChoiceEligible(clip, lessonClips);
+      return {
+        clip,
+        base:
+          1 +
+          (clip.sentenceOrder && hasTranslation ? 1 : 0) +
+          (multipleChoice ? 1 : 0) +
+          (hasTranslation ? 1 : 0) +
+          (germanChoice ? 1 : 0),
       pairing: isPairingItemEligible(clip),
       script: scriptKey(clip.script),
     };
@@ -88,7 +94,9 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
 }
 
 /**
- * Adds one multiple-choice card per eligible clip in `partClips`, and as many
+ * Adds one multiple-choice card per eligible clip in `partClips`, one
+ * Vietnamese-prompt typing card per translated clip, one Vietnamese-to-German
+ * multiple-choice card when enough German distractors exist, and as many
  * 5-clip pairing cards as `partClips` has eligible clips for, to a deck that
  * already has a listening (and possibly order) card for every part clip.
  *
@@ -131,6 +139,31 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
       kind: "pairing",
       clip: set[0],
       pairItems: set,
+    });
+  }
+
+  for (const clip of partClips) {
+    if (!clip.translationVi?.trim()) continue;
+    const anchorIndex = listeningIndexOf(clip.id);
+    if (anchorIndex === -1) continue;
+    insertAfter(anchorIndex, {
+      key: `${clip.id}:vi-input`,
+      kind: "vi-input",
+      clip,
+    });
+  }
+
+  for (const clip of partClips) {
+    if (!clip.translationVi?.trim() || !clip.script.trim()) continue;
+    const options = buildDeMcOptions(clip, lessonClips, levelClips, random);
+    if (!options) continue;
+    const anchorIndex = listeningIndexOf(clip.id);
+    if (anchorIndex === -1) continue;
+    insertAfter(anchorIndex, {
+      key: `${clip.id}:vi-choice`,
+      kind: "vi-choice",
+      clip,
+      options,
     });
   }
 

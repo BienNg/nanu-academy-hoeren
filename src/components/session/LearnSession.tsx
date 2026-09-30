@@ -402,7 +402,7 @@ export function LearnSession({
 
     recordWrongAttempt();
     missedClipIdsRef.current.add(currentCard.clip.id);
-    // The first miss of each card costs a heart; a clip has up to two cards.
+    // The first miss of each card costs a heart.
     if (missedCardKeysRef.current.has(currentCard.key)) return;
 
     missedCardKeysRef.current.add(currentCard.key);
@@ -698,10 +698,10 @@ export function LearnSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
               />
-            ) : currentCard?.kind === "multiple-choice" && !mcResult ? (
+            ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && !mcResult ? (
               <McCard
                 key={`mc-${currentCard.key}`}
-                prompt={currentClip.script}
+                prompt={currentCard.kind === "vi-choice" ? (currentClip.translationVi ?? "") : currentClip.script}
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}
               />
@@ -718,7 +718,33 @@ export function LearnSession({
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
               />
-            ) : currentCard?.kind === "multiple-choice" && mcResult ? (
+            ) : currentCard?.kind === "vi-input" ? (
+              <>
+                {scoreResult ? (
+                  <>
+                    <AudioPlayerCard
+                      key={`vi-audio-${currentCard.key}`}
+                      audioPath={currentClip.audioPath}
+                    />
+                    <FeedbackResultCard
+                      result={scoreResult}
+                      clip={currentClip}
+                      onNext={handleNext}
+                      nextLabel="Tiếp theo"
+                      skipOnMistake
+                    />
+                  </>
+                ) : (
+                  <DictationInputCard
+                    key={`vi-input-${currentCard.key}`}
+                    prompt={currentClip.translationVi}
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={handleSubmit}
+                  />
+                )}
+              </>
+            ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && mcResult ? (
               <McFeedbackCard
                 result={mcResult}
                 options={currentCard.options ?? []}

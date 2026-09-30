@@ -87,6 +87,13 @@ test("chips drop sentence punctuation so it cannot mark the last word", () => {
   );
 });
 
+test("word bank does not borrow from a clip with no Vietnamese translation", () => {
+  const clip = { id: "c1", script: "ich mache das", translationVi: "tôi làm" };
+  const bare = { id: "c2", script: "euer", translationVi: "" };
+  const bank = buildWordBank(clip, [clip, bare], seeded(2));
+  assert.ok(!bank.some((chip) => normalizeToken(chip.text) === "euer"));
+});
+
 test("word bank works without other clips to borrow from", () => {
   const bank = buildWordBank(lesson[0]!, [lesson[0]!], seeded(3));
   assert.deepEqual(bank.map((chip) => chip.text).sort(), ["ich", "mache"]);

@@ -457,6 +457,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       !clip?.script ||
       clip.kind === "order" ||
       clip.kind === "multiple-choice" ||
+      clip.kind === "vi-choice" ||
       clockStartRef.current == null
     ) {
       return;
@@ -491,7 +492,13 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   };
 
   const submitMc = (selectedId: string) => {
-    if (phase !== "play" || clip?.kind !== "multiple-choice" || clockStartRef.current == null) return;
+    if (
+      phase !== "play" ||
+      (clip?.kind !== "multiple-choice" && clip?.kind !== "vi-choice") ||
+      clockStartRef.current == null
+    ) {
+      return;
+    }
     const options = clip.options ?? [];
     const result = checkMc(selectedId, options);
     if (result.accuracy !== 100) {
@@ -659,13 +666,65 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 chips={orderBank}
                 onSubmit={submitOrder}
               />
-            ) : clip.kind === "multiple-choice" ? (
+            ) : clip.kind === "multiple-choice" || clip.kind === "vi-choice" ? (
               <McCard
                 key={`mc-${clip.position}`}
-                prompt={clip.script ?? ""}
+                prompt={clip.kind === "vi-choice" ? (clip.translationVi ?? "") : (clip.script ?? "")}
                 options={clip.options ?? []}
                 onSubmit={submitMc}
               />
+            ) : clip.kind === "vi-input" ? (
+              <>
+                <section className="flex items-center gap-3 rounded-[24px] bg-white px-5 py-4 shadow-[0_4px_0_0_#dae2fd]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0284c7]/10 text-[#0284c7]">
+                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                      translate
+                    </span>
+                  </div>
+                  <p className="text-[20px] font-extrabold leading-snug text-[#131b2e]">{clip.translationVi}</p>
+                </section>
+                {feedback && clip.audioPath ? (
+                  <AudioPlayerCard key={`vi-audio-${clip.position}`} audioPath={clip.audioPath} />
+                ) : null}
+                <label className="text-[11px] font-extrabold uppercase tracking-wider text-[#6e7881]" htmlFor="duel-answer">
+                  Gõ tiếng Đức
+                </label>
+                <textarea
+                  ref={textareaRef}
+                  id="duel-answer"
+                  rows={3}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder="Gõ câu tiếng Đức"
+                  className="w-full resize-none rounded-[24px] bg-white px-4 py-4 text-[18px] font-semibold text-[#131b2e] shadow-[0_4px_0_0_#dae2fd] outline-none"
+                />
+                <div className="flex gap-1">
+                  {SPECIAL_CHARS.map((char) => (
+                    <button
+                      key={char}
+                      type="button"
+                      onClick={() => insertChar(char)}
+                      className="h-10 flex-1 rounded-xl bg-white text-[15px] font-extrabold text-[#131b2e] shadow-[0_3px_0_0_#dae2fd] active:translate-y-0.5"
+                    >
+                      {char}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={!draft.trim()}
+                  onClick={() => submit()}
+                  className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
+                >
+                  Kiểm tra
+                </button>
+              </>
             ) : clip.audioPath ? (
               <>
                 <AudioPlayerCard key={clip.position} audioPath={clip.audioPath} />

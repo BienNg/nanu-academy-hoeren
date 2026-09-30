@@ -17,6 +17,8 @@ type DictationInputCardProps = {
   /** Controlled value — keeps the draft when feedback is shown above. */
   value?: string;
   onChange?: (value: string) => void;
+  /** Vietnamese prompt. Shown in the same row multiple choice uses. */
+  prompt?: string;
 };
 
 function MaterialIcon({
@@ -45,6 +47,7 @@ export function DictationInputCard({
   disabled = false,
   value: controlledValue,
   onChange,
+  prompt,
 }: DictationInputCardProps) {
   const inputId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,12 +106,24 @@ export function DictationInputCard({
 
   return (
     <>
+      {prompt ? (
+        <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
+              <MaterialIcon name="translate" className="text-[22px]" />
+            </div>
+            <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+              {prompt}
+            </p>
+          </div>
+        </section>
+      ) : null}
       <section className="mt-4 flex flex-col gap-3 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
         <label
           htmlFor={inputId}
           className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]"
         >
-          Bản chép chính tả (Diktat)
+          {prompt ? "Gõ tiếng Đức" : "Bản chép chính tả (Diktat)"}
         </label>
 
         <div className="relative w-full">
@@ -119,7 +134,7 @@ export function DictationInputCard({
             value={value}
             disabled={disabled}
             onChange={handleChange}
-            placeholder="Gõ câu tiếng Đức bạn vừa nghe được vào đây..."
+            placeholder={prompt ? "Gõ câu tiếng Đức vào đây..." : "Gõ câu tiếng Đức bạn vừa nghe được vào đây..."}
             className="w-full resize-none bg-transparent text-lg font-medium leading-relaxed text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none disabled:opacity-60"
           />
         </div>

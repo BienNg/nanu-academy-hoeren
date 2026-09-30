@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildDeMcOptions,
   buildMcOptions,
   checkMc,
   isMultipleChoiceEligible,
@@ -71,4 +72,17 @@ test("checkMc scores 100 for the correct id and 0 otherwise", () => {
   const wrongId = options?.find((option) => !option.correct)?.id ?? "";
   assert.deepEqual(checkMc(correctId, options ?? []), { accuracy: 100, selectedId: correctId, correctId });
   assert.equal(checkMc(wrongId, options ?? []).accuracy, 0);
+});
+
+test("German options ignore clips that have no Vietnamese translation", () => {
+  const clips = [
+    { id: "c1", script: "mein", translationVi: "của tôi" },
+    { id: "c2", script: "dein", translationVi: "của bạn" },
+    { id: "c3", script: "sein", translationVi: "của anh ấy" },
+    { id: "c4", script: "ihr", translationVi: "của cô ấy" },
+    { id: "bare", script: "euer" },
+  ];
+  const options = buildDeMcOptions({ id: "c1", script: "mein" }, clips, [], seeded(1));
+  assert.ok(options);
+  assert.ok(!options?.some((option) => option.text === "euer"));
 });

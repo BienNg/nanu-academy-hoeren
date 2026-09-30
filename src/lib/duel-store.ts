@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt } from "@/lib/scoring";
 import { checkOrder } from "@/lib/sentence-order";
-import { buildMcOptions, isMultipleChoiceEligible } from "@/lib/multiple-choice";
+import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "@/lib/multiple-choice";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
   firstUnlockedStudyHref,
@@ -211,6 +211,7 @@ export function listCatalogClips(): CatalogClip[] {
           translationVi: clip.translationVi,
           sentenceOrder: clip.sentenceOrder === true,
           multipleChoice: isMultipleChoiceEligible(clip, clips, levelClips),
+          germanChoice: isGermanChoiceEligible(clip, clips, levelClips),
         });
       }
     }
@@ -237,6 +238,19 @@ function mcOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
     levelClips.map((item) => ({ id: item.clipId, translationVi: item.translationVi })),
   );
   return options;
+}
+
+function deOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
+  if (!clip?.germanChoice || !clip.script) return null;
+  const levelSlug = clip.lessonKey.split("/")[0] ?? "";
+  const catalog = listCatalogClips();
+  const lektionClips = catalog.filter((item) => item.lessonKey === clip.lessonKey);
+  const levelClips = catalog.filter((item) => item.lessonKey.startsWith(`${levelSlug}/`));
+  return buildDeMcOptions(
+    { id: clip.clipId, script: clip.script },
+    lektionClips.map((item) => ({ id: item.clipId, script: item.script })),
+    levelClips.map((item) => ({ id: item.clipId, script: item.script })),
+  );
 }
 
 function catalogIndex(clips: readonly CatalogClip[]): Map<string, CatalogClip> {
@@ -680,7 +694,15 @@ function clipFromRow(raw: unknown): ClipRow | null {
     return null;
   }
   const kind: DuelCardKind =
-    row.kind === "order" ? "order" : row.kind === "multiple-choice" ? "multiple-choice" : "listening";
+    row.kind === "order"
+      ? "order"
+      : row.kind === "multiple-choice"
+        ? "multiple-choice"
+        : row.kind === "vi-choice"
+          ? "vi-choice"
+          : row.kind === "vi-input"
+            ? "vi-input"
+            : "listening";
   return {
     position: row.position,
     lesson_key: row.lesson_key,
@@ -1021,22 +1043,35 @@ export async function createDuel(user: {
     if (shared.length < DUEL_SIZE) continue;
     const picked = sampleItems(shared, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000);
     const catalog = catalogIndex(listCatalogClips());
-    const cards = duelCardsFromClips(
+    const variants = duelCardsFromClips(
       picked.map((clip) => {
         const known = catalog.get(studiedKey(clip.lessonKey, clip.clipId));
         return {
           ...clip,
+          translationVi: known?.translationVi,
           sentenceOrder: known?.sentenceOrder === true,
           multipleChoice: known?.multipleChoice === true,
         };
       }),
-    ).map((card) => ({
-      ...card,
-      options:
-        card.kind === "multiple-choice"
-          ? mcOptionsForClip(catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId)))
-          : null,
-    }));
+    ).flatMap((card) => {
+      const known = catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId));
+      const extras: { clip: typeof card.clip; kind: DuelCardKind }[] = [];
+      if (known?.translationVi?.trim()) extras.push({ clip: card.clip, kind: "vi-input" });
+      if (known?.germanChoice) extras.push({ clip: card.clip, kind: "vi-choice" });
+      return [card, ...extras];
+    });
+    const cards = sampleItems(variants, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000).map((card) => {
+      const known = catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId));
+      return {
+        ...card,
+        options:
+          card.kind === "multiple-choice"
+            ? mcOptionsForClip(known)
+            : card.kind === "vi-choice"
+              ? deOptionsForClip(known)
+              : null,
+      };
+    });
     const created = await supabase
       .from(DUELS_TABLE)
       .insert({ challenger_id: user.id, opponent_id: opponentId })
@@ -1466,7 +1501,9 @@ async function settleClip(
       ? checkOrder(typed.split(/\s+/).filter(Boolean), known.script)
       : clip.kind === "multiple-choice"
         ? checkMcAnswer(typed, known.translationVi ?? "")
-        : scoreAttempt(typed, known.script);
+        : clip.kind === "vi-choice"
+          ? checkMcAnswer(typed, known.script)
+          : scoreAttempt(typed, known.script);
   const words = result.words.map((word) => ({
     word: word.word,
     status: word.status,

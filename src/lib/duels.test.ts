@@ -288,10 +288,10 @@ test("time labels use a comma", () => {
 
 test("a duel uses each clip once, as listening, sentence order, or multiple choice", () => {
   const cards = duelCardsFromClips([
-    { lessonKey: "a1-1/lektion-4", clipId: "schon", sentenceOrder: true },
-    { lessonKey: "a1-1/lektion-4", clipId: "der", sentenceOrder: false },
-    { lessonKey: "a1-1/lektion-4", clipId: "schon", sentenceOrder: true },
-    { lessonKey: "a1-1/lektion-3", clipId: "schon", sentenceOrder: false },
+    { lessonKey: "a1-1/lektion-4", clipId: "schon", translationVi: "đã", sentenceOrder: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "der", translationVi: "mạo từ", sentenceOrder: false },
+    { lessonKey: "a1-1/lektion-4", clipId: "schon", translationVi: "đã", sentenceOrder: true },
+    { lessonKey: "a1-1/lektion-3", clipId: "schon", translationVi: "đã", sentenceOrder: false },
   ]);
   assert.deepEqual(
     cards.map((card) => [card.clip.lessonKey, card.clip.clipId, card.kind]),
@@ -306,13 +306,14 @@ test("a duel uses each clip once, as listening, sentence order, or multiple choi
 
 test("sentence order beats multiple choice, which beats listening", () => {
   const cards = duelCardsFromClips([
-    { lessonKey: "a1-1/lektion-4", clipId: "both", sentenceOrder: true, multipleChoice: true },
-    { lessonKey: "a1-1/lektion-4", clipId: "mc-only", sentenceOrder: false, multipleChoice: true },
-    { lessonKey: "a1-1/lektion-4", clipId: "neither", sentenceOrder: false, multipleChoice: false },
+    { lessonKey: "a1-1/lektion-4", clipId: "both", translationVi: "cả hai", sentenceOrder: true, multipleChoice: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "mc-only", translationVi: "chỉ chọn", sentenceOrder: false, multipleChoice: true },
+    { lessonKey: "a1-1/lektion-4", clipId: "neither", translationVi: "nghe", sentenceOrder: false, multipleChoice: false },
+    { lessonKey: "a1-1/lektion-4", clipId: "silent", translationVi: "  ", sentenceOrder: true, multipleChoice: true },
   ]);
   assert.deepEqual(
     cards.map((card) => card.kind),
-    ["order", "multiple-choice", "listening"],
+    ["order", "multiple-choice", "listening", "listening"],
   );
 });
 
@@ -332,6 +333,14 @@ test("sentence order and multiple choice can start without audio, and dictation 
   assert.equal(
     clipCanStart({ kind: "multiple-choice", script: "Hallo", audioPath: "x.mp3", translationVi: "  " }),
     false,
+  );
+  assert.equal(
+    clipCanStart({ kind: "vi-choice", script: "Hallo", audioPath: null, translationVi: "Xin chào" }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "vi-input", script: "Hallo", audioPath: null, translationVi: "Xin chào" }),
+    true,
   );
   assert.equal(
     clipCanStart({ kind: "listening", script: "der", audioPath: "der.mp3", translationVi: null }),
