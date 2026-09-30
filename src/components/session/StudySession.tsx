@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { flushSync } from "react-dom";
+import { motion, useAnimation, useReducedMotion } from "framer-motion";
 import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -65,6 +66,7 @@ export function StudySession({
 }: StudySessionProps) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
+  const cardTurn = useAnimation();
   const {
     resetLearnStudyProgress,
     reviewedLearnClipIdsFor,
@@ -99,9 +101,9 @@ export function StudySession({
   const [visitPart, setVisitPart] = useState<number | "done" | null>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [phase, setPhase] = useState<StudyCardPhase>("study");
+  const [shownPhase, setShownPhase] = useState<StudyCardPhase>("study");
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
-  const [direction, setDirection] = useState(1);
   const [ready, setReady] = useState(false);
   const [xpTotal, setXpTotal] = useState<number | null>(null);
   const [xpGrant, setXpGrant] = useState<{
@@ -121,6 +123,12 @@ export function StudySession({
   const committedRef = useRef(false);
   const scoresRef = useRef<number[]>([]);
   const touchStartX = useRef<number | null>(null);
+  const shownClipIdRef = useRef<string | null>(null);
+  const phaseRef = useRef<StudyCardPhase>("study");
+  const shownPhaseRef = useRef<StudyCardPhase>("study");
+  const flipRunRef = useRef(0);
+  phaseRef.current = phase;
+  shownPhaseRef.current = shownPhase;
 
   const activePart = typeof visitPart === "number" ? visitPart : openPart;
   const clips = parts[activePart - 1] ?? [];
@@ -190,7 +198,6 @@ export function StudySession({
   const openRecall = useCallback(() => {
     if (!currentClip) return;
     clearAttempt();
-    setDirection(1);
     setPhase("recall");
   }, [currentClip, clearAttempt]);
 
@@ -223,7 +230,6 @@ export function StudySession({
       });
     }
     clearAttempt();
-    setDirection(1);
     setPhase("study");
     setFurthest((value) => Math.max(value, next));
     setClipIndex(next);
@@ -232,13 +238,11 @@ export function StudySession({
   const goPrev = useCallback(() => {
     if (phase === "recall") {
       clearAttempt();
-      setDirection(-1);
       setPhase("study");
       return;
     }
     if (clipIndex <= 0) return;
     clearAttempt();
-    setDirection(-1);
     setPhase("study");
     setClipIndex((index) => index - 1);
   }, [phase, clipIndex, clearAttempt]);
@@ -250,7 +254,7 @@ export function StudySession({
     setXpGrant(null);
     clearAttempt();
     setPhase("study");
-    setDirection(1);
+    setShownPhase("study");
     setFurthest(0);
     setClipIndex(0);
     setSummary(null);
@@ -344,6 +348,49 @@ export function StudySession({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [viewMode, complete, currentClip, phase, openRecall, goPrev]);
+
+  if (currentClip) {
+    const clipChanged =
+      shownClipIdRef.current !== null && shownClipIdRef.current !== currentClip.id;
+    shownClipIdRef.current = currentClip.id;
+    if (clipChanged || shouldReduceMotion) {
+      if (shownPhase !== phase) {
+        shownPhaseRef.current = phase;
+        setShownPhase(phase);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!currentClip) return;
+    if (shouldReduceMotion || phase === shownPhaseRef.current) {
+      flipRunRef.current += 1;
+      void cardTurn.set({ rotateY: 0 });
+      if (shouldReduceMotion) setShownPhase(phase);
+      return;
+    }
+
+    const run = ++flipRunRef.current;
+    void (async () => {
+      await cardTurn.start({
+        rotateY: 90,
+        transition: { duration: 0.34, ease: [0.55, 0, 1, 0.45] },
+      });
+      if (flipRunRef.current !== run) return;
+      flushSync(() => {
+        setShownPhase(phaseRef.current);
+      });
+      cardTurn.set({ rotateY: -90 });
+      await cardTurn.start({
+        rotateY: 0,
+        transition: { duration: 0.34, ease: [0, 0, 0.2, 1] },
+      });
+    })();
+
+    return () => {
+      flipRunRef.current += 1;
+    };
+  }, [cardTurn, currentClip, phase, shouldReduceMotion]);
 
   const handleTouchStart = (event: TouchEvent) => {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -526,60 +573,35 @@ export function StudySession({
               onTouchEnd={handleTouchEnd}
               className="flex flex-col"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={`${currentClip.id}-${phase}`}
-                  initial={
-                    shouldReduceMotion
-                      ? { opacity: 1 }
-                      : { opacity: 0, x: direction > 0 ? 28 : -28 }
-                  }
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={
-                    shouldReduceMotion
-                      ? { opacity: 1 }
-                      : { opacity: 0, x: direction > 0 ? -28 : 28 }
-                  }
-                  transition={
-                    shouldReduceMotion
-                      ? { duration: 0 }
-                      : { type: "spring", stiffness: 280, damping: 32 }
-                  }
-                >
-                  {phase === "study" ? (
-                    <>
-                      <AudioPlayerCard
-                        key={currentClip.id}
-                        audioPath={currentClip.audioPath}
-                      />
+              <AudioPlayerCard
+                key={`${currentClip.id}-${shownPhase}`}
+                audioPath={currentClip.audioPath}
+              />
 
-                      <div className="mt-4">
-                        <ClipContentCard
-                          clip={currentClip}
-                          badge={
-                            isReviewed ? (
-                              <div className="flex items-center">
-                                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
-                                  <span className="material-symbols-outlined text-[16px]">
-                                    check_circle
-                                  </span>
-                                  <span>Đã xem</span>
-                                </div>
-                              </div>
-                            ) : undefined
-                          }
-                        />
-                      </div>
-                    </>
+              <div className="mt-4" style={{ perspective: "1200px" }}>
+                <motion.div
+                  initial={{ rotateY: 0 }}
+                  animate={cardTurn}
+                  style={{ transformOrigin: "center center", backfaceVisibility: "hidden" }}
+                >
+                  {shownPhase === "study" ? (
+                    <ClipContentCard
+                      clip={currentClip}
+                      badge={
+                        isReviewed ? (
+                          <div className="flex items-center">
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
+                              <span className="material-symbols-outlined text-[16px]">
+                                check_circle
+                              </span>
+                              <span>Đã xem</span>
+                            </div>
+                          </div>
+                        ) : undefined
+                      }
+                    />
                   ) : (
-                    <>
-                      <p className="pb-4 text-[15px] font-medium leading-relaxed text-[#86868b]">
-                        Nghe và gõ lại câu vừa xem.
-                      </p>
-                      <AudioPlayerCard
-                        key={`${currentClip.id}-recall`}
-                        audioPath={currentClip.audioPath}
-                      />
+                    <div className="-mt-4">
                       {recallPerfect && scoreResult ? (
                         <FeedbackResultCard
                           result={scoreResult}
@@ -603,13 +625,13 @@ export function StudySession({
                           />
                         </>
                       )}
-                    </>
+                    </div>
                   )}
                 </motion.div>
-              </AnimatePresence>
+              </div>
             </div>
 
-            {phase === "study" ? (
+            {shownPhase === "study" ? (
               <div className="flex gap-3 pt-6">
                 <button
                   type="button"
