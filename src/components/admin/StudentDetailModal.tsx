@@ -31,7 +31,7 @@ import {
   studyPartNumberFromActivityId,
   type StoredProgress,
 } from "@/lib/progress";
-import type { AdminUserRow } from "@/lib/admin-overview";
+import { formatAdminTimestamp, type AdminUserRow } from "@/lib/admin-overview";
 
 function MaterialIcon({
   name,
@@ -54,13 +54,7 @@ function MaterialIcon({
 }
 
 function formatAbsoluteTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminTimestamp(iso);
 }
 
 function formatClock(seconds: number): string {
@@ -737,18 +731,18 @@ function ListeningRunsSection({
   const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
 
   return (
-    <section aria-label="Listening runs" aria-busy={visible == null}>
+    <section aria-label="Practice" aria-busy={visible == null}>
       <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-        Listening runs
+        Practice
       </h3>
       <p className="mt-1 px-1 font-body-sm text-body-sm text-on-surface-variant">
-        Finished parts, including ones that ran out of hearts.
+        Finished practice parts, including ones that ran out of hearts.
       </p>
       <div className="mt-4">
         {visible == null ? (
           <Panel>
             <p className="px-6 py-10 text-center font-body-sm text-body-sm text-on-surface-variant">
-              Loading listening runs…
+              Loading practice parts…
             </p>
           </Panel>
         ) : visible.status === "missing" ? (
@@ -760,13 +754,13 @@ function ListeningRunsSection({
         ) : visible.status === "error" ? (
           <Panel>
             <p className="px-6 py-8 font-body-sm text-body-sm text-on-surface-variant">
-              Listening runs could not be loaded.
+              Practice parts could not be loaded.
             </p>
           </Panel>
         ) : visible.total === 0 ? (
           <Panel>
             <p className="px-6 py-10 text-center font-body-sm text-body-sm text-on-surface-variant">
-              No finished listening parts yet.
+              No finished practice parts yet.
             </p>
           </Panel>
         ) : (
@@ -1008,7 +1002,7 @@ export function StudentDetailModal({
                       scope: "all",
                       label: "all progress",
                       detail:
-                        "Courses, Lektionen, videos, listening, and visit history are cleared. The account, class, and level access stay.",
+                        "Courses, Lektionen, videos, practice, and visit history are cleared. The account, class, and level access stay.",
                     });
                   }}
                   className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
@@ -1050,9 +1044,9 @@ export function StudentDetailModal({
                     value: String(summary.clipCount),
                   },
                   {
-                    label: "Audio exercises",
+                    label: "Practice clips",
                     value: String(summary.exercisesCompleted),
-                    detail: `${summary.listeningRuns} full ${summary.listeningRuns === 1 ? "run" : "runs"}`,
+                    detail: `Completed in practice parts · ${summary.listeningRuns} practice ${summary.listeningRuns === 1 ? "run" : "runs"}`,
                   },
                   {
                     label: "Video",
@@ -1139,7 +1133,7 @@ export function StudentDetailModal({
                   items={[
                     { label: "Courses", value: String(detail.coursesStarted) },
                     { label: "Lessons", value: String(detail.lessonsCompleted) },
-                    { label: "Listening", value: String(detail.listeningRepetitions) },
+                    { label: "Practice runs", value: String(detail.listeningRepetitions) },
                     { label: "Videos", value: String(detail.videosWatched) },
                   ]}
                 />
@@ -1255,7 +1249,7 @@ export function StudentDetailModal({
                                       courseId: course.id,
                                       lessonId: lesson.id,
                                       label: lesson.label,
-                                      detail: `Study, listening, and videos in ${lesson.label} are cleared.`,
+                                      detail: `Study, practice, and videos in ${lesson.label} are cleared.`,
                                     });
                                   }
                             }

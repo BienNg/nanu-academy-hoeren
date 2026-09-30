@@ -60,7 +60,7 @@ export type RankedClipOutcomes = {
 export const CLIP_RANK_LIMIT = 8;
 
 export const LISTENING_SCHEMA_HINT =
-  "Finished listening parts are not being stored yet. Run supabase/listening_runs.sql once in the Supabase SQL editor.";
+  "Finished practice parts are not being stored yet. Run supabase/listening_runs.sql once in the Supabase SQL editor.";
 
 const MAX_CLIPS = 40;
 const MAX_ELAPSED_MS = 6 * 60 * 60 * 1000;

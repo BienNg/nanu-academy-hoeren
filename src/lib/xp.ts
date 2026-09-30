@@ -100,6 +100,8 @@ export type LeaderboardPayload = {
   yourLost: number;
   board: LeaderboardBoard;
   viewerIsAdmin: boolean;
+  /** The viewer's class has a Blitzrunde that left the lobby. */
+  blitzrundeAvailable: boolean;
   rows: LeaderboardRow[];
   /** Only on the Blitzrunde board. */
   blitzrunde?: BlitzrundeBoardExtras;
@@ -376,6 +378,7 @@ export function emptyLeaderboard(input: {
     yourTied: 0,
     yourLost: 0,
     viewerIsAdmin: false,
+    blitzrundeAvailable: false,
     rows: [],
   };
 }

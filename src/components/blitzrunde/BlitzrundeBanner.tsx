@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { LiveRound } from "@/lib/blitzrunde-store";
 
 const POLL_MS = 5000;
@@ -75,7 +76,7 @@ export function BlitzrundeBanner() {
       className="group flex items-center gap-4 overflow-hidden rounded-2xl border-2 border-[#f59e0b] bg-[#fffbeb] px-4 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f59e0b]"
     >
       <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#f59e0b] text-white shadow-[0_4px_0_0_#b45309]">
-        <MaterialIcon name="electric_bolt" className="text-[30px]" />
+        <MaterialIcon name={BLITZRUNDE_ICON} className="text-[30px]" />
         <span className="absolute -top-1 -right-1 h-3 w-3 animate-ping rounded-full bg-[#e11d48] motion-reduce:animate-none" />
         <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#e11d48]" />
       </span>

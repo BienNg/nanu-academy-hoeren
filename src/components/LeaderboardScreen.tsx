@@ -12,7 +12,7 @@ import {
   type LeaderboardRange,
   type LeaderboardScope,
 } from "@/lib/xp";
-import { BLITZRUNDE_SCHEMA_HINT } from "@/lib/blitzrunde";
+import { BLITZRUNDE_ICON, BLITZRUNDE_SCHEMA_HINT } from "@/lib/blitzrunde";
 import { BlitzrundeProgressChart } from "@/components/blitzrunde/BlitzrundeProgressChart";
 import { DUEL_SCHEMA_HINT } from "@/lib/duels";
 
@@ -195,10 +195,10 @@ function ClassProgressCard({
   );
 }
 
-const BOARD_OPTIONS: { id: LeaderboardBoard; label: string }[] = [
-  { id: "xp", label: "XP" },
-  { id: "duel", label: "Đấu" },
-  { id: "blitzrunde", label: "Blitzrunde" },
+const BOARD_OPTIONS: { id: LeaderboardBoard; label: string; icon: string; iconClass: string }[] = [
+  { id: "xp", label: "XP", icon: "bolt", iconClass: "text-[#f5a524]" },
+  { id: "duel", label: "Đấu", icon: "swords", iconClass: "text-[#e11d48]" },
+  { id: "blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, iconClass: "text-[#f59e0b]" },
 ];
 
 const SCOPE_OPTIONS: { id: LeaderboardScope; label: string }[] = [
@@ -213,14 +213,16 @@ const RANGE_OPTIONS: { id: LeaderboardRange; label: string }[] = [
 
 function BoardTabs({
   board,
+  options,
   onChange,
 }: {
   board: LeaderboardBoard;
+  options: typeof BOARD_OPTIONS;
   onChange: (board: LeaderboardBoard) => void;
 }) {
   return (
-    <div className="flex border-b border-[#e4e8f6]" role="tablist" aria-label="Loại bảng">
-      {BOARD_OPTIONS.map((option) => {
+    <div className="flex rounded-full bg-[#e8eef6] p-1" role="tablist" aria-label="Loại bảng">
+      {options.map((option) => {
         const active = board === option.id;
         return (
           <button
@@ -229,17 +231,20 @@ function BoardTabs({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`relative flex-1 pb-2.5 text-[15px] font-extrabold transition-colors ${
-              active ? "text-[#0284c7]" : "text-[#94a3b8]"
+            className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-colors sm:gap-1.5 sm:text-[16px] ${
+              active
+                ? "bg-white text-[#0084ff] shadow-[0_1px_3px_rgba(19,27,46,0.12)]"
+                : "text-[#3d4d66]"
             }`}
           >
+            <span
+              className={`material-symbols-outlined text-[18px] sm:text-[20px] ${option.iconClass}`}
+              style={{ fontVariationSettings: "'FILL' 1" }}
+              aria-hidden="true"
+            >
+              {option.icon}
+            </span>
             {option.label}
-            {active ? (
-              <span
-                className="absolute inset-x-4 -bottom-px h-[3px] rounded-full bg-[#0284c7]"
-                aria-hidden="true"
-              />
-            ) : null}
           </button>
         );
       })}
@@ -247,21 +252,17 @@ function BoardTabs({
   );
 }
 
-function FilterGroup<T extends string>({
-  label,
-  value,
-  options,
+function ScopeTabs({
+  scope,
   onChange,
 }: {
-  label: string;
-  value: T;
-  options: { id: T; label: string }[];
-  onChange: (value: T) => void;
+  scope: LeaderboardScope;
+  onChange: (scope: LeaderboardScope) => void;
 }) {
   return (
-    <div className="flex flex-1 gap-0.5" role="tablist" aria-label={label}>
-      {options.map((option) => {
-        const active = value === option.id;
+    <div className="flex shrink-0 rounded-full bg-[#e8eef6] p-1" role="tablist" aria-label="Phạm vi xếp hạng">
+      {SCOPE_OPTIONS.map((option) => {
+        const active = scope === option.id;
         return (
           <button
             key={option.id}
@@ -269,14 +270,94 @@ function FilterGroup<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`h-8 flex-1 whitespace-nowrap rounded-full text-[11px] font-extrabold transition-all sm:text-[12px] ${
-              active ? "bg-white text-[#0284c7] shadow-[0_2px_0_0_#c3cdf2]" : "text-[#5b6577]"
+            className={`inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors sm:h-10 sm:px-4 sm:text-[15px] ${
+              active ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
             }`}
           >
             {option.label}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function RangeMenu({
+  range,
+  onChange,
+}: {
+  range: LeaderboardRange;
+  onChange: (range: LeaderboardRange) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const label = RANGE_OPTIONS.find((option) => option.id === range)?.label ?? "Tuần này";
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Khoảng thời gian"
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#d5deea] bg-white px-2 text-[13px] font-extrabold text-[#131b2e] shadow-[0_1px_2px_rgba(19,27,46,0.06)] sm:h-12 sm:gap-2 sm:px-3.5 sm:text-[15px]"
+      >
+        <span className="material-symbols-outlined text-[18px] text-[#5c6b80]" aria-hidden="true">
+          calendar_today
+        </span>
+        {label}
+        <span
+          className={`material-symbols-outlined text-[20px] text-[#5c6b80] transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
+          expand_more
+        </span>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Khoảng thời gian"
+          className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-full overflow-hidden rounded-2xl border border-black/[0.06] bg-white py-1 shadow-[0_8px_24px_rgba(19,27,46,0.12)]"
+        >
+          {RANGE_OPTIONS.map((option) => {
+            const selected = range === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  onChange(option.id);
+                  setOpen(false);
+                }}
+                className={`flex h-11 w-full items-center px-4 text-left text-[15px] font-extrabold ${
+                  selected ? "text-[#0084ff]" : "text-[#131b2e]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -326,6 +407,14 @@ export function LeaderboardScreen({
     };
   }, [scope, range, boardKind]);
 
+  const boardOptions = BOARD_OPTIONS.filter(
+    (option) => option.id !== "blitzrunde" || board.blitzrundeAvailable,
+  );
+
+  useEffect(() => {
+    if (!board.blitzrundeAvailable && boardKind === "blitzrunde") setBoardKind("xp");
+  }, [board.blitzrundeAvailable, boardKind]);
+
   const emptyClass = board.ready && scope === "class" && !board.className;
   const emptyGlobal =
     board.ready && scope === "global" && board.rows.every((row) => row.xp === 0);
@@ -363,21 +452,10 @@ export function LeaderboardScreen({
         }`}
       >
         <div className="flex flex-col gap-3">
-          <BoardTabs board={boardKind} onChange={setBoardKind} />
-          <div className="flex items-center gap-1 rounded-full bg-[#e2e7ff] p-1">
-            <FilterGroup
-              label="Phạm vi xếp hạng"
-              value={scope}
-              options={SCOPE_OPTIONS}
-              onChange={setScope}
-            />
-            <span className="h-5 w-px shrink-0 bg-[#c3cdf2]" aria-hidden="true" />
-            <FilterGroup
-              label="Khoảng thời gian"
-              value={range}
-              options={RANGE_OPTIONS}
-              onChange={setRange}
-            />
+          <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+            <ScopeTabs scope={scope} onChange={setScope} />
+            <RangeMenu range={range} onChange={setRange} />
           </div>
         </div>
         <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">

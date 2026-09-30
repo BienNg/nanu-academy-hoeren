@@ -11,7 +11,7 @@ import {
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Clip difficulty · Admin · NaNu Academy",
+  title: "Practice clip difficulty · Admin · NaNu Academy",
   robots: { index: false, follow: false },
 };
 

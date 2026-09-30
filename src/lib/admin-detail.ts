@@ -271,13 +271,13 @@ function projectLesson(
             : []),
           {
             id: `${lesson.id}-listening`,
-            label: "Listening",
+            label: "Practice",
             status: listeningStatus,
             percent: listeningCompletedOnce ? 100 : percentOf(completedCount, clipTotal),
             progressLabel: listeningCompletedOnce ? "" : `${completedCount}/${clipTotal}`,
             note:
               runCount > 0
-                ? `${runCount} listening ${runCount === 1 ? "run" : "runs"}`
+                ? `${runCount} practice ${runCount === 1 ? "run" : "runs"}`
                 : null,
             struggling: listeningStruggling,
           },
@@ -479,7 +479,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
     {
       id: `${lesson.id}-listening`,
       icon: "headphones",
-      label: "Listening",
+      label: "Practice",
       kind: "activity" as const,
     },
   ];
@@ -687,22 +687,22 @@ function visitDetails(
             const parts: string[] = [];
             if (lesson.completed > 0) {
               parts.push(
-                `${lesson.completed} ${lesson.completed === 1 ? "exercise" : "exercises"} completed`,
+                `${lesson.completed} practice ${lesson.completed === 1 ? "clip" : "clips"} completed`,
               );
             }
             parts.push(
               lesson.fullRuns > 0
-                ? `${lesson.fullRuns} full ${lesson.fullRuns === 1 ? "run" : "runs"} finished`
-                : "full run not finished",
+                ? `${lesson.fullRuns} practice ${lesson.fullRuns === 1 ? "run" : "runs"} finished`
+                : "practice run not finished",
             );
             return `${label} · ${parts.join(" · ")}`;
           })
         : lessonLabels(courses, visit).map(
             (label) =>
-              `${label} · ${visit.exercisesCompleted} exercises · ${visit.listeningRuns} full runs`,
+              `${label} · ${visit.exercisesCompleted} practice clips completed · ${visit.listeningRuns} practice runs`,
           );
     const capped = capItems(names);
-    groups.push({ id: "listening", label: "Listening", ...capped });
+    groups.push({ id: "listening", label: "Practice", ...capped });
   }
 
   if (visit.videos.length > 0) {
@@ -821,9 +821,11 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
   if (exercises > 0 || runs > 0) {
     const parts: string[] = [];
     if (exercises > 0) {
-      parts.push(`${exercises} audio ${exercises === 1 ? "exercise" : "exercises"}`);
+      parts.push(
+        `${exercises} practice ${exercises === 1 ? "clip" : "clips"} completed`,
+      );
     }
-    if (runs > 0) parts.push(`${runs} full ${runs === 1 ? "run" : "runs"}`);
+    if (runs > 0) parts.push(`${runs} practice ${runs === 1 ? "run" : "runs"}`);
     lines.push(parts.join(" · "));
   }
   if (videoSeconds >= 1 || watched.length > 0) {

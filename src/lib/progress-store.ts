@@ -1354,6 +1354,64 @@ export async function listClipOutcomeTotals(): Promise<ClipStatsRead> {
   return { status: "ready", rows };
 }
 
+/**
+ * Finished practice parts whose `created_at` is in `[fromIso, toIso)`, for the
+ * given students. `runs` counts a whole lesson: the last part passed.
+ */
+export async function countAdminPracticeParts(
+  fromIso: string,
+  toIso: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{
+  ready: boolean;
+  parts: number;
+  runs: number;
+  passedByUser: Record<string, number>;
+}> {
+  const supabase = getSupabaseAdmin();
+  const passedByUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, parts: 0, runs: 0, passedByUser };
+  if (learnerIds.size === 0) return { ready: true, parts: 0, runs: 0, passedByUser };
+
+  let parts = 0;
+  let runs = 0;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select("user_id, outcome, part_number, part_count")
+      .gte("created_at", fromIso)
+      .lt("created_at", toIso)
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (!isListeningSchemaMissing(error.message)) {
+        console.error("Supabase countAdminPracticeParts", error.message);
+      }
+      return { ready: false, parts: 0, runs: 0, passedByUser };
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      outcome?: unknown;
+      part_number?: unknown;
+      part_count?: unknown;
+    }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      parts += 1;
+      if (row.outcome !== "success") continue;
+      passedByUser[row.user_id] = (passedByUser[row.user_id] ?? 0) + 1;
+      if (
+        typeof row.part_number === "number" &&
+        row.part_number === row.part_count
+      ) {
+        runs += 1;
+      }
+    }
+    if (page.length < LIST_PAGE_SIZE) return { ready: true, parts, runs, passedByUser };
+    from += LIST_PAGE_SIZE;
+  }
+}
+
 export async function listAdminListeningRuns(): Promise<{
   status: ListeningReadStatus;
   rows: AdminListeningRunRecord[];
@@ -1384,6 +1442,51 @@ export async function listAdminListeningRuns(): Promise<{
     if (page.length < LIST_PAGE_SIZE) return { status: "ready", rows };
     from += LIST_PAGE_SIZE;
   }
+}
+
+const MISS_ID_CHUNK = 100;
+
+/**
+ * Missed clip ids for the given runs, in clip order. One follow-up for the
+ * parts already on the page, not every clip of every historical run.
+ */
+export async function listAdminMissedClipIds(
+  runIds: readonly string[],
+): Promise<Record<string, string[]>> {
+  const supabase = getSupabaseAdmin();
+  const missed: Record<string, string[]> = {};
+  if (!supabase || runIds.length === 0) return missed;
+
+  for (let index = 0; index < runIds.length; index += MISS_ID_CHUNK) {
+    const chunk = runIds.slice(index, index + MISS_ID_CHUNK);
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from(CLIPS_TABLE)
+        .select("run_id, clip_id, position")
+        .eq("missed", true)
+        .in("run_id", chunk)
+        .order("run_id", { ascending: true })
+        .order("position", { ascending: true })
+        .range(from, from + LIST_PAGE_SIZE - 1);
+      if (error) {
+        if (!isListeningSchemaMissing(error.message)) {
+          console.error("Supabase listAdminMissedClipIds", error.message);
+        }
+        return missed;
+      }
+      const page = (data ?? []) as { run_id?: unknown; clip_id?: unknown }[];
+      for (const row of page) {
+        if (typeof row.run_id !== "string" || typeof row.clip_id !== "string") continue;
+        const list = missed[row.run_id] ?? [];
+        list.push(row.clip_id);
+        missed[row.run_id] = list;
+      }
+      if (page.length < LIST_PAGE_SIZE) break;
+      from += LIST_PAGE_SIZE;
+    }
+  }
+  return missed;
 }
 
 export type AdminStoreProbeStatus = "ok" | "missing" | "error" | "skipped";

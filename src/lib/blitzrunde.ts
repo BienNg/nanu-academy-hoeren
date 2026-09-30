@@ -14,6 +14,9 @@ import { buildWordBank, isSentenceOrderEligible, type WordChip } from "./sentenc
 import { buildMcOptions, type McOption } from "./multiple-choice";
 import { buildPairingSet, PAIRING_SET_SIZE } from "./pairing";
 
+/** Material Symbol for Blitzrunde. `bolt` stays reserved for XP. */
+export const BLITZRUNDE_ICON = "speed";
+
 export const BLITZRUNDE_DURATION_MS = 7 * 60 * 1000;
 export const HEARTBEAT_MS = 15_000;
 /** Three missed heartbeats and a student counts as disconnected. */

@@ -142,7 +142,7 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
       <AdminPageHeader
         kicker="Learning"
         title="Catalog"
-        subtitle="What is published on disk. Clip difficulty and Videos go clip-by-clip and video-by-video."
+        subtitle="What is published on disk. Practice clip difficulty and Videos go clip-by-clip and video-by-video."
       />
 
       <section

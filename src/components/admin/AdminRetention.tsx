@@ -36,12 +36,12 @@ function formatPercent(value: number | null): string {
 
 function formatDay(day: string | null): string {
   if (!day) return "—";
-  const date = new Date(`${day}T00:00:00.000Z`);
+  const date = new Date(`${day}T00:00:00+07:00`);
   if (Number.isNaN(date.getTime())) return day;
   return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
     day: "numeric",
     month: "short",
-    timeZone: "UTC",
   }).format(date);
 }
 
@@ -300,14 +300,14 @@ export function AdminRetention({
   const d1Hint =
     range === "today"
       ? "Of people active yesterday, share who also opened the app today."
-      : "Of people active on a UTC day, share who also came the next day.";
+      : "Of people active on a Vietnam day, share who also came the next day.";
 
   return (
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
       <AdminPageHeader
         kicker="Engagement"
         title="Retention"
-        subtitle={`Who came back ${window}, who is on a streak, and who went quiet. Days are UTC, matching streaks.`}
+        subtitle={`Who came back ${window}, who is on a streak, and who went quiet. Times are Vietnam.`}
         trailing={
           board.stickiness != null ? (
             <p className="font-label-sm text-label-sm text-on-surface-variant">
@@ -357,7 +357,7 @@ export function AdminRetention({
           label="On a streak"
           value={formatCount(board.onStreak)}
           icon="local_fire_department"
-          hint="Current streak of 2 or more UTC days"
+          hint="Current streak of 2 or more days"
         />
         <SummaryStat
           label="Quiet"
@@ -396,7 +396,7 @@ export function AdminRetention({
           title="Gone quiet"
           hint={
             range === "today"
-              ? "Last seen two or more UTC days ago."
+              ? "Last seen two or more days ago."
               : "Practiced or opened the app before this window, not since."
           }
           empty="Nobody in this window looks lapsed."

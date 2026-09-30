@@ -7,8 +7,11 @@ import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  formatAdminTimestamp,
+  adminRangeVietnamDayKeys,
   listActiveAdminUsers,
   paginateAdminUsers,
+  videoMinutesInRange,
   type AdminActivityStats,
   type AdminRange,
   type AdminUserRow,
@@ -19,13 +22,7 @@ function formatCount(value: number): string {
 }
 
 function formatAbsoluteTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminTimestamp(iso);
 }
 
 const RELATIVE_UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
@@ -90,17 +87,28 @@ function ActivityStat({
   );
 }
 
+function xpRangeTitle(range: AdminRange): string {
+  if (range === "today") return "XP earned today";
+  return `XP earned in the last ${adminRangeLabel(range).toLowerCase()}`;
+}
+
 function ActiveUsersSection({
   users,
   window,
-  todayXp,
-  todayXpReady,
+  range,
+  rangeXp,
+  rangeXpReady,
+  studyPartsByUser,
+  practicePartsByUser,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
   window: string;
-  todayXp: Readonly<Record<string, number>>;
-  todayXpReady: boolean;
+  range: AdminRange;
+  rangeXp: Readonly<Record<string, number>>;
+  rangeXpReady: boolean;
+  studyPartsByUser: Readonly<Record<string, number>> | null;
+  practicePartsByUser: Readonly<Record<string, number>> | null;
   onSelect: (userId: string) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -109,6 +117,9 @@ function ActiveUsersSection({
     () => paginateAdminUsers(users, page, ADMIN_PAGE_SIZE),
     [users, page],
   );
+  const xpTitle = xpRangeTitle(range);
+  const vietnamDays = useMemo(() => adminRangeVietnamDayKeys(range), [range]);
+  const partTitle = range === "today" ? "Finished today" : `Finished ${window}`;
   const rangeStart = paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
   const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
 
@@ -137,13 +148,22 @@ function ActiveUsersSection({
                 <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
                   Streak
                 </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Study parts
+                </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Practice parts
+                </th>
+                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                  Video
+                </th>
               </tr>
             </thead>
             <tbody>
               {paged.pageRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={7}
                     className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                   >
                     No one has been active {window}.
@@ -156,7 +176,10 @@ function ActiveUsersSection({
                     row.lastLoginAt && now != null
                       ? formatRelativeTime(row.lastLoginAt, now)
                       : null;
-                  const earnedToday = todayXp[row.userId] ?? 0;
+                  const earned = rangeXp[row.userId] ?? 0;
+                  const studyParts = studyPartsByUser?.[row.userId] ?? 0;
+                  const practiceParts = practicePartsByUser?.[row.userId] ?? 0;
+                  const videoMinutes = videoMinutesInRange(row.progress, vietnamDays);
                   return (
                     <tr
                       key={row.userId}
@@ -214,22 +237,40 @@ function ActiveUsersSection({
                               {row.streakDays}
                             </span>
                           </span>
-                          {todayXpReady ? (
+                          {rangeXpReady ? (
                             <span
                               className={`inline-flex items-center gap-0.5 font-caption text-caption tabular-nums ${
-                                earnedToday > 0 ? "text-on-surface" : "text-outline"
+                                earned > 0 ? "text-on-surface" : "text-outline"
                               }`}
-                              title="XP earned today"
+                              title={xpTitle}
                             >
                               <MaterialIcon
                                 name="bolt"
-                                className={`text-[14px] ${earnedToday > 0 ? "text-[#f59e0b]" : "text-outline"}`}
-                                filled={earnedToday > 0}
+                                className={`text-[14px] ${earned > 0 ? "text-[#f59e0b]" : "text-outline"}`}
+                                filled={earned > 0}
                               />
-                              {earnedToday.toLocaleString("en-GB")} today
+                              {earned.toLocaleString("en-GB")}
                             </span>
                           ) : null}
                         </div>
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={partTitle}
+                      >
+                        {studyPartsByUser == null ? "—" : formatCount(studyParts)}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={`${partTitle}. Passed parts only.`}
+                      >
+                        {practicePartsByUser == null ? "—" : formatCount(practiceParts)}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
+                        title={`Video played ${window}`}
+                      >
+                        {videoMinutes === 0 ? "0 min" : `${formatCount(videoMinutes)} min`}
                       </td>
                     </tr>
                   );
@@ -273,8 +314,14 @@ type AdminOverviewProps = {
   courseCatalog: readonly AdminCatalogCourse[];
   rows: readonly AdminUserRow[];
   storeConfigured: boolean;
-  todayXp: Readonly<Record<string, number>>;
-  todayXpReady: boolean;
+  rangeXp: Readonly<Record<string, number>>;
+  rangeXpReady: boolean;
+  studyParts: number | null;
+  studyPartsByUser: Readonly<Record<string, number>> | null;
+  /** Whole listening lessons finished in the Vietnam window. Null keeps the activity count. */
+  practiceRuns: number | null;
+  practiceParts: number | null;
+  practicePartsByUser: Readonly<Record<string, number>> | null;
 };
 
 export function AdminOverview({
@@ -283,8 +330,13 @@ export function AdminOverview({
   courseCatalog,
   rows,
   storeConfigured,
-  todayXp,
-  todayXpReady,
+  rangeXp,
+  rangeXpReady,
+  studyParts,
+  studyPartsByUser,
+  practiceRuns,
+  practiceParts,
+  practicePartsByUser,
 }: AdminOverviewProps) {
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -301,7 +353,7 @@ export function AdminOverview({
         <AdminPageHeader
           kicker="Admin"
           title="Overview"
-          subtitle={`Platform activity ${window}. Days are UTC, the same boundary as streaks.`}
+          subtitle={`Platform activity ${window}. Times are Vietnam.`}
         />
 
         {!storeConfigured ? (
@@ -312,18 +364,18 @@ export function AdminOverview({
         ) : null}
 
         <section aria-label="Activity" className="flex flex-col gap-space-12">
-          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-4">
             <ActivityStat
-              label="Users"
+              label="All students"
               value={formatCount(activity.users)}
               icon="group"
-              hint="Accounts with synced progress"
+              hint="Every account, including inactive"
             />
             <ActivityStat
               label="Active"
               value={formatCount(activity.activeUsers)}
               icon="person"
-              hint={`Seen or practiced ${window}`}
+              hint={`Used the app ${window}`}
             />
             <ActivityStat
               label="Videos watched"
@@ -335,13 +387,25 @@ export function AdminOverview({
               label="Study runs"
               value={formatCount(activity.studyRuns)}
               icon="menu_book"
-              hint={`Finished ${window}`}
+              hint={`Whole study lessons finished ${window}`}
+            />
+            <ActivityStat
+              label="Study parts"
+              value={studyParts == null ? "—" : formatCount(studyParts)}
+              icon="auto_stories"
+              hint={`Study parts finished ${window}, Vietnam time`}
             />
             <ActivityStat
               label="Practice runs"
-              value={formatCount(activity.practiceRuns)}
+              value={formatCount(practiceRuns ?? activity.practiceRuns)}
               icon="headphones"
-              hint={`Listening runs finished ${window}`}
+              hint={`Whole practice lessons finished ${window}, Vietnam time`}
+            />
+            <ActivityStat
+              label="Practice parts"
+              value={practiceParts == null ? "—" : formatCount(practiceParts)}
+              icon="hearing"
+              hint={`Practice parts finished ${window}, Vietnam time`}
             />
           </div>
         </section>
@@ -350,8 +414,11 @@ export function AdminOverview({
           <ActiveUsersSection
             users={activeUsers}
             window={window}
-            todayXp={todayXp}
-            todayXpReady={todayXpReady}
+            range={range}
+            rangeXp={rangeXp}
+            rangeXpReady={rangeXpReady}
+            studyPartsByUser={studyPartsByUser}
+            practicePartsByUser={practicePartsByUser}
             onSelect={setDetailUserId}
           />
         ) : null}

@@ -7,12 +7,12 @@ import {
   totalsByUser,
   type BlitzrundeBoardExtras,
 } from "@/lib/blitzrunde";
-import { listRankedResults } from "@/lib/blitzrunde-store";
+import { classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
-import { getSupabaseAdmin, readClassName } from "@/lib/progress-store";
+import { getSupabaseAdmin, getUserClassName, readClassName } from "@/lib/progress-store";
 import { isReviewSchemaMissing } from "@/lib/review";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
@@ -825,6 +825,14 @@ async function readDuelTotals(
   return totals;
 }
 
+async function markBlitzrundeTab(
+  payload: LeaderboardPayload,
+  viewerId: string,
+): Promise<LeaderboardPayload> {
+  const classKey = leaderboardClassKey(await getUserClassName(viewerId));
+  return { ...payload, blitzrundeAvailable: await classHasStartedBlitzrunde(classKey) };
+}
+
 export async function getLeaderboard(input: {
   viewerId: string;
   viewerImage?: string | null;
@@ -832,6 +840,7 @@ export async function getLeaderboard(input: {
   range: LeaderboardRange;
   now?: Date;
 }): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -840,10 +849,10 @@ export async function getLeaderboard(input: {
     ready: false,
   });
   const supabase = getSupabaseAdmin();
-  if (!supabase) return blank;
+  if (!supabase) return finish(blank);
 
   const xpTotals = await readXpTotals(supabase, input.range, now);
-  if (!xpTotals) return blank;
+  if (!xpTotals) return finish(blank);
 
   const totals = new Map<string, { xp: number; reachedAt: string | null }>();
   for (const [userId, total] of xpTotals) totals.set(userId, { ...total });
@@ -894,13 +903,15 @@ export async function getLeaderboard(input: {
     });
   }
 
-  return assembleLeaderboard({
-    people,
-    viewerId: input.viewerId,
-    scope: input.scope,
-    range: input.range,
-    now,
-  });
+  return finish(
+    assembleLeaderboard({
+      people,
+      viewerId: input.viewerId,
+      scope: input.scope,
+      range: input.range,
+      now,
+    }),
+  );
 }
 
 export async function getDuelLeaderboard(input: {
@@ -910,6 +921,7 @@ export async function getDuelLeaderboard(input: {
   range: LeaderboardRange;
   now?: Date;
 }): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -919,10 +931,10 @@ export async function getDuelLeaderboard(input: {
     board: "duel",
   });
   const supabase = getSupabaseAdmin();
-  if (!supabase) return blank;
+  if (!supabase) return finish(blank);
 
   const totals = await readDuelTotals(supabase, input.range, now);
-  if (totals === "missing") return blank;
+  if (totals === "missing") return finish(blank);
 
   const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
@@ -962,14 +974,16 @@ export async function getDuelLeaderboard(input: {
     });
   }
 
-  return assembleLeaderboard({
-    people,
-    viewerId: input.viewerId,
-    scope: input.scope,
-    range: input.range,
-    now,
-    board: "duel",
-  });
+  return finish(
+    assembleLeaderboard({
+      people,
+      viewerId: input.viewerId,
+      scope: input.scope,
+      range: input.range,
+      now,
+      board: "duel",
+    }),
+  );
 }
 
 /**
@@ -989,6 +1003,7 @@ export async function getBlitzrundeLeaderboard(input: {
   range: LeaderboardRange;
   now?: Date;
 }): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -998,10 +1013,10 @@ export async function getBlitzrundeLeaderboard(input: {
     board: "blitzrunde",
   });
   const supabase = getSupabaseAdmin();
-  if (!supabase) return blank;
+  if (!supabase) return finish(blank);
 
   const all = await listRankedResults({ now });
-  if (!all) return blank;
+  if (!all) return finish(blank);
   const currentWeek = weekKey(now);
   const inRange = input.range === "week" ? all.filter((row) => row.weekKey === currentWeek) : all;
 
@@ -1091,7 +1106,7 @@ export async function getBlitzrundeLeaderboard(input: {
     }
   }
 
-  return {
+  return finish({
     ...payload,
     blitzrunde: {
       yourSilver: yours.silver,
@@ -1100,7 +1115,7 @@ export async function getBlitzrundeLeaderboard(input: {
       yourByClass: pointsByClass(inRange, input.viewerId),
       progress,
     },
-  };
+  });
 }
 
 export type AdminListeningXpRow = {
@@ -1155,6 +1170,43 @@ async function listPagedXpRows<T>(
       if (parsed) rows.push(parsed);
     }
     if (page.length < PAGE_SIZE) return { ready: true, rows };
+    from += PAGE_SIZE;
+  }
+}
+
+/** Finished study parts on Vietnam `day_key`s in `[fromDay, toDay]`, for the given students. */
+export async function countAdminStudyParts(
+  fromDay: string,
+  toDay: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; count: number; byUser: Record<string, number> }> {
+  const supabase = getSupabaseAdmin();
+  const byUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, count: 0, byUser };
+  if (learnerIds.size === 0) return { ready: true, count: 0, byUser };
+
+  let count = 0;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("user_id")
+      .gte("day_key", fromDay)
+      .lte("day_key", toDay)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase countAdminStudyParts", error.message);
+      }
+      return { ready: false, count: 0, byUser };
+    }
+    const page = (data ?? []) as { user_id?: unknown }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      count += 1;
+      byUser[row.user_id] = (byUser[row.user_id] ?? 0) + 1;
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, count, byUser };
     from += PAGE_SIZE;
   }
 }

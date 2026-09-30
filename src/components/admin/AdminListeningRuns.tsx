@@ -12,10 +12,15 @@ import {
   YAxis,
 } from "recharts";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
-import { describeCatalogLesson, type AdminCatalogCourse } from "@/lib/admin-detail";
+import {
+  describeCatalogClip,
+  describeCatalogLesson,
+  type AdminCatalogCourse,
+} from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  formatAdminTimestamp,
   type AdminListeningLessonStat,
   type AdminListeningRunBoard,
   type AdminListeningRunPoint,
@@ -34,15 +39,7 @@ function formatCount(value: number): string {
 }
 
 function formatWhen(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAdminTimestamp(iso) ?? "—";
 }
 
 function formatElapsed(ms: number): string {
@@ -253,6 +250,27 @@ function LessonsTable({
   );
 }
 
+function MissedWords({
+  catalog,
+  lessonKey,
+  clipIds,
+}: {
+  catalog: readonly AdminCatalogCourse[];
+  lessonKey: string;
+  clipIds: readonly string[];
+}) {
+  if (clipIds.length === 0) return null;
+  return (
+    <ul className="mt-1 max-w-[14rem] space-y-0.5">
+      {clipIds.map((clipId) => (
+        <li key={clipId} className="font-caption text-caption text-on-surface">
+          {describeCatalogClip(catalog, lessonKey, clipId).prompt}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function AdminListeningRuns({
   board,
   people,
@@ -260,6 +278,7 @@ export function AdminListeningRuns({
   range,
   status,
   storeConfigured,
+  missedClipIds,
 }: {
   board: AdminListeningRunBoard;
   people: readonly AdminUserRow[];
@@ -267,6 +286,7 @@ export function AdminListeningRuns({
   range: AdminRange;
   status: ListeningReadStatus;
   storeConfigured: boolean;
+  missedClipIds: Record<string, readonly string[]>;
 }) {
   const names = useMemo(
     () => new Map(people.map((row) => [row.userId, row.displayName])),
@@ -303,8 +323,8 @@ export function AdminListeningRuns({
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
       <AdminPageHeader
         kicker="Learning"
-        title="Listening runs"
-        subtitle={`Finished parts stored in Supabase ${window}. Days are UTC, the same boundary as Activity. This is not the visit-based practice count.`}
+        title="Practice"
+        subtitle={`Finished practice parts ${window}. Times are Vietnam.`}
       />
 
       {!storeConfigured ? (
@@ -321,16 +341,16 @@ export function AdminListeningRuns({
 
       {storeConfigured && status === "error" ? (
         <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Listening runs could not be loaded.
+          Practice parts could not be loaded.
         </div>
       ) : null}
 
       <section
-        aria-label="Listening run totals"
+        aria-label="Practice totals"
         className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
       >
         <SummaryStat
-          label="Parts"
+          label="Practice parts"
           value={formatCount(board.runs)}
           icon="headphones"
           hint={`Finished ${window}`}
@@ -363,7 +383,7 @@ export function AdminListeningRuns({
 
       <ChartCard
         title="Parts by day"
-        hint="UTC days. A part is counted on the day it finished."
+        hint="Vietnam days. A part is counted on the day it finished."
       >
         <RunChart data={board.points} />
       </ChartCard>
@@ -382,7 +402,7 @@ export function AdminListeningRuns({
           </div>
           <div className="flex flex-col gap-space-12 lg:flex-row lg:items-center">
             <label className="relative w-full max-w-md">
-              <span className="sr-only">Search runs</span>
+              <span className="sr-only">Search practice parts</span>
               <MaterialIcon
                 name="search"
                 className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
@@ -478,8 +498,17 @@ export function AdminListeningRuns({
                       key={run.id}
                       className="border-t border-outline-variant/20 font-body-sm text-body-sm text-on-surface"
                     >
-                      <td className="whitespace-nowrap px-space-16 py-space-12 tabular-nums text-on-surface-variant">
-                        {formatWhen(run.createdAt)}
+                      <td className="px-space-16 py-space-12 align-top">
+                        <p className="whitespace-nowrap tabular-nums text-on-surface-variant">
+                          {formatWhen(run.createdAt)}
+                        </p>
+                        {run.accuracy < 100 ? (
+                          <MissedWords
+                            catalog={catalog}
+                            lessonKey={run.lessonKey}
+                            clipIds={missedClipIds[run.id] ?? []}
+                          />
+                        ) : null}
                       </td>
                       <td className="px-space-12 py-space-12 font-medium">
                         {names.get(run.userId) ?? run.userId}
@@ -491,7 +520,20 @@ export function AdminListeningRuns({
                         </p>
                       </td>
                       <td className="px-space-12 py-space-12">
-                        {run.outcome === "success" ? "Passed" : "Failed"}
+                        <span
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
+                            run.outcome === "success"
+                              ? "bg-[#34C759]/15 text-[#248a3d]"
+                              : "bg-[#ff3b30]/10 text-[#ff3b30]"
+                          }`}
+                          aria-label={run.outcome === "success" ? "Passed" : "Out of hearts"}
+                        >
+                          <MaterialIcon
+                            name={run.outcome === "success" ? "check_circle" : "heart_broken"}
+                            className="text-[18px]"
+                            filled
+                          />
+                        </span>
                       </td>
                       <td className="px-space-12 py-space-12 text-right tabular-nums">
                         {run.accuracy}%

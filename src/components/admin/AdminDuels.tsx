@@ -14,6 +14,7 @@ import {
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
   adminRangeLabel,
+  formatAdminTimestamp,
   type AdminDuelBoard,
   type AdminDuelLeader,
   type AdminDuelMatch,
@@ -32,16 +33,7 @@ function formatCount(value: number): string {
 }
 
 function formatWhen(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatAdminTimestamp(iso) ?? "—";
 }
 
 function SummaryStat({

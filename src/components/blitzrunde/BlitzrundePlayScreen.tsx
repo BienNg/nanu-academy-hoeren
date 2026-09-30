@@ -8,6 +8,7 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { BlitzrundeCountdown, BlitzrundeLobby } from "@/components/blitzrunde/BlitzrundeLobby";
 import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
 import {
+  BLITZRUNDE_ICON,
   HEARTBEAT_MS,
   formatRemaining,
   nextStreak,
@@ -427,7 +428,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
     body = loadError ? (
       <Message icon="error" title={loadError} action={<HomeButton />} />
     ) : (
-      <Message icon="electric_bolt" title="Đang tải Blitzrunde…" />
+      <Message icon={BLITZRUNDE_ICON} title="Đang tải Blitzrunde…" />
     );
   } else if (status === "cancelled") {
     body = <Message icon="block" title="Vòng này đã bị huỷ" body="Giáo viên đã đóng phòng." action={<HomeButton />} />;

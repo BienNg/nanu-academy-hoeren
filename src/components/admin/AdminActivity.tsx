@@ -196,7 +196,7 @@ function WorkChart({
     grain === "hour"
       ? [
           { key: "clips", name: "Clips studied", color: STUDY },
-          { key: "practiceRuns", name: "Listening runs", color: PRACTICE },
+          { key: "practiceRuns", name: "Practice runs", color: PRACTICE },
           { key: "videosWatched", name: "Videos watched", color: VIDEOS },
         ]
       : [
@@ -267,7 +267,7 @@ function TotalsTable({
         <table className="w-full min-w-[36rem] border-collapse text-left">
           <thead className="sticky top-0 bg-surface-container-low">
             <tr className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">{grain === "hour" ? "Hour (UTC)" : "Day"}</th>
+              <th className="px-space-16 py-space-8">{grain === "hour" ? "Hour" : "Day"}</th>
               <th className="px-space-12 py-space-8 text-right">People</th>
               <th className="px-space-12 py-space-8 text-right">Time</th>
               <th className="px-space-12 py-space-8 text-right">{workHeader}</th>
@@ -386,8 +386,8 @@ export function AdminActivity({
         title="Activity"
         subtitle={
           board.grain === "hour"
-            ? "Who opened the app today, by UTC hour. Study and practice totals on the cards are still counted per UTC day."
-            : `Who opened the app ${window}. Each point is a UTC calendar day, the same boundary as streaks.`
+            ? "Who opened the app today, by Vietnam hour."
+            : `Who opened the app ${window}. Each point is a Vietnam day.`
         }
       />
 
@@ -427,7 +427,7 @@ export function AdminActivity({
           label="Practice runs"
           value={formatCount(activity.practiceRuns)}
           icon="headphones"
-          hint={`Listening runs finished ${window}`}
+          hint={`Practice runs finished ${window}`}
         />
       </section>
 
@@ -436,8 +436,8 @@ export function AdminActivity({
           title={board.grain === "hour" ? "People in the app" : "Daily active people"}
           hint={
             board.grain === "hour"
-              ? "Unique students whose visit or last-seen time fell in that UTC hour."
-              : "Unique students seen or practicing on each UTC day."
+              ? "Unique students whose visit or last-seen time fell in that Vietnam hour."
+              : "Unique students seen or practicing on each Vietnam day."
           }
         >
           <PeopleChart data={board.points} grain={board.grain} />
@@ -446,8 +446,8 @@ export function AdminActivity({
           title={board.grain === "hour" ? "Work during those hours" : "Study, practice, and videos"}
           hint={
             board.grain === "hour"
-              ? "Clips and listening runs come from visits. Videos use the watched timestamp."
-              : "Finished study runs, listening runs, and videos marked watched."
+              ? "Study clips and practice runs come from visits. Videos use the watched timestamp."
+              : "Finished study runs, practice runs, and videos marked watched."
           }
         >
           <WorkChart data={board.points} grain={board.grain} />

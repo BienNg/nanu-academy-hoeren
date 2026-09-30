@@ -269,6 +269,9 @@ export type AdminRange = (typeof ADMIN_RANGES)[number];
 
 export const DEFAULT_ADMIN_RANGE: AdminRange = "30d";
 
+/** Overview opens on today. Other ranged pages keep the 30-day default. */
+export const OVERVIEW_ADMIN_RANGE: AdminRange = "today";
+
 const RANGE_DAYS: Record<AdminRange, number> = {
   today: 1,
   "7d": 7,
@@ -283,12 +286,13 @@ const RANGE_LABELS: Record<AdminRange, string> = {
   "90d": "90 days",
 };
 
-/** Unknown and missing values fall back to the default rather than throwing. */
+/** Unknown and missing values fall back to `fallback` rather than throwing. */
 export function parseAdminRange(
   value: string | string[] | undefined,
+  fallback: AdminRange = DEFAULT_ADMIN_RANGE,
 ): AdminRange {
   const raw = Array.isArray(value) ? value[0] : value;
-  return ADMIN_RANGES.find((range) => range === raw) ?? DEFAULT_ADMIN_RANGE;
+  return ADMIN_RANGES.find((range) => range === raw) ?? fallback;
 }
 
 export function adminRangeLabel(range: AdminRange): string {
@@ -299,29 +303,72 @@ export function adminRangeDays(range: AdminRange): number {
   return RANGE_DAYS[range];
 }
 
-/** UTC calendar days in the window, newest first, matching the streak boundary. */
+/** Inclusive start and exclusive end of the Vietnam window, as UTC instants. */
+export function adminRangeVietnamInterval(
+  range: AdminRange,
+  now = new Date(),
+): { from: string; to: string } {
+  const days = adminRangeVietnamDayKeys(range, now);
+  const oldest = days[days.length - 1] ?? days[0];
+  const newest = days[0];
+  const [year, month, day] = newest.split("-").map(Number);
+  const nextDay = new Date(Date.UTC(year, (month ?? 1) - 1, day) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return {
+    from: vietnamDayStartIso(oldest),
+    to: vietnamDayStartIso(nextDay),
+  };
+}
+
+/** Midnight in Asia/Ho_Chi_Minh for a `YYYY-MM-DD` calendar day. */
+function vietnamDayStartIso(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, (month ?? 1) - 1, date) - 7 * 60 * 60 * 1000).toISOString();
+}
+
+/** Vietnam calendar days in the window, newest first. */
 export function adminRangeDayKeys(
   range: AdminRange,
   now = new Date(),
 ): string[] {
-  const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const days: string[] = [];
-  for (let index = 0; index < RANGE_DAYS[range]; index += 1) {
-    days.push(new Date(end - index * 86_400_000).toISOString().slice(0, 10));
-  }
-  return days;
+  return adminRangeVietnamDayKeys(range, now);
 }
 
-function utcDay(value: string | null | undefined): string | null {
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Calendar day for an admin chart. A full timestamp uses Asia/Ho_Chi_Minh.
+ * A date-only `YYYY-MM-DD` is already a calendar key and stays as written.
+ */
+function calendarDay(value: string | null | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
-  return value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return dayKey(date);
 }
 
-function utcHour(value: string | null | undefined): number | null {
+function vietnamHour(value: string | null | undefined): number | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.getUTCHours();
+  return new Date(date.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
+}
+
+/** Clock time in Asia/Ho_Chi_Minh, e.g. "30 Sept 2026, 11:40". */
+export function formatAdminTimestamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function formatUtcDayLabel(day: string): string {
@@ -338,7 +385,7 @@ function studyRunsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.studyRuns ?? 0;
   let firstCompletions = 0;
   for (const entry of Object.values(progress.learn)) {
-    if (utcDay(entry.studyCompletedAt) === day) firstCompletions += 1;
+    if (calendarDay(entry.studyCompletedAt) === day) firstCompletions += 1;
   }
   return Math.max(recorded, firstCompletions);
 }
@@ -347,15 +394,36 @@ function practiceRunsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.practiceRuns ?? 0;
   let firstCompletions = 0;
   for (const entry of Object.values(progress.learn)) {
-    if (utcDay(entry.completedAt) === day) firstCompletions += 1;
+    if (calendarDay(entry.completedAt) === day) firstCompletions += 1;
   }
   return Math.max(recorded, firstCompletions);
+}
+
+/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
+export function videoMinutesInRange(
+  progress: StoredProgress,
+  days: readonly string[],
+): number {
+  const fromVisits = new Map<string, number>();
+  for (const visit of progress.visits ?? []) {
+    const day = calendarDay(visit.startedAt);
+    if (!day) continue;
+    const seconds = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
+    fromVisits.set(day, (fromVisits.get(day) ?? 0) + seconds);
+  }
+  let seconds = 0;
+  for (const day of days) {
+    const recorded = progress.activity?.[day]?.videoSeconds ?? 0;
+    seconds += Math.max(recorded, fromVisits.get(day) ?? 0);
+  }
+  if (seconds <= 0) return 0;
+  return Math.max(1, Math.round(seconds / 60));
 }
 
 function videosWatchedOnDay(progress: StoredProgress, day: string): number {
   let count = 0;
   for (const entry of Object.values(progress.videos)) {
-    if (utcDay(entry.watchedAt) === day) count += 1;
+    if (calendarDay(entry.watchedAt) === day) count += 1;
   }
   return count;
 }
@@ -364,7 +432,7 @@ function activeSecondsOnDay(progress: StoredProgress, day: string): number {
   const recorded = progress.activity?.[day]?.activeSeconds ?? 0;
   let fromVisits = 0;
   for (const visit of progress.visits ?? []) {
-    if (utcDay(visit.startedAt) === day) fromVisits += visit.activeSeconds;
+    if (calendarDay(visit.startedAt) === day) fromVisits += visit.activeSeconds;
   }
   return Math.max(recorded, fromVisits);
 }
@@ -399,7 +467,7 @@ function userActiveOnDay(
 ): boolean {
   return (
     userTouchedDay(row.progress, day) ||
-    utcDay(row.lastLoginAt) === day ||
+    calendarDay(row.lastLoginAt) === day ||
     work.videos > 0 ||
     work.study > 0 ||
     work.practice > 0
@@ -433,16 +501,22 @@ function isRowActiveInWindow(
     if (userTouchedDay(row.progress, day)) touched = true;
   }
 
-  const lastSeenDay = utcDay(row.lastLoginAt);
+  const lastSeenDay = calendarDay(row.lastLoginAt);
   return touched || hasWork || (lastSeenDay != null && window.has(lastSeenDay));
 }
 
-/** Totals over the selected window. Days are UTC calendar days, matching streaks. */
+/** Students only. Admins and staff (teachers) stay out of engagement totals. */
+function learnerRows(rows: readonly AdminUserRow[]): AdminUserRow[] {
+  return rows.filter((row) => !row.isAdmin && !row.staff);
+}
+
+/** Totals over the selected window. Days are Asia/Ho_Chi_Minh. */
 export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
 ): AdminActivityStats {
+  const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
   const window = new Set(days);
   let activeUsers = 0;
@@ -450,7 +524,7 @@ export function buildAdminActivityStats(
   let studyRuns = 0;
   let practiceRuns = 0;
 
-  for (const row of rows) {
+  for (const row of learners) {
     let rowVideos = 0;
     let rowStudy = 0;
     let rowPractice = 0;
@@ -470,7 +544,7 @@ export function buildAdminActivityStats(
   }
 
   return {
-    users: rows.length,
+    users: learners.length,
     activeUsers,
     videosWatched,
     studyRuns,
@@ -486,7 +560,7 @@ export function listActiveAdminUsers(
 ): AdminUserRow[] {
   const days = adminRangeDayKeys(range, now);
   const window = new Set(days);
-  return rows
+  return learnerRows(rows)
     .filter((row) => isRowActiveInWindow(row, days, window))
     .sort((a, b) => b.lastLoginMs - a.lastLoginMs);
 }
@@ -563,8 +637,8 @@ function buildHourlyActivityPoints(
 
   for (const row of rows) {
     for (const visit of row.progress.visits ?? []) {
-      if (utcDay(visit.startedAt) !== day) continue;
-      const hour = utcHour(visit.startedAt);
+      if (calendarDay(visit.startedAt) !== day) continue;
+      const hour = vietnamHour(visit.startedAt);
       if (hour == null) continue;
       usersByHour[hour].add(row.userId);
       points[hour].activeSeconds += visit.activeSeconds;
@@ -572,21 +646,21 @@ function buildHourlyActivityPoints(
       points[hour].practiceRuns += visit.listeningRuns;
     }
 
-    if (utcDay(row.lastLoginAt) === day) {
-      const hour = utcHour(row.lastLoginAt);
+    if (calendarDay(row.lastLoginAt) === day) {
+      const hour = vietnamHour(row.lastLoginAt);
       if (hour != null) usersByHour[hour].add(row.userId);
     }
 
     for (const entry of Object.values(row.progress.videos)) {
-      if (utcDay(entry.watchedAt) !== day) continue;
-      const hour = utcHour(entry.watchedAt);
+      if (calendarDay(entry.watchedAt) !== day) continue;
+      const hour = vietnamHour(entry.watchedAt);
       if (hour == null) continue;
       points[hour].videosWatched += 1;
     }
 
     const work = dayWork(row.progress, day);
     if (userActiveOnDay(row, day, work) && usersByHour.every((set) => !set.has(row.userId))) {
-      // Seen that UTC day without a timestamped visit: count them at midnight
+      // Seen that Vietnam day without a timestamped visit: count them at midnight
       // rather than dropping them from the hourly chart.
       usersByHour[0].add(row.userId);
     }
@@ -650,27 +724,28 @@ function buildActivityLeaders(
 }
 
 /**
- * Time series for the Activity page. Multi-day windows are UTC days, oldest
- * first. "Today" is 24 UTC hours so a single-day range still has a chart.
+ * Time series for the Activity page. Multi-day windows are Vietnam days, oldest
+ * first. "Today" is 24 hours in Asia/Ho_Chi_Minh.
  */
 export function buildAdminActivityBoard(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
 ): AdminActivityBoard {
+  const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
   if (range === "today") {
     const day = days[0];
     return {
       grain: "hour",
-      points: buildHourlyActivityPoints(rows, day),
-      leaders: buildActivityLeaders(rows, days),
+      points: buildHourlyActivityPoints(learners, day),
+      leaders: buildActivityLeaders(learners, days),
     };
   }
   return {
     grain: "day",
-    points: buildDailyActivityPoints(rows, days),
-    leaders: buildActivityLeaders(rows, days),
+    points: buildDailyActivityPoints(learners, days),
+    leaders: buildActivityLeaders(learners, days),
   };
 }
 
@@ -694,7 +769,7 @@ function isActiveOn(row: AdminUserRow, day: string): boolean {
 function firstSeenDay(row: AdminUserRow): string | null {
   const days: string[] = [];
   const add = (value: string | null | undefined) => {
-    const day = utcDay(value);
+    const day = calendarDay(value);
     if (day) days.push(day);
   };
   add(row.signIns[0]);
@@ -709,9 +784,9 @@ function firstSeenDay(row: AdminUserRow): string | null {
 }
 
 function lastActiveDay(row: AdminUserRow): string | null {
-  let best: string | null = utcDay(row.lastLoginAt);
+  let best: string | null = calendarDay(row.lastLoginAt);
   const consider = (value: string | null | undefined) => {
-    const day = utcDay(value);
+    const day = calendarDay(value);
     if (day && (!best || day > best)) best = day;
   };
   consider(row.lastSignInAt);
@@ -780,7 +855,7 @@ const STREAK_BUCKETS: { key: string; label: string; matches: (days: number) => b
 
 /**
  * Comeback metrics for the Retention page. D1 is "active on day D, and
- * again on D+1". The selected window still uses UTC calendar days.
+ * again on D+1". The selected window uses Asia/Ho_Chi_Minh calendar days.
  */
 export function buildAdminRetentionBoard(
   rows: readonly AdminUserRow[],
@@ -1093,21 +1168,21 @@ export function buildAdminXpBoard(
   };
 }
 
-/** Listening plus duel XP for one Vietnam calendar day, keyed by user id. */
-export function xpByUserOnDay(
+/** Listening plus duel XP for the given Vietnam calendar days, keyed by user id. */
+export function xpByUserInDays(
   listening: readonly AdminListeningXpRow[],
   duels: readonly AdminDuelXpRow[],
-  day: string,
+  days: ReadonlySet<string>,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   const add = (userId: string, xp: number) => {
     totals[userId] = (totals[userId] ?? 0) + xp;
   };
   for (const row of listening) {
-    if (row.dayKey === day) add(row.userId, row.xp);
+    if (days.has(row.dayKey)) add(row.userId, row.xp);
   }
   for (const row of duels) {
-    if (row.dayKey === day) add(row.userId, row.xp);
+    if (days.has(row.dayKey)) add(row.userId, row.xp);
   }
   return totals;
 }
@@ -1456,7 +1531,7 @@ export type AdminListeningRunBoard = {
 const LISTENING_LESSON_LIMIT = 8;
 
 /**
- * Finished listening parts stored in listening_runs. Days are UTC, matching Activity.
+ * Finished practice parts stored in listening_runs. Days are Asia/Ho_Chi_Minh.
  */
 export function buildAdminListeningRunBoard(
   runs: readonly AdminListeningRunRecord[],
@@ -1480,7 +1555,7 @@ export function buildAdminListeningRunBoard(
   let accuracySum = 0;
 
   for (const run of runs) {
-    const day = utcDay(run.createdAt);
+    const day = calendarDay(run.createdAt);
     if (day == null || !window.has(day)) continue;
     recent.push(run);
     students.add(run.userId);

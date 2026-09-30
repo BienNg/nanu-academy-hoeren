@@ -15,9 +15,11 @@ import {
 } from "react";
 import { ProfileButton } from "@/components/ProfileButton";
 import type { AdminDashboardRole } from "@/lib/admins";
+import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import {
   ADMIN_RANGES,
   DEFAULT_ADMIN_RANGE,
+  OVERVIEW_ADMIN_RANGE,
   adminRangeLabel,
   parseAdminRange,
   type AdminRange,
@@ -132,9 +134,9 @@ const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/levels", label: "Levels", icon: "route", ready: true },
       { href: "/admin/content", label: "Catalog", icon: "library_books", ready: true },
-      { href: "/admin/content/clips", label: "Clip difficulty", icon: "graphic_eq", ready: true },
+      { href: "/admin/content/clips", label: "Practice clip difficulty", icon: "graphic_eq", ready: true },
       { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
-      { href: "/admin/runs", label: "Listening runs", icon: "headphones", ready: true, ranged: true },
+      { href: "/admin/runs", label: "Practice", icon: "headphones", ready: true, ranged: true },
     ],
   },
   {
@@ -145,7 +147,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/retention", label: "Retention", icon: "event_repeat", ready: true, ranged: true },
       { href: "/admin/xp", label: "XP", icon: "bolt", ready: true, ranged: true },
       { href: "/admin/duels", label: "Duels", icon: "swords", ready: true, ranged: true },
-      { href: "/admin/blitzrunde", label: "Blitzrunde", icon: "electric_bolt", ready: true },
+      { href: "/admin/blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, ready: true },
     ],
   },
   {
@@ -172,10 +174,14 @@ function activeItem(pathname: string): AdminNavItem | null {
   return best;
 }
 
+function defaultRangeForHref(href: string): AdminRange {
+  return href === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+}
+
 function withAdminRange(href: string, range: string | null): string {
   if (
     !range ||
-    range === DEFAULT_ADMIN_RANGE ||
+    range === defaultRangeForHref(href) ||
     !(ADMIN_RANGES as readonly string[]).includes(range)
   ) {
     return href;
@@ -400,12 +406,13 @@ function RangePill() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const current = parseAdminRange(searchParams.get("range") ?? undefined);
+  const fallback = pathname === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+  const current = parseAdminRange(searchParams.get("range") ?? undefined, fallback);
 
   const select = useCallback(
     (range: AdminRange) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (range === DEFAULT_ADMIN_RANGE) {
+      if (range === fallback) {
         params.delete("range");
       } else {
         params.set("range", range);
@@ -413,7 +420,7 @@ function RangePill() {
       const query = params.toString();
       router.push(query ? `${pathname}?${query}` : pathname);
     },
-    [router, pathname, searchParams],
+    [router, pathname, searchParams, fallback],
   );
 
   return (
@@ -467,9 +474,8 @@ function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
         <Link
           href="/"
-          className="hidden h-9 shrink-0 items-center gap-space-4 rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:inline-flex"
+          className="hidden h-9 shrink-0 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:inline-flex"
         >
-          <MaterialIcon name="arrow_back" className="text-[16px]" />
           Learner app
         </Link>
 
