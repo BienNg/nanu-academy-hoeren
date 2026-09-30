@@ -910,13 +910,27 @@ function YouTubePane({
 
   const page = variant === "page";
 
+  const toolButtonClass = fullscreen
+    ? "bg-white/15 disabled:text-white/35"
+    : "bg-[#f5f5f7] disabled:text-[#d2d2d7]";
+  const toolIconClass = fullscreen ? "text-white" : "text-[#1d1d1f]";
+
   return (
     <div className={page ? "flex flex-col gap-3 sm:gap-4" : "flex flex-col gap-4"}>
       <div
         ref={frameRef}
+        className={
+          fullscreen
+            ? "relative flex h-full w-full flex-col bg-black"
+            : page
+              ? "flex flex-col gap-3 sm:gap-4"
+              : "flex flex-col gap-4"
+        }
+      >
+      <div
         className={`relative w-full overflow-hidden bg-[#131b2e] ${
           fullscreen
-            ? "flex h-full items-center justify-center bg-black"
+            ? "flex h-full min-h-0 flex-1 items-center justify-center bg-black"
             : page
               ? "aspect-video rounded-[24px] shadow-[0_8px_0_0_#c5d8ea] sm:rounded-[28px]"
               : "aspect-video rounded-[16px]"
@@ -940,17 +954,14 @@ function YouTubePane({
               }}
             />
           </div>
-          {ready ? (
+          {ready && !fullscreen ? (
             <button
               type="button"
               onClick={toggleFullscreen}
-              aria-label={fullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+              aria-label="Toàn màn hình"
               className="absolute right-3 bottom-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white shadow-[0_2px_8px_rgb(0,0,0,0.25)] backdrop-blur-md transition active:scale-95"
             >
-              <MaterialIcon
-                name={fullscreen ? "fullscreen_exit" : "fullscreen"}
-                className="text-[22px]"
-              />
+              <MaterialIcon name="fullscreen" className="text-[22px]" />
             </button>
           ) : null}
         </div>
@@ -963,19 +974,29 @@ function YouTubePane({
 
       <div
         className={
-          page
-            ? "rounded-[24px] bg-white p-2.5 shadow-[0_4px_0_0_#e2e8f0] sm:p-3.5"
-            : undefined
+          fullscreen
+            ? "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] sm:px-5 sm:pt-12 sm:pb-4"
+            : page
+              ? "rounded-[24px] bg-white p-2.5 shadow-[0_4px_0_0_#e2e8f0] sm:p-3.5"
+              : undefined
         }
       >
-      <div className="relative z-10 flex flex-nowrap items-center gap-1 sm:gap-3">
+      <div
+        className={
+          fullscreen
+            ? "relative z-10 flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3"
+            : "relative z-10 flex flex-nowrap items-center gap-1 sm:gap-3"
+        }
+      >
         <button
           type="button"
           onClick={togglePlay}
           disabled={!ready}
           aria-label={playing ? "Tạm dừng" : "Phát"}
           className={
-            page
+            fullscreen
+              ? "order-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1] transition hover:bg-[#0ea5e9] active:translate-y-0.5 active:shadow-none disabled:bg-[#d2d2d7] disabled:shadow-none sm:order-none sm:h-12 sm:w-12"
+              : page
               ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0284c7] text-white shadow-[0_4px_0_0_#0369a1] transition hover:bg-[#0ea5e9] active:translate-y-1 active:shadow-none disabled:bg-[#d2d2d7] disabled:shadow-none sm:h-14 sm:w-14"
               : "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc] text-white transition active:scale-95 disabled:bg-[#d2d2d7]"
           }
@@ -986,7 +1007,18 @@ function YouTubePane({
             filled
           />
         </button>
-        <span className="min-w-9 shrink-0 whitespace-nowrap text-right text-[13px] font-semibold tabular-nums text-[#1d1d1f]">
+        <div
+          className={
+            fullscreen
+              ? "order-1 flex w-full min-w-0 items-center gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3"
+              : "flex min-w-0 flex-1 items-center gap-1 sm:gap-3"
+          }
+        >
+        <span
+          className={`min-w-9 shrink-0 whitespace-nowrap text-right text-[13px] font-semibold tabular-nums ${
+            fullscreen ? "text-white" : "text-[#1d1d1f]"
+          }`}
+        >
           {formatClock(currentTime)}
         </span>
         <input
@@ -1011,12 +1043,26 @@ function YouTubePane({
           onKeyUp={commitSeek}
           onBlur={commitSeek}
           className={`h-11 w-0 min-w-0 flex-1 cursor-pointer disabled:cursor-not-allowed ${
-            page ? "accent-[#0284c7]" : "accent-[#0066cc]"
+            fullscreen ? "accent-white" : page ? "accent-[#0284c7]" : "accent-[#0066cc]"
           }`}
         />
-        <span className="hidden min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#86868b] min-[400px]:inline">
+        <span
+          className={`min-w-9 shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums ${
+            fullscreen
+              ? "text-white/75"
+              : "hidden text-[#86868b] min-[400px]:inline"
+          }`}
+        >
           {formatClock(duration)}
         </span>
+        </div>
+        <div
+          className={
+            fullscreen
+              ? "order-3 ml-auto flex shrink-0 items-center gap-1 sm:order-none sm:ml-0 sm:gap-3"
+              : "flex shrink-0 items-center gap-1 sm:gap-3"
+          }
+        >
         <div ref={volumeControlRef} className="relative shrink-0">
           <button
             type="button"
@@ -1035,7 +1081,9 @@ function YouTubePane({
             }
             aria-expanded={volumeSupported ? volumeOpen : undefined}
             aria-pressed={muted}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5f5f7] text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7]"
+            className={`flex items-center justify-center rounded-full transition active:scale-95 ${
+              fullscreen ? "h-10 w-10 sm:h-11 sm:w-11" : "h-11 w-11"
+            } ${toolButtonClass} ${toolIconClass}`}
           >
             <MaterialIcon
               name={muted || volume === 0 ? "volume_off" : "volume_up"}
@@ -1065,12 +1113,16 @@ function YouTubePane({
             aria-label="Tốc độ phát"
             aria-haspopup="menu"
             aria-expanded={speedOpen}
-            className={`flex h-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] px-2.5 text-[13px] font-semibold tabular-nums transition active:scale-95 disabled:text-[#d2d2d7] sm:px-3 ${
+            className={`flex shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums transition active:scale-95 ${
+              fullscreen ? "h-10 px-2 sm:h-11 sm:px-3" : "h-11 px-2.5 sm:px-3"
+            } ${toolButtonClass} ${
               speed === 1
-                ? "text-[#1d1d1f]"
-                : page
-                  ? "text-[#0284c7]"
-                  : "text-[#0066cc]"
+                ? toolIconClass
+                : fullscreen
+                  ? "text-[#7dd3fc]"
+                  : page
+                    ? "text-[#0284c7]"
+                    : "text-[#0066cc]"
             }`}
           >
             {formatVideoSpeed(speed)}
@@ -1120,8 +1172,16 @@ function YouTubePane({
             aria-label="Chất lượng video"
             aria-haspopup="menu"
             aria-expanded={qualityOpen}
-            className={`flex h-11 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] text-[13px] font-semibold text-[#1d1d1f] transition active:scale-95 disabled:text-[#d2d2d7] ${
-              quality === "auto" ? "w-11" : "px-2 min-[400px]:px-3"
+            className={`flex shrink-0 items-center justify-center rounded-full text-[13px] font-semibold transition active:scale-95 ${
+              fullscreen ? "h-10 sm:h-11" : "h-11"
+            } ${toolButtonClass} ${toolIconClass} ${
+              quality === "auto"
+                ? fullscreen
+                  ? "w-10 sm:w-11"
+                  : "w-11"
+                : fullscreen
+                  ? "px-2 sm:px-3"
+                  : "px-2 min-[400px]:px-3"
             }`}
           >
             {quality === "auto" ? (
@@ -1171,6 +1231,18 @@ function YouTubePane({
             </div>
           ) : null}
         </div>
+        {fullscreen ? (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label="Thoát toàn màn hình"
+            className={`flex h-10 w-10 items-center justify-center rounded-full transition active:scale-95 sm:h-11 sm:w-11 ${toolButtonClass} ${toolIconClass}`}
+          >
+            <MaterialIcon name="fullscreen_exit" className="text-[22px]" />
+          </button>
+        ) : null}
+        </div>
+      </div>
       </div>
       </div>
 
