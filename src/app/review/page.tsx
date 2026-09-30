@@ -13,8 +13,9 @@ export default async function ReviewPage() {
   );
   return (
     <ReviewSession
-      key={deck.clips.map((clip) => `${clip.lessonKey}/${clip.id}`).join("|")}
+      key={deck.cards.map((card) => card.key).join("|")}
       clips={deck.clips}
+      cards={deck.cards}
       dueCount={deck.due}
       ready={deck.ready}
     />

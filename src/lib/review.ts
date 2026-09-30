@@ -189,6 +189,22 @@ export function pickReviewItems(
     .slice(0, Math.max(0, limit));
 }
 
+/**
+ * Round-robin merge of per-lesson decks. Each deck keeps its own order, so a
+ * lesson's order or multiple-choice card still comes after its listening card.
+ */
+export function interleaveDecks<T>(decks: readonly (readonly T[])[]): T[] {
+  const merged: T[] = [];
+  const longest = Math.max(0, ...decks.map((deck) => deck.length));
+  for (let position = 0; position < longest; position += 1) {
+    for (const deck of decks) {
+      const card = deck[position];
+      if (card !== undefined) merged.push(card);
+    }
+  }
+  return merged;
+}
+
 export type ReviewXpDecision = {
   xp: number;
   kind: "new" | "rejected" | "capped";

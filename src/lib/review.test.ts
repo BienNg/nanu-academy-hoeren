@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   applyReviewOutcomes,
   decideReviewXp,
+  interleaveDecks,
   isReviewDue,
   isReviewSchemaMissing,
   nextReviewState,
@@ -138,6 +139,18 @@ test("pickReviewItems orders by overdue, then lapses, and drops unknown clips", 
     ["b", "c", "a"],
   );
   assert.equal(pickReviewItems(items, () => true, NOW, 1).length, 1);
+});
+
+test("interleaveDecks mixes lessons and keeps each lesson's order", () => {
+  assert.deepEqual(
+    interleaveDecks([
+      ["a1", "a2", "a3"],
+      ["b1"],
+      ["c1", "c2"],
+    ]),
+    ["a1", "b1", "c1", "a2", "c2", "a3"],
+  );
+  assert.deepEqual(interleaveDecks([]), []);
 });
 
 test("review XP is per clip, capped per session and per day", () => {

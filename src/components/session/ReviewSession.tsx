@@ -6,19 +6,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
+import { McCard } from "@/components/session/McCard";
+import { McFeedbackCard } from "@/components/session/McFeedbackCard";
+import { PairingCard } from "@/components/session/PairingCard";
+import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { requeueMissedClip } from "@/lib/progress";
 import { reviewKey } from "@/lib/review";
-import type { ReviewClip } from "@/lib/review-store";
+import type { ReviewCard, ReviewClip } from "@/lib/review-store";
+import { checkMc, type McResult } from "@/lib/multiple-choice";
+import { checkOrder } from "@/lib/sentence-order";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
 type ReviewSessionProps = {
+  /** Clips graded by this session. */
   clips: ReviewClip[];
+  /** Mixed cards for those clips: listening, order, multiple choice, pairing. */
+  cards: ReviewCard[];
   /** All clips due today, including ones beyond this session. */
   dueCount: number;
   /** False when the review tables are not set up yet. */
@@ -60,17 +69,21 @@ function clipKeyOf(clip: ReviewClip): string {
 }
 
 /**
- * One spaced-repetition session: every due clip is one dictation card.
+ * One spaced-repetition session with the same card kinds as practice.
  * No hearts. A wrong answer sends the card further back in the queue, and
- * the clip counts as missed (back to box 0) when the session is stored.
+ * its clip counts as missed (back to box 0) when the session is stored.
+ * Pairing mistakes are not graded: a wrong pair does not say which clip was
+ * forgotten, and each paired clip has its own listening card anyway.
  */
-export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
+export function ReviewSession({ clips, cards, dueCount, ready }: ReviewSessionProps) {
   const router = useRouter();
   const { recordWrongAttempt, recordPracticeDay, streakDays } = useProgress();
-  const [queue, setQueue] = useState<ReviewClip[]>(clips);
+  const [queue, setQueue] = useState<ReviewCard[]>(cards);
   const [index, setIndex] = useState(0);
   const [draft, setDraft] = useState("");
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [mcResult, setMcResult] = useState<McResult | null>(null);
+  const [pairingSolved, setPairingSolved] = useState(false);
   const [summary, setSummary] = useState<ReviewSummaryState | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [xpTotal, setXpTotal] = useState<number | null>(null);
@@ -95,8 +108,10 @@ export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
     };
   }, []);
 
-  const current = queue[index];
-  const isPerfect = scoreResult?.accuracy === 100;
+  const currentCard = queue[index];
+  const current = currentCard?.clip;
+  const isPerfect =
+    scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingSolved;
   const remainingToday = Math.max(0, dueCount - clips.length);
   const xpGain = summary && !summary.xpPending && summary.xp ? summary.xp : 0;
 
@@ -104,23 +119,55 @@ export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
     () =>
       Array.from({ length: Math.max(queue.length, 1) }, (_, position) => {
         if (position < index) return "done";
-        if (position === index && current) return "current";
+        if (position === index && currentCard) return "current";
         return "todo";
       }),
-    [queue.length, index, current],
+    [queue.length, index, currentCard],
   );
+
+  const applyResult = (accuracy: number) => {
+    if (!current) return;
+    if (accuracy === 100) {
+      playSuccessSound();
+      return;
+    }
+    recordWrongAttempt();
+    missedRef.current.add(clipKeyOf(current));
+  };
 
   const handleSubmit = (value: string) => {
     if (!current) return;
     setDraft(value);
     const result = scoreAttempt(value, current.script);
     setScoreResult(result);
-    if (result.accuracy === 100) {
-      playSuccessSound();
-      return;
-    }
-    recordWrongAttempt();
-    missedRef.current.add(clipKeyOf(current));
+    applyResult(result.accuracy);
+  };
+
+  const handleOrderSubmit = (selected: string[]) => {
+    if (!current) return;
+    const result = checkOrder(selected, current.script);
+    setScoreResult(result);
+    applyResult(result.accuracy);
+  };
+
+  const handleMcSubmit = (selectedId: string) => {
+    if (!currentCard?.options) return;
+    const result = checkMc(selectedId, currentCard.options);
+    setMcResult(result);
+    applyResult(result.accuracy);
+  };
+
+  const handlePairingSolved = () => {
+    if (pairingSolved) return;
+    setPairingSolved(true);
+    playSuccessSound();
+  };
+
+  const resetCardResults = () => {
+    setScoreResult(null);
+    setMcResult(null);
+    setPairingSolved(false);
+    setDraft("");
   };
 
   const finish = () => {
@@ -171,19 +218,17 @@ export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
   };
 
   const handleNext = () => {
-    if (!current) return;
+    if (!currentCard) return;
     if (!isPerfect) {
-      setQueue((cards) => requeueMissedClip(cards, index));
-      setScoreResult(null);
-      setDraft("");
+      setQueue((deck) => requeueMissedClip(deck, index));
+      resetCardResults();
       return;
     }
     if (index + 1 >= queue.length) {
       finish();
       return;
     }
-    setScoreResult(null);
-    setDraft("");
+    resetCardResults();
     setIndex((position) => position + 1);
   };
 
@@ -272,7 +317,7 @@ export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
               : undefined
           }
         />
-      ) : !current ? (
+      ) : !currentCard || !current ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
             <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#dcfce7] text-[#16a34a]">
@@ -320,23 +365,63 @@ export function ReviewSession({ clips, dueCount, ready }: ReviewSessionProps) {
               </div>
             </header>
 
-            <AudioPlayerCard key={`${clipKeyOf(current)}:${index}`} audioPath={current.audioPath} />
-
-            {scoreResult ? (
-              <FeedbackResultCard
-                result={scoreResult}
+            {currentCard.kind === "order" && !scoreResult ? (
+              // Order cards hide the audio until checked, then it plays with the feedback.
+              <SentenceOrderCard
+                key={`order-${currentCard.key}:${index}`}
+                translation={current.translationVi}
+                chips={currentCard.bank ?? []}
+                onSubmit={handleOrderSubmit}
+              />
+            ) : currentCard.kind === "multiple-choice" && !mcResult ? (
+              <McCard
+                key={`mc-${currentCard.key}:${index}`}
+                prompt={current.script}
+                options={currentCard.options ?? []}
+                onSubmit={handleMcSubmit}
+              />
+            ) : currentCard.kind === "pairing" ? (
+              <PairingCard
+                key={`pairing-${currentCard.key}:${index}`}
+                items={(currentCard.pairItems ?? []).map((clip) => ({
+                  id: clip.id,
+                  vi: clip.translationVi ?? "",
+                  de: clip.script,
+                }))}
+                onMistake={recordWrongAttempt}
+                onSolved={handlePairingSolved}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
+            ) : currentCard.kind === "multiple-choice" && mcResult ? (
+              <McFeedbackCard
+                result={mcResult}
+                options={currentCard.options ?? []}
                 clip={current}
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
-                skipOnMistake
               />
             ) : (
-              <DictationInputCard
-                key={`dictation-${clipKeyOf(current)}:${index}`}
-                value={draft}
-                onChange={setDraft}
-                onSubmit={handleSubmit}
-              />
+              <>
+                <AudioPlayerCard key={`${currentCard.key}:${index}`} audioPath={current.audioPath} />
+
+                {scoreResult ? (
+                  <FeedbackResultCard
+                    result={scoreResult}
+                    clip={current}
+                    onNext={handleNext}
+                    nextLabel="Tiếp theo"
+                    skipOnMistake
+                  />
+                ) : (
+                  <DictationInputCard
+                    key={`dictation-${currentCard.key}:${index}`}
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={handleSubmit}
+                  />
+                )}
+              </>
             )}
           </div>
         </main>

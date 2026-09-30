@@ -5,6 +5,8 @@ import { listCatalogClips } from "@/lib/duel-store";
 import type { CatalogClip } from "@/lib/duels";
 import { getCefrLevel, getChapterClips } from "@/lib/levels";
 import type { ClipRunResult } from "@/lib/listening-runs";
+import { insertDiscreteCards, MAX_PRACTICE_CARDS, practiceCardCount } from "@/lib/practice-deck";
+import { buildPracticeDeck, type PracticeCard } from "@/lib/sentence-order";
 import {
   getSupabaseAdmin,
   getUserLevelAccess,
@@ -13,6 +15,7 @@ import {
 import {
   applyReviewOutcomes,
   decideReviewXp,
+  interleaveDecks,
   isReviewDue,
   isReviewSchemaMissing,
   pickReviewItems,
@@ -322,14 +325,70 @@ function lessonLabel(lessonKey: string, chapterLabels: Map<string, string>): str
   return label;
 }
 
-/** The clips for one review session, most overdue first. */
+export type ReviewCard = PracticeCard<ReviewClip>;
+
+export type ReviewDeck = {
+  ready: boolean;
+  /** Clips graded by this session, most overdue first. */
+  clips: ReviewClip[];
+  /** Listening, order, multiple-choice and pairing cards for those clips. */
+  cards: ReviewCard[];
+  due: number;
+};
+
+/**
+ * Mixed cards for the picked clips, built per lesson with the same rules as
+ * regular practice (distractors come from the clip's own lesson), then
+ * interleaved. Clips are added most overdue first while the deck still fits
+ * MAX_PRACTICE_CARDS; the first clip is always kept.
+ */
+function buildReviewCards(
+  clips: readonly ReviewClip[],
+  lessonClips: ReadonlyMap<string, SessionClip[]>,
+): { clips: ReviewClip[]; cards: ReviewCard[] } {
+  const groups = new Map<string, ReviewClip[]>();
+  const kept: ReviewClip[] = [];
+  const cardCount = () => {
+    let total = 0;
+    for (const [lessonKey, group] of groups) {
+      total += practiceCardCount(group, lessonClips.get(lessonKey) ?? group);
+    }
+    return total;
+  };
+  for (const clip of clips) {
+    const group = groups.get(clip.lessonKey) ?? [];
+    group.push(clip);
+    groups.set(clip.lessonKey, group);
+    if (kept.length > 0 && cardCount() > MAX_PRACTICE_CARDS) {
+      group.pop();
+      if (group.length === 0) groups.delete(clip.lessonKey);
+      continue;
+    }
+    kept.push(clip);
+  }
+
+  const decks = [...groups].map(([lessonKey, group]) => {
+    const label = group[0]?.lessonLabel ?? lessonKey;
+    const lesson: ReviewClip[] = (lessonClips.get(lessonKey) ?? group).map((clip) => ({
+      ...clip,
+      lessonKey,
+      lessonLabel: label,
+    }));
+    const deck = insertDiscreteCards(buildPracticeDeck(group, lesson), group, lesson, []);
+    // Clip ids repeat across lessons, so card keys carry the lesson too.
+    return deck.map((card) => ({ ...card, key: `${lessonKey}|${card.key}` }));
+  });
+  return { clips: kept, cards: interleaveDecks(decks) };
+}
+
+/** The cards for one review session, most overdue clips first. */
 export async function getReviewDeck(
   user: ReviewUser,
   limit: number,
   now = new Date(),
-): Promise<{ ready: boolean; clips: ReviewClip[]; due: number }> {
+): Promise<ReviewDeck> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return { ready: false, clips: [], due: 0 };
+  if (!supabase) return { ready: false, clips: [], cards: [], due: 0 };
   let picked: DueReviewItem[];
   let dueCount: number;
   try {
@@ -338,7 +397,7 @@ export async function getReviewDeck(
     picked = due.slice(0, limit);
   } catch (error) {
     if (!(error instanceof ReviewSchemaMissing)) console.error("getReviewDeck", error);
-    return { ready: false, clips: [], due: 0 };
+    return { ready: false, clips: [], cards: [], due: 0 };
   }
 
   const lessonClips = new Map<string, SessionClip[]>();
@@ -363,7 +422,7 @@ export async function getReviewDeck(
       lessonLabel: lessonLabel(item.lessonKey, labels),
     });
   }
-  return { ready: true, clips, due: dueCount };
+  return { ready: true, ...buildReviewCards(clips, lessonClips), due: dueCount };
 }
 
 /**
