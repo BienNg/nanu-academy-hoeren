@@ -10,10 +10,16 @@ import {
 import { classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
-import { getLivingClipsForLessonKey } from "@/lib/living";
+import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
-import { getSupabaseAdmin, getUserClassName, readClassName } from "@/lib/progress-store";
+import {
+  getSupabaseAdmin,
+  getUserClassName,
+  livingAccessFrom,
+  readClassName,
+  readLevelAccess,
+} from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
@@ -24,6 +30,7 @@ import {
   googleProfileImage,
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
+  boardClassFor,
   leaderboardClassKey,
   leaderboardDisplayName,
   weekKey,
@@ -644,6 +651,7 @@ type BoardProfileRow = {
   name?: string | null;
   email?: string | null;
   class_name?: unknown;
+  level_access?: unknown;
   deleted_at?: string | null;
   image?: string | null;
 };
@@ -661,6 +669,7 @@ function boardImage(
 
 async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfileRow[]> {
   const columnSets = [
+    "user_id, name, email, class_name, level_access, deleted_at, image",
     "user_id, name, email, class_name, deleted_at, image",
     "user_id, name, email, class_name, deleted_at",
     "user_id, name, email, deleted_at",
@@ -841,7 +850,18 @@ async function markBlitzrundeTab(
   viewerId: string,
 ): Promise<LeaderboardPayload> {
   const classKey = leaderboardClassKey(await getUserClassName(viewerId));
-  return { ...payload, blitzrundeAvailable: await classHasStartedBlitzrunde(classKey) };
+  return {
+    ...payload,
+    blitzrundeAvailable: await classHasStartedBlitzrunde(classKey),
+    duelAvailable: classKey.length > 0,
+  };
+}
+
+/** Granted workplaces in catalog order, for the XP board's fallback class. */
+function boardWorkplaces(row: BoardProfileRow): { slug: string; label: string }[] {
+  const granted = livingAccessFrom(readLevelAccess(row.level_access));
+  if (granted.length === 0) return [];
+  return getLivingWorkplaces().filter((workplace) => granted.includes(workplace.slug));
 }
 
 export async function getLeaderboard(input: {
@@ -885,12 +905,12 @@ export async function getLeaderboard(input: {
   const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
     const total = totals.get(row.user_id);
-    const className = readClassName(row.class_name);
+    const boardClass = boardClassFor(readClassName(row.class_name), boardWorkplaces(row));
     return {
       userId: row.user_id,
       name: leaderboardDisplayName(row.name),
-      classKey: leaderboardClassKey(className),
-      className,
+      classKey: boardClass.classKey,
+      className: boardClass.className,
       isAdmin: isAdminUser({
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,

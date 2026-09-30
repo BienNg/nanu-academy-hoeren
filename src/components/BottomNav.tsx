@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "school" },
@@ -15,9 +15,40 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+const DUEL_TAB_KEY = "nanu-duel-tab";
+const DUEL_TAB_EVENT = "nanu-duel-tab-change";
+
+/**
+ * Whether the Duel tab shows. Remembered for the tab session, so a learner
+ * without a class does not see it flash in on every page before the badge
+ * request answers.
+ */
+function readDuelTab(): boolean {
+  try {
+    return sessionStorage.getItem(DUEL_TAB_KEY) !== "hidden";
+  } catch {
+    return true;
+  }
+}
+
+function writeDuelTab(available: boolean): void {
+  try {
+    sessionStorage.setItem(DUEL_TAB_KEY, available ? "shown" : "hidden");
+  } catch {
+    // Storage can be blocked. The tab then stays on its default.
+  }
+  window.dispatchEvent(new Event(DUEL_TAB_EVENT));
+}
+
+function subscribeDuelTab(onChange: () => void): () => void {
+  window.addEventListener(DUEL_TAB_EVENT, onChange);
+  return () => window.removeEventListener(DUEL_TAB_EVENT, onChange);
+}
+
 export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [challenges, setChallenges] = useState(0);
+  const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +59,7 @@ export function BottomNav() {
           if (cancelled || !data || typeof data !== "object") return;
           const count = (data as { count?: unknown }).count;
           setChallenges(typeof count === "number" && count > 0 ? count : 0);
+          writeDuelTab((data as { available?: unknown }).available !== false);
         })
         .catch(() => {
           if (!cancelled) setChallenges(0);
@@ -47,7 +79,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe shadow-[0_-4px_0_0_rgba(218,226,253,0.65)] backdrop-blur-xl"
     >
       <div className="mx-auto flex h-16 w-full max-w-md items-stretch justify-around px-2">
-        {ITEMS.map((item) => {
+        {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
           const active = isCurrent(pathname, item.href);
           const badge = item.href === "/duel" ? challenges : 0;
           const label = badge > 0 ? `${item.label}, ${badge} lời thách đấu chưa chơi` : item.label;

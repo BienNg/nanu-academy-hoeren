@@ -34,6 +34,8 @@ type HomeScreenProps = {
   ranking: LeaderboardPayload;
   /** Leben-in-Deutschland workplaces this learner may open. Empty hides the section. */
   workplaces?: HomeWorkplace[];
+  /** False for learners without a class: duels need classmates, so the card is hidden. */
+  duelsAvailable?: boolean;
 };
 
 export type HomeWorkplace = {
@@ -642,6 +644,7 @@ export function HomeScreen({
   interviewAccess = false,
   ranking,
   workplaces = [],
+  duelsAvailable = true,
 }: HomeScreenProps) {
   const { data: session } = useSession();
   const { continueLevel, progressFor, streakDays, learnChapterCompleted } =
@@ -712,8 +715,10 @@ export function HomeScreen({
             />
           ) : null}
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
-            <DuelCta />
+          <section
+            className={`grid grid-cols-1 gap-4 sm:items-stretch ${duelsAvailable ? "sm:grid-cols-2" : ""}`}
+          >
+            {duelsAvailable ? <DuelCta /> : null}
             <RankingPreview board={ranking} />
           </section>
 

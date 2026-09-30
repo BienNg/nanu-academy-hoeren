@@ -5,6 +5,7 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
 import { getAvailableWorkplaces, getLivingScenes } from "@/lib/living";
 import {
+  getUserClassName,
   getUserLevelAccess,
   hasInterviewAccess,
   livingAccessFrom,
@@ -29,8 +30,9 @@ export default async function Home() {
   }
 
   const isAdmin = isAdminUser(session.user);
-  const [storedAccess, ranking] = await Promise.all([
+  const [storedAccess, className, ranking] = await Promise.all([
     isAdmin ? Promise.resolve(null) : getUserLevelAccess(session.user.id),
+    isAdmin ? Promise.resolve(null) : getUserClassName(session.user.id),
     getLeaderboard({
       viewerId: session.user.id,
       viewerImage: session.user.image,
@@ -64,6 +66,7 @@ export default async function Home() {
       interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
       ranking={ranking}
       workplaces={workplaces}
+      duelsAvailable={isAdmin || Boolean(className)}
     />
   );
 }

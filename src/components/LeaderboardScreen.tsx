@@ -407,13 +407,17 @@ export function LeaderboardScreen({
     };
   }, [scope, range, boardKind]);
 
+  const duelTab = board.duelAvailable || isAdmin;
   const boardOptions = BOARD_OPTIONS.filter(
-    (option) => option.id !== "blitzrunde" || board.blitzrundeAvailable,
+    (option) =>
+      (option.id !== "blitzrunde" || board.blitzrundeAvailable) &&
+      (option.id !== "duel" || duelTab),
   );
 
   useEffect(() => {
     if (!board.blitzrundeAvailable && boardKind === "blitzrunde") setBoardKind("xp");
-  }, [board.blitzrundeAvailable, boardKind]);
+    if (!duelTab && boardKind === "duel") setBoardKind("xp");
+  }, [board.blitzrundeAvailable, duelTab, boardKind]);
 
   const emptyClass = board.ready && scope === "class" && !board.className;
   const emptyGlobal =
