@@ -242,7 +242,7 @@ function ProgressRing({
   percent: number;
   track: string;
   stroke: string;
-  /** Start at the bottom so a short arc is not hidden by the check badge. */
+  /** Start the arc at the bottom of the circle. */
   fromBottom?: boolean;
 }) {
   const radius = 26;
@@ -271,20 +271,6 @@ function ProgressRing({
         />
       ) : null}
     </svg>
-  );
-}
-
-function DoneBadge({ onGold = false }: { onGold?: boolean }) {
-  return (
-    <span
-      className={`absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full shadow-[0_2px_0_0_#855300] ${
-        onGold ? "bg-white text-[#684000]" : "bg-[#fea619] text-[#684000]"
-      }`}
-    >
-      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-        check
-      </span>
-    </span>
   );
 }
 
@@ -337,7 +323,6 @@ function PathCircle({
         >
           {icon}
         </span>
-        <DoneBadge onGold />
       </span>
     );
   }
@@ -359,7 +344,6 @@ function PathCircle({
         >
           {icon}
         </span>
-        <DoneBadge />
       </span>
     );
   }
