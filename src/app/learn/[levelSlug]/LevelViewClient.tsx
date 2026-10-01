@@ -224,6 +224,45 @@ function isVideoTrailNode(node: TrailNode): boolean {
   return node.icon === "smart_display";
 }
 
+/** "Bắt đầu" before any progress, "Học tiếp" once the node is underway. */
+function continueGuideLabel(node: TrailNode): "Bắt đầu" | "Học tiếp" {
+  return node.percent > 0 ? "Học tiếp" : "Bắt đầu";
+}
+
+function ContinueGuideBubble({
+  label,
+  reduceMotion,
+}: {
+  label: "Bắt đầu" | "Học tiếp";
+  reduceMotion: boolean;
+}) {
+  return (
+    <div className="pointer-events-none absolute top-1 left-1/2 z-20 -translate-x-1/2">
+      <motion.div
+        aria-hidden="true"
+        className="flex flex-col items-center"
+        style={{
+          filter:
+            "drop-shadow(0 1px 0 rgba(0,0,0,0.05)) drop-shadow(0 8px 14px rgba(28,27,31,0.14))",
+        }}
+        animate={reduceMotion ? { y: 0 } : { y: [0, -6, 0] }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
+        }
+      >
+        <span className="rounded-2xl bg-white px-3 py-1.5 text-[13px] font-extrabold tracking-[0.06em] whitespace-nowrap text-[#1cb0f6] uppercase">
+          {label}
+        </span>
+        <svg viewBox="0 0 20 9" className="-mt-px h-[9px] w-5" aria-hidden="true">
+          <path d="M0 0 H20 L10 9 Z" fill="#ffffff" />
+        </svg>
+      </motion.div>
+    </div>
+  );
+}
+
 /**
  * On an open Lektion, video nodes stay open so a leading run can be skipped.
  * The first node after those videos is open too. Every later node stays locked
@@ -592,6 +631,7 @@ function PathStop({
   node,
   locked,
   lockedMessage,
+  guideLabel,
   bubbleOpen,
   onLockedPress,
   onDismiss,
@@ -600,6 +640,7 @@ function PathStop({
   node: TrailNode;
   locked: boolean;
   lockedMessage?: string;
+  guideLabel?: "Bắt đầu" | "Học tiếp" | null;
   bubbleOpen: boolean;
   onLockedPress: () => void;
   onDismiss: () => void;
@@ -644,7 +685,9 @@ function PathStop({
     </>
   );
 
-  const label = locked ? `${node.label}, đã khóa` : node.label;
+  const label = [guideLabel, locked ? `${node.label}, đã khóa` : node.label]
+    .filter(Boolean)
+    .join(", ");
 
   useLayoutEffect(() => {
     if (!bubbleOpen || !rootRef.current) {
@@ -1214,7 +1257,9 @@ export default function LevelViewClient({
           viewport={{ once: true, margin: "-100px" }}
           className="flex flex-col gap-8"
         >
-          {chapters.map((chapter, index) => {
+          {(() => {
+            let continueGuideClaimed = false;
+            return chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
             const chapterKey = chapter.slug;
             const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
@@ -1386,20 +1431,34 @@ export default function LevelViewClient({
                     ) : null}
                     {nodes.map((node, nodeIndex) => {
                       const bubbleId = `${chapter.slug}:${node.key}`;
+                      const locked =
+                        accessLocked ||
+                        trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin);
+                      const showGuide =
+                        !continueGuideClaimed &&
+                        !locked &&
+                        !node.complete &&
+                        !isVideoTrailNode(node);
+                      if (showGuide) continueGuideClaimed = true;
+                      const guideLabel = showGuide ? continueGuideLabel(node) : null;
                       return (
                         <li
                           key={node.key}
                           className={`${PATH_SHIFT[nodeIndex % PATH_SHIFT.length]} ${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
-                          }`}
+                          } ${guideLabel ? "pt-14" : ""}`}
                         >
+                          {guideLabel ? (
+                            <ContinueGuideBubble
+                              label={guideLabel}
+                              reduceMotion={shouldReduceMotion === true}
+                            />
+                          ) : null}
                           <PathStop
                             node={node}
-                            locked={
-                              accessLocked ||
-                              trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin)
-                            }
+                            locked={locked}
                             lockedMessage={accessLocked ? COURSE_ACCESS_LOCK : undefined}
+                            guideLabel={guideLabel}
                             bubbleOpen={lockedBubbleId === bubbleId}
                             onLockedPress={() => toggleLockedBubble(bubbleId)}
                             onDismiss={() => dismissLockedBubble(bubbleId)}
@@ -1412,7 +1471,8 @@ export default function LevelViewClient({
                 ) : null}
               </motion.li>
             );
-          })}
+            });
+          })()}
         </motion.ul>
       </section>
     </main>
