@@ -4,9 +4,11 @@ import {
   assembleLeaderboard,
   boardClassFor,
   LIVING_BOARD_CLASS_PREFIX,
+  leaderboardClassOptions,
   dayKey,
   decidePartXp,
   decideStudyPartXp,
+  passesAlreadyFinished,
   formatWeekCountdown,
   googleProfileImage,
   isXpSchemaMissing,
@@ -88,6 +90,36 @@ test("a listening part pays 35, then 20, then 10 after three passes", () => {
   assert.equal(mastered.xp, 10);
   assert.equal(mastered.kind, "review");
   assert.equal(mastered.store, true);
+});
+
+test("a rerun part uses the stored pass when run history has not caught up", () => {
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 2,
+      partCount: 6,
+      storedRunCount: 1,
+      recordedFinishes: 0,
+    }),
+    1,
+  );
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 6,
+      partCount: 6,
+      storedRunCount: 1,
+      recordedFinishes: 0,
+    }),
+    0,
+  );
+  assert.equal(
+    passesAlreadyFinished({
+      partNumber: 6,
+      partCount: 6,
+      storedRunCount: 2,
+      recordedFinishes: 1,
+    }),
+    1,
+  );
 });
 
 test("failed, too-fast, and mismatched runs do not earn XP", () => {
@@ -227,6 +259,29 @@ test("class board lists the whole class and global keeps the top plus you", () =
   );
   assert.equal(classroom.yourRank, 2);
   assert.equal(classroom.className, "Lớp A");
+  assert.equal(classroom.classKey, "lop-a");
+  assert.deepEqual(classroom.classOptions, []);
+
+  const otherClass = assembleLeaderboard({
+    people,
+    viewerId: "you",
+    scope: "class",
+    range: "week",
+    now: NOW,
+    classKey: "lop-b",
+    classLabel: "Lớp B",
+    classOptions: [
+      { key: "lop-a", label: "Lớp A" },
+      { key: "lop-b", label: "Lớp B" },
+    ],
+  });
+  assert.equal(otherClass.className, "Lớp B");
+  assert.equal(otherClass.classKey, "lop-b");
+  assert.deepEqual(
+    otherClass.rows.map((row) => row.name),
+    ["other"],
+  );
+  assert.equal(otherClass.rows.some((row) => row.isYou), false);
 
   const global = assembleLeaderboard({
     people,
@@ -240,6 +295,22 @@ test("class board lists the whole class and global keeps the top plus you", () =
   assert.equal(global.rows.at(-1)?.rank, null);
   assert.equal(global.rows.at(-1)?.gapBefore, true);
   assert.equal(global.yourRank, null);
+});
+
+test("class options keep the most common spelling", () => {
+  assert.deepEqual(
+    leaderboardClassOptions([
+      { classKey: "lop b", className: "Lop B" },
+      { classKey: "lop b", className: "Lớp B" },
+      { classKey: "lop b", className: "Lớp B" },
+      { classKey: "a", className: "A" },
+      { classKey: "", className: null },
+    ]),
+    [
+      { key: "a", label: "A" },
+      { key: "lop b", label: "Lớp B" },
+    ],
+  );
 });
 
 function previewRow(rank: number, name: string, isYou = false): LeaderboardRow {

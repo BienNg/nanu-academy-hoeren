@@ -2,6 +2,8 @@ import { isAdminUser } from "@/lib/admins";
 import {
   activeStreakDays,
   normalizeProgress,
+  type AppUseRecord,
+  type SignInRecord,
   type StoredProgress,
 } from "@/lib/progress";
 import type {
@@ -50,8 +52,10 @@ export type AdminUserRow = {
   className: string | null;
   /** Limited dashboard access. Not the full admin. */
   staff: boolean;
-  /** Google sign-ins, oldest first. Empty until the next real sign-in after this ships. */
-  signIns: string[];
+  /** Google sign-ins, oldest first. Older rows have no device, browser, or location. */
+  signIns: SignInRecord[];
+  /** Learner app visits, oldest first. */
+  appUses: AppUseRecord[];
   lastSignInAt: string | null;
   progress: StoredProgress;
 };
@@ -128,7 +132,8 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     className: item.className,
     staff: item.staff === true,
     signIns: item.signIns ?? [],
-    lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1] ?? null) : null,
+    appUses: item.appUses ?? [],
+    lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1]?.at ?? null) : null,
     progress,
   };
 }
@@ -216,6 +221,61 @@ export function paginateAdminUsers(
   };
 }
 
+export type AdminRosterPoint = {
+  key: string;
+  label: string;
+  users: number;
+  classes: number;
+};
+
+/**
+ * Running totals for the Students chart. Each point is how many accounts
+ * and classes existed by that Vietnam day. An account counts from its
+ * earliest sign-in or activity. A class counts from the earliest day one
+ * of its current students was first seen. Accounts with no date stay in
+ * the baseline so the last point matches the roster.
+ */
+export function buildAdminRosterTrend(
+  rows: readonly AdminUserRow[],
+  now = new Date(),
+): AdminRosterPoint[] {
+  const days = [...adminRangeVietnamDayKeys("30d", now)].reverse();
+  const people = rows.map((row) => ({
+    day: firstSeenDay(row),
+    className: classKey(row.className),
+  }));
+
+  const classFirst = new Map<string, string | null>();
+  for (const person of people) {
+    if (!person.className) continue;
+    const current = classFirst.get(person.className);
+    if (current === undefined) {
+      classFirst.set(person.className, person.day);
+      continue;
+    }
+    if (person.day && (!current || person.day < current)) {
+      classFirst.set(person.className, person.day);
+    }
+  }
+
+  return days.map((day) => {
+    let users = 0;
+    for (const person of people) {
+      if (!person.day || person.day <= day) users += 1;
+    }
+    let classes = 0;
+    for (const first of classFirst.values()) {
+      if (!first || first <= day) classes += 1;
+    }
+    return {
+      key: day,
+      label: formatUtcDayLabel(day),
+      users,
+      classes,
+    };
+  });
+}
+
 /** Distinct classes, labeled with the most common spelling of each name. */
 export function listAdminClasses(rows: readonly AdminUserRow[]): AdminClassOption[] {
   const groups = new Map<string, Map<string, number>>();
@@ -261,6 +321,8 @@ export type AdminActivityStats = {
   users: number;
   activeUsers: number;
   videosWatched: number;
+  /** Playback seconds while a video was actually playing, in the window. */
+  videoSeconds: number;
   studyRuns: number;
   practiceRuns: number;
 };
@@ -402,8 +464,8 @@ function practiceRunsOnDay(progress: StoredProgress, day: string): number {
   return Math.max(recorded, firstCompletions);
 }
 
-/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
-export function videoMinutesInRange(
+/** Playback seconds in the Vietnam window, from daily totals and visit playback. */
+export function videoSecondsInRange(
   progress: StoredProgress,
   days: readonly string[],
 ): number {
@@ -419,6 +481,15 @@ export function videoMinutesInRange(
     const recorded = progress.activity?.[day]?.videoSeconds ?? 0;
     seconds += Math.max(recorded, fromVisits.get(day) ?? 0);
   }
+  return seconds;
+}
+
+/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
+export function videoMinutesInRange(
+  progress: StoredProgress,
+  days: readonly string[],
+): number {
+  const seconds = videoSecondsInRange(progress, days);
   if (seconds <= 0) return 0;
   return Math.max(1, Math.round(seconds / 60));
 }
@@ -524,6 +595,7 @@ export function buildAdminActivityStats(
   const window = new Set(days);
   let activeUsers = 0;
   let videosWatched = 0;
+  let videoSeconds = 0;
   let studyRuns = 0;
   let practiceRuns = 0;
 
@@ -540,6 +612,7 @@ export function buildAdminActivityStats(
     }
 
     videosWatched += rowVideos;
+    videoSeconds += videoSecondsInRange(row.progress, days);
     studyRuns += rowStudy;
     practiceRuns += rowPractice;
 
@@ -550,6 +623,7 @@ export function buildAdminActivityStats(
     users: learners.length,
     activeUsers,
     videosWatched,
+    videoSeconds,
     studyRuns,
     practiceRuns,
   };
@@ -596,8 +670,6 @@ export type AdminActivityBoard = {
   points: AdminActivityPoint[];
   leaders: AdminActivityLeader[];
 };
-
-const ACTIVITY_LEADER_LIMIT = 8;
 
 function buildDailyActivityPoints(
   rows: readonly AdminUserRow[],
@@ -695,15 +767,6 @@ function buildActivityLeaders(
       practiceRuns += work.practice;
     }
 
-    if (
-      activeSeconds <= 0 &&
-      videosWatched <= 0 &&
-      studyRuns <= 0 &&
-      practiceRuns <= 0
-    ) {
-      continue;
-    }
-
     leaders.push({
       userId: row.userId,
       displayName: row.displayName,
@@ -723,7 +786,7 @@ function buildActivityLeaders(
     return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
   });
 
-  return leaders.slice(0, ACTIVITY_LEADER_LIMIT);
+  return leaders;
 }
 
 /**
@@ -775,7 +838,7 @@ function firstSeenDay(row: AdminUserRow): string | null {
     const day = calendarDay(value);
     if (day) days.push(day);
   };
-  add(row.signIns[0]);
+  add(row.signIns[0]?.at);
   add(row.lastSignInAt);
   add(row.lastLoginAt);
   add(row.progress.lastPracticeDate);

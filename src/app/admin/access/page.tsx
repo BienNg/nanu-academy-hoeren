@@ -31,7 +31,7 @@ export default async function AdminAccessPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("account") : [];
   const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),

@@ -1,7 +1,24 @@
+import { headers } from "next/headers";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { signInContextFromHeaders, type SignInContext } from "@/lib/progress";
 import { googleProfileImage } from "@/lib/xp";
 import { recordUserSignIn, rememberUserImage } from "@/lib/progress-store";
+
+const EMPTY_SIGN_IN_CONTEXT: SignInContext = {
+  device: null,
+  browser: null,
+  location: null,
+};
+
+async function readSignInContext(): Promise<SignInContext> {
+  try {
+    return signInContextFromHeaders(await headers());
+  } catch (error) {
+    console.error("Failed to read sign-in context", error);
+    return EMPTY_SIGN_IN_CONTEXT;
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -62,11 +79,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.authAt = Math.floor(Date.now() / 1000);
         if (userId) {
           try {
-            const imageSaved = await recordUserSignIn(userId, {
-              ...(email !== undefined ? { email } : {}),
-              ...(name !== undefined ? { name } : {}),
-              ...(picture ? { image: picture } : {}),
-            });
+            const imageSaved = await recordUserSignIn(
+              userId,
+              {
+                ...(email !== undefined ? { email } : {}),
+                ...(name !== undefined ? { name } : {}),
+                ...(picture ? { image: picture } : {}),
+              },
+              new Date(),
+              await readSignInContext(),
+            );
             if (picture && imageSaved) token.imageStored = picture;
           } catch (error) {
             console.error("Failed to record sign-in", error);

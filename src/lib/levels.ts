@@ -1,8 +1,16 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
-import type { SessionClip } from "@/lib/content";
+import { getAvailableBerufe, type SessionClip } from "@/lib/content";
+import { isAdminUser } from "@/lib/admins";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
+import {
+  getUserLevelAccess,
+  hasInterviewAccess,
+  livingAccessFrom,
+  withoutReservedAccess,
+} from "@/lib/progress-store";
+import { getAvailableWorkplaces } from "@/lib/living";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -28,6 +36,7 @@ type StoredClip = {
 
 type StoredVideo = {
   title?: unknown;
+  titleVi?: unknown;
   url?: unknown;
 };
 
@@ -39,6 +48,7 @@ type StoredChapterFile = {
 /** A lesson video entered as a title plus a YouTube URL. `videoId` is null when the URL is not playable. */
 export type ChapterVideo = {
   title: string;
+  titleVi: string;
   url: string;
   videoId: string | null;
   startSeconds: number;
@@ -247,12 +257,14 @@ export function getChapterClipInventory(
 
 function toChapterVideo(entry: StoredVideo): ChapterVideo | null {
   const title = typeof entry.title === "string" ? entry.title.trim() : "";
+  const titleVi = typeof entry.titleVi === "string" ? entry.titleVi.trim() : "";
   const url = typeof entry.url === "string" ? entry.url.trim() : "";
   if (!title || !url) return null;
 
   const parsed = parseYouTubeUrl(url);
   return {
     title,
+    titleVi,
     url,
     videoId: parsed?.videoId ?? null,
     startSeconds: parsed?.startSeconds ?? 0,
@@ -274,7 +286,111 @@ export function getChapterVideos(
   });
 }
 
-/** Catalog used on Home to pick the in-progress CEFR resume card. */
+export type LearnerCourse = {
+  slug: string;
+  label: string;
+  href: string;
+  unlocked: boolean;
+};
+
+/** Leben-in-Deutschland workplaces with playable scenes. `granted` null means every one (admins). */
+function livingCourses(granted: readonly string[] | null): LearnerCourse[] {
+  return getAvailableWorkplaces()
+    .filter((workplace) => !granted || granted.includes(workplace.slug))
+    .map((workplace) => ({
+      slug: workplace.slug,
+      label: workplace.label,
+      href: `/living/${workplace.slug}`,
+      unlocked: true,
+    }));
+}
+
+/**
+ * CEFR levels, then interview jobs and Leben-in-Deutschland workplaces when
+ * those grants are on. Admins see every course.
+ */
+export async function loadLearnerCourseMenu(user: {
+  id?: string | null;
+  email?: string | null;
+}): Promise<{
+  levels: LearnerCourse[];
+  interviews: LearnerCourse[];
+  living: LearnerCourse[];
+  unlockedLevelSlugs: string[];
+}> {
+  const stored =
+    isAdminUser(user) || !user.id ? null : await getUserLevelAccess(user.id);
+  const unlockedLevelSlugs = stored
+    ? withoutReservedAccess(stored)
+    : getCefrLevels().map((level) => level.slug);
+  const interviewAccess = stored ? hasInterviewAccess(stored) : true;
+  const unlocked = new Set(unlockedLevelSlugs);
+  const levels = getCefrLevels().map((level) => ({
+    slug: level.slug,
+    label: level.level,
+    href: `/learn/${level.slug}`,
+    unlocked: unlocked.has(level.slug),
+  }));
+  const interviews = interviewAccess
+    ? getAvailableBerufe().map((beruf) => ({
+        slug: beruf.slug,
+        label: beruf.label.split(" / ")[0]?.trim() || beruf.label,
+        href: `/interview/${beruf.slug}`,
+        unlocked: true,
+      }))
+    : [];
+  const living = livingCourses(stored ? livingAccessFrom(stored) : null);
+  return { levels, interviews, living, unlockedLevelSlugs };
+}
+
+/** Every CEFR level and interview job, none of them openable. */
+export function lockedLearnerCourses(): {
+  levels: LearnerCourse[];
+  interviews: LearnerCourse[];
+  living: LearnerCourse[];
+} {
+  return {
+    levels: getCefrLevels().map((level) => ({
+      slug: level.slug,
+      label: level.level,
+      href: `/learn/${level.slug}`,
+      unlocked: false,
+    })),
+    interviews: getAvailableBerufe().map((beruf) => ({
+      slug: beruf.slug,
+      label: beruf.label.split(" / ")[0]?.trim() || beruf.label,
+      href: `/interview/${beruf.slug}`,
+      unlocked: false,
+    })),
+    living: [],
+  };
+}
+
+/** Lektionen for the level path, including ones that are not playable yet. */
+export function buildLevelPathChapters(levelSlug: string) {
+  const availableSlugs = new Set(
+    getAvailableChapters(levelSlug).map((chapter) => chapter.slug),
+  );
+  return getLevelChapters(levelSlug).map((chapter) => {
+    const clips = availableSlugs.has(chapter.slug)
+      ? getChapterClips(levelSlug, chapter.slug)
+      : [];
+    return {
+      ...chapter,
+      hasAudio: availableSlugs.has(chapter.slug),
+      clipCount: clips.length,
+      practiceClips: clips.map((clip) => ({
+        id: clip.id,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        sentenceOrder: clip.sentenceOrder,
+      })),
+      wordCount: clips.reduce((total, clip) => total + countScriptWords(clip.script), 0),
+    };
+  });
+}
+
+/** Catalog used to pick the CEFR level a learner should land on. */
 export function getContinueLevelCatalog(): ContinueLevelCatalogEntry[] {
   return getCefrLevels().map((level) => ({
     level: level.level,

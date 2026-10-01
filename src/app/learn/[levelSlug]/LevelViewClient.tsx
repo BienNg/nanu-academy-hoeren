@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
+import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
+import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { StudyClipList } from "@/components/session/StudyClipList";
@@ -118,7 +120,14 @@ function startOffer(
 
 function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
   const titles =
-    lesson?.videos.map((video) => video.title.trim()).filter(Boolean) ?? [];
+    lesson?.videos
+      .map((video) => {
+        const title = video.title.trim();
+        const titleVi = video.titleVi.trim();
+        if (!title) return "";
+        return titleVi ? `${title} · ${titleVi}` : title;
+      })
+      .filter(Boolean) ?? [];
   return titles.length > 0 ? titles.join(" & ") : null;
 }
 
@@ -156,12 +165,18 @@ function lessonTrailNodes(
     complete: video.status === "watched",
     struggling: false,
     primary: video.title,
-    secondary: null,
+    secondary: video.titleVi || null,
     stars: null,
     rerun: null,
     mastered: false,
     start: null,
-    label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
+    label: [
+      video.title,
+      video.titleVi || null,
+      video.status === "watched" ? "đã xem" : null,
+    ]
+      .filter(Boolean)
+      .join(", "),
   }));
 
   const activities = lesson.activities.map((activity) => {
@@ -207,6 +222,45 @@ function lessonTrailNodes(
 
 function isVideoTrailNode(node: TrailNode): boolean {
   return node.icon === "smart_display";
+}
+
+/** "Bắt đầu" before any progress, "Học tiếp" once the node is underway. */
+function continueGuideLabel(node: TrailNode): "Bắt đầu" | "Học tiếp" {
+  return node.percent > 0 ? "Học tiếp" : "Bắt đầu";
+}
+
+function ContinueGuideBubble({
+  label,
+  reduceMotion,
+}: {
+  label: "Bắt đầu" | "Học tiếp";
+  reduceMotion: boolean;
+}) {
+  return (
+    <div className="pointer-events-none absolute top-1 left-1/2 z-20 -translate-x-1/2">
+      <motion.div
+        aria-hidden="true"
+        className="flex flex-col items-center"
+        style={{
+          filter:
+            "drop-shadow(0 1px 0 rgba(0,0,0,0.05)) drop-shadow(0 8px 14px rgba(28,27,31,0.14))",
+        }}
+        animate={reduceMotion ? { y: 0 } : { y: [0, -6, 0] }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
+        }
+      >
+        <span className="rounded-2xl bg-white px-3 py-1.5 text-[13px] font-extrabold tracking-[0.06em] whitespace-nowrap text-[#1cb0f6] uppercase">
+          {label}
+        </span>
+        <svg viewBox="0 0 20 9" className="-mt-px h-[9px] w-5" aria-hidden="true">
+          <path d="M0 0 H20 L10 9 Z" fill="#ffffff" />
+        </svg>
+      </motion.div>
+    </div>
+  );
 }
 
 /**
@@ -512,13 +566,18 @@ function StartNodeBubble({
   );
 }
 
+const COURSE_ACCESS_LOCK =
+  "Chờ giáo viên cấp quyền vào khóa học này.";
+
 function LockedNodeBubble({
   title,
+  message = "Hoàn thành các bài phía trên để mở khóa!",
   shift,
   bubbleId,
   reduceMotion,
 }: {
   title: string;
+  message?: string;
   shift: number;
   bubbleId: string;
   reduceMotion: boolean;
@@ -556,9 +615,7 @@ function LockedNodeBubble({
       </svg>
       <div className="rounded-2xl bg-white px-4 pt-3.5 pb-3.5">
         <p className="text-[17px] font-extrabold leading-6 text-[#4b4b4b]">{title}</p>
-        <p className="mt-1 text-[15px] font-bold leading-5 text-[#777]">
-          Hoàn thành các bài phía trên để mở khóa!
-        </p>
+        <p className="mt-1 text-[15px] font-bold leading-5 text-[#777]">{message}</p>
         <div
           className="mt-3 flex h-12 items-center justify-center rounded-xl bg-[#e5e5e5] text-[15px] font-extrabold tracking-[0.14em] text-[#afafaf] shadow-[0_4px_0_0_#d1d1d1]"
           aria-hidden="true"
@@ -573,6 +630,8 @@ function LockedNodeBubble({
 function PathStop({
   node,
   locked,
+  lockedMessage,
+  guideLabel,
   bubbleOpen,
   onLockedPress,
   onDismiss,
@@ -580,6 +639,8 @@ function PathStop({
 }: {
   node: TrailNode;
   locked: boolean;
+  lockedMessage?: string;
+  guideLabel?: "Bắt đầu" | "Học tiếp" | null;
   bubbleOpen: boolean;
   onLockedPress: () => void;
   onDismiss: () => void;
@@ -624,7 +685,9 @@ function PathStop({
     </>
   );
 
-  const label = locked ? `${node.label}, đã khóa` : node.label;
+  const label = [guideLabel, locked ? `${node.label}, đã khóa` : node.label]
+    .filter(Boolean)
+    .join(", ");
 
   useLayoutEffect(() => {
     if (!bubbleOpen || !rootRef.current) {
@@ -741,6 +804,7 @@ function PathStop({
         {bubbleOpen && shift != null ? (
           <LockedNodeBubble
             title={lockedBubbleTitle(node)}
+            message={lockedMessage}
             shift={shift}
             bubbleId={bubbleId}
             reduceMotion={reduceMotion}
@@ -891,12 +955,17 @@ export default function LevelViewClient({
   chapters,
   cefrCatalog,
   isAdmin = false,
+  courses,
+  accessLocked = false,
   loadLessonDictionary,
 }: {
   level: Level;
   chapters: Chapter[];
   cefrCatalog: readonly AdminCatalogCourse[];
   isAdmin?: boolean;
+  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
+  /** The learner has no course grant. The path is visible and every node is locked. */
+  accessLocked?: boolean;
   loadLessonDictionary: (chapterSlug: string) => Promise<SessionClip[]>;
 }) {
   const containerRef = useRef<HTMLElement>(null);
@@ -1084,15 +1153,12 @@ export default function LevelViewClient({
       {/* Navigation Bar */}
       <header className="fixed top-0 left-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
-          <Link
-            href="/"
-            className="group flex items-center gap-1.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60"
-          >
-            <span className="material-symbols-outlined text-[20px] font-medium" aria-hidden="true">
-              arrow_back_ios_new
-            </span>
-            <span className="text-[17px] font-medium tracking-tight">Trở về</span>
-          </Link>
+          <CourseMenu
+            currentHref={`/learn/${level.slug}`}
+            levels={courses.levels}
+            interviews={courses.interviews}
+            living={courses.living}
+          />
           <div className="flex items-center gap-2">
             <div
               className="flex items-center gap-1 rounded-full border border-black/[0.05] bg-white px-2.5 py-1 shadow-sm"
@@ -1128,6 +1194,7 @@ export default function LevelViewClient({
         className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:px-6"
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
       >
+        <BlitzrundeBanner />
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1191,14 +1258,20 @@ export default function LevelViewClient({
           viewport={{ once: true, margin: "-100px" }}
           className="flex flex-col gap-8"
         >
-          {chapters.map((chapter, index) => {
+          {(() => {
+            let continueGuideClaimed = false;
+            return chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
             const chapterKey = chapter.slug;
             const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
             const gateChapter = firstIncompletePrevious(index);
             const isLocked =
-              !isAdmin && isAvailable && !isCompleted && Boolean(gateChapter);
-            const isOpen = isAvailable && !isLocked;
+              !accessLocked &&
+              !isAdmin &&
+              isAvailable &&
+              !isCompleted &&
+              Boolean(gateChapter);
+            const isOpen = !accessLocked && isAvailable && !isLocked;
             const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
             const lessonHref = `/learn/${level.slug}/${chapter.slug}`;
@@ -1265,13 +1338,15 @@ export default function LevelViewClient({
               lessonTopic(lessonDetail),
               !isAvailable
                 ? "soon"
-                : isCompleted
-                  ? "completed"
-                  : isLocked
-                    ? "locked"
-                    : chapter.slug === currentChapterSlug
-                      ? "current"
-                      : "open",
+                : accessLocked
+                  ? "locked"
+                  : isCompleted
+                    ? "completed"
+                    : isLocked
+                      ? "locked"
+                      : chapter.slug === currentChapterSlug
+                        ? "current"
+                        : "open",
             );
             const headerClassName = `flex w-full flex-col gap-2 rounded-2xl bg-white p-4 ${
               isOpen && isResume
@@ -1306,7 +1381,7 @@ export default function LevelViewClient({
                       </p>
                     ) : null}
                   </div>
-                  {isCompleted ? (
+                  {!accessLocked && isCompleted ? (
                     <AchievementMedal />
                   ) : !isOpen ? (
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f1f5f9] text-[#94a3b8]">
@@ -1316,7 +1391,7 @@ export default function LevelViewClient({
                     </div>
                   ) : null}
                 </div>
-                {isLocked && gateChapter ? (
+                {!accessLocked && isLocked && gateChapter ? (
                   <div className="flex items-start gap-2 text-[14px] font-medium leading-5 text-[#6e7881]">
                     <span className="material-symbols-outlined mt-0.5 text-[18px] text-[#0284c7]" aria-hidden="true">
                       flag
@@ -1357,16 +1432,34 @@ export default function LevelViewClient({
                     ) : null}
                     {nodes.map((node, nodeIndex) => {
                       const bubbleId = `${chapter.slug}:${node.key}`;
+                      const locked =
+                        accessLocked ||
+                        trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin);
+                      const showGuide =
+                        !continueGuideClaimed &&
+                        !locked &&
+                        !node.complete &&
+                        !isVideoTrailNode(node);
+                      if (showGuide) continueGuideClaimed = true;
+                      const guideLabel = showGuide ? continueGuideLabel(node) : null;
                       return (
                         <li
                           key={node.key}
                           className={`${PATH_SHIFT[nodeIndex % PATH_SHIFT.length]} ${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
-                          }`}
+                          } ${guideLabel ? "pt-14" : ""}`}
                         >
+                          {guideLabel ? (
+                            <ContinueGuideBubble
+                              label={guideLabel}
+                              reduceMotion={shouldReduceMotion === true}
+                            />
+                          ) : null}
                           <PathStop
                             node={node}
-                            locked={trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin)}
+                            locked={locked}
+                            lockedMessage={accessLocked ? COURSE_ACCESS_LOCK : undefined}
+                            guideLabel={guideLabel}
                             bubbleOpen={lockedBubbleId === bubbleId}
                             onLockedPress={() => toggleLockedBubble(bubbleId)}
                             onDismiss={() => dismissLockedBubble(bubbleId)}
@@ -1379,7 +1472,8 @@ export default function LevelViewClient({
                 ) : null}
               </motion.li>
             );
-          })}
+            });
+          })()}
         </motion.ul>
       </section>
     </main>

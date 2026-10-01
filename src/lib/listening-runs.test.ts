@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { CardKind } from "./card-kinds.js";
 import {
   CLIP_RANK_LIMIT,
   buildListeningRunRecord,
   clipOutcomeTotalFromRow,
+  clipResultsForCardDeck,
   clipResultsForFinishedPart,
   isListeningSchemaMissing,
   parseListeningRunInput,
@@ -102,7 +104,9 @@ test("the first clip can end the part", () => {
 });
 
 test("parse accepts a finished part and rejects a mismatched outcome", () => {
-  assert.ok(parseListeningRunInput(successBody()));
+  assert.equal(parseListeningRunInput(successBody())?.cardCount, undefined);
+  assert.equal(parseListeningRunInput(successBody({ cardCount: 4 }))?.cardCount, 4);
+  assert.equal(parseListeningRunInput(successBody({ cardCount: 0 })), null);
   assert.equal(
     parseListeningRunInput(
       successBody({
@@ -137,6 +141,33 @@ test("parse accepts a finished part and rejects a mismatched outcome", () => {
   );
 });
 
+test("a missed card keeps the kinds that were wrong", () => {
+  const deck = [
+    { clip: { id: "c1" } },
+    { clip: { id: "c1" } },
+    { clip: { id: "c2" } },
+  ];
+  const kinds = new Map<string, Set<CardKind>>([
+    ["c1", new Set<CardKind>(["order", "listening"])],
+    ["c2", new Set<CardKind>(["vi-input"])],
+  ]);
+  const results = clipResultsForCardDeck(deck, new Set(["c1"]), false, deck.length - 1, kinds);
+  assert.deepEqual(results, [
+    { clipId: "c1", passed: true, missed: true, missedKinds: ["listening", "order"] },
+    { clipId: "c2", passed: true, missed: false },
+  ]);
+  const parsed = parseListeningRunInput(
+    successBody({
+      answeredCount: 2,
+      clipCount: 2,
+      clips: results,
+    }),
+  );
+  assert.ok(parsed);
+  assert.deepEqual(parsed.clips[0]?.missedKinds, ["listening", "order"]);
+  assert.equal(parsed.clips[1]?.missedKinds, undefined);
+});
+
 test("a stored row keeps clip order", () => {
   const run = storedListeningRunFromRow({
     id: RUN_ID,
@@ -148,18 +179,22 @@ test("a stored row keeps clip order", () => {
     answered_count: 2,
     clip_count: 4,
     elapsed_ms: 5_000,
+    card_count: 9,
     created_at: "2026-09-27T06:00:00.000Z",
     clip_results: [
       { clip_id: "second", passed: false, missed: true, position: 1 },
-      { clip_id: "first", passed: true, missed: true, position: 0 },
+      { clip_id: "first", passed: true, missed: true, position: 0, missed_kinds: ["order", "nope"] },
     ],
   });
   assert.ok(run);
   assert.equal(run.createdAt, "2026-09-27T06:00:00.000Z");
+  assert.equal(run.cardCount, 9);
   assert.deepEqual(
     run.clips.map((clip) => clip.clipId),
     ["first", "second"],
   );
+  assert.deepEqual(run.clips[0]?.missedKinds, ["order"]);
+  assert.equal(run.clips[1]?.missedKinds, undefined);
 });
 
 test("clip totals coerce database counts", () => {

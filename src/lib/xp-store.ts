@@ -7,15 +7,17 @@ import {
   totalsByUser,
   type BlitzrundeBoardExtras,
 } from "@/lib/blitzrunde";
-import { classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
+import { anyClassHasStartedBlitzrunde, classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
-import { listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
+import { learnRunCount, listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
 import {
+  getCloudProgress,
   getSupabaseAdmin,
   getUserClassName,
+  getUserStaff,
   livingAccessFrom,
   readClassName,
   readLevelAccess,
@@ -26,15 +28,18 @@ import {
   dayKey,
   decidePartXp,
   decideStudyPartXp,
+  passesAlreadyFinished,
   emptyLeaderboard,
   googleProfileImage,
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
   boardClassFor,
   leaderboardClassKey,
+  leaderboardClassOptions,
   leaderboardDisplayName,
   weekKey,
   type BoardPerson,
+  type LeaderboardClassOption,
   type LeaderboardPayload,
   type LeaderboardRange,
   type LeaderboardScope,
@@ -197,13 +202,22 @@ export async function grantXpForListeningRun(
     };
   }
 
-  const finishedPasses = await finishedListeningPasses(
+  const recordedFinishes = await finishedListeningPasses(
     supabase,
     userId,
     input.lessonKey,
     input.id,
   );
-  if (finishedPasses == null) return { ready: false, xp: null, kind: null };
+  if (recordedFinishes == null) return { ready: false, xp: null, kind: null };
+  const stored = await getCloudProgress(userId);
+  const slash = input.lessonKey.indexOf("/");
+  const chapterSlug = slash > 0 ? input.lessonKey.slice(slash + 1) : "";
+  const finishedPasses = passesAlreadyFinished({
+    partNumber: input.partNumber,
+    partCount: input.partCount,
+    storedRunCount: chapterSlug ? learnRunCount(stored, chapterSlug) : 0,
+    recordedFinishes,
+  });
 
   const lessonClips = lessonClipsForXp(input.lessonKey);
   const decision = decidePartXp({
@@ -847,18 +861,6 @@ async function readDuelTotals(
   return totals;
 }
 
-async function markBlitzrundeTab(
-  payload: LeaderboardPayload,
-  viewerId: string,
-): Promise<LeaderboardPayload> {
-  const classKey = leaderboardClassKey(await getUserClassName(viewerId));
-  return {
-    ...payload,
-    blitzrundeAvailable: await classHasStartedBlitzrunde(classKey),
-    duelAvailable: classKey.length > 0,
-  };
-}
-
 /** Granted workplaces in catalog order, for the XP board's fallback class. */
 function boardWorkplaces(row: BoardProfileRow): { slug: string; label: string }[] {
   const granted = livingAccessFrom(readLevelAccess(row.level_access));
@@ -866,14 +868,58 @@ function boardWorkplaces(row: BoardProfileRow): { slug: string; label: string }[
   return getLivingWorkplaces().filter((workplace) => granted.includes(workplace.slug));
 }
 
-export async function getLeaderboard(input: {
+type BoardQuery = {
   viewerId: string;
   viewerImage?: string | null;
   scope: LeaderboardScope;
   range: LeaderboardRange;
   now?: Date;
-}): Promise<LeaderboardPayload> {
-  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
+  /** Ignored unless the viewer is an admin or staff. */
+  classKey?: string | null;
+  canPickClass?: boolean;
+};
+
+/** Admins and staff may open any class board. Learners stay on their own class. */
+export async function canPickLeaderboardClass(user: {
+  id?: string | null;
+  email?: string | null;
+}): Promise<boolean> {
+  if (isAdminUser(user)) return true;
+  if (!user.id) return false;
+  return getUserStaff(user.id);
+}
+
+function classChoice(
+  people: readonly { classKey: string; className: string | null }[],
+  input: { canPickClass?: boolean; classKey?: string | null },
+): { options: LeaderboardClassOption[]; classKey: string; classLabel: string | null } {
+  if (!input.canPickClass) return { options: [], classKey: "", classLabel: null };
+  const options = leaderboardClassOptions(people);
+  const key = leaderboardClassKey(input.classKey);
+  const match = options.find((option) => option.key === key);
+  if (!match) return { options, classKey: "", classLabel: null };
+  return { options, classKey: match.key, classLabel: match.label };
+}
+
+async function markBlitzrundeTab(
+  payload: LeaderboardPayload,
+  viewerId: string,
+  canPickClass: boolean,
+): Promise<LeaderboardPayload> {
+  const classKey =
+    payload.scope === "class" && payload.classKey
+      ? payload.classKey
+      : leaderboardClassKey(await getUserClassName(viewerId));
+  let available = await classHasStartedBlitzrunde(classKey);
+  if (!available && canPickClass) available = await anyClassHasStartedBlitzrunde();
+  // Duels match within the viewer's own real class, never a picked or workplace board.
+  const ownClass = leaderboardClassKey(await getUserClassName(viewerId));
+  return { ...payload, blitzrundeAvailable: available, duelAvailable: ownClass.length > 0 };
+}
+
+export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) =>
+    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -936,6 +982,7 @@ export async function getLeaderboard(input: {
     });
   }
 
+  const choice = classChoice(people, input);
   return finish(
     assembleLeaderboard({
       people,
@@ -943,18 +990,16 @@ export async function getLeaderboard(input: {
       scope: input.scope,
       range: input.range,
       now,
+      classKey: choice.classKey || undefined,
+      classLabel: choice.classLabel,
+      classOptions: choice.options,
     }),
   );
 }
 
-export async function getDuelLeaderboard(input: {
-  viewerId: string;
-  viewerImage?: string | null;
-  scope: LeaderboardScope;
-  range: LeaderboardRange;
-  now?: Date;
-}): Promise<LeaderboardPayload> {
-  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
+export async function getDuelLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) =>
+    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -1007,6 +1052,7 @@ export async function getDuelLeaderboard(input: {
     });
   }
 
+  const choice = classChoice(people, input);
   return finish(
     assembleLeaderboard({
       people,
@@ -1015,6 +1061,9 @@ export async function getDuelLeaderboard(input: {
       range: input.range,
       now,
       board: "duel",
+      classKey: choice.classKey || undefined,
+      classLabel: choice.classLabel,
+      classOptions: choice.options,
     }),
   );
 }
@@ -1029,14 +1078,9 @@ export async function getDuelLeaderboard(input: {
  * starts from zero there, and one who moved out stays listed (as `former`)
  * with the points they earned here. The global board adds everything up.
  */
-export async function getBlitzrundeLeaderboard(input: {
-  viewerId: string;
-  viewerImage?: string | null;
-  scope: LeaderboardScope;
-  range: LeaderboardRange;
-  now?: Date;
-}): Promise<LeaderboardPayload> {
-  const finish = (payload: LeaderboardPayload) => markBlitzrundeTab(payload, input.viewerId);
+export async function getBlitzrundeLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  const finish = (payload: LeaderboardPayload) =>
+    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -1057,7 +1101,14 @@ export async function getBlitzrundeLeaderboard(input: {
   const classOf = new Map(
     profiles.map((row) => [row.user_id, leaderboardClassKey(readClassName(row.class_name))]),
   );
-  const viewerClassKey = classOf.get(input.viewerId) ?? "";
+  const choice = classChoice(
+    profiles.map((row) => {
+      const className = readClassName(row.class_name);
+      return { classKey: leaderboardClassKey(className), className };
+    }),
+    input,
+  );
+  const viewerClassKey = choice.classKey || classOf.get(input.viewerId) || "";
   const classScope = input.scope === "class" && viewerClassKey.length > 0;
   const counted = classScope ? inRange.filter((row) => row.classKey === viewerClassKey) : inRange;
   const totals = totalsByUser(counted);
@@ -1115,6 +1166,9 @@ export async function getBlitzrundeLeaderboard(input: {
     range: input.range,
     now,
     board: "blitzrunde",
+    classKey: choice.classKey || undefined,
+    classLabel: choice.classLabel,
+    classOptions: choice.options,
   });
 
   const yours = totals.get(input.viewerId) ?? emptyTotals();
@@ -1207,6 +1261,67 @@ async function listPagedXpRows<T>(
   }
 }
 
+function rpcCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+async function readUserCounts(
+  supabase: SupabaseClient,
+  name: string,
+  args: { p_from: string; p_to: string },
+  field: "parts" | "xp",
+): Promise<{ userId: string; count: number }[] | null> {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) {
+    if (/does not exist|schema cache|could not find/i.test(error.message)) {
+      noteRpcFallback(name, error.message);
+    } else {
+      console.error(`Supabase ${name}`, error.message);
+    }
+    return null;
+  }
+  const rows: { userId: string; count: number }[] = [];
+  for (const row of (Array.isArray(data) ? data : []) as Record<string, unknown>[]) {
+    if (typeof row.user_id !== "string") continue;
+    rows.push({ userId: row.user_id, count: rpcCount(row[field]) });
+  }
+  return rows;
+}
+
+/** Listening plus duel XP in `[fromDay, toDay]`, summed per learner. */
+export async function sumAdminRangeXp(
+  fromDay: string,
+  toDay: string,
+): Promise<{ ready: boolean; byUser: Record<string, number> }> {
+  const supabase = getSupabaseAdmin();
+  const byUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, byUser };
+  const grouped = await readUserCounts(
+    supabase,
+    "admin_xp_by_user",
+    { p_from: fromDay, p_to: toDay },
+    "xp",
+  );
+  if (grouped) {
+    for (const row of grouped) byUser[row.userId] = row.count;
+    return { ready: true, byUser };
+  }
+
+  const [listening, duels] = await Promise.all([
+    listAdminListeningXp(fromDay, toDay),
+    listAdminDuelXp(fromDay, toDay),
+  ]);
+  if (!listening.ready || !duels.ready) return { ready: false, byUser };
+  for (const row of listening.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  for (const row of duels.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  return { ready: true, byUser };
+}
+
 /** Finished study parts on Vietnam `day_key`s in `[fromDay, toDay]`, for the given students. */
 export async function countAdminStudyParts(
   fromDay: string,
@@ -1217,6 +1332,22 @@ export async function countAdminStudyParts(
   const byUser: Record<string, number> = {};
   if (!supabase) return { ready: false, count: 0, byUser };
   if (learnerIds.size === 0) return { ready: true, count: 0, byUser };
+
+  const grouped = await readUserCounts(
+    supabase,
+    "admin_study_part_counts",
+    { p_from: fromDay, p_to: toDay },
+    "parts",
+  );
+  if (grouped) {
+    let count = 0;
+    for (const row of grouped) {
+      if (!learnerIds.has(row.userId)) continue;
+      byUser[row.userId] = row.count;
+      count += row.count;
+    }
+    return { ready: true, count, byUser };
+  }
 
   let count = 0;
   let from = 0;

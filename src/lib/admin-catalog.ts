@@ -76,7 +76,7 @@ export function buildAdminCourseCatalog(
       videoKeyPrefix: `${level.slug}/${chapter.slug}`,
       clips: chapterClips(level.slug, chapter.slug),
       videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
-        video.videoId ? [{ id: video.videoId, title: video.title }] : [],
+        video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
       ),
     })),
   }));

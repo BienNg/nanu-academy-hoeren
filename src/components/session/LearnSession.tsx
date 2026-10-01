@@ -33,7 +33,8 @@ import {
   clipResultsForCardDeck,
   submitListeningRun,
 } from "@/lib/listening-runs";
-import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
+import type { CardKind } from "@/lib/card-kinds";
+import { buildPracticeDeck, checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
 import { insertDiscreteCards } from "@/lib/practice-deck";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
@@ -160,6 +161,7 @@ export function LearnSession({
   const failedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const missedClipIdsRef = useRef(new Set<string>());
+  const missedKindsRef = useRef(new Map<string, Set<CardKind>>());
   const missedCardKeysRef = useRef(new Set<string>());
   const pairingSolvedKeyRef = useRef<string | null>(null);
 
@@ -302,6 +304,7 @@ export function LearnSession({
     initializedSourceRef.current = signature;
     partStartedAtRef.current = Date.now();
     missedClipIdsRef.current = new Set();
+    missedKindsRef.current = new Map();
     missedCardKeysRef.current = new Set();
     pairingSolvedKeyRef.current = null;
     failedRef.current = false;
@@ -392,6 +395,13 @@ export function LearnSession({
     });
   }, [partCards, clipIndex, currentCard]);
 
+  const rememberMiss = (card: PracticeCard) => {
+    missedClipIdsRef.current.add(card.clip.id);
+    const kinds = missedKindsRef.current.get(card.clip.id) ?? new Set<CardKind>();
+    kinds.add(statsCardKind(card.kind));
+    missedKindsRef.current.set(card.clip.id, kinds);
+  };
+
   /** Kind-agnostic hearts/streak bookkeeping. Each handler sets its own result state first. */
   const applyResult = (accuracy: number) => {
     if (!currentCard) return;
@@ -401,7 +411,7 @@ export function LearnSession({
     }
 
     recordWrongAttempt();
-    missedClipIdsRef.current.add(currentCard.clip.id);
+    rememberMiss(currentCard);
     // The first miss of each card costs a heart.
     if (missedCardKeysRef.current.has(currentCard.key)) return;
 
@@ -459,7 +469,7 @@ export function LearnSession({
     if (missedCardKeysRef.current.has(currentCard.key)) return;
 
     recordWrongAttempt();
-    missedClipIdsRef.current.add(currentCard.clip.id);
+    rememberMiss(currentCard);
     missedCardKeysRef.current.add(currentCard.key);
     const nextHearts = heartsLeft - 1;
     setHeartsLeft(Math.max(0, nextHearts));
@@ -524,6 +534,7 @@ export function LearnSession({
       missedClipIdsRef.current,
       failed,
       clipIndex,
+      missedKindsRef.current,
     );
     const answered = results.length;
     const firstTry = results.filter((clip) => !clip.missed).length;
@@ -537,6 +548,7 @@ export function LearnSession({
       failed,
       accuracy,
       clipCount: total,
+      cardCount: partCards.length,
       elapsedMs,
       clips: partClips,
       missedClipIds: missedClipIdsRef.current,

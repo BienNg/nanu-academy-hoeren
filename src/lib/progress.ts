@@ -319,7 +319,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
       ? record.runCompletedClipIds.filter(
           (id): id is string => typeof id === "string",
         )
-      : normalized.completedClipIds,
+      : [],
     ...(runClipOrder.length > 0 ? { runClipOrder } : {}),
     reviewedClipIds: Array.isArray(record.reviewedClipIds)
       ? record.reviewedClipIds.filter(
@@ -600,20 +600,51 @@ function unionIds(left: readonly string[], right: readonly string[]): string[] {
   return Array.from(new Set([...left, ...right]));
 }
 
-function pickRunClipOrder(
+type RunCursor = { order: string[]; done: string[] };
+
+/** Completed ids count only inside the stored shuffle. Ids with no order are not a cursor. */
+function runCursor(entry: LearnProgress | undefined): RunCursor {
+  const order = entry?.runClipOrder ?? [];
+  if (order.length === 0) return { order: [], done: [] };
+  const done = new Set(entry?.runCompletedClipIds ?? []);
+  return { order: [...order], done: order.filter((id) => done.has(id)) };
+}
+
+function sameRunOrder(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+/**
+ * One shuffle plus the parts finished inside it.
+ * A higher run count owns the cursor. Equal counts keep an in-progress
+ * shuffle, and do not fold another snapshot's finished-pass ids into it.
+ */
+function mergeRunCursors(
   left: LearnProgress | undefined,
   right: LearnProgress | undefined,
-  runCompletedClipIds: readonly string[],
-): string[] | undefined {
-  const orders = [left?.runClipOrder ?? [], right?.runClipOrder ?? []].filter(
-    (order) => order.length > 0,
-  );
-  if (orders.length === 0) return undefined;
-  const done = new Set(runCompletedClipIds);
-  const score = (order: readonly string[]) =>
-    order.filter((id) => done.has(id)).length;
-  orders.sort((a, b) => score(b) - score(a));
-  return orders[0];
+  leftCount: number,
+  rightCount: number,
+): RunCursor {
+  if (leftCount !== rightCount) {
+    const ahead = leftCount > rightCount ? left : right;
+    const cursor = runCursor(ahead);
+    if (cursor.order.length === 0) return { order: [], done: [] };
+    return cursor;
+  }
+
+  const a = runCursor(left);
+  const b = runCursor(right);
+  if (a.order.length === 0) return b;
+  if (b.order.length === 0) return a;
+  if (sameRunOrder(a.order, b.order)) {
+    const done = new Set([...a.done, ...b.done]);
+    return { order: a.order, done: a.order.filter((id) => done.has(id)) };
+  }
+
+  const aComplete = a.done.length === a.order.length;
+  const bComplete = b.done.length === b.order.length;
+  if (aComplete !== bComplete) return aComplete ? b : a;
+  return a.done.length >= b.done.length ? a : b;
 }
 
 function mergeLearnEntry(
@@ -631,21 +662,9 @@ function mergeLearnEntry(
   const leftCount = left?.runCount ?? 0;
   const rightCount = right?.runCount ?? 0;
   const runCount = Math.max(leftCount, rightCount);
-  const ahead =
-    leftCount === rightCount ? undefined : leftCount > rightCount ? left : right;
-  // Finishing a run clears its order. The further-ahead snapshot wins, so an
-  // older in-progress cursor is not merged back in.
-  const aheadFinishedRun = Boolean(ahead) && (ahead?.runClipOrder?.length ?? 0) === 0;
-
-  let runCompletedClipIds = unionIds(
-    left?.runCompletedClipIds ?? [],
-    right?.runCompletedClipIds ?? [],
-  );
-  let runClipOrder = pickRunClipOrder(left, right, runCompletedClipIds);
-  if (ahead && aheadFinishedRun) {
-    runCompletedClipIds = [];
-    runClipOrder = undefined;
-  }
+  const cursor = mergeRunCursors(left, right, leftCount, rightCount);
+  const runCompletedClipIds = cursor.done;
+  const runClipOrder = cursor.order.length > 0 ? cursor.order : undefined;
 
   return {
     ...mergedBase,
@@ -2598,18 +2617,70 @@ function asOrderClip(clip: {
   };
 }
 
+/** Fewest clips one practice part may hold. A shorter lesson stays one part. */
+export const MIN_PRACTICE_CLIPS = 6;
+
 /**
- * How many even parts a lesson becomes so each part stays within the card cap.
- * `maxPerPart` is the most clips one part may hold for this lesson.
+ * Largest clip count a part may have.
+ * When the card cap already allows the clip minimum, that cap is the bound.
+ * When 6 clips already pass 20 cards, the bound is the minimum: a part grows
+ * no further, because more clips would only add cards.
+ */
+function partClipBound(maxPerPart: number, minPerPart: number): number {
+  const max = Math.max(1, maxPerPart);
+  const min = Math.max(1, minPerPart);
+  return max >= min ? max : min;
+}
+
+/**
+ * Part count and the size of each part.
+ * An even split is used when every part can stay inside the bound and still
+ * reach the clip minimum. Otherwise parts are filled to the bound and a
+ * shorter tail is left as the last part, instead of spreading those clips
+ * onto earlier parts.
+ */
+function partLayout(
+  total: number,
+  maxPerPart: number,
+  minPerPart: number,
+): { count: number; size: (partNumber: number) => number } {
+  if (total <= 0) return { count: 0, size: () => 0 };
+  const min = Math.max(1, minPerPart);
+  const bound = partClipBound(maxPerPart, minPerPart);
+  if (total <= bound) return { count: 1, size: () => total };
+
+  const evenCount = Math.ceil(total / bound);
+  const smallest = Math.floor(total / evenCount);
+  if (smallest >= min) {
+    const base = Math.floor(total / evenCount);
+    const extra = total % evenCount;
+    return {
+      count: evenCount,
+      size: (partNumber) => base + (partNumber - 1 < extra ? 1 : 0),
+    };
+  }
+
+  const full = Math.floor(total / bound);
+  const remainder = total % bound;
+  if (remainder === 0) return { count: full, size: () => bound };
+  return {
+    count: full + 1,
+    size: (partNumber) => (partNumber <= full ? bound : remainder),
+  };
+}
+
+/**
+ * How many parts a lesson becomes.
+ * Parts stay within the card cap when that still leaves at least
+ * `minPerPart` clips. When the card cap is below that minimum, parts are
+ * exactly the minimum, plus a shorter tail.
  */
 export function listeningPartCount(
   totalQuestions: number,
   maxPerPart: number = MAX_PRACTICE_CARDS,
+  minPerPart: number = MIN_PRACTICE_CLIPS,
 ): number {
-  if (totalQuestions <= 0) return 0;
-  const max = Math.max(1, maxPerPart);
-  if (totalQuestions <= max) return 1;
-  return Math.ceil(totalQuestions / max);
+  return partLayout(totalQuestions, maxPerPart, minPerPart).count;
 }
 
 /**
@@ -2723,10 +2794,15 @@ export function preservedReviewOrder(
 }
 
 /**
- * Split clips into even contiguous parts whose decks stay at or under
- * 15 cards. Sizes differ by at most one. A lesson that already fits is one part.
+ * Split clips into contiguous parts.
+ * A lesson that fits in the card cap is one part. Practice parts aim for at
+ * most 20 cards and at least 6 clips. When 6 clips already pass 20 cards,
+ * each part is 6 clips and the leftover tail stays short. Those leftover
+ * clips are not spread onto earlier parts, which is what turned a 6-clip
+ * part into 8.
  * Pass `maxPerPart` to reuse the parent lesson's cap for a finished prefix
  * or an open suffix, so a lighter stretch is not dealt as a longer run.
+ * Pass `minPerPart` of 1 for study, which has no clip minimum.
  */
 export function splitListeningParts<
   T extends {
@@ -2735,21 +2811,19 @@ export function splitListeningParts<
     translationVi?: string;
     sentenceOrder?: boolean;
   },
->(clips: readonly T[], maxPerPart?: number): T[][] {
+>(clips: readonly T[], maxPerPart?: number, minPerPart: number = MIN_PRACTICE_CLIPS): T[][] {
   if (clips.length === 0) return [];
   const max = Math.max(
     1,
     maxPerPart ?? maxClipsPerPracticePart(clips.map(asOrderClip)),
   );
-  const partCount = Math.min(listeningPartCount(clips.length, max), clips.length);
-  if (partCount <= 1) return [clips.slice()];
+  const layout = partLayout(clips.length, max, minPerPart);
+  if (layout.count <= 1) return [clips.slice()];
 
-  const base = Math.floor(clips.length / partCount);
-  const extra = clips.length % partCount;
   const parts: T[][] = [];
   let index = 0;
-  for (let part = 0; part < partCount; part += 1) {
-    const size = base + (part < extra ? 1 : 0);
+  for (let part = 1; part <= layout.count; part += 1) {
+    const size = layout.size(part);
     parts.push(clips.slice(index, index + size));
     index += size;
   }
@@ -2799,25 +2873,24 @@ export function listeningPartSize(
   partNumber: number,
   partCount: number,
   maxPerPart: number = MAX_PRACTICE_CARDS,
+  minPerPart: number = MIN_PRACTICE_CLIPS,
 ): number | null {
   if (totalClips <= 0 || partNumber < 1 || partCount < 1) return null;
-  const count = listeningPartCount(totalClips, maxPerPart);
-  if (count !== partCount || partNumber > count) return null;
-  const base = Math.floor(totalClips / count);
-  const extra = totalClips % count;
-  return base + (partNumber - 1 < extra ? 1 : 0);
+  const layout = partLayout(totalClips, maxPerPart, minPerPart);
+  if (layout.count !== partCount || partNumber > layout.count) return null;
+  return layout.size(partNumber);
 }
 
 /** Most clips one study node may hold. Parts stay as even as that cap allows. */
 export const MAX_STUDY_CLIPS = 12;
 
 export function studyPartCount(totalClips: number): number {
-  return listeningPartCount(totalClips, MAX_STUDY_CLIPS);
+  return listeningPartCount(totalClips, MAX_STUDY_CLIPS, 1);
 }
 
 /** Even contiguous study parts. A lesson that already fits is one part. */
 export function splitStudyParts<T extends { id: string }>(clips: readonly T[]): T[][] {
-  return splitListeningParts(clips, MAX_STUDY_CLIPS);
+  return splitListeningParts(clips, MAX_STUDY_CLIPS, 1);
 }
 
 export function studyPartSize(
@@ -2825,7 +2898,7 @@ export function studyPartSize(
   partNumber: number,
   partCount: number,
 ): number | null {
-  return listeningPartSize(totalClips, partNumber, partCount, MAX_STUDY_CLIPS);
+  return listeningPartSize(totalClips, partNumber, partCount, MAX_STUDY_CLIPS, 1);
 }
 
 /** 1-based part to play. One past the last part when every part is already finished. */
@@ -3242,6 +3315,45 @@ function isLevelStarted(
 }
 
 /**
+ * CEFR level to open when the learner hits Học.
+ * The highest catalog level they have started and still have access to.
+ * A finished level still counts. With nothing started, the earliest unlocked
+ * level. Null when none of the unlocked slugs are in the catalog.
+ */
+export function landingLevelSlug(
+  progress: StoredProgress,
+  catalog: readonly ContinueLevelCatalogEntry[],
+  unlockedSlugs: readonly string[],
+): string | null {
+  const allowed = new Set(unlockedSlugs);
+  const open = catalog.filter((level) => allowed.has(level.slug));
+  const started = [...open].reverse().find((level) => isLevelStarted(progress, level));
+  return started?.slug ?? open[0]?.slug ?? null;
+}
+
+function interviewCourseStarted(progress: StoredProgress, slug: string): boolean {
+  const entry = progress.interview[slug];
+  if (!entry) return false;
+  return (
+    entry.currentClipIndex > 0 ||
+    entry.completedClipIds.length > 0 ||
+    Boolean(entry.completedAt)
+  );
+}
+
+/**
+ * Interview job to open when the learner has no CEFR course.
+ * The last catalog job they have started, otherwise the first one.
+ */
+export function landingInterviewSlug(
+  progress: StoredProgress,
+  slugs: readonly string[],
+): string | null {
+  const started = [...slugs].reverse().find((slug) => interviewCourseStarted(progress, slug));
+  return started ?? slugs[0] ?? null;
+}
+
+/**
  * Resume target on Home: the first unfinished Lektion of the latest CEFR
  * level the student has actually started. Returns null when nothing is in
  * progress (so Home does not fall back to Ausbildung).
@@ -3310,6 +3422,285 @@ export function shouldReplaceLocalWithCloud(
     return true;
   }
   return nowMs - authAtSeconds * 1000 < FRESH_SIGN_IN_MS;
+}
+
+export const SIGN_IN_KEEP_MS = 90 * 24 * 60 * 60 * 1000;
+export const SIGN_IN_KEEP_COUNT = 120;
+
+/** Set before Google sign-in and before each progress sync, then read on the server. */
+export const SIGN_IN_DEVICE_COOKIE = "nanu-signin-device";
+
+export type SignInDevice = "mobile" | "tablet" | "desktop";
+
+export type SignInRecord = {
+  at: string;
+  device: SignInDevice | null;
+  browser: string | null;
+  location: string | null;
+};
+
+export type SignInContext = {
+  device: SignInDevice | null;
+  browser: string | null;
+  location: string | null;
+};
+
+const SIGN_IN_DEVICES = new Set<SignInDevice>(["mobile", "tablet", "desktop"]);
+
+export function signInDeviceLabel(device: SignInDevice): string {
+  if (device === "mobile") return "Mobile";
+  if (device === "tablet") return "Tablet";
+  return "Desktop";
+}
+
+/** One line for the admin sign-in list. Null when this login predates the extra fields. */
+export function signInSummary(entry: SignInRecord): string | null {
+  const parts = [
+    entry.device ? signInDeviceLabel(entry.device) : null,
+    entry.browser,
+    entry.location,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function signInDeviceCookie(device: SignInDevice, secure = false): string {
+  const base = `${SIGN_IN_DEVICE_COOKIE}=${device}; Path=/; Max-Age=600; SameSite=Lax`;
+  return secure ? `${base}; Secure` : base;
+}
+
+export function parseSignInDevice(value: string | null | undefined): SignInDevice | null {
+  const device = value?.trim().toLowerCase();
+  if (device === "mobile" || device === "tablet" || device === "desktop") return device;
+  return null;
+}
+
+/**
+ * Phone, tablet, or desktop from the browser that started sign-in.
+ * iPadOS reports a desktop User-Agent, so a touch-point count from the
+ * account page is what marks that iPad as a tablet.
+ */
+export function classifySignInDevice(input: {
+  userAgent?: string | null;
+  maxTouchPoints?: number | null;
+  mobileClientHint?: boolean | null;
+}): SignInDevice | null {
+  const ua = input.userAgent?.trim() ?? "";
+  const touch = input.maxTouchPoints ?? 0;
+  if (!ua && input.mobileClientHint == null && touch <= 1) return null;
+  if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) return "tablet";
+  if (touch > 1 && /Macintosh/i.test(ua)) return "tablet";
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return "tablet";
+  if (input.mobileClientHint === true) return "mobile";
+  if (/Mobi|iPhone|iPod|Windows Phone|BlackBerry/i.test(ua)) return "mobile";
+  if (/Android/i.test(ua)) return "mobile";
+  if (!ua) return input.mobileClientHint === false ? "desktop" : null;
+  return "desktop";
+}
+
+/** A short browser name. Empty when the User-Agent is missing. */
+export function browserFromUserAgent(userAgent: string | null | undefined): string | null {
+  const ua = userAgent?.trim() ?? "";
+  if (!ua) return null;
+  if (/Edg(e|A|iOS)?\//.test(ua)) return "Edge";
+  if (/OPR\/|Opera/.test(ua)) return "Opera";
+  if (/SamsungBrowser\//.test(ua)) return "Samsung Internet";
+  if (/Firefox\/|FxiOS\//.test(ua)) return "Firefox";
+  if (/CriOS\/|Chrome\//.test(ua)) return "Chrome";
+  if (/Safari\//.test(ua)) return "Safari";
+  return "Other";
+}
+
+export function deviceFromCookieHeader(cookieHeader: string | null | undefined): SignInDevice | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() !== SIGN_IN_DEVICE_COOKIE) continue;
+    const raw = part.slice(separator + 1).trim();
+    try {
+      return parseSignInDevice(decodeURIComponent(raw));
+    } catch {
+      return parseSignInDevice(raw);
+    }
+  }
+  return null;
+}
+
+type HeaderReader = { get(name: string): string | null };
+
+function cleanSignInText(value: string | null | undefined, max: number): string | null {
+  if (!value) return null;
+  let text = value.trim();
+  try {
+    text = decodeURIComponent(text.replace(/\+/g, " "));
+  } catch {
+    text = value.trim();
+  }
+  text = text.replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.slice(0, max);
+}
+
+/** City and country from the hosting platform's request headers. Not a street address. */
+export function locationFromHeaders(headerList: HeaderReader): string | null {
+  const city = cleanSignInText(headerList.get("x-vercel-ip-city"), 60);
+  const country = cleanSignInText(headerList.get("x-vercel-ip-country"), 2)?.toUpperCase() ?? null;
+  const countryCode = country && /^[A-Z]{2}$/.test(country) ? country : null;
+  if (city && countryCode) return `${city}, ${countryCode}`;
+  if (city) return city;
+  return countryCode;
+}
+
+export function signInContextFromHeaders(headerList: HeaderReader): SignInContext {
+  const userAgent = headerList.get("user-agent");
+  const hinted = deviceFromCookieHeader(headerList.get("cookie"));
+  const mobileHint = headerList.get("sec-ch-ua-mobile");
+  const mobileClientHint = mobileHint === "?1" ? true : mobileHint === "?0" ? false : null;
+  return {
+    device:
+      hinted ??
+      classifySignInDevice({
+        userAgent,
+        mobileClientHint,
+      }),
+    browser: browserFromUserAgent(userAgent),
+    location: locationFromHeaders(headerList),
+  };
+}
+
+function signInInstant(value: string, cutoff: number): string | null {
+  const time = Date.parse(value);
+  if (Number.isNaN(time) || time < cutoff) return null;
+  return new Date(time).toISOString();
+}
+
+function signInRecordFromUnknown(value: unknown, cutoff: number): SignInRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.at !== "string") return null;
+  const at = signInInstant(row.at, cutoff);
+  if (!at) return null;
+  const device =
+    typeof row.device === "string" && SIGN_IN_DEVICES.has(row.device as SignInDevice)
+      ? (row.device as SignInDevice)
+      : null;
+  const browser = cleanSignInText(typeof row.browser === "string" ? row.browser : null, 40);
+  const location = cleanSignInText(typeof row.location === "string" ? row.location : null, 80);
+  return { at, device, browser, location };
+}
+
+function signInStamps(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "{}") return [];
+  const inner =
+    trimmed.startsWith("{") && trimmed.endsWith("}") ? trimmed.slice(1, -1) : trimmed;
+  if (!inner) return [];
+  return inner.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
+}
+
+/**
+ * Google sign-ins from the last 90 days, oldest first.
+ * Timestamp-only rows stay in the list with empty device, browser, and location.
+ * A structured row with the same instant replaces that placeholder.
+ */
+export function readSignInRecords(
+  log: unknown,
+  stamps: unknown,
+  now = Date.now(),
+): SignInRecord[] {
+  const cutoff = now - SIGN_IN_KEEP_MS;
+  const byAt = new Map<string, SignInRecord>();
+  for (const stamp of signInStamps(stamps)) {
+    const at = signInInstant(stamp, cutoff);
+    if (!at || byAt.has(at)) continue;
+    byAt.set(at, { at, device: null, browser: null, location: null });
+  }
+  const entries = Array.isArray(log) ? log : [];
+  for (const item of entries) {
+    const record = signInRecordFromUnknown(item, cutoff);
+    if (record) byAt.set(record.at, record);
+  }
+  return [...byAt.values()]
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .slice(-SIGN_IN_KEEP_COUNT);
+}
+
+export function trimSignInStamps(values: readonly string[], now = Date.now()): string[] {
+  return readSignInRecords(null, values, now).map((entry) => entry.at);
+}
+
+/** Structured log only. Older timestamp-only sign-ins stay on `sign_ins`. */
+export function nextSignInLog(
+  existing: unknown,
+  entry: SignInRecord,
+  now = Date.now(),
+): SignInRecord[] {
+  const prior = Array.isArray(existing) ? existing : [];
+  return readSignInRecords([...prior, entry], [], now);
+}
+
+export type AppUseRecord = SignInRecord & {
+  /** Last time this visit was still open. A later request inside the idle gap updates this. */
+  seenAt: string;
+};
+
+/** One row per visit. Refresh `seenAt` while they keep using the app, instead of adding a row. */
+export const APP_USE_REFRESH_MS = 5 * 60 * 1000;
+export const APP_USE_KEEP_COUNT = 300;
+
+function appUseFromUnknown(value: unknown, cutoff: number): AppUseRecord | null {
+  const base = signInRecordFromUnknown(value, cutoff);
+  if (!base || !value || typeof value !== "object") return null;
+  const raw = (value as Record<string, unknown>).seenAt;
+  const seenAt = typeof raw === "string" ? signInInstant(raw, 0) : null;
+  return { ...base, seenAt: seenAt ?? base.at };
+}
+
+function sameAppUseContext(a: SignInRecord, b: SignInRecord): boolean {
+  return a.device === b.device && a.browser === b.browser && a.location === b.location;
+}
+
+/** App opens from the last 90 days, oldest first. Not Google sign-ins. */
+export function readAppUseRecords(log: unknown, now = Date.now()): AppUseRecord[] {
+  const cutoff = now - SIGN_IN_KEEP_MS;
+  if (!Array.isArray(log)) return [];
+  const records: AppUseRecord[] = [];
+  for (const item of log) {
+    const record = appUseFromUnknown(item, cutoff);
+    if (record) records.push(record);
+  }
+  return records.sort((a, b) => a.at.localeCompare(b.at)).slice(-APP_USE_KEEP_COUNT);
+}
+
+/**
+ * Continue the latest visit when the device, browser, and city match and they
+ * were here within the last 15 minutes. Otherwise start a new visit.
+ */
+export function nextAppUseLog(
+  existing: unknown,
+  entry: SignInRecord,
+  now = Date.now(),
+): { records: AppUseRecord[]; changed: boolean } {
+  const records = readAppUseRecords(existing, now);
+  const incoming: AppUseRecord = { ...entry, seenAt: entry.at };
+  const last = records[records.length - 1];
+  if (last && sameAppUseContext(last, incoming)) {
+    const seenMs = Date.parse(last.seenAt);
+    if (!Number.isNaN(seenMs) && now - seenMs < VISIT_IDLE_MS) {
+      if (now - seenMs < APP_USE_REFRESH_MS) return { records, changed: false };
+      const refreshed = records.slice(0, -1);
+      refreshed.push({ ...last, seenAt: incoming.at });
+      return { records: refreshed, changed: true };
+    }
+  }
+  return {
+    records: [...records, incoming].slice(-APP_USE_KEEP_COUNT),
+    changed: true,
+  };
 }
 
 /** Chapter completion timestamps. A copied account keeps the original stamps. */

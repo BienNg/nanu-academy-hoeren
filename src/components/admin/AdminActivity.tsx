@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -16,12 +16,15 @@ import {
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
   adminRangeLabel,
-  type AdminActivityBoard,
+  buildAdminActivityBoard,
+  buildAdminActivityStats,
+  classKey,
+  listAdminClasses,
   type AdminActivityGrain,
   type AdminActivityLeader,
   type AdminActivityPoint,
-  type AdminActivityStats,
   type AdminRange,
+  type AdminUserRow,
 } from "@/lib/admin-overview";
 
 const AXIS = "#717785";
@@ -50,11 +53,13 @@ function formatMinutes(seconds: number): string {
 function SummaryStat({
   label,
   value,
+  aside,
   icon,
   hint,
 }: {
   label: string;
   value: string;
+  aside?: string;
   icon: string;
   hint: string;
 }) {
@@ -68,8 +73,13 @@ function SummaryStat({
           {label}
         </p>
       </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
+      <p className="mt-space-12 flex items-baseline gap-space-8">
+        <span className="font-headline-lg text-headline-lg tabular-nums text-on-surface">
+          {value}
+        </span>
+        {aside ? (
+          <span className="font-caption text-caption text-on-surface-variant">{aside}</span>
+        ) : null}
       </p>
       <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
     </div>
@@ -244,6 +254,17 @@ function WorkChart({
   );
 }
 
+function formatDayWithWeekday(day: string): string | null {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 function TotalsTable({
   points,
   grain,
@@ -253,6 +274,7 @@ function TotalsTable({
 }) {
   const workHeader = grain === "hour" ? "Clips" : "Study";
   const practiceHeader = grain === "hour" ? "Runs" : "Practice";
+  const rows = grain === "day" ? [...points].reverse() : points;
   return (
     <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
       <div className="px-space-16 py-space-12">
@@ -276,12 +298,14 @@ function TotalsTable({
             </tr>
           </thead>
           <tbody>
-            {points.map((point) => (
+            {rows.map((point) => (
               <tr
                 key={point.key}
                 className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
               >
-                <td className="px-space-16 py-space-8">{point.label}</td>
+                <td className="px-space-16 py-space-8">
+                  {grain === "day" ? (formatDayWithWeekday(point.key) ?? point.label) : point.label}
+                </td>
                 <td className="px-space-12 py-space-8 text-right tabular-nums">
                   {formatCount(point.activeUsers)}
                 </td>
@@ -314,12 +338,12 @@ function LeadersTable({ leaders }: { leaders: readonly AdminActivityLeader[] }) 
           Most time in the app
         </h2>
         <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          Ranked by active minutes in this window, then by videos and runs.
+          Every student in this view. Ranked by active minutes, then by videos and runs.
         </p>
       </div>
       {leaders.length === 0 ? (
         <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          Nobody opened the app in this window.
+          No students in this view.
         </p>
       ) : (
         <table className="w-full min-w-[36rem] border-collapse text-left">
@@ -364,20 +388,111 @@ function LeadersTable({ leaders }: { leaders: readonly AdminActivityLeader[] }) 
   );
 }
 
+function ClassFilter({
+  value,
+  options,
+  onSelect,
+}: {
+  value: string;
+  options: readonly { key: string; label: string; count: number }[];
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <div role="tablist" aria-label="Class" className="flex flex-wrap gap-space-8">
+      {options.map((option) => {
+        const on = option.key === value;
+        return (
+          <button
+            key={option.key || "unassigned"}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onSelect(option.key)}
+            className={`inline-flex h-9 items-center gap-space-4 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
+              on
+                ? "bg-primary text-on-primary"
+                : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
+            }`}
+          >
+            {option.label}
+            <span className={`tabular-nums ${on ? "text-on-primary/70" : "text-outline"}`}>
+              {option.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AdminActivity({
-  activity,
-  board,
+  rows,
   range,
   storeConfigured,
+  studyPartsByUser,
+  practicePartsByUser,
 }: {
-  activity: AdminActivityStats;
-  board: AdminActivityBoard;
+  rows: readonly AdminUserRow[];
   range: AdminRange;
   storeConfigured: boolean;
+  studyPartsByUser: Readonly<Record<string, number>>;
+  practicePartsByUser: Readonly<Record<string, number>>;
 }) {
+  const [classFilter, setClassFilter] = useState("all");
+  const learners = useMemo(
+    () => rows.filter((row) => !row.isAdmin && !row.staff),
+    [rows],
+  );
+  const classOptions = useMemo(() => listAdminClasses(learners), [learners]);
+  const unassignedCount = useMemo(
+    () => learners.filter((row) => !classKey(row.className)).length,
+    [learners],
+  );
+  const filteredRows = useMemo(() => {
+    if (classFilter === "all") return rows;
+    return rows.filter((row) => classKey(row.className) === classFilter);
+  }, [rows, classFilter]);
+  const activity = useMemo(
+    () => buildAdminActivityStats(filteredRows, range),
+    [filteredRows, range],
+  );
+  const partTotals = useMemo(() => {
+    let studyParts = 0;
+    let practiceParts = 0;
+    for (const row of filteredRows) {
+      if (row.isAdmin || row.staff) continue;
+      studyParts += studyPartsByUser[row.userId] ?? 0;
+      practiceParts += practicePartsByUser[row.userId] ?? 0;
+    }
+    return { studyParts, practiceParts };
+  }, [filteredRows, studyPartsByUser, practicePartsByUser]);
+  const board = useMemo(
+    () => buildAdminActivityBoard(filteredRows, range),
+    [filteredRows, range],
+  );
+  const filterOptions = useMemo(
+    () => [
+      { key: "all", label: "All classes", count: learners.length },
+      ...classOptions.map((option) => ({
+        key: option.key,
+        label: option.label,
+        count: option.count,
+      })),
+      ...(unassignedCount > 0
+        ? [{ key: "", label: "Unassigned", count: unassignedCount }]
+        : []),
+    ],
+    [classOptions, learners.length, unassignedCount],
+  );
+  const selectedClass =
+    classFilter === "all"
+      ? null
+      : (filterOptions.find((option) => option.key === classFilter)?.label ?? null);
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
   const timeInApp = board.points.reduce((sum, point) => sum + point.activeSeconds, 0);
+  const classScope = selectedClass ? ` in ${selectedClass}` : "";
+  const classHint = selectedClass ? ` · ${selectedClass}` : "";
 
   return (
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
@@ -386,10 +501,18 @@ export function AdminActivity({
         title="Activity"
         subtitle={
           board.grain === "hour"
-            ? "Who opened the app today, by Vietnam hour."
-            : `Who opened the app ${window}. Each point is a Vietnam day.`
+            ? `Who opened the app today${classScope}, by Vietnam hour.`
+            : `Who opened the app ${window}${classScope}. Each point is a Vietnam day.`
         }
       />
+
+      {classOptions.length > 0 || unassignedCount > 0 ? (
+        <ClassFilter
+          value={classFilter}
+          options={filterOptions}
+          onSelect={setClassFilter}
+        />
+      ) : null}
 
       {!storeConfigured ? (
         <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
@@ -403,31 +526,48 @@ export function AdminActivity({
           label="Active"
           value={formatCount(activity.activeUsers)}
           icon="person"
-          hint={`Seen or practiced ${window}`}
+          hint={`Seen or practiced ${window}${classHint}`}
         />
         <SummaryStat
           label="Time in app"
           value={formatMinutes(timeInApp)}
           icon="schedule"
-          hint={board.grain === "hour" ? "From visits today" : `Active minutes ${window}`}
+          hint={
+            board.grain === "hour"
+              ? `From visits today${classHint}`
+              : `Active minutes ${window}${classHint}`
+          }
         />
         <SummaryStat
           label="Videos watched"
           value={formatCount(activity.videosWatched)}
+          aside="marked watched"
           icon="smart_display"
-          hint={`Marked watched ${window}`}
+          hint={`${formatMinutes(activity.videoSeconds)} playing ${window}${classHint}`}
         />
         <SummaryStat
           label="Study runs"
           value={formatCount(activity.studyRuns)}
           icon="menu_book"
-          hint={`Finished ${window}`}
+          hint={`Finished ${window}${classHint}`}
         />
         <SummaryStat
           label="Practice runs"
           value={formatCount(activity.practiceRuns)}
           icon="headphones"
-          hint={`Practice runs finished ${window}`}
+          hint={`Practice runs finished ${window}${classHint}`}
+        />
+        <SummaryStat
+          label="Study parts"
+          value={formatCount(partTotals.studyParts)}
+          icon="auto_stories"
+          hint={`Finished ${window}${classHint}`}
+        />
+        <SummaryStat
+          label="Practice parts"
+          value={formatCount(partTotals.practiceParts)}
+          icon="task_alt"
+          hint={`Finished ${window}${classHint}`}
         />
       </section>
 

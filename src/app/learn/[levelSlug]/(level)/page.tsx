@@ -3,11 +3,11 @@ import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
 import type { SessionClip } from "@/lib/content";
 import {
-  countScriptWords,
-  getAvailableChapters,
+  buildLevelPathChapters,
   getCefrLevel,
   getChapterClips,
   getLevelChapters,
+  loadLearnerCourseMenu,
 } from "@/lib/levels";
 import { notFound } from "next/navigation";
 import LevelViewClient from "../LevelViewClient";
@@ -25,30 +25,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
   }
   await requireLevelAccess(session.user, levelSlug);
 
-  const allChapters = getLevelChapters(levelSlug);
-  const availableChapters = getAvailableChapters(levelSlug);
-  const availableSlugs = new Set(availableChapters.map(c => c.slug));
-
-  const chaptersWithAudio = allChapters.map((chapter) => {
-    const clips = availableSlugs.has(chapter.slug)
-      ? getChapterClips(levelSlug, chapter.slug)
-      : [];
-    return {
-      ...chapter,
-      hasAudio: availableSlugs.has(chapter.slug),
-      clipCount: clips.length,
-      practiceClips: clips.map((clip) => ({
-        id: clip.id,
-        script: clip.script,
-        translationVi: clip.translationVi,
-        sentenceOrder: clip.sentenceOrder,
-      })),
-      wordCount: clips.reduce(
-        (total, clip) => total + countScriptWords(clip.script),
-        0,
-      ),
-    };
-  });
+  const chaptersWithAudio = buildLevelPathChapters(levelSlug);
 
   async function loadLessonDictionary(chapterSlug: string): Promise<SessionClip[]> {
     "use server";
@@ -69,12 +46,15 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     }
   }
 
+  const courses = await loadLearnerCourseMenu(session.user);
+
   return (
     <LevelViewClient
       level={level}
       chapters={chaptersWithAudio}
       cefrCatalog={buildCefrProgressCatalog()}
       isAdmin={isAdminUser(session.user)}
+      courses={courses}
       loadLessonDictionary={loadLessonDictionary}
     />
   );

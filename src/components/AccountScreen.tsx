@@ -5,7 +5,7 @@ import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { ProfileButton } from "@/components/ProfileButton";
 import { BottomNav } from "@/components/BottomNav";
-import { discardDeviceProgress } from "@/lib/useProgress";
+import { discardDeviceProgress, rememberClientDevice } from "@/lib/useProgress";
 
 function MaterialIcon({
   name,
@@ -73,7 +73,7 @@ export function AccountScreen({
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                aria-label="Về trang chủ"
+                aria-label="Về bài học"
                 className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
               >
                 <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
@@ -124,7 +124,10 @@ export function AccountScreen({
               
               <button
                 type="button"
-                onClick={() => signIn("google", { callbackUrl })}
+                onClick={() => {
+                  rememberClientDevice();
+                  void signIn("google", { callbackUrl });
+                }}
                 className="group relative flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-[16px] bg-white border border-black/[0.05] font-label-lg text-[16px] font-semibold text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#f5f5f7] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] active:scale-[0.98]"
               >
                 <GoogleIcon className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
@@ -152,7 +155,7 @@ export function AccountScreen({
           <div className="flex items-center gap-2">
             <Link
               href="/"
-              aria-label="Về trang chủ"
+              aria-label="Về bài học"
               className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
             >
               <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />

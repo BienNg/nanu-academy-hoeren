@@ -23,6 +23,12 @@ create table if not exists public.user_progress (
   -- Real Google sign-ins (Auth.js jwt callback with `account`). Not app visits.
   -- Kept about 90 days by the app. `last_login_at` stays "last seen".
   sign_ins timestamptz[] not null default '{}',
+  -- Same sign-ins, with device (mobile/tablet/desktop), browser, and
+  -- city-level location. Older timestamps in sign_ins have no matching row.
+  sign_in_log jsonb not null default '[]'::jsonb,
+  -- Each time a signed-in learner loads or saves progress. One row per visit:
+  -- the same device, browser, and city inside 15 minutes updates seenAt.
+  app_uses jsonb not null default '[]'::jsonb,
   -- Limited dashboard access. Staff can see every stat and grant classes and
   -- courses. They cannot delete accounts or progress. Full admins are the
   -- hardcoded allowlist and ignore this flag.
@@ -39,6 +45,8 @@ alter table public.user_progress
   add column if not exists level_access text[] not null default '{}',
   add column if not exists class_name text,
   add column if not exists sign_ins timestamptz[] not null default '{}',
+  add column if not exists sign_in_log jsonb not null default '[]'::jsonb,
+  add column if not exists app_uses jsonb not null default '[]'::jsonb,
   add column if not exists staff boolean not null default false;
 
 create index if not exists user_progress_email_idx

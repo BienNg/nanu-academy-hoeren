@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { emptyLeaderboard, type LeaderboardBoard, type LeaderboardRange, type LeaderboardScope } from "@/lib/xp";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
-import { getBlitzrundeLeaderboard, getDuelLeaderboard, getLeaderboard } from "@/lib/xp-store";
+import { canPickLeaderboardClass, getBlitzrundeLeaderboard, getDuelLeaderboard, getLeaderboard } from "@/lib/xp-store";
 
 function revokedResponse() {
   return NextResponse.json(
@@ -42,12 +42,15 @@ export async function GET(request: Request) {
   const access = await resolveAccountAccess(session.user.id, session.user.authAt);
   if (access === "revoked") return revokedResponse();
 
+  const canPickClass = await canPickLeaderboardClass(session.user);
   const boardInput = {
     viewerId: session.user.id,
     viewerImage: session.user.image,
     scope,
     range,
     now,
+    canPickClass,
+    classKey: canPickClass ? url.searchParams.get("class") : null,
   };
   const payload =
     board === "duel"

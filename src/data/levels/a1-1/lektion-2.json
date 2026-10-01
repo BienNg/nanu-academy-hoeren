@@ -2,10 +2,12 @@
   "videos": [
     {
       "title": "Personalpronomen",
+      "titleVi": "Đại Từ Nhân Xưng",
       "url": "https://youtu.be/TBmF2FT_7G0"
     },
     {
       "title": "Zahlen",
+      "titleVi": "Số Đếm",
       "url": "https://youtu.be/ZdGu-EvY_Os"
     }
   ],

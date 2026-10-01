@@ -8,6 +8,7 @@ import { TopBarStatus } from "@/components/TodayXpChip";
 import {
   googleProfileImage,
   type LeaderboardBoard,
+  type LeaderboardClassOption,
   type LeaderboardPayload,
   type LeaderboardRange,
   type LeaderboardScope,
@@ -282,6 +283,106 @@ function ScopeTabs({
   );
 }
 
+function ClassScope({
+  scope,
+  classKey,
+  options,
+  onScope,
+  onClass,
+}: {
+  scope: LeaderboardScope;
+  classKey: string | null;
+  options: LeaderboardClassOption[];
+  onScope: (scope: LeaderboardScope) => void;
+  onClass: (classKey: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.key === classKey);
+  const classActive = scope === "class";
+  const label = selected?.label ?? (classActive ? "Chọn lớp" : "Lớp");
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+      <div ref={rootRef} className="relative min-w-0">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={selected ? `Lớp ${selected.label}` : "Chọn lớp"}
+          onClick={() => setOpen((current) => !current)}
+          className={`inline-flex h-9 max-w-[9.5rem] items-center gap-0.5 rounded-full px-3 text-[13px] font-extrabold sm:h-10 sm:max-w-[14rem] sm:gap-1 sm:px-4 sm:text-[15px] ${
+            classActive ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
+          }`}
+        >
+          <span className="truncate">{label}</span>
+          <span
+            className={`material-symbols-outlined shrink-0 text-[18px] transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          >
+            expand_more
+          </span>
+        </button>
+        {open ? (
+          <div
+            role="menu"
+            aria-label="Lớp"
+            className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-64 w-max min-w-full max-w-[16rem] overflow-y-auto rounded-2xl border border-black/[0.06] bg-white py-1 shadow-[0_8px_24px_rgba(19,27,46,0.12)]"
+          >
+            {options.map((option) => {
+              const selectedOption = classActive && classKey === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selectedOption}
+                  onClick={() => {
+                    onClass(option.key);
+                    setOpen(false);
+                  }}
+                  className={`flex h-11 w-full items-center px-4 text-left text-[15px] font-extrabold ${
+                    selectedOption ? "text-[#0084ff]" : "text-[#131b2e]"
+                  }`}
+                >
+                  <span className="truncate">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={scope === "global"}
+        onClick={() => onScope("global")}
+        className={`inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold sm:h-10 sm:px-4 sm:text-[15px] ${
+          scope === "global" ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
+        }`}
+      >
+        Mọi người
+      </button>
+    </div>
+  );
+}
+
 function RangeMenu({
   range,
   onChange,
@@ -371,15 +472,18 @@ function isLeaderboardPayload(value: unknown): value is LeaderboardPayload {
 export function LeaderboardScreen({
   initial,
   isAdmin,
+  canPickClass,
 }: {
   initial: LeaderboardPayload;
   isAdmin: boolean;
+  canPickClass: boolean;
 }) {
   const { data: session } = useSession();
   const ownImage = googleProfileImage(session?.user?.image);
   const [board, setBoard] = useState(initial);
   const [boardKind, setBoardKind] = useState<LeaderboardBoard>(initial.board ?? "xp");
   const [scope, setScope] = useState<LeaderboardScope>(initial.scope);
+  const [classKey, setClassKey] = useState<string | null>(initial.classKey);
   const [range, setRange] = useState<LeaderboardRange>(initial.range);
   const [loading, setLoading] = useState(false);
   const skipFirstFetch = useRef(true);
@@ -391,10 +495,15 @@ export function LeaderboardScreen({
     }
     let cancelled = false;
     setLoading(true);
-    void fetch(`/api/leaderboard?scope=${scope}&range=${range}&board=${boardKind}`)
+    const params = new URLSearchParams({ scope, range, board: boardKind });
+    if (canPickClass && scope === "class" && classKey) params.set("class", classKey);
+    void fetch(`/api/leaderboard?${params}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
-        if (!cancelled && isLeaderboardPayload(data)) setBoard(data);
+        if (!cancelled && isLeaderboardPayload(data)) {
+          setBoard(data);
+          if (data.scope === "class") setClassKey(data.classKey);
+        }
       })
       .catch(() => {
         // Keep the board already on screen.
@@ -405,7 +514,7 @@ export function LeaderboardScreen({
     return () => {
       cancelled = true;
     };
-  }, [scope, range, boardKind]);
+  }, [scope, range, boardKind, classKey, canPickClass]);
 
   const duelTab = board.duelAvailable || isAdmin;
   const boardOptions = BOARD_OPTIONS.filter(
@@ -458,7 +567,22 @@ export function LeaderboardScreen({
         <div className="flex flex-col gap-3">
           <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-            <ScopeTabs scope={scope} onChange={setScope} />
+            {canPickClass && board.classOptions.length > 0 ? (
+              <div className="flex min-w-0 rounded-full bg-[#e8eef6] p-1">
+                <ClassScope
+                  scope={scope}
+                  classKey={classKey}
+                  options={board.classOptions}
+                  onScope={setScope}
+                  onClass={(key) => {
+                    setClassKey(key);
+                    setScope("class");
+                  }}
+                />
+              </div>
+            ) : (
+              <ScopeTabs scope={scope} onChange={setScope} />
+            )}
             <RangeMenu range={range} onChange={setRange} />
           </div>
         </div>
@@ -550,9 +674,13 @@ export function LeaderboardScreen({
                 groups
               </span>
             </div>
-            <p className="text-[16px] font-extrabold text-[#131b2e]">Bạn chưa có lớp</p>
+            <p className="text-[16px] font-extrabold text-[#131b2e]">
+              {canPickClass ? "Chọn một lớp" : "Bạn chưa có lớp"}
+            </p>
             <p className="mt-2 text-[14px] font-medium leading-relaxed text-[#6e7881]">
-              Nhờ giáo viên thêm bạn vào lớp để so với bạn học. Mục Mọi người vẫn hiện toàn bộ học viên.
+              {canPickClass
+                ? "Chọn lớp ở trên để xem bảng xếp hạng của lớp đó. Mục Mọi người vẫn hiện toàn bộ học viên."
+                : "Nhờ giáo viên thêm bạn vào lớp để so với bạn học. Mục Mọi người vẫn hiện toàn bộ học viên."}
             </p>
           </section>
         ) : emptyGlobal ? (

@@ -1539,9 +1539,16 @@ export function VideoLessonCard({
     return (
       <section className="flex w-full flex-col gap-4 sm:gap-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="min-w-0 truncate text-[22px] font-extrabold leading-tight tracking-tight text-[#131b2e] sm:text-[32px] lg:text-[36px]">
-            {video.title}
-          </h2>
+          <div className="min-w-0">
+            <h2 className="truncate text-[22px] font-extrabold leading-tight tracking-tight text-[#131b2e] sm:text-[32px] lg:text-[36px]">
+              {video.title}
+            </h2>
+            {video.titleVi ? (
+              <p className="truncate text-[14px] font-bold leading-5 text-[#64748b] sm:text-[16px]">
+                {video.titleVi}
+              </p>
+            ) : null}
+          </div>
           <span
             className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider sm:text-[12px] ${
               status === "watched"

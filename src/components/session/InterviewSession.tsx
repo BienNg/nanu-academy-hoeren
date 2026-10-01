@@ -11,12 +11,15 @@ import { useProgress } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
+import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
+import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
 type InterviewSessionProps = {
   beruf: Ausbildungsberuf;
   clips: SessionClip[];
+  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
 };
 
 function MaterialIcon({
@@ -80,7 +83,7 @@ function SessionComplete({
             href="/"
             className="group relative flex h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98] sm:flex-1"
           >
-            Về trang chủ
+            Về bài học
           </Link>
           <button
             type="button"
@@ -96,7 +99,7 @@ function SessionComplete({
   );
 }
 
-export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
+export function InterviewSession({ beruf, clips, courses }: InterviewSessionProps) {
   const [queue, setQueue] = useState<SessionClip[] | null>(null);
   const [startingCompleted, setStartingCompleted] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
@@ -197,13 +200,12 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
 
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-          <Link
-            href="/"
-            aria-label="Quay lại"
-            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-          >
-            <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-          </Link>
+          <CourseMenu
+            currentHref={`/interview/${beruf.slug}`}
+            levels={courses.levels}
+            interviews={courses.interviews}
+            living={courses.living}
+          />
           <div className="flex-1 truncate px-4 text-center">
             <h1 className="truncate font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
               {beruf.label}
@@ -212,6 +214,10 @@ export function InterviewSession({ beruf, clips }: InterviewSessionProps) {
           <ProfileButton />
         </div>
       </header>
+
+      <div className="mx-auto w-full max-w-2xl px-6 pt-4 empty:hidden">
+        <BlitzrundeBanner />
+      </div>
 
       {!ready ? (
         <SessionContentSkeleton kind="practice" />

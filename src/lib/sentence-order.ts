@@ -14,6 +14,16 @@ import type { CardKind } from "./card-kinds";
  */
 export type PracticeCardKind = CardKind | "reply-choice" | "number-input";
 
+/**
+ * Kind recorded in run stats. The stored miss kinds only know the shared card
+ * kinds, so a Zahlen-Ohr miss counts as listening and a reply miss as multiple choice.
+ */
+export function statsCardKind(kind: PracticeCardKind): CardKind {
+  if (kind === "number-input") return "listening";
+  if (kind === "reply-choice") return "multiple-choice";
+  return kind;
+}
+
 /** Cards that stand for "this clip was heard". Every clip in a deck has exactly one. */
 export function isAnchorKind(kind: PracticeCardKind): boolean {
   return kind === "listening" || kind === "number-input";

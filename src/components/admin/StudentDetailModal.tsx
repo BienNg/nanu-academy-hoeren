@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { deleteAdminStudentProgress, listAdminStudentRuns } from "@/app/admin/actions";
+import {
+  deleteAdminStudentProgress,
+  listAdminStudentRuns,
+  loadAdminStudentDetail,
+} from "@/app/admin/actions";
+import { CARD_KIND_LABEL } from "@/lib/card-kinds";
 import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import {
   describeCatalogClip,
@@ -28,6 +33,7 @@ import {
   activeStreakDays,
   formatActiveDuration,
   isStudyActivityId,
+  signInSummary,
   studyPartNumberFromActivityId,
   type StoredProgress,
 } from "@/lib/progress";
@@ -98,7 +104,7 @@ function MetricBand({
   items,
   columns = "four",
 }: {
-  items: { label: string; value: string; detail?: string | null }[];
+  items: { label: string; value: string; detail?: string | null; title?: string }[];
   columns?: "four" | "two";
 }) {
   return (
@@ -110,7 +116,7 @@ function MetricBand({
               ? `${index % 2 === 0 ? "border-r border-black/[0.06]" : ""} ${index < items.length - 2 ? "border-b border-black/[0.06]" : ""}`
               : `${index % 2 === 0 ? "border-r border-black/[0.06]" : ""} ${index < 2 ? "border-b border-black/[0.06] lg:border-b-0" : ""} ${index % 4 !== 3 ? "lg:border-r lg:border-black/[0.06]" : ""}`;
           return (
-            <div key={item.label} className={`min-w-0 px-5 py-5 sm:px-6 sm:py-6 ${edge}`}>
+            <div key={item.label} title={item.title} className={`min-w-0 px-5 py-5 sm:px-6 sm:py-6 ${edge}`}>
               <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
                 {item.label}
               </p>
@@ -569,6 +575,9 @@ function ListeningRunRow({
   const facts = [
     run.partCount > 1 ? `Part ${run.partNumber} of ${run.partCount}` : `Part ${run.partNumber}`,
     `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}`,
+    ...(run.cardCount != null
+      ? [`${run.cardCount} ${run.cardCount === 1 ? "card" : "cards"}`]
+      : []),
     compactDuration(formatActiveDuration(Math.round(run.elapsedMs / 1000))),
     missed.length > 0 ? `${missed.length} missed` : "No misses",
   ];
@@ -640,11 +649,19 @@ function ListeningRunRow({
                 <ul className="flex flex-col gap-2">
                   {missed.map((clip) => {
                     const described = describeCatalogClip(catalog, run.lessonKey, clip.clipId);
+                    const kinds = (clip.missedKinds ?? [])
+                      .map((kind) => CARD_KIND_LABEL[kind])
+                      .join(" · ");
                     return (
                       <li key={clip.clipId} className="min-w-0">
                         <p className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
                           {clipStatus(clip)}
                         </p>
+                        {kinds ? (
+                          <p className="mt-0.5 font-caption text-caption font-medium text-on-surface-variant">
+                            {kinds}
+                          </p>
+                        ) : null}
                         <p className="mt-0.5 font-body-sm text-body-sm text-on-surface">
                           {described.prompt}
                         </p>
@@ -835,6 +852,12 @@ export function StudentDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [runsRevision, setRunsRevision] = useState(0);
+  const [payload, setPayload] = useState<{
+    progress: StoredProgress;
+    signIns: AdminUserRow["signIns"];
+    appUses: AdminUserRow["appUses"];
+  } | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const serverCaughtUp =
     progressOverride?.userId === row.userId &&
     (progressOverride.progress.adminClears ?? []).every((clear) =>
@@ -843,7 +866,8 @@ export function StudentDetailModal({
   const progress =
     progressOverride?.userId === row.userId && !serverCaughtUp
       ? progressOverride.progress
-      : row.progress;
+      : (payload?.progress ?? row.progress);
+  const detailReady = payload != null;
   const detail = useMemo(
     () => projectStudentDetail(catalog, progress),
     [catalog, progress],
@@ -860,10 +884,35 @@ export function StudentDetailModal({
     [catalog, progress, range],
   );
   const streakDays = activeStreakDays(progress);
-  const lastLogin = formatAbsoluteTime(row.lastSignInAt);
+  const signIns = [...(payload?.signIns ?? row.signIns)].reverse();
+  const appUses = [...(payload?.appUses ?? row.appUses)].reverse();
+  const lastSignInAt = payload?.signIns.length
+    ? (payload.signIns[payload.signIns.length - 1]?.at ?? row.lastSignInAt)
+    : row.lastSignInAt;
+  const lastLogin = formatAbsoluteTime(lastSignInAt);
   const lastSeen = formatAbsoluteTime(row.lastLoginAt);
   const summary = visitLog.summary;
-  const signIns = [...row.signIns].reverse();
+
+  useEffect(() => {
+    let cancelled = false;
+    setPayload(null);
+    setDetailError(null);
+    void loadAdminStudentDetail(row.userId).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setDetailError(result.error);
+        return;
+      }
+      setPayload({
+        progress: result.progress,
+        signIns: result.signIns,
+        appUses: result.appUses,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.userId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1005,7 +1054,8 @@ export function StudentDetailModal({
                         "Courses, Lektionen, videos, practice, and visit history are cleared. The account, class, and level access stay.",
                     });
                   }}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
+                  disabled={!detailReady}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10 disabled:opacity-40"
                 >
                   <MaterialIcon name="delete" className="text-[18px]" />
                   <span className="hidden sm:inline">Delete progress</span>
@@ -1024,6 +1074,8 @@ export function StudentDetailModal({
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-7">
+          {detailReady ? (
+          <div>
           <section aria-label="Visits">
             <div className="flex flex-wrap items-center justify-between gap-space-12">
               <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
@@ -1098,23 +1150,78 @@ export function StudentDetailModal({
                     </p>
                   ) : (
                     <ul className="divide-y divide-black/[0.06]">
-                      {signIns.slice(0, 8).map((stamp) => (
-                        <li
-                          key={stamp}
-                          className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
-                        >
-                          <MaterialIcon name="login" className="text-[18px] text-outline" />
-                          <time
-                            dateTime={stamp}
-                            className="font-body-sm text-body-sm text-on-surface"
+                      {signIns.slice(0, 8).map((entry) => {
+                        const detail = signInSummary(entry);
+                        return (
+                          <li
+                            key={entry.at}
+                            className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
                           >
-                            {formatAbsoluteTime(stamp)}
-                          </time>
-                        </li>
-                      ))}
+                            <MaterialIcon name="login" className="text-[18px] text-outline" />
+                            <div className="min-w-0">
+                              <time
+                                dateTime={entry.at}
+                                className="block font-body-sm text-body-sm text-on-surface"
+                              >
+                                {formatAbsoluteTime(entry.at)}
+                              </time>
+                              {detail ? (
+                                <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
+                                  {detail}
+                                </p>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
                       {signIns.length > 8 ? (
                         <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
                           +{signIns.length - 8} more
+                        </li>
+                      ) : null}
+                    </ul>
+                  )}
+                </Panel>
+              </section>
+
+              <section aria-label="App use">
+                <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                  App use
+                </h3>
+                <Panel className="mt-4">
+                  {appUses.length === 0 ? (
+                    <p className="px-6 py-5 font-body-sm text-body-sm text-on-surface-variant">
+                      No app use recorded yet.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-black/[0.06]">
+                      {appUses.slice(0, 8).map((entry) => {
+                        const detail = signInSummary(entry);
+                        return (
+                          <li
+                            key={`${entry.at}-${entry.seenAt}`}
+                            className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
+                          >
+                            <MaterialIcon name="devices" className="text-[18px] text-outline" />
+                            <div className="min-w-0">
+                              <time
+                                dateTime={entry.at}
+                                className="block font-body-sm text-body-sm text-on-surface"
+                              >
+                                {formatAbsoluteTime(entry.at)}
+                              </time>
+                              {detail ? (
+                                <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
+                                  {detail}
+                                </p>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
+                      {appUses.length > 8 ? (
+                        <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
+                          +{appUses.length - 8} more
                         </li>
                       ) : null}
                     </ul>
@@ -1131,10 +1238,31 @@ export function StudentDetailModal({
                 <MetricBand
                   columns="two"
                   items={[
-                    { label: "Courses", value: String(detail.coursesStarted) },
-                    { label: "Lessons", value: String(detail.lessonsCompleted) },
-                    { label: "Practice runs", value: String(detail.listeningRepetitions) },
-                    { label: "Videos", value: String(detail.videosWatched) },
+                    {
+                      label: "Courses started",
+                      value: String(detail.coursesStarted),
+                      detail: "Opened",
+                      title: "Courses where this student opened a video or finished a clip.",
+                    },
+                    {
+                      label: "Lessons done",
+                      value: String(detail.lessonsCompleted),
+                      detail: "All parts finished",
+                      title:
+                        "Lessons where study, practice, and every video are finished. A watched video or one practice run does not count.",
+                    },
+                    {
+                      label: "Practice runs",
+                      value: String(detail.listeningRepetitions),
+                      detail: "Finished passes",
+                      title: "Times this student finished a full practice pass of a lesson.",
+                    },
+                    {
+                      label: "Videos watched",
+                      value: String(detail.videosWatched),
+                      detail: "Reached the end",
+                      title: "Lesson videos marked watched. Starting a video does not count.",
+                    },
                   ]}
                 />
               </div>
@@ -1283,6 +1411,12 @@ export function StudentDetailModal({
               ) : null}
             </section>
           </div>
+          </div>
+          ) : (
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              {detailError ?? "Loading progress…"}
+            </p>
+          )}
         </div>
       </div>
       {pendingDelete ? (

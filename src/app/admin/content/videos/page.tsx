@@ -26,7 +26,7 @@ export default async function AdminVideosPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("videos") : [];
   const people = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

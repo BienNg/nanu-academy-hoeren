@@ -4,6 +4,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   deleteAdminUser,
   setAdminUserClass,
   setAdminUserInterviewAccess,
@@ -14,8 +23,8 @@ import { AdminPageHeader, MaterialIcon, StaffBadge, useAdminRole } from "@/compo
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
-  ADMIN_PAGE_SIZE,
   CLASS_NAME_MAX_LENGTH,
+  buildAdminRosterTrend,
   classKey,
   filterAdminUsers,
   listAdminClasses,
@@ -28,6 +37,13 @@ import {
   type AdminSortKey,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+
+const STUDENTS_PAGE_SIZE = 15;
+const AXIS = "#717785";
+const GRID = "#c1c6d6";
+const LINE_COLOR = "#0059b5";
+
+type RosterSeries = "users" | "classes";
 
 function SortHeader({
   label,
@@ -559,6 +575,7 @@ export function AdminUsersDashboard({
 }: AdminUsersDashboardProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [rosterSeries, setRosterSeries] = useState<RosterSeries>("users");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminSortKey>("lastLogin");
   const [dir, setDir] = useState<AdminSortDir>("desc");
@@ -753,9 +770,10 @@ export function AdminUsersDashboard({
     [filtered, sort, dir],
   );
   const paged = useMemo(
-    () => paginateAdminUsers(sorted, page, ADMIN_PAGE_SIZE),
+    () => paginateAdminUsers(sorted, page, STUDENTS_PAGE_SIZE),
     [sorted, page],
   );
+  const rosterTrend = useMemo(() => buildAdminRosterTrend(visibleRows), [visibleRows]);
 
   function handleSort(column: AdminSortKey) {
     if (sort === column) {
@@ -818,8 +836,8 @@ export function AdminUsersDashboard({
   const closeDetail = useCallback(() => setDetailUserId(null), []);
 
   const rangeStart =
-    paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
-  const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
+    paged.total === 0 ? 0 : (paged.page - 1) * STUDENTS_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(paged.page * STUDENTS_PAGE_SIZE, paged.total);
 
   return (
     <>
@@ -838,6 +856,99 @@ export function AdminUsersDashboard({
             </p>
           }
         />
+
+        <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-space-12 px-space-16 py-space-12">
+            <div>
+              <h2 className="font-label-md text-label-md font-semibold text-on-surface">
+                Last 30 days
+              </h2>
+              <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+                {rosterSeries === "users"
+                  ? "Users by the day each account was first seen."
+                  : "Classes by the day each one first appeared."}{" "}
+                Days are Vietnam time.
+              </p>
+            </div>
+            <div role="tablist" aria-label="Chart series" className="flex gap-space-8">
+              {(
+                [
+                  { key: "users", label: "Users" },
+                  { key: "classes", label: "Classes" },
+                ] as const
+              ).map((option) => {
+                const on = rosterSeries === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setRosterSeries(option.key)}
+                    className={`inline-flex h-9 items-center rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
+                      on
+                        ? "bg-primary text-on-primary"
+                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={rosterTrend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: AXIS, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: GRID }}
+                  interval={3}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  width={36}
+                  tick={{ fill: AXIS, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  content={({ active, label, payload }) => {
+                    const row = payload?.[0];
+                    if (!active || !row) return null;
+                    return (
+                      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
+                        <p className="font-label-sm text-label-sm font-semibold text-on-surface">
+                          {label}
+                        </p>
+                        <p className="mt-1 flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant">
+                          <span>{row.name}</span>
+                          <span className="tabular-nums text-on-surface">
+                            {typeof row.value === "number"
+                              ? row.value.toLocaleString("en-GB")
+                              : row.value}
+                          </span>
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey={rosterSeries}
+                  name={rosterSeries === "users" ? "Users" : "Classes"}
+                  stroke={LINE_COLOR}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
 
         {!storeConfigured ? (
           <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">

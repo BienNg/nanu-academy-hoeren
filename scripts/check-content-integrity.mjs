@@ -132,6 +132,15 @@ function checkContentFile(jsonPath, audioDir) {
             `${jsonRel} videos[${index}] is missing a non-empty "url" string`,
           );
         }
+        if (
+          isRecord(video) &&
+          video.titleVi !== undefined &&
+          (typeof video.titleVi !== "string" || video.titleVi.trim().length === 0)
+        ) {
+          errors.push(
+            `${jsonRel} videos[${index}] "titleVi" must be a non-empty string when present`,
+          );
+        }
       });
     }
   }
