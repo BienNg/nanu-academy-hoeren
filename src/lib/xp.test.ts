@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assembleLeaderboard,
+  boardClassFor,
+  LIVING_BOARD_CLASS_PREFIX,
   leaderboardClassOptions,
   dayKey,
   decidePartXp,
@@ -439,4 +441,50 @@ test("the blitzrunde board ranks by points, then rounds won", () => {
     board.rows.filter((row) => row.xp > 0).map((row) => row.name),
     ["tie-more-wins", "tie-fewer-wins", "low"],
   );
+});
+
+test("XP board class falls back to the first granted workplace", () => {
+  const workplaces = [
+    { slug: "nagelstudio", label: "Nagelstudio" },
+    { slug: "restaurant", label: "Restaurant" },
+  ];
+  assert.deepEqual(boardClassFor("  A1 Saigon ", workplaces), {
+    classKey: "a1 saigon",
+    className: "  A1 Saigon ",
+  });
+  assert.deepEqual(boardClassFor(null, workplaces), {
+    classKey: `${LIVING_BOARD_CLASS_PREFIX}nagelstudio`,
+    className: "Nagelstudio",
+  });
+  assert.deepEqual(boardClassFor("", []), { classKey: "", className: null });
+});
+
+test("workplace learners share a class board, apart from real classes", () => {
+  const now = new Date("2026-09-30T10:00:00Z");
+  const nagel = boardClassFor(null, [{ slug: "nagelstudio", label: "Nagelstudio" }]);
+  const person = (userId: string, xp: number, boardClass: { classKey: string; className: string | null }) => ({
+    userId,
+    name: userId,
+    classKey: boardClass.classKey,
+    className: boardClass.className,
+    isAdmin: false,
+    xp,
+    reachedAt: null,
+    image: null,
+  });
+  const people = [
+    person("lan", 80, nagel),
+    person("minh", 120, nagel),
+    person("class-kid", 500, boardClassFor("A1 Saigon", [])),
+    person("self-learner", 300, boardClassFor(null, [])),
+  ];
+  const board = assembleLeaderboard({ people, viewerId: "lan", scope: "class", range: "week", now });
+  assert.equal(board.className, "Nagelstudio");
+  assert.deepEqual(
+    board.rows.map((row) => row.name),
+    ["minh", "lan"],
+  );
+  const loner = assembleLeaderboard({ people, viewerId: "self-learner", scope: "class", range: "week", now });
+  assert.equal(loner.className, null);
+  assert.equal(loner.rows.length, 0);
 });

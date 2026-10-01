@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { flushSync } from "react-dom";
 import { motion, useAnimation, useReducedMotion } from "framer-motion";
-import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
@@ -29,8 +29,7 @@ type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
 
 type StudySessionProps = {
-  level: CefrLevel;
-  chapter: LevelChapterMeta;
+  course: SessionCourse;
   clips: SessionClip[];
   initialViewMode?: StudyViewMode;
   /** Open a finished lesson again from part 1. */
@@ -58,8 +57,7 @@ function MaterialIcon({
 }
 
 export function StudySession({
-  level,
-  chapter,
+  course,
   clips: allClips,
   initialViewMode = "cards",
   startReplay = false,
@@ -78,8 +76,8 @@ export function StudySession({
     streakDays,
   } = useProgress();
 
-  const chapterProgressKey = chapter.slug;
-  const lessonKey = `${level.slug}/${chapter.slug}`;
+  const chapterProgressKey = course.progressKey;
+  const lessonKey = course.lessonKey;
   const storedReviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
   const studyFinished = learnStudyCompleted(chapterProgressKey);
   const parts = useMemo(() => splitStudyParts(allClips), [allClips]);
@@ -95,7 +93,7 @@ export function StudySession({
   const openPart = replaying ? 1 : firstIncompleteStudyPart(parts, settledIds);
   const lessonAlreadyDone = !replaying && (studyFinished || openPart > partCount);
   const allClipIds = useMemo(() => allClips.map((clip) => clip.id), [allClips]);
-  const pathHref = `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`;
+  const pathHref = course.pathHref;
 
   const [viewMode, setViewMode] = useState<StudyViewMode>(initialViewMode);
   const [visitPart, setVisitPart] = useState<number | "done" | null>(null);
@@ -475,7 +473,7 @@ export function StudySession({
       <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
-            href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
+            href={pathHref}
             aria-label="Quay lại"
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
@@ -491,7 +489,7 @@ export function StudySession({
               className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
               style={{ letterSpacing: "-0.015em" }}
             >
-              {level.level} - {chapter.label}
+              {course.title}
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -507,8 +505,8 @@ export function StudySession({
         <PartCompleteScreen
           partNumber={summary?.partNumber ?? partCount}
           partCount={partCount}
-          levelLabel={level.level}
-          chapterLabel={chapter.label}
+          levelLabel={course.groupLabel}
+          chapterLabel={course.lessonLabel}
           questionCount={summary?.questionCount ?? allClips.length}
           accuracy={summary?.accuracy ?? null}
           elapsedMs={summary?.elapsedMs ?? null}

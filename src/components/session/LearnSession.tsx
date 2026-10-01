@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
@@ -12,6 +12,8 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
 import { PairingCard } from "@/components/session/PairingCard";
+import { NumberInputCard } from "@/components/session/NumberInputCard";
+import { checkNumberAnswer } from "@/lib/living-content";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
@@ -32,7 +34,7 @@ import {
   submitListeningRun,
 } from "@/lib/listening-runs";
 import type { CardKind } from "@/lib/card-kinds";
-import { buildPracticeDeck, checkOrder, type PracticeCard } from "@/lib/sentence-order";
+import { buildPracticeDeck, checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
 import { insertDiscreteCards } from "@/lib/practice-deck";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
@@ -45,8 +47,7 @@ import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
 type LearnSessionProps = {
-  level: CefrLevel;
-  chapter: LevelChapterMeta;
+  course: SessionCourse;
   clips: SessionClip[];
   nextChapterHref: string;
   hasNextChapter: boolean;
@@ -132,8 +133,7 @@ function stableRunOrder(chapterSlug: string, clips: readonly SessionClip[]): str
 }
 
 export function LearnSession({
-  level,
-  chapter,
+  course,
   clips,
   nextChapterHref,
   hasNextChapter,
@@ -179,9 +179,9 @@ export function LearnSession({
     recordWrongAttempt,
     streakDays,
   } = useProgress();
-  const chapterProgressKey = chapter.slug;
-  const lessonKey = `${level.slug}/${chapter.slug}`;
-  const pathHref = `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`;
+  const chapterProgressKey = course.progressKey;
+  const lessonKey = course.lessonKey;
+  const pathHref = course.pathHref;
   const completedIds = completedLearnClipIdsFor(chapterProgressKey);
   const runCompletedIds = completedLearnRunClipIdsFor(chapterProgressKey);
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
@@ -372,8 +372,8 @@ export function LearnSession({
     failedRun || !isLastPart
       ? "Về bài học"
       : hasNextChapter
-        ? "Lektion tiếp theo"
-        : "Về trình độ";
+        ? course.nextLessonLabel
+        : course.finishLabel;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase !== "leaving");
   if (
     phase === "complete" &&
@@ -398,7 +398,7 @@ export function LearnSession({
   const rememberMiss = (card: PracticeCard) => {
     missedClipIdsRef.current.add(card.clip.id);
     const kinds = missedKindsRef.current.get(card.clip.id) ?? new Set<CardKind>();
-    kinds.add(card.kind);
+    kinds.add(statsCardKind(card.kind));
     missedKindsRef.current.set(card.clip.id, kinds);
   };
 
@@ -427,6 +427,24 @@ export function LearnSession({
     if (!currentClip) return;
     setDraft(value);
     const result = scoreAttempt(value, currentClip.script);
+    setScoreResult(result);
+    applyResult(result.accuracy);
+  };
+
+  const handleNumberSubmit = (value: string) => {
+    if (!currentClip?.answer) return;
+    setDraft(value);
+    const correct = checkNumberAnswer(value, currentClip.answer);
+    const result: ScoreResult = {
+      accuracy: correct ? 100 : 0,
+      words: [
+        {
+          word: currentClip.answer,
+          status: correct ? "correct" : "incorrect",
+          typed: value.trim(),
+        },
+      ],
+    };
     setScoreResult(result);
     applyResult(result.accuracy);
   };
@@ -615,7 +633,7 @@ export function LearnSession({
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
           <Link
-            href={`/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`}
+            href={pathHref}
             aria-label="Quay lại"
             className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
@@ -626,7 +644,7 @@ export function LearnSession({
               Luyện tập
             </span>
             <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-              {level.level} - {chapter.label}
+              {course.title}
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -645,8 +663,8 @@ export function LearnSession({
         <PartCompleteScreen
           partNumber={partNumber}
           partCount={partCount}
-          levelLabel={level.level}
-          chapterLabel={chapter.label}
+          levelLabel={course.groupLabel}
+          chapterLabel={course.lessonLabel}
           questionCount={summary.questionCount}
           accuracy={summary.accuracy}
           elapsedMs={summary.elapsedMs}
@@ -710,6 +728,31 @@ export function LearnSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
               />
+            ) : currentCard?.kind === "reply-choice" && !mcResult ? (
+              <>
+                <AudioPlayerCard
+                  key={`reply-audio-${currentCard.key}`}
+                  audioPath={currentClip.audioPath}
+                />
+                <div className="mt-4">
+                  <McCard
+                    key={`reply-${currentCard.key}`}
+                    prompt="Was sagst du? · Bạn trả lời thế nào?"
+                    options={currentCard.options ?? []}
+                    onSubmit={handleMcSubmit}
+                    layout="list"
+                    icon="forum"
+                  />
+                </div>
+              </>
+            ) : currentCard?.kind === "reply-choice" && mcResult ? (
+              <McFeedbackCard
+                result={mcResult}
+                options={currentCard.options ?? []}
+                clip={currentClip}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
             ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && !mcResult ? (
               <McCard
                 key={`mc-${currentCard.key}`}
@@ -724,6 +767,7 @@ export function LearnSession({
                   id: clip.id,
                   vi: clip.translationVi ?? "",
                   de: clip.script,
+                  ...(clip.imageUrl ? { image: clip.imageUrl } : {}),
                 }))}
                 onMistake={handlePairingMistake}
                 onSolved={handlePairingSolved}
@@ -778,6 +822,11 @@ export function LearnSession({
                     onNext={handleNext}
                     nextLabel="Tiếp theo"
                     skipOnMistake
+                  />
+                ) : currentCard?.kind === "number-input" ? (
+                  <NumberInputCard
+                    key={`number-${currentCard.key}`}
+                    onSubmit={handleNumberSubmit}
                   />
                 ) : (
                   <DictationInputCard

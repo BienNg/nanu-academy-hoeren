@@ -95,6 +95,12 @@ export function McFeedbackCard({
                 {correct ? <> · Đáp án đúng: <span className="text-[#34C759] font-medium">{correct.text}</span></> : null}
               </p>
             ) : null}
+            {selected?.explanation ? (
+              <p className="flex items-start gap-1.5 rounded-xl bg-[#fff7ed] px-3 py-2 text-[14px] font-medium text-[#9a3412]">
+                <span className="material-symbols-outlined mt-px text-[18px]" aria-hidden="true">lightbulb</span>
+                <span>{selected.explanation}</span>
+              </p>
+            ) : null}
           </div>
         }
       />

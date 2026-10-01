@@ -47,6 +47,8 @@ export type AdminUserRow = {
   isAdmin: boolean;
   levelAccess: string[];
   interviewAccess: boolean;
+  /** Leben-in-Deutschland workplace slugs granted. */
+  livingAccess: string[];
   className: string | null;
   /** Limited dashboard access. Not the full admin. */
   staff: boolean;
@@ -126,6 +128,7 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     isAdmin: isAdminUser({ email: item.email, id: item.userId }),
     levelAccess: item.levelAccess,
     interviewAccess: item.interviewAccess,
+    livingAccess: item.livingAccess ?? [],
     className: item.className,
     staff: item.staff === true,
     signIns: item.signIns ?? [],
@@ -1491,6 +1494,8 @@ export type AdminAccessBoard = {
   withLevel: number;
   locked: number;
   interview: number;
+  /** Learners with at least one Leben-in-Deutschland workplace. */
+  living: number;
   admins: number;
   levels: AdminAccessLevelCount[];
   classes: AdminAccessClassRow[];
@@ -1516,6 +1521,7 @@ export function buildAdminAccessBoard(
   const withLevel = learners.filter((row) => row.levelAccess.length > 0).length;
   const locked = learners.length - withLevel;
   const interview = learners.filter((row) => row.interviewAccess).length;
+  const living = learners.filter((row) => row.livingAccess.length > 0).length;
 
   const levelCounts: AdminAccessLevelCount[] = levels.map((level) => {
     const granted = learners.filter((row) => row.levelAccess.includes(level.slug)).length;
@@ -1559,6 +1565,7 @@ export function buildAdminAccessBoard(
     withLevel,
     locked,
     interview,
+    living,
     admins: people.length - learners.length,
     levels: levelCounts,
     classes,

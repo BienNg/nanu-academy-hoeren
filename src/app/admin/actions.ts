@@ -9,6 +9,8 @@ import {
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { getCefrLevels, getChapterClips } from "@/lib/levels";
+import { getLivingWorkplaces } from "@/lib/living";
+import { livingAccessSlug, workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   CLASS_NAME_MAX_LENGTH,
   normalizeClassName,
@@ -40,13 +42,14 @@ import {
   hasInterviewAccess,
   isProgressStoreConfigured,
   listStudentListeningRuns,
+  livingAccessFrom,
   normalizeGrantEmail,
   setCloudProgress,
   setUserClass,
   setUserLevelAccess,
   setUserStaff,
   upsertPendingLevelGrant,
-  withoutInterviewAccess,
+  withoutReservedAccess,
   type PendingLevelGrant,
 } from "@/lib/progress-store";
 
@@ -256,9 +259,11 @@ export async function setAdminUserLevelAccess(
     .map((level) => level.slug)
     .filter((slug) => requested.has(slug));
   const stored = await getUserLevelAccess(id);
-  const next = hasInterviewAccess(stored)
-    ? [...levelAccess, INTERVIEW_ACCESS_SLUG]
-    : levelAccess;
+  const next = [
+    ...levelAccess,
+    ...(hasInterviewAccess(stored) ? [INTERVIEW_ACCESS_SLUG] : []),
+    ...livingGrantSlugs(livingAccessFrom(stored)),
+  ];
 
   try {
     await setUserLevelAccess(id, next);
@@ -296,12 +301,15 @@ export async function setAdminUserInterviewAccess(
   }
 
   const interviewAccess = granted === true;
-  const stored = withoutInterviewAccess(await getUserLevelAccess(id));
+  const storedAll = await getUserLevelAccess(id);
+  const stored = withoutReservedAccess(storedAll);
   const catalog = new Set(getCefrLevels().map((level) => level.slug));
   const levelAccess = stored.filter((slug) => catalog.has(slug));
-  const next = interviewAccess
-    ? [...levelAccess, INTERVIEW_ACCESS_SLUG]
-    : levelAccess;
+  const next = [
+    ...levelAccess,
+    ...(interviewAccess ? [INTERVIEW_ACCESS_SLUG] : []),
+    ...livingGrantSlugs(livingAccessFrom(storedAll)),
+  ];
 
   try {
     await setUserLevelAccess(id, next);
@@ -316,13 +324,76 @@ export async function setAdminUserInterviewAccess(
   return { ok: true, interviewAccess };
 }
 
-function catalogGrantSlugs(levelSlugs: readonly string[], interview: boolean): string[] {
+/** Reserved slugs for the requested workplaces that exist in workplaces.json, in catalog order. */
+function livingGrantSlugs(workplaceSlugs: readonly string[]): string[] {
+  const requested = new Set(workplaceSlugs);
+  return getLivingWorkplaces()
+    .filter((workplace) => requested.has(workplace.slug))
+    .map((workplace) => livingAccessSlug(workplace.slug));
+}
+
+export async function setAdminUserLivingAccess(
+  userId: string,
+  workplaceSlug: string,
+  granted: boolean,
+): Promise<{ ok: true; livingAccess: string[] } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) {
+    return { ok: false, error: "Missing user id" };
+  }
+  if (!getLivingWorkplaces().some((workplace) => workplace.slug === workplaceSlug)) {
+    return { ok: false, error: "Unknown workplace" };
+  }
+
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const email = await getStoredUserEmail(id);
+  if (isAdminUser({ id, email })) {
+    return { ok: false, error: "Admins already have access to every course." };
+  }
+
+  const stored = await getUserLevelAccess(id);
+  const current = livingAccessFrom(stored);
+  const living = granted
+    ? [...current.filter((slug) => slug !== workplaceSlug), workplaceSlug]
+    : current.filter((slug) => slug !== workplaceSlug);
+  const others = stored.filter((slug) => workplaceFromAccessSlug(slug) === null);
+  const livingSlugs = livingGrantSlugs(living);
+
+  try {
+    await setUserLevelAccess(id, [...others, ...livingSlugs]);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update Leben in Deutschland access";
+    return { ok: false, error: message };
+  }
+
+  revalidateAdmin();
+  revalidatePath("/");
+  return { ok: true, livingAccess: livingAccessFrom(livingSlugs) };
+}
+
+function catalogGrantSlugs(
+  levelSlugs: readonly string[],
+  interview: boolean,
+  living: readonly string[] = [],
+): string[] {
   const catalog = getCefrLevels();
   const requested = new Set(levelSlugs);
   const levelAccess = catalog
     .map((level) => level.slug)
     .filter((slug) => requested.has(slug));
-  return interview ? [...levelAccess, INTERVIEW_ACCESS_SLUG] : levelAccess;
+  return [
+    ...levelAccess,
+    ...(interview ? [INTERVIEW_ACCESS_SLUG] : []),
+    ...livingGrantSlugs(living),
+  ];
 }
 
 export async function setAdminPendingAccess(
@@ -330,6 +401,7 @@ export async function setAdminPendingAccess(
   levelSlugs: string[],
   interviewAccess: boolean,
   className = "",
+  livingAccess: string[] = [],
 ): Promise<
   { ok: true; grant: PendingLevelGrant | null } | { ok: false; error: string }
 > {
@@ -348,7 +420,7 @@ export async function setAdminPendingAccess(
     return { ok: false, error: "Admins already have access to every course." };
   }
 
-  const slugs = catalogGrantSlugs(levelSlugs, interviewAccess === true);
+  const slugs = catalogGrantSlugs(levelSlugs, interviewAccess === true, livingAccess);
   const storedClass = normalizeClassName(className);
   if (storedClass.length > CLASS_NAME_MAX_LENGTH) {
     return { ok: false, error: "Class names can be at most 64 characters." };
@@ -380,8 +452,9 @@ export async function setAdminPendingAccess(
     ok: true,
     grant: {
       email: normalized,
-      levelAccess: withoutInterviewAccess(slugs),
+      levelAccess: withoutReservedAccess(slugs),
       interviewAccess: hasInterviewAccess(slugs),
+      livingAccess: livingAccessFrom(slugs),
       className: storedClass || null,
       updatedAt: new Date().toISOString(),
     },

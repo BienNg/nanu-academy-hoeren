@@ -7,8 +7,10 @@ import type { ContinueLevelCatalogEntry } from "@/lib/progress";
 import {
   getUserLevelAccess,
   hasInterviewAccess,
-  withoutInterviewAccess,
+  livingAccessFrom,
+  withoutReservedAccess,
 } from "@/lib/progress-store";
+import { getAvailableWorkplaces } from "@/lib/living";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -291,19 +293,35 @@ export type LearnerCourse = {
   unlocked: boolean;
 };
 
-/** CEFR levels, then interview jobs when that grant is on. Admins see every course. */
+/** Leben-in-Deutschland workplaces with playable scenes. `granted` null means every one (admins). */
+function livingCourses(granted: readonly string[] | null): LearnerCourse[] {
+  return getAvailableWorkplaces()
+    .filter((workplace) => !granted || granted.includes(workplace.slug))
+    .map((workplace) => ({
+      slug: workplace.slug,
+      label: workplace.label,
+      href: `/living/${workplace.slug}`,
+      unlocked: true,
+    }));
+}
+
+/**
+ * CEFR levels, then interview jobs and Leben-in-Deutschland workplaces when
+ * those grants are on. Admins see every course.
+ */
 export async function loadLearnerCourseMenu(user: {
   id?: string | null;
   email?: string | null;
 }): Promise<{
   levels: LearnerCourse[];
   interviews: LearnerCourse[];
+  living: LearnerCourse[];
   unlockedLevelSlugs: string[];
 }> {
   const stored =
     isAdminUser(user) || !user.id ? null : await getUserLevelAccess(user.id);
   const unlockedLevelSlugs = stored
-    ? withoutInterviewAccess(stored)
+    ? withoutReservedAccess(stored)
     : getCefrLevels().map((level) => level.slug);
   const interviewAccess = stored ? hasInterviewAccess(stored) : true;
   const unlocked = new Set(unlockedLevelSlugs);
@@ -321,13 +339,15 @@ export async function loadLearnerCourseMenu(user: {
         unlocked: true,
       }))
     : [];
-  return { levels, interviews, unlockedLevelSlugs };
+  const living = livingCourses(stored ? livingAccessFrom(stored) : null);
+  return { levels, interviews, living, unlockedLevelSlugs };
 }
 
 /** Every CEFR level and interview job, none of them openable. */
 export function lockedLearnerCourses(): {
   levels: LearnerCourse[];
   interviews: LearnerCourse[];
+  living: LearnerCourse[];
 } {
   return {
     levels: getCefrLevels().map((level) => ({
@@ -342,6 +362,7 @@ export function lockedLearnerCourses(): {
       href: `/interview/${beruf.slug}`,
       unlocked: false,
     })),
+    living: [],
   };
 }
 

@@ -41,6 +41,9 @@ export default async function Home() {
     : (menu.interviews[0]?.slug ?? null);
   if (interviewSlug) redirect(`/interview/${interviewSlug}`);
 
+  const workplace = menu.living[0];
+  if (workplace) redirect(workplace.href);
+
   const level = getCefrLevel(LOCKED_PREVIEW_SLUG);
   if (!level) redirect("/account");
 

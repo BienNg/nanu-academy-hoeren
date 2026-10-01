@@ -64,15 +64,20 @@ export function CourseMenu({
   currentHref,
   levels,
   interviews,
+  living = [],
 }: {
   currentHref: string;
   levels: CourseMenuItem[];
   interviews: CourseMenuItem[];
+  /** Leben-in-Deutschland workplaces. Empty hides the group. */
+  living?: CourseMenuItem[];
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  const current = [...levels, ...interviews].find((course) => course.href === currentHref);
+  const current = [...levels, ...interviews, ...living].find(
+    (course) => course.href === currentHref,
+  );
   const label = current?.label ?? "Khóa học";
 
   useEffect(() => {
@@ -134,6 +139,24 @@ export function CourseMenu({
               </p>
               <ul>
                 {interviews.map((course) => (
+                  <li key={course.slug}>
+                    <CourseRow
+                      course={course}
+                      current={course.href === currentHref}
+                      onPick={() => setOpen(false)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {living.length > 0 ? (
+            <>
+              <p className="mt-2 border-t border-[#e5e5e5] px-3 pt-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-[#6e7881]">
+                Leben in Deutschland
+              </p>
+              <ul>
+                {living.map((course) => (
                   <li key={course.slug}>
                     <CourseRow
                       course={course}

@@ -47,6 +47,8 @@ export type AdminCatalogCourse = {
   label: string;
   shortLabel: string;
   kind: "ausbildung" | "cefr";
+  /** Leben-in-Deutschland workplace. Tracked like a CEFR level (study + practice per scene). */
+  living?: boolean;
   lessons: AdminCatalogLesson[];
 };
 
@@ -638,8 +640,11 @@ function catalogLesson(
   }
   const [levelSlug, chapterSlug] = lessonKey.split("/");
   const course = courses.find((entry) => entry.id === levelSlug);
+  // Level progress keys equal the chapter slug. Living scenes are found by their full lesson key.
   const lesson =
-    course?.lessons.find((entry) => entry.learnKey === chapterSlug) ?? null;
+    course?.lessons.find(
+      (entry) => entry.learnKey === chapterSlug || entry.videoKeyPrefix === lessonKey,
+    ) ?? null;
   if (!course || !lesson) return { lessonLabel: lessonKey, lesson };
   return { lessonLabel: `${course.shortLabel} · ${lesson.label}`, lesson };
 }

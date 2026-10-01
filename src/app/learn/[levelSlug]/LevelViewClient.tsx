@@ -36,6 +36,14 @@ type Chapter = {
   id: string;
   slug: string;
   label: string;
+  /** Key into local progress. Defaults to the slug, as for CEFR Lektionen. */
+  progressKey?: string;
+  /** Base link for this lesson's study/practice pages. Defaults to /learn/<level>/<slug>. */
+  href?: string;
+  /** Header title. Defaults to "<level> - <label>". */
+  title?: string;
+  /** Caption under the title. Defaults to the lesson's video titles. */
+  topic?: string | null;
   hasAudio?: boolean;
   clipCount?: number;
   wordCount?: number;
@@ -44,8 +52,56 @@ type Chapter = {
     script: string;
     translationVi?: string;
     sentenceOrder?: boolean;
+    answer?: string;
+    replies?: { text: string; correct: boolean; whyVi?: string }[];
+    imageUrl?: string;
   }[];
 };
+
+function progressKeyOf(chapter: Chapter): string {
+  return chapter.progressKey ?? chapter.slug;
+}
+
+/** Colors and wording that differ between a CEFR level and a Leben-in-Deutschland workplace. */
+export type PathOptions = {
+  theme?: "level" | "living";
+  /** Banner kicker, icon and title. Defaults to the CEFR level banner. */
+  kicker?: string;
+  kickerIcon?: string;
+  title?: string;
+  description?: string;
+  watermarkIcon?: string;
+  /** "Lektion hiện tại" by default. */
+  currentLabel?: string;
+  /** Course menu entry this page belongs to. Defaults to /learn/<level>. */
+  courseHref?: string;
+  showBlitzrunde?: boolean;
+  /** Trophy node after the last lesson, gold once every lesson is finished. */
+  finish?: { title: string; subtitle: string; lockedText: string };
+};
+
+const PATH_THEMES = {
+  level: {
+    vars: {
+      "--path-accent": "#0284c7",
+      "--path-accent-deep": "#0369a1",
+      "--path-accent-light": "#0ea5e9",
+      "--path-guide": "#1cb0f6",
+    },
+    muted: "text-sky-100",
+    soft: "text-sky-50",
+  },
+  living: {
+    vars: {
+      "--path-accent": "#e11d48",
+      "--path-accent-deep": "#be123c",
+      "--path-accent-light": "#f97316",
+      "--path-guide": "#e11d48",
+    },
+    muted: "text-rose-100",
+    soft: "text-rose-50",
+  },
+} as const;
 
 type Level = {
   level: string;
@@ -134,10 +190,11 @@ function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
 function lessonTopicCaption(
   topic: string | null,
   state: "soon" | "completed" | "locked" | "current" | "open",
+  currentLabel = "Lektion hiện tại",
 ): { text: string; current: boolean } | null {
   if (state === "current") {
     return {
-      text: topic ? `Lektion hiện tại • ${topic}` : "Lektion hiện tại",
+      text: topic ? `${currentLabel} • ${topic}` : currentLabel,
       current: true,
     };
   }
@@ -252,7 +309,7 @@ function ContinueGuideBubble({
             : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
         }
       >
-        <span className="rounded-2xl bg-white px-3 py-1.5 text-[13px] font-extrabold tracking-[0.06em] whitespace-nowrap text-[#1cb0f6] uppercase">
+        <span className="rounded-2xl bg-white px-3 py-1.5 text-[13px] font-extrabold tracking-[0.06em] whitespace-nowrap text-[var(--path-guide)] uppercase">
           {label}
         </span>
         <svg viewBox="0 0 20 9" className="-mt-px h-[9px] w-5" aria-hidden="true">
@@ -310,14 +367,14 @@ function ProgressRing({
       viewBox="0 0 64 64"
       aria-hidden="true"
     >
-      <circle cx="32" cy="32" r={radius} fill="none" stroke={track} strokeWidth="5" />
+      <circle cx="32" cy="32" r={radius} fill="none" style={{ stroke: track }} strokeWidth="5" />
       {clamped > 0 ? (
         <circle
           cx="32"
           cy="32"
           r={radius}
           fill="none"
-          stroke={stroke}
+          style={{ stroke }}
           strokeWidth="5"
           strokeLinecap={clamped >= 100 ? "butt" : "round"}
           strokeDasharray={circumference}
@@ -345,7 +402,7 @@ function PathCircle({
   rerunPercent: number | null;
   mastered: boolean;
 }) {
-  const ring = struggling ? "#ff9500" : "#0284c7";
+  const ring = struggling ? "#ff9500" : "var(--path-accent)";
 
   if (locked) {
     return (
@@ -383,11 +440,11 @@ function PathCircle({
 
   if (complete) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[#0284c7] text-white shadow-[0_6px_0_0_#0369a1]">
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[var(--path-accent)] text-white shadow-[0_6px_0_0_var(--path-accent-deep)]">
         {rerunPercent != null ? (
           <ProgressRing
             percent={rerunPercent}
-            track="#0369a1"
+            track="var(--path-accent-deep)"
             stroke="#ffffff"
             fromBottom
           />
@@ -406,7 +463,7 @@ function PathCircle({
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
       <ProgressRing percent={percent} track="#e2e8f0" stroke={ring} />
       <span
-        className="material-symbols-outlined text-[26px] text-[#0284c7]"
+        className="material-symbols-outlined text-[26px] text-[var(--path-accent)]"
         style={{ fontVariationSettings: "'FILL' 1" }}
       >
         {icon}
@@ -549,15 +606,15 @@ function StartNodeBubble({
         className="absolute -top-[11px] h-3 w-6 -translate-x-1/2"
         style={{ left: `calc(50% - ${shift}px)` }}
       >
-        <path d="M1.2 12 L12 1.2 L22.8 12 Z" fill="#0284c7" />
+        <path d="M1.2 12 L12 1.2 L22.8 12 Z" style={{ fill: "var(--path-accent)" }} />
       </svg>
-      <div className="rounded-2xl bg-[#0284c7] px-4 pt-3.5 pb-3.5 text-white">
+      <div className="rounded-2xl bg-[var(--path-accent)] px-4 pt-3.5 pb-3.5 text-white">
         <p className="text-[17px] font-extrabold leading-6">{offer.title}</p>
         <p className="mt-1 text-[15px] font-bold leading-5 text-white/80">{offer.exercise}</p>
         <p className="text-[15px] font-bold leading-5 text-white/80">{offer.detail}</p>
         <Link
           href={offer.href}
-          className="mt-3 flex h-12 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[#0284c7] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5"
+          className="mt-3 flex h-12 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[var(--path-accent)] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5"
         >
           {`BẮT ĐẦU  +${offer.xp} XP`}
         </Link>
@@ -651,7 +708,7 @@ function PathStop({
   const [wiggle, setWiggle] = useState(0);
   const [shift, setShift] = useState<number | null>(null);
   const className =
-    "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]";
+    "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]";
   const body = (
     <>
       <PathCircle
@@ -666,7 +723,7 @@ function PathStop({
       {node.primary ? (
         <span
           className={`mt-1.5 text-[12px] font-bold leading-4 ${
-            locked ? "text-[#6e7881]" : node.complete ? "text-[#131b2e]" : "text-[#0369a1]"
+            locked ? "text-[#6e7881]" : node.complete ? "text-[#131b2e]" : "text-[var(--path-accent-deep)]"
           }`}
         >
           {node.primary}
@@ -867,7 +924,7 @@ function LessonDictionaryModal({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#0284c7] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--path-accent)] transition-colors hover:bg-[#f5f5f7] active:scale-95"
           >
             <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
               close
@@ -908,6 +965,50 @@ function LessonDictionaryModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Last stop on a path. Grey and locked until every lesson is finished, then gold. */
+function FinishTrophy({
+  title,
+  subtitle,
+  lockedText,
+  earned,
+}: {
+  title: string;
+  subtitle: string;
+  lockedText: string;
+  earned: boolean;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-2 text-center"
+      aria-label={earned ? `${title}, đã đạt` : `${title}, chưa đạt`}
+    >
+      <span
+        className={`relative flex h-[92px] w-[92px] items-center justify-center rounded-full border-t-2 ${
+          earned
+            ? "border-white/70 bg-[#ffc43a] text-[#684000] shadow-[0_7px_0_0_#e09412]"
+            : "border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_7px_0_0_#cbd5e1]"
+        }`}
+      >
+        <span
+          className="material-symbols-outlined text-[44px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+          aria-hidden="true"
+        >
+          trophy
+        </span>
+      </span>
+      <span
+        className={`text-[15px] font-extrabold leading-5 ${earned ? "text-[#131b2e]" : "text-[#6e7881]"}`}
+      >
+        {title}
+      </span>
+      <span className="max-w-[16rem] text-[13px] font-medium leading-5 text-[#6e7881]">
+        {earned ? subtitle : lockedText}
+      </span>
     </div>
   );
 }
@@ -958,16 +1059,19 @@ export default function LevelViewClient({
   courses,
   accessLocked = false,
   loadLessonDictionary,
+  path = {},
 }: {
   level: Level;
   chapters: Chapter[];
   cefrCatalog: readonly AdminCatalogCourse[];
   isAdmin?: boolean;
-  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[] };
+  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
   /** The learner has no course grant. The path is visible and every node is locked. */
   accessLocked?: boolean;
   loadLessonDictionary: (chapterSlug: string) => Promise<SessionClip[]>;
+  path?: PathOptions;
 }) {
+  const theme = PATH_THEMES[path.theme ?? "level"];
   const containerRef = useRef<HTMLElement>(null);
   const dictionaryRequest = useRef(0);
   const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
@@ -1007,7 +1111,7 @@ export default function LevelViewClient({
     [courseDetail],
   );
   const completedLessonCount = chapters.filter(
-    (chapter) => chapter.hasAudio !== false && learnChapterCompleted(chapter.slug),
+    (chapter) => chapter.hasAudio !== false && learnChapterCompleted(progressKeyOf(chapter)),
   ).length;
   const overallPercent =
     chapters.length === 0 ? 0 : Math.round((completedLessonCount / chapters.length) * 100);
@@ -1018,19 +1122,19 @@ export default function LevelViewClient({
       .find(
         (chapter) =>
           chapter.hasAudio !== false &&
-          !learnChapterCompleted(chapter.slug),
+          !learnChapterCompleted(progressKeyOf(chapter)),
       );
   }
 
   const resumeChapterSlug =
     chapters.find((chapter, index) => {
       if (chapter.hasAudio === false) return false;
-      if (learnChapterCompleted(chapter.slug)) return false;
+      if (learnChapterCompleted(progressKeyOf(chapter))) return false;
       if (firstIncompletePrevious(index)) return false;
       const clipCount = chapter.clipCount ?? 0;
       const startedCount = Math.min(
         clipCount,
-        completedLearnRunClipIdsFor(chapter.slug).length,
+        completedLearnRunClipIdsFor(progressKeyOf(chapter)).length,
       );
       return clipCount > 0 && startedCount > 0 && startedCount < clipCount;
     })?.slug ?? null;
@@ -1038,7 +1142,7 @@ export default function LevelViewClient({
   const currentChapterSlug =
     chapters.find((chapter, index) => {
       if (chapter.hasAudio === false) return false;
-      if (learnChapterCompleted(chapter.slug)) return false;
+      if (learnChapterCompleted(progressKeyOf(chapter))) return false;
       if (firstIncompletePrevious(index)) return false;
       return true;
     })?.slug ?? null;
@@ -1099,7 +1203,7 @@ export default function LevelViewClient({
     (chapter: Chapter) => {
       const request = dictionaryRequest.current + 1;
       dictionaryRequest.current = request;
-      const label = `${level.level} - ${chapter.label}`;
+      const label = chapter.title ?? `${level.level} - ${chapter.label}`;
       setDictionary({ label, clips: null, error: false });
       void loadLessonDictionary(chapter.slug)
         .then((clips) => {
@@ -1142,8 +1246,14 @@ export default function LevelViewClient({
     },
   };
 
+  const allLessonsDone =
+    chapters.length > 0 &&
+    chapters.every(
+      (chapter) => chapter.hasAudio === false || learnChapterCompleted(progressKeyOf(chapter)),
+    );
+
   return (
-    <>
+    <div className="contents" style={theme.vars as React.CSSProperties}>
     <main 
       ref={containerRef}
       data-layout="wide"
@@ -1154,9 +1264,10 @@ export default function LevelViewClient({
       <header className="fixed top-0 left-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl border-b border-black/[0.05]">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
           <CourseMenu
-            currentHref={`/learn/${level.slug}`}
+            currentHref={path.courseHref ?? `/learn/${level.slug}`}
             levels={courses.levels}
             interviews={courses.interviews}
+            living={courses.living}
           />
           <div className="flex items-center gap-2">
             <div
@@ -1193,27 +1304,28 @@ export default function LevelViewClient({
         className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:px-6"
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
       >
-        <BlitzrundeBanner />
+        {path.showBlitzrunde === false ? null : <BlitzrundeBanner />}
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={shouldReduceMotion ? { duration: 0 } : { ...springTransition, delay: 0.1 }}
-          className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-4 text-white shadow-[0_6px_0_0_#0369a1]"
+          className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--path-accent)] to-[var(--path-accent-light)] p-4 text-white shadow-[0_6px_0_0_var(--path-accent-deep)]"
         >
           <div className="relative z-10 flex flex-col gap-0.5">
-            <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-sky-100">
+            <span className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider ${theme.muted}`}>
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                school
+                {path.kickerIcon ?? "school"}
               </span>
-              Luyện tập theo trình độ
+              {path.kicker ?? "Luyện tập theo trình độ"}
             </span>
             <h1 className="text-[20px] font-extrabold leading-7 text-white">
-              Trình độ {level.level}
+              {path.title ?? `Trình độ ${level.level}`}
             </h1>
-            <p className="mt-1 text-[14px] font-medium leading-5 text-sky-100">
-              {chapters.length === 0
-                ? "Chưa có chương nào. Thêm Lektion trong chapters.json và file nội dung tương ứng."
-                : `Khám phá ${chapters.length} chương học được thiết kế tỉ mỉ giúp bạn làm chủ tiếng Đức.`}
+            <p className={`mt-1 text-[14px] font-medium leading-5 ${theme.muted}`}>
+              {path.description ??
+                (chapters.length === 0
+                  ? "Chưa có chương nào. Thêm Lektion trong chapters.json và file nội dung tương ứng."
+                  : `Khám phá ${chapters.length} chương học được thiết kế tỉ mỉ giúp bạn làm chủ tiếng Đức.`)}
             </p>
           </div>
           <div className="relative z-10 mt-4 flex flex-col gap-1.5 border-t border-white/20 pt-3">
@@ -1228,7 +1340,7 @@ export default function LevelViewClient({
                 </span>
                 Tổng tiến độ
               </span>
-              <span className="text-sky-50">{overallPercent}% hoàn thành</span>
+              <span className={theme.soft}>{overallPercent}% hoàn thành</span>
             </div>
             <div
               className="h-3 w-full overflow-hidden rounded-full bg-black/20 p-0.5 shadow-inner"
@@ -1246,7 +1358,7 @@ export default function LevelViewClient({
           </div>
           <div className="pointer-events-none absolute -right-4 -bottom-6 text-white opacity-15">
             <span className="material-symbols-outlined text-[120px]" aria-hidden="true">
-              flag_circle
+              {path.watermarkIcon ?? "flag_circle"}
             </span>
           </div>
         </motion.div>
@@ -1261,7 +1373,7 @@ export default function LevelViewClient({
             let continueGuideClaimed = false;
             return chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
-            const chapterKey = chapter.slug;
+            const chapterKey = progressKeyOf(chapter);
             const isCompleted = isAvailable && learnChapterCompleted(chapterKey);
             const gateChapter = firstIncompletePrevious(index);
             const isLocked =
@@ -1273,7 +1385,7 @@ export default function LevelViewClient({
             const isOpen = !accessLocked && isAvailable && !isLocked;
             const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
-            const lessonHref = `/learn/${level.slug}/${chapter.slug}`;
+            const lessonHref = chapter.href ?? `/learn/${level.slug}/${chapter.slug}`;
             const listeningDone = Boolean(
               lessonDetail?.activities.some(
                 (activity) =>
@@ -1285,25 +1397,25 @@ export default function LevelViewClient({
               ? practiceRerunRing(
                   chapter.practiceClips ?? [],
                   lessonDetail?.runCount ?? 0,
-                  learnRunClipOrderFor(chapter.slug),
-                  completedLearnRunClipIdsFor(chapter.slug),
+                  learnRunClipOrderFor(progressKeyOf(chapter)),
+                  completedLearnRunClipIdsFor(progressKeyOf(chapter)),
                 )
               : null;
             const practiceClips = chapter.practiceClips ?? [];
             const studyPart = nextStudyPart(
               practiceClips,
-              reviewedLearnClipIdsFor(chapter.slug),
-              learnStudyRunCountFor(chapter.slug),
+              reviewedLearnClipIdsFor(progressKeyOf(chapter)),
+              learnStudyRunCountFor(progressKeyOf(chapter)),
             );
             const listeningPart = nextListeningPart(
               practiceClips,
-              completedLearnClipIdsFor(chapter.slug),
-              learnRunCountFor(chapter.slug),
-              learnRunClipOrderFor(chapter.slug),
-              completedLearnRunClipIdsFor(chapter.slug),
+              completedLearnClipIdsFor(progressKeyOf(chapter)),
+              learnRunCountFor(progressKeyOf(chapter)),
+              learnRunClipOrderFor(progressKeyOf(chapter)),
+              completedLearnRunClipIdsFor(progressKeyOf(chapter)),
             );
-            const studyPasses = learnStudyRunCountFor(chapter.slug);
-            const listeningPasses = learnRunCountFor(chapter.slug);
+            const studyPasses = learnStudyRunCountFor(progressKeyOf(chapter));
+            const listeningPasses = learnRunCountFor(progressKeyOf(chapter));
             const nodes = lessonTrailNodes(
               lessonDetail,
               lessonHref,
@@ -1334,7 +1446,7 @@ export default function LevelViewClient({
               },
             );
             const topicLine = lessonTopicCaption(
-              lessonTopic(lessonDetail),
+              chapter.topic ?? lessonTopic(lessonDetail),
               !isAvailable
                 ? "soon"
                 : accessLocked
@@ -1346,10 +1458,11 @@ export default function LevelViewClient({
                       : chapter.slug === currentChapterSlug
                         ? "current"
                         : "open",
+              path.currentLabel,
             );
             const headerClassName = `flex w-full flex-col gap-2 rounded-2xl bg-white p-4 ${
               isOpen && isResume
-                ? "shadow-[0_4px_0_0_#0284c7]"
+                ? "shadow-[0_4px_0_0_var(--path-accent)]"
                 : "shadow-[0_4px_0_0_#dae2fd]"
             }`;
             const header = (
@@ -1366,13 +1479,13 @@ export default function LevelViewClient({
                         isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
                       }`}
                     >
-                      {level.level} - {chapter.label}
+                      {chapter.title ?? `${level.level} - ${chapter.label}`}
                     </h2>
                     {topicLine ? (
                       <p
                         className={`text-[13px] leading-5 ${
                           topicLine.current
-                            ? "font-bold text-[#0284c7]"
+                            ? "font-bold text-[var(--path-accent)]"
                             : "font-medium text-[#6e7881]"
                         }`}
                       >
@@ -1392,7 +1505,7 @@ export default function LevelViewClient({
                 </div>
                 {!accessLocked && isLocked && gateChapter ? (
                   <div className="flex items-start gap-2 text-[14px] font-medium leading-5 text-[#6e7881]">
-                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-[#0284c7]" aria-hidden="true">
+                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--path-accent)]" aria-hidden="true">
                       flag
                     </span>
                     <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
@@ -1417,7 +1530,7 @@ export default function LevelViewClient({
                           type="button"
                           aria-label="Từ vựng"
                           onClick={() => openDictionary(chapter)}
-                          className="flex h-11 w-11 items-center justify-center rounded-full border-t-2 border-white bg-white text-[#0284c7] shadow-[0_4px_0_0_#bec8d2] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0284c7]"
+                          className="flex h-11 w-11 items-center justify-center rounded-full border-t-2 border-white bg-white text-[var(--path-accent)] shadow-[0_4px_0_0_#bec8d2] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
                         >
                           <span
                             className="material-symbols-outlined text-[22px]"
@@ -1473,6 +1586,16 @@ export default function LevelViewClient({
             );
             });
           })()}
+          {path.finish ? (
+            <motion.li variants={itemVariants} className="flex flex-col items-center gap-2 pt-2">
+              <FinishTrophy
+                title={path.finish.title}
+                subtitle={path.finish.subtitle}
+                lockedText={path.finish.lockedText}
+                earned={!accessLocked && allLessonsDone}
+              />
+            </motion.li>
+          ) : null}
         </motion.ul>
       </section>
     </main>
@@ -1485,6 +1608,6 @@ export default function LevelViewClient({
       />
     ) : null}
     <BottomNav />
-    </>
+    </div>
   );
 }

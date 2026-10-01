@@ -10,9 +10,18 @@ import {
 import { anyClassHasStartedBlitzrunde, classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
+import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { learnRunCount, listeningPartSize, splitStudyParts, studyPartCount, studyPartSize } from "@/lib/progress";
-import { getCloudProgress, getSupabaseAdmin, getUserClassName, getUserStaff, readClassName } from "@/lib/progress-store";
+import {
+  getCloudProgress,
+  getSupabaseAdmin,
+  getUserClassName,
+  getUserStaff,
+  livingAccessFrom,
+  readClassName,
+  readLevelAccess,
+} from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
 import {
   assembleLeaderboard,
@@ -24,6 +33,7 @@ import {
   googleProfileImage,
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
+  boardClassFor,
   leaderboardClassKey,
   leaderboardClassOptions,
   leaderboardDisplayName,
@@ -49,7 +59,33 @@ export type XpGrant = {
   kind: string | null;
 };
 
-function lessonClipsForXp(lessonKey: string): { id: string; script: string; translationVi: string; sentenceOrder?: boolean }[] {
+type XpLessonClip = {
+  id: string;
+  script: string;
+  translationVi: string;
+  sentenceOrder?: boolean;
+  answer?: string;
+  replies?: { text: string; correct: boolean; whyVi?: string }[];
+  imageUrl?: string;
+};
+
+/**
+ * The lesson's clips with every field that changes how many cards a clip
+ * becomes, so the part size checked here matches the one the browser dealt.
+ */
+function lessonClipsForXp(lessonKey: string): XpLessonClip[] {
+  const living = getLivingClipsForLessonKey(lessonKey);
+  if (living) {
+    return living.map((clip) => ({
+      id: clip.id,
+      script: clip.script,
+      translationVi: clip.translationVi,
+      sentenceOrder: clip.sentenceOrder,
+      ...(clip.answer ? { answer: clip.answer } : {}),
+      ...(clip.replies ? { replies: clip.replies } : {}),
+      ...(clip.imageUrl ? { imageUrl: clip.imageUrl } : {}),
+    }));
+  }
   const slash = lessonKey.indexOf("/");
   if (slash <= 0) return [];
   try {
@@ -631,6 +667,7 @@ type BoardProfileRow = {
   name?: string | null;
   email?: string | null;
   class_name?: unknown;
+  level_access?: unknown;
   deleted_at?: string | null;
   image?: string | null;
 };
@@ -648,6 +685,7 @@ function boardImage(
 
 async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfileRow[]> {
   const columnSets = [
+    "user_id, name, email, class_name, level_access, deleted_at, image",
     "user_id, name, email, class_name, deleted_at, image",
     "user_id, name, email, class_name, deleted_at",
     "user_id, name, email, deleted_at",
@@ -823,6 +861,13 @@ async function readDuelTotals(
   return totals;
 }
 
+/** Granted workplaces in catalog order, for the XP board's fallback class. */
+function boardWorkplaces(row: BoardProfileRow): { slug: string; label: string }[] {
+  const granted = livingAccessFrom(readLevelAccess(row.level_access));
+  if (granted.length === 0) return [];
+  return getLivingWorkplaces().filter((workplace) => granted.includes(workplace.slug));
+}
+
 type BoardQuery = {
   viewerId: string;
   viewerImage?: string | null;
@@ -867,7 +912,9 @@ async function markBlitzrundeTab(
       : leaderboardClassKey(await getUserClassName(viewerId));
   let available = await classHasStartedBlitzrunde(classKey);
   if (!available && canPickClass) available = await anyClassHasStartedBlitzrunde();
-  return { ...payload, blitzrundeAvailable: available };
+  // Duels match within the viewer's own real class, never a picked or workplace board.
+  const ownClass = leaderboardClassKey(await getUserClassName(viewerId));
+  return { ...payload, blitzrundeAvailable: available, duelAvailable: ownClass.length > 0 };
 }
 
 export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
@@ -906,12 +953,12 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
   const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
     const total = totals.get(row.user_id);
-    const className = readClassName(row.class_name);
+    const boardClass = boardClassFor(readClassName(row.class_name), boardWorkplaces(row));
     return {
       userId: row.user_id,
       name: leaderboardDisplayName(row.name),
-      classKey: leaderboardClassKey(className),
-      className,
+      classKey: boardClass.classKey,
+      className: boardClass.className,
       isAdmin: isAdminUser({
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,

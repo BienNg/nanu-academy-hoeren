@@ -2602,12 +2602,18 @@ function asOrderClip(clip: {
   script?: string;
   translationVi?: string;
   sentenceOrder?: boolean;
+  answer?: string;
+  replies?: OrderSourceClip["replies"];
+  imageUrl?: string;
 }): OrderSourceClip {
   return {
     id: clip.id,
     script: clip.script ?? "",
     ...(clip.translationVi !== undefined ? { translationVi: clip.translationVi } : {}),
     ...(clip.sentenceOrder !== undefined ? { sentenceOrder: clip.sentenceOrder } : {}),
+    ...(clip.answer !== undefined ? { answer: clip.answer } : {}),
+    ...(clip.replies !== undefined ? { replies: clip.replies } : {}),
+    ...(clip.imageUrl !== undefined ? { imageUrl: clip.imageUrl } : {}),
   };
 }
 

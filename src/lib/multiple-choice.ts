@@ -11,6 +11,8 @@ export type McOption = {
   id: string;
   text: string;
   correct: boolean;
+  /** Why this option is wrong. Only on "Was sagst du?" replies. */
+  explanation?: string;
 };
 
 export type McResult = {

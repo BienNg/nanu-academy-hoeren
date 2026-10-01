@@ -6,7 +6,7 @@
  * pairing.ts — that would make the three files a dependency cycle.
  */
 
-import { buildPracticeDeck, type OrderSourceClip, type PracticeCard } from "./sentence-order";
+import { buildPracticeDeck, isAnchorKind, type OrderSourceClip, type PracticeCard } from "./sentence-order";
 import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "./multiple-choice";
 import { buildPairingSet, isPairingItemEligible } from "./pairing";
 
@@ -38,6 +38,24 @@ function scriptKey(script: string): string {
   return script.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function hasReplyChoice(clip: OrderSourceClip): boolean {
+  return (
+    !clip.answer &&
+    Array.isArray(clip.replies) &&
+    clip.replies.length >= 2 &&
+    clip.replies.filter((reply) => reply.correct).length === 1
+  );
+}
+
+function shuffled<T>(items: readonly T[], random: () => number): T[] {
+  const next = [...items];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [next[i], next[j]] = [next[j] as T, next[i] as T];
+  }
+  return next;
+}
+
 /**
  * Largest clip count that still stays within MAX_PRACTICE_CARDS for every
  * subset of that size. One clip is at least one listening card, so the count
@@ -51,16 +69,21 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
 
   const scored = lessonClips.map((clip) => {
     const hasTranslation = Boolean(clip.translationVi?.trim());
-      const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
-      const germanChoice = hasTranslation && isGermanChoiceEligible(clip, lessonClips);
-      return {
-        clip,
-        base:
-          1 +
-          (clip.sentenceOrder && hasTranslation ? 1 : 0) +
-          (multipleChoice ? 1 : 0) +
-          (hasTranslation ? 1 : 0) +
-          (germanChoice ? 1 : 0),
+    const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
+    const germanChoice = hasTranslation && isGermanChoiceEligible(clip, lessonClips);
+    // Must mirror the cards buildPracticeDeck and insertDiscreteCards deal per clip.
+    const viDrills = !clip.answer && !clip.imageUrl;
+    const base = clip.answer
+      ? 1 + (multipleChoice ? 1 : 0)
+      : 1 +
+        (clip.sentenceOrder && hasTranslation ? 1 : 0) +
+        (multipleChoice ? 1 : 0) +
+        (viDrills && hasTranslation ? 1 : 0) +
+        (viDrills && germanChoice ? 1 : 0) +
+        (hasReplyChoice(clip) ? 1 : 0);
+    return {
+      clip,
+      base,
       pairing: isPairingItemEligible(clip),
       script: scriptKey(clip.script),
     };
@@ -122,7 +145,7 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
   const usedForPairing = new Set<string>();
 
   function listeningIndexOf(clipId: string): number {
-    return next.findIndex((card) => card.kind === "listening" && card.clip.id === clipId);
+    return next.findIndex((card) => isAnchorKind(card.kind) && card.clip.id === clipId);
   }
 
   function insertAfter(anchorIndex: number, card: PracticeCard<C>): void {
@@ -146,7 +169,29 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
   }
 
   for (const clip of partClips) {
-    if (!clip.translationVi?.trim()) continue;
+    if (!hasReplyChoice(clip) || !clip.replies) continue;
+    const anchorIndex = listeningIndexOf(clip.id);
+    if (anchorIndex === -1) continue;
+    insertAfter(anchorIndex, {
+      key: `${clip.id}:reply`,
+      kind: "reply-choice",
+      clip,
+      options: shuffled(
+        clip.replies.map((reply, index) => ({
+          id: `${clip.id}:reply:${index}`,
+          text: reply.text,
+          correct: reply.correct,
+          ...(reply.whyVi ? { explanation: reply.whyVi } : {}),
+        })),
+        random,
+      ),
+    });
+  }
+
+  for (const clip of partClips) {
+    // A number clip's script is spelled out; typing it from Vietnamese is not the skill.
+    // A picture word is drilled by picture pairing instead, which keeps 5 of them in one part.
+    if (!clip.translationVi?.trim() || clip.answer || clip.imageUrl) continue;
     const anchorIndex = listeningIndexOf(clip.id);
     if (anchorIndex === -1) continue;
     insertAfter(anchorIndex, {
@@ -157,7 +202,7 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
   }
 
   for (const clip of partClips) {
-    if (!clip.translationVi?.trim() || !clip.script.trim()) continue;
+    if (!clip.translationVi?.trim() || !clip.script.trim() || clip.answer || clip.imageUrl) continue;
     const options = buildDeMcOptions(clip, lessonClips, levelClips, random);
     if (!options) continue;
     const anchorIndex = listeningIndexOf(clip.id);

@@ -15,6 +15,7 @@ import {
   type StudentRunsPage,
 } from "@/lib/listening-runs";
 import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing } from "@/lib/xp";
+import { workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
@@ -51,8 +52,19 @@ export function hasInterviewAccess(slugs: readonly string[]): boolean {
   return slugs.includes(INTERVIEW_ACCESS_SLUG);
 }
 
-export function withoutInterviewAccess(slugs: readonly string[]): string[] {
-  return slugs.filter((slug) => slug !== INTERVIEW_ACCESS_SLUG);
+/** CEFR slugs only: drops the interview and Leben-in-Deutschland flags. */
+export function withoutReservedAccess(slugs: readonly string[]): string[] {
+  return slugs.filter(
+    (slug) => slug !== INTERVIEW_ACCESS_SLUG && workplaceFromAccessSlug(slug) === null,
+  );
+}
+
+/** Workplace slugs granted through reserved `living-<workplace>` entries. */
+export function livingAccessFrom(slugs: readonly string[]): string[] {
+  return slugs.flatMap((slug) => {
+    const workplace = workplaceFromAccessSlug(slug);
+    return workplace ? [workplace] : [];
+  });
 }
 
 export { levelAccessAfterPreUnlock, normalizeGrantEmail };
@@ -347,6 +359,8 @@ export type UserProgressListItem = {
   levelAccess: string[];
   /** When false, Home hides "Luyện phỏng vấn theo nghề" entirely. */
   interviewAccess: boolean;
+  /** Leben-in-Deutschland workplace slugs an admin has granted. */
+  livingAccess: string[];
   /** Admin-only class label. Never returned by the learner progress API. */
   className: string | null;
   /** Google sign-ins from the last 90 days, oldest first. Not app-open visits. */
@@ -443,8 +457,9 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     lastLoginAt:
       typeof row.last_login_at === "string" ? row.last_login_at : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
-    levelAccess: withoutInterviewAccess(access),
+    levelAccess: withoutReservedAccess(access),
     interviewAccess: hasInterviewAccess(access),
+    livingAccess: livingAccessFrom(access),
     className: readClassName(row.class_name),
     signIns: readSignIns(row.sign_in_log, row.sign_ins),
     appUses: readAppUseRecords(row.app_uses),
@@ -1044,6 +1059,7 @@ export type PendingLevelGrant = {
   email: string;
   levelAccess: string[];
   interviewAccess: boolean;
+  livingAccess: string[];
   className: string | null;
   updatedAt: string | null;
 };
@@ -1060,15 +1076,21 @@ function mapPendingGrant(row: {
   const access = readLevelAccess(row.level_access);
   return {
     email,
-    levelAccess: withoutInterviewAccess(access),
+    levelAccess: withoutReservedAccess(access),
     interviewAccess: hasInterviewAccess(access),
+    livingAccess: livingAccessFrom(access),
     className: readClassName(row.class_name),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
   };
 }
 
 function pendingGrantIsActive(grant: PendingLevelGrant): boolean {
-  return grant.levelAccess.length > 0 || grant.interviewAccess || Boolean(grant.className);
+  return (
+    grant.levelAccess.length > 0 ||
+    grant.interviewAccess ||
+    grant.livingAccess.length > 0 ||
+    Boolean(grant.className)
+  );
 }
 
 function isMissingPendingClassColumn(message: string): boolean {
@@ -1300,6 +1322,12 @@ export async function setUserLevelAccess(
 export const getUserInterviewAccess = cache(async (userId: string): Promise<boolean> => {
   const slugs = await getUserLevelAccess(userId);
   return hasInterviewAccess(slugs);
+});
+
+/** Leben-in-Deutschland workplace slugs from reserved `living-<workplace>` entries. */
+export const getUserLivingAccess = cache(async (userId: string): Promise<string[]> => {
+  const slugs = await getUserLevelAccess(userId);
+  return livingAccessFrom(slugs);
 });
 
 const CLASS_NAME_MAX_LENGTH = 64;

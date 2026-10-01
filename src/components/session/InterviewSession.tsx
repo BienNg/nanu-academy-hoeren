@@ -19,7 +19,7 @@ import { SessionContentSkeleton } from "@/components/RouteLoading";
 type InterviewSessionProps = {
   beruf: Ausbildungsberuf;
   clips: SessionClip[];
-  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[] };
+  courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
 };
 
 function MaterialIcon({
@@ -204,6 +204,7 @@ export function InterviewSession({ beruf, clips, courses }: InterviewSessionProp
             currentHref={`/interview/${beruf.slug}`}
             levels={courses.levels}
             interviews={courses.interviews}
+            living={courses.living}
           />
           <div className="flex-1 truncate px-4 text-center">
             <h1 className="truncate font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>

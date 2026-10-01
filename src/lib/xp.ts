@@ -111,6 +111,8 @@ export type LeaderboardPayload = {
   viewerIsAdmin: boolean;
   /** The viewer's class has a Blitzrunde that left the lobby. */
   blitzrundeAvailable: boolean;
+  /** The viewer has a real class, so duels can find classmates. */
+  duelAvailable: boolean;
   rows: LeaderboardRow[];
   /** Only on the Blitzrunde board. */
   blitzrunde?: BlitzrundeBoardExtras;
@@ -194,6 +196,28 @@ export function leaderboardClassKey(value: string | null | undefined): string {
     .trim()
     .replace(/\s+/g, " ")
     .toLocaleLowerCase("vi");
+}
+
+/** Prefix of a leaderboard-only class for Leben-in-Deutschland learners. */
+export const LIVING_BOARD_CLASS_PREFIX = "living:";
+
+/**
+ * Class used on the XP board: the real class when there is one, otherwise the
+ * first granted Leben-in-Deutschland workplace, so self-learners in the same
+ * workplace compete as one class. Duels and Blitzrunde keep using the real class.
+ */
+export function boardClassFor(
+  className: string | null,
+  workplaces: readonly { slug: string; label: string }[],
+): { classKey: string; className: string | null } {
+  const real = leaderboardClassKey(className);
+  if (real) return { classKey: real, className };
+  const workplace = workplaces[0];
+  if (!workplace) return { classKey: "", className: null };
+  return {
+    classKey: `${LIVING_BOARD_CLASS_PREFIX}${workplace.slug}`,
+    className: workplace.label,
+  };
 }
 
 /** Distinct classes, labeled with the most common spelling of each name. */
@@ -440,6 +464,7 @@ export function emptyLeaderboard(input: {
     yourLost: 0,
     viewerIsAdmin: false,
     blitzrundeAvailable: false,
+    duelAvailable: false,
     rows: [],
   };
 }

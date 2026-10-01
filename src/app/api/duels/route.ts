@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createDuel, getDuelHome, listUnstartedChallenges } from "@/lib/duel-store";
-import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
+import { isAdminUser } from "@/lib/admins";
+import {
+  getUserClassName,
+  isProgressStoreConfigured,
+  resolveAccountAccess,
+} from "@/lib/progress-store";
 import { emptyDuelHome } from "@/lib/duels";
 
 function revokedResponse() {
@@ -28,8 +33,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (new URL(request.url).searchParams.get("badge") === "1") {
-    const challenges = await listUnstartedChallenges(gate.user.id);
-    return NextResponse.json({ count: challenges.length, challenges });
+    const [challenges, className] = await Promise.all([
+      listUnstartedChallenges(gate.user.id),
+      getUserClassName(gate.user.id),
+    ]);
+    // Duels need classmates. Open challenges still show the tab so they can be played.
+    const available =
+      isAdminUser(gate.user) || Boolean(className) || challenges.length > 0;
+    return NextResponse.json({ count: challenges.length, challenges, available });
   }
   const home = await getDuelHome({ id: gate.user.id, email: gate.user.email });
   return NextResponse.json(home);

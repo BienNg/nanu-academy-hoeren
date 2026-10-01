@@ -7,7 +7,27 @@
 
 import type { CardKind } from "./card-kinds";
 
-export type PracticeCardKind = CardKind;
+/**
+ * Duel and Blitzrunde kinds plus the Leben-in-Deutschland cards, which only
+ * appear in regular practice: "reply-choice" (pick the reply that fits) and
+ * "number-input" (type the price or time heard, in place of dictation).
+ */
+export type PracticeCardKind = CardKind | "reply-choice" | "number-input";
+
+/**
+ * Kind recorded in run stats. The stored miss kinds only know the shared card
+ * kinds, so a Zahlen-Ohr miss counts as listening and a reply miss as multiple choice.
+ */
+export function statsCardKind(kind: PracticeCardKind): CardKind {
+  if (kind === "number-input") return "listening";
+  if (kind === "reply-choice") return "multiple-choice";
+  return kind;
+}
+
+/** Cards that stand for "this clip was heard". Every clip in a deck has exactly one. */
+export function isAnchorKind(kind: PracticeCardKind): boolean {
+  return kind === "listening" || kind === "number-input";
+}
 
 export type WordChip = {
   /** Stable per card, so repeated words stay distinct chips. */
@@ -20,6 +40,12 @@ export type OrderSourceClip = {
   script: string;
   translationVi?: string;
   sentenceOrder?: boolean;
+  /** Leben in Deutschland: number to type instead of the dictation. */
+  answer?: string;
+  /** Leben in Deutschland: replies for a "Was sagst du?" card. */
+  replies?: readonly { text: string; correct: boolean; whyVi?: string }[];
+  /** Leben in Deutschland: picture shown in pairing cards. */
+  imageUrl?: string;
 };
 
 export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
@@ -28,8 +54,8 @@ export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
   clip: C;
   /** Shuffled chips. Only on order cards. */
   bank?: WordChip[];
-  /** Four answer options. Only on multiple-choice cards. */
-  options?: { id: string; text: string; correct: boolean }[];
+  /** Four answer options on multiple-choice cards; the shuffled replies on reply-choice cards. */
+  options?: { id: string; text: string; correct: boolean; explanation?: string }[];
   /** The 5 clips being paired. Only on pairing cards; `clip` is pairItems[0]. */
   pairItems?: C[];
 };
@@ -180,15 +206,15 @@ export function buildPracticeDeck<C extends OrderSourceClip>(
   lessonClips: readonly OrderSourceClip[],
   random: () => number = Math.random,
 ): PracticeCard<C>[] {
-  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
-    key: `${clip.id}:listen`,
-    kind: "listening",
-    clip,
-  }));
+  const deck: PracticeCard<C>[] = partClips.map((clip) =>
+    clip.answer
+      ? { key: `${clip.id}:number`, kind: "number-input", clip }
+      : { key: `${clip.id}:listen`, kind: "listening", clip },
+  );
   for (const clip of partClips) {
-    if (!clip.sentenceOrder || !clip.translationVi?.trim()) continue;
+    if (!clip.sentenceOrder || clip.answer || !clip.translationVi?.trim()) continue;
     const listenAt = deck.findIndex(
-      (card) => card.kind === "listening" && card.clip.id === clip.id,
+      (card) => isAnchorKind(card.kind) && card.clip.id === clip.id,
     );
     const earliest = Math.min(listenAt + 2, deck.length);
     const span = deck.length - earliest + 1;
