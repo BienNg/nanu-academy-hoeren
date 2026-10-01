@@ -1,55 +1,57 @@
-import { HomeScreen } from "@/components/HomeScreen";
-import { isAdminUser } from "@/lib/admins";
+import { redirect } from "next/navigation";
+import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
 import { requireUser } from "@/lib/auth-guard";
-import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import { getCefrLevels, getContinueLevelCatalog } from "@/lib/levels";
+import type { SessionClip } from "@/lib/content";
 import {
-  getUserLevelAccess,
-  hasInterviewAccess,
-  withoutInterviewAccess,
-} from "@/lib/progress-store";
-import { getLeaderboard } from "@/lib/xp-store";
+  buildLevelPathChapters,
+  getCefrLevel,
+  getContinueLevelCatalog,
+  loadLearnerCourseMenu,
+  lockedLearnerCourses,
+} from "@/lib/levels";
+import { landingInterviewSlug, landingLevelSlug } from "@/lib/progress";
+import { getCloudProgress } from "@/lib/progress-store";
+import LevelViewClient from "../learn/[levelSlug]/LevelViewClient";
 
 export const dynamic = "force-dynamic";
 
+const LOCKED_PREVIEW_SLUG = "a1-1";
+
+async function emptyDictionary(): Promise<SessionClip[]> {
+  "use server";
+  return [];
+}
+
 export default async function Home() {
   const session = await requireUser();
-  const berufe = getAvailableBerufe();
-  const levels = getCefrLevels().map(({ level, slug, chapters }) => ({
-    level,
-    slug,
-    chapterCount: chapters.length,
-  }));
+  const menu = await loadLearnerCourseMenu(session.user);
+  const progress = session.user.id
+    ? await getCloudProgress(session.user.id)
+    : null;
+  const levelSlug = progress
+    ? landingLevelSlug(progress, getContinueLevelCatalog(), menu.unlockedLevelSlugs)
+    : (menu.levels.find((level) => level.unlocked)?.slug ?? null);
+  if (levelSlug) redirect(`/learn/${levelSlug}`);
 
-  const interviewClipTotals: Record<string, number> = {};
-  for (const beruf of berufe) {
-    interviewClipTotals[beruf.slug] = getSessionClips(beruf.slug).length;
-  }
+  const interviewSlug = progress
+    ? landingInterviewSlug(
+        progress,
+        menu.interviews.map((course) => course.slug),
+      )
+    : (menu.interviews[0]?.slug ?? null);
+  if (interviewSlug) redirect(`/interview/${interviewSlug}`);
 
-  const isAdmin = isAdminUser(session.user);
-  const [storedAccess, ranking] = await Promise.all([
-    isAdmin ? Promise.resolve(null) : getUserLevelAccess(session.user.id),
-    getLeaderboard({
-      viewerId: session.user.id,
-      viewerImage: session.user.image,
-      scope: "class",
-      range: "week",
-    }),
-  ]);
+  const level = getCefrLevel(LOCKED_PREVIEW_SLUG);
+  if (!level) redirect("/account");
 
   return (
-    <HomeScreen
-      berufe={berufe}
-      levels={levels}
-      levelCatalog={getContinueLevelCatalog()}
-      interviewClipTotals={interviewClipTotals}
-      unlockedLevelSlugs={
-        storedAccess
-          ? withoutInterviewAccess(storedAccess)
-          : levels.map((level) => level.slug)
-      }
-      interviewAccess={storedAccess ? hasInterviewAccess(storedAccess) : true}
-      ranking={ranking}
+    <LevelViewClient
+      level={level}
+      chapters={buildLevelPathChapters(level.slug)}
+      cefrCatalog={buildCefrProgressCatalog()}
+      courses={lockedLearnerCourses()}
+      accessLocked
+      loadLessonDictionary={emptyDictionary}
     />
   );
 }

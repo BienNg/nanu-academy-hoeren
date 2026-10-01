@@ -221,7 +221,7 @@ function CreateRound({
   return (
     <Card
       title="Open a round"
-      hint="Pick the class and the Lektion you just taught. Students of that class see a join banner on their home screen."
+      hint="Pick the class and the Lektion you just taught. Students of that class see a join banner on their lesson page."
     >
       <div className="grid gap-space-12 sm:grid-cols-3">
         <label className="flex flex-col gap-1">
@@ -521,7 +521,7 @@ function RoundPanel({
         </div>
       ) : meta.status === "lobby" ? (
         <p className="mt-space-12 font-body-sm text-body-sm text-on-surface-variant">
-          Waiting for students to tap “Tham gia” on their home screen…
+          Waiting for students to tap “Tham gia” on their lesson page…
         </p>
       ) : null}
     </Card>

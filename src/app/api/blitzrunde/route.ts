@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 
-/** The open Blitzrunde for the viewer's class, if any. Polled by the home screen. */
+/** The open Blitzrunde for the viewer's class, if any. Polled by the lesson page. */
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {

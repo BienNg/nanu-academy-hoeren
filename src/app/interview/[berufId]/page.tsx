@@ -4,6 +4,7 @@ import {
   getSessionClips,
 } from "@/lib/content";
 import { requireInterviewAccess, requireUser } from "@/lib/auth-guard";
+import { loadLearnerCourseMenu } from "@/lib/levels";
 import { InterviewSession } from "@/components/session/InterviewSession";
 
 type InterviewBerufPageProps = {
@@ -25,14 +26,14 @@ function NotAvailableYet({ berufId }: { berufId: string }) {
         <p className="font-body-md text-body-md text-on-surface-variant">
           Nghề{" "}
           <span className="font-semibold text-on-surface">{berufId}</span> chưa
-          có bài luyện phỏng vấn. Quay lại trang chủ để chọn nghề đang mở.
+          có bài luyện phỏng vấn. Chọn một nghề đang mở.
         </p>
       </div>
       <Link
         href="/"
         className="inline-flex h-[48px] items-center justify-center gap-space-8 rounded-2xl bg-primary-container px-space-20 font-label-lg text-label-lg text-on-primary transition-all hover:opacity-95 active:scale-[0.98]"
       >
-        Về trang chủ
+        Về bài học
       </Link>
     </main>
   );
@@ -52,6 +53,7 @@ export default async function InterviewBerufPage({
   }
 
   const clips = getSessionClips(beruf.slug);
+  const courses = await loadLearnerCourseMenu(session.user);
 
-  return <InterviewSession beruf={beruf} clips={clips} />;
+  return <InterviewSession beruf={beruf} clips={clips} courses={courses} />;
 }

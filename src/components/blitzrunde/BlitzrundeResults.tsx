@@ -284,7 +284,7 @@ export function BlitzrundeResults({
           href="/"
           className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#0284c7] text-[15px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-1 active:shadow-none"
         >
-          Về trang chủ
+          Về bài học
         </Link>
       </motion.div>
     </div>

@@ -73,7 +73,7 @@ export function AccountScreen({
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                aria-label="Về trang chủ"
+                aria-label="Về bài học"
                 className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
               >
                 <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
@@ -155,7 +155,7 @@ export function AccountScreen({
           <div className="flex items-center gap-2">
             <Link
               href="/"
-              aria-label="Về trang chủ"
+              aria-label="Về bài học"
               className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
             >
               <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />

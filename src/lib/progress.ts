@@ -3309,6 +3309,45 @@ function isLevelStarted(
 }
 
 /**
+ * CEFR level to open when the learner hits Học.
+ * The highest catalog level they have started and still have access to.
+ * A finished level still counts. With nothing started, the earliest unlocked
+ * level. Null when none of the unlocked slugs are in the catalog.
+ */
+export function landingLevelSlug(
+  progress: StoredProgress,
+  catalog: readonly ContinueLevelCatalogEntry[],
+  unlockedSlugs: readonly string[],
+): string | null {
+  const allowed = new Set(unlockedSlugs);
+  const open = catalog.filter((level) => allowed.has(level.slug));
+  const started = [...open].reverse().find((level) => isLevelStarted(progress, level));
+  return started?.slug ?? open[0]?.slug ?? null;
+}
+
+function interviewCourseStarted(progress: StoredProgress, slug: string): boolean {
+  const entry = progress.interview[slug];
+  if (!entry) return false;
+  return (
+    entry.currentClipIndex > 0 ||
+    entry.completedClipIds.length > 0 ||
+    Boolean(entry.completedAt)
+  );
+}
+
+/**
+ * Interview job to open when the learner has no CEFR course.
+ * The last catalog job they have started, otherwise the first one.
+ */
+export function landingInterviewSlug(
+  progress: StoredProgress,
+  slugs: readonly string[],
+): string | null {
+  const started = [...slugs].reverse().find((slug) => interviewCourseStarted(progress, slug));
+  return started ?? slugs[0] ?? null;
+}
+
+/**
  * Resume target on Home: the first unfinished Lektion of the latest CEFR
  * level the student has actually started. Returns null when nothing is in
  * progress (so Home does not fall back to Ausbildung).

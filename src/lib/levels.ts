@@ -1,8 +1,14 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
-import type { SessionClip } from "@/lib/content";
+import { getAvailableBerufe, type SessionClip } from "@/lib/content";
+import { isAdminUser } from "@/lib/admins";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
+import {
+  getUserLevelAccess,
+  hasInterviewAccess,
+  withoutInterviewAccess,
+} from "@/lib/progress-store";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -278,7 +284,92 @@ export function getChapterVideos(
   });
 }
 
-/** Catalog used on Home to pick the in-progress CEFR resume card. */
+export type LearnerCourse = {
+  slug: string;
+  label: string;
+  href: string;
+  unlocked: boolean;
+};
+
+/** CEFR levels, then interview jobs when that grant is on. Admins see every course. */
+export async function loadLearnerCourseMenu(user: {
+  id?: string | null;
+  email?: string | null;
+}): Promise<{
+  levels: LearnerCourse[];
+  interviews: LearnerCourse[];
+  unlockedLevelSlugs: string[];
+}> {
+  const stored =
+    isAdminUser(user) || !user.id ? null : await getUserLevelAccess(user.id);
+  const unlockedLevelSlugs = stored
+    ? withoutInterviewAccess(stored)
+    : getCefrLevels().map((level) => level.slug);
+  const interviewAccess = stored ? hasInterviewAccess(stored) : true;
+  const unlocked = new Set(unlockedLevelSlugs);
+  const levels = getCefrLevels().map((level) => ({
+    slug: level.slug,
+    label: level.level,
+    href: `/learn/${level.slug}`,
+    unlocked: unlocked.has(level.slug),
+  }));
+  const interviews = interviewAccess
+    ? getAvailableBerufe().map((beruf) => ({
+        slug: beruf.slug,
+        label: beruf.label.split(" / ")[0]?.trim() || beruf.label,
+        href: `/interview/${beruf.slug}`,
+        unlocked: true,
+      }))
+    : [];
+  return { levels, interviews, unlockedLevelSlugs };
+}
+
+/** Every CEFR level and interview job, none of them openable. */
+export function lockedLearnerCourses(): {
+  levels: LearnerCourse[];
+  interviews: LearnerCourse[];
+} {
+  return {
+    levels: getCefrLevels().map((level) => ({
+      slug: level.slug,
+      label: level.level,
+      href: `/learn/${level.slug}`,
+      unlocked: false,
+    })),
+    interviews: getAvailableBerufe().map((beruf) => ({
+      slug: beruf.slug,
+      label: beruf.label.split(" / ")[0]?.trim() || beruf.label,
+      href: `/interview/${beruf.slug}`,
+      unlocked: false,
+    })),
+  };
+}
+
+/** Lektionen for the level path, including ones that are not playable yet. */
+export function buildLevelPathChapters(levelSlug: string) {
+  const availableSlugs = new Set(
+    getAvailableChapters(levelSlug).map((chapter) => chapter.slug),
+  );
+  return getLevelChapters(levelSlug).map((chapter) => {
+    const clips = availableSlugs.has(chapter.slug)
+      ? getChapterClips(levelSlug, chapter.slug)
+      : [];
+    return {
+      ...chapter,
+      hasAudio: availableSlugs.has(chapter.slug),
+      clipCount: clips.length,
+      practiceClips: clips.map((clip) => ({
+        id: clip.id,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        sentenceOrder: clip.sentenceOrder,
+      })),
+      wordCount: clips.reduce((total, clip) => total + countScriptWords(clip.script), 0),
+    };
+  });
+}
+
+/** Catalog used to pick the CEFR level a learner should land on. */
 export function getContinueLevelCatalog(): ContinueLevelCatalogEntry[] {
   return getCefrLevels().map((level) => ({
     level: level.level,

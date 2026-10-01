@@ -78,7 +78,7 @@ function Message({ icon, title, body, action }: { icon: string; title: string; b
   );
 }
 
-function HomeButton({ label = "Về trang chủ" }: { label?: string }) {
+function HomeButton({ label = "Về bài học" }: { label?: string }) {
   return (
     <Link
       href="/"
@@ -547,7 +547,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
             <Link
               href="/"
               className="flex h-10 w-10 items-center justify-center rounded-full text-[#0284c7]"
-              aria-label="Về trang chủ"
+              aria-label="Về bài học"
             >
               <MaterialIcon name="arrow_back" className="text-[20px]" />
             </Link>

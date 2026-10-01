@@ -1,5 +1,5 @@
-import { HomeScreenSkeleton } from "@/components/RouteLoading";
+import { LevelScreenSkeleton } from "@/components/RouteLoading";
 
 export default function Loading() {
-  return <HomeScreenSkeleton />;
+  return <LevelScreenSkeleton />;
 }
