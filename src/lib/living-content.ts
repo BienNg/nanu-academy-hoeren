@@ -47,6 +47,8 @@ export type LivingWorkplace = {
   slug: string;
   /** Material Symbols icon name. */
   icon?: string;
+  /** Trophy title at the end of the path, e.g. "Bereit für den Salon!". */
+  finishTitle?: string;
 };
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -173,12 +175,14 @@ export function parseLivingWorkplaces(value: unknown): LivingWorkplace[] {
     seen.add(slug);
     const labelVi = text(item.labelVi);
     const icon = text(item.icon);
+    const finishTitle = text(item.finishTitle);
     workplaces.push({
       id: text(item.id) || slug,
       label,
       slug,
       ...(labelVi ? { labelVi } : {}),
       ...(icon ? { icon } : {}),
+      ...(finishTitle ? { finishTitle } : {}),
     });
   }
   return workplaces;

@@ -19,12 +19,13 @@ with no playable scene is hidden from Home. Run `npm run check:content` after ed
 
 ```json
 [
-  { "id": "nagelstudio", "slug": "nagelstudio", "label": "Nagelstudio", "labelVi": "Tiệm nail", "icon": "back_hand" }
+  { "id": "nagelstudio", "slug": "nagelstudio", "label": "Nagelstudio", "labelVi": "Tiệm nail", "icon": "back_hand", "finishTitle": "Bereit für den Salon!" }
 ]
 ```
 
 - `slug`: lowercase letters, digits and hyphens. It names the JSON file, the audio folder and the access flag.
 - `icon`: optional [Material Symbols](https://fonts.google.com/icons) name.
+- `finishTitle`: optional title of the trophy at the end of the path (default "Bereit für die Arbeit!").
 
 ## <slug>.json
 

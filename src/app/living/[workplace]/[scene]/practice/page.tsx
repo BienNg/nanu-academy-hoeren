@@ -28,7 +28,7 @@ export default async function LivingPracticePage({ params }: LivingPracticePageP
       clips={getLivingSceneClips(workplace.slug, scene.id)}
       nextChapterHref={
         nextScene
-          ? `/living/${workplace.slug}?scene=${encodeURIComponent(nextScene.id)}`
+          ? `/living/${workplace.slug}?lektion=${encodeURIComponent(nextScene.id)}`
           : `/living/${workplace.slug}`
       }
       hasNextChapter={Boolean(nextScene)}

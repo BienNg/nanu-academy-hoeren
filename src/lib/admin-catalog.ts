@@ -103,6 +103,20 @@ export function buildAdminCourseCatalog(
   return [...ausbildung, ...levels, ...living];
 }
 
+/** One workplace with clip ids only, so its path can project the same meters as a level. */
+export function buildLivingProgressCatalog(workplaceSlug: string): AdminCatalogCourse[] {
+  const id = livingAccessSlug(workplaceSlug);
+  return buildAdminCourseCatalog([])
+    .filter((course) => course.id === id)
+    .map((course) => ({
+      ...course,
+      lessons: course.lessons.map((lesson) => ({
+        ...lesson,
+        clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
+      })),
+    }));
+}
+
 /** CEFR courses with clip ids only, so learner pages can project the same meters as admin. */
 export function buildCefrProgressCatalog(): AdminCatalogCourse[] {
   return buildAdminCourseCatalog([])

@@ -43,7 +43,7 @@ export function livingSessionCourse(
   return {
     progressKey: scene.progressKey,
     lessonKey: scene.lessonKey,
-    pathHref: `/living/${workplace.slug}?scene=${encodeURIComponent(scene.id)}`,
+    pathHref: `/living/${workplace.slug}?lektion=${encodeURIComponent(scene.id)}`,
     title: `${workplace.label} - ${scene.label}`,
     groupLabel: workplace.label,
     lessonLabel: scene.label,
