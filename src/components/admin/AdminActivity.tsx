@@ -53,11 +53,13 @@ function formatMinutes(seconds: number): string {
 function SummaryStat({
   label,
   value,
+  aside,
   icon,
   hint,
 }: {
   label: string;
   value: string;
+  aside?: string;
   icon: string;
   hint: string;
 }) {
@@ -71,8 +73,13 @@ function SummaryStat({
           {label}
         </p>
       </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
+      <p className="mt-space-12 flex items-baseline gap-space-8">
+        <span className="font-headline-lg text-headline-lg tabular-nums text-on-surface">
+          {value}
+        </span>
+        {aside ? (
+          <span className="font-caption text-caption text-on-surface-variant">{aside}</span>
+        ) : null}
       </p>
       <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
     </div>
@@ -331,12 +338,12 @@ function LeadersTable({ leaders }: { leaders: readonly AdminActivityLeader[] }) 
           Most time in the app
         </h2>
         <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          Ranked by active minutes in this window, then by videos and runs.
+          Every student in this view. Ranked by active minutes, then by videos and runs.
         </p>
       </div>
       {leaders.length === 0 ? (
         <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          Nobody opened the app in this window.
+          No students in this view.
         </p>
       ) : (
         <table className="w-full min-w-[36rem] border-collapse text-left">
@@ -422,10 +429,14 @@ export function AdminActivity({
   rows,
   range,
   storeConfigured,
+  studyPartsByUser,
+  practicePartsByUser,
 }: {
   rows: readonly AdminUserRow[];
   range: AdminRange;
   storeConfigured: boolean;
+  studyPartsByUser: Readonly<Record<string, number>>;
+  practicePartsByUser: Readonly<Record<string, number>>;
 }) {
   const [classFilter, setClassFilter] = useState("all");
   const learners = useMemo(
@@ -445,6 +456,16 @@ export function AdminActivity({
     () => buildAdminActivityStats(filteredRows, range),
     [filteredRows, range],
   );
+  const partTotals = useMemo(() => {
+    let studyParts = 0;
+    let practiceParts = 0;
+    for (const row of filteredRows) {
+      if (row.isAdmin || row.staff) continue;
+      studyParts += studyPartsByUser[row.userId] ?? 0;
+      practiceParts += practicePartsByUser[row.userId] ?? 0;
+    }
+    return { studyParts, practiceParts };
+  }, [filteredRows, studyPartsByUser, practicePartsByUser]);
   const board = useMemo(
     () => buildAdminActivityBoard(filteredRows, range),
     [filteredRows, range],
@@ -520,8 +541,9 @@ export function AdminActivity({
         <SummaryStat
           label="Videos watched"
           value={formatCount(activity.videosWatched)}
+          aside="marked watched"
           icon="smart_display"
-          hint={`Marked watched ${window}${classHint}`}
+          hint={`${formatMinutes(activity.videoSeconds)} playing ${window}${classHint}`}
         />
         <SummaryStat
           label="Study runs"
@@ -534,6 +556,18 @@ export function AdminActivity({
           value={formatCount(activity.practiceRuns)}
           icon="headphones"
           hint={`Practice runs finished ${window}${classHint}`}
+        />
+        <SummaryStat
+          label="Study parts"
+          value={formatCount(partTotals.studyParts)}
+          icon="auto_stories"
+          hint={`Finished ${window}${classHint}`}
+        />
+        <SummaryStat
+          label="Practice parts"
+          value={formatCount(partTotals.practiceParts)}
+          icon="task_alt"
+          hint={`Finished ${window}${classHint}`}
         />
       </section>
 

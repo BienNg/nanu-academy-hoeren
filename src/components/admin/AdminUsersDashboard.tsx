@@ -5,7 +5,6 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition 
 import { createPortal } from "react-dom";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -42,8 +41,9 @@ import {
 const STUDENTS_PAGE_SIZE = 15;
 const AXIS = "#717785";
 const GRID = "#c1c6d6";
-const USERS_COLOR = "#0059b5";
-const CLASSES_COLOR = "#1f7a3a";
+const LINE_COLOR = "#0059b5";
+
+type RosterSeries = "users" | "classes";
 
 function SortHeader({
   label,
@@ -575,6 +575,7 @@ export function AdminUsersDashboard({
 }: AdminUsersDashboardProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [rosterSeries, setRosterSeries] = useState<RosterSeries>("users");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminSortKey>("lastLogin");
   const [dir, setDir] = useState<AdminSortDir>("desc");
@@ -857,17 +858,48 @@ export function AdminUsersDashboard({
         />
 
         <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-          <div className="px-space-16 py-space-12">
-            <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-              Last 30 days
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Users and classes by the day each one first appeared. Days are Vietnam time.
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-space-12 px-space-16 py-space-12">
+            <div>
+              <h2 className="font-label-md text-label-md font-semibold text-on-surface">
+                Last 30 days
+              </h2>
+              <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+                {rosterSeries === "users"
+                  ? "Users by the day each account was first seen."
+                  : "Classes by the day each one first appeared."}{" "}
+                Days are Vietnam time.
+              </p>
+            </div>
+            <div role="tablist" aria-label="Chart series" className="flex gap-space-8">
+              {(
+                [
+                  { key: "users", label: "Users" },
+                  { key: "classes", label: "Classes" },
+                ] as const
+              ).map((option) => {
+                const on = rosterSeries === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setRosterSeries(option.key)}
+                    className={`inline-flex h-9 items-center rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
+                      on
+                        ? "bg-primary text-on-primary"
+                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rosterTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <LineChart data={rosterTrend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -877,77 +909,38 @@ export function AdminUsersDashboard({
                   interval={3}
                 />
                 <YAxis
-                  yAxisId="users"
                   allowDecimals={false}
                   width={36}
                   tick={{ fill: AXIS, fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                 />
-                <YAxis
-                  yAxisId="classes"
-                  orientation="right"
-                  allowDecimals={false}
-                  width={32}
-                  tick={{ fill: AXIS, fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
                 <Tooltip
                   content={({ active, label, payload }) => {
-                    if (!active || !payload?.length) return null;
+                    const row = payload?.[0];
+                    if (!active || !row) return null;
                     return (
                       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
                         <p className="font-label-sm text-label-sm font-semibold text-on-surface">
                           {label}
                         </p>
-                        <ul className="mt-1 flex flex-col gap-0.5">
-                          {payload.map((row) => (
-                            <li
-                              key={String(row.dataKey)}
-                              className="flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant"
-                            >
-                              <span className="flex items-center gap-space-8">
-                                <span
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: row.color }}
-                                  aria-hidden="true"
-                                />
-                                {row.name}
-                              </span>
-                              <span className="tabular-nums text-on-surface">
-                                {typeof row.value === "number"
-                                  ? row.value.toLocaleString("en-GB")
-                                  : row.value}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="mt-1 flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant">
+                          <span>{row.name}</span>
+                          <span className="tabular-nums text-on-surface">
+                            {typeof row.value === "number"
+                              ? row.value.toLocaleString("en-GB")
+                              : row.value}
+                          </span>
+                        </p>
                       </div>
                     );
                   }}
                 />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, color: AXIS }}
-                  iconType="circle"
-                  iconSize={8}
-                />
                 <Line
-                  yAxisId="users"
                   type="monotone"
-                  dataKey="users"
-                  name="Users"
-                  stroke={USERS_COLOR}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-                <Line
-                  yAxisId="classes"
-                  type="monotone"
-                  dataKey="classes"
-                  name="Classes"
-                  stroke={CLASSES_COLOR}
+                  dataKey={rosterSeries}
+                  name={rosterSeries === "users" ? "Users" : "Classes"}
+                  stroke={LINE_COLOR}
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}

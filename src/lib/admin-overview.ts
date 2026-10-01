@@ -318,6 +318,8 @@ export type AdminActivityStats = {
   users: number;
   activeUsers: number;
   videosWatched: number;
+  /** Playback seconds while a video was actually playing, in the window. */
+  videoSeconds: number;
   studyRuns: number;
   practiceRuns: number;
 };
@@ -459,8 +461,8 @@ function practiceRunsOnDay(progress: StoredProgress, day: string): number {
   return Math.max(recorded, firstCompletions);
 }
 
-/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
-export function videoMinutesInRange(
+/** Playback seconds in the Vietnam window, from daily totals and visit playback. */
+export function videoSecondsInRange(
   progress: StoredProgress,
   days: readonly string[],
 ): number {
@@ -476,6 +478,15 @@ export function videoMinutesInRange(
     const recorded = progress.activity?.[day]?.videoSeconds ?? 0;
     seconds += Math.max(recorded, fromVisits.get(day) ?? 0);
   }
+  return seconds;
+}
+
+/** Minutes of video playback in the Vietnam window. Under a minute still counts as 1. */
+export function videoMinutesInRange(
+  progress: StoredProgress,
+  days: readonly string[],
+): number {
+  const seconds = videoSecondsInRange(progress, days);
   if (seconds <= 0) return 0;
   return Math.max(1, Math.round(seconds / 60));
 }
@@ -581,6 +592,7 @@ export function buildAdminActivityStats(
   const window = new Set(days);
   let activeUsers = 0;
   let videosWatched = 0;
+  let videoSeconds = 0;
   let studyRuns = 0;
   let practiceRuns = 0;
 
@@ -597,6 +609,7 @@ export function buildAdminActivityStats(
     }
 
     videosWatched += rowVideos;
+    videoSeconds += videoSecondsInRange(row.progress, days);
     studyRuns += rowStudy;
     practiceRuns += rowPractice;
 
@@ -607,6 +620,7 @@ export function buildAdminActivityStats(
     users: learners.length,
     activeUsers,
     videosWatched,
+    videoSeconds,
     studyRuns,
     practiceRuns,
   };
@@ -653,8 +667,6 @@ export type AdminActivityBoard = {
   points: AdminActivityPoint[];
   leaders: AdminActivityLeader[];
 };
-
-const ACTIVITY_LEADER_LIMIT = 8;
 
 function buildDailyActivityPoints(
   rows: readonly AdminUserRow[],
@@ -752,15 +764,6 @@ function buildActivityLeaders(
       practiceRuns += work.practice;
     }
 
-    if (
-      activeSeconds <= 0 &&
-      videosWatched <= 0 &&
-      studyRuns <= 0 &&
-      practiceRuns <= 0
-    ) {
-      continue;
-    }
-
     leaders.push({
       userId: row.userId,
       displayName: row.displayName,
@@ -780,7 +783,7 @@ function buildActivityLeaders(
     return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
   });
 
-  return leaders.slice(0, ACTIVITY_LEADER_LIMIT);
+  return leaders;
 }
 
 /**
