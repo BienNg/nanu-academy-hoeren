@@ -118,7 +118,14 @@ function startOffer(
 
 function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
   const titles =
-    lesson?.videos.map((video) => video.title.trim()).filter(Boolean) ?? [];
+    lesson?.videos
+      .map((video) => {
+        const title = video.title.trim();
+        const titleVi = video.titleVi.trim();
+        if (!title) return "";
+        return titleVi ? `${title} · ${titleVi}` : title;
+      })
+      .filter(Boolean) ?? [];
   return titles.length > 0 ? titles.join(" & ") : null;
 }
 
@@ -156,12 +163,18 @@ function lessonTrailNodes(
     complete: video.status === "watched",
     struggling: false,
     primary: video.title,
-    secondary: null,
+    secondary: video.titleVi || null,
     stars: null,
     rerun: null,
     mastered: false,
     start: null,
-    label: video.status === "watched" ? `${video.title}, đã xem` : video.title,
+    label: [
+      video.title,
+      video.titleVi || null,
+      video.status === "watched" ? "đã xem" : null,
+    ]
+      .filter(Boolean)
+      .join(", "),
   }));
 
   const activities = lesson.activities.map((activity) => {

@@ -3,11 +3,13 @@
   "videos": [
     {
       "title": "Verbkonjugation",
+      "titleVi": "Chia Động Từ",
       "url": "https://youtu.be/IUBj3B27p70"
     },
 
     {
       "title": "Satzbau",
+      "titleVi": "Cấu Trúc Câu",
       "url": "https://youtu.be/kmLnmNt9Qws"
     }
   ],

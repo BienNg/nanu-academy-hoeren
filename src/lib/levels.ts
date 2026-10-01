@@ -28,6 +28,7 @@ type StoredClip = {
 
 type StoredVideo = {
   title?: unknown;
+  titleVi?: unknown;
   url?: unknown;
 };
 
@@ -39,6 +40,7 @@ type StoredChapterFile = {
 /** A lesson video entered as a title plus a YouTube URL. `videoId` is null when the URL is not playable. */
 export type ChapterVideo = {
   title: string;
+  titleVi: string;
   url: string;
   videoId: string | null;
   startSeconds: number;
@@ -247,12 +249,14 @@ export function getChapterClipInventory(
 
 function toChapterVideo(entry: StoredVideo): ChapterVideo | null {
   const title = typeof entry.title === "string" ? entry.title.trim() : "";
+  const titleVi = typeof entry.titleVi === "string" ? entry.titleVi.trim() : "";
   const url = typeof entry.url === "string" ? entry.url.trim() : "";
   if (!title || !url) return null;
 
   const parsed = parseYouTubeUrl(url);
   return {
     title,
+    titleVi,
     url,
     videoId: parsed?.videoId ?? null,
     startSeconds: parsed?.startSeconds ?? 0,

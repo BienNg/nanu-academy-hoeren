@@ -26,6 +26,7 @@ export type AdminCatalogCard = {
 export type AdminCatalogVideo = {
   id: string;
   title: string;
+  titleVi: string;
 };
 
 export type AdminCatalogLesson = {
@@ -66,6 +67,7 @@ export type AdminActivityCard = {
 export type AdminVideoDetail = {
   id: string;
   title: string;
+  titleVi: string;
   status: "not-started" | "in-progress" | "watched";
   positionSeconds: number;
   updatedAt: string | null;
@@ -202,6 +204,7 @@ function projectLesson(
     return {
       id: video.id,
       title: video.title,
+      titleVi: video.titleVi,
       status: lessonVideoStatus(entry),
       positionSeconds: entry?.positionSeconds ?? 0,
       updatedAt: entry?.updatedAt || null,

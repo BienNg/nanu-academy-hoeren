@@ -65,6 +65,11 @@ export type BoardPerson = {
   image?: string | null;
 };
 
+export type LeaderboardClassOption = {
+  key: string;
+  label: string;
+};
+
 export type LeaderboardScope = "class" | "global";
 export type LeaderboardRange = "week" | "all";
 /** "blitzrunde" reuses the xp slot for Blitzrunde points (not XP) and `won` for rounds won. */
@@ -93,6 +98,10 @@ export type LeaderboardPayload = {
   weekEndsAt: string;
   countdown: string;
   className: string | null;
+  /** Class currently ranked when scope is "class". */
+  classKey: string | null;
+  /** Every class, only for admins and staff. Empty for learners. */
+  classOptions: LeaderboardClassOption[];
   yourXp: number;
   yourRank: number | null;
   yourWon: number;
@@ -185,6 +194,38 @@ export function leaderboardClassKey(value: string | null | undefined): string {
     .trim()
     .replace(/\s+/g, " ")
     .toLocaleLowerCase("vi");
+}
+
+/** Distinct classes, labeled with the most common spelling of each name. */
+export function leaderboardClassOptions(
+  people: readonly { classKey: string; className: string | null }[],
+): LeaderboardClassOption[] {
+  const groups = new Map<string, Map<string, number>>();
+  for (const person of people) {
+    if (!person.classKey) continue;
+    const label = person.className?.trim() || person.classKey;
+    const votes = groups.get(person.classKey) ?? new Map<string, number>();
+    votes.set(label, (votes.get(label) ?? 0) + 1);
+    groups.set(person.classKey, votes);
+  }
+
+  const options: LeaderboardClassOption[] = [];
+  for (const [key, votes] of groups) {
+    let label = key;
+    let best = -1;
+    for (const [candidate, count] of votes) {
+      if (
+        count > best ||
+        (count === best && candidate.localeCompare(label, "vi", { sensitivity: "base" }) < 0)
+      ) {
+        best = count;
+        label = candidate;
+      }
+    }
+    options.push({ key, label });
+  }
+  options.sort((a, b) => a.label.localeCompare(b.label, "vi", { sensitivity: "base" }));
+  return options;
 }
 
 export function leaderboardDisplayName(name: string | null | undefined): string {
@@ -390,6 +431,8 @@ export function emptyLeaderboard(input: {
     weekEndsAt: ends,
     countdown: formatWeekCountdown(ends, input.now),
     className: null,
+    classKey: null,
+    classOptions: [],
     yourXp: 0,
     yourRank: null,
     yourWon: 0,
@@ -425,14 +468,23 @@ export function assembleLeaderboard(input: {
   range: LeaderboardRange;
   now: Date;
   board?: LeaderboardBoard;
+  /** Rank this class instead of the viewer's. Callers must already check permission. */
+  classKey?: string | null;
+  classLabel?: string | null;
+  classOptions?: LeaderboardClassOption[];
 }): LeaderboardPayload {
   const board = input.board ?? "xp";
   const base = emptyLeaderboard({ ...input, ready: true, board });
   const viewer = input.people.find((person) => person.userId === input.viewerId);
   const yourXp = viewer?.xp ?? 0;
   const viewerIsAdmin = viewer?.isAdmin ?? false;
-  const className = viewer?.className ?? null;
-  const classKey = viewer?.classKey ?? "";
+  const requestedKey = input.scope === "class" && input.classKey ? input.classKey : "";
+  const classKey = requestedKey || viewer?.classKey || "";
+  const className = requestedKey
+    ? (input.classLabel ?? null)
+    : classKey
+      ? (viewer?.className ?? null)
+      : null;
 
   const contenders =
     input.scope === "class"
@@ -476,6 +528,8 @@ export function assembleLeaderboard(input: {
   return {
     ...base,
     className: classKey.length > 0 ? className : null,
+    classKey: classKey.length > 0 ? classKey : null,
+    classOptions: input.classOptions ?? [],
     yourXp,
     yourRank: you ? you.rank : null,
     yourWon: viewer?.won ?? 0,

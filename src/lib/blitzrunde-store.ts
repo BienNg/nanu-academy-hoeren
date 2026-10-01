@@ -409,6 +409,22 @@ export async function classHasStartedBlitzrunde(classKey: string): Promise<boole
   return (data?.length ?? 0) > 0;
 }
 
+/** True when any class has a round that left the lobby. */
+export async function anyClassHasStartedBlitzrunde(): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from(SESSIONS_TABLE)
+    .select("id")
+    .in("status", ["active", "ended"])
+    .limit(1);
+  if (error) {
+    logBlitz(error.message);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 /** The open round for this learner's class, if any. Drives the home-screen banner. */
 export async function getLiveRoundForUser(userId: string, now: Date = new Date()): Promise<LiveRound | null> {
   const supabase = getSupabaseAdmin();

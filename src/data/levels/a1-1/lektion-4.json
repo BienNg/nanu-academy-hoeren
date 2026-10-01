@@ -2,11 +2,13 @@
   "videos": [
     {
       "title": "Artikel",
+      "titleVi": "Mạo Từ",
       "url": "https://youtu.be/HK0jxag5tNw"
     },
 
     {
       "title": "W-Fragen",
+      "titleVi": "Câu Hỏi W",
       "url": "https://youtu.be/MG2BfvdxBro"
     }
   ],

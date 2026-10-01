@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assembleLeaderboard,
+  leaderboardClassOptions,
   dayKey,
   decidePartXp,
   decideStudyPartXp,
@@ -256,6 +257,29 @@ test("class board lists the whole class and global keeps the top plus you", () =
   );
   assert.equal(classroom.yourRank, 2);
   assert.equal(classroom.className, "Lớp A");
+  assert.equal(classroom.classKey, "lop-a");
+  assert.deepEqual(classroom.classOptions, []);
+
+  const otherClass = assembleLeaderboard({
+    people,
+    viewerId: "you",
+    scope: "class",
+    range: "week",
+    now: NOW,
+    classKey: "lop-b",
+    classLabel: "Lớp B",
+    classOptions: [
+      { key: "lop-a", label: "Lớp A" },
+      { key: "lop-b", label: "Lớp B" },
+    ],
+  });
+  assert.equal(otherClass.className, "Lớp B");
+  assert.equal(otherClass.classKey, "lop-b");
+  assert.deepEqual(
+    otherClass.rows.map((row) => row.name),
+    ["other"],
+  );
+  assert.equal(otherClass.rows.some((row) => row.isYou), false);
 
   const global = assembleLeaderboard({
     people,
@@ -269,6 +293,22 @@ test("class board lists the whole class and global keeps the top plus you", () =
   assert.equal(global.rows.at(-1)?.rank, null);
   assert.equal(global.rows.at(-1)?.gapBefore, true);
   assert.equal(global.yourRank, null);
+});
+
+test("class options keep the most common spelling", () => {
+  assert.deepEqual(
+    leaderboardClassOptions([
+      { classKey: "lop b", className: "Lop B" },
+      { classKey: "lop b", className: "Lớp B" },
+      { classKey: "lop b", className: "Lớp B" },
+      { classKey: "a", className: "A" },
+      { classKey: "", className: null },
+    ]),
+    [
+      { key: "a", label: "A" },
+      { key: "lop b", label: "Lớp B" },
+    ],
+  );
 });
 
 function previewRow(rank: number, name: string, isYou = false): LeaderboardRow {
