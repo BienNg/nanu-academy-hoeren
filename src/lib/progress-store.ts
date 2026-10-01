@@ -115,6 +115,49 @@ export async function getCloudProgress(
   return normalizeProgress(data.data as Partial<StoredProgress>);
 }
 
+/** One student's document, sign-ins, and app uses. Admin detail panel only. */
+export async function getAdminStudentDetail(userId: string): Promise<{
+  progress: StoredProgress;
+  signIns: SignInRecord[];
+  appUses: AppUseRecord[];
+} | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return null;
+
+  const columnSets = [
+    "data, sign_in_log, sign_ins, app_uses",
+    "data, sign_in_log, sign_ins",
+    "data, sign_ins",
+    "data",
+  ];
+  let lastError = "";
+  for (const columns of columnSets) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select(columns)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      lastError = error.message;
+      continue;
+    }
+    if (!data) return null;
+    const row = data as {
+      data?: unknown;
+      sign_in_log?: unknown;
+      sign_ins?: unknown;
+      app_uses?: unknown;
+    };
+    return {
+      progress: normalizeProgress(row.data as Partial<StoredProgress>),
+      signIns: readSignIns(row.sign_in_log, row.sign_ins),
+      appUses: readAppUseRecords(row.app_uses),
+    };
+  }
+  if (lastError) console.error("Supabase getAdminStudentDetail", lastError);
+  return null;
+}
+
 export type UserProfileTouch = {
   email?: string | null;
   name?: string | null;
@@ -322,7 +365,7 @@ const LIST_PAGE_SIZE = 1000;
 
 type RawProgressRow = {
   user_id: string;
-  data: unknown;
+  data?: unknown;
   updated_at?: string | null;
   email?: string | null;
   name?: string | null;
@@ -335,6 +378,13 @@ type RawProgressRow = {
   sign_in_log?: unknown;
   app_uses?: unknown;
   staff?: unknown;
+  practiceDates?: unknown;
+  lastPracticeDate?: unknown;
+  activity?: unknown;
+  visits?: unknown;
+  videos?: unknown;
+  learn?: unknown;
+  interview?: unknown;
 };
 
 /** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
@@ -399,7 +449,29 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     signIns: readSignIns(row.sign_in_log, row.sign_ins),
     appUses: readAppUseRecords(row.app_uses),
     staff: row.staff === true,
-    progress: normalizeProgress(row.data as Partial<StoredProgress>),
+    progress: normalizeProgress(progressSource(row)),
+  };
+}
+
+function progressSource(row: RawProgressRow): Partial<StoredProgress> {
+  const sliced =
+    row.practiceDates !== undefined ||
+    row.lastPracticeDate !== undefined ||
+    row.activity !== undefined ||
+    row.visits !== undefined ||
+    row.videos !== undefined ||
+    row.learn !== undefined ||
+    row.interview !== undefined;
+  if (!sliced) return (row.data ?? {}) as Partial<StoredProgress>;
+  return {
+    practiceDates: row.practiceDates as StoredProgress["practiceDates"],
+    lastPracticeDate:
+      typeof row.lastPracticeDate === "string" ? row.lastPracticeDate : undefined,
+    activity: row.activity as StoredProgress["activity"],
+    visits: row.visits as StoredProgress["visits"],
+    videos: row.videos as StoredProgress["videos"],
+    learn: row.learn as StoredProgress["learn"],
+    interview: row.interview as StoredProgress["interview"],
   };
 }
 
@@ -788,60 +860,104 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
   }
 }
 
-export async function listAllUserProgress(): Promise<UserProgressListItem[]> {
+/**
+ * How much of each progress document an admin screen needs.
+ * `account` is identity plus the small streak fields.
+ * `activity` adds visits, daily activity, and video watch state.
+ * `videos` is the watch map used by the videos board.
+ * `levels` adds lesson and interview progress for the level paths.
+ */
+export type AdminListSlice = "account" | "activity" | "levels" | "videos";
+
+const ADMIN_PROFILE_COLUMNS = [
+  "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, staff",
+  "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name",
+  "user_id, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
+  "user_id, updated_at, email, name, last_login_at, deleted_at, level_access",
+  "user_id, updated_at, email, name, last_login_at, deleted_at",
+  "user_id, updated_at, email, name, last_login_at",
+  "user_id, updated_at",
+];
+
+const FULL_PROGRESS_COLUMNS = [
+  "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, app_uses, staff",
+  "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, staff",
+  "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, staff",
+  "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
+  "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
+  "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
+  "user_id, data, updated_at, email, name, last_login_at, deleted_at",
+  "user_id, data, updated_at, email, name, last_login_at",
+  "user_id, data, updated_at",
+];
+
+function sliceProgressColumns(slice: AdminListSlice): string {
+  const keys = [
+    "practiceDates:data->practiceDates",
+    "lastPracticeDate:data->lastPracticeDate",
+    "activity:data->activity",
+  ];
+  if (slice === "activity" || slice === "videos" || slice === "levels") {
+    keys.push("videos:data->videos");
+  }
+  if (slice === "activity") keys.push("visits:data->visits");
+  if (slice === "levels") {
+    keys.push("learn:data->learn", "interview:data->interview");
+  }
+  return keys.join(", ");
+}
+
+async function fetchProgressPages(
+  client: SupabaseClient,
+  columns: string,
+): Promise<RawProgressRow[] | null> {
+  const rows: RawProgressRow[] = [];
+  let from = 0;
+  const hideDeleted = columns.includes("deleted_at");
+  for (;;) {
+    let query = client.from(TABLE).select(columns);
+    if (hideDeleted) query = query.is("deleted_at", null);
+    const { data, error } = await query.range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) return null;
+    const page = (data ?? []) as unknown as RawProgressRow[];
+    rows.push(...page);
+    if (page.length < LIST_PAGE_SIZE) return rows;
+    from += LIST_PAGE_SIZE;
+  }
+}
+
+function listedProgress(rows: readonly RawProgressRow[]): UserProgressListItem[] {
+  return rows.filter((row) => !row.deleted_at).map(mapProgressRow);
+}
+
+export async function listAllUserProgress(
+  slice: AdminListSlice = "account",
+): Promise<UserProgressListItem[]> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return [];
 
-  // Widest column set first, so a table that predates a migration still lists
-  // users instead of failing outright.
-  const columnSets = [
-    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, app_uses, staff",
-    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, staff",
-    "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, staff",
-    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name, sign_ins",
-    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
-    "user_id, data, updated_at, email, name, last_login_at, deleted_at, level_access",
-    "user_id, data, updated_at, email, name, last_login_at, deleted_at",
-    "user_id, data, updated_at, email, name, last_login_at",
-    "user_id, data, updated_at",
-  ];
-
-  async function fetchAll(
-    client: SupabaseClient,
-    columns: string,
-  ): Promise<RawProgressRow[] | null> {
-    const rows: RawProgressRow[] = [];
-    let from = 0;
-    for (;;) {
-      const { data, error } = await client
-        .from(TABLE)
-        .select(columns)
-        .range(from, from + LIST_PAGE_SIZE - 1);
-
-      if (error) return null;
-
-      const page = (data ?? []) as unknown as RawProgressRow[];
-      rows.push(...page);
-      if (page.length < LIST_PAGE_SIZE) return rows;
-      from += LIST_PAGE_SIZE;
+  const progressColumns = sliceProgressColumns(slice);
+  const withSignIns = slice === "activity";
+  for (const profile of ADMIN_PROFILE_COLUMNS) {
+    const base = `${profile}, ${progressColumns}`;
+    const sets = withSignIns ? [`${base}, sign_ins`, base] : [base];
+    for (const columns of sets) {
+      const result = await fetchProgressPages(supabase, columns);
+      if (result) return listedProgress(result);
     }
   }
 
-  let rows: RawProgressRow[] = [];
-  let loaded = false;
-  for (const columns of columnSets) {
-    const result = await fetchAll(supabase, columns);
-    if (result) {
-      rows = result;
-      loaded = true;
-      break;
-    }
+  // A project that rejects JSON-key selects still opens the dashboard.
+  console.error(
+    "Supabase listAllUserProgress",
+    `slice ${slice} failed, reading full progress documents`,
+  );
+  for (const columns of FULL_PROGRESS_COLUMNS) {
+    const result = await fetchProgressPages(supabase, columns);
+    if (result) return listedProgress(result);
   }
-  if (!loaded) {
-    console.error("Supabase listAllUserProgress", "every column set failed");
-  }
-
-  return rows.filter((row) => !row.deleted_at).map(mapProgressRow);
+  console.error("Supabase listAllUserProgress", "every column set failed");
+  return [];
 }
 
 /**
@@ -1595,6 +1711,9 @@ export async function countAdminPracticeParts(
   if (!supabase) return { ready: false, parts: 0, runs: 0, passedByUser };
   if (learnerIds.size === 0) return { ready: true, parts: 0, runs: 0, passedByUser };
 
+  const counted = await readPracticePartCounts(supabase, fromIso, toIso, learnerIds);
+  if (counted) return counted;
+
   let parts = 0;
   let runs = 0;
   let from = 0;
@@ -1876,6 +1995,73 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     column: "duel_id",
   },
 ];
+
+const loggedMissingRoutine = new Set<string>();
+
+function routineMissing(message: string): boolean {
+  return /does not exist|schema cache|could not find/i.test(message);
+}
+
+function noteMissingRoutine(name: string, message: string): void {
+  if (loggedMissingRoutine.has(name)) return;
+  loggedMissingRoutine.add(name);
+  console.error(
+    `${name}() unavailable, reading rows instead. Re-run supabase/admin_progress_reads.sql.`,
+    message,
+  );
+}
+
+async function readPracticePartCounts(
+  supabase: SupabaseClient,
+  fromIso: string,
+  toIso: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{
+  ready: boolean;
+  parts: number;
+  runs: number;
+  passedByUser: Record<string, number>;
+} | null> {
+  const { data, error } = await supabase.rpc("admin_practice_part_counts", {
+    p_from: fromIso,
+    p_to: toIso,
+  });
+  if (error) {
+    if (routineMissing(error.message)) {
+      noteMissingRoutine("admin_practice_part_counts", error.message);
+    } else {
+      console.error("Supabase admin_practice_part_counts", error.message);
+    }
+    return null;
+  }
+  const passedByUser: Record<string, number> = {};
+  let parts = 0;
+  let runs = 0;
+  for (const row of (Array.isArray(data) ? data : []) as {
+    user_id?: unknown;
+    parts?: unknown;
+    passed?: unknown;
+    runs?: unknown;
+  }[]) {
+    if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+    const userParts = countFromRpc(row.parts);
+    const userPassed = countFromRpc(row.passed);
+    const userRuns = countFromRpc(row.runs);
+    parts += userParts;
+    runs += userRuns;
+    if (userPassed > 0) passedByUser[row.user_id] = userPassed;
+  }
+  return { ready: true, parts, runs, passedByUser };
+}
+
+function countFromRpc(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
 
 function schemaObjectMissing(message: string, name: string): boolean {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

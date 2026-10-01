@@ -51,7 +51,7 @@ export default async function AdminListeningRunsPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("account") : [];
   const people = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

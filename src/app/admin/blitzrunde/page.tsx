@@ -22,7 +22,7 @@ export default async function AdminBlitzrundePage() {
   const session = await requireAdmin();
 
   const storeConfigured = isProgressStoreConfigured();
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("account") : [];
   const rows = items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user)));
   const classes = listAdminClasses(rows);
 

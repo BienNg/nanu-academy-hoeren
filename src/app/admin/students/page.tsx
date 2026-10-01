@@ -44,7 +44,7 @@ export default async function AdminStudentsPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("account") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

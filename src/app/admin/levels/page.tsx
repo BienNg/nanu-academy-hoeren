@@ -42,7 +42,7 @@ export default async function AdminLevelsPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("levels") : [];
 
   return (
     <AdminLevels

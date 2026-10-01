@@ -19,7 +19,12 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
-import { commitAdminProgressClear, type StoredProgress } from "@/lib/progress";
+import {
+  commitAdminProgressClear,
+  type AppUseRecord,
+  type SignInRecord,
+  type StoredProgress,
+} from "@/lib/progress";
 import {
   INTERVIEW_ACCESS_SLUG,
   deleteListeningRunsForLessons,
@@ -27,6 +32,7 @@ import {
   deleteStudyXpForLessons,
   deleteUserAccount,
   findActiveUserIdByEmail,
+  getAdminStudentDetail,
   getCloudProgress,
   getStoredUserEmail,
   getUserLevelAccess,
@@ -150,6 +156,28 @@ function withPartCardCount(run: StoredListeningRun): StoredListeningRun {
     partClips.push(clip);
   }
   return { ...run, cardCount: practiceCardCount(partClips, lessonClips) };
+}
+
+export async function loadAdminStudentDetail(userId: string): Promise<
+  | {
+      ok: true;
+      progress: StoredProgress;
+      signIns: SignInRecord[];
+      appUses: AppUseRecord[];
+    }
+  | { ok: false; error: string }
+> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+  const detail = await getAdminStudentDetail(id);
+  if (!detail) return { ok: false, error: "Could not load this student's progress." };
+  return { ok: true, ...detail };
 }
 
 export async function listAdminStudentRuns(

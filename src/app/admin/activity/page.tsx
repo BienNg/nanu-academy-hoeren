@@ -35,7 +35,7 @@ export default async function AdminActivityPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("activity") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

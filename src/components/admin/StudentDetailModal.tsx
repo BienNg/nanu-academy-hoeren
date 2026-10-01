@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { deleteAdminStudentProgress, listAdminStudentRuns } from "@/app/admin/actions";
+import {
+  deleteAdminStudentProgress,
+  listAdminStudentRuns,
+  loadAdminStudentDetail,
+} from "@/app/admin/actions";
 import { CARD_KIND_LABEL } from "@/lib/card-kinds";
 import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import {
@@ -848,6 +852,12 @@ export function StudentDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [runsRevision, setRunsRevision] = useState(0);
+  const [payload, setPayload] = useState<{
+    progress: StoredProgress;
+    signIns: AdminUserRow["signIns"];
+    appUses: AdminUserRow["appUses"];
+  } | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const serverCaughtUp =
     progressOverride?.userId === row.userId &&
     (progressOverride.progress.adminClears ?? []).every((clear) =>
@@ -856,7 +866,8 @@ export function StudentDetailModal({
   const progress =
     progressOverride?.userId === row.userId && !serverCaughtUp
       ? progressOverride.progress
-      : row.progress;
+      : (payload?.progress ?? row.progress);
+  const detailReady = payload != null;
   const detail = useMemo(
     () => projectStudentDetail(catalog, progress),
     [catalog, progress],
@@ -873,11 +884,35 @@ export function StudentDetailModal({
     [catalog, progress, range],
   );
   const streakDays = activeStreakDays(progress);
-  const lastLogin = formatAbsoluteTime(row.lastSignInAt);
+  const signIns = [...(payload?.signIns ?? row.signIns)].reverse();
+  const appUses = [...(payload?.appUses ?? row.appUses)].reverse();
+  const lastSignInAt = payload?.signIns.length
+    ? (payload.signIns[payload.signIns.length - 1]?.at ?? row.lastSignInAt)
+    : row.lastSignInAt;
+  const lastLogin = formatAbsoluteTime(lastSignInAt);
   const lastSeen = formatAbsoluteTime(row.lastLoginAt);
   const summary = visitLog.summary;
-  const signIns = [...row.signIns].reverse();
-  const appUses = [...row.appUses].reverse();
+
+  useEffect(() => {
+    let cancelled = false;
+    setPayload(null);
+    setDetailError(null);
+    void loadAdminStudentDetail(row.userId).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setDetailError(result.error);
+        return;
+      }
+      setPayload({
+        progress: result.progress,
+        signIns: result.signIns,
+        appUses: result.appUses,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.userId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1019,7 +1054,8 @@ export function StudentDetailModal({
                         "Courses, Lektionen, videos, practice, and visit history are cleared. The account, class, and level access stay.",
                     });
                   }}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
+                  disabled={!detailReady}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10 disabled:opacity-40"
                 >
                   <MaterialIcon name="delete" className="text-[18px]" />
                   <span className="hidden sm:inline">Delete progress</span>
@@ -1038,6 +1074,8 @@ export function StudentDetailModal({
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-7">
+          {detailReady ? (
+          <div>
           <section aria-label="Visits">
             <div className="flex flex-wrap items-center justify-between gap-space-12">
               <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
@@ -1373,6 +1411,12 @@ export function StudentDetailModal({
               ) : null}
             </section>
           </div>
+          </div>
+          ) : (
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              {detailError ?? "Loading progress…"}
+            </p>
+          )}
         </div>
       </div>
       {pendingDelete ? (

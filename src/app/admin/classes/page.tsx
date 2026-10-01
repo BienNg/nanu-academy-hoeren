@@ -42,7 +42,7 @@ export default async function AdminClassesPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("account") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

@@ -1170,6 +1170,67 @@ async function listPagedXpRows<T>(
   }
 }
 
+function rpcCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+async function readUserCounts(
+  supabase: SupabaseClient,
+  name: string,
+  args: { p_from: string; p_to: string },
+  field: "parts" | "xp",
+): Promise<{ userId: string; count: number }[] | null> {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) {
+    if (/does not exist|schema cache|could not find/i.test(error.message)) {
+      noteRpcFallback(name, error.message);
+    } else {
+      console.error(`Supabase ${name}`, error.message);
+    }
+    return null;
+  }
+  const rows: { userId: string; count: number }[] = [];
+  for (const row of (Array.isArray(data) ? data : []) as Record<string, unknown>[]) {
+    if (typeof row.user_id !== "string") continue;
+    rows.push({ userId: row.user_id, count: rpcCount(row[field]) });
+  }
+  return rows;
+}
+
+/** Listening plus duel XP in `[fromDay, toDay]`, summed per learner. */
+export async function sumAdminRangeXp(
+  fromDay: string,
+  toDay: string,
+): Promise<{ ready: boolean; byUser: Record<string, number> }> {
+  const supabase = getSupabaseAdmin();
+  const byUser: Record<string, number> = {};
+  if (!supabase) return { ready: false, byUser };
+  const grouped = await readUserCounts(
+    supabase,
+    "admin_xp_by_user",
+    { p_from: fromDay, p_to: toDay },
+    "xp",
+  );
+  if (grouped) {
+    for (const row of grouped) byUser[row.userId] = row.count;
+    return { ready: true, byUser };
+  }
+
+  const [listening, duels] = await Promise.all([
+    listAdminListeningXp(fromDay, toDay),
+    listAdminDuelXp(fromDay, toDay),
+  ]);
+  if (!listening.ready || !duels.ready) return { ready: false, byUser };
+  for (const row of listening.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  for (const row of duels.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  return { ready: true, byUser };
+}
+
 /** Finished study parts on Vietnam `day_key`s in `[fromDay, toDay]`, for the given students. */
 export async function countAdminStudyParts(
   fromDay: string,
@@ -1180,6 +1241,22 @@ export async function countAdminStudyParts(
   const byUser: Record<string, number> = {};
   if (!supabase) return { ready: false, count: 0, byUser };
   if (learnerIds.size === 0) return { ready: true, count: 0, byUser };
+
+  const grouped = await readUserCounts(
+    supabase,
+    "admin_study_part_counts",
+    { p_from: fromDay, p_to: toDay },
+    "parts",
+  );
+  if (grouped) {
+    let count = 0;
+    for (const row of grouped) {
+      if (!learnerIds.has(row.userId)) continue;
+      byUser[row.userId] = row.count;
+      count += row.count;
+    }
+    return { ready: true, count, byUser };
+  }
 
   let count = 0;
   let from = 0;

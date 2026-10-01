@@ -11,7 +11,6 @@ import {
   shortBerufLabel,
   toAdminUserRow,
   withSessionIdentity,
-  xpByUserInDays,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
@@ -22,7 +21,7 @@ import {
   listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
-import { countAdminStudyParts, listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
+import { countAdminStudyParts, sumAdminRangeXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
   title: "Overview · Admin · NaNu Academy",
@@ -55,7 +54,7 @@ export default async function AdminPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress() : [];
+  const items = storeConfigured ? await listAllUserProgress("activity") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
@@ -63,9 +62,7 @@ export default async function AdminPage({
   const xpDays = adminRangeVietnamDayKeys(range);
   const fromDay = xpDays[xpDays.length - 1] ?? xpDays[0];
   const toDay = xpDays[0];
-  const xpReads = storeConfigured
-    ? await Promise.all([listAdminListeningXp(fromDay, toDay), listAdminDuelXp(fromDay, toDay)])
-    : null;
+  const xpReads = storeConfigured ? await sumAdminRangeXp(fromDay, toDay) : null;
   const partWindow = adminRangeVietnamInterval(range);
   const learnerIds = new Set(
     rows.filter((row) => !row.isAdmin && !row.staff).map((row) => row.userId),
@@ -84,12 +81,8 @@ export default async function AdminPage({
       courseCatalog={courseCatalog}
       rows={rows}
       storeConfigured={storeConfigured}
-      rangeXp={xpByUserInDays(
-        xpReads?.[0].rows ?? [],
-        xpReads?.[1].rows ?? [],
-        new Set(xpDays),
-      )}
-      rangeXpReady={xpReads?.[0].ready === true}
+      rangeXp={xpReads?.byUser ?? {}}
+      rangeXpReady={xpReads?.ready === true}
       studyParts={
         partCounts == null ? 0 : partCounts[0].ready ? partCounts[0].count : null
       }
