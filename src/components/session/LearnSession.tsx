@@ -374,6 +374,7 @@ export function LearnSession({
     scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
   const isLastPart = partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
+  const hideSessionChrome = phase === "complete" && failedRun;
   const exitLabel =
     failedRun || !isLastPart
       ? "Về bài học"
@@ -651,22 +652,30 @@ export function LearnSession({
       </div>
 
       <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
-        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-          <Link
-            href={pathHref}
-            aria-label="Quay lại"
-            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-          >
-            <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-          </Link>
-          <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-3 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
-              Luyện tập
-            </span>
-            <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-              {course.title}
-            </h1>
-          </div>
+        <div
+          className={`mx-auto flex h-14 w-full max-w-4xl items-center px-6 ${
+            hideSessionChrome ? "justify-end" : "justify-between"
+          }`}
+        >
+          {hideSessionChrome ? null : (
+            <>
+              <Link
+                href={pathHref}
+                aria-label="Quay lại"
+                className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+              >
+                <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
+              </Link>
+              <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-3 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
+                  Luyện tập
+                </span>
+                <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
+                  {course.title}
+                </h1>
+              </div>
+            </>
+          )}
           <div className="flex shrink-0 items-center gap-1.5">
             <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
             {showHearts ? (

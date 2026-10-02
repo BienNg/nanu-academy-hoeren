@@ -175,6 +175,11 @@ body {
   transform-box: fill-box;
 }
 
+/* SVG transform attributes (the head highlight) stay in viewBox space. */
+.pingu [transform] {
+  transform-box: view-box;
+}
+
 .pingu-shadow-hop {
   transform-origin: 50% 50%;
   animation: pingu-shadow-hop 1s ease-in-out 0.45s infinite;
