@@ -66,6 +66,7 @@ export function backHrefFor(path: string): string | null {
     return "/";
   }
   if (parts[0] === "interview" || parts[0] === "account") return "/";
+  if (parts[0] === "review" && parts.length > 1) return "/review";
   if (parts[0] === "admin" && parts.length > 1) return "/admin";
   if (parts[0] === "admin") return "/";
   return null;
@@ -334,6 +335,25 @@ export function SessionScreenSkeleton({
   );
 }
 
+/** The "Ôn tập" tab: today card, box chart, bottom navigation. */
+export function ReviewScreenSkeleton() {
+  return (
+    <div className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]">
+      <LoadingBar />
+      <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:px-6">
+          <div className="h-7 w-32 animate-pulse rounded-full bg-[#e2e7ff]" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pb-28 pt-4 sm:px-6">
+        <div className="h-48 animate-pulse rounded-[28px] bg-[#0284c7]/20" />
+        <div className="h-56 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
 export function SessionContentSkeleton({
   kind,
 }: {
@@ -485,6 +505,10 @@ export function ScreenForPath({ path }: { path: string }) {
     return <AccountScreenSkeleton path={path} />;
   }
   if (parts[0] === "admin") return <AdminScreenSkeleton />;
+  if (parts[0] === "review" && parts[1] === "session") {
+    return <SessionScreenSkeleton kind="practice" path={path} />;
+  }
+  if (parts[0] === "review") return <ReviewScreenSkeleton />;
   if (parts[0] === "interview") {
     return <SessionScreenSkeleton kind="practice" path={path} />;
   }

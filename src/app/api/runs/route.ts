@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { ListeningSchemaError, parseListeningRunInput } from "@/lib/listening-runs";
 import { insertListeningRun, isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import { grantXpForListeningRun } from "@/lib/xp-store";
+import { recordPracticeBoxes } from "@/lib/leitner-store";
 
 function revokedResponse() {
   return NextResponse.json(
@@ -40,7 +41,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    await insertListeningRun(session.user.id, run);
+    const inserted = await insertListeningRun(session.user.id, run);
+    if (inserted) await recordPracticeBoxes(session.user.id, run);
   } catch (error) {
     if (error instanceof ListeningSchemaError) {
       return NextResponse.json({ error: "Listening runs are not set up" }, { status: 503 });

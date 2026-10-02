@@ -44,6 +44,8 @@
     "src/lib/living-content.test.ts",
     "src/lib/admins.ts",
     "src/lib/admin-overview.ts",
-    "src/lib/admin-overview.timeline.test.ts"
+    "src/lib/admin-overview.timeline.test.ts",
+    "src/lib/leitner.ts",
+    "src/lib/leitner.test.ts"
   ]
 }

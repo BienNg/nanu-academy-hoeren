@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
+import { clearReviewHistory } from "@/lib/leitner-store";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
 import {
@@ -128,6 +129,7 @@ export async function deleteAdminStudentProgress(
     const progress = commitAdminProgressClear(current, built.clear);
     await setCloudProgress(id, progress);
     await deleteListeningRunsForLessons(id, built.history.runs);
+    await clearReviewHistory(id, built.history.runs);
     await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
     await syncStudiedClips(id, progress);
@@ -221,6 +223,7 @@ export async function deleteAdminUser(
 
   try {
     await deleteUserAccount(id);
+    await clearReviewHistory(id, "all");
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to delete account";

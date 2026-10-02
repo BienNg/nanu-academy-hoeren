@@ -6,6 +6,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "school" },
+  { href: "/review", label: "Ôn tập", icon: "event_repeat" },
   { href: "/duel", label: "Đấu", icon: "swords" },
   { href: "/leaderboard", label: "Xếp hạng", icon: "leaderboard" },
 ] as const;
@@ -48,6 +49,7 @@ function subscribeDuelTab(onChange: () => void): () => void {
 export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [challenges, setChallenges] = useState(0);
+  const [dueReviews, setDueReviews] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
 
   useEffect(() => {
@@ -63,6 +65,16 @@ export function BottomNav() {
         })
         .catch(() => {
           if (!cancelled) setChallenges(0);
+        });
+      void fetch("/api/review")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: unknown) => {
+          if (cancelled || !data || typeof data !== "object") return;
+          const count = (data as { count?: unknown }).count;
+          setDueReviews(typeof count === "number" && count > 0 ? count : 0);
+        })
+        .catch(() => {
+          if (!cancelled) setDueReviews(0);
         });
     };
     load();
@@ -81,8 +93,11 @@ export function BottomNav() {
       <div className="mx-auto flex h-16 w-full max-w-md items-stretch justify-around px-2">
         {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
           const active = isCurrent(pathname, item.href);
-          const badge = item.href === "/duel" ? challenges : 0;
-          const label = badge > 0 ? `${item.label}, ${badge} lời thách đấu chưa chơi` : item.label;
+          const badge = item.href === "/duel" ? challenges : item.href === "/review" ? dueReviews : 0;
+          const label =
+            badge > 0
+              ? `${item.label}, ${badge} ${item.href === "/review" ? "câu cần ôn hôm nay" : "lời thách đấu chưa chơi"}`
+              : item.label;
           return (
             <Link
               key={item.href}

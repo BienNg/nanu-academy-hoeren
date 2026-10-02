@@ -1557,11 +1557,14 @@ export async function deleteStudyXpForLessons(
   await deleteUserStudyXp(supabase, userId, lessonKeys);
 }
 
-/** Insert one finished part. A repeated id is ignored so a retry does not double-count. */
+/**
+ * Insert one finished part. A repeated id is ignored so a retry does not double-count.
+ * Returns false for that repeat.
+ */
 export async function insertListeningRun(
   userId: string,
   input: ListeningRunInput,
-): Promise<void> {
+): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Progress store is not configured");
 
@@ -1594,7 +1597,8 @@ export async function insertListeningRun(
     throwIfListeningSchemaMissing(error.message);
     throw new Error(`Supabase insertListeningRun: ${error.message}`);
   }
-  if (!data || data.length === 0 || input.clips.length === 0) return;
+  if (!data || data.length === 0) return false;
+  if (input.clips.length === 0) return true;
 
   const clipRows = (withKinds: boolean, withAnswers: boolean) =>
     input.clips.map((clip, position) => ({
@@ -1616,7 +1620,7 @@ export async function insertListeningRun(
   if (clipError && schemaObjectMissing(clipError.message, "missed_kinds")) {
     ({ error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(false, false)));
   }
-  if (!clipError) return;
+  if (!clipError) return true;
 
   const { error: rollbackError } = await supabase.from(RUNS_TABLE).delete().eq("id", input.id);
   if (rollbackError) {
@@ -1974,6 +1978,24 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     kind: "rpc",
     rpc: TOTALS_RPC,
     dependsOn: "clip_results",
+  },
+  {
+    id: "clip_boxes",
+    label: "clip_boxes",
+    sqlFile: "supabase/leitner.sql",
+    severity: "warn",
+    kind: "table",
+    table: "clip_boxes",
+    column: "user_id",
+  },
+  {
+    id: "review_answers",
+    label: "review_answers",
+    sqlFile: "supabase/leitner.sql",
+    severity: "warn",
+    kind: "table",
+    table: "review_answers",
+    column: "id",
   },
   {
     id: "xp_awards",
