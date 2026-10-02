@@ -1157,15 +1157,19 @@ export default function LevelViewClient({
     (returnSlug && chapters.some((chapter) => chapter.slug === returnSlug)
       ? returnSlug
       : null) ?? resumeChapterSlug;
+  const didScrollToFocus = useRef(false);
 
   useEffect(() => {
-    if (!focusReady || !focusSlug) return;
+    if (!progressReady || !focusReady || didScrollToFocus.current) return;
     let cancelled = false;
 
-    const scrollToLesson = () => {
-      if (cancelled) return;
-      const target = document.getElementById(`lesson-${focusSlug}`);
+    const scrollToFocus = () => {
+      if (cancelled || didScrollToFocus.current) return;
+      const guide = document.getElementById("path-continue");
+      const lesson = focusSlug ? document.getElementById(`lesson-${focusSlug}`) : null;
+      const target = guide ?? lesson;
       if (!target) return;
+      didScrollToFocus.current = true;
       const top =
         target.getBoundingClientRect().top +
         window.scrollY -
@@ -1177,14 +1181,12 @@ export default function LevelViewClient({
       });
     };
 
-    const frame = window.requestAnimationFrame(scrollToLesson);
-    const timer = window.setTimeout(scrollToLesson, 400);
+    const frame = window.requestAnimationFrame(scrollToFocus);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
     };
-  }, [focusReady, focusSlug, shouldReduceMotion]);
+  }, [progressReady, focusReady, focusSlug, shouldReduceMotion]);
 
   const closeDictionary = useCallback(() => {
     dictionaryRequest.current += 1;
@@ -1557,6 +1559,7 @@ export default function LevelViewClient({
                       return (
                         <li
                           key={node.key}
+                          id={guideLabel ? "path-continue" : undefined}
                           className={`${PATH_SHIFT[nodeIndex % PATH_SHIFT.length]} ${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
                           } ${guideLabel ? "pt-14" : ""}`}
