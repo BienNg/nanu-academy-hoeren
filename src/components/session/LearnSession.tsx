@@ -27,7 +27,7 @@ import {
   withFinishedCatalogClips,
 } from "@/lib/progress";
 import { isAdminUser } from "@/lib/admins";
-import { useProgress } from "@/lib/useProgress";
+import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
 import {
   buildListeningRunRecord,
   clipResultsForCardDeck,
@@ -179,6 +179,7 @@ export function LearnSession({
     recordWrongAttempt,
     streakDays,
   } = useProgress();
+  const streakCelebrationPending = useStreakCelebrationPending();
   const chapterProgressKey = course.progressKey;
   const lessonKey = course.lessonKey;
   const pathHref = course.pathHref;
@@ -568,6 +569,7 @@ export function LearnSession({
     if (!failed) {
       commitPart();
       playCelebrationSound();
+      if (isLastPart) revealStreakCelebration();
     }
     setPhase("complete");
     if (!run) return;
@@ -660,6 +662,7 @@ export function LearnSession({
       {!ready || phase === "leaving" ? (
         <SessionContentSkeleton kind="practice" />
       ) : phase === "complete" && summary ? (
+        isLastPart && !failedRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
           partNumber={partNumber}
           partCount={partCount}
@@ -677,6 +680,7 @@ export function LearnSession({
           continueLabel={exitLabel}
           onContinue={continueAfterPart}
         />
+        )
       ) : !currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">

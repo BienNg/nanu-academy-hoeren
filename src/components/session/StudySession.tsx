@@ -23,7 +23,7 @@ import {
 } from "@/lib/progress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
-import { useProgress } from "@/lib/useProgress";
+import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
 
 type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
@@ -75,6 +75,7 @@ export function StudySession({
     settleStudyReviews,
     streakDays,
   } = useProgress();
+  const streakCelebrationPending = useStreakCelebrationPending();
 
   const chapterProgressKey = course.progressKey;
   const lessonKey = course.lessonKey;
@@ -117,6 +118,7 @@ export function StudySession({
     partNumber: number;
   } | null>(null);
   const awardedXpRef = useRef(0);
+  const xpRequestedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const committedRef = useRef(false);
   const scoresRef = useRef<number[]>([]);
@@ -219,6 +221,11 @@ export function StudySession({
       const total = scoresRef.current
         .slice(0, count)
         .reduce((sum, value) => sum + (value ?? 0), 0);
+      if (!committedRef.current && partClipIds.length > 0) {
+        committedRef.current = true;
+        commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
+        if (lastPart) revealStreakCelebration();
+      }
       setSummary({
         questionCount: count,
         accuracy: Math.round(total / count),
@@ -231,7 +238,19 @@ export function StudySession({
     setPhase("study");
     setFurthest((value) => Math.max(value, next));
     setClipIndex(next);
-  }, [currentClip, clearAttempt, clipIndex, clips.length, scoreResult, lastPart, activePart]);
+  }, [
+    currentClip,
+    clearAttempt,
+    clipIndex,
+    clips.length,
+    scoreResult,
+    lastPart,
+    activePart,
+    partClipIds,
+    commitStudyPartDone,
+    chapterProgressKey,
+    lessonKey,
+  ]);
 
   const goPrev = useCallback(() => {
     if (phase === "recall") {
@@ -248,6 +267,7 @@ export function StudySession({
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
     committedRef.current = false;
+    xpRequestedRef.current = false;
     partStartedAtRef.current = Date.now();
     setXpGrant(null);
     clearAttempt();
@@ -261,11 +281,16 @@ export function StudySession({
   };
 
   useEffect(() => {
-    if (!ready || !complete || visitPart === "done" || committedRef.current || partClipIds.length === 0) {
+    if (!ready || !complete || visitPart === "done" || partClipIds.length === 0) {
       return;
     }
-    committedRef.current = true;
-    commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
+    if (!committedRef.current) {
+      committedRef.current = true;
+      commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
+      if (lastPart) revealStreakCelebration();
+    }
+    if (xpRequestedRef.current) return;
+    xpRequestedRef.current = true;
     const elapsedMs = Math.max(0, Date.now() - partStartedAtRef.current);
     setXpGrant({ xp: null, kind: null, pending: true });
     playCelebrationSound();
@@ -502,6 +527,7 @@ export function StudySession({
       {!ready || !progressReady || visitPart == null ? (
         <SessionContentSkeleton kind="study" />
       ) : visitPart === "done" || complete ? (
+        summary?.finishRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
           partNumber={summary?.partNumber ?? partCount}
           partCount={partCount}
@@ -521,6 +547,7 @@ export function StudySession({
           secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
           onSecondary={openedFinishedLesson ? beginReview : undefined}
         />
+        )
       ) : clips.length === 0 ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <p className="text-lg font-medium text-[#86868b]">

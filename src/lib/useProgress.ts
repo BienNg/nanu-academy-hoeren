@@ -7,6 +7,7 @@ import {
   DEFAULT_PROGRESS,
   activeStreakDays,
   bumpStreak,
+  streakCelebrationStep,
   bindStoredProgress,
   classifySignInDevice,
   clearStoredProgress,
@@ -490,6 +491,75 @@ const EMPTY_RUN_ORDER: readonly string[] = [];
 const EMPTY_TOTALS: Record<string, number> = {};
 const EMPTY_LEVEL_CATALOG: ContinueLevelCatalogEntry[] = [];
 
+export type StreakCelebration = { from: number; to: number };
+
+let queuedCelebration: StreakCelebration | null = null;
+let visibleCelebration: StreakCelebration | null = null;
+const celebrationListeners = new Set<() => void>();
+
+function streakCelebratedKey(userId: string): string {
+  return `nanu-streak-celebrated:${userId}`;
+}
+
+function notifyCelebration(): void {
+  for (const listener of celebrationListeners) listener();
+}
+
+/**
+ * Remember today's increase without showing it. The flame waits for the
+ * finished run. A later reload stays quiet.
+ */
+function noteStreakIncrease(before: StoredProgress, after: StoredProgress): void {
+  if (typeof window === "undefined" || !activeUserId) return;
+  const step = streakCelebrationStep(before, after);
+  if (!step) return;
+  const key = streakCelebratedKey(activeUserId);
+  const today = after.lastPracticeDate;
+  if (!today) return;
+  try {
+    if (window.localStorage.getItem(key) === today) return;
+    window.localStorage.setItem(key, today);
+  } catch {
+    return;
+  }
+  if (visibleCelebration) return;
+  queuedCelebration = step;
+}
+
+/** Show a queued flame. No-op when this run did not raise the streak. */
+export function revealStreakCelebration(): void {
+  if (visibleCelebration || !queuedCelebration) return;
+  visibleCelebration = queuedCelebration;
+  queuedCelebration = null;
+  notifyCelebration();
+}
+
+export function dismissStreakCelebration(): void {
+  if (!visibleCelebration) return;
+  visibleCelebration = null;
+  notifyCelebration();
+}
+
+export function subscribeStreakCelebration(onStoreChange: () => void): () => void {
+  celebrationListeners.add(onStoreChange);
+  return () => {
+    celebrationListeners.delete(onStoreChange);
+  };
+}
+
+export function readStreakCelebration(): StreakCelebration | null {
+  return visibleCelebration;
+}
+
+export function useStreakCelebrationPending(): boolean {
+  const celebration = useSyncExternalStore(
+    subscribeStreakCelebration,
+    readStreakCelebration,
+    () => null,
+  );
+  return celebration != null;
+}
+
 /**
  * Unified localStorage + cloud-synced learning progress (requires login).
  * Pass `totalsBySlug` so continue-learning and per-beruf cards get correct totals.
@@ -539,6 +609,7 @@ export function useProgress(
 
   const persist = useCallback(
     (next: StoredProgress, syncCloud: boolean) => {
+      noteStreakIncrease(readProgressSnapshot(), next);
       writeProgress(next);
       if (syncCloud && status === "authenticated") {
         void pushCloudProgress(next);

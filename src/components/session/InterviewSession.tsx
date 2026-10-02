@@ -7,7 +7,7 @@ import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
 import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
-import { useProgress } from "@/lib/useProgress";
+import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -108,6 +108,7 @@ export function InterviewSession({ beruf, clips, courses }: InterviewSessionProp
 
   const { completedClipIdsFor, markClipDone, recordExerciseDone, recordWrongAttempt, resetProgress } =
     useProgress();
+  const streakCelebrationPending = useStreakCelebrationPending();
   const completedIds = completedClipIdsFor(beruf.slug);
   const completedClips = useMemo(() => new Set(completedIds), [completedIds]);
 
@@ -165,16 +166,16 @@ export function InterviewSession({ beruf, clips, courses }: InterviewSessionProp
     if (currentClip) {
       rememberClip(currentClip);
     }
-    setScoreResult(null);
-    setDraft("");
-    setClipIndex((index) => {
-      if (!queue) return index + 1;
-      let next = index + 1;
+    let next = clipIndex + 1;
+    if (queue) {
       while (next < queue.length && completedClips.has(queue[next]!.id)) {
         next += 1;
       }
-      return next;
-    });
+      if (next >= queue.length) revealStreakCelebration();
+    }
+    setScoreResult(null);
+    setDraft("");
+    setClipIndex(next);
   };
 
   const beginReplay = () => {
@@ -222,12 +223,14 @@ export function InterviewSession({ beruf, clips, courses }: InterviewSessionProp
       {!ready ? (
         <SessionContentSkeleton kind="practice" />
       ) : complete || !currentClip ? (
+        streakCelebrationPending ? null : (
         <SessionComplete
           berufLabel={beruf.label}
           clipCount={catalogTotal}
           completedCount={catalogCompletedCount(clips, completedIds)}
           onReset={beginReplay}
         />
+        )
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">

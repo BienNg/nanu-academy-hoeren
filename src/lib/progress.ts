@@ -2093,6 +2093,23 @@ export function bumpStreak(progress: StoredProgress, now = new Date()): StoredPr
   };
 }
 
+/**
+ * The one-step jump worth a celebration: today just became a practice day
+ * and the active run grew by exactly one (including a restart from 0).
+ */
+export function streakCelebrationStep(
+  before: StoredProgress,
+  after: StoredProgress,
+  now = new Date(),
+): { from: number; to: number } | null {
+  const today = todayIsoDate(now);
+  if (after.lastPracticeDate !== today || before.lastPracticeDate === today) return null;
+  const from = activeStreakDays(before, now);
+  const to = activeStreakDays(after, now);
+  if (to !== from + 1) return null;
+  return { from, to };
+}
+
 export function markClipCompleted(
   progress: StoredProgress,
   berufSlug: string,

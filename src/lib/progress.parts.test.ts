@@ -7,6 +7,7 @@ import { maxClipsPerPracticePart, practiceCardCount, MAX_PRACTICE_CARDS } from "
 import {
   activeStreakDays,
   bumpStreak,
+  streakCelebrationStep,
   commitLearnPart,
   completedPartCount,
   nextListeningPart,
@@ -494,6 +495,25 @@ test("a finished study pass counts as a practice day", () => {
 
   assert.equal(studied.activity?.["2026-09-28"]?.studyRuns, 1);
   assert.equal(activeStreakDays(studied, today), 2);
+  assert.deepEqual(streakCelebrationStep(practiced, studied, today), { from: 1, to: 2 });
+  assert.equal(streakCelebrationStep(studied, studied, today), null);
+});
+
+test("a restarted streak celebrates from 0 to 1", () => {
+  const earlier = new Date("2026-09-01T08:00:00.000Z");
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const lapsed = bumpStreak(normalizeProgress({}), earlier);
+  const restarted = bumpStreak(lapsed, today);
+
+  assert.deepEqual(streakCelebrationStep(lapsed, restarted, today), { from: 0, to: 1 });
+});
+
+test("a same-day practice does not celebrate again", () => {
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const first = bumpStreak(normalizeProgress({}), today);
+  const again = bumpStreak(first, today);
+
+  assert.equal(streakCelebrationStep(first, again, today), null);
 });
 
 test("study clips already stored for today count beside listening days", () => {

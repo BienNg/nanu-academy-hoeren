@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavigationFeedback } from "@/components/RouteLoading";
+import { StreakCelebration } from "@/components/StreakCelebration";
 
 type AppShellProps = {
   children: ReactNode;
@@ -11,6 +12,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="relative flex w-full flex-1 flex-col bg-surface">
         <div className="mx-auto flex w-full flex-1 flex-col md:max-w-[680px] has-[[data-layout=wide]]:max-w-none has-[[data-layout=wide]]:md:max-w-none">
           <NavigationFeedback />
+          <StreakCelebration />
           {children}
         </div>
       </div>
