@@ -1158,6 +1158,17 @@ export function AdminUsersDashboard({
           row={detailRow}
           catalog={courseCatalog}
           onClose={closeDetail}
+          onAccessChange={(patch) => {
+            if (patch.levelAccess) {
+              setAccessByUser((prev) => ({ ...prev, [patch.userId]: patch.levelAccess ?? [] }));
+            }
+            if (patch.interviewAccess !== undefined) {
+              setInterviewByUser((prev) => ({
+                ...prev,
+                [patch.userId]: patch.interviewAccess === true,
+              }));
+            }
+          }}
         />
       ) : null}
 

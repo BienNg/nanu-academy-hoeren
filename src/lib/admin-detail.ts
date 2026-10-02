@@ -98,6 +98,8 @@ export type AdminCourseDetail = {
   label: string;
   shortLabel: string;
   kind: "ausbildung" | "cefr";
+  /** Leben-in-Deutschland workplace, granted on its own. */
+  living?: boolean;
   started: boolean;
   percent: number;
   completedLessons: number;
@@ -375,6 +377,7 @@ export function projectStudentDetail(
       label: course.label,
       shortLabel: course.shortLabel,
       kind: course.kind,
+      living: course.living === true,
       started,
       percent,
       completedLessons,

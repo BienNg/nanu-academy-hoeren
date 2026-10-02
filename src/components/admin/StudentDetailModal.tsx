@@ -6,7 +6,11 @@ import {
   deleteAdminStudentProgress,
   listAdminStudentRuns,
   loadAdminStudentDetail,
+  setAdminUserInterviewAccess,
+  setAdminUserLevelAccess,
+  setAdminUserLivingAccess,
 } from "@/app/admin/actions";
+import { workplaceFromAccessSlug } from "@/lib/living-content";
 import { CARD_KIND_LABEL } from "@/lib/card-kinds";
 import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import {
@@ -448,6 +452,165 @@ function VisitRangeSwitch({
   );
 }
 
+type DetailTab = "overview" | "courses" | "activity" | "account";
+
+const DETAIL_TABS: { id: DetailTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "courses", label: "Courses" },
+  { id: "activity", label: "Activity" },
+  { id: "account", label: "Account" },
+];
+
+export type StudentAccessPatch = {
+  userId: string;
+  levelAccess?: string[];
+  interviewAccess?: boolean;
+  livingAccess?: string[];
+};
+
+function DetailTabs({
+  tab,
+  onChange,
+}: {
+  tab: DetailTab;
+  onChange: (tab: DetailTab) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Student detail"
+      className="flex shrink-0 gap-1 border-b border-black/[0.06] bg-surface-container-lowest px-5 sm:px-8"
+    >
+      {DETAIL_TABS.map((item) => {
+        const selected = item.id === tab;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(item.id)}
+            className={`shrink-0 border-b-2 px-3 py-3 font-label-sm text-label-sm font-semibold transition-colors ${
+              selected
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AccessSwitch({
+  on,
+  disabled,
+  label,
+  onToggle,
+}: {
+  on: boolean;
+  disabled: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className={`relative h-7 w-12 shrink-0 overflow-hidden rounded-full transition-colors disabled:opacity-40 ${
+        on ? "bg-primary" : "bg-black/15"
+      }`}
+    >
+      <span
+        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(27,27,29,0.25)] transition-[left,right] ${
+          on ? "left-6" : "left-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+function CourseAccessRow({
+  course,
+  selected,
+  granted,
+  showSwitch,
+  switchDisabled,
+  onSelect,
+  onToggle,
+}: {
+  course: AdminCourseDetail;
+  selected: boolean;
+  granted: boolean;
+  showSwitch: boolean;
+  switchDisabled: boolean;
+  onSelect: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      className={`grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 border-b border-black/[0.06] px-4 py-3 last:border-b-0 ${
+        selected ? "bg-primary-fixed" : ""
+      }`}
+    >
+      {showSwitch ? (
+        <AccessSwitch
+          on={granted}
+          disabled={switchDisabled}
+          label={granted ? `Lock ${course.shortLabel}` : `Unlock ${course.shortLabel}`}
+          onToggle={onToggle}
+        />
+      ) : (
+        <span
+          className={`inline-flex h-6 w-fit items-center justify-self-start rounded-full px-2 font-caption text-[11px] font-semibold ${
+            granted ? "bg-primary/10 text-primary" : "bg-black/[0.05] text-outline"
+          }`}
+        >
+          {granted ? "Open" : "Locked"}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className="min-w-0 text-left"
+      >
+        <span className="flex items-baseline justify-between gap-3">
+          <span
+            className={`truncate font-label-md text-label-md ${
+              selected ? "font-bold text-on-primary-fixed" : "font-semibold text-on-surface"
+            }`}
+          >
+            {course.shortLabel}
+          </span>
+          <span
+            className={`shrink-0 font-label-sm text-label-sm font-semibold tabular-nums ${
+              selected ? "text-primary" : "text-on-surface-variant"
+            }`}
+          >
+            {course.started ? `${course.percent}%` : "Not started"}
+          </span>
+        </span>
+        <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-black/10">
+          <span
+            className={`block h-full rounded-full ${selected ? "bg-primary" : "bg-outline"}`}
+            style={{ width: `${course.percent}%` }}
+          />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function VisitRow({
   visit,
   open,
@@ -835,10 +998,12 @@ export function StudentDetailModal({
   row,
   catalog,
   onClose,
+  onAccessChange,
 }: {
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
+  onAccessChange?: (patch: StudentAccessPatch) => void;
 }) {
   const router = useRouter();
   const canDelete = useAdminRole() === "owner";
@@ -872,10 +1037,23 @@ export function StudentDetailModal({
     () => projectStudentDetail(catalog, progress),
     [catalog, progress],
   );
-  const [courseId, setCourseId] = useState(detail.startedCourses[0]?.id ?? "");
+  const [tab, setTab] = useState<DetailTab>("overview");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [courseId, setCourseId] = useState("");
+  const [levelAccess, setLevelAccess] = useState(row.levelAccess);
+  const [interviewAccess, setInterviewAccess] = useState(row.interviewAccess);
+  const [livingAccess, setLivingAccess] = useState(row.livingAccess);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessSaving, setAccessSaving] = useState(false);
+  const accessSaveRef = useRef(false);
+  const levels = detail.courses.filter((course) => course.kind === "cefr" && !course.living);
+  const interviewCourses = detail.courses.filter((course) => course.kind === "ausbildung");
+  const livingCourses = detail.courses.filter((course) => course.living);
   const course =
-    detail.startedCourses.find((entry) => entry.id === courseId) ??
-    detail.startedCourses[0];
+    detail.courses.find((entry) => entry.id === courseId) ??
+    levels.find((entry) => entry.started) ??
+    levels[0] ??
+    detail.courses[0];
   const lessons = course ? visibleLessons(course) : [];
   const [range, setRange] = useState<AdminVisitRange>("7d");
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
@@ -913,6 +1091,22 @@ export function StudentDetailModal({
       cancelled = true;
     };
   }, [row.userId]);
+
+  useEffect(() => {
+    setTab("overview");
+    setCourseId("");
+  }, [row.userId]);
+
+  useEffect(() => {
+    panelRef.current?.scrollTo({ top: 0 });
+  }, [tab, row.userId]);
+
+  useEffect(() => {
+    if (accessSaveRef.current) return;
+    setLevelAccess(row.levelAccess);
+    setInterviewAccess(row.interviewAccess);
+    setLivingAccess(row.livingAccess);
+  }, [row.userId, row.levelAccess, row.interviewAccess, row.livingAccess]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -967,6 +1161,107 @@ export function StudentDetailModal({
     router.refresh();
   }
 
+  function courseGranted(entry: AdminCourseDetail): boolean {
+    if (row.isAdmin) return true;
+    if (entry.living) {
+      const workplace = workplaceFromAccessSlug(entry.id);
+      return workplace != null && livingAccess.includes(workplace);
+    }
+    if (entry.kind === "ausbildung") return interviewAccess;
+    return levelAccess.includes(entry.id);
+  }
+
+  async function toggleLevel(slug: string) {
+    if (row.isAdmin || accessSaveRef.current) return;
+    accessSaveRef.current = true;
+    const current = levelAccess;
+    const next = current.includes(slug)
+      ? current.filter((item) => item !== slug)
+      : [...current, slug];
+    setLevelAccess(next);
+    setAccessSaving(true);
+    setAccessError(null);
+    onAccessChange?.({ userId: row.userId, levelAccess: next });
+    try {
+      const result = await setAdminUserLevelAccess(row.userId, next);
+      if (!result.ok) {
+        setLevelAccess(current);
+        onAccessChange?.({ userId: row.userId, levelAccess: current });
+        setAccessError(result.error);
+        return;
+      }
+      setLevelAccess(result.levelAccess);
+      onAccessChange?.({ userId: row.userId, levelAccess: result.levelAccess });
+      router.refresh();
+    } finally {
+      accessSaveRef.current = false;
+      setAccessSaving(false);
+    }
+  }
+
+  async function toggleInterview() {
+    if (row.isAdmin || accessSaveRef.current) return;
+    accessSaveRef.current = true;
+    const current = interviewAccess;
+    const next = !current;
+    setInterviewAccess(next);
+    setAccessSaving(true);
+    setAccessError(null);
+    onAccessChange?.({ userId: row.userId, interviewAccess: next });
+    try {
+      const result = await setAdminUserInterviewAccess(row.userId, next);
+      if (!result.ok) {
+        setInterviewAccess(current);
+        onAccessChange?.({ userId: row.userId, interviewAccess: current });
+        setAccessError(result.error);
+        return;
+      }
+      setInterviewAccess(result.interviewAccess);
+      onAccessChange?.({ userId: row.userId, interviewAccess: result.interviewAccess });
+      router.refresh();
+    } finally {
+      accessSaveRef.current = false;
+      setAccessSaving(false);
+    }
+  }
+
+  async function toggleLiving(courseEntry: AdminCourseDetail) {
+    const workplace = workplaceFromAccessSlug(courseEntry.id);
+    if (!workplace || row.isAdmin || accessSaveRef.current) return;
+    accessSaveRef.current = true;
+    const current = livingAccess;
+    const granted = !current.includes(workplace);
+    const next = granted
+      ? [...current, workplace]
+      : current.filter((slug) => slug !== workplace);
+    setLivingAccess(next);
+    setAccessSaving(true);
+    setAccessError(null);
+    onAccessChange?.({ userId: row.userId, livingAccess: next });
+    try {
+      const result = await setAdminUserLivingAccess(row.userId, workplace, granted);
+      if (!result.ok) {
+        setLivingAccess(current);
+        onAccessChange?.({ userId: row.userId, livingAccess: current });
+        setAccessError(result.error);
+        return;
+      }
+      setLivingAccess(result.livingAccess);
+      onAccessChange?.({ userId: row.userId, livingAccess: result.livingAccess });
+      router.refresh();
+    } finally {
+      accessSaveRef.current = false;
+      setAccessSaving(false);
+    }
+  }
+
+  const openLevelCount = row.isAdmin
+    ? levels.length
+    : levels.filter((entry) => levelAccess.includes(entry.id)).length;
+  const openLivingCount = row.isAdmin
+    ? livingCourses.length
+    : livingCourses.filter((entry) => courseGranted(entry)).length;
+
   const identityFacts = [
     row.email && row.email !== row.displayName ? { label: "Email", value: row.email } : null,
     { label: "Sign-in", value: lastLogin ?? "No sign-in recorded" },
@@ -994,7 +1289,7 @@ export function StudentDetailModal({
         className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-[#f5f5f7] shadow-2xl sm:max-h-[min(960px,94dvh)] sm:max-w-[1120px] sm:rounded-[28px] xl:max-w-[1240px]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="sticky top-0 z-10 border-b border-black/[0.06] bg-surface-container-lowest px-5 py-5 sm:px-8">
+        <header className="z-10 shrink-0 border-b border-black/[0.06] bg-surface-container-lowest px-5 py-5 sm:px-8">
           <div className="flex items-start justify-between gap-space-16">
             <div className="flex min-w-0 flex-1 items-start gap-space-16">
               <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full bg-primary font-headline-md text-[1.65rem] font-semibold uppercase text-on-primary">
@@ -1073,345 +1368,469 @@ export function StudentDetailModal({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-7">
+        <DetailTabs tab={tab} onChange={setTab} />
+
+        <div ref={panelRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-7">
           {detailReady ? (
-          <div>
-          <section aria-label="Visits">
-            <div className="flex flex-wrap items-center justify-between gap-space-12">
-              <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                Visits
-              </h3>
-              <VisitRangeSwitch range={range} onChange={setRange} />
-            </div>
-            <div className="mt-4">
-              <MetricBand
-                items={[
-                  {
-                    label: "Active time",
-                    value: compactDuration(formatActiveDuration(summary.activeSeconds)),
-                    detail: `${summary.visitCount} ${summary.visitCount === 1 ? "visit" : "visits"}`,
-                  },
-                  {
-                    label: "Clips studied",
-                    value: String(summary.clipCount),
-                  },
-                  {
-                    label: "Practice clips",
-                    value: String(summary.exercisesCompleted),
-                    detail: `Completed in practice parts · ${summary.listeningRuns} practice ${summary.listeningRuns === 1 ? "run" : "runs"}`,
-                  },
-                  {
-                    label: "Video",
-                    value: compactDuration(formatActiveDuration(summary.videoSeconds)),
-                    detail: `${summary.videosWatched} marked watched`,
-                  },
-                ]}
-              />
-            </div>
-          </section>
-
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.85fr)]">
-            <div className="flex min-w-0 flex-col gap-6">
-              <section aria-label="Visit log">
-                {visitLog.visits.length === 0 ? (
-                  <Panel>
-                    <p className="px-6 py-12 text-center font-body-md text-body-md text-on-surface-variant">
-                      {visitLog.emptyMessage}
-                    </p>
-                  </Panel>
-                ) : (
-                  <Panel>
-                    <ul className="divide-y divide-black/[0.06]">
-                      {visitLog.visits.map((visit) => (
-                        <VisitRow
-                          key={visit.id}
-                          visit={visit}
-                          open={openVisitId === visit.id}
-                          onToggle={() =>
-                            setOpenVisitId((current) => (current === visit.id ? null : visit.id))
-                          }
+            <>
+              {tab === "overview" ? (
+                <div className="flex flex-col gap-6">
+                  <div className="grid items-start gap-6 lg:grid-cols-2">
+                    <section aria-label="Activity">
+                      <div className="flex flex-wrap items-center justify-between gap-space-12">
+                        <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                          Activity
+                        </h3>
+                        <VisitRangeSwitch range={range} onChange={setRange} />
+                      </div>
+                      <div className="mt-4">
+                        <MetricBand
+                          items={[
+                            {
+                              label: "Active time",
+                              value: compactDuration(formatActiveDuration(summary.activeSeconds)),
+                              detail: `${summary.visitCount} ${summary.visitCount === 1 ? "visit" : "visits"}`,
+                            },
+                            {
+                              label: "Clips studied",
+                              value: String(summary.clipCount),
+                            },
+                            {
+                              label: "Practice clips",
+                              value: String(summary.exercisesCompleted),
+                              detail: `Completed in practice parts · ${summary.listeningRuns} practice ${summary.listeningRuns === 1 ? "run" : "runs"}`,
+                            },
+                            {
+                              label: "Video",
+                              value: compactDuration(formatActiveDuration(summary.videoSeconds)),
+                              detail: `${summary.videosWatched} marked watched`,
+                            },
+                          ]}
                         />
-                      ))}
-                    </ul>
-                  </Panel>
-                )}
-              </section>
+                      </div>
+                    </section>
 
-              <ListeningRunsSection userId={row.userId} catalog={catalog} revision={runsRevision} />
+                    <section aria-label="Learning">
+                      <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                        Learning
+                      </h3>
+                      <div className="mt-4">
+                        <MetricBand
+                          columns="two"
+                          items={[
+                            {
+                              label: "Courses started",
+                              value: String(detail.coursesStarted),
+                              detail: "Opened",
+                              title: "Courses where this student opened a video or finished a clip.",
+                            },
+                            {
+                              label: "Lessons done",
+                              value: String(detail.lessonsCompleted),
+                              detail: "All parts finished",
+                              title:
+                                "Lessons where study, practice, and every video are finished. A watched video or one practice run does not count.",
+                            },
+                            {
+                              label: "Practice runs",
+                              value: String(detail.listeningRepetitions),
+                              detail: "Finished passes",
+                              title: "Times this student finished a full practice pass of a lesson.",
+                            },
+                            {
+                              label: "Videos watched",
+                              value: String(detail.videosWatched),
+                              detail: "Reached the end",
+                              title: "Lesson videos marked watched. Starting a video does not count.",
+                            },
+                          ]}
+                        />
+                      </div>
+                    </section>
+                  </div>
 
-              <section aria-label="Sign-ins">
-                <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                  Sign-ins
-                </h3>
-                <Panel className="mt-4">
-                  {signIns.length === 0 ? (
-                    <p className="px-6 py-5 font-body-sm text-body-sm text-on-surface-variant">
-                      No sign-ins recorded yet.
-                    </p>
-                  ) : (
-                    <ul className="divide-y divide-black/[0.06]">
-                      {signIns.slice(0, 8).map((entry) => {
-                        const detail = signInSummary(entry);
-                        return (
-                          <li
-                            key={entry.at}
-                            className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
-                          >
-                            <MaterialIcon name="login" className="text-[18px] text-outline" />
-                            <div className="min-w-0">
-                              <time
-                                dateTime={entry.at}
-                                className="block font-body-sm text-body-sm text-on-surface"
-                              >
-                                {formatAbsoluteTime(entry.at)}
-                              </time>
-                              {detail ? (
-                                <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
-                                  {detail}
-                                </p>
-                              ) : null}
-                            </div>
-                          </li>
-                        );
-                      })}
-                      {signIns.length > 8 ? (
-                        <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
-                          +{signIns.length - 8} more
-                        </li>
-                      ) : null}
-                    </ul>
-                  )}
-                </Panel>
-              </section>
-
-              <section aria-label="App use">
-                <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                  App use
-                </h3>
-                <Panel className="mt-4">
-                  {appUses.length === 0 ? (
-                    <p className="px-6 py-5 font-body-sm text-body-sm text-on-surface-variant">
-                      No app use recorded yet.
-                    </p>
-                  ) : (
-                    <ul className="divide-y divide-black/[0.06]">
-                      {appUses.slice(0, 8).map((entry) => {
-                        const detail = signInSummary(entry);
-                        return (
-                          <li
-                            key={`${entry.at}-${entry.seenAt}`}
-                            className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
-                          >
-                            <MaterialIcon name="devices" className="text-[18px] text-outline" />
-                            <div className="min-w-0">
-                              <time
-                                dateTime={entry.at}
-                                className="block font-body-sm text-body-sm text-on-surface"
-                              >
-                                {formatAbsoluteTime(entry.at)}
-                              </time>
-                              {detail ? (
-                                <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
-                                  {detail}
-                                </p>
-                              ) : null}
-                            </div>
-                          </li>
-                        );
-                      })}
-                      {appUses.length > 8 ? (
-                        <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
-                          +{appUses.length - 8} more
-                        </li>
-                      ) : null}
-                    </ul>
-                  )}
-                </Panel>
-              </section>
-            </div>
-
-            <section aria-label="Progress" className="min-w-0">
-              <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                Progress
-              </h3>
-              <div className="mt-4">
-                <MetricBand
-                  columns="two"
-                  items={[
-                    {
-                      label: "Courses started",
-                      value: String(detail.coursesStarted),
-                      detail: "Opened",
-                      title: "Courses where this student opened a video or finished a clip.",
-                    },
-                    {
-                      label: "Lessons done",
-                      value: String(detail.lessonsCompleted),
-                      detail: "All parts finished",
-                      title:
-                        "Lessons where study, practice, and every video are finished. A watched video or one practice run does not count.",
-                    },
-                    {
-                      label: "Practice runs",
-                      value: String(detail.listeningRepetitions),
-                      detail: "Finished passes",
-                      title: "Times this student finished a full practice pass of a lesson.",
-                    },
-                    {
-                      label: "Videos watched",
-                      value: String(detail.videosWatched),
-                      detail: "Reached the end",
-                      title: "Lesson videos marked watched. Starting a video does not count.",
-                    },
-                  ]}
-                />
-              </div>
-
-              {detail.startedCourses.length === 0 ? (
-                <Panel className="mt-4">
-                  <p className="px-6 py-10 text-center font-body-md text-body-md text-on-surface-variant">
-                    This student has not started a course yet.
-                  </p>
-                </Panel>
-              ) : (
-                <>
-                  <div
-                    role="tablist"
-                    aria-label="Courses"
-                    className="mt-4 overflow-hidden rounded-[22px] border border-black/[0.06] bg-surface-container-lowest shadow-[0_1px_2px_rgba(27,27,29,0.04),0_12px_32px_rgba(27,27,29,0.05)]"
-                  >
-                    {detail.startedCourses.map((entry) => {
-                      const selected = entry.id === course?.id;
-                      return (
-                        <div
-                          key={entry.id}
-                          role="presentation"
-                          className={`flex items-stretch border-b border-black/[0.06] last:border-b-0 ${
-                            selected ? "bg-primary-fixed" : ""
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            role="tab"
-                            aria-selected={selected}
-                            onClick={() => setCourseId(entry.id)}
-                            className={`flex min-w-0 flex-1 flex-col px-5 py-3.5 text-left ${
-                              selected ? "" : "hover:bg-black/[0.02]"
-                            }`}
-                          >
-                            <span className="flex items-baseline justify-between gap-3">
-                              <span
-                                className={`min-w-0 font-label-md text-label-md ${
-                                  selected ? "font-bold text-on-primary-fixed" : "font-semibold text-on-surface"
-                                }`}
-                              >
-                                {entry.shortLabel}
+                  <section aria-label="Course access">
+                    <div className="flex flex-wrap items-center justify-between gap-space-12">
+                      <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                        Course access
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setTab("courses")}
+                        className="font-label-sm text-label-sm font-semibold text-primary"
+                      >
+                        Change access
+                      </button>
+                    </div>
+                    <Panel className="mt-4">
+                      {row.isAdmin ? (
+                        <p className="flex items-center gap-2 px-5 py-5 font-body-sm text-body-sm text-on-surface sm:px-6">
+                          <MaterialIcon name="verified" className="text-[18px] text-primary" filled />
+                          Admins already have every course.
+                        </p>
+                      ) : (
+                        <dl className="grid sm:grid-cols-3">
+                          <div className="border-b border-black/[0.06] px-5 py-4 sm:border-b-0 sm:border-r sm:px-6">
+                            <dt className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+                              Levels
+                            </dt>
+                            <dd className="mt-1 font-headline-sm text-headline-sm font-semibold text-on-surface">
+                              {openLevelCount}
+                              <span className="font-body-sm font-medium text-on-surface-variant">
+                                {" "}
+                                / {levels.length}
                               </span>
-                              <span
-                                className={`shrink-0 font-label-sm text-label-sm font-semibold tabular-nums ${
-                                  selected ? "text-primary" : "text-on-surface-variant"
-                                }`}
-                              >
-                                {entry.percent}%
+                            </dd>
+                          </div>
+                          <div className="border-b border-black/[0.06] px-5 py-4 sm:border-b-0 sm:border-r sm:px-6">
+                            <dt className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+                              Interview
+                            </dt>
+                            <dd className="mt-1 font-headline-sm text-headline-sm font-semibold text-on-surface">
+                              {interviewAccess ? "Open" : "Locked"}
+                            </dd>
+                          </div>
+                          <div className="px-5 py-4 sm:px-6">
+                            <dt className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+                              Leben in Deutschland
+                            </dt>
+                            <dd className="mt-1 font-headline-sm text-headline-sm font-semibold text-on-surface">
+                              {openLivingCount}
+                              <span className="font-body-sm font-medium text-on-surface-variant">
+                                {" "}
+                                / {livingCourses.length}
                               </span>
-                            </span>
-                            <span
-                              className={`mt-2 block h-1.5 overflow-hidden rounded-full ${
-                                selected ? "bg-primary-fixed-dim" : "bg-surface-container-highest"
-                              }`}
-                            >
-                              <span
-                                className={`block h-full rounded-full ${selected ? "bg-primary" : "bg-outline"}`}
-                                style={{ width: `${entry.percent}%` }}
+                            </dd>
+                          </div>
+                        </dl>
+                      )}
+                    </Panel>
+                  </section>
+                </div>
+              ) : null}
+
+              {tab === "courses" ? (
+                <div className="flex flex-col gap-4">
+                  {accessError ? (
+                    <p className="font-body-sm text-body-sm text-[#ff3b30]" role="alert">
+                      {accessError}
+                    </p>
+                  ) : null}
+                  <div className="grid items-start gap-6 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)]">
+                    <div className="flex min-w-0 flex-col gap-6">
+                      <section aria-label="Levels">
+                        <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                          Levels
+                        </h3>
+                        <p className="mt-1 px-1 font-body-sm text-body-sm text-on-surface-variant">
+                          Unlock a level, then open it to see Lektionen.
+                        </p>
+                        <Panel className="mt-4">
+                          {levels.length === 0 ? (
+                            <p className="px-5 py-6 font-body-sm text-body-sm text-on-surface-variant">
+                              No levels in the catalog.
+                            </p>
+                          ) : (
+                            levels.map((entry) => (
+                              <CourseAccessRow
+                                key={entry.id}
+                                course={entry}
+                                selected={entry.id === course?.id}
+                                granted={courseGranted(entry)}
+                                showSwitch
+                                switchDisabled={row.isAdmin || accessSaving}
+                                onSelect={() => setCourseId(entry.id)}
+                                onToggle={() => void toggleLevel(entry.id)}
                               />
-                            </span>
-                          </button>
-                          {canDelete ? (
-                            <div className="flex items-center pr-2">
-                              <DeleteProgressButton
-                                label={`Delete ${entry.shortLabel} progress`}
+                            ))
+                          )}
+                        </Panel>
+                      </section>
+
+                      {interviewCourses.length > 0 ? (
+                        <section aria-label="Interview">
+                          <div className="flex items-start justify-between gap-3 px-1">
+                            <div className="min-w-0">
+                              <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                                Interview
+                              </h3>
+                              <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+                                One grant opens every profession track.
+                              </p>
+                            </div>
+                            <AccessSwitch
+                              on={row.isAdmin || interviewAccess}
+                              disabled={row.isAdmin || accessSaving}
+                              label={
+                                interviewAccess
+                                  ? "Lock interview practice"
+                                  : "Unlock interview practice"
+                              }
+                              onToggle={() => void toggleInterview()}
+                            />
+                          </div>
+                          <Panel className="mt-4">
+                            {interviewCourses.map((entry) => (
+                              <CourseAccessRow
+                                key={entry.id}
+                                course={entry}
+                                selected={entry.id === course?.id}
+                                granted={courseGranted(entry)}
+                                showSwitch={false}
+                                switchDisabled
+                                onSelect={() => setCourseId(entry.id)}
+                                onToggle={() => undefined}
+                              />
+                            ))}
+                          </Panel>
+                        </section>
+                      ) : null}
+
+                      {livingCourses.length > 0 ? (
+                        <section aria-label="Leben in Deutschland">
+                          <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                            Leben in Deutschland
+                          </h3>
+                          <p className="mt-1 px-1 font-body-sm text-body-sm text-on-surface-variant">
+                            Each workplace is granted on its own.
+                          </p>
+                          <Panel className="mt-4">
+                            {livingCourses.map((entry) => (
+                              <CourseAccessRow
+                                key={entry.id}
+                                course={entry}
+                                selected={entry.id === course?.id}
+                                granted={courseGranted(entry)}
+                                showSwitch
+                                switchDisabled={row.isAdmin || accessSaving}
+                                onSelect={() => setCourseId(entry.id)}
+                                onToggle={() => void toggleLiving(entry)}
+                              />
+                            ))}
+                          </Panel>
+                        </section>
+                      ) : null}
+                    </div>
+
+                    <section aria-label="Course progress" className="min-w-0">
+                      {course ? (
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between gap-3 px-1">
+                            <div className="min-w-0">
+                              <h3 className="truncate font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                                {course.label}
+                              </h3>
+                              <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+                                {courseGranted(course) ? "Access open" : "Access locked"}
+                                {course.started
+                                  ? ` · ${lessons.filter((lesson) => lesson.status === "completed").length}/${lessons.length} done`
+                                  : " · Not started"}
+                              </p>
+                            </div>
+                            {canDelete && course.started ? (
+                              <button
+                                type="button"
                                 onClick={() => {
                                   setDeleteError(null);
                                   setPendingDelete({
                                     scope: "course",
-                                    courseId: entry.id,
-                                    label: entry.label,
-                                    detail: `Every Lektion in ${entry.label} is cleared.`,
+                                    courseId: course.id,
+                                    label: course.label,
+                                    detail: `Every Lektion in ${course.label} is cleared.`,
                                   });
                                 }}
+                                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-3 font-label-sm text-label-sm font-semibold text-[#ff3b30] transition-colors hover:bg-[#ff3b30]/10"
+                              >
+                                <MaterialIcon name="delete" className="text-[16px]" />
+                                Clear
+                              </button>
+                            ) : null}
+                          </div>
+                          {lessons.length === 0 ? (
+                            <Panel>
+                              <p className="px-6 py-10 text-center font-body-md text-body-md text-on-surface-variant">
+                                No lessons with content in this course yet.
+                              </p>
+                            </Panel>
+                          ) : (
+                            lessons.map((lesson) => (
+                              <LessonBlock
+                                key={lesson.id}
+                                lesson={lesson}
+                                onDeleteLesson={
+                                  !canDelete || lesson.status === "not-started"
+                                    ? undefined
+                                    : () => {
+                                        setDeleteError(null);
+                                        setPendingDelete({
+                                          scope: "lesson",
+                                          courseId: course.id,
+                                          lessonId: lesson.id,
+                                          label: lesson.label,
+                                          detail: `Study, practice, and videos in ${lesson.label} are cleared.`,
+                                        });
+                                      }
+                                }
+                                onDeletePart={
+                                  canDelete
+                                    ? (part, label) => {
+                                        setDeleteError(null);
+                                        setPendingDelete({
+                                          scope: "part",
+                                          courseId: course.id,
+                                          lessonId: lesson.id,
+                                          part,
+                                          label: `${lesson.label} · ${label}`,
+                                          detail: `${label} in ${lesson.label} is cleared. The rest of the Lektion stays.`,
+                                        });
+                                      }
+                                    : undefined
+                                }
                               />
-                            </div>
-                          ) : null}
+                            ))
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {course ? (
-                    <div className="mt-6 flex flex-col gap-3">
-                      <div className="flex items-baseline justify-between gap-3 px-1">
-                        <h4 className="min-w-0 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                          {course.label}
-                        </h4>
-                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 font-caption text-caption font-semibold text-on-surface-variant">
-                          {lessons.filter((lesson) => lesson.status === "completed").length}/
-                          {lessons.length} done
-                        </span>
-                      </div>
-                      {lessons.length === 0 ? (
-                        <p className="px-1 font-body-sm text-body-sm text-outline">
-                          No lessons with content in this course yet.
-                        </p>
                       ) : (
-                        lessons.map((lesson) => (
-                          <LessonBlock
-                            key={lesson.id}
-                            lesson={lesson}
-                            onDeleteLesson={
-                              !canDelete || lesson.status === "not-started"
-                                ? undefined
-                                : () => {
-                                    setDeleteError(null);
-                                    setPendingDelete({
-                                      scope: "lesson",
-                                      courseId: course.id,
-                                      lessonId: lesson.id,
-                                      label: lesson.label,
-                                      detail: `Study, practice, and videos in ${lesson.label} are cleared.`,
-                                    });
-                                  }
-                            }
-                            onDeletePart={
-                              canDelete
-                                ? (part, label) => {
-                                    setDeleteError(null);
-                                    setPendingDelete({
-                                      scope: "part",
-                                      courseId: course.id,
-                                      lessonId: lesson.id,
-                                      part,
-                                      label: `${lesson.label} · ${label}`,
-                                      detail: `${label} in ${lesson.label} is cleared. The rest of the Lektion stays.`,
-                                    });
-                                  }
-                                : undefined
-                            }
-                          />
-                        ))
+                        <Panel>
+                          <p className="px-6 py-10 text-center font-body-md text-body-md text-on-surface-variant">
+                            No courses in the catalog.
+                          </p>
+                        </Panel>
+                      )}
+                    </section>
+                  </div>
+                </div>
+              ) : null}
+
+              {tab === "activity" ? (
+                <div className="flex flex-col gap-6">
+                  <section aria-label="Visit log">
+                    <div className="flex flex-wrap items-center justify-between gap-space-12">
+                      <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                        Visits
+                      </h3>
+                      <VisitRangeSwitch range={range} onChange={setRange} />
+                    </div>
+                    <div className="mt-4">
+                      {visitLog.visits.length === 0 ? (
+                        <Panel>
+                          <p className="px-6 py-12 text-center font-body-md text-body-md text-on-surface-variant">
+                            {visitLog.emptyMessage}
+                          </p>
+                        </Panel>
+                      ) : (
+                        <Panel>
+                          <ul className="divide-y divide-black/[0.06]">
+                            {visitLog.visits.map((visit) => (
+                              <VisitRow
+                                key={visit.id}
+                                visit={visit}
+                                open={openVisitId === visit.id}
+                                onToggle={() =>
+                                  setOpenVisitId((current) => (current === visit.id ? null : visit.id))
+                                }
+                              />
+                            ))}
+                          </ul>
+                        </Panel>
                       )}
                     </div>
-                  ) : null}
-                </>
-              )}
-
-              {detail.notStartedLabels.length > 0 ? (
-                <p className="mt-5 px-1 font-body-sm text-body-sm text-outline">
-                  Not started: {detail.notStartedLabels.join(", ")}
-                </p>
+                  </section>
+                  <ListeningRunsSection userId={row.userId} catalog={catalog} revision={runsRevision} />
+                </div>
               ) : null}
-            </section>
-          </div>
-          </div>
+
+              {tab === "account" ? (
+                <div className="grid items-start gap-6 lg:grid-cols-2">
+                  <section aria-label="Sign-ins">
+                    <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                      Sign-ins
+                    </h3>
+                    <Panel className="mt-4">
+                      {signIns.length === 0 ? (
+                        <p className="px-6 py-5 font-body-sm text-body-sm text-on-surface-variant">
+                          No sign-ins recorded yet.
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-black/[0.06]">
+                          {signIns.slice(0, 8).map((entry) => {
+                            const detailText = signInSummary(entry);
+                            return (
+                              <li key={entry.at} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                                <MaterialIcon name="login" className="text-[18px] text-outline" />
+                                <div className="min-w-0">
+                                  <time
+                                    dateTime={entry.at}
+                                    className="block font-body-sm text-body-sm text-on-surface"
+                                  >
+                                    {formatAbsoluteTime(entry.at)}
+                                  </time>
+                                  {detailText ? (
+                                    <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
+                                      {detailText}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </li>
+                            );
+                          })}
+                          {signIns.length > 8 ? (
+                            <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
+                              +{signIns.length - 8} more
+                            </li>
+                          ) : null}
+                        </ul>
+                      )}
+                    </Panel>
+                  </section>
+
+                  <section aria-label="App use">
+                    <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+                      App use
+                    </h3>
+                    <Panel className="mt-4">
+                      {appUses.length === 0 ? (
+                        <p className="px-6 py-5 font-body-sm text-body-sm text-on-surface-variant">
+                          No app use recorded yet.
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-black/[0.06]">
+                          {appUses.slice(0, 8).map((entry) => {
+                            const detailText = signInSummary(entry);
+                            return (
+                              <li
+                                key={`${entry.at}-${entry.seenAt}`}
+                                className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
+                              >
+                                <MaterialIcon name="devices" className="text-[18px] text-outline" />
+                                <div className="min-w-0">
+                                  <time
+                                    dateTime={entry.at}
+                                    className="block font-body-sm text-body-sm text-on-surface"
+                                  >
+                                    {formatAbsoluteTime(entry.at)}
+                                  </time>
+                                  {detailText ? (
+                                    <p className="truncate font-body-sm text-body-sm text-on-surface-variant">
+                                      {detailText}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </li>
+                            );
+                          })}
+                          {appUses.length > 8 ? (
+                            <li className="px-5 py-3 font-body-sm text-body-sm text-outline sm:px-6">
+                              +{appUses.length - 8} more
+                            </li>
+                          ) : null}
+                        </ul>
+                      )}
+                    </Panel>
+                  </section>
+                </div>
+              ) : null}
+            </>
           ) : (
             <p className="font-body-md text-body-md text-on-surface-variant">
               {detailError ?? "Loading progress…"}
