@@ -18,9 +18,7 @@ import {
   isStudyActivityId,
   nextListeningPart,
   nextStudyPart,
-  practiceRerunRing,
   type NextPart,
-  type PracticeRerunRing,
 } from "@/lib/progress";
 import {
   LISTENING_FIRST_PART_XP,
@@ -136,12 +134,6 @@ type TrailNode = {
   struggling: boolean;
   primary: string | null;
   secondary: string | null;
-  /** Finished practice runs shown as stars, capped at 3. Null hides the row. */
-  stars: number | null;
-  /** Parts finished inside the current rerun. Null on the first pass. */
-  rerun: { percent: number; doneParts: number; partCount: number } | null;
-  /** Three finished passes. The button is gold and the ring is hidden. */
-  mastered: boolean;
   /** Start card shown before the page opens. Null keeps a direct link. */
   start: StartOffer | null;
   label: string;
@@ -213,7 +205,6 @@ function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
   videoHref: (videoId: string) => string,
-  practiceRing: PracticeRerunRing | null,
   starts: { study: StartOffer | null; practice: StartOffer | null },
 ): TrailNode[] {
   if (!lesson) return [];
@@ -227,9 +218,6 @@ function lessonTrailNodes(
     struggling: false,
     primary: video.title,
     secondary: video.titleVi || null,
-    stars: null,
-    rerun: null,
-    mastered: false,
     start: null,
     label: [
       video.title,
@@ -242,37 +230,19 @@ function lessonTrailNodes(
 
   const activities = lesson.activities.map((activity) => {
     const isStudy = isStudyActivityId(activity.id);
-    const earnedStars = Math.min(3, lesson.runCount);
-    const rerun =
-      !isStudy && practiceRing && !practiceRing.mastered
-        ? {
-            percent: practiceRing.percent,
-            doneParts: practiceRing.doneParts,
-            partCount: practiceRing.partCount,
-          }
-        : null;
-    const mastered = !isStudy && Boolean(practiceRing?.mastered);
     const primary = isStudy ? activity.progressLabel || null : null;
     const label = isStudy
       ? ["Study", activity.progressLabel || null].filter(Boolean).join(", ")
-      : [
-          `Luyện tập, ${earnedStars} trên 3 sao`,
-          rerun && rerun.doneParts > 0 ? `${rerun.doneParts} trên ${rerun.partCount} phần` : null,
-        ]
-          .filter(Boolean)
-          .join(", ");
+      : "Luyện tập";
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "fitness_center",
       href: `${lessonHref}/${isStudy ? "study" : "practice"}`,
       percent: activity.percent,
-      complete: activity.status === "completed" || mastered,
+      complete: activity.status === "completed",
       struggling: activity.struggling,
       primary,
       secondary: null,
-      stars: isStudy ? null : earnedStars,
-      rerun,
-      mastered,
       start: isStudy ? starts.study : starts.practice,
       label,
     };
@@ -352,13 +322,10 @@ function ProgressRing({
   percent,
   track,
   stroke,
-  fromBottom = false,
 }: {
   percent: number;
   track: string;
   stroke: string;
-  /** Start the arc at the bottom of the circle. */
-  fromBottom?: boolean;
 }) {
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
@@ -367,7 +334,7 @@ function ProgressRing({
 
   return (
     <svg
-      className={`absolute inset-1 ${fromBottom ? "rotate-90" : "-rotate-90"}`}
+      className="absolute inset-1 -rotate-90"
       viewBox="0 0 64 64"
       aria-hidden="true"
     >
@@ -540,20 +507,16 @@ function PathCircle({
   complete,
   locked,
   struggling,
-  rerunPercent,
-  mastered,
 }: {
   icon: string;
   percent: number;
   complete: boolean;
   locked: boolean;
   struggling: boolean;
-  rerunPercent: number | null;
-  mastered: boolean;
 }) {
   const ring = struggling ? "#ff9500" : "var(--path-node)";
   const glyph = (
-    <LessonPathIcon name={icon} onWhite={!complete && !mastered} className="relative h-10 w-10" />
+    <LessonPathIcon name={icon} onWhite={!complete} className="relative h-10 w-10" />
   );
 
   if (locked) {
@@ -572,25 +535,9 @@ function PathCircle({
     );
   }
 
-  if (mastered) {
-    return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#ffc43a] text-[#684000] shadow-[0_6px_0_0_#e09412]">
-        {glyph}
-      </span>
-    );
-  }
-
   if (complete) {
     return (
       <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
-        {rerunPercent != null ? (
-          <ProgressRing
-            percent={rerunPercent}
-            track="var(--path-node-lip)"
-            stroke="#ffffff"
-            fromBottom
-          />
-        ) : null}
         {glyph}
       </span>
     );
@@ -600,86 +547,6 @@ function PathCircle({
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
       <ProgressRing percent={percent} track="#e2e8f0" stroke={ring} />
       {glyph}
-    </span>
-  );
-}
-
-/** Chubby star in a 16×16 box. Points are eased so the shape reads as molded plastic. */
-const PLASTIC_STAR =
-  "M7.12 2.85 Q 8.00 1.10 8.88 2.85 L9.21 3.52 Q 10.09 5.28 12.03 5.57 L12.77 5.68 Q 14.70 5.97 13.31 7.35 L12.77 7.87 Q 11.38 9.25 11.70 11.18 L11.82 11.92 Q 12.14 13.85 10.40 12.95 L9.74 12.60 Q 8.00 11.70 6.26 12.60 L5.60 12.95 Q 3.86 13.85 4.18 11.92 L4.30 11.18 Q 4.62 9.25 3.23 7.87 L2.69 7.35 Q 1.30 5.97 3.23 5.68 L3.97 5.57 Q 5.91 5.28 6.79 3.52 Z";
-
-/**
- * Three 16px stars, 18px center to center, cupped under the circle.
- * The middle star drops 4px so the row wraps the bottom of the button, without changing the gap.
- */
-const STAR_PLACEMENTS = [
-  { x: 0.45, y: 0, rotate: -14 },
-  { x: 18, y: 4, rotate: 0 },
-  { x: 35.55, y: 0, rotate: 14 },
-] as const;
-
-function RunStars({ filled, locked }: { filled: number; locked: boolean }) {
-  const uid = useId().replace(/:/g, "");
-  const earned = Math.min(3, Math.max(0, filled));
-  const gold = `star-gold-${uid}`;
-  const idle = `star-idle-${uid}`;
-  const lockedOn = `star-locked-on-${uid}`;
-  const lockedOff = `star-locked-off-${uid}`;
-
-  return (
-    <span className="mt-1.5 inline-flex" aria-hidden="true">
-      <svg viewBox="0 0 52 20.2" className="h-[20.2px] w-[52px] overflow-visible">
-        <defs>
-          <linearGradient id={gold} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFF8D6" />
-            <stop offset="38%" stopColor="#FFE07A" />
-            <stop offset="72%" stopColor="#FFC43A" />
-            <stop offset="100%" stopColor="#F09A14" />
-          </linearGradient>
-          <linearGradient id={idle} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="42%" stopColor="#F3F3F6" />
-            <stop offset="100%" stopColor="#E2E2E8" />
-          </linearGradient>
-          <linearGradient id={lockedOn} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F6EBD0" />
-            <stop offset="100%" stopColor="#E4D3A8" />
-          </linearGradient>
-          <linearGradient id={lockedOff} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F8FAFC" />
-            <stop offset="100%" stopColor="#E2E8F0" />
-          </linearGradient>
-        </defs>
-        {STAR_PLACEMENTS.map((place, index) => {
-          const on = index < earned;
-          const fill = locked
-            ? on
-              ? `url(#${lockedOn})`
-              : `url(#${lockedOff})`
-            : on
-              ? `url(#${gold})`
-              : `url(#${idle})`;
-          const rim = locked ? "#CBD5E1" : on ? "#E09412" : "#D2D2D8";
-          const clip = `star-clip-${uid}-${index}`;
-          return (
-            <g key={index} transform={`translate(${place.x} ${place.y}) rotate(${place.rotate} 8 8.2)`}>
-              <clipPath id={clip}>
-                <path d={PLASTIC_STAR} />
-              </clipPath>
-              <path d={PLASTIC_STAR} fill={fill} stroke={rim} strokeWidth="0.7" strokeLinejoin="round" />
-              <ellipse
-                cx="6.6"
-                cy="5.1"
-                rx="3.6"
-                ry="2.1"
-                fill="#FFFFFF"
-                opacity={on && !locked ? 0.78 : 0.9}
-                clipPath={`url(#${clip})`}
-              />
-            </g>
-          );
-        })}
-      </svg>
     </span>
   );
 }
@@ -849,8 +716,6 @@ function PathStop({
         complete={node.complete}
         locked={locked}
         struggling={node.struggling}
-        rerunPercent={node.rerun?.percent ?? null}
-        mastered={node.mastered}
       />
       {node.primary ? (
         <span
@@ -870,7 +735,6 @@ function PathStop({
           {node.secondary}
         </span>
       ) : null}
-      {node.stars != null ? <RunStars filled={node.stars} locked={locked} /> : null}
     </>
   );
 
@@ -1520,21 +1384,6 @@ export default function LevelViewClient({
             const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
             const lessonHref = chapter.href ?? `/learn/${level.slug}/${chapter.slug}`;
-            const listeningDone = Boolean(
-              lessonDetail?.activities.some(
-                (activity) =>
-                  !isStudyActivityId(activity.id) &&
-                  (activity.status === "completed" || (lessonDetail?.runCount ?? 0) >= 1),
-              ),
-            );
-            const practiceRing = listeningDone
-              ? practiceRerunRing(
-                  chapter.practiceClips ?? [],
-                  lessonDetail?.runCount ?? 0,
-                  learnRunClipOrderFor(progressKeyOf(chapter)),
-                  completedLearnRunClipIdsFor(progressKeyOf(chapter)),
-                )
-              : null;
             const practiceClips = chapter.practiceClips ?? [];
             const studyPart = nextStudyPart(
               practiceClips,
@@ -1555,7 +1404,6 @@ export default function LevelViewClient({
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
-              practiceRing,
               {
                 study: studyPart
                   ? startOffer(
