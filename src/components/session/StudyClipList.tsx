@@ -7,9 +7,11 @@ import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
 
 type StudyClipListProps = {
   clips: SessionClip[];
+  /** "tips" is the Duolingo speech-bubble list used on the vocabulary sheet. */
+  variant?: "rows" | "tips";
 };
 
-export function StudyClipList({ clips }: StudyClipListProps) {
+export function StudyClipList({ clips, variant = "rows" }: StudyClipListProps) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const howlRef = useRef<Howl | null>(null);
 
@@ -37,6 +39,44 @@ export function StudyClipList({ clips }: StudyClipListProps) {
     setPlayingId(clip.id);
     howl.play();
   };
+
+  if (variant === "tips") {
+    return (
+      <ul className="flex flex-col items-start gap-3">
+        {clips.map((clip) => {
+          const isPlaying = playingId === clip.id;
+          return (
+            <li key={clip.id} className="max-w-full">
+              <button
+                type="button"
+                onClick={() => playClip(clip)}
+                aria-label={isPlaying ? `Tạm dừng ${clip.script}` : `Phát ${clip.script}`}
+                className={`flex max-w-full items-start gap-2.5 rounded-2xl border-2 bg-white px-3.5 py-3 text-left transition-transform active:translate-y-0.5 ${
+                  isPlaying
+                    ? "border-[#1cb0f6] shadow-[0_2px_0_0_#1cb0f6]"
+                    : "border-[#e5e5e5] shadow-[0_2px_0_0_#e5e5e5]"
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined mt-0.5 shrink-0 text-[22px] text-[#1cb0f6]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                  aria-hidden="true"
+                >
+                  {isPlaying ? "pause" : "volume_up"}
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[17px] font-bold leading-snug text-[#3c3c3c]">{clip.script}</span>
+                  {clip.translationVi ? (
+                    <span className="text-[15px] leading-snug text-[#afafaf]">{clip.translationVi}</span>
+                  ) : null}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
 
   return (
     <ul className="overflow-hidden rounded-[24px] border border-white/20 bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">

@@ -515,17 +515,22 @@ test("a same-day practice does not celebrate again", () => {
   assert.equal(streakCelebrationStep(first, again, today), null);
 });
 
-test("study clips already stored for today count beside listening days", () => {
-  const progress = normalizeProgress({
-    practiceDates: ["2026-09-27"],
-    lastPracticeDate: "2026-09-27",
-    streakDays: 1,
-    activity: {
-      "2026-09-28": { studyRuns: 0, practiceRuns: 0, clips: 1 },
-    },
-  });
+test("a practice day follows the device's local calendar", () => {
+  const evening = new Date(2026, 8, 28, 23, 0, 0);
+  const afterMidnight = new Date(2026, 8, 29, 0, 30, 0);
+  const nextMorning = new Date(2026, 8, 30, 0, 30, 0);
+  const missed = new Date(2026, 9, 1, 0, 30, 0);
 
-  assert.equal(activeStreakDays(progress, new Date("2026-09-28T12:00:00.000Z")), 2);
+  const practiced = bumpStreak(normalizeProgress({}), evening);
+  assert.equal(practiced.lastPracticeDate, "2026-09-28");
+  assert.equal(activeStreakDays(practiced, afterMidnight), 1);
+
+  const continued = bumpStreak(practiced, afterMidnight);
+  assert.equal(continued.lastPracticeDate, "2026-09-29");
+  assert.equal(activeStreakDays(continued, afterMidnight), 2);
+  assert.equal(activeStreakDays(continued, nextMorning), 2);
+  assert.equal(activeStreakDays(practiced, nextMorning), 0);
+  assert.equal(activeStreakDays(practiced, missed), 0);
 });
 
 test("clips added to a finished lesson are marked completed and studied", () => {

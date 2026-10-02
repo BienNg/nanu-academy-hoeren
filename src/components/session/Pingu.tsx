@@ -53,6 +53,83 @@ export function ChillPingu({ pose }: { pose: ChillPose }) {
   return pose === "tea" ? <BubbleTea /> : <Balloon />;
 }
 
+/** Glasses-and-book pose from the chill sheet, for the vocabulary sheet. */
+export function ReadingPingu({ size = 168 }: { size?: number }) {
+  const height = Math.round(size * (250 / 240));
+  return (
+    <svg
+      className="pingu"
+      viewBox="0 0 240 250"
+      width={size}
+      height={height}
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Pingu đang đọc sách"
+    >
+      <ellipse cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+      <g className="pingu-chill-breathe">
+        <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+        <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+        <path
+          d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32"
+          stroke="#232F4B"
+          strokeWidth="6"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <ellipse cx="72" cy="142" rx="9" ry="6" fill="#FF8FA3" opacity="0.5" />
+        <ellipse cx="168" cy="142" rx="9" ry="6" fill="#FF8FA3" opacity="0.5" />
+        <g className="pingu-blink">
+          <g className="pingu-chill-scan">
+            <ellipse cx="92" cy="122" rx="8" ry="10" fill="#141B2E" />
+            <ellipse cx="148" cy="122" rx="8" ry="10" fill="#141B2E" />
+            <circle cx="93" cy="125" r="3" fill="#FFFFFF" />
+            <circle cx="149" cy="125" r="3" fill="#FFFFFF" />
+          </g>
+        </g>
+        <circle cx="92" cy="121" r="17" stroke="#FF9500" strokeWidth="3.5" fill="none" />
+        <circle cx="148" cy="121" r="17" stroke="#FF9500" strokeWidth="3.5" fill="none" />
+        <path
+          d="M109 119 Q120 113 131 119"
+          stroke="#FF9500"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path d="M107 138 Q120 128 133 138 Q131 152 120 154 Q109 152 107 138 Z" fill="#FF9500" />
+        <path d="M113 140 Q120 135 127 140" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        <g className="pingu-chill-book">
+          <rect x="68" y="162" width="104" height="8" rx="3" fill="#DCE5F2" />
+          <rect x="64" y="166" width="112" height="50" rx="7" fill="#0071E3" />
+          <path d="M120 166 V216" stroke="#0A4FA0" strokeWidth="4" />
+          <rect x="130" y="178" width="36" height="24" rx="6" fill="#FFFFFF" />
+          <text
+            x="148"
+            y="196"
+            textAnchor="middle"
+            fontSize="15"
+            fontWeight="700"
+            fill="#0059B5"
+            style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
+          >
+            A1
+          </text>
+          <path d="M76 180 H108 M76 190 H100" stroke="#6DB2F7" strokeWidth="3.5" strokeLinecap="round" />
+        </g>
+        <g className="pingu-fl-l" style={{ transform: "rotate(-30deg)" }}>
+          <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+        </g>
+        <g className="pingu-fl-r" style={{ transform: "rotate(30deg)" }}>
+          <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 function BubbleTea() {
   return (
     <svg

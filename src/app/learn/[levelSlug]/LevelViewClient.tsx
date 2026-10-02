@@ -6,7 +6,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
-import { ChillPingu, type ChillPose } from "@/components/session/Pingu";
+import { ChillPingu, ReadingPingu, type ChillPose } from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -900,15 +900,21 @@ type OpenDictionary = {
   error: boolean;
 };
 
+const SHEET_EASE = [0.32, 0.72, 0, 1] as const;
+const SHEET_SLIDE = { duration: 0.45, ease: SHEET_EASE };
+
 function LessonDictionaryModal({
   title,
   clips,
   error,
+  slide,
   onClose,
 }: {
   title: string;
   clips: SessionClip[] | null;
   error: boolean;
+  /** Phone: the sheet travels in from the right. Wider screens appear in place. */
+  slide: boolean;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -927,67 +933,82 @@ function LessonDictionaryModal({
     };
   }, [onClose]);
 
+  const dash = title.indexOf(" - ");
+  const kicker = dash > 0 ? `${title.slice(0, dash)}, ${title.slice(dash + 3)}` : title;
+
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-[#131b2e]/40 sm:items-center sm:p-6"
       role="presentation"
       onClick={onClose}
+      initial={slide ? { x: "100%" } : false}
+      animate={{ x: 0 }}
+      exit={slide ? { x: "100%" } : { transition: { duration: 0 } }}
+      transition={slide ? SHEET_SLIDE : { duration: 0 }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="lesson-dictionary-title"
-        className="flex h-[min(100dvh,920px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] bg-[#fbfbfd] shadow-2xl sm:h-[min(85dvh,820px)] sm:rounded-[28px]"
+        className="flex h-dvh w-full max-w-lg flex-col overflow-hidden bg-[#fffdf7] shadow-2xl sm:h-[min(92dvh,860px)] sm:rounded-[28px]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center gap-2 border-b border-black/[0.05] bg-[#fbfbfd]/90 px-3 py-3 backdrop-blur-xl sm:px-5">
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--path-accent)] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-          >
-            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
-              close
-            </span>
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#86868b]">
-              Từ vựng
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="sticky top-0 z-10 bg-gradient-to-b from-[#fffdf7] from-70% to-transparent px-2 pt-safe">
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng"
+              className="flex h-12 w-12 items-center justify-center rounded-full text-[#4b4b4b] transition-colors hover:bg-black/[0.04] active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[26px]" aria-hidden="true">
+                close
+              </span>
+            </button>
+          </div>
+          <div className="flex flex-col items-center px-6 pb-5">
+            <ReadingPingu />
+            <p className="mt-3 text-center text-[13px] font-extrabold tracking-[0.08em] text-[#4b4b4b] uppercase">
+              {kicker}
             </p>
             <h2
               id="lesson-dictionary-title"
-              className="truncate text-[15px] font-bold tracking-tight text-[#1d1d1f]"
+              className="mt-1 text-center text-[22px] font-extrabold tracking-tight text-[#3c3c3c]"
             >
-              {title}
+              Từ vựng
             </h2>
           </div>
-          <span className="w-11 shrink-0 text-right text-[13px] font-medium text-[#86868b]">
-            {clips ? clips.length : ""}
-          </span>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-          {error ? (
-            <p className="px-2 py-8 text-center text-[15px] font-medium text-[#86868b]">
-              Không tải được từ vựng. Thử lại sau.
+          <div className="mx-5 border-t-2 border-[#e5e5e5]" />
+          <div className="px-5 pt-4">
+            <p className="mb-3 text-[15px] font-extrabold tracking-[0.04em] text-[#1cb0f6] uppercase">
+              Câu và từ
             </p>
-          ) : clips == null ? (
-            <div className="flex flex-col gap-3" aria-hidden="true">
-              {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-14 animate-pulse rounded-2xl bg-[#f5f5f7]" />
-              ))}
-            </div>
-          ) : clips.length === 0 ? (
-            <p className="px-2 py-8 text-center text-[15px] font-medium text-[#86868b]">
-              Chưa có từ vựng cho Lektion này.
-            </p>
-          ) : (
-            <StudyClipList clips={clips} />
-          )}
+            {error ? (
+              <p className="px-2 py-8 text-center text-[15px] font-bold text-[#afafaf]">
+                Không tải được từ vựng. Thử lại sau.
+              </p>
+            ) : clips == null ? (
+              <div className="flex flex-col items-start gap-3" aria-hidden="true">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="h-16 animate-pulse rounded-2xl border-2 border-[#e5e5e5] bg-white shadow-[0_2px_0_0_#e5e5e5]"
+                    style={{ width: `${68 - index * 6}%` }}
+                  />
+                ))}
+              </div>
+            ) : clips.length === 0 ? (
+              <p className="px-2 py-8 text-center text-[15px] font-bold text-[#afafaf]">
+                Chưa có từ vựng cho Lektion này.
+              </p>
+            ) : (
+              <StudyClipList clips={clips} variant="tips" />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1101,6 +1122,15 @@ export default function LevelViewClient({
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const [mobileSheet, setMobileSheet] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const update = () => setMobileSheet(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const sheetSlides = Boolean(dictionary) && mobileSheet && !shouldReduceMotion;
   const {
     progress,
     progressReady,
@@ -1278,6 +1308,12 @@ export default function LevelViewClient({
 
   return (
     <div className="contents" style={theme.vars as React.CSSProperties}>
+    <motion.div
+      className={`flex min-h-dvh w-full flex-1 flex-col ${dictionary ? "pointer-events-none" : ""}`}
+      initial={false}
+      animate={{ x: sheetSlides ? "-30%" : "0%" }}
+      transition={sheetSlides || mobileSheet ? SHEET_SLIDE : { duration: 0 }}
+    >
     <main 
       ref={containerRef}
       data-layout="wide"
@@ -1625,15 +1661,20 @@ export default function LevelViewClient({
         </motion.ul>
       </section>
     </main>
-    {dictionary ? (
-      <LessonDictionaryModal
-        title={dictionary.label}
-        clips={dictionary.clips}
-        error={dictionary.error}
-        onClose={closeDictionary}
-      />
-    ) : null}
     <BottomNav />
+    </motion.div>
+    <AnimatePresence>
+      {dictionary ? (
+        <LessonDictionaryModal
+          key="lesson-dictionary"
+          title={dictionary.label}
+          clips={dictionary.clips}
+          error={dictionary.error}
+          slide={mobileSheet && !shouldReduceMotion}
+          onClose={closeDictionary}
+        />
+      ) : null}
+    </AnimatePresence>
     </div>
   );
 }

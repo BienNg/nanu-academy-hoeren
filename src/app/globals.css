@@ -500,6 +500,51 @@ body {
   }
 }
 
+.pingu-chill-breathe {
+  transform-origin: 50% 100%;
+  animation: pingu-chill-breathe 3.4s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.025, 0.975);
+  }
+}
+
+.pingu-chill-scan {
+  animation: pingu-chill-scan 3.2s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-scan {
+  0% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+  100% {
+    transform: translateX(-3px);
+  }
+}
+
+.pingu-chill-book {
+  animation: pingu-chill-book 3.4s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-book {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pingu *,
   .pingu-bubble {

@@ -394,6 +394,7 @@ type RawProgressRow = {
   staff?: unknown;
   practiceDates?: unknown;
   lastPracticeDate?: unknown;
+  streakTimeZone?: unknown;
   activity?: unknown;
   visits?: unknown;
   videos?: unknown;
@@ -472,6 +473,7 @@ function progressSource(row: RawProgressRow): Partial<StoredProgress> {
   const sliced =
     row.practiceDates !== undefined ||
     row.lastPracticeDate !== undefined ||
+    row.streakTimeZone !== undefined ||
     row.activity !== undefined ||
     row.visits !== undefined ||
     row.videos !== undefined ||
@@ -482,6 +484,8 @@ function progressSource(row: RawProgressRow): Partial<StoredProgress> {
     practiceDates: row.practiceDates as StoredProgress["practiceDates"],
     lastPracticeDate:
       typeof row.lastPracticeDate === "string" ? row.lastPracticeDate : undefined,
+    streakTimeZone:
+      typeof row.streakTimeZone === "string" ? row.streakTimeZone : undefined,
     activity: row.activity as StoredProgress["activity"],
     visits: row.visits as StoredProgress["visits"],
     videos: row.videos as StoredProgress["videos"],
@@ -910,6 +914,7 @@ function sliceProgressColumns(slice: AdminListSlice): string {
   const keys = [
     "practiceDates:data->practiceDates",
     "lastPracticeDate:data->lastPracticeDate",
+    "streakTimeZone:data->streakTimeZone",
     "activity:data->activity",
   ];
   if (slice === "activity" || slice === "videos" || slice === "levels") {

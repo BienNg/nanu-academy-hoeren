@@ -204,10 +204,12 @@ export type StoredProgress = {
   videos: Record<string, LessonVideoProgress>;
   /** Consecutive practice days ending on `lastPracticeDate`. */
   streakDays: number;
-  /** ISO date (YYYY-MM-DD, UTC) of last practice day, for streak updates. */
+  /** ISO date (YYYY-MM-DD, local calendar) of the last practice day. */
   lastPracticeDate?: string;
-  /** UTC calendar days the learner practiced. The streak is derived from this. */
+  /** Local calendar days the learner practiced. The streak is derived from this. */
   practiceDates?: string[];
+  /** IANA zone used to name those days, so the server uses the same calendar. */
+  streakTimeZone?: string;
   /** Per UTC day (`YYYY-MM-DD`). Older days are dropped on save. */
   activity?: Record<string, DayActivity>;
   /** Recent app-open periods. Capped at 60 visits or 90 days. */
@@ -545,6 +547,9 @@ export function normalizeProgress(
       ...(practiceDatesFrom(parsed?.practiceDates).length
         ? { practiceDates: practiceDatesFrom(parsed?.practiceDates) }
         : {}),
+      ...(validTimeZone(parsed?.streakTimeZone)
+        ? { streakTimeZone: validTimeZone(parsed?.streakTimeZone) }
+        : {}),
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
       ...(adminClears.length ? { adminClears } : {}),
@@ -738,6 +743,7 @@ export function mergeProgress(
     ...new Set([...collectPracticeDates(a), ...collectPracticeDates(b)]),
   ].sort();
   const lastPracticeDate = practiceDates.at(-1);
+  const streakTimeZone = mergedStreakTimeZone(a, b);
 
   const activity = mergeActivity(a.activity, b.activity);
   const visits = mergeVisits(a.visits, b.visits);
@@ -752,6 +758,7 @@ export function mergeProgress(
         : 0,
       ...(lastPracticeDate ? { lastPracticeDate } : {}),
       ...(practiceDates.length ? { practiceDates } : {}),
+      ...(streakTimeZone ? { streakTimeZone } : {}),
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
     },
@@ -1049,9 +1056,70 @@ export function todayIsoDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+function formatYmd(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** IANA zone, or undefined when `value` is missing or not a real timezone. */
+export function validTimeZone(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0 || value.length > 80) return undefined;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value });
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
+function deviceTimeZone(): string | undefined {
+  try {
+    return validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Calendar day (`YYYY-MM-DD`) in `timeZone`, or on this device when omitted.
+ * The streak uses this so the day changes at local midnight.
+ */
+export function localCalendarDay(now = new Date(), timeZone?: string): string {
+  const zone = validTimeZone(timeZone);
+  if (!zone) return formatYmd(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  if (!year || !month || !day) return formatYmd(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  return formatYmd(year, month, day);
+}
+
+function mergedStreakTimeZone(a: StoredProgress, b: StoredProgress): string | undefined {
+  const zoneA = validTimeZone(a.streakTimeZone);
+  const zoneB = validTimeZone(b.streakTimeZone);
+  if (zoneA && zoneB) {
+    return (b.lastPracticeDate ?? "") >= (a.lastPracticeDate ?? "") ? zoneB : zoneA;
+  }
+  return zoneB ?? zoneA;
+}
+
 function isoDay(value: string | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
   return value.slice(0, 10);
+}
+
+/** Date-only values stay as written. Timestamps use `timeZone`, or UTC when unset. */
+function practiceDayKey(value: string | undefined, timeZone: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  if (!timeZone || /^\d{4}-\d{2}-\d{2}$/.test(value)) return value.slice(0, 10);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return localCalendarDay(date, timeZone);
 }
 
 const ACTIVITY_KEEP_DAYS = 120;
@@ -1996,17 +2064,17 @@ function previousIsoDate(iso: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** UTC days this snapshot records as practice, including study clips and passes. */
+/** Local calendar days this snapshot records as practice, including study clips and passes. */
 export function collectPracticeDates(progress: StoredProgress): string[] {
   const dates = new Set<string>();
+  const zone = validTimeZone(progress.streakTimeZone);
   const add = (value: string | undefined) => {
-    const day = isoDay(value);
+    const day = practiceDayKey(value, zone);
     if (day) dates.add(day);
   };
 
   add(progress.lastPracticeDate);
   for (const day of progress.practiceDates ?? []) add(day);
-  addStudyActivityDays(progress, dates);
   for (const entry of Object.values(progress.learn)) {
     add(entry.completedAt);
     add(entry.studyCompletedAt);
@@ -2022,19 +2090,8 @@ export function collectPracticeDates(progress: StoredProgress): string[] {
   return [...dates].sort();
 }
 
-/** Days a learner finished a study pass or completed a study clip. */
-function addStudyActivityDays(progress: StoredProgress, dates: Set<string>): void {
-  for (const [day, entry] of Object.entries(progress.activity ?? {})) {
-    if (!isoDay(day)) continue;
-    if ((entry?.studyRuns ?? 0) > 0 || (entry?.clips ?? 0) > 0) dates.add(day);
-  }
-}
-
 function datesForStreak(progress: StoredProgress): Set<string> {
-  const recorded = practiceDatesFrom(progress.practiceDates);
-  const dates = new Set(recorded.length > 0 ? recorded : collectPracticeDates(progress));
-  if (recorded.length > 0) addStudyActivityDays(progress, dates);
-  return dates;
+  return new Set(collectPracticeDates(progress));
 }
 
 /** Consecutive practice days ending on `end` (inclusive). */
@@ -2053,33 +2110,37 @@ function samePracticeDates(left: string[] | undefined, right: string[]): boolean
   return left.every((day, index) => day === right[index]);
 }
 
+function streakZone(progress: StoredProgress): string | undefined {
+  return validTimeZone(progress.streakTimeZone) ?? deviceTimeZone();
+}
+
 /**
  * Days the learner still has credit for. The run counts only when they
- * practiced today or yesterday (UTC).
+ * practiced today or yesterday on their local calendar.
  */
 export function activeStreakDays(
   progress: StoredProgress,
   now = new Date(),
 ): number {
   const dates = datesForStreak(progress);
-  const today = todayIsoDate(now);
+  const today = localCalendarDay(now, streakZone(progress));
   if (dates.has(today)) return streakEndingOn(dates, today);
 
-  const yesterday = new Date(now);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const yesterdayIso = todayIsoDate(yesterday);
+  const yesterdayIso = previousIsoDate(today);
   return dates.has(yesterdayIso) ? streakEndingOn(dates, yesterdayIso) : 0;
 }
 
 export function bumpStreak(progress: StoredProgress, now = new Date()): StoredProgress {
-  const today = todayIsoDate(now);
-  const dates = datesForStreak(progress);
+  const timeZone = deviceTimeZone();
+  const today = localCalendarDay(now, timeZone);
+  const dates = datesForStreak(timeZone ? { ...progress, streakTimeZone: timeZone } : progress);
   dates.add(today);
   const practiceDates = [...dates].sort();
   const streakDays = streakEndingOn(dates, today);
   if (
     progress.lastPracticeDate === today &&
     progress.streakDays === streakDays &&
+    progress.streakTimeZone === timeZone &&
     samePracticeDates(progress.practiceDates, practiceDates)
   ) {
     return progress;
@@ -2090,6 +2151,7 @@ export function bumpStreak(progress: StoredProgress, now = new Date()): StoredPr
     practiceDates,
     streakDays,
     lastPracticeDate: today,
+    ...(timeZone ? { streakTimeZone: timeZone } : {}),
   };
 }
 
@@ -2102,7 +2164,7 @@ export function streakCelebrationStep(
   after: StoredProgress,
   now = new Date(),
 ): { from: number; to: number } | null {
-  const today = todayIsoDate(now);
+  const today = localCalendarDay(now, streakZone(after));
   if (after.lastPracticeDate !== today || before.lastPracticeDate === today) return null;
   const from = activeStreakDays(before, now);
   const to = activeStreakDays(after, now);
