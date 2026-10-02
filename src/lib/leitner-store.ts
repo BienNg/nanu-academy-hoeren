@@ -7,10 +7,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import type { SessionClip } from "@/lib/content";
-import { getCefrLevel, getChapterClips, getLevelChapters } from "@/lib/levels";
+import { getCefrLevels, getCefrLevel, getChapterClips, getLevelChapters } from "@/lib/levels";
 import { missedAttempt, type ListeningRunInput, type MissedAnswers } from "@/lib/listening-runs";
 import { buildMcOptions, type McOption } from "@/lib/multiple-choice";
-import { getSupabaseAdmin, getUserLevelAccess } from "@/lib/progress-store";
+import { getCloudProgress, getSupabaseAdmin, getUserLevelAccess } from "@/lib/progress-store";
 import {
   addDays,
   applyAnswer,
@@ -68,6 +68,15 @@ export type BoxMove = {
   dueOn: string;
 };
 
+/** One practised sentence the student can still review. */
+export type LearnedClip = {
+  id: string;
+  script: string;
+  translationVi: string;
+  lessonLabel: string;
+  box: number;
+};
+
 export type ReviewOverview = {
   status: "ready" | "missing" | "error";
   today: string;
@@ -78,6 +87,8 @@ export type ReviewOverview = {
   dueTomorrow: number;
   /** Next day anything is due, when nothing is due today. */
   nextDueOn: string | null;
+  /** Practised sentences, grouped-ready: lesson label, then German text. */
+  learned: LearnedClip[];
 };
 
 type StoredBox = BoxState & { lessonKey: string; clipId: string };
@@ -334,14 +345,69 @@ function emptyOverview(status: ReviewOverview["status"], today: string): ReviewO
     due: 0,
     dueTomorrow: 0,
     nextDueOn: null,
+    learned: [],
   };
 }
 
 /**
- * Boxes the student can review now, most urgent first. A student without any
- * boxes gets them built from their practice history first, so nobody needs a
- * separate backfill after the tables are added.
+ * Sentences already finished in practice, even when no listening-run row was saved.
+ * Starting another pass resets the part counter on the path, and the finished
+ * clips stay on the lesson. Those clips still belong in a box.
  */
+function finishedPracticeIds(entry: {
+  completedClipIds?: readonly string[];
+  runCompletedClipIds?: readonly string[];
+}): string[] {
+  return [...new Set([...(entry.completedClipIds ?? []), ...(entry.runCompletedClipIds ?? [])])];
+}
+
+async function fillBoxesFromFinishedPractice(
+  supabase: SupabaseClient,
+  userId: string,
+  existing: StoredBox[],
+): Promise<StoredBox[]> {
+  const progress = await getCloudProgress(userId);
+  const have = new Set(existing.map((box) => boxKey(box.lessonKey, box.clipId)));
+  const today = vietnamDay(new Date());
+  const stamp = new Date().toISOString();
+  const added: StoredBox[] = [];
+  const rows = [];
+
+  for (const [chapterSlug, entry] of Object.entries(progress.learn)) {
+    const ids = new Set(finishedPracticeIds(entry));
+    if (ids.size === 0) continue;
+    for (const level of getCefrLevels()) {
+      if (!level.chapters.some((chapter) => chapter.slug === chapterSlug)) continue;
+      const lessonKey = `${level.slug}/${chapterSlug}`;
+      if (!isLevelLessonKey(lessonKey)) continue;
+      let clips: SessionClip[];
+      try {
+        clips = getChapterClips(level.slug, chapterSlug);
+      } catch {
+        continue;
+      }
+      for (const clip of clips) {
+        if (!ids.has(clip.id)) continue;
+        const key = boxKey(lessonKey, clip.id);
+        if (have.has(key)) continue;
+        have.add(key);
+        const state = applyAnswer(null, false, today);
+        const box: StoredBox = { ...state, lessonKey, clipId: clip.id };
+        added.push(box);
+        rows.push(boxRow(userId, lessonKey, clip.id, state, stamp));
+      }
+    }
+  }
+
+  for (let start = 0; start < rows.length; start += PAGE_SIZE) {
+    const { error } = await supabase
+      .from(BOXES_TABLE)
+      .upsert(rows.slice(start, start + PAGE_SIZE), { onConflict: "user_id,lesson_key,clip_id" });
+    if (error) fail("fillBoxesFromFinishedPractice", error.message);
+  }
+  return added.length > 0 ? [...existing, ...added] : existing;
+}
+
 async function reviewableBoxes(
   supabase: SupabaseClient,
   viewer: Viewer,
@@ -351,6 +417,7 @@ async function reviewableBoxes(
   if (boxes.length === 0 && (await rebuildUserBoxes(viewer.id)) > 0) {
     boxes = await readAllBoxes(supabase, viewer.id);
   }
+  boxes = await fillBoxesFromFinishedPractice(supabase, viewer.id, boxes);
   const rows = [];
   for (const box of boxes) {
     const found = reviewableClip(box.lessonKey, box.clipId, canOpen);
@@ -367,7 +434,7 @@ export async function getReviewOverview(viewer: Viewer, now = new Date()): Promi
     const rows = await reviewableBoxes(supabase, viewer);
     const overview = emptyOverview("ready", today);
     const tomorrow = addDays(today, 1);
-    for (const { box } of rows) {
+    for (const { box, lesson, clip } of rows) {
       overview.boxCounts[box.box] = (overview.boxCounts[box.box] ?? 0) + 1;
       overview.total += 1;
       if (isDue(box, today)) overview.due += 1;
@@ -375,7 +442,19 @@ export async function getReviewOverview(viewer: Viewer, now = new Date()): Promi
       if (!isDue(box, today) && (!overview.nextDueOn || box.dueOn < overview.nextDueOn)) {
         overview.nextDueOn = box.dueOn;
       }
+      overview.learned.push({
+        id: `${box.lessonKey}:${clip.id}`,
+        script: clip.script,
+        translationVi: clip.translationVi,
+        lessonLabel: lesson.label,
+        box: box.box,
+      });
     }
+    overview.learned.sort(
+      (left, right) =>
+        left.lessonLabel.localeCompare(right.lessonLabel, "vi") ||
+        left.script.localeCompare(right.script, "de"),
+    );
     if (overview.due > 0) overview.nextDueOn = null;
     return overview;
   } catch (error) {

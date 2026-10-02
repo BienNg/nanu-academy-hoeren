@@ -17,6 +17,9 @@ export const TOP_BOX = BOX_INTERVAL_DAYS.length - 1;
 /** Due clips dealt in one review round. Each becomes two cards. */
 export const REVIEW_ROUND_CLIPS = 10;
 
+/** Reviewable sentences needed before the box chart unlocks. */
+export const REVIEW_UNLOCK_CLIPS = 10;
+
 export const LEITNER_SCHEMA_HINT =
   "Review boxes are not being stored yet. Run supabase/leitner.sql once in the Supabase SQL editor.";
 
