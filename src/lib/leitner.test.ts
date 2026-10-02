@@ -25,15 +25,15 @@ test("addDays crosses months and years", () => {
 });
 
 test("a new clip starts in box 1 when right and box 0 when missed", () => {
-  assert.deepEqual(applyAnswer(null, false, "2026-10-01"), { box: 1, dueOn: "2026-10-04", lapses: 0 });
+  assert.deepEqual(applyAnswer(null, false, "2026-10-01"), { box: 1, dueOn: "2026-10-03", lapses: 0 });
   assert.deepEqual(applyAnswer(null, true, "2026-10-01"), { box: 0, dueOn: "2026-10-02", lapses: 0 });
 });
 
 test("right on a due clip moves it up one box", () => {
   const state: BoxState = { box: 2, dueOn: "2026-10-11", lapses: 0 };
-  assert.deepEqual(applyAnswer(state, false, "2026-10-11"), { box: 3, dueOn: "2026-10-25", lapses: 0 });
+  assert.deepEqual(applyAnswer(state, false, "2026-10-11"), { box: 3, dueOn: "2026-10-18", lapses: 0 });
   // Overdue counts as due.
-  assert.deepEqual(applyAnswer(state, false, "2026-10-20"), { box: 3, dueOn: "2026-11-03", lapses: 0 });
+  assert.deepEqual(applyAnswer(state, false, "2026-10-20"), { box: 3, dueOn: "2026-10-27", lapses: 0 });
 });
 
 test("right before the due day changes nothing", () => {
@@ -46,9 +46,9 @@ test("any miss drops to box 0 with a lapse, due or not", () => {
   assert.deepEqual(applyAnswer(state, true, "2026-10-18"), { box: 0, dueOn: "2026-10-19", lapses: 2 });
 });
 
-test("box 6 is the ceiling and comes back every 120 days", () => {
+test("box 6 is the ceiling and comes back every 30 days", () => {
   const state: BoxState = { box: 6, dueOn: "2026-10-02", lapses: 0 };
-  assert.deepEqual(applyAnswer(state, false, "2026-10-02"), { box: 6, dueOn: "2027-01-30", lapses: 0 });
+  assert.deepEqual(applyAnswer(state, false, "2026-10-02"), { box: 6, dueOn: "2026-11-01", lapses: 0 });
 });
 
 test("replay follows the Guten Morgen example", () => {
@@ -61,15 +61,15 @@ test("replay follows the Guten Morgen example", () => {
     at: day(n),
   });
   const events = [
-    event(26, false),
+    event(15, false),
     event(1, false),
-    event(4, false),
-    event(18, false), // early replay: stays in box 3
-    event(11, false),
-    event(25, true),
+    event(3, false),
+    event(10, false), // early replay: stays in box 3
+    event(7, false),
+    event(14, true),
   ];
   const state = replayEvents(events).get(boxKey("a1-1/lektion-1", "guten-morgen"));
-  assert.deepEqual(state, { box: 1, dueOn: addDays("2026-10-01", 28), lapses: 1 });
+  assert.deepEqual(state, { box: 1, dueOn: addDays("2026-10-01", 16), lapses: 1 });
 });
 
 test("replay keeps clips of different lessons apart and orders same-moment clips", () => {
@@ -98,7 +98,7 @@ test("review priority: lapses, then box, then oldest due day", () => {
 
 test("interval labels follow the box table", () => {
   assert.deepEqual(
-    [1, 3, 7, 14, 30, 60, 120].map(intervalLabel),
-    ["1 ngày", "3 ngày", "1 tuần", "2 tuần", "1 tháng", "2 tháng", "4 tháng"],
+    [1, 2, 4, 7, 14, 21, 30].map(intervalLabel),
+    ["1 ngày", "2 ngày", "4 ngày", "1 tuần", "2 tuần", "3 tuần", "1 tháng"],
   );
 });

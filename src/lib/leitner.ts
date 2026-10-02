@@ -5,8 +5,12 @@
  * No imports so the node tests can compile this file on its own.
  */
 
-/** Days until a clip in box N is due again. */
-export const BOX_INTERVAL_DAYS = [1, 3, 7, 14, 30, 60, 120] as const;
+/**
+ * Days until a clip in box N is due again.
+ * Misses return tomorrow. Each success about doubles the wait, and a mastered
+ * clip still comes back every month so review stays part of the course.
+ */
+export const BOX_INTERVAL_DAYS = [1, 2, 4, 7, 14, 21, 30] as const;
 
 export const TOP_BOX = BOX_INTERVAL_DAYS.length - 1;
 
@@ -110,7 +114,7 @@ export function compareReviewPriority(left: BoxState, right: BoxState): number {
   return 0;
 }
 
-/** "1 ngày", "2 tuần", "4 tháng". The labels follow the box table. */
+/** "1 ngày", "2 tuần", "1 tháng". The labels follow the box table. */
 export function intervalLabel(days: number): string {
   if (days >= 30 && days % 30 === 0) return `${days / 30} tháng`;
   if (days >= 7 && days % 7 === 0) return `${days / 7} tuần`;

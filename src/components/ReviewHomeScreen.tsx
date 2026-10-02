@@ -134,7 +134,7 @@ const RULES = [
   {
     icon: "flag",
     title: "Lần đầu luyện",
-    text: "Câu đúng ngay lần đầu vào hộp 1 và quay lại sau 3 ngày. Câu sai vào hộp 0 và quay lại ngày mai.",
+    text: `Câu đúng ngay lần đầu vào hộp 1 và quay lại sau ${intervalLabel(BOX_INTERVAL_DAYS[1])}. Câu sai vào hộp 0 và quay lại ngày mai.`,
   },
   {
     icon: "trending_up",
@@ -179,7 +179,8 @@ function HowItWorks() {
         </ul>
         <p className="rounded-2xl bg-[#f1f5ff] px-3 py-2 text-[12px] font-semibold leading-relaxed text-[#3e4850]">
           Một câu tính là sai nếu bạn sai bất kỳ thẻ nào của câu đó. Câu đến hạn sẵn sàng từ 0 giờ (giờ Việt Nam).
-          Hộp 6 là hộp cao nhất: câu ở đó vẫn quay lại mỗi 4 tháng.
+          Hộp {BOX_INTERVAL_DAYS.length - 1} là hộp cao nhất: câu ở đó quay lại sau{" "}
+          {intervalLabel(BOX_INTERVAL_DAYS[BOX_INTERVAL_DAYS.length - 1])}.
         </p>
       </div>
     </details>
