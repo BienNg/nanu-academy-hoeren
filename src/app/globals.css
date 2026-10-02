@@ -169,3 +169,206 @@ body {
     animation: none;
   }
 }
+
+/* Pingu, from the mascot sheet. Loops start after the pop-up lands. */
+.pingu * {
+  transform-box: fill-box;
+}
+
+.pingu-shadow-hop {
+  transform-origin: 50% 50%;
+  animation: pingu-shadow-hop 1s ease-in-out 0.45s infinite;
+}
+
+@keyframes pingu-shadow-hop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  15%,
+  75% {
+    transform: scale(1.06);
+  }
+  45% {
+    transform: scale(0.72);
+  }
+}
+
+.pingu-hop {
+  transform-origin: 50% 100%;
+  animation: pingu-hop 1s ease-in-out 0.45s infinite;
+}
+
+@keyframes pingu-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(0) scale(1.07, 0.92);
+  }
+  45% {
+    transform: translateY(-30px) scale(0.97, 1.04);
+  }
+  75% {
+    transform: translateY(0) scale(1.07, 0.92);
+  }
+  88% {
+    transform: translateY(0) scale(0.99, 1.01);
+  }
+}
+
+.pingu-fl-l {
+  transform-origin: 100% 0%;
+}
+
+.pingu-fl-r {
+  transform-origin: 0% 0%;
+}
+
+.pingu-up-l {
+  transform: rotate(120deg);
+  animation: pingu-flap-l 0.5s ease-in-out 0.45s infinite alternate;
+}
+
+@keyframes pingu-flap-l {
+  from {
+    transform: rotate(120deg);
+  }
+  to {
+    transform: rotate(150deg);
+  }
+}
+
+.pingu-up-r {
+  transform: rotate(-120deg);
+  animation: pingu-flap-r 0.5s ease-in-out 0.45s infinite alternate;
+}
+
+@keyframes pingu-flap-r {
+  from {
+    transform: rotate(-120deg);
+  }
+  to {
+    transform: rotate(-150deg);
+  }
+}
+
+.pingu-conf {
+  transform-origin: 50% 50%;
+  animation: pingu-conf 1.8s ease-in 0.45s infinite;
+  opacity: 0;
+}
+
+@keyframes pingu-conf {
+  0% {
+    transform: translateY(-14px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(70px) rotate(260deg);
+    opacity: 0;
+  }
+}
+
+.pingu-shake {
+  transform-origin: 50% 100%;
+  animation: pingu-shake 2.4s ease-in-out 0.4s infinite;
+}
+
+@keyframes pingu-shake {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-4px);
+  }
+  20% {
+    transform: translateX(4px);
+  }
+  30% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  50% {
+    transform: translateX(-2px);
+  }
+}
+
+.pingu-oops-l {
+  transform: rotate(22deg);
+  animation: pingu-oops-l 0.35s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-oops-l {
+  from {
+    transform: rotate(22deg);
+  }
+  to {
+    transform: rotate(36deg);
+  }
+}
+
+.pingu-oops-r {
+  transform: rotate(-22deg);
+  animation: pingu-oops-r 0.35s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-oops-r {
+  from {
+    transform: rotate(-22deg);
+  }
+  to {
+    transform: rotate(-36deg);
+  }
+}
+
+.pingu-drop {
+  animation: pingu-drop 2.4s ease-in 0.4s infinite;
+  opacity: 0;
+}
+
+@keyframes pingu-drop {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+
+.pingu-blink {
+  transform-origin: 50% 50%;
+  animation: pingu-blink 4.2s infinite;
+}
+
+@keyframes pingu-blink {
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pingu *,
+  .pingu-bubble {
+    animation: none !important;
+  }
+}

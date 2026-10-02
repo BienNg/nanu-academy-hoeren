@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { Pingu } from "@/components/session/Pingu";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -114,7 +115,7 @@ export function PartCompleteScreen({
   ];
 
   useEffect(() => {
-    continueRef.current?.focus();
+    continueRef.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
@@ -131,7 +132,7 @@ export function PartCompleteScreen({
   }, [onContinue]);
 
   return (
-    <main className="relative flex w-full flex-1 flex-col items-center overflow-hidden">
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
       {reduceMotion || failed ? null : (
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           {CONFETTI.map((piece, index) => (
@@ -162,48 +163,9 @@ export function PartCompleteScreen({
         </div>
       )}
 
-      <div className="relative z-10 flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-8 text-center">
-        <motion.div
-          className="relative mb-6 flex h-36 w-36 items-center justify-center"
-          initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 420, damping: 14 }
-          }
-        >
-          <motion.div
-            className={`absolute inset-2 rounded-full ${failed ? "bg-[#ff3b30]/15" : "bg-[#ffd60a]/25"}`}
-            animate={reduceMotion || failed ? undefined : { scale: [1, 1.12, 1] }}
-            transition={
-              reduceMotion || failed
-                ? undefined
-                : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
-            }
-          />
-          <motion.div
-            className={`relative flex h-24 w-24 items-center justify-center rounded-full text-white ${
-              failed
-                ? "bg-gradient-to-br from-[#ff6b64] to-[#ff3b30] shadow-[0_12px_40px_rgba(255,59,48,0.35)]"
-                : "bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] shadow-[0_12px_40px_rgba(255,159,10,0.45)]"
-            }`}
-            animate={reduceMotion || failed ? undefined : { y: [0, -8, 0] }}
-            transition={
-              reduceMotion || failed
-                ? undefined
-                : { delay: 0.35, duration: 0.55, repeat: 2, ease: "easeInOut" }
-            }
-          >
-            <span
-              className="material-symbols-outlined text-[52px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-              aria-hidden="true"
-            >
-              {failed ? "heart_broken" : "emoji_events"}
-            </span>
-          </motion.div>
-        </motion.div>
+      <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+3.5rem)]">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+        <Pingu mood={failed ? "oops" : "cheering"} />
 
         <motion.p
           className="text-[13px] font-semibold uppercase tracking-wider text-[#86868b]"
@@ -233,7 +195,7 @@ export function PartCompleteScreen({
 
         {earned ? (
           <motion.div
-            className="mt-5 flex flex-col items-center gap-1"
+            className="mt-3 flex flex-col items-center gap-1"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: 0.2 }}
@@ -254,11 +216,11 @@ export function PartCompleteScreen({
           </motion.div>
         ) : null}
 
-        <div className="mt-8 grid w-full grid-cols-3 gap-3">
+        <div className="mt-5 grid w-full grid-cols-3 gap-3">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}
-              className="flex flex-col items-center gap-1 rounded-[20px] border border-black/[0.04] bg-white px-2 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
+              className="flex flex-col items-center gap-1 rounded-[20px] border border-black/[0.04] bg-white px-2 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
               initial={reduceMotion ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={
@@ -282,7 +244,7 @@ export function PartCompleteScreen({
 
         {perfect && !failed ? (
           <motion.div
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: reduceMotion ? 0 : 0.5 }}
@@ -300,7 +262,7 @@ export function PartCompleteScreen({
 
         {streakDays > 0 ? (
           <motion.div
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-white px-3 py-1.5 text-[14px] font-semibold text-[#1d1d1f] shadow-sm"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-white px-3 py-1.5 text-[14px] font-semibold text-[#1d1d1f] shadow-sm"
             initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: reduceMotion ? 0 : 0.55 }}
@@ -316,7 +278,9 @@ export function PartCompleteScreen({
           </motion.div>
         ) : null}
 
-        <div className="mt-6 w-full">
+      </div>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
           <motion.button
             ref={continueRef}
             type="button"
@@ -343,7 +307,6 @@ export function PartCompleteScreen({
               {secondaryLabel}
             </button>
           ) : null}
-        </div>
       </div>
     </main>
   );
