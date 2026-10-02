@@ -10,7 +10,11 @@
     "esModuleInterop": true,
     "types": [
       "node"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
     "src/lib/progress.ts",
@@ -37,6 +41,9 @@
     "src/lib/blitzrunde.ts",
     "src/lib/blitzrunde.test.ts",
     "src/lib/living-content.ts",
-    "src/lib/living-content.test.ts"
+    "src/lib/living-content.test.ts",
+    "src/lib/admins.ts",
+    "src/lib/admin-overview.ts",
+    "src/lib/admin-overview.timeline.test.ts"
   ]
 }

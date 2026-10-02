@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
@@ -8,8 +9,11 @@ import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
+  ACTIVE_USER_TIMELINE_CAP,
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  adminTimelineClockKey,
+  buildActiveUserTimeline,
   classKey,
   formatAdminTimestamp,
   adminRangeVietnamDayKeys,
@@ -17,7 +21,9 @@ import {
   listAdminClasses,
   normalizeClassName,
   paginateAdminUsers,
+  timelineDateFromClockKey,
   videoMinutesInRange,
+  type ActiveTimelineStudent,
   type AdminActivityStats,
   type AdminRange,
   type AdminUserRow,
@@ -98,6 +104,227 @@ function xpRangeTitle(range: AdminRange): string {
   return `XP earned in the last ${adminRangeLabel(range).toLowerCase()}`;
 }
 
+const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let index = 0; index < name.length; index += 1) {
+    hash = (hash + name.charCodeAt(index) * (index + 1)) % AVATAR_COLORS.length;
+  }
+  return AVATAR_COLORS[hash] ?? AVATAR_COLORS[0]!;
+}
+
+function initialFor(name: string): string {
+  return Array.from(name)[0]?.toLocaleUpperCase("vi") ?? "?";
+}
+
+function TimelineAvatar({ name, image }: { name: string; image: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (image && !failed) {
+    return (
+      <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full">
+        <Image
+          src={image}
+          alt=""
+          width={28}
+          height={28}
+          referrerPolicy="no-referrer"
+          className="h-7 w-7 rounded-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
+      style={{ backgroundColor: avatarColor(name) }}
+      aria-hidden="true"
+    >
+      {initialFor(name)}
+    </span>
+  );
+}
+
+function TimelineStudentButton({
+  student,
+  onSelect,
+}: {
+  student: ActiveTimelineStudent;
+  onSelect: (userId: string) => void;
+}) {
+  const when = formatAbsoluteTime(student.lastLoginAt);
+  const label = when ? `${student.displayName}, last seen ${when}` : student.displayName;
+  return (
+    <button
+      type="button"
+      title={when ? `${student.displayName}, ${when}` : student.displayName}
+      aria-label={label}
+      onClick={() => onSelect(student.userId)}
+      className="inline-flex overflow-hidden rounded-full hover:ring-2 hover:ring-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <TimelineAvatar name={student.displayName} image={student.image} />
+    </button>
+  );
+}
+
+function ActiveUsersTimeline({
+  users,
+  range,
+  onSelect,
+}: {
+  users: readonly AdminUserRow[];
+  range: AdminRange;
+  onSelect: (userId: string) => void;
+}) {
+  const now = useNow();
+  const clockKey = now == null ? null : adminTimelineClockKey(new Date(now));
+  const timeline = useMemo(() => {
+    if (clockKey == null) return null;
+    return buildActiveUserTimeline(users, range, timelineDateFromClockKey(clockKey));
+  }, [users, range, clockKey]);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOpenKey(null);
+  }, [clockKey, range, users]);
+
+  useEffect(() => {
+    if (!openKey) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenKey(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openKey]);
+
+  if (!timeline) return null;
+
+  const openColumn = timeline.columns.find((column) => column.key === openKey) ?? null;
+  const hidden = openColumn ? openColumn.students.slice(ACTIVE_USER_TIMELINE_CAP) : [];
+  const fillsWidth = range === "today" || range === "7d";
+  const columnWidth = fillsWidth ? "min-w-0 flex-1" : "w-8 shrink-0";
+
+  return (
+    <div className="flex flex-col gap-space-8 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
+      <div>
+        <h3 className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          Last seen
+        </h3>
+        <p className="font-caption text-caption text-on-surface-variant">
+          {timeline.grain === "hour"
+            ? "Each photo sits on the hour of that student's latest visit. Times are Vietnam."
+            : "Each photo sits on the day of that student's latest visit. Times are Vietnam."}
+        </p>
+      </div>
+      <div className={fillsWidth ? undefined : "overflow-x-auto"}>
+        <div
+          className={`flex items-end gap-1 ${fillsWidth ? "w-full" : "min-w-max"}`}
+          role="list"
+          aria-label="Last seen timeline"
+        >
+          {timeline.columns.map((column) => {
+            const visible = column.students.slice(0, ACTIVE_USER_TIMELINE_CAP);
+            const extra = column.students.length - visible.length;
+            const axis =
+              timeline.grain === "hour"
+                ? `${column.label}:00`
+                : column.marker
+                  ? `${column.marker} ${column.label}`
+                  : column.label;
+            return (
+              <div
+                key={column.key}
+                role="listitem"
+                aria-label={`${axis}, ${column.students.length} ${column.students.length === 1 ? "student" : "students"}`}
+                className={`flex ${columnWidth} flex-col items-center`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  {visible.map((student) => (
+                    <TimelineStudentButton
+                      key={student.userId}
+                      student={student}
+                      onSelect={onSelect}
+                    />
+                  ))}
+                  {extra > 0 ? (
+                    <button
+                      type="button"
+                      aria-expanded={openKey === column.key}
+                      aria-label={`Show ${extra} more last seen at ${axis}`}
+                      onClick={() =>
+                        setOpenKey((current) => (current === column.key ? null : column.key))
+                      }
+                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-surface-container px-1 font-caption text-caption font-semibold tabular-nums text-on-surface hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      +{extra}
+                    </button>
+                  ) : null}
+                </div>
+                <div className="mt-space-8 flex h-8 flex-col items-center justify-end text-center">
+                  {column.marker ? (
+                    <span className="font-caption text-[10px] leading-none text-on-surface-variant">
+                      {column.marker}
+                    </span>
+                  ) : null}
+                  <span className="font-caption text-caption tabular-nums text-on-surface-variant">
+                    {column.label}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {hidden.length > 0 && openColumn ? (
+        <div className="flex flex-col gap-1 rounded-xl bg-surface-container-low p-space-8">
+          <p className="font-caption text-caption text-on-surface-variant">
+            {hidden.length} more at{" "}
+            {timeline.grain === "hour"
+              ? `${openColumn.label}:00`
+              : openColumn.marker
+                ? `${openColumn.marker} ${openColumn.label}`
+                : openColumn.label}
+          </p>
+          <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+            {hidden.map((student) => {
+              const when = formatAbsoluteTime(student.lastLoginAt);
+              return (
+                <li key={student.userId}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(student.userId)}
+                    className="flex w-full items-center gap-space-8 rounded-lg px-space-8 py-1 text-left hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                  >
+                    <TimelineAvatar name={student.displayName} image={student.image} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-label-sm text-label-sm font-semibold text-on-surface">
+                        {student.displayName}
+                      </span>
+                      {when ? (
+                        <span className="block font-caption text-caption text-on-surface-variant">
+                          {when}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {timeline.unplaced > 0 ? (
+        <p className="font-caption text-caption text-on-surface-variant">
+          {timeline.unplaced === 1
+            ? "1 active user has no last-seen time in this window."
+            : `${timeline.unplaced.toLocaleString("en-GB")} active users have no last-seen time in this window.`}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ActiveUsersSection({
   users,
   window,
@@ -152,6 +379,7 @@ function ActiveUsersSection({
           {classError}
         </div>
       ) : null}
+      <ActiveUsersTimeline users={users} range={range} onSelect={onSelect} />
       <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">

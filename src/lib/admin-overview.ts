@@ -1,16 +1,16 @@
-import { isAdminUser } from "@/lib/admins";
+import { isAdminUser } from "./admins";
 import {
   activeStreakDays,
   normalizeProgress,
   type AppUseRecord,
   type SignInRecord,
   type StoredProgress,
-} from "@/lib/progress";
+} from "./progress";
 import type {
   AdminStoreProbe,
   UserProgressListItem,
 } from "@/lib/progress-store";
-import { dayKey, googleProfileImage } from "@/lib/xp";
+import { dayKey, googleProfileImage } from "./xp";
 import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
 import type { AdminDuelRecord } from "@/lib/duel-store";
 import type { AdminListeningRunRecord } from "@/lib/listening-runs";
@@ -419,6 +419,151 @@ function vietnamHour(value: string | null | undefined): number | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return new Date(date.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
+}
+
+/** Avatars drawn in one timeline column before the rest collapse into +N. */
+export const ACTIVE_USER_TIMELINE_CAP = 8;
+
+export type ActiveTimelineStudent = {
+  userId: string;
+  displayName: string;
+  image: string | null;
+  lastLoginAt: string;
+  lastLoginMs: number;
+};
+
+export type ActiveTimelineColumn = {
+  key: string;
+  label: string;
+  /** Month name on the first column and on the 1st, for 30- and 90-day axes. */
+  marker: string | null;
+  /** Newest last-seen first. */
+  students: ActiveTimelineStudent[];
+};
+
+export type ActiveUserTimeline = {
+  grain: "hour" | "day";
+  columns: ActiveTimelineColumn[];
+  /** Active rows whose last-seen time is missing or outside this axis. */
+  unplaced: number;
+};
+
+/**
+ * Stable while the Vietnam hour does not change, so a ticking clock does not
+ * rebuild the timeline until the axis grows.
+ */
+export function adminTimelineClockKey(now = new Date()): string {
+  const hour = new Date(now.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
+  return `${dayKey(now)}T${String(hour).padStart(2, "0")}`;
+}
+
+/** Instant at the start of the Vietnam hour encoded by `adminTimelineClockKey`. */
+export function timelineDateFromClockKey(key: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(key);
+  if (!match) return new Date(NaN);
+  return new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4])) -
+      VIETNAM_OFFSET_MS,
+  );
+}
+
+function timelineStudent(row: AdminUserRow): ActiveTimelineStudent | null {
+  if (!row.lastLoginAt) return null;
+  const lastLoginMs = new Date(row.lastLoginAt).getTime();
+  if (Number.isNaN(lastLoginMs)) return null;
+  return {
+    userId: row.userId,
+    displayName: row.displayName,
+    image: row.image,
+    lastLoginAt: row.lastLoginAt,
+    lastLoginMs,
+  };
+}
+
+function byNewestSeen(a: ActiveTimelineStudent, b: ActiveTimelineStudent): number {
+  if (a.lastLoginMs !== b.lastLoginMs) return b.lastLoginMs - a.lastLoginMs;
+  return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
+}
+
+function timelineDayParts(day: string): { label: string; month: string; dayNum: number } | null {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  const dayNum = date.getUTCDate();
+  const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(date);
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(
+    date,
+  );
+  return { label: `${weekday} ${dayNum}`, month, dayNum };
+}
+
+/**
+ * One column per hour from midnight through the current Vietnam hour, or one
+ * column per day in the window. Each student is placed once, at `lastLoginAt`.
+ * Rows whose last-seen time falls outside the axis are counted in `unplaced`.
+ */
+export function buildActiveUserTimeline(
+  rows: readonly AdminUserRow[],
+  range: AdminRange,
+  now = new Date(),
+): ActiveUserTimeline {
+  const today = dayKey(now);
+  const currentHour = new Date(now.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
+
+  if (range === "today") {
+    const columns: ActiveTimelineColumn[] = Array.from({ length: currentHour + 1 }, (_, hour) => ({
+      key: `${today}T${String(hour).padStart(2, "0")}`,
+      label: String(hour),
+      marker: null,
+      students: [],
+    }));
+    const byHour = new Map(columns.map((column) => [column.key, column]));
+    let unplaced = 0;
+
+    for (const row of rows) {
+      const student = timelineStudent(row);
+      const hour = student ? vietnamHour(student.lastLoginAt) : null;
+      const column =
+        student && calendarDay(student.lastLoginAt) === today && hour != null && hour <= currentHour
+          ? byHour.get(`${today}T${String(hour).padStart(2, "0")}`)
+          : undefined;
+      if (!student || !column) {
+        unplaced += 1;
+        continue;
+      }
+      column.students.push(student);
+    }
+
+    for (const column of columns) column.students.sort(byNewestSeen);
+    return { grain: "hour", columns, unplaced };
+  }
+
+  const days = [...adminRangeDayKeys(range, now)].reverse();
+  const compact = range !== "7d";
+  const columns: ActiveTimelineColumn[] = days.map((day, index) => {
+    const parts = timelineDayParts(day);
+    return {
+      key: day,
+      label: parts ? (compact ? String(parts.dayNum) : parts.label) : day,
+      marker: parts && compact && (index === 0 || parts.dayNum === 1) ? parts.month : null,
+      students: [],
+    };
+  });
+  const byDay = new Map(columns.map((column) => [column.key, column]));
+  let unplaced = 0;
+
+  for (const row of rows) {
+    const student = timelineStudent(row);
+    const day = student ? calendarDay(student.lastLoginAt) : null;
+    const column = day ? byDay.get(day) : undefined;
+    if (!student || !column) {
+      unplaced += 1;
+      continue;
+    }
+    column.students.push(student);
+  }
+
+  for (const column of columns) column.students.sort(byNewestSeen);
+  return { grain: "day", columns, unplaced };
 }
 
 /** Clock time in Asia/Ho_Chi_Minh, e.g. "30 Sept 2026, 11:40". */

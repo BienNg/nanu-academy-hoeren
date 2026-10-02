@@ -162,7 +162,7 @@ export function PartCompleteScreen({
         </div>
       )}
 
-      <div className="relative z-10 flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 pb-28 pt-8 text-center">
+      <div className="relative z-10 flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-8 text-center">
         <motion.div
           className="relative mb-6 flex h-36 w-36 items-center justify-center"
           initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }}
@@ -315,10 +315,8 @@ export function PartCompleteScreen({
             Chuỗi {streakDays} ngày
           </motion.div>
         ) : null}
-      </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#fbfbfd] via-[#fbfbfd]/95 to-transparent pb-safe">
-        <div className="mx-auto w-full max-w-md px-6 pb-6 pt-8">
+        <div className="mt-6 w-full">
           <motion.button
             ref={continueRef}
             type="button"
