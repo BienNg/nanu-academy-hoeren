@@ -20,6 +20,35 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+@keyframes nav-tab-pop {
+  0%,
+  60%,
+  100% {
+    transform: scale(1, 1);
+  }
+  70% {
+    transform: scale(1.22, 0.86);
+  }
+  80% {
+    transform: scale(0.94, 1.12) translateY(-3px);
+  }
+  90% {
+    transform: scale(1.04, 0.97);
+  }
+}
+
+.nav-tab-pop {
+  transform-box: fill-box;
+  transform-origin: 50% 80%;
+  animation: nav-tab-pop 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-tab-pop {
+    animation: none;
+  }
+}
+
 @keyframes route-loading-bar {
   0% {
     transform: translateX(-120%);

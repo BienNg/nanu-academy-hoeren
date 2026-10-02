@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg" },
+  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-5" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-5" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-3.5" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -78,7 +78,7 @@ export function BottomNav() {
       aria-label="Điều hướng chính"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe shadow-[0_-4px_0_0_rgba(218,226,253,0.65)] backdrop-blur-xl"
     >
-      <div className="mx-auto flex h-16 w-full max-w-md items-stretch justify-around px-2">
+      <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
         {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
           const active = isCurrent(pathname, item.href);
           const badge = item.href === "/duel" ? challenges : 0;
@@ -89,23 +89,30 @@ export function BottomNav() {
               href={item.href}
               aria-current={active ? "page" : undefined}
               aria-label={label}
-              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-transform active:translate-y-0.5 ${
-                active ? "text-[#0284c7]" : "text-[#6e7881]"
+              className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
+                active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
               }`}
             >
-              <span
-                className={`relative flex h-8 w-14 items-center justify-center rounded-full ${
-                  active ? "bg-[#e0f2fe]" : ""
-                }`}
-              >
-                <img src={item.icon} alt="" width={28} height={28} className="h-7 w-7" aria-hidden="true" />
+              <span className="relative flex h-7 w-7 items-center justify-center">
+                <img
+                  src={item.icon}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className={`h-7 w-7 ${active ? "nav-tab-pop" : ""}`}
+                  aria-hidden="true"
+                />
                 {badge > 0 ? (
-                  <span className="absolute top-0 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
                     {badge > 9 ? "9+" : badge}
                   </span>
                 ) : null}
               </span>
-              <span className={`text-[11px] leading-none ${active ? "font-extrabold" : "font-semibold"}`}>
+              <span
+                className={`font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
+                  active ? "text-[#0059B5]" : "text-[#6E6E73]"
+                }`}
+              >
                 {item.label}
               </span>
             </Link>
