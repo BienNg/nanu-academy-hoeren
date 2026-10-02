@@ -168,6 +168,44 @@ test("a missed card keeps the kinds that were wrong", () => {
   assert.equal(parsed.clips[1]?.missedKinds, undefined);
 });
 
+test("the first wrong try is kept with the right answer", () => {
+  const deck = [{ clip: { id: "c1" } }, { clip: { id: "c2" } }];
+  const answers = new Map([
+    [
+      "c1",
+      {
+        listening: { entered: "  redn  ", correct: "reden" },
+        "reply-choice": { entered: "Tschüss", correct: "Hallo" },
+        order: { entered: "", correct: "reden" },
+      },
+    ],
+  ]);
+  const results = clipResultsForCardDeck(
+    deck,
+    new Set(["c1"]),
+    false,
+    deck.length - 1,
+    new Map([["c1", new Set<CardKind>(["listening", "multiple-choice"])]]),
+    answers,
+  );
+  assert.deepEqual(results[0]?.missedAnswers, {
+    listening: { entered: "redn", correct: "reden" },
+    "reply-choice": { entered: "Tschüss", correct: "Hallo" },
+  });
+  assert.equal(results[1]?.missedAnswers, undefined);
+  const parsed = parseListeningRunInput(
+    successBody({
+      answeredCount: 2,
+      clipCount: 2,
+      clips: results,
+    }),
+  );
+  assert.deepEqual(parsed?.clips[0]?.missedAnswers?.listening, {
+    entered: "redn",
+    correct: "reden",
+  });
+});
+
 test("a stored row keeps clip order", () => {
   const run = storedListeningRunFromRow({
     id: RUN_ID,
@@ -183,7 +221,18 @@ test("a stored row keeps clip order", () => {
     created_at: "2026-09-27T06:00:00.000Z",
     clip_results: [
       { clip_id: "second", passed: false, missed: true, position: 1 },
-      { clip_id: "first", passed: true, missed: true, position: 0, missed_kinds: ["order", "nope"] },
+      {
+        clip_id: "first",
+        passed: true,
+        missed: true,
+        position: 0,
+        missed_kinds: ["order", "nope"],
+        missed_answers: {
+          order: { entered: "bleiben reden", correct: "reden bleiben" },
+          nope: { entered: "x", correct: "y" },
+          listening: { entered: " ", correct: "reden" },
+        },
+      },
     ],
   });
   assert.ok(run);
@@ -194,6 +243,9 @@ test("a stored row keeps clip order", () => {
     ["first", "second"],
   );
   assert.deepEqual(run.clips[0]?.missedKinds, ["order"]);
+  assert.deepEqual(run.clips[0]?.missedAnswers, {
+    order: { entered: "bleiben reden", correct: "reden bleiben" },
+  });
   assert.equal(run.clips[1]?.missedKinds, undefined);
 });
 

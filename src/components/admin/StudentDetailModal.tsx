@@ -11,7 +11,7 @@ import {
   setAdminUserLivingAccess,
 } from "@/app/admin/actions";
 import { workplaceFromAccessSlug } from "@/lib/living-content";
-import { CARD_KIND_LABEL } from "@/lib/card-kinds";
+import { CARD_KIND_LABEL, MISSED_ATTEMPT_KINDS, MISSED_ATTEMPT_LABEL, type CardKind } from "@/lib/card-kinds";
 import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import {
   describeCatalogClip,
@@ -718,6 +718,13 @@ function clipStatus(clip: StoredListeningRun["clips"][number]): string {
   return "Missed";
 }
 
+function attemptCoversKind(kind: CardKind, answers: StoredListeningRun["clips"][number]["missedAnswers"]): boolean {
+  if (!answers) return false;
+  if (kind === "listening") return Boolean(answers.listening || answers["number-input"]);
+  if (kind === "multiple-choice") return Boolean(answers["multiple-choice"] || answers["reply-choice"]);
+  return Boolean(answers[kind]);
+}
+
 function ListeningRunRow({
   run,
   catalog,
@@ -812,7 +819,12 @@ function ListeningRunRow({
                 <ul className="flex flex-col gap-2">
                   {missed.map((clip) => {
                     const described = describeCatalogClip(catalog, run.lessonKey, clip.clipId);
-                    const kinds = (clip.missedKinds ?? [])
+                    const attempts = MISSED_ATTEMPT_KINDS.flatMap((kind) => {
+                      const attempt = clip.missedAnswers?.[kind];
+                      return attempt ? [{ kind, ...attempt }] : [];
+                    });
+                    const uncovered = (clip.missedKinds ?? [])
+                      .filter((kind) => !attemptCoversKind(kind, clip.missedAnswers))
                       .map((kind) => CARD_KIND_LABEL[kind])
                       .join(" · ");
                     return (
@@ -820,14 +832,31 @@ function ListeningRunRow({
                         <p className="font-caption text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
                           {clipStatus(clip)}
                         </p>
-                        {kinds ? (
+                        {uncovered ? (
                           <p className="mt-0.5 font-caption text-caption font-medium text-on-surface-variant">
-                            {kinds}
+                            {uncovered}
                           </p>
                         ) : null}
                         <p className="mt-0.5 font-body-sm text-body-sm text-on-surface">
                           {described.prompt}
                         </p>
+                        {attempts.length > 0 ? (
+                          <ul className="mt-2 flex flex-col gap-2">
+                            {attempts.map((attempt) => (
+                              <li key={attempt.kind} className="min-w-0">
+                                <p className="font-caption text-caption font-medium text-on-surface-variant">
+                                  {MISSED_ATTEMPT_LABEL[attempt.kind]}
+                                </p>
+                                <p className="font-body-sm text-body-sm text-on-surface">
+                                  Entered: {attempt.entered}
+                                </p>
+                                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                                  Correct: {attempt.correct}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </li>
                     );
                   })}

@@ -8,8 +8,8 @@ type PairingItem = { id: string; vi: string; de: string; image?: string };
 
 type PairingCardProps = {
   items: PairingItem[];
-  /** First wrong pair on this card. Later misses stay visual only. */
-  onMistake: () => void;
+  /** First wrong pair on this card: what they joined, and the German that matches the Vietnamese chip. Later misses stay visual only. */
+  onMistake: (entered: string, correct: string) => void;
   /** Every pair is matched. The card stays up so the student can continue. */
   onSolved: () => void;
   onNext: () => void;
@@ -114,7 +114,9 @@ export function PairingCard({
     setPendingVi(null);
     setPendingDe(null);
     setWrong({ viId, deId });
-    onMistake();
+    const viItem = byId.get(viId);
+    const deItem = byId.get(deId);
+    if (viItem && deItem) onMistake(`${viItem.vi} ↔ ${deItem.de}`, `${viItem.vi} ↔ ${viItem.de}`);
     window.setTimeout(() => {
       if (missGeneration.current !== generation) return;
       setWrong(null);

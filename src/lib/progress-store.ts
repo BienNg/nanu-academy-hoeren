@@ -1596,7 +1596,7 @@ export async function insertListeningRun(
   }
   if (!data || data.length === 0 || input.clips.length === 0) return;
 
-  const clipRows = (withKinds: boolean) =>
+  const clipRows = (withKinds: boolean, withAnswers: boolean) =>
     input.clips.map((clip, position) => ({
       run_id: input.id,
       user_id: userId,
@@ -1606,11 +1606,15 @@ export async function insertListeningRun(
       missed: clip.missed,
       position,
       ...(withKinds ? { missed_kinds: clip.missed ? (clip.missedKinds ?? []) : [] } : {}),
+      ...(withAnswers ? { missed_answers: clip.missed ? (clip.missedAnswers ?? {}) : {} } : {}),
     }));
 
-  let { error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(true));
+  let { error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(true, true));
+  if (clipError && schemaObjectMissing(clipError.message, "missed_answers")) {
+    ({ error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(true, false)));
+  }
   if (clipError && schemaObjectMissing(clipError.message, "missed_kinds")) {
-    ({ error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(false)));
+    ({ error: clipError } = await supabase.from(CLIPS_TABLE).insert(clipRows(false, false)));
   }
   if (!clipError) return;
 
@@ -1660,23 +1664,28 @@ export async function listStudentListeningRuns(
 
     const runColumns =
       "id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at";
-    const selectRuns = (withCards: boolean, withKinds: boolean) =>
+    const selectRuns = (withCards: boolean, withKinds: boolean, withAnswers: boolean) =>
       studentRunsSelect(
         `${withCards ? `${runColumns}, card_count` : runColumns}, clip_results(clip_id, passed, missed, position${
           withKinds ? ", missed_kinds" : ""
-        })`,
+        }${withAnswers ? ", missed_answers" : ""})`,
       );
 
     let withCards = true;
     let withKinds = true;
-    let list = await selectRuns(withCards, withKinds);
+    let withAnswers = true;
+    let list = await selectRuns(withCards, withKinds, withAnswers);
     if (list.error && schemaObjectMissing(list.error.message, "card_count")) {
       withCards = false;
-      list = await selectRuns(withCards, withKinds);
+      list = await selectRuns(withCards, withKinds, withAnswers);
+    }
+    if (list.error && schemaObjectMissing(list.error.message, "missed_answers")) {
+      withAnswers = false;
+      list = await selectRuns(withCards, withKinds, withAnswers);
     }
     if (list.error && schemaObjectMissing(list.error.message, "missed_kinds")) {
       withKinds = false;
-      list = await selectRuns(withCards, withKinds);
+      list = await selectRuns(withCards, withKinds, withAnswers);
     }
 
     if (list.error) {
@@ -1945,6 +1954,16 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     kind: "column",
     table: CLIPS_TABLE,
     column: "missed_kinds",
+    dependsOn: "clip_results",
+  },
+  {
+    id: "clip_results.missed_answers",
+    label: "clip_results.missed_answers",
+    sqlFile: "supabase/clip_result_answers.sql",
+    severity: "warn",
+    kind: "column",
+    table: CLIPS_TABLE,
+    column: "missed_answers",
     dependsOn: "clip_results",
   },
   {
