@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "school" },
-  { href: "/duel", label: "Đấu", icon: "swords" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "leaderboard" },
+  { href: "/", label: "Học", icon: "/nav/learn.svg" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -98,13 +98,7 @@ export function BottomNav() {
                   active ? "bg-[#e0f2fe]" : ""
                 }`}
               >
-                <span
-                  className="material-symbols-outlined text-[22px]"
-                  style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                  aria-hidden="true"
-                >
-                  {item.icon}
-                </span>
+                <img src={item.icon} alt="" width={28} height={28} className="h-7 w-7" aria-hidden="true" />
                 {badge > 0 ? (
                   <span className="absolute top-0 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
                     {badge > 9 ? "9+" : badge}
