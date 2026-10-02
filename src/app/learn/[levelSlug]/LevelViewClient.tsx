@@ -87,6 +87,8 @@ const PATH_THEMES = {
       "--path-accent-deep": "#0369a1",
       "--path-accent-light": "#0ea5e9",
       "--path-guide": "#1cb0f6",
+      "--path-node": "#3A81C6",
+      "--path-node-lip": "#2C679F",
     },
     muted: "text-sky-100",
     soft: "text-sky-50",
@@ -97,6 +99,8 @@ const PATH_THEMES = {
       "--path-accent-deep": "#be123c",
       "--path-accent-light": "#f97316",
       "--path-guide": "#e11d48",
+      "--path-node": "#e11d48",
+      "--path-node-lip": "#be123c",
     },
     muted: "text-rose-100",
     soft: "text-rose-50",
@@ -385,6 +389,151 @@ function ProgressRing({
   );
 }
 
+/**
+ * Lesson-path glyphs from the design reference, drawn on a 64px grid.
+ * Video, words, and practice sit on the round nodes. The word list sits on the side button.
+ * `onWhite` uses the light-background drawings, where white fills become blue or navy.
+ */
+export function LessonPathIcon({
+  name,
+  className,
+  onWhite = false,
+}: {
+  name: string;
+  className?: string;
+  onWhite?: boolean;
+}) {
+  const svg = {
+    viewBox: "0 0 64 64",
+    fill: "none" as const,
+    "aria-hidden": true as const,
+    className,
+  };
+
+  if (name === "smart_display") {
+    return onWhite ? (
+      <svg {...svg}>
+        <rect x="7" y="17" width="50" height="36" rx="10" fill="#0A4FA0" />
+        <rect x="7" y="12" width="50" height="36" rx="10" fill="#0071E3" />
+        <path
+          d="M27 22 L41 30 L27 38 Z"
+          fill="#FFFFFF"
+          stroke="#FFFFFF"
+          strokeWidth="5"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ) : (
+      <svg {...svg}>
+        <rect x="7" y="17" width="50" height="36" rx="10" fill="#B9D2EE" />
+        <rect x="7" y="12" width="50" height="36" rx="10" fill="#FFFFFF" />
+        <path
+          d="M27 22 L41 30 L27 38 Z"
+          fill="#FF9500"
+          stroke="#FF9500"
+          strokeWidth="5"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === "menu_book") {
+    return onWhite ? (
+      <svg {...svg}>
+        <path d="M5 21 Q5 17 9 17 H55 Q59 17 59 21 V50 Q59 54 55 54 H9 Q5 54 5 50 Z" fill="#232F4B" />
+        <path d="M9 14 Q22 9 32 16 V49 Q22 43 9 46 Z" fill="#E3EEFB" />
+        <path d="M55 14 Q42 9 32 16 V49 Q42 43 55 46 Z" fill="#C9DFF8" />
+        <path
+          d="M14 23 Q21 21 27 24 M14 30 Q21 28 27 31 M14 37 Q19 36 23 37"
+          stroke="#0071E3"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M37 31 Q43 28 50 30 M37 38 Q43 35 50 37"
+          stroke="#0071E3"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path d="M40 10 H48 V27 L44 23.5 L40 27 Z" fill="#FF9500" />
+      </svg>
+    ) : (
+      <svg {...svg}>
+        <path d="M5 21 Q5 17 9 17 H55 Q59 17 59 21 V50 Q59 54 55 54 H9 Q5 54 5 50 Z" fill="#232F4B" />
+        <path d="M9 14 Q22 9 32 16 V49 Q22 43 9 46 Z" fill="#FFFFFF" />
+        <path d="M55 14 Q42 9 32 16 V49 Q42 43 55 46 Z" fill="#E3EEFB" />
+        <path
+          d="M14 23 Q21 21 27 24 M14 30 Q21 28 27 31 M14 37 Q19 36 23 37"
+          stroke="#6DB2F7"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M37 31 Q43 28 50 30 M37 38 Q43 35 50 37"
+          stroke="#6DB2F7"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path d="M40 10 H48 V27 L44 23.5 L40 27 Z" fill="#FFC83D" />
+      </svg>
+    );
+  }
+
+  if (name === "fitness_center") {
+    return onWhite ? (
+      <svg {...svg}>
+        <g transform="rotate(-35 32 32)">
+          <rect x="16" y="28.5" width="32" height="7" rx="3.5" fill="#232F4B" />
+          <rect x="2" y="23" width="9" height="18" rx="4.5" fill="#0A4FA0" />
+          <rect x="53" y="23" width="9" height="18" rx="4.5" fill="#0A4FA0" />
+          <rect x="9" y="16" width="11" height="32" rx="5.5" fill="#0071E3" />
+          <rect x="44" y="16" width="11" height="32" rx="5.5" fill="#0071E3" />
+          <path
+            d="M14.5 22 V30 M49.5 22 V30"
+            stroke="#6DB2F7"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+    ) : (
+      <svg {...svg}>
+        <g transform="rotate(-35 32 32)">
+          <rect x="16" y="28.5" width="32" height="7" rx="3.5" fill="#FFFFFF" />
+          <rect x="2" y="23" width="9" height="18" rx="4.5" fill="#FF9500" />
+          <rect x="53" y="23" width="9" height="18" rx="4.5" fill="#FF9500" />
+          <rect x="9" y="16" width="11" height="32" rx="5.5" fill="#FFC83D" />
+          <rect x="44" y="16" width="11" height="32" rx="5.5" fill="#FFC83D" />
+          <path
+            d="M14.5 22 V30 M49.5 22 V30"
+            stroke="#FFE7A3"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...svg}>
+      <rect x="11" y="7" width="43" height="51" rx="8" fill="#0A4FA0" />
+      <rect x="17" y="46" width="34" height="8" rx="3" fill="#E3EEFB" />
+      <rect x="11" y="7" width="43" height="42" rx="8" fill="#0071E3" />
+      <path d="M19 7 H21 V49 H19 Q11 49 11 41 V15 Q11 7 19 7 Z" fill="#0A4FA0" />
+      <path
+        d="M29 38 L37.5 17 L46 38 M32.5 31 H42.5"
+        stroke="#FFFFFF"
+        strokeWidth="4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M40 46 H48 V61 L44 57.5 L40 61 Z" fill="#FF9500" />
+    </svg>
+  );
+}
+
 function PathCircle({
   icon,
   percent,
@@ -402,17 +551,15 @@ function PathCircle({
   rerunPercent: number | null;
   mastered: boolean;
 }) {
-  const ring = struggling ? "#ff9500" : "var(--path-accent)";
+  const ring = struggling ? "#ff9500" : "var(--path-node)";
+  const glyph = (
+    <LessonPathIcon name={icon} onWhite={!complete && !mastered} className="relative h-10 w-10" />
+  );
 
   if (locked) {
     return (
       <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
-        <span
-          className="material-symbols-outlined text-[30px]"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          {icon}
-        </span>
+        <span className="opacity-45 grayscale">{glyph}</span>
         <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#94a3b8] shadow-[0_2px_0_0_#cbd5e1]">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
             <path
@@ -428,33 +575,23 @@ function PathCircle({
   if (mastered) {
     return (
       <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#ffc43a] text-[#684000] shadow-[0_6px_0_0_#e09412]">
-        <span
-          className="material-symbols-outlined text-[30px]"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          {icon}
-        </span>
+        {glyph}
       </span>
     );
   }
 
   if (complete) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/30 bg-[var(--path-accent)] text-white shadow-[0_6px_0_0_var(--path-accent-deep)]">
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
         {rerunPercent != null ? (
           <ProgressRing
             percent={rerunPercent}
-            track="var(--path-accent-deep)"
+            track="var(--path-node-lip)"
             stroke="#ffffff"
             fromBottom
           />
         ) : null}
-        <span
-          className="material-symbols-outlined text-[30px]"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-        >
-          {icon}
-        </span>
+        {glyph}
       </span>
     );
   }
@@ -462,12 +599,7 @@ function PathCircle({
   return (
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
       <ProgressRing percent={percent} track="#e2e8f0" stroke={ring} />
-      <span
-        className="material-symbols-outlined text-[26px] text-[var(--path-accent)]"
-        style={{ fontVariationSettings: "'FILL' 1" }}
-      >
-        {icon}
-      </span>
+      {glyph}
     </span>
   );
 }
@@ -1532,15 +1664,9 @@ export default function LevelViewClient({
                           type="button"
                           aria-label="Từ vựng"
                           onClick={() => openDictionary(chapter)}
-                          className="flex h-11 w-11 items-center justify-center rounded-full border-t-2 border-white bg-white text-[var(--path-accent)] shadow-[0_4px_0_0_#bec8d2] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+                          className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
                         >
-                          <span
-                            className="material-symbols-outlined text-[22px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                            aria-hidden="true"
-                          >
-                            dictionary
-                          </span>
+                          <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
                         </button>
                       </li>
                     ) : null}

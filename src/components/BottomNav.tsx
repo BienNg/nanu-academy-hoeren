@@ -76,7 +76,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe shadow-[0_-4px_0_0_rgba(218,226,253,0.65)] backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
     >
       <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
         {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import {
   buildLevelPath,
@@ -104,13 +105,7 @@ function StudentStack({
 function NodeCircle({ icon }: { icon: string }) {
   return (
     <span className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-      <span
-        className="material-symbols-outlined text-[26px] text-[#0284c7]"
-        style={{ fontVariationSettings: "'FILL' 1" }}
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
+      <LessonPathIcon name={icon} onWhite className="h-10 w-10" />
     </span>
   );
 }
