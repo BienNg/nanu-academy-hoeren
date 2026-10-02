@@ -17,27 +17,27 @@ export function Pingu({ mood }: { mood: PinguMood }) {
 
   return (
     <motion.div
-      className="relative h-[148px] w-[210px]"
+      className="relative h-[148px] w-full"
       initial={reduceMotion ? false : { y: 220, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={reduceMotion ? { duration: 0 } : POP}
     >
-      <div className="absolute inset-x-0 bottom-0 flex justify-center">
+      <div className="absolute bottom-0 left-1/2 flex w-[156px] -translate-x-1/2 justify-center">
         {cheering ? <Cheering /> : <Oops />}
       </div>
       <motion.div
-        className="pingu-bubble absolute top-3 right-0"
-        style={{ transformOrigin: "18% 100%" }}
+        className="pingu-bubble absolute top-6 left-[calc(50%+82px)]"
+        style={{ transformOrigin: "0% 55%" }}
         initial={reduceMotion ? false : { opacity: 0, scale: 0.45 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={reduceMotion ? { duration: 0 } : { ...POP, delay: 0.32 }}
       >
-        <div className="relative rounded-full bg-white px-4 py-2 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)]">
+        <div className="relative rounded-full bg-white px-3 py-2 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)]">
           <div
-            className="absolute bottom-[-6px] left-[18px] h-4 w-4 rotate-45 rounded-[3px] bg-white"
+            className="absolute top-1/2 -left-[7px] h-3.5 w-3.5 -translate-y-1/2 rotate-45 rounded-[3px] bg-white"
             aria-hidden="true"
           />
-          <div className="font-headline-sm relative text-[22px] leading-7 font-bold tracking-tight text-[#1d1d1f]">
+          <div className="font-headline-sm relative text-[20px] leading-6 font-bold tracking-tight text-[#1d1d1f]">
             {cheering ? "Tuyệt!" : "Ôi!"}
           </div>
         </div>

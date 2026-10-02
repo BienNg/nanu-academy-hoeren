@@ -496,27 +496,35 @@ export function StudySession({
       </div>
 
       <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
-        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-          <Link
-            href={pathHref}
-            aria-label="Quay lại"
-            className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-          >
-            <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-          </Link>
-          <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
-              {partCount > 1 && typeof visitPart === "number"
-                ? `Học nội dung · Phần ${activePart}/${partCount}`
-                : "Học nội dung"}
-            </span>
-            <h1
-              className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
-              style={{ letterSpacing: "-0.015em" }}
-            >
-              {course.title}
-            </h1>
-          </div>
+        <div
+          className={`mx-auto flex h-14 w-full max-w-4xl items-center px-6 ${
+            visitPart === "done" || complete ? "justify-end" : "justify-between"
+          }`}
+        >
+          {visitPart === "done" || complete ? null : (
+            <>
+              <Link
+                href={pathHref}
+                aria-label="Quay lại"
+                className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+              >
+                <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
+              </Link>
+              <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
+                  {partCount > 1 && typeof visitPart === "number"
+                    ? `Học nội dung · Phần ${activePart}/${partCount}`
+                    : "Học nội dung"}
+                </span>
+                <h1
+                  className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
+                  style={{ letterSpacing: "-0.015em" }}
+                >
+                  {course.title}
+                </h1>
+              </div>
+            </>
+          )}
           <div className="flex shrink-0 items-center gap-1.5">
             <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
             <ProfileButton />
