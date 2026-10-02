@@ -6,6 +6,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
+import { ChillPingu, type ChillPose } from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -124,6 +125,31 @@ const PATH_SHIFT = [
   "-translate-x-6",
   "translate-x-8",
 ] as const;
+
+/** Same offsets as PATH_SHIFT, in px at the default 16px root. */
+const PATH_SHIFT_PX = [-36, 36, 0, -24, 32] as const;
+
+/**
+ * The node where the snake bows farthest from the chord between its
+ * neighbors. The mascot sits on the open side of that bend.
+ */
+function pathWhiteSpace(nodeCount: number): { index: number; side: "left" | "right" } | null {
+  if (nodeCount < 2) return null;
+  const at = (i: number) => PATH_SHIFT_PX[i % PATH_SHIFT_PX.length];
+  if (nodeCount === 2) {
+    return { index: 1, side: at(1) >= 0 ? "left" : "right" };
+  }
+  let index = 1;
+  let bow = 0;
+  for (let i = 1; i < nodeCount - 1; i++) {
+    const depth = at(i) - (at(i - 1) + at(i + 1)) / 2;
+    if (Math.abs(depth) > Math.abs(bow)) {
+      bow = depth;
+      index = i;
+    }
+  }
+  return { index, side: bow >= 0 ? "left" : "right" };
+}
 
 type TrailNode = {
   key: string;
@@ -1369,6 +1395,13 @@ export default function LevelViewClient({
         >
           {(() => {
             let continueGuideClaimed = false;
+            const trailCounts = chapters.map((chapter) => {
+              const lesson = lessonById.get(`${level.slug}-${chapter.slug}`);
+              if (!lesson) return 0;
+              return lesson.videos.length + lesson.activities.length;
+            });
+            const firstTrail = trailCounts.findIndex((count) => count >= 2);
+            const lastTrail = trailCounts.findLastIndex((count) => count >= 2);
             return chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
             const chapterKey = progressKeyOf(chapter);
@@ -1505,7 +1538,7 @@ export default function LevelViewClient({
               >
                 <div className={headerClassName}>{header}</div>
                 {nodes.length > 0 ? (
-                  <ul className="relative flex w-full flex-col items-center gap-3 py-3">
+                  <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
                     {isOpen && nodes.some((node) => node.icon === "menu_book") ? (
                       <li className="absolute top-3 right-0 z-10">
                         <button
@@ -1530,6 +1563,10 @@ export default function LevelViewClient({
                         !isVideoTrailNode(node);
                       if (showGuide) continueGuideClaimed = true;
                       const guideLabel = showGuide ? continueGuideLabel(node) : null;
+                      const chillPose: ChillPose | null =
+                        index === firstTrail ? "tea" : index === lastTrail ? "balloon" : null;
+                      const bay = chillPose ? pathWhiteSpace(nodes.length) : null;
+                      const showChill = bay != null && nodeIndex === bay.index;
                       return (
                         <li
                           key={node.key}
@@ -1538,6 +1575,18 @@ export default function LevelViewClient({
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
                           } ${guideLabel ? "pt-14" : ""}`}
                         >
+                          {showChill && bay && chillPose ? (
+                            <div
+                              className="pointer-events-none absolute left-1/2 z-[-1]"
+                              style={{
+                                top: guideLabel ? "calc(3.5rem - 2px)" : "-2px",
+                                transform: `translateX(calc(-50% ${bay.side === "left" ? "-" : "+"} 8.25rem))`,
+                              }}
+                              aria-hidden="true"
+                            >
+                              <ChillPingu pose={chillPose} />
+                            </div>
+                          ) : null}
                           {guideLabel ? (
                             <ContinueGuideBubble
                               label={guideLabel}
