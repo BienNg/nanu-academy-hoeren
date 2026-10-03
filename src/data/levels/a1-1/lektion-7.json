@@ -1,3 +1,82 @@
 {
-  "clips": []
+  "clips": [
+    { "filename": "a11-tag7-01-gerade.mp3", "script": "gerade", "translationVi": "bây giờ, hiện tại" },
+
+    { "filename": "a11-tag7-02-frage-wo-wohnst-du.mp3", "script": "Wo wohnst du gerade?", "translationVi": "Bây giờ bạn sống ở đâu?" },
+    { "filename": "a11-tag7-03-antwort-wo-wohnst-du.mp3", "script": "Ich wohne in Stuttgart.", "translationVi": "Tôi sống ở Stuttgart." },
+
+    { "filename": "a11-tag7-04-frage-wo-lebst-du.mp3", "script": "Wo lebst du gerade?", "translationVi": "Bây giờ bạn sống ở đâu?" },
+    { "filename": "a11-tag7-05-antwort-wo-lebst-du.mp3", "script": "Ich lebe in Stuttgart.", "translationVi": "Tôi sống ở Stuttgart." },
+
+    { "filename": "a11-tag7-06-frage-wie-geht-es-dir.mp3", "script": "Wie geht es dir?", "translationVi": "Bạn khỏe không?" },
+    { "filename": "a11-tag7-07-antwort-wie-geht-es-dir.mp3", "script": "Es geht mir gut.", "translationVi": "Tôi khỏe." },
+
+    { "filename": "a11-tag7-08-denn.mp3", "script": "denn", "translationVi": "vậy, thế (làm câu hỏi nghe thân thiện hơn)" },
+
+    { "filename": "a11-tag7-09-frage-woher-kommst-du.mp3", "script": "Woher kommst du denn?", "translationVi": "Vậy bạn đến từ đâu?" },
+    { "filename": "a11-tag7-10-antwort-woher-kommst-du.mp3", "script": "Ich komme aus Vietnam.", "translationVi": "Tôi đến từ Việt Nam." },
+
+    { "filename": "a11-tag7-11-frage-kommst-du-aus-frankfurt.mp3", "script": "Kommst du aus Frankfurt?", "translationVi": "Bạn đến từ Frankfurt à?" },
+    { "filename": "a11-tag7-12-antwort-kommst-du-aus-frankfurt.mp3", "script": "Ja, ich komme aus Frankfurt.", "translationVi": "Vâng, tôi đến từ Frankfurt." },
+
+    { "filename": "a11-tag7-13-frage-lernst-du-deutsch.mp3", "script": "Lernst du Deutsch?", "translationVi": "Bạn có học tiếng Đức không?" },
+    { "filename": "a11-tag7-14-antwort-lernst-du-deutsch.mp3", "script": "Ja, ich lerne Deutsch.", "translationVi": "Vâng, tôi học tiếng Đức." },
+
+    { "filename": "a11-tag7-15-frage-wo-lernst-du-deutsch.mp3", "script": "Wo lernst du Deutsch?", "translationVi": "Bạn học tiếng Đức ở đâu?" },
+    { "filename": "a11-tag7-16-antwort-wo-lernst-du-deutsch.mp3", "script": "Ich lerne Deutsch in Hanoi.", "translationVi": "Tôi học tiếng Đức ở Hà Nội." },
+
+    { "filename": "a11-tag7-17-frage-wo-leben-deine-eltern.mp3", "script": "Wo leben deine Eltern?", "translationVi": "Bố mẹ bạn sống ở đâu?" },
+    { "filename": "a11-tag7-18-antwort-wo-leben-deine-eltern.mp3", "script": "Meine Eltern leben in Vietnam.", "translationVi": "Bố mẹ tôi sống ở Việt Nam." },
+
+    { "filename": "a11-tag7-19-frage-leben-in-deutschland.mp3", "script": "Wie findest du das Leben in Deutschland?", "translationVi": "Bạn thấy cuộc sống ở Đức như thế nào?" },
+    { "filename": "a11-tag7-20-antwort-leben-in-deutschland.mp3", "script": "Ich finde das Leben in Deutschland gut.", "translationVi": "Tôi thấy cuộc sống ở Đức tốt." },
+
+    { "filename": "a11-tag7-21-frage-freunde-in-deutschland.mp3", "script": "Hast du Freunde in Deutschland?", "translationVi": "Bạn có bạn bè ở Đức không?" },
+    { "filename": "a11-tag7-22-antwort-freunde-in-deutschland.mp3", "script": "Ja, ich habe Freunde in Deutschland.", "translationVi": "Vâng, tôi có bạn bè ở Đức." },
+
+    { "filename": "a11-tag7-23-frage-was-machst-du-am-wochenende.mp3", "script": "Was machst du am Wochenende?", "translationVi": "Bạn làm gì vào cuối tuần?" },
+    { "filename": "a11-tag7-24-antwort-was-machst-du-am-wochenende.mp3", "script": "Ich lerne Deutsch.", "translationVi": "Tôi học tiếng Đức." },
+
+    { "filename": "a11-tag7-25-frage-wie-findest-du-deutsch.mp3", "script": "Wie findest du Deutsch?", "translationVi": "Bạn thấy tiếng Đức như thế nào?" },
+    { "filename": "a11-tag7-26-antwort-wie-findest-du-deutsch.mp3", "script": "Ich finde Deutsch gut.", "translationVi": "Tôi thấy tiếng Đức hay." },
+
+    { "filename": "a11-tag7-27-frage-lebst-du-nicht-in-deutschland.mp3", "script": "Lebst du nicht in Deutschland?", "translationVi": "Bạn không sống ở Đức à?" },
+    { "filename": "a11-tag7-28-antwort-lebst-du-nicht-in-deutschland.mp3", "script": "Doch, ich lebe in Deutschland.", "translationVi": "Có chứ, tôi sống ở Đức." },
+
+    { "filename": "a11-tag7-29-frage-trinkst-du-kaffee.mp3", "script": "Trinkst du Kaffee?", "translationVi": "Bạn có uống cà phê không?" },
+    { "filename": "a11-tag7-30-antwort-trinkst-du-kaffee.mp3", "script": "Ja, ich trinke Kaffee.", "translationVi": "Vâng, tôi uống cà phê." },
+
+    { "filename": "a11-tag7-31-frage-haben-wir-hausaufgaben.mp3", "script": "Haben wir heute Hausaufgaben?", "translationVi": "Hôm nay chúng ta có bài tập về nhà không?" },
+    { "filename": "a11-tag7-32-antwort-haben-wir-hausaufgaben.mp3", "script": "Ja, wir haben heute Hausaufgaben.", "translationVi": "Vâng, hôm nay chúng ta có bài tập về nhà." },
+
+    { "filename": "a11-tag7-33-frage-wo-lebt-dein-bruder.mp3", "script": "Wo lebt dein Bruder?", "translationVi": "Anh/em trai bạn sống ở đâu?" },
+    { "filename": "a11-tag7-34-antwort-wo-lebt-dein-bruder.mp3", "script": "Mein Bruder lebt in Hanoi.", "translationVi": "Anh/em trai tôi sống ở Hà Nội." },
+
+    { "filename": "a11-tag7-35-frage-wie-alt-bist-du.mp3", "script": "Wie alt bist du?", "translationVi": "Bạn bao nhiêu tuổi?" },
+    { "filename": "a11-tag7-36-antwort-wie-alt-bist-du.mp3", "script": "Ich bin zwanzig Jahre alt.", "translationVi": "Tôi hai mươi tuổi." },
+
+    { "filename": "a11-tag7-37-frage-wohin-gehst-du.mp3", "script": "Wohin gehst du?", "translationVi": "Bạn đi đâu?" },
+    { "filename": "a11-tag7-38-antwort-wohin-gehst-du.mp3", "script": "Ich gehe nach Hause.", "translationVi": "Tôi về nhà." },
+
+    { "filename": "a11-tag7-39-frage-was-essen-wir-heute.mp3", "script": "Was essen wir heute?", "translationVi": "Hôm nay chúng ta ăn gì?" },
+    { "filename": "a11-tag7-40-antwort-was-essen-wir-heute.mp3", "script": "Wir essen heute Pizza.", "translationVi": "Hôm nay chúng ta ăn pizza." },
+
+    { "filename": "a11-tag7-41-frage-arbeiten-sie-morgen.mp3", "script": "Arbeiten Sie morgen?", "translationVi": "Ngày mai Ông/Bà có làm việc không?" },
+    { "filename": "a11-tag7-42-antwort-arbeiten-sie-morgen.mp3", "script": "Ja, ich arbeite morgen.", "translationVi": "Vâng, ngày mai tôi làm việc." },
+
+    { "filename": "a11-tag7-43-frage-arbeiten-sie-morgen-nicht.mp3", "script": "Arbeiten Sie morgen nicht?", "translationVi": "Ngày mai Ông/Bà không làm việc à?" },
+    { "filename": "a11-tag7-44-antwort-arbeiten-sie-morgen-nicht.mp3", "script": "Doch, ich arbeite morgen.", "translationVi": "Có chứ, ngày mai tôi làm việc." },
+
+    { "filename": "a11-tag7-45-frage-hast-du-fuenf-euro.mp3", "script": "Hast du fünf Euro?", "translationVi": "Bạn có năm euro không?" },
+    { "filename": "a11-tag7-46-antwort-hast-du-fuenf-euro.mp3", "script": "Ja, ich habe fünf Euro.", "translationVi": "Vâng, tôi có năm euro." },
+
+    { "filename": "a11-tag7-47-frage-wer-bist-du.mp3", "script": "Wer bist du denn?", "translationVi": "Vậy bạn là ai?" },
+    { "filename": "a11-tag7-48-antwort-wer-bist-du.mp3", "script": "Ich bin Linh.", "translationVi": "Tôi là Linh." },
+
+    { "filename": "a11-tag7-49-frage-wer-ist-er.mp3", "script": "Wer ist er?", "translationVi": "Anh ấy là ai?" },
+    { "filename": "a11-tag7-50-antwort-wer-ist-er.mp3", "script": "Er ist Nam.", "translationVi": "Anh ấy là Nam." },
+
+    { "filename": "a11-tag7-51-frage-hat-sie-kinder.mp3", "script": "Hat sie Kinder?", "translationVi": "Chị ấy có con không?" },
+    { "filename": "a11-tag7-52-antwort-hat-sie-kinder.mp3", "script": "Ja, sie hat zwei Kinder.", "translationVi": "Vâng, chị ấy có hai đứa con." }
+  ]
 }
