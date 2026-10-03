@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { flushSync } from "react-dom";
@@ -13,8 +12,7 @@ import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
-import { ProfileButton } from "@/components/ProfileButton";
-import { TodayXpChip } from "@/components/TodayXpChip";
+import { Pingu } from "@/components/session/Pingu";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
   firstIncompleteStudyPart,
@@ -104,7 +102,7 @@ export function StudySession({
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
   const [ready, setReady] = useState(false);
-  const [xpTotal, setXpTotal] = useState<number | null>(null);
+  const [quitOpen, setQuitOpen] = useState(false);
   const [xpGrant, setXpGrant] = useState<{
     xp: number | null;
     kind: string | null;
@@ -117,7 +115,6 @@ export function StudySession({
     finishRun: boolean;
     partNumber: number;
   } | null>(null);
-  const awardedXpRef = useRef(0);
   const xpRequestedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const committedRef = useRef(false);
@@ -162,6 +159,7 @@ export function StudySession({
     partStartedAtRef.current = Date.now();
     committedRef.current = false;
     setClipIndex(0);
+    setQuitOpen(false);
     setPhase("study");
     setScoreResult(null);
     setDraft("");
@@ -185,10 +183,8 @@ export function StudySession({
     visitPart === "done" || (ready && clips.length > 0 && clipIndex >= clips.length);
   const lastPart = partCount > 0 && activePart >= partCount;
   const isReviewed = furthest > clipIndex;
-
-  const progressSegments = useMemo(() => {
-    return clips.map((_, index) => (index < furthest ? "done" : "todo"));
-  }, [clips, furthest]);
+  const progressFill = clips.length === 0 ? 0 : Math.min(1, furthest / clips.length);
+  const showSessionHeader = visitPart !== "done" && !complete;
 
   const clearAttempt = useCallback(() => {
     setScoreResult(null);
@@ -331,22 +327,6 @@ export function StudySession({
   ]);
 
   useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/xp")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { total?: unknown } | null) => {
-        if (cancelled || !data || typeof data.total !== "number") return;
-        setXpTotal(Math.max(0, data.total - awardedXpRef.current));
-      })
-      .catch(() => {
-        // The chip stays on a dash when the total cannot be read.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     if (viewMode !== "cards" || complete || !currentClip) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -429,11 +409,6 @@ export function StudySession({
     if (delta > 56) goPrev();
   };
 
-  const earnedXp =
-    xpGrant && !xpGrant.pending && typeof xpGrant.xp === "number" && xpGrant.xp > 0
-      ? xpGrant.xp
-      : 0;
-  if (earnedXp > 0) awardedXpRef.current = earnedXp;
   const recallPerfect = scoreResult?.accuracy === 100;
   const openedFinishedLesson = visitPart === "done" && summary == null;
   const modeToggle = (
@@ -495,42 +470,91 @@ export function StudySession({
         <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
       </div>
 
-      <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
-        <div
-          className={`mx-auto flex h-14 w-full max-w-4xl items-center px-6 ${
-            visitPart === "done" || complete ? "justify-end" : "justify-between"
-          }`}
-        >
-          {visitPart === "done" || complete ? null : (
-            <>
-              <Link
-                href={pathHref}
+      {showSessionHeader ? (
+        <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-4xl px-4 pt-2 pb-3 sm:px-6">
+            <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-3">
+              <button
+                type="button"
                 aria-label="Quay lại"
-                className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+                onClick={() => {
+                  const nothingToLose = furthest === 0 && clipIndex === 0 && phase === "study" && !scoreResult;
+                  if (nothingToLose) {
+                    router.push(pathHref);
+                    return;
+                  }
+                  setQuitOpen(true);
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95"
               >
-                <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-              </Link>
-              <div className="flex-1 flex flex-col items-center justify-center px-4 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
-                  {partCount > 1 && typeof visitPart === "number"
-                    ? `Học nội dung · Phần ${activePart}/${partCount}`
-                    : "Học nội dung"}
-                </span>
-                <h1
-                  className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]"
-                  style={{ letterSpacing: "-0.015em" }}
+                <span
+                  className="material-symbols-outlined translate-y-px text-[22px]"
+                  style={{ fontVariationSettings: "'wght' 260" }}
+                  aria-hidden="true"
                 >
-                  {course.title}
-                </h1>
+                  close
+                </span>
+              </button>
+              <div
+                aria-label="Tiến độ học nội dung"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progressFill * 100)}
+                role="progressbar"
+                className="h-[18px] w-full overflow-hidden rounded-full border-b-4 border-[#d5d5d5] bg-[#e8e8e8]"
+              >
+                <div
+                  className="h-full rounded-full border-b-4 border-[#005bb5] bg-gradient-to-b from-[#7ec4ff] to-[#1a8cff] transition-[width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                  style={{ width: `${progressFill * 100}%` }}
+                />
               </div>
-            </>
-          )}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
-            <ProfileButton />
+              <span className="w-11" aria-hidden="true" />
+            </div>
+          </div>
+        </header>
+      ) : null}
+
+      {quitOpen && showSessionHeader ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          role="presentation"
+          onClick={() => setQuitOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="study-quit-title"
+            className="w-full max-w-md rounded-t-[28px] bg-white px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative mx-auto h-[128px] w-full overflow-hidden">
+              <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.78]">
+                <Pingu mood="oops" />
+              </div>
+            </div>
+            <h2 id="study-quit-title" className="mt-1 text-[22px] font-bold tracking-tight text-[#1d1d1f]">
+              Đợi đã!
+            </h2>
+            <p className="mt-2 text-[17px] leading-snug font-medium text-[#4b4b4b]">
+              Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ.
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuitOpen(false)}
+              className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0066cc] text-[15px] font-extrabold tracking-wide text-white uppercase"
+            >
+              Tiếp tục học
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(pathHref)}
+              className="mt-3 flex h-11 w-full items-center justify-center text-[15px] font-extrabold tracking-wide text-[#0066cc] uppercase"
+            >
+              Kết thúc
+            </button>
           </div>
         </div>
-      </header>
+      ) : null}
 
       {!ready || !progressReady || visitPart == null ? (
         <SessionContentSkeleton kind="study" />
@@ -579,26 +603,6 @@ export function StudySession({
           <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
             <header className="flex flex-col items-start gap-4 pt-6 pb-4">
               {modeToggle}
-
-              <div
-                aria-label="Tiến độ học nội dung"
-                className="grid w-full self-stretch gap-1.5"
-                style={{
-                  gridTemplateColumns: `repeat(${Math.max(clips.length, 1)}, minmax(0, 1fr))`,
-                }}
-              >
-                {progressSegments.map((segment, index) => (
-                  <div
-                    key={`seg-${index}`}
-                    className="relative h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]"
-                  >
-                    <div
-                      className="h-full origin-left rounded-full bg-[#0066cc] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-                      style={{ transform: segment === "done" ? "scaleX(1)" : "scaleX(0)" }}
-                    />
-                  </div>
-                ))}
-              </div>
             </header>
 
             <div
