@@ -4,6 +4,7 @@ import {
   getSessionClips,
 } from "@/lib/content";
 import { requireInterviewAccess, requireUser } from "@/lib/auth-guard";
+import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
 import { loadLearnerCourseMenu } from "@/lib/levels";
 import { InterviewSession } from "@/components/session/InterviewSession";
 
@@ -54,6 +55,7 @@ export default async function InterviewBerufPage({
 
   const clips = getSessionClips(beruf.slug);
   const courses = await loadLearnerCourseMenu(session.user);
+  const liveRound = session.user.id ? await getLiveRoundForUser(session.user.id) : null;
 
-  return <InterviewSession beruf={beruf} clips={clips} courses={courses} />;
+  return <InterviewSession beruf={beruf} clips={clips} courses={courses} liveRound={liveRound} />;
 }

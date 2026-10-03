@@ -425,7 +425,35 @@ export async function anyClassHasStartedBlitzrunde(): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
-/** The open round for this learner's class, if any. Drives the home-screen banner. */
+const LIVE_ROUND_COLUMNS = "id, class_label, level_slug, chapter_slug, status, ends_at";
+
+type OpenRoundRow = {
+  id: string;
+  class_label: string;
+  level_slug: string;
+  chapter_slug: string;
+  status: "lobby" | "active";
+  ends_at: string | null;
+};
+
+/** Banner metadata only. The card deck stays out of this read. */
+function openRoundFromRow(raw: unknown): OpenRoundRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const id = str(row.id);
+  const status = row.status === "lobby" || row.status === "active" ? row.status : null;
+  if (!id || !status) return null;
+  return {
+    id,
+    class_label: str(row.class_label) ?? "",
+    level_slug: str(row.level_slug) ?? "",
+    chapter_slug: str(row.chapter_slug) ?? "",
+    status,
+    ends_at: str(row.ends_at),
+  };
+}
+
+/** The open round for this learner's class, if any. The lesson page reads it once. */
 export async function getLiveRoundForUser(userId: string, now: Date = new Date()): Promise<LiveRound | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
@@ -434,7 +462,7 @@ export async function getLiveRoundForUser(userId: string, now: Date = new Date()
 
   const { data, error } = await supabase
     .from(SESSIONS_TABLE)
-    .select(SESSION_COLUMNS)
+    .select(LIVE_ROUND_COLUMNS)
     .eq("class_key", classKey)
     .in("status", ["lobby", "active"])
     .order("created_at", { ascending: false })
@@ -443,25 +471,32 @@ export async function getLiveRoundForUser(userId: string, now: Date = new Date()
     logBlitz(error.message);
     return null;
   }
-  const found = sessionFromRow(data?.[0]);
+  const found = openRoundFromRow(data?.[0]);
   if (!found) return null;
-  const session = await expireIfDue(supabase, found, now);
-  if (session.status !== "lobby" && session.status !== "active") return null;
+  if (found.status === "active" && found.ends_at && Date.parse(found.ends_at) <= now.getTime()) {
+    const { error: expireError } = await supabase
+      .from(SESSIONS_TABLE)
+      .update({ status: "ended", ended_at: found.ends_at, ended_reason: "time_up" })
+      .eq("id", found.id)
+      .eq("status", "active");
+    if (expireError) logBlitz(expireError.message);
+    return null;
+  }
 
   const { data: mine } = await supabase
     .from(PARTICIPANTS_TABLE)
     .select("submitted_at")
-    .eq("session_id", session.id)
+    .eq("session_id", found.id)
     .eq("user_id", userId)
     .maybeSingle();
-  const labels = lektionLabel(session.level_slug, session.chapter_slug);
+  const labels = lektionLabel(found.level_slug, found.chapter_slug);
   return {
-    id: session.id,
-    status: session.status,
-    classLabel: session.class_label,
+    id: found.id,
+    status: found.status,
+    classLabel: found.class_label,
     levelLabel: labels.level,
     lektionLabel: labels.lektion,
-    endsAt: session.ends_at,
+    endsAt: found.ends_at,
     joined: Boolean(mine),
     submitted: Boolean(str((mine as { submitted_at?: unknown } | null)?.submitted_at)),
   };

@@ -6,6 +6,7 @@ import type { Ausbildungsberuf, SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 
+import type { LiveRound } from "@/lib/blitzrunde-store";
 import { catalogCompletedCount, practiceQueue } from "@/lib/progress";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
@@ -20,6 +21,7 @@ type InterviewSessionProps = {
   beruf: Ausbildungsberuf;
   clips: SessionClip[];
   courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
+  liveRound?: LiveRound | null;
 };
 
 function MaterialIcon({
@@ -99,7 +101,7 @@ function SessionComplete({
   );
 }
 
-export function InterviewSession({ beruf, clips, courses }: InterviewSessionProps) {
+export function InterviewSession({ beruf, clips, courses, liveRound = null }: InterviewSessionProps) {
   const [queue, setQueue] = useState<SessionClip[] | null>(null);
   const [startingCompleted, setStartingCompleted] = useState(0);
   const [clipIndex, setClipIndex] = useState(0);
@@ -217,7 +219,7 @@ export function InterviewSession({ beruf, clips, courses }: InterviewSessionProp
       </header>
 
       <div className="mx-auto w-full max-w-2xl px-6 pt-4 empty:hidden">
-        <BlitzrundeBanner />
+        <BlitzrundeBanner initial={liveRound} />
       </div>
 
       {!ready ? (

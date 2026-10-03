@@ -1,6 +1,7 @@
 import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
 import { isAdminUser } from "@/lib/admins";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
+import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
 import {
   buildLevelPathChapters,
@@ -47,6 +48,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
   }
 
   const courses = await loadLearnerCourseMenu(session.user);
+  const liveRound = session.user.id ? await getLiveRoundForUser(session.user.id) : null;
 
   return (
     <LevelViewClient
@@ -56,6 +58,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       isAdmin={isAdminUser(session.user)}
       courses={courses}
       loadLessonDictionary={loadLessonDictionary}
+      liveRound={liveRound}
     />
   );
 }

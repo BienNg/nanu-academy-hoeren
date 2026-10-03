@@ -16,9 +16,32 @@ function readLive(data: unknown): LiveRound | null {
   return row as LiveRound;
 }
 
-/** Polls for an open round in the viewer's class while the page is visible. */
-function useLiveRound(): LiveRound | null {
-  const [live, setLive] = useState<LiveRound | null>(null);
+function roundKey(round: LiveRound | null): string {
+  if (!round) return "";
+  return [round.id, round.status, round.joined, round.submitted, round.endsAt ?? ""].join(":");
+}
+
+/** The banner is on screen, so status can still change (lobby to running, then done). */
+function showsBanner(live: LiveRound | null): boolean {
+  if (!live || live.submitted) return false;
+  if (live.status === "active" && !live.joined) return false;
+  return true;
+}
+
+/**
+ * The page load already checked. Ask again only when the tab returns, and
+ * keep asking every few seconds only while a round is actually showing.
+ */
+function useLiveRound(initial: LiveRound | null): LiveRound | null {
+  const [live, setLive] = useState<LiveRound | null>(initial);
+  const key = roundKey(initial);
+  const [seenKey, setSeenKey] = useState(key);
+  if (key !== seenKey) {
+    setSeenKey(key);
+    setLive(initial);
+  }
+  const polling = showsBanner(live);
+
   useEffect(() => {
     let cancelled = false;
     const load = () => {
@@ -29,18 +52,27 @@ function useLiveRound(): LiveRound | null {
           if (!cancelled) setLive(readLive(data));
         })
         .catch(() => {
-          // Keep the last answer; the next poll retries.
+          // Keep the last answer; the next return to the tab retries.
         });
     };
-    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    if (!polling) {
+      return () => {
+        cancelled = true;
+        document.removeEventListener("visibilitychange", onVisible);
+      };
+    }
     const timer = window.setInterval(load, POLL_MS);
-    document.addEventListener("visibilitychange", load);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", load);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [polling]);
+
   return live;
 }
 
@@ -56,8 +88,8 @@ function MaterialIcon({ name, className }: { name: string; className?: string })
   );
 }
 
-export function BlitzrundeBanner() {
-  const live = useLiveRound();
+export function BlitzrundeBanner({ initial = null }: { initial?: LiveRound | null }) {
+  const live = useLiveRound(initial);
   if (!live || live.submitted) return null;
   // Late arrivals cannot join a running round, so only show it to those already in.
   if (live.status === "active" && !live.joined) return null;

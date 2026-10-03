@@ -28,6 +28,7 @@ import {
   STUDY_RERUN_PART_XP,
   xpForFinishedPasses,
 } from "@/lib/xp";
+import type { LiveRound } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
 
@@ -1103,6 +1104,7 @@ export default function LevelViewClient({
   accessLocked = false,
   loadLessonDictionary,
   path = {},
+  liveRound = null,
 }: {
   level: Level;
   chapters: Chapter[];
@@ -1113,6 +1115,8 @@ export default function LevelViewClient({
   accessLocked?: boolean;
   loadLessonDictionary: (chapterSlug: string) => Promise<SessionClip[]>;
   path?: PathOptions;
+  /** Open round found while rendering this page. The banner does not ask again until the tab returns. */
+  liveRound?: LiveRound | null;
 }) {
   const theme = PATH_THEMES[path.theme ?? "level"];
   const containerRef = useRef<HTMLElement>(null);
@@ -1364,7 +1368,7 @@ export default function LevelViewClient({
         className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:px-6"
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
       >
-        {path.showBlitzrunde === false ? null : <BlitzrundeBanner />}
+        {path.showBlitzrunde === false ? null : <BlitzrundeBanner initial={liveRound} />}
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
