@@ -9,6 +9,7 @@ import {
   bumpStreak,
   streakCelebrationStep,
   commitLearnPart,
+  dropStreakForUnfinishedSession,
   completedPartCount,
   nextListeningPart,
   nextStudyPart,
@@ -473,6 +474,27 @@ test("completing a study clip extends the day streak", () => {
   assert.equal(activeStreakDays(reviewed, today), 2);
   assert.ok(reviewed.practiceDates?.includes("2026-09-28"));
   assert.deepEqual(reviewed.learn["lektion-1"]?.reviewedClipIds, ["hallo"]);
+});
+
+test("quitting drops today only when this session's part is the only credit", () => {
+  const yesterday = new Date("2026-09-27T08:00:00.000Z");
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const prior = bumpStreak(normalizeProgress({}), yesterday);
+  const thisPart = commitLearnPart(prior, "lektion-3", ["clip-a"], { now: today });
+  const dropped = dropStreakForUnfinishedSession(thisPart, "lektion-3", today);
+
+  assert.equal(activeStreakDays(dropped, today), 1);
+  assert.equal(dropped.practiceDates?.includes("2026-09-28"), false);
+
+  const otherLesson = commitLearnPart(prior, "lektion-1", ["clip-b"], {
+    now: today,
+    finishRun: true,
+  });
+  const both = commitLearnPart(otherLesson, "lektion-3", ["clip-a"], { now: today });
+  const kept = dropStreakForUnfinishedSession(both, "lektion-3", today);
+
+  assert.equal(kept, both);
+  assert.equal(activeStreakDays(kept, today), 2);
 });
 
 test("reviewing a study clip again on a later day still counts", () => {

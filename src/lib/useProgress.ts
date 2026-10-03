@@ -16,6 +16,7 @@ import {
   shouldReplaceLocalWithCloud,
   absorbAddedLessonClips,
   commitLearnPart,
+  dropStreakForUnfinishedSession,
   incrementLearnRunCount,
   incrementStudyRunCount,
   isLearnChapterCompleted,
@@ -738,6 +739,16 @@ export function useProgress(
     [persist],
   );
 
+  const dropUnfinishedSessionStreak = useCallback(
+    (chapterSlug: string) => {
+      const current = readProgressSnapshot();
+      const next = dropStreakForUnfinishedSession(current, chapterSlug);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const incrementLearnRunDoneCount = useCallback(
     (chapterSlug: string, lessonKey?: string) => {
       const now = new Date();
@@ -952,6 +963,7 @@ export function useProgress(
     markLearnChapterDone,
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,
+    dropUnfinishedSessionStreak,
     resetProgress,
     resetLearnProgress: resetLearnProgressFn,
     setStreakDays: (streakDays: number) => {

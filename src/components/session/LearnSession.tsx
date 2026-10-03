@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -25,6 +25,7 @@ import {
   requeueMissedClip,
   splitListeningParts,
   withFinishedCatalogClips,
+  dropStreakForUnfinishedSession,
 } from "@/lib/progress";
 import { isAdminUser } from "@/lib/admins";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
@@ -45,8 +46,7 @@ import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
-import { TodayXpChip } from "@/components/TodayXpChip";
-import { ProfileButton } from "@/components/ProfileButton";
+import { Pingu } from "@/components/session/Pingu";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 
 type LearnSessionProps = {
@@ -71,6 +71,38 @@ type PartSummary = {
   xpPending: boolean;
 };
 
+function HeartGlyph({ filled, id }: { filled: boolean; id: string }) {
+  return (
+    <svg width="22" height="20" viewBox="0 0 24 22" aria-hidden="true" className="overflow-visible">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ff8a80" />
+          <stop offset="42%" stopColor="#ff3b30" />
+          <stop offset="100%" stopColor="#d70015" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 20.1C7.1 16.5 2.4 13.2 2.4 8.5 2.4 5.6 4.6 3.4 7.4 3.4c1.7 0 3.2.8 4.1 2.1.9-1.3 2.4-2.1 4.1-2.1 2.8 0 5 2.2 5 5.1 0 4.7-4.7 8-8.6 11.6z"
+        fill={filled ? `url(#${id})` : "#f3f3f5"}
+        stroke={filled ? "#b00012" : "#e1e1e4"}
+        strokeWidth={filled ? 0.75 : 1.25}
+        strokeLinejoin="round"
+      />
+      {filled ? (
+        <ellipse
+          cx="8.1"
+          cy="7.4"
+          rx="2.1"
+          ry="1.15"
+          fill="white"
+          opacity="0.7"
+          transform="rotate(-32 8.1 7.4)"
+        />
+      ) : null}
+    </svg>
+  );
+}
+
 function PartHearts({
   remaining,
   breakingIndex,
@@ -87,15 +119,8 @@ function PartHearts({
       {Array.from({ length: LISTENING_HEARTS }, (_, index) => {
         const filled = index < remaining || index === breakingIndex;
         return (
-          <span
-            key={index}
-            className={`material-symbols-outlined text-[20px] ${
-              filled ? "text-[#ff3b30]" : "text-[#d2d2d7]"
-            } ${index === breakingIndex ? "heart-break" : ""}`}
-            style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}
-            aria-hidden="true"
-          >
-            favorite
+          <span key={index} className={index === breakingIndex ? "heart-break" : undefined}>
+            <HeartGlyph filled={filled} id={`practice-heart-${index}`} />
           </span>
         );
       })}
@@ -155,9 +180,10 @@ export function LearnSession({
   const [summary, setSummary] = useState<PartSummary | null>(null);
   const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
   const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
+  const [combo, setCombo] = useState(0);
+  const [quitOpen, setQuitOpen] = useState(false);
   const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
-  const [xpTotal, setXpTotal] = useState<number | null>(null);
-  const awardedXpRef = useRef(0);
+  const comboCountedKeyRef = useRef<string | null>(null);
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
   const completingRef = useRef(false);
@@ -180,8 +206,10 @@ export function LearnSession({
     markLearnChapterDone,
     setLearnRunOrder,
     commitLearnListeningPart,
+    dropUnfinishedSessionStreak,
     recordWrongAttempt,
     streakDays,
+    progress,
   } = useProgress();
   const streakCelebrationPending = useStreakCelebrationPending();
   const chapterProgressKey = course.progressKey;
@@ -314,8 +342,11 @@ export function LearnSession({
     missedCardKeysRef.current = new Set();
     pairingSolvedKeyRef.current = null;
     failedRef.current = false;
+    comboCountedKeyRef.current = null;
     setHeartsLeft(LISTENING_HEARTS);
     setBreakingIndex(null);
+    setCombo(0);
+    setQuitOpen(false);
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
     setPartCards(insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []));
@@ -351,22 +382,6 @@ export function LearnSession({
     return () => window.clearTimeout(timeout);
   }, [breakingIndex]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/xp")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { total?: unknown } | null) => {
-        if (cancelled || !data || typeof data.total !== "number") return;
-        setXpTotal(Math.max(0, data.total - awardedXpRef.current));
-      })
-      .catch(() => {
-        // The chip stays on a dash when the total cannot be read.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const currentCard = partCards?.[clipIndex];
   const currentClip = currentCard?.clip;
   const ready = partCards !== null;
@@ -374,33 +389,18 @@ export function LearnSession({
     scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
   const isLastPart = partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
-  const hideSessionChrome = phase === "complete" && failedRun;
   const exitLabel =
     failedRun || !isLastPart
       ? "Về bài học"
       : hasNextChapter
         ? course.nextLessonLabel
         : course.finishLabel;
-  const showHearts = Boolean(partCards && partCards.length > 0 && phase !== "leaving");
-  if (
-    phase === "complete" &&
-    summary &&
-    !summary.xpPending &&
-    !summary.failed &&
-    typeof summary.xp === "number" &&
-    summary.xp > 0
-  ) {
-    awardedXpRef.current = summary.xp;
-  }
-
-  const progressSegments = useMemo(() => {
-    const total = partCards?.length ?? 0;
-    return Array.from({ length: Math.max(total, 1) }, (_, index) => {
-      if (index < clipIndex) return "done";
-      if (index === clipIndex && currentCard) return "current";
-      return "todo";
-    });
-  }, [partCards, clipIndex, currentCard]);
+  const showHearts = Boolean(partCards && partCards.length > 0 && phase === "practice");
+  const losesStreakOnQuit =
+    dropStreakForUnfinishedSession(progress, chapterProgressKey).streakDays < streakDays;
+  const progressTotal = partCards?.length ?? 0;
+  const progressFill =
+    progressTotal <= 0 ? 0 : Math.min(1, (clipIndex + (isPerfect ? 1 : 0)) / progressTotal);
 
   const rememberMiss = (card: PracticeCard, attempt?: MissedAttempt | null) => {
     missedClipIdsRef.current.add(card.clip.id);
@@ -418,9 +418,15 @@ export function LearnSession({
     if (!currentCard) return;
     if (accuracy === 100) {
       playSuccessSound();
+      if (comboCountedKeyRef.current !== currentCard.key) {
+        comboCountedKeyRef.current = currentCard.key;
+        setCombo((count) => count + 1);
+      }
       return;
     }
 
+    comboCountedKeyRef.current = null;
+    setCombo(0);
     recordWrongAttempt();
     rememberMiss(currentCard, attempt);
     // The first miss of each card costs a heart.
@@ -485,6 +491,8 @@ export function LearnSession({
   /** One heart for the first miss on this card. Later wrong pairs only shake. */
   const handlePairingMistake = (entered: string, correct: string) => {
     if (!currentCard) return;
+    comboCountedKeyRef.current = null;
+    setCombo(0);
     if (missedCardKeysRef.current.has(currentCard.key)) return;
 
     recordWrongAttempt();
@@ -501,6 +509,10 @@ export function LearnSession({
     if (!currentCard?.pairItems) return;
     if (pairingSolvedKeyRef.current === currentCard.key) return;
     pairingSolvedKeyRef.current = currentCard.key;
+    if (comboCountedKeyRef.current !== currentCard.key) {
+      comboCountedKeyRef.current = currentCard.key;
+      setCombo((count) => count + 1);
+    }
     const pairs = currentCard.pairItems.map((clip) => ({
       viClipId: clip.id,
       deClipId: clip.id,
@@ -651,40 +663,118 @@ export function LearnSession({
         <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
       </div>
 
-      <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
-        <div
-          className={`mx-auto flex h-14 w-full max-w-4xl items-center px-6 ${
-            hideSessionChrome ? "justify-end" : "justify-between"
-          }`}
-        >
-          {hideSessionChrome ? null : (
-            <>
-              <Link
-                href={pathHref}
+      {phase === "practice" ? (
+        <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-4xl px-4 pt-2 pb-3 sm:px-6">
+            <p
+              className={`mb-1 text-center text-[12px] font-extrabold uppercase tracking-wide ${
+                combo >= 2 ? (combo >= 5 ? "text-[#ff9500]" : "text-[#0066cc]") : "invisible"
+              }`}
+              aria-hidden={combo < 2}
+            >
+              {Math.max(combo, 2)} liên tiếp
+            </p>
+            <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
+              <button
+                type="button"
                 aria-label="Quay lại"
-                className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#0066cc] transition-colors hover:bg-[#f5f5f7] active:scale-95"
+                onClick={() => {
+                  const nothingToLose =
+                    clipIndex === 0 &&
+                    combo === 0 &&
+                    heartsLeft === LISTENING_HEARTS &&
+                    !scoreResult &&
+                    !mcResult &&
+                    !pairingResult;
+                  if (nothingToLose) {
+                    router.push(pathHref);
+                    return;
+                  }
+                  setQuitOpen(true);
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95"
               >
-                <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-              </Link>
-              <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-3 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#86868b] mb-0.5">
-                  Luyện tập
+                <span
+                  className="material-symbols-outlined translate-y-px text-[22px]"
+                  style={{ fontVariationSettings: "'wght' 260" }}
+                  aria-hidden="true"
+                >
+                  close
                 </span>
-                <h1 className="truncate font-headline-sm text-[15px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                  {course.title}
-                </h1>
+              </button>
+              <div
+                aria-label="Tiến độ phần này"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progressFill * 100)}
+                role="progressbar"
+                className="h-[18px] w-full overflow-hidden rounded-full border-b-4 border-[#d5d5d5] bg-[#e8e8e8]"
+              >
+                <div
+                  className={`h-full rounded-full border-b-4 transition-[width,background-color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                    combo >= 5
+                      ? "border-[#e0a000] bg-gradient-to-b from-[#ffe566] to-[#ffc800]"
+                      : "border-[#005bb5] bg-gradient-to-b from-[#7ec4ff] to-[#1a8cff]"
+                  }`}
+                  style={{ width: `${progressFill * 100}%` }}
+                />
               </div>
-            </>
-          )}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <TodayXpChip total={xpTotal} gain={awardedXpRef.current} />
-            {showHearts ? (
-              <PartHearts remaining={heartsLeft} breakingIndex={breakingIndex} />
-            ) : null}
-            <ProfileButton />
+              {showHearts ? (
+                <PartHearts remaining={heartsLeft} breakingIndex={breakingIndex} />
+              ) : (
+                <span className="w-11" aria-hidden="true" />
+              )}
+            </div>
+          </div>
+        </header>
+      ) : null}
+
+      {quitOpen && phase === "practice" ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          role="presentation"
+          onClick={() => setQuitOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quit-title"
+            className="w-full max-w-md rounded-t-[28px] bg-white px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative mx-auto h-[128px] w-full overflow-hidden">
+              <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.78]">
+                <Pingu mood="oops" />
+              </div>
+            </div>
+            <h2 id="quit-title" className="mt-1 text-[22px] font-bold tracking-tight text-[#1d1d1f]">
+              Đợi đã!
+            </h2>
+            <p className="mt-2 text-[17px] leading-snug font-medium text-[#4b4b4b]">
+              {losesStreakOnQuit
+                ? "Bạn sẽ mất tiến độ của phần này và chuỗi ngày."
+                : "Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuitOpen(false)}
+              className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0066cc] text-[15px] font-extrabold tracking-wide text-white uppercase"
+            >
+              Tiếp tục học
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                dropUnfinishedSessionStreak(chapterProgressKey);
+                router.push(pathHref);
+              }}
+              className="mt-3 flex h-11 w-full items-center justify-center text-[15px] font-extrabold tracking-wide text-[#0066cc] uppercase"
+            >
+              Kết thúc
+            </button>
           </div>
         </div>
-      </header>
+      ) : null}
 
       {!ready || phase === "leaving" ? (
         <SessionContentSkeleton kind="practice" />
@@ -724,33 +814,7 @@ export function LearnSession({
         </main>
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
-          <div className="flex w-full max-w-2xl flex-col px-6 pb-24">
-            <header className="flex flex-col pt-6 pb-4">
-              <div
-                aria-label="Tiến độ phần này"
-                className="grid w-full gap-1.5"
-                style={{
-                  gridTemplateColumns: `repeat(${Math.max(partCards?.length ?? 0, 1)}, minmax(0, 1fr))`,
-                }}
-              >
-                {progressSegments.map((segment, index) => {
-                  const filled =
-                    segment === "done" || (segment === "current" && isPerfect);
-                  return (
-                    <div
-                      key={`seg-${index}`}
-                      className="relative h-1.5 overflow-hidden rounded-full bg-[#e8e8ed]"
-                    >
-                      <div
-                        className="h-full origin-left rounded-full bg-[#0066cc] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-                        style={{ transform: filled ? "scaleX(1)" : "scaleX(0)" }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </header>
-
+          <div className="flex w-full max-w-2xl flex-col px-6 pt-6 pb-24">
             {currentCard?.kind === "order" && !scoreResult ? (
               // Order cards hide the audio until checked, then it plays with the feedback.
               <SentenceOrderCard

@@ -2155,6 +2155,56 @@ export function bumpStreak(progress: StoredProgress, now = new Date()): StoredPr
   };
 }
 
+function stampIsToday(value: string | undefined, today: string, timeZone: string | undefined): boolean {
+  return practiceDayKey(value, timeZone) === today;
+}
+
+/** Another lesson, a study pass, a finished listening run, an interview, or a video already counted today. */
+function finishedElsewhereToday(progress: StoredProgress, today: string): boolean {
+  const zone = validTimeZone(progress.streakTimeZone);
+  for (const entry of Object.entries(progress.learn)) {
+    const [, lesson] = entry;
+    if (stampIsToday(lesson.studyCompletedAt, today, zone)) return true;
+    if (stampIsToday(lesson.completedAt, today, zone)) return true;
+  }
+  for (const entry of Object.values(progress.interview)) {
+    if (stampIsToday(entry.completedAt, today, zone)) return true;
+  }
+  for (const entry of Object.values(progress.videos)) {
+    if (stampIsToday(entry.watchedAt, today, zone) || stampIsToday(entry.updatedAt, today, zone)) {
+      return true;
+    }
+  }
+  const day = readDay(progress.activity?.[today]);
+  return day.studyRuns > 0 || day.practiceRuns > 0;
+}
+
+/**
+ * Ending an unfinished practice session drops today only when this session's
+ * committed part is the sole reason today counts.
+ */
+export function dropStreakForUnfinishedSession(
+  progress: StoredProgress,
+  chapterSlug: string,
+  now = new Date(),
+): StoredProgress {
+  const zone = streakZone(progress);
+  const today = localCalendarDay(now, zone);
+  const dates = datesForStreak(progress);
+  if (!dates.has(today)) return progress;
+  if ((progress.learn[chapterSlug]?.runCompletedClipIds.length ?? 0) === 0) return progress;
+  if (finishedElsewhereToday(progress, today)) return progress;
+
+  dates.delete(today);
+  const practiceDates = [...dates].sort();
+  const lastPracticeDate = practiceDates.at(-1);
+  const streakDays = lastPracticeDate ? streakEndingOn(dates, lastPracticeDate) : 0;
+  const next: StoredProgress = { ...progress, practiceDates, streakDays };
+  if (lastPracticeDate) next.lastPracticeDate = lastPracticeDate;
+  else delete next.lastPracticeDate;
+  return next;
+}
+
 /**
  * The one-step jump worth a celebration: today just became a practice day
  * and the active run grew by exactly one (including a restart from 0).
