@@ -71,6 +71,7 @@ export function StudySession({
     progressReady,
     commitStudyPartDone,
     settleStudyReviews,
+    recordLeftSession,
     streakDays,
   } = useProgress();
   const streakCelebrationPending = useStreakCelebrationPending();
@@ -118,6 +119,7 @@ export function StudySession({
   const xpRequestedRef = useRef(false);
   const partStartedAtRef = useRef(0);
   const committedRef = useRef(false);
+  const leftRecordedRef = useRef(false);
   const scoresRef = useRef<number[]>([]);
   const touchStartX = useRef<number | null>(null);
   const shownClipIdRef = useRef<string | null>(null);
@@ -147,6 +149,7 @@ export function StudySession({
       setVisitPart(1);
       partStartedAtRef.current = Date.now();
       committedRef.current = false;
+      leftRecordedRef.current = false;
       setClipIndex(0);
       setPhase("study");
       setScoreResult(null);
@@ -158,6 +161,7 @@ export function StudySession({
     setVisitPart(lessonAlreadyDone ? "done" : openPart);
     partStartedAtRef.current = Date.now();
     committedRef.current = false;
+    leftRecordedRef.current = false;
     setClipIndex(0);
     setQuitOpen(false);
     setPhase("study");
@@ -184,6 +188,63 @@ export function StudySession({
   const lastPart = partCount > 0 && activePart >= partCount;
   const isReviewed = furthest > clipIndex;
   const progressFill = clips.length === 0 ? 0 : Math.min(1, furthest / clips.length);
+  const leaveStateRef = useRef({
+    record: false,
+    lessonKey,
+    partNumber: activePart,
+    partCount,
+    clipsDone: furthest,
+    clipCount: clips.length,
+    startedAt: 0,
+  });
+  leaveStateRef.current = {
+    record:
+      ready &&
+      visitPart !== "done" &&
+      !complete &&
+      !committedRef.current &&
+      partStartedAtRef.current > 0 &&
+      clips.length > 0 &&
+      partCount > 0,
+    lessonKey,
+    partNumber: activePart,
+    partCount,
+    clipsDone: furthest,
+    clipCount: clips.length,
+    startedAt: partStartedAtRef.current,
+  };
+  const recordLeftSessionRef = useRef(recordLeftSession);
+  recordLeftSessionRef.current = recordLeftSession;
+  const noteLeftSession = () => {
+    const state = leaveStateRef.current;
+    if (!state.record || leftRecordedRef.current) return;
+    leftRecordedRef.current = true;
+    recordLeftSessionRef.current({
+      lessonKey: state.lessonKey,
+      kind: "study",
+      partNumber: state.partNumber,
+      partCount: state.partCount,
+      clipsDone: state.clipsDone,
+      clipCount: state.clipCount,
+      startedAt: new Date(state.startedAt).toISOString(),
+    });
+  };
+  const noteLeftSessionRef = useRef(noteLeftSession);
+  noteLeftSessionRef.current = noteLeftSession;
+
+  useEffect(() => {
+    let armed = false;
+    const timer = window.setTimeout(() => {
+      armed = true;
+    }, 0);
+    const onPageHide = () => noteLeftSessionRef.current();
+    window.addEventListener("pagehide", onPageHide, true);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide, true);
+      window.clearTimeout(timer);
+      if (armed) noteLeftSessionRef.current();
+    };
+  }, []);
   const showSessionHeader = visitPart !== "done" && !complete;
 
   const clearAttempt = useCallback(() => {
@@ -263,6 +324,7 @@ export function StudySession({
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
     committedRef.current = false;
+    leftRecordedRef.current = false;
     xpRequestedRef.current = false;
     partStartedAtRef.current = Date.now();
     setXpGrant(null);
@@ -480,6 +542,7 @@ export function StudySession({
                 onClick={() => {
                   const nothingToLose = furthest === 0 && clipIndex === 0 && phase === "study" && !scoreResult;
                   if (nothingToLose) {
+                    noteLeftSession();
                     router.push(pathHref);
                     return;
                   }
@@ -547,7 +610,10 @@ export function StudySession({
             </button>
             <button
               type="button"
-              onClick={() => router.push(pathHref)}
+              onClick={() => {
+                noteLeftSession();
+                router.push(pathHref);
+              }}
               className="mt-3 flex h-11 w-full items-center justify-center text-[15px] font-extrabold tracking-wide text-[#0066cc] uppercase"
             >
               Kết thúc

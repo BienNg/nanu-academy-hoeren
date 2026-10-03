@@ -186,6 +186,7 @@ export function LearnSession({
   const comboCountedKeyRef = useRef<string | null>(null);
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
+  const leftRecordedRef = useRef(false);
   const completingRef = useRef(false);
   const failedRef = useRef(false);
   const partStartedAtRef = useRef(0);
@@ -208,6 +209,7 @@ export function LearnSession({
     commitLearnListeningPart,
     dropUnfinishedSessionStreak,
     recordWrongAttempt,
+    recordLeftSession,
     streakDays,
     progress,
   } = useProgress();
@@ -232,7 +234,7 @@ export function LearnSession({
   const clipKey = clips.map((clip) => `${clip.id}\t${clip.script}`).join("\n");
 
   // One part per visit. Ordered on the first pass, shuffled once per review run.
-  // Progress is written only when the part ends, so leaving early restarts it.
+  // Clip progress is written only when the part ends, so leaving early restarts it.
   useEffect(() => {
     if (!progressReady || !practiceLocked) return;
     router.replace(pathHref);
@@ -336,6 +338,7 @@ export function LearnSession({
 
     initializedSourceRef.current = signature;
     partStartedAtRef.current = Date.now();
+    leftRecordedRef.current = false;
     missedClipIdsRef.current = new Set();
     missedKindsRef.current = new Map();
     missedAnswersRef.current = new Map();
@@ -401,6 +404,63 @@ export function LearnSession({
   const progressTotal = partCards?.length ?? 0;
   const progressFill =
     progressTotal <= 0 ? 0 : Math.min(1, (clipIndex + (isPerfect ? 1 : 0)) / progressTotal);
+  const clipsDone = Math.min(progressTotal, clipIndex + (isPerfect ? 1 : 0));
+  const leaveStateRef = useRef({
+    record: false,
+    lessonKey,
+    partNumber,
+    partCount,
+    clipsDone: 0,
+    clipCount: 0,
+    startedAt: 0,
+  });
+  leaveStateRef.current = {
+    record:
+      ready &&
+      phase === "practice" &&
+      !committedRef.current &&
+      partStartedAtRef.current > 0 &&
+      progressTotal > 0 &&
+      partCount > 0,
+    lessonKey,
+    partNumber,
+    partCount,
+    clipsDone,
+    clipCount: progressTotal,
+    startedAt: partStartedAtRef.current,
+  };
+  const recordLeftSessionRef = useRef(recordLeftSession);
+  recordLeftSessionRef.current = recordLeftSession;
+  const noteLeftSession = () => {
+    const state = leaveStateRef.current;
+    if (!state.record || leftRecordedRef.current) return;
+    leftRecordedRef.current = true;
+    recordLeftSessionRef.current({
+      lessonKey: state.lessonKey,
+      kind: "practice",
+      partNumber: state.partNumber,
+      partCount: state.partCount,
+      clipsDone: state.clipsDone,
+      clipCount: state.clipCount,
+      startedAt: new Date(state.startedAt).toISOString(),
+    });
+  };
+  const noteLeftSessionRef = useRef(noteLeftSession);
+  noteLeftSessionRef.current = noteLeftSession;
+
+  useEffect(() => {
+    let armed = false;
+    const timer = window.setTimeout(() => {
+      armed = true;
+    }, 0);
+    const onPageHide = () => noteLeftSessionRef.current();
+    window.addEventListener("pagehide", onPageHide, true);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide, true);
+      window.clearTimeout(timer);
+      if (armed) noteLeftSessionRef.current();
+    };
+  }, []);
 
   const rememberMiss = (card: PracticeCard, attempt?: MissedAttempt | null) => {
     missedClipIdsRef.current.add(card.clip.id);
@@ -687,6 +747,7 @@ export function LearnSession({
                     !mcResult &&
                     !pairingResult;
                   if (nothingToLose) {
+                    noteLeftSession();
                     router.push(pathHref);
                     return;
                   }
@@ -765,6 +826,7 @@ export function LearnSession({
             <button
               type="button"
               onClick={() => {
+                noteLeftSession();
                 dropUnfinishedSessionStreak(chapterProgressKey);
                 router.push(pathHref);
               }}

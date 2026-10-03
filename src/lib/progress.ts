@@ -146,6 +146,22 @@ export type VisitExerciseLesson = {
 };
 
 /**
+ * A study or practice part the learner opened and left before it finished.
+ * Finished parts stay on clips and exercise lessons; this is only the stop.
+ */
+export type VisitLeftSession = {
+  lessonKey: string;
+  kind: "study" | "practice";
+  partNumber: number;
+  partCount: number;
+  /** Clips finished in this part before leaving. The open clip is not counted. */
+  clipsDone: number;
+  clipCount: number;
+  startedAt: string;
+  stoppedAt: string;
+};
+
+/**
  * One period the app was open and visible. Patched in place by heartbeats.
  * History starts when this ships: nothing here is rebuilt from older snapshots.
  */
@@ -160,6 +176,8 @@ export type Visit = {
   listeningRuns: number;
   videos: VisitVideo[];
   exerciseLessons?: VisitExerciseLesson[];
+  /** Study or practice parts opened and left before the part finished. */
+  leftSessions?: VisitLeftSession[];
   wrongAttempts?: number;
 };
 
@@ -901,6 +919,12 @@ function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
     clear.visitListening && lessons.size > 0
       ? (visit.exerciseLessons ?? []).filter((lesson) => !lessons.has(lesson.lessonKey))
       : (visit.exerciseLessons ?? []);
+  const leftSessions = (visit.leftSessions ?? []).filter((session) => {
+    if (!lessons.has(session.lessonKey)) return true;
+    if (session.kind === "study" && clear.visitStudy) return false;
+    if (session.kind === "practice" && clear.visitListening) return false;
+    return true;
+  });
   const next: Visit = {
     ...visit,
     clips,
@@ -908,6 +932,7 @@ function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
     lessons: uniqueVisitKeys([
       ...clips.map((clip) => clip.lessonKey),
       ...exerciseLessons.map((lesson) => lesson.lessonKey),
+      ...leftSessions.map((session) => session.lessonKey),
       ...videos
         .map((video) => lessonKeyFromVideo(video.key))
         .filter((key): key is string => Boolean(key)),
@@ -917,6 +942,8 @@ function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
   };
   if (exerciseLessons.length > 0) next.exerciseLessons = exerciseLessons;
   else delete next.exerciseLessons;
+  if (leftSessions.length > 0) next.leftSessions = leftSessions;
+  else delete next.leftSessions;
   return next;
 }
 
@@ -1259,6 +1286,7 @@ const VISIT_LIST_CAP = {
   clips: 240,
   videos: 40,
   exerciseLessons: 24,
+  leftSessions: 40,
 };
 
 export type VisitRange = "today" | "7d" | "all";
@@ -1335,6 +1363,37 @@ function positiveSeconds(value: unknown, max = 86_400): number {
   return Math.min(max, value);
 }
 
+function normalizeVisitLeftSession(value: unknown): VisitLeftSession | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const lessonKey = textId(record.lessonKey);
+  const kind = record.kind === "study" || record.kind === "practice" ? record.kind : null;
+  if (!lessonKey || !kind) return null;
+  const partNumber = countField(record.partNumber);
+  const partCount = countField(record.partCount);
+  const clipCount = countField(record.clipCount);
+  if (partNumber < 1 || partCount < 1 || clipCount < 1) return null;
+  const startedAt = stampIso(record.startedAt, "");
+  if (!startedAt) return null;
+  const stoppedAt = stampIso(record.stoppedAt, startedAt);
+  const clipsDone = Math.min(
+    clipCount,
+    typeof record.clipsDone === "number" && Number.isFinite(record.clipsDone) && record.clipsDone > 0
+      ? Math.floor(record.clipsDone)
+      : 0,
+  );
+  return {
+    lessonKey,
+    kind,
+    partNumber: Math.min(partNumber, partCount),
+    partCount,
+    clipsDone,
+    clipCount,
+    startedAt,
+    stoppedAt: stoppedAt < startedAt ? startedAt : stoppedAt,
+  };
+}
+
 function normalizeExerciseLesson(value: unknown): VisitExerciseLesson | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -1353,8 +1412,13 @@ function stampIso(value: unknown, fallback: string): string {
   return new Date(time).toISOString();
 }
 
+function leftSessionKey(session: VisitLeftSession): string {
+  return `${session.lessonKey}\n${session.kind}\n${session.partNumber}\n${session.startedAt}`;
+}
+
 function withVisitTotals(visit: Visit): Visit {
   const exerciseLessons = visit.exerciseLessons ?? [];
+  const leftSessions = visit.leftSessions ?? [];
   const fromLessons = exerciseLessons.reduce((sum, lesson) => sum + lesson.completed, 0);
   const fromRuns = exerciseLessons.reduce((sum, lesson) => sum + lesson.fullRuns, 0);
   const lessonKeys = uniqueTexts(
@@ -1362,6 +1426,7 @@ function withVisitTotals(visit: Visit): Visit {
       ...visit.lessons,
       ...visit.clips.map((clip) => clip.lessonKey),
       ...exerciseLessons.map((lesson) => lesson.lessonKey),
+      ...leftSessions.map((session) => session.lessonKey),
       ...visit.videos
         .map((video) => lessonKeyFromVideo(video.key))
         .filter((key): key is string => Boolean(key)),
@@ -1376,6 +1441,8 @@ function withVisitTotals(visit: Visit): Visit {
   };
   if (exerciseLessons.length > 0) next.exerciseLessons = exerciseLessons;
   else delete next.exerciseLessons;
+  if (leftSessions.length > 0) next.leftSessions = leftSessions;
+  else delete next.leftSessions;
   if (!next.wrongAttempts) delete next.wrongAttempts;
   return next;
 }
@@ -1423,6 +1490,19 @@ function normalizeVisit(value: unknown): Visit | null {
       if (exerciseLessons.length >= VISIT_LIST_CAP.exerciseLessons) break;
     }
   }
+  const leftSessions: VisitLeftSession[] = [];
+  const seenLeft = new Set<string>();
+  if (Array.isArray(record.leftSessions)) {
+    for (const entry of record.leftSessions) {
+      const session = normalizeVisitLeftSession(entry);
+      if (!session) continue;
+      const key = leftSessionKey(session);
+      if (seenLeft.has(key)) continue;
+      seenLeft.add(key);
+      leftSessions.push(session);
+      if (leftSessions.length >= VISIT_LIST_CAP.leftSessions) break;
+    }
+  }
   const wrongAttempts = countField(record.wrongAttempts);
   return withVisitTotals({
     id,
@@ -1440,6 +1520,7 @@ function normalizeVisit(value: unknown): Visit | null {
     listeningRuns: countField(record.listeningRuns),
     videos,
     ...(exerciseLessons.length > 0 ? { exerciseLessons } : {}),
+    ...(leftSessions.length > 0 ? { leftSessions } : {}),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -1472,6 +1553,26 @@ function mergeExerciseLessons(
     existing.fullRuns = Math.max(existing.fullRuns, lesson.fullRuns);
   }
   return [...byKey.values()].slice(0, VISIT_LIST_CAP.exerciseLessons);
+}
+
+function mergeLeftSessions(
+  left: readonly VisitLeftSession[] | undefined,
+  right: readonly VisitLeftSession[] | undefined,
+): VisitLeftSession[] {
+  const byKey = new Map<string, VisitLeftSession>();
+  for (const session of [...(left ?? []), ...(right ?? [])]) {
+    const key = leftSessionKey(session);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...session });
+      continue;
+    }
+    existing.clipsDone = Math.max(existing.clipsDone, session.clipsDone);
+    existing.clipCount = Math.max(existing.clipCount, session.clipCount);
+    existing.partCount = Math.max(existing.partCount, session.partCount);
+    if (session.stoppedAt > existing.stoppedAt) existing.stoppedAt = session.stoppedAt;
+  }
+  return [...byKey.values()].slice(0, VISIT_LIST_CAP.leftSessions);
 }
 
 function mergeVisitVideos(
@@ -1526,6 +1627,7 @@ function mergeVisit(left: Visit, right: Visit): Visit {
     listeningRuns: Math.max(left.listeningRuns, right.listeningRuns),
     videos: mergeVisitVideos(left.videos, right.videos, newerIsLeft),
     exerciseLessons: mergeExerciseLessons(left.exerciseLessons, right.exerciseLessons),
+    leftSessions: mergeLeftSessions(left.leftSessions, right.leftSessions),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -1790,6 +1892,59 @@ export function recordVisitListeningRun(
     lesson.fullRuns += 1;
   });
   return { visitId: opened.visitId, progress: commitVisit(opened.progress, visit, now) };
+}
+
+/** Remember a study or practice part that was opened and left unfinished. */
+export function recordVisitLeftSession(
+  progress: StoredProgress,
+  now: Date,
+  preferredId: string | null,
+  session: {
+    lessonKey: string;
+    kind: "study" | "practice";
+    partNumber: number;
+    partCount: number;
+    clipsDone: number;
+    clipCount: number;
+    startedAt: string;
+  },
+): { progress: StoredProgress; visitId: string } {
+  const normalized = normalizeVisitLeftSession({ ...session, stoppedAt: now.toISOString() });
+  if (!normalized) return { progress, visitId: preferredId || "" };
+  const opened = openVisit(progress, now, preferredId);
+  const existing = opened.visit.leftSessions ?? [];
+  const key = leftSessionKey(normalized);
+  const index = existing.findIndex((item) => leftSessionKey(item) === key);
+  let leftSessions: VisitLeftSession[];
+  if (index >= 0) {
+    const prior = existing[index];
+    if (!prior) return { progress: opened.progress, visitId: opened.visitId };
+    if (prior.clipsDone >= normalized.clipsDone && prior.stoppedAt >= normalized.stoppedAt) {
+      return { progress: opened.progress, visitId: opened.visitId };
+    }
+    leftSessions = existing.slice();
+    leftSessions[index] = {
+      ...prior,
+      clipsDone: Math.max(prior.clipsDone, normalized.clipsDone),
+      clipCount: Math.max(prior.clipCount, normalized.clipCount),
+      partCount: Math.max(prior.partCount, normalized.partCount),
+      stoppedAt: normalized.stoppedAt,
+    };
+  } else {
+    leftSessions = [...existing, normalized].slice(-VISIT_LIST_CAP.leftSessions);
+  }
+  return {
+    visitId: opened.visitId,
+    progress: commitVisit(
+      opened.progress,
+      {
+        ...opened.visit,
+        leftSessions,
+        lessons: [...opened.visit.lessons, normalized.lessonKey],
+      },
+      now,
+    ),
+  };
 }
 
 export function recordVisitWrongAttempt(

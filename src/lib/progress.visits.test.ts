@@ -8,6 +8,7 @@ import {
   normalizeProgress,
   recordVisitClip,
   recordVisitExercise,
+  recordVisitLeftSession,
   recordVisitListeningRun,
   recordVisitVideo,
   summarizeVisits,
@@ -258,4 +259,48 @@ test("visit signals use one line and the measured gap", () => {
   );
   assert.equal(formatActiveDuration(2 * 3600 + 14 * 60), "2 h 14 min");
   assert.equal(formatActiveDuration(38 * 60), "38 min");
+});
+
+test("leaving a part records the lesson and how far they got", () => {
+  const start = new Date("2026-09-24T10:00:00.000Z");
+  const stopped = new Date("2026-09-24T10:03:00.000Z");
+  const opened = touchVisit(blank(), start, { preferredId: "visit-a", visibleSeconds: 0 });
+  const recorded = recordVisitLeftSession(opened.progress, stopped, opened.visitId, {
+    lessonKey: "a1-1/lektion-4",
+    kind: "practice",
+    partNumber: 2,
+    partCount: 4,
+    clipsDone: 3,
+    clipCount: 8,
+    startedAt: "2026-09-24T10:01:00.000Z",
+  });
+  const again = recordVisitLeftSession(recorded.progress, stopped, recorded.visitId, {
+    lessonKey: "a1-1/lektion-4",
+    kind: "practice",
+    partNumber: 2,
+    partCount: 4,
+    clipsDone: 3,
+    clipCount: 8,
+    startedAt: "2026-09-24T10:01:00.000Z",
+  });
+  const visit = again.progress.visits?.find((entry) => entry.id === recorded.visitId);
+  assert.equal(visit?.leftSessions?.length, 1);
+  assert.equal(visit?.leftSessions?.[0]?.clipsDone, 3);
+  assert.equal(visit?.leftSessions?.[0]?.stoppedAt, stopped.toISOString());
+  assert.ok(visit?.lessons.includes("a1-1/lektion-4"));
+
+  const otherOpened = touchVisit(blank(), start, { preferredId: "visit-a", visibleSeconds: 0 });
+  const other = recordVisitLeftSession(otherOpened.progress, stopped, "visit-a", {
+    lessonKey: "a1-1/lektion-4",
+    kind: "practice",
+    partNumber: 2,
+    partCount: 4,
+    clipsDone: 5,
+    clipCount: 8,
+    startedAt: "2026-09-24T10:01:00.000Z",
+  });
+  const merged = mergeProgress(recorded.progress, other.progress);
+  const mergedVisit = merged.visits?.find((entry) => entry.id === "visit-a");
+  assert.equal(mergedVisit?.leftSessions?.length, 1);
+  assert.equal(mergedVisit?.leftSessions?.[0]?.clipsDone, 5);
 });

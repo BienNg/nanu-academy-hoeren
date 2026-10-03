@@ -716,6 +716,17 @@ function visitDetails(
     groups.push({ id: "listening", label: "Practice", ...capped });
   }
 
+  const leftSessions = visit.leftSessions ?? [];
+  if (leftSessions.length > 0) {
+    const names = leftSessions.map((session) => {
+      const label = catalogLesson(courses, session.lessonKey).lessonLabel;
+      const mode = session.kind === "study" ? "study" : "practice";
+      return `${label} · ${mode} part ${session.partNumber} of ${session.partCount} · left after ${session.clipsDone} of ${session.clipCount} clips`;
+    });
+    const capped = capItems(names);
+    groups.push({ id: "left", label: "Left unfinished", ...capped });
+  }
+
   if (visit.videos.length > 0) {
     const names = visit.videos.map((video) => {
       const played = formatActiveDuration(video.seconds);
@@ -819,8 +830,14 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
   const runs = visit.listeningRuns;
   const videoSeconds = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
   const watched = visit.videos.filter((video) => video.watched);
+  const left = visit.leftSessions ?? [];
   const studied =
-    clipCount > 0 || exercises > 0 || runs > 0 || videoSeconds >= 1 || watched.length > 0;
+    clipCount > 0 ||
+    exercises > 0 ||
+    runs > 0 ||
+    videoSeconds >= 1 ||
+    watched.length > 0 ||
+    left.length > 0;
   if (!studied) return ["Opened the app, no study"];
 
   const lines: string[] = [];
@@ -838,6 +855,13 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
     }
     if (runs > 0) parts.push(`${runs} practice ${runs === 1 ? "run" : "runs"}`);
     lines.push(parts.join(" · "));
+  }
+  if (left.length > 0) {
+    lines.push(
+      left.length === 1
+        ? "Left 1 session unfinished"
+        : `Left ${left.length} sessions unfinished`,
+    );
   }
   if (videoSeconds >= 1 || watched.length > 0) {
     let line = `${formatActiveDuration(videoSeconds)} video`;

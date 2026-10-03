@@ -78,6 +78,28 @@ function learned(): StoredProgress {
           { lessonKey: "a1-1/lektion-4", completed: 2, fullRuns: 1 },
           { lessonKey: "a1-1/lektion-5", completed: 1, fullRuns: 0 },
         ],
+        leftSessions: [
+          {
+            lessonKey: "a1-1/lektion-4",
+            kind: "study",
+            partNumber: 1,
+            partCount: 2,
+            clipsDone: 1,
+            clipCount: 4,
+            startedAt: "2026-09-28T10:01:00.000Z",
+            stoppedAt: "2026-09-28T10:04:00.000Z",
+          },
+          {
+            lessonKey: "a1-1/lektion-5",
+            kind: "practice",
+            partNumber: 1,
+            partCount: 1,
+            clipsDone: 0,
+            clipCount: 3,
+            startedAt: "2026-09-28T10:05:00.000Z",
+            stoppedAt: "2026-09-28T10:06:00.000Z",
+          },
+        ],
       },
     ],
   });
@@ -118,6 +140,10 @@ test("deleting a Lektion removes its study, listening, and video only", () => {
   assert.equal(visit?.listeningRuns, 0);
   assert.equal(visit?.videos.length, 0);
   assert.deepEqual(visit?.lessons, ["a1-1/lektion-5"]);
+  assert.deepEqual(
+    visit?.leftSessions?.map((session) => session.lessonKey),
+    ["a1-1/lektion-5"],
+  );
 });
 
 test("deleting study keeps listening on the same Lektion", () => {

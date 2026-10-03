@@ -41,6 +41,7 @@ import {
   parseProgress,
   recordVisitClip,
   recordVisitExercise,
+  recordVisitLeftSession,
   recordVisitListeningRun,
   recordVisitVideo,
   recordVisitWrongAttempt,
@@ -826,6 +827,26 @@ export function useProgress(
     persist(recorded.progress, true);
   }, [persist]);
 
+  const recordLeftSession = useCallback(
+    (session: {
+      lessonKey: string;
+      kind: "study" | "practice";
+      partNumber: number;
+      partCount: number;
+      clipsDone: number;
+      clipCount: number;
+      startedAt: string;
+    }) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      const recorded = recordVisitLeftSession(current, now, readVisitId(), session);
+      if (recorded.visitId) writeVisitId(recorded.visitId);
+      if (recorded.progress === current) return;
+      persist(recorded.progress, true);
+    },
+    [persist],
+  );
+
   const resetLearnStudyProgressFn = useCallback(
     (chapterSlug: string) => {
       const next = resetLearnStudyProgress(readProgressSnapshot(), chapterSlug);
@@ -988,6 +1009,7 @@ export function useProgress(
     incrementStudyRunDoneCount,
     recordExerciseDone,
     recordWrongAttempt,
+    recordLeftSession,
     markLearnClipReviewed: markLearnClipReviewedFn,
     resetLearnStudyProgress: resetLearnStudyProgressFn,
     clearStudyClipReviews,
