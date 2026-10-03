@@ -1,3 +1,213 @@
 {
-  "clips": []
+  "clips": [
+    { "filename": "a11-lektion6-01-zucker.mp3", "script": "Zucker", "translationVi": "đường" },
+    { "filename": "a11-lektion6-02-salz.mp3", "script": "Salz", "translationVi": "muối" },
+    { "filename": "a11-lektion6-03-nein-das-ist-kein-zucker.mp3", "script": "Nein, das ist kein Zucker.", "translationVi": "Không, đây không phải là đường." },
+    { "filename": "a11-lektion6-04-das-ist-salz.mp3", "script": "Das ist Salz.", "translationVi": "Đây là muối." },
+    { "filename": "a11-lektion6-05-blau.mp3", "script": "blau", "translationVi": "màu xanh dương" },
+    { "filename": "a11-lektion6-06-das-ist-nicht-blau.mp3", "script": "Das ist nicht blau.", "translationVi": "Cái này không phải màu xanh dương." },
+    { "filename": "a11-lektion6-07-pink.mp3", "script": "pink", "translationVi": "màu hồng" },
+    { "filename": "a11-lektion6-08-das-ist-pink.mp3", "script": "Das ist pink.", "translationVi": "Cái này màu hồng." },
+    { "filename": "a11-lektion6-09-berlin.mp3", "script": "Berlin", "translationVi": "" },
+    { "filename": "a11-lektion6-10-vietnam.mp3", "script": "Vietnam", "translationVi": "Việt Nam" },
+    { "filename": "a11-lektion6-11-berlin-ist-nicht-in-vietnam.mp3", "script": "Berlin ist nicht in Vietnam.", "translationVi": "Berlin không ở Việt Nam." },
+    { "filename": "a11-lektion6-12-deutschland.mp3", "script": "Deutschland", "translationVi": "nước Đức" },
+    { "filename": "a11-lektion6-13-berlin-ist-in-deutschland.mp3", "script": "Berlin ist in Deutschland.", "translationVi": "Berlin ở Đức." },
+    { "filename": "a11-lektion6-15-das-ist-nicht-thomas.mp3", "script": "Das ist nicht Thomas.", "translationVi": "Đây không phải là Thomas." },
+    { "filename": "a11-lektion6-16-hanoi.mp3", "script": "Hanoi", "translationVi": "Hà Nội" },
+    { "filename": "a11-lektion6-17-saigon.mp3", "script": "Saigon", "translationVi": "Sài Gòn" },
+    { "filename": "a11-lektion6-18-das-ist-nicht-hanoi-das-ist-saigon.mp3", "script": "Das ist nicht Hanoi. Das ist Saigon.", "translationVi": "Đây không phải Hà Nội. Đây là Sài Gòn." },
+    { "filename": "a11-lektion6-20-das-ist-nicht-markus.mp3", "script": "Das ist nicht Markus.", "translationVi": "Đây không phải là Markus." },
+    { "filename": "a11-lektion6-22-das-ist-ben.mp3", "script": "Das ist Ben.", "translationVi": "Đây là Ben." },
+    {
+      "filename": "a11-lektion6-23-kommst-du-nicht-aus-vietnam.mp3",
+      "script": "Kommst du nicht aus Vietnam?",
+      "translationVi": "Bạn không đến từ Việt Nam à?"
+    },
+    {
+      "filename": "a11-lektion6-24-doch.mp3",
+      "script": "doch",
+      "translationVi": "có chứ (dùng để đáp lại câu hỏi phủ định)"
+    },
+    {
+      "filename": "a11-lektion6-25-doch-ich-komme-aus-vietnam.mp3",
+      "script": "Doch, ich komme aus Vietnam.",
+      "translationVi": "Có chứ, tôi đến từ Việt Nam."
+    },
+    {
+      "filename": "a11-lektion6-26-hamburg.mp3",
+      "script": "Hamburg",
+      "translationVi": ""
+    },
+    {
+      "filename": "a11-lektion6-27-lebst-du-nicht-in-hamburg.mp3",
+      "script": "Lebst du nicht in Hamburg?",
+      "translationVi": "Bạn không sống ở Hamburg à?"
+    },
+    {
+      "filename": "a11-lektion6-28-doch-ich-lebe-in-hamburg.mp3",
+      "script": "Doch, ich lebe in Hamburg.",
+      "translationVi": "Có chứ, tôi sống ở Hamburg."
+    },
+    {
+      "filename": "a11-lektion6-29-bier.mp3",
+      "script": "Bier",
+      "translationVi": "bia"
+    },
+    {
+      "filename": "a11-lektion6-30-ich-trinke-kein-bier.mp3",
+      "script": "Ich trinke kein Bier.",
+      "translationVi": "Tôi không uống bia."
+    },
+    {
+      "filename": "a11-lektion6-31-ein-apfel.mp3",
+      "script": "ein Apfel",
+      "translationVi": "một quả táo"
+    },
+    {
+      "filename": "a11-lektion6-32-das-ist-kein-apfel.mp3",
+      "script": "Das ist kein Apfel.",
+      "translationVi": "Đây không phải là quả táo."
+    },
+    {
+      "filename": "a11-lektion6-33-eine-tomate.mp3",
+      "script": "eine Tomate",
+      "translationVi": "một quả cà chua"
+    },
+    {
+      "filename": "a11-lektion6-34-das-ist-eine-tomate.mp3",
+      "script": "Das ist eine Tomate.",
+      "translationVi": "Đây là một quả cà chua."
+    },
+    {
+      "filename": "a11-lektion6-35-brot.mp3",
+      "script": "Brot",
+      "translationVi": "bánh mì"
+    },
+    {
+      "filename": "a11-lektion6-36-essen-sie-brot.mp3",
+      "script": "Essen Sie Brot?",
+      "translationVi": "Ông/bà có ăn bánh mì không?"
+    },
+    {
+      "filename": "a11-lektion6-37-ja-ich-esse-brot.mp3",
+      "script": "Ja, ich esse Brot.",
+      "translationVi": "Vâng, tôi ăn bánh mì."
+    },
+    {
+      "filename": "a11-lektion6-38-nein-ich-esse-kein-brot.mp3",
+      "script": "Nein, ich esse kein Brot.",
+      "translationVi": "Không, tôi không ăn bánh mì."
+    },
+    {
+      "filename": "a11-lektion6-39-eine-freundin.mp3",
+      "script": "eine Freundin",
+      "translationVi": "bạn gái"
+    },
+    {
+      "filename": "a11-lektion6-40-hast-du-keine-freundin.mp3",
+      "script": "Hast du keine Freundin?",
+      "translationVi": "Bạn không có bạn gái à?"
+    },
+    {
+      "filename": "a11-lektion6-41-nein-ich-habe-keine-freundin.mp3",
+      "script": "Nein, ich habe keine Freundin.",
+      "translationVi": "Không, tôi không có bạn gái."
+    },
+    {
+      "filename": "a11-lektion6-42-doch-ich-habe-eine-freundin.mp3",
+      "script": "Doch, ich habe eine Freundin.",
+      "translationVi": "Có chứ, tôi có bạn gái."
+    },
+    {
+      "filename": "a11-lektion6-43-fleisch.mp3",
+      "script": "das Fleisch",
+      "translationVi": "thịt"
+    },
+    {
+      "filename": "a11-lektion6-44-kaese.mp3",
+      "script": "der Käse",
+      "translationVi": "pho mát"
+    },
+    {
+      "filename": "a11-lektion6-45-tee.mp3",
+      "script": "der Tee",
+      "translationVi": "trà"
+    },
+    {
+      "filename": "a11-lektion6-46-wein.mp3",
+      "script": "der Wein",
+      "translationVi": "rượu vang"
+    },
+    {
+      "filename": "a11-lektion6-47-mineralwasser.mp3",
+      "script": "das Mineralwasser",
+      "translationVi": "nước khoáng"
+    },
+    {
+      "filename": "a11-lektion6-48-reis.mp3",
+      "script": "der Reis",
+      "translationVi": "gạo, cơm"
+    },
+    {
+      "filename": "a11-lektion6-49-fisch.mp3",
+      "script": "der Fisch",
+      "translationVi": "cá"
+    },
+    {
+      "filename": "a11-lektion6-50-mehl.mp3",
+      "script": "das Mehl",
+      "translationVi": "bột mì"
+    },
+    {
+      "filename": "a11-lektion6-51-ein-ei.mp3",
+      "script": "ein Ei",
+      "translationVi": "một quả trứng"
+    },
+    {
+      "filename": "a11-lektion6-52-eine-banane.mp3",
+      "script": "eine Banane",
+      "translationVi": "một quả chuối"
+    },
+    {
+      "filename": "a11-lektion6-53-eine-orange.mp3",
+      "script": "eine Orange",
+      "translationVi": "một quả cam"
+    },
+    {
+      "filename": "a11-lektion6-54-ein-kuchen.mp3",
+      "script": "ein Kuchen",
+      "translationVi": "một cái bánh ngọt"
+    },
+    {
+      "filename": "a11-lektion6-55-ein-kaffee.mp3",
+      "script": "ein Kaffee",
+      "translationVi": "một ly cà phê"
+    },
+    {
+      "filename": "a11-lektion6-56-ein-saft.mp3",
+      "script": "ein Saft",
+      "translationVi": "một ly nước ép"
+    },
+    {
+      "filename": "a11-lektion6-57-ein-broetchen.mp3",
+      "script": "ein Brötchen",
+      "translationVi": "một ổ bánh mì nhỏ"
+    },
+    {
+      "filename": "a11-lektion6-58-ein-wuerstchen.mp3",
+      "script": "ein Würstchen",
+      "translationVi": "một cái xúc xích"
+    },
+    {
+      "filename": "a11-lektion6-59-eine-birne.mp3",
+      "script": "eine Birne",
+      "translationVi": "một quả lê"
+    },
+    {
+      "filename": "a11-lektion6-60-eine-kiwi.mp3",
+      "script": "eine Kiwi",
+      "translationVi": "một quả kiwi"
+    }
+  ]
 }
