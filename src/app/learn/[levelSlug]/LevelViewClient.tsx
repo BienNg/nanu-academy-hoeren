@@ -1569,12 +1569,16 @@ export default function LevelViewClient({
               </>
             );
 
+            const lessonBubbleOpen = lockedBubbleId?.startsWith(`${chapter.slug}:`) ?? false;
+
             return (
               <motion.li
                 key={chapter.id}
                 id={`lesson-${chapter.slug}`}
                 variants={itemVariants}
-                className="flex scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))] flex-col items-center"
+                className={`flex scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))] flex-col items-center ${
+                  lessonBubbleOpen ? "relative z-40" : ""
+                }`}
               >
                 <div className={headerClassName}>{header}</div>
                 {nodes.length > 0 ? (
