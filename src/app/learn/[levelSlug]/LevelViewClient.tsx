@@ -122,24 +122,29 @@ const springTransition = {
   mass: 1,
 };
 
-const PATH_SHIFT = [
-  "-translate-x-9",
-  "translate-x-9",
-  "translate-x-0",
-  "-translate-x-6",
-  "translate-x-8",
-] as const;
+/** Peak sideways swing of the path, in px. */
+const PATH_AMPLITUDE_PX = 72;
+/** Nodes per full left-right-left swing. */
+const PATH_PERIOD = 8;
+/** Mascot center, in px from the path's center line. */
+const PATH_MASCOT_PX = 116;
 
-/** Same offsets as PATH_SHIFT, in px at the default 16px root. */
-const PATH_SHIFT_PX = [-36, 36, 0, -24, 32] as const;
+/** Sideways offset of a path node: a smooth sine wave that swings left first. */
+function pathShiftPx(index: number): number {
+  return Math.round(-PATH_AMPLITUDE_PX * Math.sin((index * 2 * Math.PI) / PATH_PERIOD));
+}
 
 /**
  * The node where the snake bows farthest from the chord between its
- * neighbors. The mascot sits on the open side of that bend.
+ * neighbors. The mascot sits on the open side of that bend. `start` is the
+ * first node's step on the level-wide path; the returned index is local.
  */
-function pathWhiteSpace(nodeCount: number): { index: number; side: "left" | "right" } | null {
+function pathWhiteSpace(
+  nodeCount: number,
+  start = 0,
+): { index: number; side: "left" | "right" } | null {
   if (nodeCount < 2) return null;
-  const at = (i: number) => PATH_SHIFT_PX[i % PATH_SHIFT_PX.length];
+  const at = (i: number) => pathShiftPx(start + i);
   if (nodeCount === 2) {
     return { index: 1, side: at(1) >= 0 ? "left" : "right" };
   }
@@ -1488,6 +1493,8 @@ export default function LevelViewClient({
         >
           {(() => {
             let continueGuideClaimed = false;
+            // One wave runs through every Lektion, so each trail picks up where the last left off.
+            let pathStep = 0;
             const trailCounts = chapters.map((chapter) => {
               const lesson = lessonById.get(`${level.slug}-${chapter.slug}`);
               if (!lesson) return 0;
@@ -1575,6 +1582,8 @@ export default function LevelViewClient({
                 );
               },
             );
+            const pathStart = pathStep;
+            pathStep += nodes.length;
             const topicLine = lessonTopicCaption(
               chapter.topic ?? lessonTopic(lessonDetail),
               !isAvailable
@@ -1684,22 +1693,26 @@ export default function LevelViewClient({
                       const guideLabel = showGuide ? continueGuideLabel(node) : null;
                       const chillPose: ChillPose | null =
                         index === firstTrail ? "tea" : index === lastTrail ? "balloon" : null;
-                      const bay = chillPose ? pathWhiteSpace(nodes.length) : null;
+                      const bay = chillPose ? pathWhiteSpace(nodes.length, pathStart) : null;
                       const showChill = bay != null && nodeIndex === bay.index;
                       return (
                         <li
                           key={node.key}
                           id={guideLabel ? "path-continue" : undefined}
-                          className={`${PATH_SHIFT[nodeIndex % PATH_SHIFT.length]} ${
+                          className={`${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
                           } ${guideLabel ? "pt-14" : ""}`}
+                          style={{ transform: `translateX(${pathShiftPx(pathStart + nodeIndex)}px)` }}
                         >
                           {showChill && bay && chillPose ? (
                             <div
                               className="pointer-events-none absolute left-1/2 z-[-1]"
                               style={{
                                 top: guideLabel ? "calc(3.5rem - 2px)" : "-2px",
-                                transform: `translateX(calc(-50% ${bay.side === "left" ? "-" : "+"} 8.25rem))`,
+                                transform: `translateX(calc(-50% + ${
+                                  (bay.side === "left" ? -PATH_MASCOT_PX : PATH_MASCOT_PX) -
+                                  pathShiftPx(pathStart + nodeIndex)
+                                }px))`,
                               }}
                               aria-hidden="true"
                             >
