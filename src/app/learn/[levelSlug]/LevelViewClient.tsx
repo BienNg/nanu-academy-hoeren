@@ -6,7 +6,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
-import { ChillPingu, ReadingPingu, type ChillPose } from "@/components/session/Pingu";
+import { ChillPingu, PATH_POSES, ReadingPingu, type PathPose } from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -143,8 +143,11 @@ function pathWhiteSpace(
   nodeCount: number,
   start = 0,
 ): { index: number; side: "left" | "right" } | null {
-  if (nodeCount < 2) return null;
+  if (nodeCount < 1) return null;
   const at = (i: number) => pathShiftPx(start + i);
+  if (nodeCount === 1) {
+    return { index: 0, side: at(0) >= 0 ? "left" : "right" };
+  }
   if (nodeCount === 2) {
     return { index: 1, side: at(1) >= 0 ? "left" : "right" };
   }
@@ -158,6 +161,50 @@ function pathWhiteSpace(
     }
   }
   return { index, side: bow >= 0 ? "left" : "right" };
+}
+
+/**
+ * One pose per Lektion. The deck is shuffled from the level slug so every
+ * pose shows up, the order stays put across renders, and neighbors don't match.
+ */
+function pathPoses(seed: string, count: number): PathPose[] {
+  let state = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    state ^= seed.charCodeAt(i);
+    state = Math.imul(state, 16777619);
+  }
+  state >>>= 0;
+  if (state === 0) state = 1;
+  const next = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const deal = (avoid?: PathPose) => {
+    const deck = [...PATH_POSES];
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(next() * (i + 1));
+      const swap = deck[j];
+      deck[j] = deck[i]!;
+      deck[i] = swap!;
+    }
+    if (avoid && deck[0] === avoid) {
+      const swapAt = deck.findIndex((pose, i) => i > 0 && pose !== avoid);
+      if (swapAt > 0) {
+        const swap = deck[swapAt];
+        deck[swapAt] = deck[0]!;
+        deck[0] = swap!;
+      }
+    }
+    return deck;
+  };
+  const poses: PathPose[] = [];
+  while (poses.length < count) {
+    for (const pose of deal(poses.at(-1))) {
+      poses.push(pose);
+      if (poses.length === count) break;
+    }
+  }
+  return poses;
 }
 
 type TrailNode = {
@@ -1551,13 +1598,7 @@ export default function LevelViewClient({
             let continueGuideClaimed = false;
             // One wave runs through every Lektion, so each trail picks up where the last left off.
             let pathStep = 0;
-            const trailCounts = chapters.map((chapter) => {
-              const lesson = lessonById.get(`${level.slug}-${chapter.slug}`);
-              if (!lesson) return 0;
-              return lesson.videos.length + lesson.activities.length;
-            });
-            const firstTrail = trailCounts.findIndex((count) => count >= 2);
-            const lastTrail = trailCounts.findLastIndex((count) => count >= 2);
+            const poses = pathPoses(level.slug, chapters.length);
             return chapters.map((chapter, index) => {
             const isAvailable = chapter.hasAudio !== false;
             const chapterKey = progressKeyOf(chapter);
@@ -1710,6 +1751,17 @@ export default function LevelViewClient({
             );
 
             const lessonBubbleOpen = lockedBubbleId?.startsWith(`${chapter.slug}:`) ?? false;
+            const pose = poses[index] ?? "tea";
+            const bay = nodes.length > 0 ? pathWhiteSpace(nodes.length, pathStart) : null;
+            const dictionaryOpen = isOpen && nodes.some((node) => node.icon === "menu_book");
+            const mascot =
+              bay == null
+                ? null
+                : {
+                    index: bay.index,
+                    side:
+                      dictionaryOpen && bay.index === 0 && bay.side === "right" ? "left" : bay.side,
+                  };
 
             return (
               <motion.li
@@ -1723,7 +1775,7 @@ export default function LevelViewClient({
                 <div className={headerClassName}>{header}</div>
                 {nodes.length > 0 ? (
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
-                    {isOpen && nodes.some((node) => node.icon === "menu_book") ? (
+                    {dictionaryOpen ? (
                       <li className="absolute top-3 right-0 z-10">
                         <button
                           type="button"
@@ -1747,10 +1799,7 @@ export default function LevelViewClient({
                         !isVideoTrailNode(node);
                       if (showGuide) continueGuideClaimed = true;
                       const guideLabel = showGuide ? continueGuideLabel(node) : null;
-                      const chillPose: ChillPose | null =
-                        index === firstTrail ? "tea" : index === lastTrail ? "balloon" : null;
-                      const bay = chillPose ? pathWhiteSpace(nodes.length, pathStart) : null;
-                      const showChill = bay != null && nodeIndex === bay.index;
+                      const showMascot = mascot != null && nodeIndex === mascot.index;
                       return (
                         <li
                           key={node.key}
@@ -1760,19 +1809,19 @@ export default function LevelViewClient({
                           } ${guideLabel ? "pt-14" : ""}`}
                           style={{ transform: `translateX(${pathShiftPx(pathStart + nodeIndex)}px)` }}
                         >
-                          {showChill && bay && chillPose ? (
+                          {showMascot && mascot ? (
                             <div
                               className="pointer-events-none absolute left-1/2 z-[-1]"
                               style={{
                                 top: guideLabel ? "calc(3.5rem - 2px)" : "-2px",
                                 transform: `translateX(calc(-50% + ${
-                                  (bay.side === "left" ? -PATH_MASCOT_PX : PATH_MASCOT_PX) -
+                                  (mascot.side === "left" ? -PATH_MASCOT_PX : PATH_MASCOT_PX) -
                                   pathShiftPx(pathStart + nodeIndex)
                                 }px))`,
                               }}
                               aria-hidden="true"
                             >
-                              <ChillPingu pose={chillPose} />
+                              <ChillPingu pose={pose} locked={!isOpen} />
                             </div>
                           ) : null}
                           {guideLabel ? (

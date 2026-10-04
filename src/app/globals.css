@@ -545,6 +545,217 @@ body {
   }
 }
 
+.pingu-hobby-lean {
+  transform-origin: 50% 100%;
+  animation: pingu-hobby-lean 1.4s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-lean {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  40% {
+    transform: rotate(3deg);
+  }
+}
+
+.pingu-hobby-sway {
+  animation: pingu-hobby-sway 1.4s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-sway {
+  0%,
+  100% {
+    transform: rotate(8deg);
+  }
+  40% {
+    transform: rotate(24deg);
+  }
+}
+
+.pingu-hobby-swing {
+  animation: pingu-hobby-swing 1.4s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-swing {
+  0%,
+  100% {
+    transform: rotate(-132deg);
+  }
+  40% {
+    transform: rotate(-104deg);
+  }
+  55% {
+    transform: rotate(-110deg);
+  }
+}
+
+.pingu-hobby-pball {
+  animation: pingu-hobby-pball 1.4s linear infinite;
+}
+
+@keyframes pingu-hobby-pball {
+  0% {
+    transform: translate(-86px, -26px);
+  }
+  40% {
+    transform: translate(0, 0);
+  }
+  70% {
+    transform: translate(-48px, -44px);
+  }
+  100% {
+    transform: translate(-86px, -26px);
+  }
+}
+
+.pingu-hobby-ttball {
+  animation: pingu-hobby-ttball 0.9s infinite;
+}
+
+@keyframes pingu-hobby-ttball {
+  0% {
+    transform: translateY(0);
+    animation-timing-function: ease-out;
+  }
+  50% {
+    transform: translateY(-64px);
+    animation-timing-function: ease-in;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.pingu-hobby-ttpad {
+  animation: pingu-hobby-ttpad 0.9s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-ttpad {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  18% {
+    transform: translateY(-3px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+}
+
+.pingu-hobby-ttlook {
+  animation: pingu-hobby-ttlook 0.9s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-ttlook {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.pingu-hobby-cuplift {
+  animation: pingu-hobby-cuplift 2s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-cuplift {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+}
+
+.pingu-hobby-hold-l {
+  animation: pingu-hobby-hold-l 2s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-hold-l {
+  0%,
+  55%,
+  100% {
+    transform: rotate(-70deg);
+  }
+  25% {
+    transform: rotate(-77deg);
+  }
+}
+
+.pingu-hobby-hold-r {
+  animation: pingu-hobby-hold-r 2s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-hold-r {
+  0%,
+  55%,
+  100% {
+    transform: rotate(70deg);
+  }
+  25% {
+    transform: rotate(77deg);
+  }
+}
+
+.pingu-hobby-spin {
+  transform-origin: 50% 50%;
+  animation: pingu-hobby-spin 0.8s linear infinite;
+}
+
+@keyframes pingu-hobby-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pingu-hobby-wiggle {
+  transform-origin: 50% 50%;
+  animation: pingu-hobby-wiggle 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-hobby-wiggle {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+
+.pingu-hobby-scan {
+  animation: pingu-hobby-scan 2.4s ease-in-out infinite;
+}
+
+@keyframes pingu-hobby-scan {
+  0%,
+  100% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+.pingu-locked {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.pingu-locked,
+.pingu-locked * {
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pingu *,
   .pingu-bubble {
