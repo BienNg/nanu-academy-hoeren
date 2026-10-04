@@ -8,6 +8,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { chunkyButton } from "@/components/chunkyButton";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 
@@ -107,52 +108,46 @@ export function DictationInputCard({
   return (
     <>
       {prompt ? (
-        <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
-              <MaterialIcon name="translate" className="text-[22px]" />
-            </div>
-            <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
-              {prompt}
-            </p>
+        <section className="flex items-center gap-3 rounded-2xl border-2 border-[#e5e5ea] bg-white px-4 py-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
+            <MaterialIcon name="translate" className="text-[22px]" />
           </div>
+          <p className="text-[20px] font-bold leading-snug text-[#1d1d1f]">
+            {prompt}
+          </p>
         </section>
       ) : null}
-      <section className="mt-4 flex flex-col gap-3 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
+      <section className="mt-6 flex flex-col gap-3">
         <label
           htmlFor={inputId}
-          className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]"
+          className="text-[20px] font-extrabold leading-tight text-[#1d1d1f]"
         >
-          {prompt ? "Gõ tiếng Đức" : "Bản chép chính tả (Diktat)"}
+          {prompt ? "Gõ tiếng Đức" : "Gõ lại những gì bạn nghe"}
         </label>
 
-        <div className="relative w-full">
-          <textarea
-            ref={textareaRef}
-            id={inputId}
-            rows={4}
-            value={value}
-            disabled={disabled}
-            onChange={handleChange}
-            placeholder={prompt ? "Gõ câu tiếng Đức vào đây..." : "Gõ câu tiếng Đức bạn vừa nghe được vào đây..."}
-            className="w-full resize-none bg-transparent text-lg font-medium leading-relaxed text-[#1d1d1f] placeholder:text-[#86868b] focus:outline-none disabled:opacity-60"
-          />
-        </div>
+        <textarea
+          ref={textareaRef}
+          id={inputId}
+          rows={4}
+          value={value}
+          disabled={disabled}
+          onChange={handleChange}
+          placeholder={prompt ? "Gõ câu tiếng Đức vào đây..." : "Gõ bằng tiếng Đức (Diktat)..."}
+          className="w-full resize-none rounded-2xl border-2 border-[#e5e5ea] bg-[#f7f7f9] px-4 py-3 text-lg font-medium leading-relaxed text-[#1d1d1f] transition-colors placeholder:text-[#aeaeb2] focus:border-[#0066cc]/50 focus:bg-white focus:outline-none disabled:opacity-60"
+        />
 
-        <div className="pt-2">
-          <div className="-mx-1 flex items-center justify-between gap-1 overflow-x-auto px-1 pb-1">
-            {SPECIAL_CHARS.map((char) => (
-              <button
-                key={char}
-                type="button"
-                disabled={disabled}
-                onClick={() => insertChar(char)}
-                className="flex h-10 min-w-[36px] flex-1 items-center justify-center rounded-xl bg-[#f5f5f7] font-semibold text-[#1d1d1f] transition-colors hover:bg-[#e8e8ed] active:bg-[#0066cc] active:text-white disabled:opacity-40"
-              >
-                {char}
-              </button>
-            ))}
-          </div>
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pt-1 pb-2">
+          {SPECIAL_CHARS.map((char) => (
+            <button
+              key={char}
+              type="button"
+              disabled={disabled}
+              onClick={() => insertChar(char)}
+              className="flex h-11 min-w-[40px] flex-1 select-none items-center justify-center rounded-xl border-2 border-[#e5e5ea] bg-white text-[17px] font-bold text-[#1d1d1f] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow,background-color] duration-100 hover:bg-[#f7f7f9] active:translate-y-[3px] active:shadow-none disabled:opacity-40"
+            >
+              {char}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -161,14 +156,9 @@ export function DictationInputCard({
           type="button"
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className={`group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] px-6 py-3 text-[17px] font-semibold transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            canSubmit
-              ? "bg-[#0066cc] text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-              : "cursor-not-allowed bg-[#e8e8ed] text-[#86868b]"
-          }`}
+          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
         >
-          <span>Kiểm tra · Prüfen</span>
-          <MaterialIcon name="arrow_forward" className="text-[20px] transition-transform duration-300 group-hover:translate-x-1" />
+          Kiểm tra · Prüfen
         </button>
       </footer>
     </>

@@ -4,10 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Howl } from "howler";
 import {
   createClipHowl,
-  formatAudioTime,
   formatPlaybackRate,
   nextPlaybackRate,
-  restartClip,
   resolveAudioUrl,
   type PlaybackRate,
 } from "@/lib/audio";
@@ -51,19 +49,17 @@ function MaterialIcon({
  */
 export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
   const howlRef = useRef<Howl | null>(null);
-  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const barsRef = useRef<(HTMLSpanElement | null)[]>([]);
   const pulseCleanupRef = useRef<(() => void) | null>(null);
   const rafRef = useRef<number | null>(null);
 
   const [visualState, setVisualState] =
     useState<AudioPlayerVisualState>("idle");
   const [rate, setRate] = useState<PlaybackRate>(1);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
 
   const getBars = useCallback(
     () =>
-      barsRef.current.filter((bar): bar is HTMLDivElement => Boolean(bar)),
+      barsRef.current.filter((bar): bar is HTMLSpanElement => Boolean(bar)),
     [],
   );
 
@@ -106,15 +102,11 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
       }
       const seek = active.seek() as number;
       const total = active.duration() || 1;
-      setCurrentTime(seek);
       paintProgress(seek / total, true);
       rafRef.current = requestAnimationFrame(tick);
     };
 
     const howl = createClipHowl(resolveAudioUrl(audioPath), 1, {
-      onLoad: (loadedDuration) => {
-        setDuration(loadedDuration);
-      },
       onPlay: () => {
         setVisualState("playing");
         stopLocalRaf();
@@ -125,7 +117,6 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
         stopLocalPulse();
         const seek = howl.seek() as number;
         const total = howl.duration() || 1;
-        setCurrentTime(seek);
         paintProgress(seek / total, false);
         setVisualState("idle");
       },
@@ -136,8 +127,6 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
       onEnd: () => {
         stopLocalRaf();
         stopLocalPulse();
-        const total = howl.duration();
-        setCurrentTime(total);
         setWaveformFinished(getBars());
         setVisualState("finished");
       },
@@ -171,79 +160,58 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
 
     if (visualState === "finished") {
       howl.seek(0);
-      setCurrentTime(0);
       resetWaveformIdle(getBars());
     }
 
     howl.play();
   };
 
-  const handleRepeat = () => {
-    const howl = howlRef.current;
-    if (!howl) return;
-    setVisualState("playing");
-    restartClip(howl);
-  };
-
   const handleSpeedToggle = () => {
     setRate((current) => nextPlaybackRate(current));
   };
 
-  const playIcon = visualState === "playing" ? "pause" : "play_arrow";
-  const playIconClass =
-    visualState === "playing" ? "text-[32px]" : "ml-1 text-[32px]";
+  const isPlaying = visualState === "playing";
 
   return (
-    <section className="mt-3 flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 md:p-6">
-      <div className="flex items-center justify-end">
+    <section className="mt-3 flex flex-col items-center gap-5">
+      <button
+        type="button"
+        aria-label="Dạng sóng âm thanh — chạm để phát hoặc tạm dừng"
+        onClick={handlePlayPause}
+        className="flex h-[76px] w-full items-center justify-between gap-1 rounded-full border-2 border-[#e5e5ea] bg-white px-6 transition-colors hover:bg-[#fafafa]"
+      >
+        {WAVEFORM_BAR_HEIGHTS_PX.map((height, index) => (
+          <span
+            key={`bar-${index}`}
+            ref={(el) => {
+              barsRef.current[index] = el;
+            }}
+            className="block w-[6px] shrink-0 rounded-full bg-[#e5e5ea] transition-colors duration-150"
+            style={{ height }}
+          />
+        ))}
+      </button>
+
+      <div className="relative flex w-full items-center justify-center">
+        <button
+          type="button"
+          aria-label={isPlaying ? "Tạm dừng âm thanh" : "Phát âm thanh"}
+          onClick={handlePlayPause}
+          className="flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none"
+        >
+          <MaterialIcon
+            name={isPlaying ? "pause" : "play_arrow"}
+            className={isPlaying ? "text-[44px]" : "ml-1 text-[48px]"}
+            filled
+          />
+        </button>
         <button
           type="button"
           aria-label="Đổi tốc độ phát"
           onClick={handleSpeedToggle}
-          className="shrink-0 rounded-full bg-[#f5f5f7] px-3 py-1.5 text-[12px] font-bold text-[#86868b] transition-all hover:bg-[#e8e8ed] active:scale-95"
+          className="absolute right-0 flex h-11 min-w-[56px] select-none items-center justify-center rounded-2xl border-2 border-[#e5e5ea] bg-white px-3 text-[13px] font-extrabold text-[#86868b] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow] duration-100 active:translate-y-[3px] active:shadow-none"
         >
           {formatPlaybackRate(rate)}
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-2 pt-1">
-        <div
-          aria-label="Dạng sóng âm thanh"
-          className="flex h-12 w-full items-end justify-between gap-[3px] px-1"
-        >
-          {WAVEFORM_BAR_HEIGHTS_PX.map((height, index) => (
-            <div
-              key={`bar-${index}`}
-              ref={(el) => {
-                barsRef.current[index] = el;
-              }}
-              className="w-full rounded-full bg-[#e8e8ed]"
-              style={{ height }}
-            />
-          ))}
-        </div>
-        <div className="flex items-center justify-between px-1 text-[12px] font-medium text-[#86868b]">
-          <span>{formatAudioTime(currentTime)}</span>
-          <span>{formatAudioTime(duration)}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-center gap-6 py-1">
-        <button
-          type="button"
-          aria-label="Phát hoặc tạm dừng âm thanh"
-          onClick={handlePlayPause}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:scale-105 active:scale-95"
-        >
-          <MaterialIcon name={playIcon} className={playIconClass} filled />
-        </button>
-        <button
-          type="button"
-          aria-label="Lặp lại câu hiện tại"
-          onClick={handleRepeat}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7] text-[#86868b] transition-all hover:bg-[#e8e8ed] hover:text-[#1d1d1f] active:scale-90"
-        >
-          <MaterialIcon name="repeat" className="text-[20px]" />
         </button>
       </div>
     </section>

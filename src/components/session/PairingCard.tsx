@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { chunkyButton } from "@/components/chunkyButton";
 
 /** `image` (a public URL) replaces the Vietnamese text in the left column. */
 type PairingItem = { id: string; vi: string; de: string; image?: string };
@@ -17,14 +18,6 @@ type PairingCardProps = {
 };
 
 const MISS_MS = 720;
-
-function MaterialIcon({ name, className }: { name: string; className?: string }) {
-  return (
-    <span className={`material-symbols-outlined ${className ?? ""}`} aria-hidden="true">
-      {name}
-    </span>
-  );
-}
 
 function shuffleOnce<T>(items: readonly T[]): T[] {
   const next = [...items];
@@ -216,13 +209,9 @@ export function PairingCard({
           <button
             type="button"
             onClick={onNext}
-            className="group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] px-6 py-3 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
+            className={chunkyButton("primary", "w-full")}
           >
-            <span>{nextLabel}</span>
-            <MaterialIcon
-              name="arrow_forward"
-              className="text-[20px] transition-transform duration-300 group-hover:translate-x-1"
-            />
+            {nextLabel}
           </button>
         </footer>
       ) : null}

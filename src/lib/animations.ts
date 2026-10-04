@@ -2,12 +2,12 @@ import gsap from "gsap";
 
 /** Static bar heights matching design-reference/excercise_screen waveform. */
 export const WAVEFORM_BAR_HEIGHTS_PX = [
-  12, 20, 32, 44, 28, 40, 36, 24, 32, 40, 48, 36, 28, 40, 24, 32, 20, 28, 16, 32,
-  40, 24, 16, 8,
+  18, 30, 42, 26, 48, 34, 44, 22, 36, 46, 30, 18, 38, 48, 28, 24, 44, 30, 48,
+  26, 36, 20, 34, 44, 22, 40, 30, 16,
 ] as const;
 
-const PLAYED_CLASS = "bg-primary";
-const UNPLAYED_CLASS = "bg-secondary-container";
+const PLAYED_CLASS = "bg-[#0066cc]";
+const UNPLAYED_CLASS = "bg-[#e5e5ea]";
 
 function clearBarColor(bar: HTMLElement): void {
   bar.classList.remove(PLAYED_CLASS, UNPLAYED_CLASS);
@@ -15,7 +15,7 @@ function clearBarColor(bar: HTMLElement): void {
 
 /**
  * Paint waveform bars by playback progress (0–1).
- * Played → primary; unplayed → secondary-container.
+ * Played → brand blue; unplayed → light gray.
  */
 export function setWaveformProgress(
   bars: HTMLElement[],

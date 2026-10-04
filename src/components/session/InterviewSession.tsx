@@ -16,6 +16,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { ProfileButton } from "@/components/ProfileButton";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
+import { chunkyButton } from "@/components/chunkyButton";
 
 type InterviewSessionProps = {
   beruf: Ausbildungsberuf;
@@ -83,14 +84,14 @@ function SessionComplete({
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row-reverse sm:px-6">
           <Link
             href="/"
-            className="group relative flex h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98] sm:flex-1"
+            className={chunkyButton("primary", "w-full sm:flex-1")}
           >
             Về bài học
           </Link>
           <button
             type="button"
             onClick={onReset}
-            className="flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#f5f5f7] px-6 text-[17px] font-semibold text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] sm:flex-1"
+            className={chunkyButton("secondary", "w-full sm:flex-1")}
           >
             <MaterialIcon name="replay" className="text-[20px]" />
             Luyện lại

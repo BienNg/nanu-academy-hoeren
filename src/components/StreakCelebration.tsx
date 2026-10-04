@@ -7,6 +7,7 @@ import {
   readStreakCelebration,
   subscribeStreakCelebration,
 } from "@/lib/useProgress";
+import { chunkyButton } from "@/components/chunkyButton";
 
 const EMBERS = [
   { x: -54, delay: 0.15, size: 8 },
@@ -69,7 +70,7 @@ export function StreakCelebration() {
           type="button"
           autoFocus
           onClick={dismissStreakCelebration}
-          className="flex h-[56px] w-full items-center justify-center rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
+          className={chunkyButton("primary", "w-full")}
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: reduceMotion ? 0 : 0.85, duration: 0.25 }}

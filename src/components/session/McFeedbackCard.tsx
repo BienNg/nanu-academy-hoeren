@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { McOption, McResult } from "@/lib/multiple-choice";
 import type { SessionClip } from "@/lib/content";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
+import { chunkyButton } from "@/components/chunkyButton";
 
 type McFeedbackCardProps = {
   result: McResult;
@@ -13,18 +14,19 @@ type McFeedbackCardProps = {
   nextLabel?: string;
 };
 
-function ContinueButton({ label, onNext }: { label: string; onNext: () => void }) {
+function ContinueButton({
+  label,
+  onNext,
+  variant,
+}: {
+  label: string;
+  onNext: () => void;
+  variant: "success" | "danger";
+}) {
   return (
     <div className="flex flex-col gap-3 pt-6">
-      <button
-        onClick={onNext}
-        className="group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
-        type="button"
-      >
-        <span>{label}</span>
-        <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">
-          arrow_forward
-        </span>
+      <button onClick={onNext} className={chunkyButton(variant, "w-full")} type="button">
+        {label}
       </button>
     </div>
   );
@@ -70,7 +72,7 @@ export function McFeedbackCard({
             </div>
           }
         />
-        <ContinueButton label={nextLabel} onNext={onNext} />
+        <ContinueButton label={nextLabel} onNext={onNext} variant="success" />
       </div>
     );
   }
@@ -104,7 +106,7 @@ export function McFeedbackCard({
           </div>
         }
       />
-      <ContinueButton label={nextLabel} onNext={onNext} />
+      <ContinueButton label={nextLabel} onNext={onNext} variant="danger" />
     </div>
   );
 }

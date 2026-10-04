@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { McOption } from "@/lib/multiple-choice";
+import { chunkyButton } from "@/components/chunkyButton";
 
 type McCardProps = {
   prompt: string;
@@ -76,17 +77,9 @@ export function McCard({
           type="button"
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className={`group flex h-[56px] w-full items-center justify-center gap-2 rounded-[16px] px-6 py-3 text-[17px] font-semibold transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            canSubmit
-              ? "bg-[#0066cc] text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] hover:-translate-y-0.5 active:scale-[0.98]"
-              : "cursor-not-allowed bg-[#e8e8ed] text-[#86868b]"
-          }`}
+          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
         >
-          <span>Kiểm tra · Prüfen</span>
-          <MaterialIcon
-            name="arrow_forward"
-            className="text-[20px] transition-transform duration-300 group-hover:translate-x-1"
-          />
+          Kiểm tra · Prüfen
         </button>
       </footer>
     </>

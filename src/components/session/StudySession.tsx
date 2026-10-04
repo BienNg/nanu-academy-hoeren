@@ -28,6 +28,7 @@ import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
+import { chunkyButton } from "@/components/chunkyButton";
 
 type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
@@ -855,7 +856,7 @@ export function StudySession({
                   type="button"
                   onClick={goPrev}
                   disabled={clipIndex === 0}
-                  className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-[16px] bg-[#f5f5f7] text-[#1d1d1f] transition-all hover:bg-[#e8e8ed] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  className={chunkyButton(clipIndex === 0 ? "disabled" : "secondary", "w-[52px] shrink-0 px-0")}
                   aria-label="Thẻ trước"
                 >
                   <MaterialIcon name="arrow_back" className="text-[22px]" />
@@ -863,12 +864,9 @@ export function StudySession({
                 <button
                   type="button"
                   onClick={openRecall}
-                  className="group flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-[16px] bg-[#0066cc] text-[17px] font-semibold text-white shadow-[0_4px_14px_rgba(0,102,204,0.3)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,102,204,0.4)] active:scale-[0.98]"
+                  className={chunkyButton("primary", "min-w-0 flex-1")}
                 >
-                  <span>Tiếp theo</span>
-                  <span className="material-symbols-outlined text-[20px] transition-transform duration-300 group-hover:translate-x-1">
-                    arrow_forward
-                  </span>
+                  Tiếp theo
                 </button>
               </div>
             ) : (

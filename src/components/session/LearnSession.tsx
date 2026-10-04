@@ -52,6 +52,7 @@ import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { Pingu } from "@/components/session/Pingu";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
+import { chunkyButton } from "@/components/chunkyButton";
 
 type LearnSessionProps = {
   course: SessionCourse;
@@ -1003,7 +1004,7 @@ export function LearnSession({
             </h2>
             <Link
               href={pathHref}
-              className="flex h-[56px] w-full items-center justify-center rounded-[16px] bg-[#0066cc] px-6 text-[17px] font-semibold text-white"
+              className={chunkyButton("primary", "w-full")}
             >
               Về bài học
             </Link>
