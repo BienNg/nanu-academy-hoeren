@@ -30,6 +30,7 @@ import {
   readLevelAccess,
 } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
+import { listQuestClaimRows } from "@/lib/quest-store";
 import {
   assembleLeaderboard,
   dayKey,
@@ -622,7 +623,10 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
   }
 
   const duelRows = await listUserDuelXp(supabase, userId);
-  const studyRows = await listUserStudyXp(supabase, userId);
+  const studyRows = [
+    ...(await listUserStudyXp(supabase, userId)),
+    ...(await listQuestClaimRows(supabase, null, userId)),
+  ];
   const todayKey = dayKey(now);
   const currentWeek = weekKey(now);
   let today = 0;
@@ -901,6 +905,7 @@ async function readXpTotals(
       totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
     }
     await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+    mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
     return totals;
   }
 
@@ -916,6 +921,7 @@ async function readXpTotals(
     totals.set(award.user_id, current);
   }
   await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+  mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
   return totals;
 }
 

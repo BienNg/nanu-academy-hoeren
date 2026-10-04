@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Pingu } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
 import { isCardEnter } from "@/lib/keyboard";
+import type { QuestUpdate } from "@/lib/quests";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -17,6 +18,8 @@ type PartCompleteScreenProps = {
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
+  /** Quests this part finished, when the server reports any. */
+  questUpdate?: QuestUpdate | null;
   streakDays: number;
   finishRun: boolean;
   failed: boolean;
@@ -98,6 +101,7 @@ export function PartCompleteScreen({
   xp,
   xpKind,
   xpPending,
+  questUpdate,
   streakDays,
   finishRun,
   failed,
@@ -213,6 +217,23 @@ export function PartCompleteScreen({
             </span>
             {!xpPending && earned.note ? (
               <span className="text-[13px] font-semibold text-[#86868b]">{earned.note}</span>
+            ) : null}
+            {!xpPending && questUpdate ? (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e9f9ee] px-3 py-1 text-[13px] font-bold text-[#1f8a3b]">
+                <span
+                  className="material-symbols-outlined text-[16px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                  aria-hidden="true"
+                >
+                  flag
+                </span>
+                {questUpdate.bonus
+                  ? "Xong cả 3 nhiệm vụ"
+                  : questUpdate.completed.length === 1
+                    ? "Xong 1 nhiệm vụ"
+                    : `Xong ${questUpdate.completed.length} nhiệm vụ`}
+                {questUpdate.xp > 0 ? ` · +${questUpdate.xp} XP` : ""}
+              </span>
             ) : null}
           </motion.div>
         ) : null}

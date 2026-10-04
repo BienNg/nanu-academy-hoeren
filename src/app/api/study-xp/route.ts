@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import { parseStudyXpInput } from "@/lib/xp";
+import { syncQuestsQuietly } from "@/lib/quest-store";
+import { QUEST_TIME_ZONE_HEADER, resolveQuestZone } from "@/lib/quests";
 import { grantStudyPartXp } from "@/lib/xp-store";
 
 function revokedResponse() {
@@ -40,5 +42,9 @@ export async function POST(request: Request) {
   }
 
   const grant = await grantStudyPartXp(session.user.id, run);
-  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready });
+  const quests = await syncQuestsQuietly(
+    session.user.id,
+    resolveQuestZone(request.headers.get(QUEST_TIME_ZONE_HEADER)),
+  );
+  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready, quests });
 }

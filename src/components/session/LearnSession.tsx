@@ -54,6 +54,7 @@ import { QuitDialog } from "@/components/session/QuitDialog";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { chunkyButton } from "@/components/chunkyButton";
 import { FOCUS_RING } from "@/lib/keyboard";
+import type { QuestUpdate } from "@/lib/quests";
 
 type LearnSessionProps = {
   course: SessionCourse;
@@ -80,6 +81,7 @@ type PartSummary = {
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
+  quests: QuestUpdate | null;
 };
 
 function HeartGlyph({ filled, id }: { filled: boolean; id: string }) {
@@ -778,6 +780,7 @@ export function LearnSession({
       xp: null,
       xpKind: null,
       xpPending: Boolean(run) && !failed,
+      quests: null,
     });
     if (!failed) {
       commitPart();
@@ -795,6 +798,7 @@ export function LearnSession({
               xp: grant?.xp ?? null,
               xpKind: grant?.kind ?? null,
               xpPending: false,
+              quests: grant?.quests ?? null,
             }
           : current,
       );
@@ -953,6 +957,7 @@ export function LearnSession({
           xp={summary.xp}
           xpKind={summary.xpKind}
           xpPending={summary.xpPending}
+          questUpdate={summary.quests}
           streakDays={streakDays}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}

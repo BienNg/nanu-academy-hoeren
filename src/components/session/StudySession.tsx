@@ -33,6 +33,7 @@ import {
   splitStudyParts,
 } from "@/lib/progress";
 import { isAdminUser } from "@/lib/admins";
+import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
@@ -226,6 +227,7 @@ export function StudySession({
     xp: number | null;
     kind: string | null;
     pending: boolean;
+    quests?: QuestUpdate | null;
   } | null>(null);
   const [summary, setSummary] = useState<{
     questionCount: number;
@@ -513,7 +515,7 @@ export function StudySession({
     playCelebrationSound();
     void fetch("/api/study-xp", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...questZoneHeaders() },
       body: JSON.stringify({
         id: crypto.randomUUID(),
         lessonKey,
@@ -524,11 +526,12 @@ export function StudySession({
       }),
     })
       .then((response) => (response.ok ? response.json() : null))
-      .then((data: { xp?: unknown; kind?: unknown } | null) => {
+      .then((data: { xp?: unknown; kind?: unknown; quests?: unknown } | null) => {
         setXpGrant({
           xp: data && typeof data.xp === "number" ? data.xp : null,
           kind: data && typeof data.kind === "string" ? data.kind : null,
           pending: false,
+          quests: data ? readQuestUpdate(data.quests) : null,
         });
       })
       .catch(() => {
@@ -789,6 +792,7 @@ export function StudySession({
           xp={openedFinishedLesson ? null : (xpGrant?.xp ?? null)}
           xpKind={openedFinishedLesson ? null : (xpGrant?.kind ?? null)}
           xpPending={openedFinishedLesson ? false : Boolean(xpGrant?.pending)}
+          questUpdate={openedFinishedLesson ? null : (xpGrant?.quests ?? null)}
           streakDays={streakDays}
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}

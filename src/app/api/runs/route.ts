@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ListeningSchemaError, parseListeningRunInput } from "@/lib/listening-runs";
 import { insertListeningRun, isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
+import { syncQuestsQuietly } from "@/lib/quest-store";
+import { QUEST_TIME_ZONE_HEADER, resolveQuestZone } from "@/lib/quests";
 import { grantXpForListeningRun } from "@/lib/xp-store";
 
 function revokedResponse() {
@@ -50,5 +52,9 @@ export async function POST(request: Request) {
   }
 
   const grant = await grantXpForListeningRun(session.user.id, run);
-  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready });
+  const quests = await syncQuestsQuietly(
+    session.user.id,
+    resolveQuestZone(request.headers.get(QUEST_TIME_ZONE_HEADER)),
+  );
+  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready, quests });
 }

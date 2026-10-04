@@ -46,6 +46,10 @@
     "src/lib/admin-overview.ts",
     "src/lib/admin-overview.timeline.test.ts",
     "src/lib/weekly-recap.ts",
-    "src/lib/weekly-recap.test.ts"
+    "src/lib/weekly-recap.test.ts",
+    "src/lib/quests.ts",
+    "src/lib/quests.test.ts",
+    "src/lib/admin-quests.ts",
+    "src/lib/admin-quests.test.ts"
   ]
 }

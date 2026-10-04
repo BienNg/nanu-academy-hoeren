@@ -20,12 +20,22 @@ import {
   type AdminXpLesson,
   type AdminXpPoint,
 } from "@/lib/admin-overview";
+import type { AdminQuestBoard, AdminQuestPoint } from "@/lib/admin-quests";
+import type { QuestKind } from "@/lib/quests";
 
 const AXIS = "#717785";
 const GRID = "#c1c6d6";
 const NEW_XP = "#0059b5";
 const REVIEW_XP = "#0071e3";
 const DUEL_XP = "#5e5e63";
+const QUEST_DONE = "#0071e3";
+const QUEST_PERFECT = "#34c759";
+
+const QUEST_KIND_LABEL: Record<QuestKind, string> = {
+  listening: "Listening",
+  study: "Study",
+  habit: "Habit (XP goal)",
+};
 
 function formatCount(value: number): string {
   return value.toLocaleString("en-GB");
@@ -173,6 +183,85 @@ function XpChart({ data }: { data: readonly AdminXpPoint[] }) {
   );
 }
 
+function QuestChart({ data }: { data: readonly AdminQuestPoint[] }) {
+  if (!data.some((point) => point.quests > 0)) {
+    return (
+      <p className="flex h-full items-center justify-center px-space-16 font-body-sm text-body-sm text-on-surface-variant">
+        No quests were finished in this window.
+      </p>
+    );
+  }
+  const rows = data.map((point) => ({
+    ...point,
+    label: point.key.slice(5),
+  }));
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={{ stroke: GRID }}
+          interval={tickInterval(rows.length)}
+        />
+        <YAxis
+          allowDecimals={false}
+          width={40}
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <Tooltip content={<ChartTooltip />} />
+        <Legend wrapperStyle={{ fontSize: 12, color: AXIS }} iconType="circle" iconSize={8} />
+        <Bar dataKey="quests" name="Quests finished" fill={QUEST_DONE} maxBarSize={28} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="perfect" name="All 3 finished" fill={QUEST_PERFECT} maxBarSize={28} radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function QuestKindTable({ board }: { board: AdminQuestBoard }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+      <div className="px-space-16 py-space-12">
+        <h2 className="font-label-md text-label-md font-semibold text-on-surface">
+          Quests by type
+        </h2>
+        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+          Finished quests and the XP they paid. The all-3 bonus is in Quest XP above, not in this table.
+        </p>
+      </div>
+      <table className="w-full border-collapse text-left">
+        <thead>
+          <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+            <th className="px-space-16 py-space-8">Type</th>
+            <th className="px-space-12 py-space-8 text-right">Finished</th>
+            <th className="px-space-16 py-space-8 text-right">XP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {board.byKind.map((row) => (
+            <tr
+              key={row.kind}
+              className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
+            >
+              <td className="px-space-16 py-space-8 font-medium">{QUEST_KIND_LABEL[row.kind]}</td>
+              <td className="px-space-12 py-space-8 text-right tabular-nums">
+                {formatCount(row.completions)}
+              </td>
+              <td className="px-space-16 py-space-8 text-right tabular-nums font-medium">
+                {formatCount(row.xp)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function LeadersTable({ rows }: { rows: readonly AdminXpLeader[] }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
@@ -279,11 +368,15 @@ function LessonsTable({ rows }: { rows: readonly AdminXpLesson[] }) {
 
 export function AdminXp({
   board,
+  quests,
+  questsReady,
   range,
   storeConfigured,
   xpReady,
 }: {
   board: AdminXpBoard;
+  quests: AdminQuestBoard;
+  questsReady: boolean;
   range: AdminRange;
   storeConfigured: boolean;
   xpReady: boolean;
@@ -308,6 +401,12 @@ export function AdminXp({
       {storeConfigured && !xpReady ? (
         <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
           The xp_awards table is missing. Run supabase/xp_awards.sql once in Supabase.
+        </div>
+      ) : null}
+
+      {storeConfigured && !questsReady ? (
+        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+          The quest_claims table is missing. Run supabase/quest_claims.sql once in Supabase.
         </div>
       ) : null}
 
@@ -358,6 +457,58 @@ export function AdminXp({
         <LeadersTable rows={board.leaders} />
         <LessonsTable rows={board.lessons} />
       </div>
+
+      <section aria-label="Daily quests" className="flex flex-col gap-space-12">
+        <div>
+          <h2 className="font-headline-sm text-headline-sm text-on-surface">Daily quests</h2>
+          <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+            Quests reset at each learner&apos;s local midnight. Counts below are grouped by Vietnam
+            day so they line up with the XP numbers above.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-space-12 xl:grid-cols-4">
+          <SummaryStat
+            label="Quests finished"
+            value={formatCount(quests.completed)}
+            icon="flag"
+            hint={`Listening, study and habit ${window}`}
+          />
+          <SummaryStat
+            label="All 3 finished"
+            value={formatCount(quests.perfectDays)}
+            icon="redeem"
+            hint="Learner-days that earned the bonus"
+          />
+          <SummaryStat
+            label="Quest players"
+            value={
+              board.earners > 0
+                ? `${formatCount(quests.learners)} · ${Math.min(
+                    100,
+                    Math.round((quests.learners / board.earners) * 100),
+                  )}%`
+                : formatCount(quests.learners)
+            }
+            icon="group"
+            hint="Students who finished a quest, and their share of XP earners"
+          />
+          <SummaryStat
+            label="Quest XP"
+            value={formatCount(quests.xp)}
+            icon="bolt"
+            hint="Paid by quests, bonus included"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
+          <ChartCard
+            title="Quests by day"
+            hint="Finished quests, and learners who finished all three."
+          >
+            <QuestChart data={quests.points} />
+          </ChartCard>
+          <QuestKindTable board={quests} />
+        </div>
+      </section>
     </main>
   );
 }

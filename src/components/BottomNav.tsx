@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-5" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-5" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-3.5" },
+  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-4" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-4" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-2.5" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-2.5" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {

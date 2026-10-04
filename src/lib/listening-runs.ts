@@ -6,6 +6,7 @@ import {
   type CardKind,
   type MissedAttemptKind,
 } from "./card-kinds";
+import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "./quests";
 
 export type ListeningRunOutcome = "success" | "fail";
 
@@ -393,6 +394,7 @@ export function buildListeningRunRecord(input: {
 export type ListeningRunXp = {
   xp: number | null;
   kind: string | null;
+  quests: QuestUpdate | null;
 };
 
 /** Saves the run and returns the XP the server awarded. Null when the save failed. */
@@ -402,7 +404,7 @@ export async function submitListeningRun(
   try {
     const response = await fetch("/api/runs", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...questZoneHeaders() },
       body: JSON.stringify(input),
       keepalive: true,
     });
@@ -410,10 +412,11 @@ export async function submitListeningRun(
       console.error("Listening run was not saved", response.status);
       return null;
     }
-    const data = (await response.json()) as { xp?: unknown; kind?: unknown };
+    const data = (await response.json()) as { xp?: unknown; kind?: unknown; quests?: unknown };
     return {
       xp: typeof data.xp === "number" ? data.xp : null,
       kind: typeof data.kind === "string" ? data.kind : null,
+      quests: readQuestUpdate(data.quests),
     };
   } catch (error) {
     console.error("Listening run was not saved", error);

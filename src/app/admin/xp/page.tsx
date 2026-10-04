@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminXp } from "@/components/admin/AdminXp";
+import { buildAdminQuestBoard } from "@/lib/admin-quests";
 import {
   adminRangeVietnamDayKeys,
   buildAdminXpBoard,
@@ -14,6 +15,7 @@ import {
   listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
+import { listAdminQuestClaims } from "@/lib/quest-store";
 import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
@@ -53,9 +55,15 @@ export default async function AdminXpPage({
         { ready: false, rows: [] },
       ];
 
+  const quests = storeConfigured
+    ? await listAdminQuestClaims(fromDay, toDay)
+    : { ready: false, rows: [] };
+
   return (
     <AdminXp
       board={buildAdminXpBoard(rows, listening.rows, duels.rows, range)}
+      quests={buildAdminQuestBoard(quests.rows, days)}
+      questsReady={quests.ready}
       range={range}
       storeConfigured={storeConfigured}
       xpReady={listening.ready}
