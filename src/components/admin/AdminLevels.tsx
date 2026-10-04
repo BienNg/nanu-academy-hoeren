@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
@@ -110,19 +110,81 @@ function NodeCircle({ icon }: { icon: string }) {
   );
 }
 
+function formatLength(seconds: number): string {
+  const whole = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const secs = whole % 60;
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+function nodeStat(
+  node: AdminLevelPathNode,
+  lengthSeconds: number | null,
+): { label: string; value: string } | null {
+  if (node.kind === "video") {
+    return lengthSeconds == null
+      ? null
+      : { label: "Length", value: formatLength(lengthSeconds) };
+  }
+  if (node.count == null) return null;
+  if (node.kind === "study") {
+    return { label: node.count === 1 ? "Clip" : "Clips", value: String(node.count) };
+  }
+  return { label: node.count === 1 ? "Card" : "Cards", value: String(node.count) };
+}
+
 function PathNode({
   node,
+  lengthSeconds,
+  open,
+  onToggle,
+  onClose,
   onOpen,
 }: {
   node: AdminLevelPathNode;
+  lengthSeconds: number | null;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
   onOpen: (userId: string) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const names = node.here.map((person) => person.displayName).join(", ");
+  const stat = nodeStat(node, lengthSeconds);
+  const detailLabel = stat ? `${node.label}, ${stat.value} ${stat.label.toLowerCase()}` : node.label;
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) onClose();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
 
   return (
-    <div className="flex w-[10.5rem] flex-col items-center text-center">
+    <div ref={rootRef} className="relative flex w-[10.5rem] flex-col items-center text-center">
       <span className="relative">
-        <NodeCircle icon={node.icon} />
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={detailLabel}
+          onClick={onToggle}
+          className="rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >
+          <NodeCircle icon={node.icon} />
+        </button>
         {node.here.length > 0 ? (
           <span className="absolute left-full top-1/2 ml-2 -translate-y-1/2">
             <StudentStack people={node.here} onOpen={onOpen} />
@@ -135,6 +197,32 @@ function PathNode({
       {node.here.length > 0 ? (
         <span className="sr-only">Working here: {names}</span>
       ) : null}
+      {open ? (
+        <div
+          role="dialog"
+          aria-label={node.label}
+          className="mt-2 w-[13.5rem] rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-space-12 py-space-12 text-left shadow-[0_8px_24px_rgba(25,28,30,0.12)]"
+        >
+          <p className="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+            {node.kind === "video" ? "Video" : node.kind === "study" ? "Study" : "Practice"}
+          </p>
+          <p className="mt-1 font-label-sm text-[13px] font-bold leading-4 text-on-surface">
+            {node.label}
+          </p>
+          {stat ? (
+            <p className="mt-space-8 font-headline-sm text-headline-sm tabular-nums text-on-surface">
+              {stat.value}
+              <span className="ml-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+                {stat.label.toLowerCase()}
+              </span>
+            </p>
+          ) : (
+            <p className="mt-space-8 font-body-sm text-body-sm text-on-surface-variant">
+              Length is not in the data loaded on this page.
+            </p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -142,16 +230,25 @@ function PathNode({
 function LessonTrail({
   levelLabel,
   lesson,
+  lengths,
+  selectedId,
+  onToggle,
+  onClose,
   onOpen,
 }: {
   levelLabel: string;
   lesson: AdminLevelPathLesson;
+  lengths: ReadonlyMap<string, number>;
+  selectedId: string | null;
+  onToggle: (nodeId: string) => void;
+  onClose: () => void;
   onOpen: (userId: string) => void;
 }) {
   const empty = lesson.nodes.length === 0;
+  const raised = lesson.nodes.some((node) => selectedId === `${lesson.id}:${node.id}`);
 
   return (
-    <li className="flex flex-col items-center">
+    <li className={`flex flex-col items-center ${raised ? "relative z-20" : ""}`}>
       <div
         className={`w-full rounded-2xl p-space-16 ${
           empty
@@ -177,8 +274,20 @@ function LessonTrail({
       {empty ? null : (
         <ul className="flex w-full flex-col items-center gap-space-12 py-space-12">
           {lesson.nodes.map((node, index) => (
-            <li key={node.id} className={PATH_SHIFT[index % PATH_SHIFT.length]}>
-              <PathNode node={node} onOpen={onOpen} />
+            <li
+              key={node.id}
+              className={`relative ${PATH_SHIFT[index % PATH_SHIFT.length]} ${
+                selectedId === `${lesson.id}:${node.id}` ? "z-20" : ""
+              }`}
+            >
+              <PathNode
+                node={node}
+                lengthSeconds={node.videoKey ? (lengths.get(node.videoKey) ?? null) : null}
+                open={selectedId === `${lesson.id}:${node.id}`}
+                onToggle={() => onToggle(`${lesson.id}:${node.id}`)}
+                onClose={onClose}
+                onOpen={onOpen}
+              />
             </li>
           ))}
         </ul>
@@ -271,6 +380,7 @@ export function AdminLevels({
   const [levelSlug, setLevelSlug] = useState(levels[0]?.slug ?? "");
   const [classFilter, setClassFilter] = useState<string>("all");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   // Admin accounts open every level regardless of grants, so they are teachers
   // here rather than students on the trail.
@@ -312,6 +422,24 @@ export function AdminLevels({
   );
 
   const openStudent = useCallback((userId: string) => setDetailUserId(userId), []);
+  const closeNode = useCallback(() => setSelectedNodeId(null), []);
+  const toggleNode = useCallback((nodeId: string) => {
+    setSelectedNodeId((current) => (current === nodeId ? null : nodeId));
+  }, []);
+  const lengths = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      for (const visit of row.progress.visits ?? []) {
+        for (const video of visit.videos) {
+          const seconds = video.durationSeconds ?? 0;
+          if (seconds <= 0) continue;
+          const current = map.get(video.key) ?? 0;
+          if (seconds > current) map.set(video.key, seconds);
+        }
+      }
+    }
+    return map;
+  }, [rows]);
   const detailRow = students.find((row) => row.userId === detailUserId) ?? null;
   const grantedCount = members.length;
 
@@ -333,14 +461,20 @@ export function AdminLevels({
         <FilterChips
           label="Level"
           value={levelSlug}
-          onSelect={setLevelSlug}
+          onSelect={(slug) => {
+            setLevelSlug(slug);
+            setSelectedNodeId(null);
+          }}
           options={levels.map((level) => ({ key: level.slug, label: level.level }))}
         />
         {classOptions.length > 0 || unassignedCount > 0 ? (
           <FilterChips
             label="Class"
             value={classFilter}
-            onSelect={setClassFilter}
+            onSelect={(key) => {
+              setClassFilter(key);
+              setSelectedNodeId(null);
+            }}
             options={[
               { key: "all", label: "All classes", count: students.length },
               ...classOptions.map((option) => ({
@@ -395,6 +529,10 @@ export function AdminLevels({
                   key={lesson.id}
                   levelLabel={path.label}
                   lesson={lesson}
+                  lengths={lengths}
+                  selectedId={selectedNodeId}
+                  onToggle={toggleNode}
+                  onClose={closeNode}
                   onOpen={openStudent}
                 />
               ))}

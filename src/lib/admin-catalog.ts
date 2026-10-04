@@ -2,6 +2,7 @@ import {
   getAusbildungClipInventory,
   getListedBerufe,
   getSessionClips,
+  type SessionClip,
 } from "@/lib/content";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import { shortBerufLabel, type AdminUserRow } from "@/lib/admin-overview";
@@ -19,16 +20,27 @@ import {
   getLivingWorkplaces,
 } from "@/lib/living";
 import { livingAccessSlug } from "@/lib/living-content";
-import { lessonVideoProgressKey, lessonVideoStatus } from "@/lib/progress";
+import { lessonVideoProgressKey, lessonVideoStatus, splitListeningParts } from "@/lib/progress";
+import { practiceCardCount } from "@/lib/practice-deck";
 
-function chapterClips(levelSlug: string, chapterSlug: string): { id: string; prompt: string }[] {
+function practiceCardsFor(clips: readonly SessionClip[]): number {
+  if (clips.length === 0) return 0;
+  const parts = splitListeningParts(clips);
+  return parts.reduce((sum, part) => sum + practiceCardCount(part, clips), 0);
+}
+
+function chapterLesson(levelSlug: string, chapterSlug: string): {
+  clips: { id: string; prompt: string }[];
+  practiceCards: number;
+} {
   try {
-    return getChapterClips(levelSlug, chapterSlug).map((clip) => ({
-      id: clip.id,
-      prompt: clip.script,
-    }));
+    const clips = getChapterClips(levelSlug, chapterSlug);
+    return {
+      clips: clips.map((clip) => ({ id: clip.id, prompt: clip.script })),
+      practiceCards: practiceCardsFor(clips),
+    };
   } catch {
-    return [];
+    return { clips: [], practiceCards: 0 };
   }
 }
 
@@ -69,16 +81,20 @@ export function buildAdminCourseCatalog(
     label: level.level,
     shortLabel: level.level,
     kind: "cefr",
-    lessons: level.chapters.map((chapter) => ({
-      id: `${level.slug}-${chapter.slug}`,
-      label: chapter.label,
-      learnKey: chapter.slug,
-      videoKeyPrefix: `${level.slug}/${chapter.slug}`,
-      clips: chapterClips(level.slug, chapter.slug),
-      videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
-        video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
-      ),
-    })),
+    lessons: level.chapters.map((chapter) => {
+      const lesson = chapterLesson(level.slug, chapter.slug);
+      return {
+        id: `${level.slug}-${chapter.slug}`,
+        label: chapter.label,
+        learnKey: chapter.slug,
+        videoKeyPrefix: `${level.slug}/${chapter.slug}`,
+        clips: lesson.clips,
+        practiceCards: lesson.practiceCards,
+        videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
+          video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
+        ),
+      };
+    }),
   }));
 
   const living: AdminCatalogCourse[] = getLivingWorkplaces().map((workplace) => ({

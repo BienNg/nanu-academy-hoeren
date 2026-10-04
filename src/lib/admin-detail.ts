@@ -40,6 +40,8 @@ export type AdminCatalogLesson = {
   videoKeyPrefix?: string;
   /** Ausbildung track whose completed clip ids apply. */
   interviewSlug?: string;
+  /** Practice cards across every part of this lesson. */
+  practiceCards?: number;
 };
 
 export type AdminCatalogCourse = {
@@ -434,6 +436,11 @@ export type AdminLevelPathNode = {
   label: string;
   /** Students whose current node this is. */
   here: AdminLevelPathPerson[];
+  kind: "video" | "study" | "practice";
+  /** Study clip count or practice card count. Videos leave this empty. */
+  count: number | null;
+  /** `${level}/${chapter}/${videoId}` so a length can be read from loaded playback. */
+  videoKey: string | null;
 };
 
 export type AdminLevelPathLesson = {
@@ -456,7 +463,9 @@ type LevelNodeTemplate = {
   id: string;
   icon: string;
   label: string;
-  kind: "video" | "activity";
+  kind: "video" | "study" | "practice";
+  count: number | null;
+  videoKey: string | null;
 };
 
 /**
@@ -470,6 +479,8 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
     icon: "smart_display",
     label: video.title,
     kind: "video" as const,
+    count: null,
+    videoKey: lesson.videoKeyPrefix ? `${lesson.videoKeyPrefix}/${video.id}` : null,
   }));
   if (lesson.clips.length === 0) return videos;
   return [
@@ -480,7 +491,9 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
             id: `${lesson.id}-study`,
             icon: "menu_book",
             label: "Study",
-            kind: "activity" as const,
+            kind: "study" as const,
+            count: lesson.clips.length,
+            videoKey: null,
           },
         ]
       : []),
@@ -488,7 +501,9 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
       id: `${lesson.id}-listening`,
       icon: "headphones",
       label: "Practice",
-      kind: "activity" as const,
+      kind: "practice" as const,
+      count: lesson.practiceCards ?? null,
+      videoKey: null,
     },
   ];
 }
@@ -540,6 +555,9 @@ export function buildLevelPath(
       id: node.id,
       icon: node.icon,
       label: node.label,
+      kind: node.kind,
+      count: node.count,
+      videoKey: node.videoKey,
       here: [],
     })),
   }));
