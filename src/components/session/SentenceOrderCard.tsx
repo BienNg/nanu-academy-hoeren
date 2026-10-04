@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { WordChip } from "@/lib/sentence-order";
 import { CheckBar } from "@/components/session/FeedbackSheet";
+import {
+  cardShortcutsBlocked,
+  FOCUS_RING,
+  hasModifier,
+  isCardEnter,
+  isKeyboardClick,
+  isTextEntry,
+} from "@/lib/keyboard";
 
 type SentenceOrderCardProps = {
   translation: string;
@@ -22,13 +30,15 @@ function MaterialIcon({ name, className }: { name: string; className?: string })
 }
 
 // Chips are 44px tall with an 8px gap, so answer rows repeat every 52px.
-const CHIP_CLASS =
-  "flex h-11 items-center rounded-xl border border-black/[0.08] border-b-[3px] bg-white px-3.5 text-[17px] font-medium text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)]";
+const CHIP_CLASS = `flex h-11 items-center rounded-xl border border-black/[0.08] border-b-[3px] bg-white px-3.5 text-[17px] font-medium text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${FOCUS_RING}`;
 const ANSWER_LINES =
   "repeating-linear-gradient(to bottom, transparent 0, transparent 48px, #e8e8ed 48px, #e8e8ed 50px, transparent 50px, transparent 52px)";
 
 /**
  * Duolingo-style word ordering. Remount via parent `key` for each new card.
+ * Keys: Tab between chips, Enter or Space moves one, Backspace drops the last
+ * word, Enter checks. A chip moved from the keyboard leaves focus on its
+ * neighbour, since the button itself unmounts.
  */
 export function SentenceOrderCard({
   translation,
@@ -44,13 +54,43 @@ export function SentenceOrderCard({
     .filter((chip): chip is WordChip => Boolean(chip));
   const used = new Set(selectedIds);
   const canSubmit = selectedIds.length > 0 && !locked;
+  const zonesRef = useRef<HTMLElement>(null);
+  const checkRef = useRef<HTMLButtonElement>(null);
+  /** Where keyboard focus goes once the moved chip has unmounted. */
+  const refocus = useRef<{ zone: "answer" | "bank"; index: number } | null>(null);
 
-  const pick = (id: string) => {
+  const chipIndex = (zone: "answer" | "bank", button: HTMLElement) =>
+    Array.from(zonesRef.current?.querySelectorAll(`[data-zone="${zone}"] button`) ?? []).indexOf(
+      button,
+    );
+
+  const pick = (id: string, event: MouseEvent<HTMLButtonElement>) => {
+    if (isKeyboardClick(event)) {
+      refocus.current = { zone: "bank", index: chipIndex("bank", event.currentTarget) };
+    }
     setSelectedIds((current) => (current.includes(id) ? current : [...current, id]));
   };
-  const unpick = (id: string) => {
+  const unpick = (id: string, event: MouseEvent<HTMLButtonElement>) => {
+    if (isKeyboardClick(event)) {
+      refocus.current = { zone: "answer", index: chipIndex("answer", event.currentTarget) };
+    }
     setSelectedIds((current) => current.filter((item) => item !== id));
   };
+
+  useEffect(() => {
+    const target = refocus.current;
+    refocus.current = null;
+    if (!target) return;
+    const chips = (zone: string) =>
+      Array.from(
+        zonesRef.current?.querySelectorAll<HTMLButtonElement>(`[data-zone="${zone}"] button`) ?? [],
+      );
+    const same = chips(target.zone);
+    const next =
+      same[Math.min(target.index, same.length - 1)] ??
+      (target.zone === "bank" ? checkRef.current : chips("bank")[0]);
+    next?.focus();
+  }, [selectedIds]);
 
   const handleSubmit = useCallback(() => {
     if (selectedIds.length === 0) return;
@@ -63,15 +103,15 @@ export function SentenceOrderCard({
   useEffect(() => {
     if (locked) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) return;
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (cardShortcutsBlocked(event)) return;
+      if (isCardEnter(event)) {
         if (!canSubmit) return;
         event.preventDefault();
         event.stopPropagation();
         handleSubmit();
         return;
       }
-      if (event.key === "Backspace") {
+      if (event.key === "Backspace" && !hasModifier(event) && !isTextEntry(event.target)) {
         event.preventDefault();
         setSelectedIds((current) => current.slice(0, -1));
       }
@@ -107,8 +147,9 @@ export function SentenceOrderCard({
       </section>
 
       <LayoutGroup>
-        <section className="mt-4 flex flex-col gap-5 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
+        <section ref={zonesRef} className="mt-4 flex flex-col gap-5 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
           <div
+            data-zone="answer"
             aria-label="Câu trả lời của bạn"
             className="flex min-h-[104px] flex-wrap content-start items-start gap-2"
             style={{ backgroundImage: ANSWER_LINES }}
@@ -125,7 +166,7 @@ export function SentenceOrderCard({
                 transition={transition}
                 type="button"
                 disabled={locked}
-                onClick={() => unpick(chip.id)}
+                onClick={(event) => unpick(chip.id, event)}
                 className={`${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`}
               >
                 {chip.text}
@@ -134,7 +175,7 @@ export function SentenceOrderCard({
           </div>
 
           <div className="pt-1">
-            <div aria-label="Các từ" className="flex flex-wrap justify-center gap-2">
+            <div data-zone="bank" aria-label="Các từ" className="flex flex-wrap justify-center gap-2">
               {chips.map((chip) =>
                 used.has(chip.id) ? (
                   <span
@@ -151,7 +192,7 @@ export function SentenceOrderCard({
                     transition={transition}
                     type="button"
                     disabled={locked}
-                    onClick={() => pick(chip.id)}
+                    onClick={(event) => pick(chip.id, event)}
                     className={`${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`}
                   >
                     {chip.text}
@@ -163,7 +204,9 @@ export function SentenceOrderCard({
         </section>
       </LayoutGroup>
 
-      {locked ? null : <CheckBar disabled={!canSubmit} onClick={handleSubmit} />}
+      {locked ? null : (
+        <CheckBar disabled={!canSubmit} onClick={handleSubmit} buttonRef={checkRef} />
+      )}
     </>
   );
 }

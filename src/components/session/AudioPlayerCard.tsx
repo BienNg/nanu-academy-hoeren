@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Howl } from "howler";
 import {
   createClipHowl,
@@ -17,6 +17,13 @@ import {
   setWaveformProgress,
   WAVEFORM_BAR_HEIGHTS_PX,
 } from "@/lib/animations";
+import {
+  cardShortcutsBlocked,
+  enterOwnedByTarget,
+  FOCUS_RING,
+  hasModifier,
+  isTextEntry,
+} from "@/lib/keyboard";
 
 export type AudioPlayerVisualState = "idle" | "playing" | "finished";
 
@@ -44,8 +51,24 @@ function MaterialIcon({
   );
 }
 
+/** Ctrl+Space is Duolingo's replay key; Ctrl+Enter covers macOS, where Ctrl+Space switches input source. */
+const REPLAY_KEYS = "Control+Space Control+Enter Space";
+
+function isReplayKey(event: KeyboardEvent): boolean {
+  if (cardShortcutsBlocked(event) || event.shiftKey || event.altKey || event.metaKey) return false;
+  if (event.ctrlKey) return event.code === "Space" || event.key === "Enter";
+  // Plain Space only when it would otherwise scroll the page.
+  return (
+    event.code === "Space" &&
+    !hasModifier(event) &&
+    !isTextEntry(event.target) &&
+    !enterOwnedByTarget(event.target)
+  );
+}
+
 /**
  * Remount this component (via `key={clipId}`) when the active clip changes.
+ * Space plays or pauses; Ctrl+Space or Ctrl+Enter does too while typing.
  */
 export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
   const howlRef = useRef<Howl | null>(null);
@@ -166,6 +189,19 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
     howl.play();
   };
 
+  const onReplayKey = useEffectEvent(handlePlayPause);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isReplayKey(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) onReplayKey();
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, []);
+
   const handleSpeedToggle = () => {
     setRate((current) => nextPlaybackRate(current));
   };
@@ -177,6 +213,8 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
       <button
         type="button"
         aria-label="Dạng sóng âm thanh — chạm để phát hoặc tạm dừng"
+        // The big play button below is the keyboard stop for the same action.
+        tabIndex={-1}
         onClick={handlePlayPause}
         className="flex h-[76px] w-full items-center justify-between gap-1 rounded-full border-2 border-[#e5e5ea] bg-white px-6 transition-colors hover:bg-[#fafafa]"
       >
@@ -196,8 +234,10 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
         <button
           type="button"
           aria-label={isPlaying ? "Tạm dừng âm thanh" : "Phát âm thanh"}
+          aria-keyshortcuts={REPLAY_KEYS}
+          title="Space · Ctrl+Space"
           onClick={handlePlayPause}
-          className="flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none"
+          className={`flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none ${FOCUS_RING}`}
         >
           <MaterialIcon
             name={isPlaying ? "pause" : "play_arrow"}
@@ -209,7 +249,7 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
           type="button"
           aria-label="Đổi tốc độ phát"
           onClick={handleSpeedToggle}
-          className="absolute right-0 flex h-11 min-w-[56px] select-none items-center justify-center rounded-2xl border-2 border-[#e5e5ea] bg-white px-3 text-[13px] font-extrabold text-[#86868b] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow] duration-100 active:translate-y-[3px] active:shadow-none"
+          className={`absolute right-0 flex h-11 min-w-[56px] select-none items-center justify-center rounded-2xl border-2 border-[#e5e5ea] bg-white px-3 text-[13px] font-extrabold text-[#86868b] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow] duration-100 active:translate-y-[3px] active:shadow-none ${FOCUS_RING}`}
         >
           {formatPlaybackRate(rate)}
         </button>

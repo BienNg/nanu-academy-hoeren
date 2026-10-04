@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { Howl } from "howler";
 import { ChunkyButton } from "@/components/chunkyButton";
 import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
+import { FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 
 const PRAISE = ["Tuyệt vời!", "Xuất sắc!", "Chính xác!", "Giỏi lắm!", "Perfekt!", "Super!"];
 
@@ -44,7 +45,7 @@ function SpeakButton({ audioPath }: { audioPath: string }) {
         else howl.play();
       }}
       aria-label={playing ? "Tạm dừng âm thanh" : "Nghe câu"}
-      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/80"
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/80 ${FOCUS_RING}`}
     >
       <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
         {playing ? "stop" : "volume_up"}
@@ -110,10 +111,16 @@ export function CheckBar({
   disabled = false,
   onClick,
   label = "Kiểm tra · Prüfen",
+  autoFocus = false,
+  buttonRef,
 }: {
   disabled?: boolean;
   onClick: () => void;
   label?: string;
+  /** Take focus on mount, for a bar that appears once the card is done. */
+  autoFocus?: boolean;
+  /** Lets a card hand keyboard focus to Kiểm tra. */
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <>
@@ -121,8 +128,10 @@ export function CheckBar({
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-[#fbfbfd]/95 backdrop-blur-xl">
         <div className="mx-auto w-full max-w-2xl px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <ChunkyButton
+            ref={buttonRef}
             variant={disabled ? "disabled" : "primary"}
             disabled={disabled}
+            autoFocus={autoFocus}
             onClick={onClick}
             className="w-full"
           >
@@ -137,7 +146,8 @@ export function CheckBar({
 /**
  * Duolingo-style result band pinned to the bottom of the screen. The exercise
  * stays visible above it. Renders a spacer in flow so the band never covers
- * the end of the page, and owns Enter → continue.
+ * the end of the page, and owns Enter → continue. The continue button takes
+ * focus when the sheet opens, since the checked card's controls lock.
  */
 export function FeedbackSheet({
   tone,
@@ -151,6 +161,7 @@ export function FeedbackSheet({
   const style = TONES[tone];
   const reduceMotion = useReducedMotion();
   const sheetRef = useRef<HTMLDivElement>(null);
+  const actionRef = useRef<HTMLButtonElement>(null);
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
@@ -164,8 +175,12 @@ export function FeedbackSheet({
   }, []);
 
   useEffect(() => {
+    actionRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      if (!isCardEnter(event)) return;
       event.preventDefault();
       event.stopPropagation();
       onAction();
@@ -208,7 +223,7 @@ export function FeedbackSheet({
                   <button
                     type="button"
                     onClick={onSecondary}
-                    className={`shrink-0 text-[13px] font-extrabold uppercase tracking-wide ${style.title} opacity-80 hover:opacity-100`}
+                    className={`shrink-0 rounded-lg text-[13px] font-extrabold uppercase tracking-wide ${style.title} opacity-80 hover:opacity-100 ${FOCUS_RING}`}
                   >
                     {secondaryLabel}
                   </button>
@@ -221,7 +236,12 @@ export function FeedbackSheet({
               ) : null}
             </div>
           </div>
-          <ChunkyButton variant={style.button} onClick={onAction} className="w-full">
+          <ChunkyButton
+            ref={actionRef}
+            variant={style.button}
+            onClick={onAction}
+            className="w-full"
+          >
             {actionLabel}
           </ChunkyButton>
         </div>

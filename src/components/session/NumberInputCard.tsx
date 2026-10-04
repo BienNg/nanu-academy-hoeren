@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { CheckBar } from "@/components/session/FeedbackSheet";
+import { FOCUS_RING } from "@/lib/keyboard";
 
 type NumberInputCardProps = {
   onSubmit: (value: string) => void;
@@ -89,7 +90,7 @@ export function NumberInputCard({ onSubmit, locked = false }: NumberInputCardPro
               disabled={locked}
               onClick={() => insert(char)}
               aria-label={`Thêm ${char}`}
-              className="flex h-14 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[22px] font-bold text-[#1d1d1f] transition-colors hover:bg-[#e8e8ed] active:bg-[#0066cc] active:text-white"
+              className={`flex h-14 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[22px] font-bold text-[#1d1d1f] transition-colors hover:bg-[#e8e8ed] active:bg-[#0066cc] active:text-white ${FOCUS_RING}`}
             >
               {char}
             </button>

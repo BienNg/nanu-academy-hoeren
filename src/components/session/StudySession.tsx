@@ -2,7 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type TouchEvent,
+} from "react";
 import { flushSync } from "react-dom";
 import { motion, useAnimation, useReducedMotion } from "framer-motion";
 import type { SessionCourse } from "@/lib/session-course";
@@ -13,7 +21,7 @@ import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
-import { Pingu } from "@/components/session/Pingu";
+import { QuitDialog } from "@/components/session/QuitDialog";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
   currentLessonNode,
@@ -29,6 +37,13 @@ import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
 import { ChunkyButton } from "@/components/chunkyButton";
+import {
+  cardShortcutsBlocked,
+  FOCUS_RING,
+  hasModifier,
+  isCardEnter,
+  isTextEntry,
+} from "@/lib/keyboard";
 
 type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
@@ -532,25 +547,29 @@ export function StudySession({
     partCount,
   ]);
 
+  // ← / → turn cards and Enter opens recall, unless a focused control owns
+  // the key (a button for Enter, the recall textarea for arrows). Escape
+  // leaves recall from inside the textarea.
   useEffect(() => {
     if (viewMode !== "cards" || complete || !currentClip) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.shiftKey || event.isComposing) return;
-      if (phase === "recall") {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          goPrev();
-        }
-        return;
-      }
-      if (event.key === "ArrowRight" || event.key === "Enter") {
-        event.preventDefault();
-        openRecall();
-      }
-      if (event.key === "ArrowLeft") {
+      if (event.shiftKey || hasModifier(event) || cardShortcutsBlocked(event)) return;
+      if (event.key === "Escape" && phase === "recall") {
         event.preventDefault();
         goPrev();
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (isTextEntry(event.target)) return;
+        event.preventDefault();
+        if (event.key === "ArrowLeft") goPrev();
+        else if (phase === "study") openRecall();
+        return;
+      }
+      if (phase === "study" && isCardEnter(event)) {
+        event.preventDefault();
+        openRecall();
       }
     };
 
@@ -617,19 +636,36 @@ export function StudySession({
 
   const recallPerfect = scoreResult?.accuracy === 100;
   const openedFinishedLesson = visitPart === "done" && summary == null;
+  const handleModeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const next =
+      event.key === "ArrowLeft" || event.key === "Home"
+        ? "cards"
+        : event.key === "ArrowRight" || event.key === "End"
+          ? "list"
+          : null;
+    if (!next) return;
+    // Arrows here move between tabs, never between cards.
+    event.preventDefault();
+    event.stopPropagation();
+    setViewMode(next);
+    event.currentTarget.querySelector<HTMLButtonElement>(`[data-mode="${next}"]`)?.focus();
+  };
   const modeToggle = (
     <div
       role="tablist"
       aria-label="Chế độ học"
+      onKeyDown={handleModeKeyDown}
       className="inline-flex w-fit items-center gap-1 rounded-full border border-white/60 bg-white/70 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl"
     >
       <button
         type="button"
         role="tab"
+        data-mode="cards"
         aria-selected={viewMode === "cards"}
         aria-label="Chế độ thẻ"
+        tabIndex={viewMode === "cards" ? 0 : -1}
         onClick={() => setViewMode("cards")}
-        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${FOCUS_RING} ${
           viewMode === "cards"
             ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
             : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
@@ -644,10 +680,12 @@ export function StudySession({
       <button
         type="button"
         role="tab"
+        data-mode="list"
         aria-selected={viewMode === "list"}
         aria-label="Chế độ danh sách"
+        tabIndex={viewMode === "list" ? 0 : -1}
         onClick={() => setViewMode("list")}
-        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${
+        className={`group relative flex h-9 w-14 items-center justify-center rounded-full transition-all duration-300 ${FOCUS_RING} ${
           viewMode === "list"
             ? "bg-[#0066cc] text-white shadow-[0_3px_10px_rgba(0,102,204,0.3)]"
             : "text-[#86868b] hover:bg-white/70 hover:text-[#1d1d1f]"
@@ -692,7 +730,7 @@ export function StudySession({
                   }
                   setQuitOpen(true);
                 }}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95"
+                className={`flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95 ${FOCUS_RING}`}
               >
                 <span
                   className="material-symbols-outlined translate-y-px text-[22px]"
@@ -722,48 +760,14 @@ export function StudySession({
       ) : null}
 
       {quitOpen && showSessionHeader ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
-          role="presentation"
-          onClick={() => setQuitOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="study-quit-title"
-            className="w-full max-w-md rounded-t-[28px] bg-white px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="relative mx-auto h-[128px] w-full overflow-hidden">
-              <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.78]">
-                <Pingu mood="oops" />
-              </div>
-            </div>
-            <h2 id="study-quit-title" className="mt-1 text-[22px] font-bold tracking-tight text-[#1d1d1f]">
-              Đợi đã!
-            </h2>
-            <p className="mt-2 text-[17px] leading-snug font-medium text-[#4b4b4b]">
-              Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ.
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuitOpen(false)}
-              className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0066cc] text-[15px] font-extrabold tracking-wide text-white uppercase"
-            >
-              Tiếp tục học
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                noteLeftSession();
-                router.push(pathHref);
-              }}
-              className="mt-3 flex h-11 w-full items-center justify-center text-[15px] font-extrabold tracking-wide text-[#0066cc] uppercase"
-            >
-              Kết thúc
-            </button>
-          </div>
-        </div>
+        <QuitDialog
+          message="Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."
+          onStay={() => setQuitOpen(false)}
+          onQuit={() => {
+            noteLeftSession();
+            router.push(pathHref);
+          }}
+        />
       ) : null}
 
       {!ready || !progressReady || visitPart == null ? (

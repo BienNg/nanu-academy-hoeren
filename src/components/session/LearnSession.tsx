@@ -50,9 +50,10 @@ import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
-import { Pingu } from "@/components/session/Pingu";
+import { QuitDialog } from "@/components/session/QuitDialog";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { chunkyButton } from "@/components/chunkyButton";
+import { FOCUS_RING } from "@/lib/keyboard";
 
 type LearnSessionProps = {
   course: SessionCourse;
@@ -884,7 +885,7 @@ export function LearnSession({
                   }
                   setQuitOpen(true);
                 }}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95"
+                className={`flex h-11 w-11 items-center justify-center rounded-full text-[#c7c7cc] transition-colors hover:bg-[#f5f5f7] hover:text-[#aeaeb2] active:scale-95 ${FOCUS_RING}`}
               >
                 <span
                   className="material-symbols-outlined translate-y-px text-[22px]"
@@ -922,51 +923,19 @@ export function LearnSession({
       ) : null}
 
       {quitOpen && phase === "practice" ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
-          role="presentation"
-          onClick={() => setQuitOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="quit-title"
-            className="w-full max-w-md rounded-t-[28px] bg-white px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="relative mx-auto h-[128px] w-full overflow-hidden">
-              <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.78]">
-                <Pingu mood="oops" />
-              </div>
-            </div>
-            <h2 id="quit-title" className="mt-1 text-[22px] font-bold tracking-tight text-[#1d1d1f]">
-              Đợi đã!
-            </h2>
-            <p className="mt-2 text-[17px] leading-snug font-medium text-[#4b4b4b]">
-              {losesStreakOnQuit
-                ? "Bạn sẽ mất tiến độ của phần này và chuỗi ngày."
-                : "Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."}
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuitOpen(false)}
-              className="mt-6 flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0066cc] text-[15px] font-extrabold tracking-wide text-white uppercase"
-            >
-              Tiếp tục học
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                noteLeftSession();
-                dropUnfinishedSessionStreak(chapterProgressKey);
-                router.push(pathHref);
-              }}
-              className="mt-3 flex h-11 w-full items-center justify-center text-[15px] font-extrabold tracking-wide text-[#0066cc] uppercase"
-            >
-              Kết thúc
-            </button>
-          </div>
-        </div>
+        <QuitDialog
+          message={
+            losesStreakOnQuit
+              ? "Bạn sẽ mất tiến độ của phần này và chuỗi ngày."
+              : "Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."
+          }
+          onStay={() => setQuitOpen(false)}
+          onQuit={() => {
+            noteLeftSession();
+            dropUnfinishedSessionStreak(chapterProgressKey);
+            router.push(pathHref);
+          }}
+        />
       ) : null}
 
       {!ready || phase === "leaving" ? (

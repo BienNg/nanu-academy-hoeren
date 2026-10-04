@@ -1,6 +1,7 @@
 "use client";
 
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
+import { FOCUS_RING } from "@/lib/keyboard";
 
 /**
  * Duolingo-style 3D button: a solid darker "lip" under the face that the
@@ -17,7 +18,7 @@ export type ChunkyVariant =
   | "disabled";
 
 const BASE =
-  "flex h-[52px] items-center justify-center gap-2 rounded-2xl px-6 text-[15px] font-extrabold uppercase tracking-[0.08em] select-none transition-[translate,box-shadow,filter,background-color] duration-100";
+  `flex h-[52px] items-center justify-center gap-2 rounded-2xl px-6 text-[15px] font-extrabold uppercase tracking-[0.08em] select-none transition-[translate,box-shadow,filter,background-color] duration-100 ${FOCUS_RING}`;
 
 const PRESSABLE = "active:translate-y-[4px] active:shadow-none";
 
@@ -36,7 +37,7 @@ export function chunkyButton(
   return `${BASE} ${VARIANTS[variant]} ${className}`.trim();
 }
 
-type ChunkyButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type ChunkyButtonProps = ComponentProps<"button"> & {
   variant?: ChunkyVariant;
 };
 

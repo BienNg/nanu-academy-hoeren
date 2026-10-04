@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Pingu } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
+import { isCardEnter } from "@/lib/keyboard";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -122,8 +123,7 @@ export function PartCompleteScreen({
   useEffect(() => {
     const armedAt = Date.now() + 400;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-      if (Date.now() < armedAt) return;
+      if (!isCardEnter(event) || Date.now() < armedAt) return;
       event.preventDefault();
       onContinue();
     };

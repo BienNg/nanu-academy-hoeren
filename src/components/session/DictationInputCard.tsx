@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { CheckBar } from "@/components/session/FeedbackSheet";
+import { FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 
@@ -97,8 +98,7 @@ export function DictationInputCard({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-      if (!canSubmit) return;
+      if (!isCardEnter(event) || !canSubmit) return;
       event.preventDefault();
       event.stopPropagation();
       handleSubmit();
@@ -146,7 +146,7 @@ export function DictationInputCard({
               type="button"
               disabled={disabled}
               onClick={() => insertChar(char)}
-              className="flex h-11 min-w-[40px] flex-1 select-none items-center justify-center rounded-xl border-2 border-[#e5e5ea] bg-white text-[17px] font-bold text-[#1d1d1f] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow,background-color] duration-100 hover:bg-[#f7f7f9] active:translate-y-[3px] active:shadow-none disabled:opacity-40"
+              className={`flex h-11 min-w-[40px] flex-1 select-none items-center justify-center rounded-xl border-2 border-[#e5e5ea] bg-white text-[17px] font-bold text-[#1d1d1f] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow,background-color] duration-100 hover:bg-[#f7f7f9] active:translate-y-[3px] active:shadow-none disabled:opacity-40 ${FOCUS_RING}`}
             >
               {char}
             </button>
