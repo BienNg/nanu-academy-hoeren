@@ -13,6 +13,9 @@ import {
   formatActiveDuration,
   lessonVideoStatus,
   completedStudyPartCount,
+  lessonNodeActivityId,
+  lessonNodeParts,
+  lessonPathNodes,
   selectVisits,
   summarizeVisits,
   type VisitRange,
@@ -42,6 +45,13 @@ export type AdminCatalogLesson = {
   interviewSlug?: string;
   /** Practice cards across every part of this lesson. */
   practiceCards?: number;
+  /**
+   * CEFR Lektion drawn as alternating Study and Practice nodes of a few parts
+   * each. Without it the lesson is one Study and one Practice node.
+   */
+  pathNodes?: boolean;
+  /** Practice cards per practice node, in trail order. */
+  nodePracticeCards?: number[];
 };
 
 export type AdminCatalogCourse = {
@@ -261,8 +271,42 @@ function projectLesson(
     studyRunCount > 0
       ? `${studyRunCount} study ${studyRunCount === 1 ? "run" : "runs"}`
       : null;
-  const activities: AdminActivityCard[] =
-    clipTotal === 0
+  const practiceNote =
+    runCount > 0 ? `${runCount} practice ${runCount === 1 ? "run" : "runs"}` : null;
+  const pathNodes =
+    lesson.pathNodes && lesson.learnKey && clipTotal > 0
+      ? lessonPathNodes(lesson.clips, {
+          reviewedClipIds: [...reviewedIds],
+          completedClipIds: [...passedIds],
+          studyFinished: studyCompletedOnce,
+          practiceFinished: listeningCompletedOnce,
+        })
+      : null;
+  const activities: AdminActivityCard[] = pathNodes
+    ? pathNodes.map((node) => {
+        const study = node.kind === "study";
+        const lastOfKind = node.node === node.nodeCount;
+        const status: LessonStatus = node.done
+          ? "completed"
+          : node.clipsDone > 0
+            ? "in-progress"
+            : "not-started";
+        const numbered = node.nodeCount > 1 ? ` ${node.node}` : "";
+        return {
+          id: lessonNodeActivityId(lesson.id, node.kind, node.node, node.nodeCount),
+          label: `${study ? "Study" : "Practice"}${numbered}`,
+          status,
+          percent: node.done ? 100 : percentOf(node.clipsDone, node.clipCount),
+          progressLabel: node.done
+            ? ""
+            : study
+              ? `${node.partsDone}/${node.parts.length}`
+              : `${node.clipsDone}/${node.clipCount}`,
+          note: lastOfKind ? (study ? studyNote : practiceNote) : null,
+          struggling: !study && !node.done && listeningStruggling,
+        } satisfies AdminActivityCard;
+      })
+    : clipTotal === 0
       ? []
       : [
           ...(lesson.learnKey
@@ -284,10 +328,7 @@ function projectLesson(
             status: listeningStatus,
             percent: listeningCompletedOnce ? 100 : percentOf(completedCount, clipTotal),
             progressLabel: listeningCompletedOnce ? "" : `${completedCount}/${clipTotal}`,
-            note:
-              runCount > 0
-                ? `${runCount} practice ${runCount === 1 ? "run" : "runs"}`
-                : null,
+            note: practiceNote,
             struggling: listeningStruggling,
           },
         ];
@@ -470,7 +511,7 @@ type LevelNodeTemplate = {
 
 /**
  * The trail the learner level overview draws: every video of a Lektion, then
- * Study, then Listening. Built from the catalog so every student is placed on
+ * Study and Listening, or alternating Study and Listening nodes on a CEFR Lektion. Built from the catalog so every student is placed on
  * the same nodes regardless of what they have touched.
  */
 function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
@@ -483,6 +524,35 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
     videoKey: lesson.videoKeyPrefix ? `${lesson.videoKeyPrefix}/${video.id}` : null,
   }));
   if (lesson.clips.length === 0) return videos;
+  if (lesson.pathNodes && lesson.learnKey) {
+    const groups = lessonNodeParts(lesson.clips);
+    const nodeCount = groups.length;
+    const numbered = (node: number) => (nodeCount > 1 ? ` ${node}` : "");
+    return [
+      ...videos,
+      ...groups.flatMap((parts, index) => {
+        const node = index + 1;
+        return [
+          {
+            id: lessonNodeActivityId(lesson.id, "study", node, nodeCount),
+            icon: "menu_book",
+            label: `Study${numbered(node)}`,
+            kind: "study" as const,
+            count: parts.reduce((sum, part) => sum + part.length, 0),
+            videoKey: null,
+          },
+          {
+            id: lessonNodeActivityId(lesson.id, "practice", node, nodeCount),
+            icon: "headphones",
+            label: `Practice${numbered(node)}`,
+            kind: "practice" as const,
+            count: lesson.nodePracticeCards?.[index] ?? null,
+            videoKey: null,
+          },
+        ];
+      }),
+    ];
+  }
   return [
     ...videos,
     ...(lesson.learnKey

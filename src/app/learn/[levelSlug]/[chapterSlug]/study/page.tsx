@@ -7,10 +7,14 @@ import {
 import { notFound } from "next/navigation";
 import { StudySession } from "@/components/session/StudySession";
 import { levelSessionCourse } from "@/lib/session-course";
+import { parseNodeParam } from "@/lib/progress";
 
 type LearnStudyPageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
-  searchParams: Promise<{ view?: string | string[]; replay?: string | string[] }>;
+  searchParams: Promise<{
+    view?: string | string[];
+    node?: string | string[];
+  }>;
 };
 
 export default async function LearnStudyPage({
@@ -21,7 +25,6 @@ export default async function LearnStudyPage({
   const { levelSlug, chapterSlug } = await params;
   const query = await searchParams;
   const requestedView = Array.isArray(query.view) ? query.view[0] : query.view;
-  const requestedReplay = Array.isArray(query.replay) ? query.replay[0] : query.replay;
 
   const level = getCefrLevel(levelSlug);
   if (!level) {
@@ -43,7 +46,7 @@ export default async function LearnStudyPage({
       course={levelSessionCourse(level, chapter)}
       clips={clips}
       initialViewMode={requestedView === "list" ? "list" : "cards"}
-      startReplay={requestedReplay === "1"}
+      node={parseNodeParam(query.node)}
     />
   );
 }

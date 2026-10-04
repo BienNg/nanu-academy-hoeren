@@ -20,27 +20,35 @@ import {
   getLivingWorkplaces,
 } from "@/lib/living";
 import { livingAccessSlug } from "@/lib/living-content";
-import { lessonVideoProgressKey, lessonVideoStatus, splitListeningParts } from "@/lib/progress";
+import {
+  lessonNodeParts,
+  lessonVideoProgressKey,
+  lessonVideoStatus,
+} from "@/lib/progress";
 import { practiceCardCount } from "@/lib/practice-deck";
 
-function practiceCardsFor(clips: readonly SessionClip[]): number {
-  if (clips.length === 0) return 0;
-  const parts = splitListeningParts(clips);
-  return parts.reduce((sum, part) => sum + practiceCardCount(part, clips), 0);
+/** Practice cards per practice node. Each practice part deals the clips of one study part. */
+function nodePracticeCardsFor(clips: readonly SessionClip[]): number[] {
+  return lessonNodeParts(clips).map((parts) =>
+    parts.reduce((sum, part) => sum + practiceCardCount(part, clips), 0),
+  );
 }
 
 function chapterLesson(levelSlug: string, chapterSlug: string): {
   clips: { id: string; prompt: string }[];
   practiceCards: number;
+  nodePracticeCards: number[];
 } {
   try {
     const clips = getChapterClips(levelSlug, chapterSlug);
+    const nodePracticeCards = nodePracticeCardsFor(clips);
     return {
       clips: clips.map((clip) => ({ id: clip.id, prompt: clip.script })),
-      practiceCards: practiceCardsFor(clips),
+      practiceCards: nodePracticeCards.reduce((sum, cards) => sum + cards, 0),
+      nodePracticeCards,
     };
   } catch {
-    return { clips: [], practiceCards: 0 };
+    return { clips: [], practiceCards: 0, nodePracticeCards: [] };
   }
 }
 
@@ -90,6 +98,8 @@ export function buildAdminCourseCatalog(
         videoKeyPrefix: `${level.slug}/${chapter.slug}`,
         clips: lesson.clips,
         practiceCards: lesson.practiceCards,
+        pathNodes: true,
+        nodePracticeCards: lesson.nodePracticeCards,
         videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
           video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
         ),

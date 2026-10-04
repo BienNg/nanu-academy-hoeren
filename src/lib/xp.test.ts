@@ -8,6 +8,8 @@ import {
   dayKey,
   decidePartXp,
   decideStudyPartXp,
+  finishedClipPasses,
+  nodePracticeRunSize,
   passesAlreadyFinished,
   formatWeekCountdown,
   googleProfileImage,
@@ -487,4 +489,32 @@ test("workplace learners share a class board, apart from real classes", () => {
   const loner = assembleLeaderboard({ people, viewerId: "self-learner", scope: "class", range: "week", now });
   assert.equal(loner.className, null);
   assert.equal(loner.rows.length, 0);
+});
+
+test("a node practice run must be a whole study part or the rest of one", () => {
+  const parts = [clips(4), clips(4).map((clip, index) => ({ ...clip, id: `d${index}` }))];
+  const base = { parts, partNumber: 2, partCount: 2, completedBefore: new Set<string>() };
+  assert.equal(nodePracticeRunSize({ ...base, runClipIds: ["d0", "d1", "d2", "d3"] }), 4);
+  assert.equal(nodePracticeRunSize({ ...base, runClipIds: ["d2", "d3"] }), null);
+  assert.equal(
+    nodePracticeRunSize({
+      ...base,
+      runClipIds: ["d2", "d3"],
+      completedBefore: new Set(["d0", "d1"]),
+    }),
+    2,
+  );
+  assert.equal(nodePracticeRunSize({ ...base, runClipIds: ["c0", "d1", "d2", "d3"] }), null);
+  assert.equal(nodePracticeRunSize({ ...base, runClipIds: ["d0", "d0", "d2", "d3"] }), null);
+  assert.equal(nodePracticeRunSize({ ...base, partCount: 3, runClipIds: ["d0", "d1", "d2", "d3"] }), null);
+});
+
+test("node practice passes come from the clip passed the fewest times", () => {
+  const counts = new Map([
+    ["a", 2],
+    ["b", 1],
+  ]);
+  assert.equal(finishedClipPasses(["a", "b"], counts), 1);
+  assert.equal(finishedClipPasses(["a", "c"], counts), 0);
+  assert.equal(finishedClipPasses([], counts), 0);
 });

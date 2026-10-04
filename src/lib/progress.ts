@@ -3331,26 +3331,189 @@ export function completedStudyPartCount<T extends { id: string }>(
   return { done: Math.min(open, parts.length + 1) - 1, total: parts.length };
 }
 
-export function studyActivityId(
-  lessonId: string,
-  partNumber: number,
-  partCount: number,
-): string {
-  return partCount <= 1 ? `${lessonId}-study` : `${lessonId}-study-${partNumber}`;
+/** Most study parts one Lektion trail node holds. The practice node after it holds the same parts. */
+export const PARTS_PER_NODE = 4;
+
+export type LessonNodeKind = "study" | "practice";
+
+/**
+ * Study parts grouped into trail nodes, in catalog order.
+ * Nodes are as even as the cap allows, so the last node is at most one part
+ * shorter than the others: 5 parts are 3 + 2, not 4 + 1.
+ * Practice part N covers exactly the clips of study part N.
+ */
+export function lessonNodeParts<T extends { id: string }>(clips: readonly T[]): T[][][] {
+  const parts = splitStudyParts(clips);
+  if (parts.length === 0) return [];
+  const nodeCount = Math.ceil(parts.length / PARTS_PER_NODE);
+  const base = Math.floor(parts.length / nodeCount);
+  const extra = parts.length % nodeCount;
+  const nodes: T[][][] = [];
+  let index = 0;
+  for (let node = 0; node < nodeCount; node += 1) {
+    const size = base + (node < extra ? 1 : 0);
+    nodes.push(parts.slice(index, index + size));
+    index += size;
+  }
+  return nodes;
 }
 
-/** Part number on a study trail id, or null when the id is not a study node. */
-export function studyPartNumberFromActivityId(id: string): number | null {
-  const numbered = /-study-(\d+)$/.exec(id);
-  if (numbered) {
-    const part = Number(numbered[1]);
-    return part >= 1 ? part : null;
-  }
-  return id.endsWith("-study") ? 1 : null;
+export type LessonPathState = {
+  reviewedClipIds: readonly string[];
+  completedClipIds: readonly string[];
+  /** A full study pass is stored, so every study node counts as done. */
+  studyFinished: boolean;
+  /** The Lektion is completed, so every practice node counts as done. */
+  practiceFinished: boolean;
+};
+
+export type LessonPathNode<T extends { id: string }> = {
+  kind: LessonNodeKind;
+  /** 1-based. Study node N and practice node N share their parts. */
+  node: number;
+  nodeCount: number;
+  /** Lesson-wide number of this node's first part. */
+  firstPart: number;
+  /** Study parts across the whole Lektion. Part numbers sent with runs and XP use this. */
+  lessonPartCount: number;
+  parts: T[][];
+  partsDone: number;
+  clipsDone: number;
+  clipCount: number;
+  done: boolean;
+};
+
+/**
+ * The Lektion trail without videos: Study 1, Practice 1, Study 2, Practice 2...
+ * A study part is done once every clip in it is reviewed. A practice part is
+ * done once every clip in it is completed, so practice from the old, wider
+ * parts still counts clip by clip.
+ */
+export function lessonPathNodes<T extends { id: string }>(
+  clips: readonly T[],
+  state: LessonPathState,
+): LessonPathNode<T>[] {
+  const groups = lessonNodeParts(clips);
+  const lessonPartCount = groups.reduce((sum, group) => sum + group.length, 0);
+  const reviewed = new Set(state.reviewedClipIds);
+  const completed = new Set(state.completedClipIds);
+  const nodes: LessonPathNode<T>[] = [];
+  let firstPart = 1;
+  groups.forEach((parts, index) => {
+    for (const kind of ["study", "practice"] as const) {
+      const finished = kind === "study" ? state.studyFinished : state.practiceFinished;
+      const doneIds = kind === "study" ? reviewed : completed;
+      const clipCount = parts.reduce((sum, part) => sum + part.length, 0);
+      const clipsDone = finished
+        ? clipCount
+        : parts.reduce(
+            (sum, part) => sum + part.filter((clip) => doneIds.has(clip.id)).length,
+            0,
+          );
+      const partsDone = finished
+        ? parts.length
+        : parts.filter((part) => part.every((clip) => doneIds.has(clip.id))).length;
+      nodes.push({
+        kind,
+        node: index + 1,
+        nodeCount: groups.length,
+        firstPart,
+        lessonPartCount,
+        parts,
+        partsDone,
+        clipsDone,
+        clipCount,
+        done: partsDone >= parts.length,
+      });
+    }
+    firstPart += parts.length;
+  });
+  return nodes;
+}
+
+/** True when a node before this one on the trail is still unfinished. */
+export function lessonPathNodeLocked<T extends { id: string }>(
+  nodes: readonly LessonPathNode<T>[],
+  kind: LessonNodeKind,
+  node: number,
+): boolean {
+  const index = nodes.findIndex((entry) => entry.kind === kind && entry.node === node);
+  if (index < 0) return true;
+  return nodes.slice(0, index).some((entry) => !entry.done);
+}
+
+/** The node a link without a node number opens: the first unfinished one of that kind. */
+export function currentLessonNode<T extends { id: string }>(
+  nodes: readonly LessonPathNode<T>[],
+  kind: LessonNodeKind,
+): number {
+  return nodes.find((entry) => entry.kind === kind && !entry.done)?.node ?? 1;
+}
+
+export type NodePart<T> = {
+  /** Lesson-wide part number. */
+  partNumber: number;
+  /** Clips to play now. A practice part already partly completed keeps only the rest. */
+  clips: T[];
+  /** Every clip of the part. */
+  partClips: T[];
+};
+
+/**
+ * The first unfinished part of a node, or null when the node is done.
+ * Study plays the whole part. Practice skips clips completed before, which
+ * only happens for practice saved under the old, wider parts.
+ */
+export function nextNodePart<T extends { id: string }>(
+  node: LessonPathNode<T>,
+  doneIds: readonly string[],
+): NodePart<T> | null {
+  if (node.done) return null;
+  const done = new Set(doneIds);
+  const index = node.parts.findIndex((part) => part.some((clip) => !done.has(clip.id)));
+  if (index < 0) return null;
+  const partClips = node.parts[index] ?? [];
+  return {
+    partNumber: node.firstPart + index,
+    clips: node.kind === "practice" ? partClips.filter((clip) => !done.has(clip.id)) : partClips,
+    partClips,
+  };
+}
+
+/**
+ * Trail id for one node. A Lektion with a single node keeps the ids it had
+ * before nodes existed.
+ */
+export function lessonNodeActivityId(
+  lessonId: string,
+  kind: LessonNodeKind,
+  node: number,
+  nodeCount: number,
+): string {
+  const base = `${lessonId}-${kind === "study" ? "study" : "listening"}`;
+  return nodeCount <= 1 ? base : `${base}-${node}`;
+}
+
+/** Kind and node number on a trail id, or null when the id is not a study or practice node. */
+export function lessonNodeFromActivityId(
+  id: string,
+): { kind: LessonNodeKind; node: number } | null {
+  const match = /-(study|listening)(?:-(\d+))?$/.exec(id);
+  if (!match) return null;
+  const node = match[2] ? Number(match[2]) : 1;
+  if (!Number.isInteger(node) || node < 1) return null;
+  return { kind: match[1] === "study" ? "study" : "practice", node };
 }
 
 export function isStudyActivityId(id: string): boolean {
-  return studyPartNumberFromActivityId(id) != null;
+  return lessonNodeFromActivityId(id)?.kind === "study";
+}
+
+/** Reads `?node=` from a study or practice link. Missing or invalid opens the current node. */
+export function parseNodeParam(value: string | string[] | undefined): number | "current" {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const node = raw ? Number(raw) : Number.NaN;
+  return Number.isInteger(node) && node >= 1 ? node : "current";
 }
 
 /** True when `order` is a permutation of the current catalog. */

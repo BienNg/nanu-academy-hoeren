@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { flushSync } from "react-dom";
 import { motion, useAnimation, useReducedMotion } from "framer-motion";
@@ -15,10 +16,15 @@ import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { Pingu } from "@/components/session/Pingu";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import {
+  currentLessonNode,
   firstIncompleteStudyPart,
+  lessonPathNodeLocked,
+  lessonPathNodes,
+  nextNodePart,
   settledStudyReviewedIds,
   splitStudyParts,
 } from "@/lib/progress";
+import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
@@ -32,6 +38,11 @@ type StudySessionProps = {
   initialViewMode?: StudyViewMode;
   /** Open a finished lesson again from part 1. */
   startReplay?: boolean;
+  /**
+   * Trail node to play on a CEFR Lektion. Only that node's parts are played.
+   * Leave it out for a lesson that is one Study node.
+   */
+  node?: number | "current";
 };
 
 function MaterialIcon({
@@ -59,13 +70,18 @@ export function StudySession({
   clips: allClips,
   initialViewMode = "cards",
   startReplay = false,
+  node,
 }: StudySessionProps) {
   const router = useRouter();
+  const { data: authSession, status: authStatus } = useSession();
   const shouldReduceMotion = useReducedMotion();
   const cardTurn = useAnimation();
   const {
     resetLearnStudyProgress,
     reviewedLearnClipIdsFor,
+    completedLearnClipIdsFor,
+    learnChapterCompleted,
+    learnRunCountFor,
     learnStudyCompleted,
     absorbLessonClips,
     progressReady,
@@ -90,12 +106,58 @@ export function StudySession({
     [allClips, storedReviewedIds, studyFinished],
   );
   const replaying = studyFinished && storedReviewedIds.length === 0;
-  const openPart = replaying ? 1 : firstIncompleteStudyPart(parts, settledIds);
-  const lessonAlreadyDone = !replaying && (studyFinished || openPart > partCount);
   const allClipIds = useMemo(() => allClips.map((clip) => clip.id), [allClips]);
   const pathHref = course.pathHref;
 
+  const nodeMode = node !== undefined;
+  const completedIds = completedLearnClipIdsFor(chapterProgressKey);
+  const practiceFinished =
+    learnChapterCompleted(chapterProgressKey) || learnRunCountFor(chapterProgressKey) > 0;
+  const pathNodes = useMemo(
+    () =>
+      nodeMode
+        ? lessonPathNodes(allClips, {
+            reviewedClipIds: settledIds,
+            completedClipIds: completedIds,
+            studyFinished,
+            practiceFinished,
+          })
+        : null,
+    [nodeMode, allClips, settledIds, completedIds, studyFinished, practiceFinished],
+  );
+  const studyNodeCount = pathNodes?.filter((entry) => entry.kind === "study").length ?? 0;
+  const nodeNumber = !pathNodes
+    ? null
+    : node === "current" || node === undefined
+      ? currentLessonNode(pathNodes, "study")
+      : Math.min(Math.max(1, node), Math.max(1, studyNodeCount));
+  const studyNode =
+    pathNodes?.find((entry) => entry.kind === "study" && entry.node === nodeNumber) ?? null;
+  const adminBypass =
+    authStatus === "authenticated" && isAdminUser(authSession?.user ?? {});
+  const nodeLocked =
+    authStatus !== "loading" &&
+    !adminBypass &&
+    pathNodes != null &&
+    nodeNumber != null &&
+    studyNode != null &&
+    !studyNode.done &&
+    lessonPathNodeLocked(pathNodes, "study", nodeNumber);
+  const nodeFirstPart = studyNode?.firstPart ?? 1;
+  const nodeLastPart = studyNode ? studyNode.firstPart + studyNode.parts.length - 1 : partCount;
+  const nodeOpenPart = studyNode ? nextNodePart(studyNode, settledIds)?.partNumber ?? null : null;
+
+  const openPart = nodeMode
+    ? (nodeOpenPart ?? nodeFirstPart)
+    : replaying
+      ? 1
+      : firstIncompleteStudyPart(parts, settledIds);
+  const lessonAlreadyDone =
+    !nodeMode && !replaying && (studyFinished || openPart > partCount);
+
   const [viewMode, setViewMode] = useState<StudyViewMode>(initialViewMode);
+  /** This visit replays a finished node. Fixed when the visit starts. */
+  const [nodeReplay, setNodeReplay] = useState(false);
   const [visitPart, setVisitPart] = useState<number | "done" | null>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [phase, setPhase] = useState<StudyCardPhase>("study");
@@ -143,8 +205,14 @@ export function StudySession({
   }, [progressReady, studyFinished, settleStudyReviews, chapterProgressKey, allClips]);
 
   useEffect(() => {
-    if (!progressReady || visitPart != null) return;
-    if (startReplay && studyFinished && storedReviewedIds.length > 0) {
+    if (!progressReady || !nodeLocked) return;
+    router.replace(pathHref);
+  }, [progressReady, nodeLocked, router, pathHref]);
+
+  useEffect(() => {
+    if (!progressReady || visitPart != null || nodeLocked) return;
+    if (nodeMode && (authStatus === "loading" || (!studyNode && allClips.length > 0))) return;
+    if (!nodeMode && startReplay && studyFinished && storedReviewedIds.length > 0) {
       resetLearnStudyProgress(chapterProgressKey);
       setVisitPart(1);
       partStartedAtRef.current = Date.now();
@@ -159,6 +227,7 @@ export function StudySession({
       return;
     }
     setVisitPart(lessonAlreadyDone ? "done" : openPart);
+    setNodeReplay(nodeMode && nodeOpenPart == null);
     partStartedAtRef.current = Date.now();
     committedRef.current = false;
     leftRecordedRef.current = false;
@@ -179,6 +248,12 @@ export function StudySession({
     storedReviewedIds,
     resetLearnStudyProgress,
     chapterProgressKey,
+    nodeLocked,
+    nodeMode,
+    authStatus,
+    studyNode,
+    nodeOpenPart,
+    allClips.length,
   ]);
 
   const [furthest, setFurthest] = useState(0);
@@ -186,6 +261,17 @@ export function StudySession({
   const complete =
     visitPart === "done" || (ready && clips.length > 0 && clipIndex >= clips.length);
   const lastPart = partCount > 0 && activePart >= partCount;
+  // On a trail node the study pass is finished by whichever part reviews the last
+  // unreviewed clip, which is not always the lesson's last part.
+  const finishesStudy = nodeMode
+    ? !studyFinished &&
+      !nodeReplay &&
+      partClipIds.length > 0 &&
+      allClipIds.every(
+        (id) => storedReviewedIds.includes(id) || partClipIds.includes(id),
+      )
+    : lastPart;
+  const nodeHasNextPart = nodeMode && activePart < nodeLastPart;
   const isReviewed = furthest > clipIndex;
   const progressFill = clips.length === 0 ? 0 : Math.min(1, furthest / clips.length);
   const leaveStateRef = useRef({
@@ -280,14 +366,14 @@ export function StudySession({
         .reduce((sum, value) => sum + (value ?? 0), 0);
       if (!committedRef.current && partClipIds.length > 0) {
         committedRef.current = true;
-        commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
-        if (lastPart) revealStreakCelebration();
+        commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, finishesStudy);
+        if (finishesStudy) revealStreakCelebration();
       }
       setSummary({
         questionCount: count,
         accuracy: Math.round(total / count),
         elapsedMs: Math.max(0, Date.now() - partStartedAtRef.current),
-        finishRun: lastPart,
+        finishRun: finishesStudy,
         partNumber: activePart,
       });
     }
@@ -301,7 +387,7 @@ export function StudySession({
     clipIndex,
     clips.length,
     scoreResult,
-    lastPart,
+    finishesStudy,
     activePart,
     partClipIds,
     commitStudyPartDone,
@@ -320,6 +406,23 @@ export function StudySession({
     setPhase("study");
     setClipIndex((index) => index - 1);
   }, [phase, clipIndex, clearAttempt]);
+
+  /** Next part of the same trail node, without leaving the session. */
+  const startNextNodePart = () => {
+    committedRef.current = false;
+    leftRecordedRef.current = false;
+    xpRequestedRef.current = false;
+    partStartedAtRef.current = Date.now();
+    setXpGrant(null);
+    clearAttempt();
+    setPhase("study");
+    setShownPhase("study");
+    setFurthest(0);
+    setClipIndex(0);
+    setSummary(null);
+    scoresRef.current = [];
+    setVisitPart(activePart + 1);
+  };
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
@@ -344,8 +447,8 @@ export function StudySession({
     }
     if (!committedRef.current) {
       committedRef.current = true;
-      commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, lastPart);
-      if (lastPart) revealStreakCelebration();
+      commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, finishesStudy);
+      if (finishesStudy) revealStreakCelebration();
     }
     if (xpRequestedRef.current) return;
     xpRequestedRef.current = true;
@@ -383,7 +486,7 @@ export function StudySession({
     commitStudyPartDone,
     chapterProgressKey,
     lessonKey,
-    lastPart,
+    finishesStudy,
     activePart,
     partCount,
   ]);
@@ -627,8 +730,12 @@ export function StudySession({
       ) : visitPart === "done" || complete ? (
         summary?.finishRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
-          partNumber={summary?.partNumber ?? partCount}
-          partCount={partCount}
+          partNumber={
+            nodeMode
+              ? (summary?.partNumber ?? activePart) - nodeFirstPart + 1
+              : (summary?.partNumber ?? partCount)
+          }
+          partCount={nodeMode ? nodeLastPart - nodeFirstPart + 1 : partCount}
           levelLabel={course.groupLabel}
           chapterLabel={course.lessonLabel}
           questionCount={summary?.questionCount ?? allClips.length}
@@ -638,12 +745,20 @@ export function StudySession({
           xpKind={openedFinishedLesson ? null : (xpGrant?.kind ?? null)}
           xpPending={openedFinishedLesson ? false : Boolean(xpGrant?.pending)}
           streakDays={streakDays}
-          finishRun={summary?.finishRun ?? visitPart === "done"}
+          finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
-          continueLabel="Về bài học"
-          onContinue={() => router.push(pathHref)}
-          secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
-          onSecondary={openedFinishedLesson ? beginReview : undefined}
+          continueLabel={nodeHasNextPart ? "Phần tiếp theo" : "Về bài học"}
+          onContinue={nodeHasNextPart ? startNextNodePart : () => router.push(pathHref)}
+          secondaryLabel={
+            nodeHasNextPart ? "Về bài học" : openedFinishedLesson ? "Xem lại" : undefined
+          }
+          onSecondary={
+            nodeHasNextPart
+              ? () => router.push(pathHref)
+              : openedFinishedLesson
+                ? beginReview
+                : undefined
+          }
         />
         )
       ) : clips.length === 0 ? (

@@ -7,16 +7,20 @@ import {
 import { notFound } from "next/navigation";
 import { LearnSession } from "@/components/session/LearnSession";
 import { levelSessionCourse } from "@/lib/session-course";
+import { parseNodeParam } from "@/lib/progress";
 
 type LearnPracticePageProps = {
   params: Promise<{ levelSlug: string; chapterSlug: string }>;
+  searchParams: Promise<{ node?: string | string[] }>;
 };
 
 export default async function LearnPracticePage({
   params,
+  searchParams,
 }: LearnPracticePageProps) {
   const session = await requireUser();
   const { levelSlug, chapterSlug } = await params;
+  const query = await searchParams;
 
   const level = getCefrLevel(levelSlug);
   if (!level) {
@@ -44,6 +48,7 @@ export default async function LearnPracticePage({
           : `/learn/${levelSlug}`
       }
       hasNextChapter={Boolean(nextChapter)}
+      node={parseNodeParam(query.node)}
     />
   );
 }

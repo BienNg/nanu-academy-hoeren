@@ -17,7 +17,11 @@ import { checkNumberAnswer } from "@/lib/living-content";
 import {
   catalogCompletedCount,
   clipsInStoredOrder,
+  currentLessonNode,
   firstIncompletePartIndex,
+  lessonPathNodeLocked,
+  lessonPathNodes,
+  nextNodePart,
   learnQueue,
   openListeningParts,
   preservedReviewOrder,
@@ -54,6 +58,11 @@ type LearnSessionProps = {
   clips: SessionClip[];
   nextChapterHref: string;
   hasNextChapter: boolean;
+  /**
+   * Trail node to play on a CEFR Lektion. Only that node's parts are played,
+   * one part per visit. Leave it out for a lesson that is one Practice node.
+   */
+  node?: number | "current";
 };
 
 const LISTENING_HEARTS = 3;
@@ -165,6 +174,7 @@ export function LearnSession({
   clips,
   nextChapterHref,
   hasNextChapter,
+  node,
 }: LearnSessionProps) {
   const router = useRouter();
   const { data: authSession, status } = useSession();
@@ -183,6 +193,12 @@ export function LearnSession({
   const [combo, setCombo] = useState(0);
   const [quitOpen, setQuitOpen] = useState(false);
   const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
+  /** Part of a finished node this visit replays. Null on a first pass. */
+  const [replayPart, setReplayPart] = useState<number | null>(null);
+  /** Lesson-wide part numbers of the node being played. */
+  const [nodeRange, setNodeRange] = useState<{ first: number; last: number } | null>(null);
+  /** This part completes the last clip of the Lektion. */
+  const [partFinishesLesson, setPartFinishesLesson] = useState(false);
   const comboCountedKeyRef = useRef<string | null>(null);
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
@@ -202,6 +218,8 @@ export function LearnSession({
     learnRunClipOrderFor,
     learnChapterCompleted,
     learnStudyCompleted,
+    learnRunCountFor,
+    reviewedLearnClipIdsFor,
     progressReady,
     absorbLessonClips,
     markLearnChapterDone,
@@ -223,11 +241,36 @@ export function LearnSession({
   const chapterMarkedDone = learnChapterCompleted(chapterProgressKey);
   const adminBypass =
     status === "authenticated" && isAdminUser(authSession?.user ?? {});
+  const nodeMode = node !== undefined;
+  const reviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
+  const studyFinished = learnStudyCompleted(chapterProgressKey);
+  const practiceFinished = chapterMarkedDone || learnRunCountFor(chapterProgressKey) > 0;
+  const pathNodes = nodeMode
+    ? lessonPathNodes(clips, {
+        reviewedClipIds: reviewedIds,
+        completedClipIds: completedIds,
+        studyFinished,
+        practiceFinished,
+      })
+    : null;
+  const practiceNodeCount = pathNodes?.filter((entry) => entry.kind === "practice").length ?? 0;
+  const nodeNumber = !pathNodes
+    ? null
+    : node === "current" || node === undefined
+      ? currentLessonNode(pathNodes, "practice")
+      : Math.min(Math.max(1, node), Math.max(1, practiceNodeCount));
+  const practiceNode =
+    pathNodes?.find((entry) => entry.kind === "practice" && entry.node === nodeNumber) ?? null;
+  // Before nodes, practice opened only after the whole study pass. On the trail,
+  // a node opens once every node before it is done; a finished node can always replay.
   const practiceLocked =
     status !== "loading" &&
     !adminBypass &&
     clips.length > 0 &&
-    !learnStudyCompleted(chapterProgressKey);
+    (pathNodes && nodeNumber != null
+      ? !practiceNode?.done && lessonPathNodeLocked(pathNodes, "practice", nodeNumber)
+      : !studyFinished);
+  const reviewedKey = reviewedIds.join("\n");
   const completedKey = completedIds.join("\n");
   const runCompletedKey = runCompletedIds.join("\n");
   const runOrderKey = runOrder.join("\n");
@@ -271,11 +314,73 @@ export function LearnSession({
     );
     absorbLessonClips(chapterProgressKey, clipIds);
 
+
     const catalogDone =
       chapterMarkedDone ||
       catalogCompletedCount(clips, absorbedCompleted) >= clips.length;
     if (catalogDone && !chapterMarkedDone) {
       markLearnChapterDone(chapterProgressKey);
+    }
+
+    if (nodeMode) {
+      if (!practiceNode || !pathNodes) return;
+      const first = practiceNode.firstPart;
+      const last = first + practiceNode.parts.length - 1;
+      // A finished node is replayed part by part inside this visit. Nothing about
+      // the replay is stored, so leaving starts the next replay at part 1 again.
+      const open = replayPart == null ? nextNodePart(practiceNode, absorbedCompleted) : null;
+      const replaying = replayPart != null || open == null;
+      const playPart = replaying ? (replayPart ?? first) : open.partNumber;
+      const nextPartClips = replaying
+        ? (practiceNode.parts[playPart - first] ?? [])
+        : open.clips;
+      const doneAfter = new Set([...absorbedCompleted, ...nextPartClips.map((clip) => clip.id)]);
+      const finishesLesson =
+        !replaying && !chapterMarkedDone && clipIds.every((id) => doneAfter.has(id));
+      const signature = [
+        "node",
+        String(practiceNode.node),
+        replaying ? "replay" : "first",
+        String(playPart),
+        nextPartClips.map((clip) => clip.id).join("|"),
+      ].join("~");
+      if (initializedSourceRef.current === signature) return;
+
+      initializedSourceRef.current = signature;
+      partStartedAtRef.current = Date.now();
+      committedRef.current = false;
+      completingRef.current = false;
+      leftRecordedRef.current = false;
+      missedClipIdsRef.current = new Set();
+      missedKindsRef.current = new Map();
+      missedAnswersRef.current = new Map();
+      missedCardKeysRef.current = new Set();
+      pairingSolvedKeyRef.current = null;
+      failedRef.current = false;
+      comboCountedKeyRef.current = null;
+      setSummary(null);
+      setHeartsLeft(LISTENING_HEARTS);
+      setBreakingIndex(null);
+      setCombo(0);
+      setQuitOpen(false);
+      setReplayPart(replaying ? playPart : null);
+      setNodeRange({ first, last });
+      setPartFinishesLesson(finishesLesson);
+      setPartClips(nextPartClips);
+      setPartCards(
+        mixListeningChoice(
+          insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []),
+          clips,
+        ),
+      );
+      setPartNumber(playPart);
+      setPartCount(practiceNode.lessonPartCount);
+      setClipIndex(0);
+      setScoreResult(null);
+      setMcResult(null);
+      setPairingResult(null);
+      setDraft("");
+      return;
     }
 
     const review = catalogDone;
@@ -379,6 +484,10 @@ export function LearnSession({
     completedKey,
     runCompletedKey,
     runOrderKey,
+    reviewedKey,
+    replayPart,
+    nodeMode,
+    node,
     absorbLessonClips,
     markLearnChapterDone,
     setLearnRunOrder,
@@ -395,14 +504,17 @@ export function LearnSession({
   const ready = partCards !== null;
   const isPerfect =
     scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
-  const isLastPart = partCount > 0 && partNumber >= partCount;
+  const isLastPart = nodeMode ? partFinishesLesson : partCount > 0 && partNumber >= partCount;
+  const nodeHasNextPart = nodeRange != null && partNumber < nodeRange.last && !isLastPart;
   const failedRun = summary?.failed === true;
   const exitLabel =
-    failedRun || !isLastPart
-      ? "Về bài học"
-      : hasNextChapter
-        ? course.nextLessonLabel
-        : course.finishLabel;
+    nodeHasNextPart && !failedRun
+      ? "Phần tiếp theo"
+      : failedRun || !isLastPart
+        ? "Về bài học"
+        : hasNextChapter
+          ? course.nextLessonLabel
+          : course.finishLabel;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase === "practice");
   const losesStreakOnQuit =
     dropStreakForUnfinishedSession(progress, chapterProgressKey).streakDays < streakDays;
@@ -595,7 +707,7 @@ export function LearnSession({
   const commitPart = () => {
     if (committedRef.current || !partClips || partClips.length === 0) return;
     committedRef.current = true;
-    const finishRun = partCount > 0 && partNumber >= partCount;
+    const finishRun = isLastPart;
     commitLearnListeningPart(
       chapterProgressKey,
       partClips.map((clip) => clip.id),
@@ -685,8 +797,17 @@ export function LearnSession({
   };
 
   const continueAfterPart = () => {
-    const finishRun =
-      !failedRef.current && partCount > 0 && partNumber >= partCount;
+    const finishRun = !failedRef.current && isLastPart;
+    if (nodeHasNextPart && !failedRef.current) {
+      // The next part loads from progress on a first pass, or from the replay cursor.
+      if (replayPart != null) setReplayPart(replayPart + 1);
+      initializedSourceRef.current = "";
+      setPartCards(null);
+      resetCardResults();
+      setClipIndex(0);
+      setPhase("practice");
+      return;
+    }
     setPhase("leaving");
     router.push(finishRun ? nextChapterHref : pathHref);
   };
@@ -848,8 +969,8 @@ export function LearnSession({
       ) : phase === "complete" && summary ? (
         isLastPart && !failedRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
-          partNumber={partNumber}
-          partCount={partCount}
+          partNumber={nodeRange ? partNumber - nodeRange.first + 1 : partNumber}
+          partCount={nodeRange ? nodeRange.last - nodeRange.first + 1 : partCount}
           levelLabel={course.groupLabel}
           chapterLabel={course.lessonLabel}
           questionCount={summary.questionCount}
@@ -863,6 +984,15 @@ export function LearnSession({
           failed={failedRun}
           continueLabel={exitLabel}
           onContinue={continueAfterPart}
+          secondaryLabel={nodeHasNextPart && !failedRun ? "Về bài học" : undefined}
+          onSecondary={
+            nodeHasNextPart && !failedRun
+              ? () => {
+                  setPhase("leaving");
+                  router.push(pathHref);
+                }
+              : undefined
+          }
         />
         )
       ) : !currentClip ? (

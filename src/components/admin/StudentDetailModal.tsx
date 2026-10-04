@@ -39,7 +39,7 @@ import {
   formatActiveDuration,
   isStudyActivityId,
   signInSummary,
-  studyPartNumberFromActivityId,
+  lessonNodeFromActivityId,
   type StoredProgress,
 } from "@/lib/progress";
 import { formatAdminTimestamp, type AdminUserRow } from "@/lib/admin-overview";
@@ -326,13 +326,14 @@ export function LessonContentMeters({
         />
       ))}
       {lesson.activities.map((activity) => {
-        const part: StudentProgressPart | null = isStudyActivityId(activity.id)
-          ? "study"
-          : activity.id.endsWith("-listening")
-            ? "listening"
-            : null;
-        const studyPart = studyPartNumberFromActivityId(activity.id);
-        const showStudyDelete = studyPart == null || studyPart === 1;
+        const trailNode = lessonNodeFromActivityId(activity.id);
+        const part: StudentProgressPart | null = trailNode
+          ? trailNode.kind === "study"
+            ? "study"
+            : "listening"
+          : null;
+        // Deleting clears that kind for the whole Lektion, so only the first node offers it.
+        const showStudyDelete = trailNode?.node === 1;
         return (
           <ActivityMeter
             key={activity.id}

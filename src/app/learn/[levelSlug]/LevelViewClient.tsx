@@ -16,9 +16,12 @@ import {
   type AdminLessonDetail,
 } from "@/lib/admin-detail";
 import {
-  isStudyActivityId,
+  lessonNodeFromActivityId,
+  lessonPathNodes,
   nextListeningPart,
+  nextNodePart,
   nextStudyPart,
+  type LessonPathNode,
   type NextPart,
 } from "@/lib/progress";
 import {
@@ -228,11 +231,42 @@ function lessonTopicCaption(
   return { text: topic, current: false };
 }
 
+/**
+ * Start card for one Study or Practice node of a CEFR Lektion.
+ * An unfinished node offers its next part. A finished node offers a replay
+ * of all its parts.
+ */
+function nodeStartOffer(
+  node: LessonPathNode<{ id: string; script?: string }>,
+  doneIds: readonly string[],
+  lessonHref: string,
+): StartOffer {
+  const study = node.kind === "study";
+  const next = nextNodePart(node, doneIds);
+  const replay = next == null;
+  const localPart = replay ? 1 : next.partNumber - node.firstPart + 1;
+  const clips = replay ? node.parts.flat() : next.clips;
+  const unit = clipUnit(clips);
+  return {
+    title: study ? "Học từ vựng" : "Luyện tập",
+    exercise: `Phần ${localPart} / ${node.parts.length}`,
+    detail: replay ? `Ôn ${clips.length} ${unit}` : `Học ${clips.length} ${unit} mới`,
+    xp: study
+      ? replay
+        ? STUDY_RERUN_PART_XP
+        : STUDY_FIRST_PART_XP
+      : replay
+        ? LISTENING_RERUN_PART_XP
+        : LISTENING_FIRST_PART_XP,
+    href: `${lessonHref}/${study ? "study" : "practice"}?node=${node.node}`,
+  };
+}
+
 function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
   videoHref: (videoId: string) => string,
-  starts: { study: StartOffer | null; practice: StartOffer | null },
+  startFor: (activityId: string) => StartOffer | null,
 ): TrailNode[] {
   if (!lesson) return [];
 
@@ -256,21 +290,24 @@ function lessonTrailNodes(
   }));
 
   const activities = lesson.activities.map((activity) => {
-    const isStudy = isStudyActivityId(activity.id);
+    const trailNode = lessonNodeFromActivityId(activity.id);
+    const isStudy = trailNode?.kind === "study";
+    const numbered = /-\d+$/.test(activity.id) && trailNode ? ` ${trailNode.node}` : "";
     const primary = isStudy ? activity.progressLabel || null : null;
     const label = isStudy
-      ? ["Study", activity.progressLabel || null].filter(Boolean).join(", ")
-      : "Luyện tập";
+      ? [`Study${numbered}`, activity.progressLabel || null].filter(Boolean).join(", ")
+      : `Luyện tập${numbered}`;
+    const page = isStudy ? "study" : "practice";
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "fitness_center",
-      href: `${lessonHref}/${isStudy ? "study" : "practice"}`,
+      href: numbered ? `${lessonHref}/${page}?node=${trailNode?.node}` : `${lessonHref}/${page}`,
       percent: activity.percent,
       complete: activity.status === "completed",
       struggling: activity.struggling,
       primary,
       secondary: null,
-      start: isStudy ? starts.study : starts.practice,
+      start: startFor(activity.id),
       label,
     };
   });
@@ -323,8 +360,9 @@ function ContinueGuideBubble({
 
 /**
  * On an open Lektion, video nodes stay open so a leading run can be skipped.
- * The first node after those videos is open too. Every later node stays locked
- * until the node immediately before it is complete. Admins skip that sequence
+ * The first node after those videos is open too, and so is every finished
+ * node. Every other node stays locked until each Study and Practice node
+ * before it is complete. Admins skip that sequence
  * on a real Lektion. Coming soon lessons stay locked for everyone.
  */
 function trailNodeLocked(
@@ -337,12 +375,16 @@ function trailNodeLocked(
   if (!lessonOpen) return true;
   const node = nodes[index];
   if (!node || isVideoTrailNode(node)) return false;
+  // A finished node stays open for replay, even after an earlier gap.
+  if (node.complete) return false;
 
   let lead = 0;
   while (lead < nodes.length && isVideoTrailNode(nodes[lead])) lead += 1;
   if (index <= lead) return false;
 
-  return !nodes[index - 1]?.complete;
+  return nodes
+    .slice(lead, index)
+    .some((earlier) => !isVideoTrailNode(earlier) && !earlier.complete);
 }
 
 function ProgressRing({
@@ -1144,10 +1186,21 @@ export default function LevelViewClient({
     learnRunCountFor,
     learnStudyRunCountFor,
     learnChapterCompleted,
+    learnStudyCompleted,
     reviewedLearnClipIdsFor,
     streakDays,
     settleStudyReviews,
   } = useProgress();
+  const pathNodeLessonIds = useMemo(
+    () =>
+      new Set(
+        cefrCatalog
+          .find((entry) => entry.id === level.slug)
+          ?.lessons.filter((lesson) => lesson.pathNodes)
+          .map((lesson) => lesson.id) ?? [],
+      ),
+    [cefrCatalog, level.slug],
+  );
   const courseDetail = useMemo(() => {
     return projectStudentDetail(cefrCatalog, progress).courses.find(
       (entry) => entry.id === level.slug,
@@ -1472,32 +1525,54 @@ export default function LevelViewClient({
             );
             const studyPasses = learnStudyRunCountFor(progressKeyOf(chapter));
             const listeningPasses = learnRunCountFor(progressKeyOf(chapter));
+            const studyStart = studyPart
+              ? startOffer(
+                  "Học từ vựng",
+                  studyPart,
+                  xpForFinishedPasses(studyPasses, STUDY_FIRST_PART_XP, STUDY_RERUN_PART_XP).xp,
+                  studyPart.freshReplay ? `${lessonHref}/study?replay=1` : `${lessonHref}/study`,
+                )
+              : null;
+            const practiceStart = listeningPart
+              ? startOffer(
+                  "Luyện tập",
+                  listeningPart,
+                  xpForFinishedPasses(
+                    listeningPasses,
+                    LISTENING_FIRST_PART_XP,
+                    LISTENING_RERUN_PART_XP,
+                  ).xp,
+                  `${lessonHref}/practice`,
+                )
+              : null;
+            const reviewedIds = reviewedLearnClipIdsFor(progressKeyOf(chapter));
+            const completedIds = completedLearnClipIdsFor(progressKeyOf(chapter));
+            const pathNodes = pathNodeLessonIds.has(`${level.slug}-${chapter.slug}`)
+              ? lessonPathNodes(practiceClips, {
+                  reviewedClipIds: reviewedIds,
+                  completedClipIds: completedIds,
+                  studyFinished: learnStudyCompleted(progressKeyOf(chapter)),
+                  practiceFinished: isCompleted || listeningPasses > 0,
+                })
+              : null;
             const nodes = lessonTrailNodes(
               lessonDetail,
               lessonHref,
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
-              {
-                study: studyPart
-                  ? startOffer(
-                      "Học từ vựng",
-                      studyPart,
-                      xpForFinishedPasses(studyPasses, STUDY_FIRST_PART_XP, STUDY_RERUN_PART_XP).xp,
-                      studyPart.freshReplay ? `${lessonHref}/study?replay=1` : `${lessonHref}/study`,
-                    )
-                  : null,
-                practice: listeningPart
-                  ? startOffer(
-                      "Luyện tập",
-                      listeningPart,
-                      xpForFinishedPasses(
-                        listeningPasses,
-                        LISTENING_FIRST_PART_XP,
-                        LISTENING_RERUN_PART_XP,
-                      ).xp,
-                      `${lessonHref}/practice`,
-                    )
-                  : null,
+              (activityId) => {
+                const trailNode = lessonNodeFromActivityId(activityId);
+                if (!trailNode) return null;
+                if (!pathNodes) return trailNode.kind === "study" ? studyStart : practiceStart;
+                const node = pathNodes.find(
+                  (entry) => entry.kind === trailNode.kind && entry.node === trailNode.node,
+                );
+                if (!node) return null;
+                return nodeStartOffer(
+                  node,
+                  node.kind === "study" ? reviewedIds : completedIds,
+                  lessonHref,
+                );
               },
             );
             const topicLine = lessonTopicCaption(

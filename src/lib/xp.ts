@@ -291,6 +291,48 @@ export function passesAlreadyFinished(input: {
   return Math.max(recorded, fromProgress);
 }
 
+/**
+ * Clip count a practice run on a CEFR trail node must have, or null when the
+ * run does not fit part `partNumber`. Practice part N deals the clips of study
+ * part N. A run may also be the rest of that part when its other clips were
+ * completed before, which happens for practice saved under the old, wider parts.
+ */
+export function nodePracticeRunSize(input: {
+  /** Study parts of the lesson, in order. */
+  parts: readonly (readonly { id: string }[])[];
+  partNumber: number;
+  partCount: number;
+  runClipIds: readonly string[];
+  /** Clips of this lesson the learner completed before this run. */
+  completedBefore: ReadonlySet<string>;
+}): number | null {
+  if (input.partCount !== input.parts.length) return null;
+  const part = input.parts[input.partNumber - 1];
+  if (!part || part.length === 0) return null;
+  const run = new Set(input.runClipIds);
+  if (run.size === 0 || run.size !== input.runClipIds.length) return null;
+  const partIds = new Set(part.map((clip) => clip.id));
+  for (const id of run) {
+    if (!partIds.has(id)) return null;
+  }
+  for (const id of partIds) {
+    if (!run.has(id) && !input.completedBefore.has(id)) return null;
+  }
+  return run.size;
+}
+
+/**
+ * Passes already finished for a node practice run: the fewest earlier passes
+ * of any clip in it. A run with one clip never passed before is a first pass.
+ */
+export function finishedClipPasses(
+  runClipIds: readonly string[],
+  passCounts: ReadonlyMap<string, number>,
+): number {
+  if (runClipIds.length === 0) return 0;
+  return Math.min(...runClipIds.map((id) => passCounts.get(id) ?? 0));
+}
+
 /** XP for one part from how many full passes of that lesson are already finished. */
 export function xpForFinishedPasses(
   finishedPasses: number,
@@ -368,7 +410,7 @@ export function decideStudyPartXp(input: {
   /** How many clips this part number must contain. Null when the part is not real. */
   expectedCount: number | null;
   clipCount: number;
-  /** Full study passes of this lesson already finished, not counting this part. */
+  /** Earlier paid passes of this study part, not counting this one. */
   finishedPasses: number;
   now: Date;
 }): XpDecision {
