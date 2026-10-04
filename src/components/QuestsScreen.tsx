@@ -13,6 +13,7 @@ import {
   type QuestKind,
   type QuestUpdate,
 } from "@/lib/quests";
+import { publishQuestBadge } from "@/lib/quest-badge";
 import { formatWeekCountdown } from "@/lib/xp";
 
 type QuestRow = {
@@ -346,6 +347,7 @@ export function QuestsScreen() {
       .then((data: unknown) => {
         const board = readBoard(data);
         setState(board ? { status: "ready", board } : { status: "unavailable" });
+        publishQuestBadge(board ? board.quests.filter((quest) => !quest.done).length : 0);
         if (board?.update && board.update.xp > 0) setToast(board.update);
         const loadedAt = Date.now();
         setNow(loadedAt);

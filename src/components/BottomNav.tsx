@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/quest-badge";
+import { questZoneHeaders } from "@/lib/quests";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-4" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-4" },
   { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-2.5" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-4" },
   { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-2.5" },
 ] as const;
 
@@ -50,6 +52,37 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [challenges, setChallenges] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
+  const questsLeft = useSyncExternalStore(subscribeQuestBadge, readQuestBadge, () => 0);
+
+  useEffect(() => {
+    // The quests screen publishes its own count, so it needs no second request.
+    if (pathname.startsWith("/quests")) return;
+    let cancelled = false;
+    const load = () => {
+      void fetch("/api/quests", { headers: questZoneHeaders() })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: unknown) => {
+          if (cancelled || !data || typeof data !== "object") return;
+          const board = data as { ready?: unknown; quests?: unknown };
+          if (board.ready !== true || !Array.isArray(board.quests)) {
+            publishQuestBadge(0);
+            return;
+          }
+          publishQuestBadge(
+            board.quests.filter((quest) => !(quest as { done?: unknown }).done).length,
+          );
+        })
+        .catch(() => {
+          // The tab still works. The badge appears after the next check.
+        });
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", load);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,8 +115,11 @@ export function BottomNav() {
       <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
         {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
           const active = isCurrent(pathname, item.href);
-          const badge = item.href === "/duel" ? challenges : 0;
-          const label = badge > 0 ? `${item.label}, ${badge} lời thách đấu chưa chơi` : item.label;
+          const badge =
+            item.href === "/duel" ? challenges : item.href === "/quests" ? questsLeft : 0;
+          const badgeNote =
+            item.href === "/quests" ? "nhiệm vụ chưa xong" : "lời thách đấu chưa chơi";
+          const label = badge > 0 ? `${item.label}, ${badge} ${badgeNote}` : item.label;
           return (
             <Link
               key={item.href}
