@@ -458,6 +458,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       clip.kind === "order" ||
       clip.kind === "multiple-choice" ||
       clip.kind === "vi-choice" ||
+      clip.kind === "listening-choice" ||
       clockStartRef.current == null
     ) {
       return;
@@ -494,7 +495,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   const submitMc = (selectedId: string) => {
     if (
       phase !== "play" ||
-      (clip?.kind !== "multiple-choice" && clip?.kind !== "vi-choice") ||
+      (clip?.kind !== "multiple-choice" && clip?.kind !== "vi-choice" && clip?.kind !== "listening-choice") ||
       clockStartRef.current == null
     ) {
       return;
@@ -673,6 +674,17 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 options={clip.options ?? []}
                 onSubmit={submitMc}
               />
+            ) : clip.kind === "listening-choice" && clip.audioPath ? (
+              <>
+                <AudioPlayerCard key={`listen-choice-audio-${clip.position}`} audioPath={clip.audioPath} />
+                <McCard
+                  key={`listen-choice-${clip.position}`}
+                  prompt="Câu này nghĩa là gì?"
+                  options={clip.options ?? []}
+                  onSubmit={submitMc}
+                  icon="hearing"
+                />
+              </>
             ) : clip.kind === "vi-input" ? (
               <>
                 <section className="flex items-center gap-3 rounded-[24px] bg-white px-5 py-4 shadow-[0_4px_0_0_#dae2fd]">

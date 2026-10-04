@@ -153,7 +153,7 @@ type ClipRow = {
   lesson_key: string;
   clip_id: string;
   kind: DuelCardKind;
-  /** The 4 answer options, generated once at duel-creation time. Only for multiple-choice cards. */
+  /** The 4 answer options, generated once at duel-creation time. Only for multiple-choice and listening-choice cards. */
   options: McOptionRow[] | null;
 };
 
@@ -702,7 +702,9 @@ function clipFromRow(raw: unknown): ClipRow | null {
           ? "vi-choice"
           : row.kind === "vi-input"
             ? "vi-input"
-            : "listening";
+            : row.kind === "listening-choice"
+              ? "listening-choice"
+              : "listening";
   return {
     position: row.position,
     lesson_key: row.lesson_key,
@@ -1053,6 +1055,7 @@ export async function createDuel(user: {
           multipleChoice: known?.multipleChoice === true,
         };
       }),
+      () => randomInt(1_000_000) / 1_000_000,
     ).flatMap((card) => {
       const known = catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId));
       const extras: { clip: typeof card.clip; kind: DuelCardKind }[] = [];
@@ -1065,7 +1068,7 @@ export async function createDuel(user: {
       return {
         ...card,
         options:
-          card.kind === "multiple-choice"
+          card.kind === "multiple-choice" || card.kind === "listening-choice"
             ? mcOptionsForClip(known)
             : card.kind === "vi-choice"
               ? deOptionsForClip(known)
@@ -1499,7 +1502,7 @@ async function settleClip(
   const result =
     clip.kind === "order"
       ? checkOrder(typed.split(/\s+/).filter(Boolean), known.script)
-      : clip.kind === "multiple-choice"
+      : clip.kind === "multiple-choice" || clip.kind === "listening-choice"
         ? checkMcAnswer(typed, known.translationVi ?? "")
         : clip.kind === "vi-choice"
           ? checkMcAnswer(typed, known.script)

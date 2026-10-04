@@ -4,6 +4,7 @@ import { buildPracticeDeck } from "./sentence-order.js";
 import {
   insertDiscreteCards,
   maxClipsPerPracticePart,
+  mixListeningChoice,
   practiceCardCount,
   MAX_PRACTICE_CARDS,
 } from "./practice-deck.js";
@@ -200,4 +201,41 @@ test("five picture words fit one part and get a picture pairing card", () => {
   assert.equal(deck.filter((card) => card.kind === "pairing").length, 1);
   assert.ok(!deck.some((card) => card.kind === "vi-input" || card.kind === "vi-choice"));
   assert.ok(deck.length <= MAX_PRACTICE_CARDS);
+});
+
+test("60% of listening cards become listening-choice cards in place", () => {
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const deck = insertDiscreteCards(
+      buildPracticeDeck(partClips, partClips, seeded(seed)),
+      partClips,
+      partClips,
+      [],
+      seeded(seed + 50),
+    );
+    const mixed = mixListeningChoice(deck, partClips, [], seeded(seed + 100));
+    const choice = mixed.filter((card) => card.kind === "listening-choice");
+
+    assert.equal(mixed.length, deck.length);
+    assert.equal(choice.length, 4); // round(6 * 0.6), all from c1-c5
+    assert.equal(mixed.filter((card) => card.kind === "listening").length, 2);
+    assert.ok(!choice.some((card) => card.clip.id === "c6"));
+    for (const card of choice) {
+      const at = mixed.indexOf(card);
+      assert.equal(deck[at]?.kind, "listening");
+      assert.equal(deck[at]?.clip.id, card.clip.id);
+      assert.equal(card.options?.length, 4);
+      assert.equal(card.options?.find((option) => option.correct)?.text, card.clip.translationVi);
+      assert.ok(mixed.some((other) => other.kind === "multiple-choice" && other.clip.id === card.clip.id));
+    }
+  }
+});
+
+test("listening cards without Vietnamese distractors stay typing cards", () => {
+  const untranslated = partClips.map((clip) => ({ ...clip, translationVi: "" }));
+  const deck = buildPracticeDeck(untranslated, untranslated, seeded(1));
+  const mixed = mixListeningChoice(deck, untranslated, [], seeded(2));
+  assert.deepEqual(
+    mixed.map((card) => card.kind),
+    deck.map((card) => card.kind),
+  );
 });

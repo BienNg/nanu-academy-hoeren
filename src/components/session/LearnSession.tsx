@@ -39,7 +39,7 @@ import {
 } from "@/lib/listening-runs";
 import type { CardKind } from "@/lib/card-kinds";
 import { buildPracticeDeck, checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
-import { insertDiscreteCards } from "@/lib/practice-deck";
+import { insertDiscreteCards, mixListeningChoice } from "@/lib/practice-deck";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
@@ -352,7 +352,12 @@ export function LearnSession({
     setQuitOpen(false);
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
-    setPartCards(insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []));
+    setPartCards(
+      mixListeningChoice(
+        insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []),
+        clips,
+      ),
+    );
     setPartNumber(partNumber);
     setPartCount(listeningPartCount);
     setClipIndex(0);
@@ -902,7 +907,23 @@ export function LearnSession({
                   />
                 </div>
               </>
-            ) : currentCard?.kind === "reply-choice" && mcResult ? (
+            ) : currentCard?.kind === "listening-choice" && !mcResult ? (
+              <>
+                <AudioPlayerCard
+                  key={`listen-choice-audio-${currentCard.key}`}
+                  audioPath={currentClip.audioPath}
+                />
+                <div className="mt-4">
+                  <McCard
+                    key={`listen-choice-${currentCard.key}`}
+                    prompt="Câu này nghĩa là gì?"
+                    options={currentCard.options ?? []}
+                    onSubmit={handleMcSubmit}
+                    icon="hearing"
+                  />
+                </div>
+              </>
+            ) : (currentCard?.kind === "reply-choice" || currentCard?.kind === "listening-choice") && mcResult ? (
               <McFeedbackCard
                 result={mcResult}
                 options={currentCard.options ?? []}

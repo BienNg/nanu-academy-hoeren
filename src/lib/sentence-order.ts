@@ -26,7 +26,7 @@ export function statsCardKind(kind: PracticeCardKind): CardKind {
 
 /** Cards that stand for "this clip was heard". Every clip in a deck has exactly one. */
 export function isAnchorKind(kind: PracticeCardKind): boolean {
-  return kind === "listening" || kind === "number-input";
+  return kind === "listening" || kind === "listening-choice" || kind === "number-input";
 }
 
 export type WordChip = {

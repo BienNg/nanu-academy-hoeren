@@ -304,7 +304,7 @@ test("a duel uses each clip once, as listening, sentence order, or multiple choi
   assert.equal(new Set(cards.map((card) => `${card.clip.lessonKey}/${card.clip.clipId}`)).size, cards.length);
 });
 
-test("sentence order beats multiple choice, which beats listening", () => {
+test("sentence order beats a meaning choice, which beats listening", () => {
   const cards = duelCardsFromClips([
     { lessonKey: "a1-1/lektion-4", clipId: "both", translationVi: "cả hai", sentenceOrder: true, multipleChoice: true },
     { lessonKey: "a1-1/lektion-4", clipId: "mc-only", translationVi: "chỉ chọn", sentenceOrder: false, multipleChoice: true },
@@ -313,7 +313,37 @@ test("sentence order beats multiple choice, which beats listening", () => {
   ]);
   assert.deepEqual(
     cards.map((card) => card.kind),
-    ["order", "multiple-choice", "listening", "listening"],
+    ["order", "listening-choice", "listening", "listening"],
+  );
+});
+
+test("60% of a duel's meaning choices are played from audio", () => {
+  const clips = Array.from({ length: 5 }, (_, index) => ({
+    lessonKey: "a1-1/lektion-4",
+    clipId: `mc-${index}`,
+    translationVi: `nghĩa ${index}`,
+    sentenceOrder: false,
+    multipleChoice: true,
+  }));
+  for (const roll of [0, 0.3, 0.7, 0.99]) {
+    const kinds = duelCardsFromClips(clips, () => roll).map((card) => card.kind);
+    assert.equal(kinds.filter((kind) => kind === "listening-choice").length, 3);
+    assert.equal(kinds.filter((kind) => kind === "multiple-choice").length, 2);
+  }
+});
+
+test("a listening-choice duel card needs audio and a translation", () => {
+  assert.equal(
+    clipCanStart({ kind: "listening-choice", script: "Hallo", audioPath: "hallo.mp3", translationVi: "Xin chào" }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "listening-choice", script: "Hallo", audioPath: null, translationVi: "Xin chào" }),
+    false,
+  );
+  assert.equal(
+    clipCanStart({ kind: "listening-choice", script: "Hallo", audioPath: "hallo.mp3", translationVi: " " }),
+    false,
   );
 });
 

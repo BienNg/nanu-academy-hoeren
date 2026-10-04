@@ -71,17 +71,22 @@ export type DuelClipView = {
   script: string | null;
   audioPath: string | null;
   translationVi: string | null;
-  /** The 4 answer options, fixed at duel-creation time. Only for multiple-choice cards. */
+  /** The 4 answer options, fixed at duel-creation time. Only for multiple-choice and listening-choice cards. */
   options: { id: string; text: string; correct: boolean }[] | null;
   you: { state: PlayState | "pending"; elapsedMs: number | null };
   opponent: { state: PlayState | "pending" | "hidden"; elapsedMs: number | null };
   winner: "you" | "opponent" | "neither" | "pending";
 };
 
+/** Share of a duel's meaning-choice clips that are played from audio. */
+export const DUEL_LISTENING_CHOICE_SHARE = 0.6;
+
 /**
  * One card per clip. An eligible clip is sentence order; failing that,
- * multiple choice if it has enough distractors; every other clip stays
- * dictation. A repeated clip is dropped so it cannot appear twice.
+ * a meaning choice if it has enough distractors; every other clip stays
+ * dictation. DUEL_LISTENING_CHOICE_SHARE of the meaning choices play the
+ * audio (listening-choice), the rest show the German text (multiple-choice).
+ * A repeated clip is dropped so it cannot appear twice.
  */
 export function duelCardsFromClips<
   T extends {
@@ -91,7 +96,7 @@ export function duelCardsFromClips<
     sentenceOrder?: boolean;
     multipleChoice?: boolean;
   },
->(clips: readonly T[]): { clip: T; kind: DuelCardKind }[] {
+>(clips: readonly T[], random: () => number = Math.random): { clip: T; kind: DuelCardKind }[] {
   const seen = new Set<string>();
   const cards: { clip: T; kind: DuelCardKind }[] = [];
   for (const clip of clips) {
@@ -108,6 +113,16 @@ export function duelCardsFromClips<
           : "listening";
     cards.push({ clip, kind });
   }
+  const choiceIndexes = cards.flatMap((card, index) => (card.kind === "multiple-choice" ? [index] : []));
+  const listened = sampleItems(
+    choiceIndexes,
+    Math.round(choiceIndexes.length * DUEL_LISTENING_CHOICE_SHARE),
+    random,
+  );
+  for (const index of listened) {
+    const card = cards[index];
+    if (card) card.kind = "listening-choice";
+  }
   return cards;
 }
 
@@ -120,6 +135,9 @@ export function clipCanStart(clip: {
   if (!clip?.script) return false;
   if (clip.kind === "order" || clip.kind === "multiple-choice" || clip.kind === "vi-choice" || clip.kind === "vi-input") {
     return Boolean(clip.translationVi?.trim());
+  }
+  if (clip.kind === "listening-choice") {
+    return Boolean(clip.audioPath && clip.translationVi?.trim());
   }
   return Boolean(clip.audioPath);
 }

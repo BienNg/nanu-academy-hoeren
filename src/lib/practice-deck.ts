@@ -232,3 +232,46 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
 
   return next;
 }
+
+/** Share of a deck's listening cards that become listening-choice cards. */
+export const LISTENING_CHOICE_SHARE = 0.6;
+
+/**
+ * Turns LISTENING_CHOICE_SHARE of the deck's listening cards into
+ * listening-choice cards: the audio plays and the student picks its
+ * Vietnamese meaning. Only clips with enough Vietnamese distractors can
+ * switch, so a deck short on them keeps more typing cards. Each card stays
+ * in place and stays the clip's anchor, so the card count never changes.
+ */
+export function mixListeningChoice<C extends OrderSourceClip>(
+  deck: readonly PracticeCard<C>[],
+  lessonClips: readonly C[],
+  levelClips: readonly C[] = [],
+  random: () => number = Math.random,
+): PracticeCard<C>[] {
+  const listeningCount = deck.filter((card) => card.kind === "listening").length;
+  const target = Math.round(listeningCount * LISTENING_CHOICE_SHARE);
+  if (target === 0) return [...deck];
+
+  const choices = new Map<number, PracticeCard<C>>();
+  const indexes = shuffled(
+    deck.flatMap((card, index) => (card.kind === "listening" ? [index] : [])),
+    random,
+  );
+  for (const index of indexes) {
+    if (choices.size >= target) break;
+    const card = deck[index];
+    const translationVi = card?.clip.translationVi;
+    if (!card || !translationVi?.trim()) continue;
+    const options = buildMcOptions({ ...card.clip, translationVi }, lessonClips, levelClips, random);
+    if (!options) continue;
+    choices.set(index, {
+      key: `${card.clip.id}:listen-choice`,
+      kind: "listening-choice",
+      clip: card.clip,
+      options,
+    });
+  }
+
+  return deck.map((card, index) => choices.get(index) ?? card);
+}
