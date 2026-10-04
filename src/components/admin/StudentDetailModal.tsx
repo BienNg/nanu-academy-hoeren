@@ -13,6 +13,7 @@ import {
 import { workplaceFromAccessSlug } from "@/lib/living-content";
 import { CARD_KIND_LABEL, MISSED_ATTEMPT_KINDS, MISSED_ATTEMPT_LABEL, type CardKind } from "@/lib/card-kinds";
 import { StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
+import { RecapShareButton } from "@/components/RecapShareButton";
 import {
   describeCatalogClip,
   describeCatalogLesson,
@@ -1366,6 +1367,14 @@ export function StudentDetailModal({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <RecapShareButton
+                userId={row.userId}
+                audience="staff"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 font-label-sm text-label-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+              >
+                <MaterialIcon name="ios_share" className="text-[18px]" />
+                <span className="hidden sm:inline">Weekly card</span>
+              </RecapShareButton>
               {canDelete ? (
                 <button
                   type="button"
