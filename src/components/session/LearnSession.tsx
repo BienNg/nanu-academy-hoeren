@@ -188,6 +188,8 @@ export function LearnSession({
   const [mcResult, setMcResult] = useState<McResult | null>(null);
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [draft, setDraft] = useState("");
+  /** Bumped per card attempt so a requeued card that lands on the same index still remounts. */
+  const [attempt, setAttempt] = useState(0);
   const [summary, setSummary] = useState<PartSummary | null>(null);
   const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
   const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
@@ -502,6 +504,7 @@ export function LearnSession({
 
   const currentCard = partCards?.[clipIndex];
   const currentClip = currentCard?.clip;
+  const cardKey = `${currentCard?.key ?? currentClip?.id}-${attempt}`;
   const ready = partCards !== null;
   const isPerfect =
     scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
@@ -814,6 +817,7 @@ export function LearnSession({
   };
 
   const resetCardResults = () => {
+    setAttempt((count) => count + 1);
     setScoreResult(null);
     setMcResult(null);
     setPairingResult(null);
@@ -1013,65 +1017,71 @@ export function LearnSession({
       ) : (
         <main className="relative flex w-full flex-1 flex-col items-center">
           <div className="flex w-full max-w-2xl flex-col px-6 pt-6 pb-24">
-            {currentCard?.kind === "order" && !scoreResult ? (
-              // Order cards hide the audio until checked, then it plays with the feedback.
-              <SentenceOrderCard
-                key={`order-${currentCard.key}`}
-                translation={currentClip.translationVi}
-                chips={currentCard.bank ?? []}
-                onSubmit={handleOrderSubmit}
-              />
-            ) : currentCard?.kind === "reply-choice" && !mcResult ? (
+            {currentCard?.kind === "order" ? (
+              <>
+                {scoreResult ? (
+                  // Order cards hide the audio until checked, then it plays with the feedback.
+                  <div className="mb-4">
+                    <AudioPlayerCard
+                      key={`order-audio-${cardKey}`}
+                      audioPath={currentClip.audioPath}
+                    />
+                  </div>
+                ) : null}
+                <SentenceOrderCard
+                  key={`order-${cardKey}`}
+                  translation={currentClip.translationVi}
+                  chips={currentCard.bank ?? []}
+                  onSubmit={handleOrderSubmit}
+                  locked={scoreResult !== null}
+                />
+              </>
+            ) : currentCard?.kind === "reply-choice" ? (
               <>
                 <AudioPlayerCard
-                  key={`reply-audio-${currentCard.key}`}
+                  key={`reply-choice-audio-${cardKey}`}
                   audioPath={currentClip.audioPath}
                 />
                 <div className="mt-4">
                   <McCard
-                    key={`reply-${currentCard.key}`}
+                    key={`reply-${cardKey}`}
                     prompt="Was sagst du? · Bạn trả lời thế nào?"
                     options={currentCard.options ?? []}
                     onSubmit={handleMcSubmit}
+                    result={mcResult}
                     layout="list"
                     icon="forum"
                   />
                 </div>
               </>
-            ) : currentCard?.kind === "listening-choice" && !mcResult ? (
-              <>
-                <AudioPlayerCard
-                  key={`listen-choice-audio-${currentCard.key}`}
-                  audioPath={currentClip.audioPath}
-                />
-                <div className="mt-4">
-                  <McCard
-                    key={`listen-choice-${currentCard.key}`}
-                    prompt="Câu này nghĩa là gì?"
-                    options={currentCard.options ?? []}
-                    onSubmit={handleMcSubmit}
-                    icon="hearing"
-                  />
-                </div>
-              </>
-            ) : (currentCard?.kind === "reply-choice" || currentCard?.kind === "listening-choice") && mcResult ? (
-              <McFeedbackCard
-                result={mcResult}
-                options={currentCard.options ?? []}
-                clip={currentClip}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
-              />
-            ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && !mcResult ? (
+            ) : currentCard?.kind === "listening-choice" ? (
               <McCard
-                key={`mc-${currentCard.key}`}
+                key={`listen-choice-${cardKey}`}
+                prompt="Câu này nghĩa là gì?"
+                options={currentCard.options ?? []}
+                onSubmit={handleMcSubmit}
+                result={mcResult}
+                icon="hearing"
+                afterPrompt={
+                  <div className="mt-4">
+                    <AudioPlayerCard
+                      key={`listening-choice-audio-${cardKey}`}
+                      audioPath={currentClip.audioPath}
+                    />
+                  </div>
+                }
+              />
+            ) : currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice" ? (
+              <McCard
+                key={`mc-${cardKey}`}
                 prompt={currentCard.kind === "vi-choice" ? (currentClip.translationVi ?? "") : currentClip.script}
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}
+                result={mcResult}
               />
             ) : currentCard?.kind === "pairing" ? (
               <PairingCard
-                key={`pairing-${currentCard.key}`}
+                key={`pairing-${cardKey}`}
                 items={(currentCard.pairItems ?? []).map((clip) => ({
                   id: clip.id,
                   vi: clip.translationVi ?? "",
@@ -1086,67 +1096,66 @@ export function LearnSession({
             ) : currentCard?.kind === "vi-input" ? (
               <>
                 {scoreResult ? (
-                  <>
+                  <div className="mb-4">
                     <AudioPlayerCard
-                      key={`vi-audio-${currentCard.key}`}
+                      key={`vi-audio-${cardKey}`}
                       audioPath={currentClip.audioPath}
                     />
-                    <FeedbackResultCard
-                      result={scoreResult}
-                      clip={currentClip}
-                      onNext={handleNext}
-                      nextLabel="Tiếp theo"
-                      skipOnMistake
-                    />
-                  </>
-                ) : (
-                  <DictationInputCard
-                    key={`vi-input-${currentCard.key}`}
-                    prompt={currentClip.translationVi}
-                    value={draft}
-                    onChange={setDraft}
-                    onSubmit={handleSubmit}
-                  />
-                )}
+                  </div>
+                ) : null}
+                <DictationInputCard
+                  key={`vi-input-${cardKey}`}
+                  prompt={currentClip.translationVi}
+                  value={draft}
+                  onChange={setDraft}
+                  onSubmit={handleSubmit}
+                  disabled={scoreResult !== null}
+                  showSubmit={scoreResult === null}
+                />
               </>
-            ) : (currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice") && mcResult ? (
-              <McFeedbackCard
-                result={mcResult}
-                options={currentCard.options ?? []}
-                clip={currentClip}
-                onNext={handleNext}
-                nextLabel="Tiếp theo"
-              />
             ) : (
               <>
                 <AudioPlayerCard
-                  key={currentCard?.key ?? currentClip.id}
+                  key={cardKey}
                   audioPath={currentClip.audioPath}
                 />
-
-                {scoreResult ? (
-                  <FeedbackResultCard
-                    result={scoreResult}
-                    clip={currentClip}
-                    onNext={handleNext}
-                    nextLabel="Tiếp theo"
-                    skipOnMistake
-                  />
-                ) : currentCard?.kind === "number-input" ? (
+                {currentCard?.kind === "number-input" ? (
                   <NumberInputCard
-                    key={`number-${currentCard.key}`}
+                    key={`number-${cardKey}`}
                     onSubmit={handleNumberSubmit}
+                    locked={scoreResult !== null}
                   />
                 ) : (
                   <DictationInputCard
-                    key={`dictation-${currentClip.id}`}
+                    key={`dictation-${cardKey}`}
                     value={draft}
                     onChange={setDraft}
                     onSubmit={handleSubmit}
+                    disabled={scoreResult !== null}
+                    showSubmit={scoreResult === null}
                   />
                 )}
               </>
             )}
+
+            {mcResult ? (
+              <McFeedbackCard
+                result={mcResult}
+                options={currentCard?.options ?? []}
+                clip={currentClip}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
+            ) : null}
+            {scoreResult ? (
+              <FeedbackResultCard
+                result={scoreResult}
+                clip={currentClip}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+                skipOnMistake
+              />
+            ) : null}
           </div>
         </main>
       )}

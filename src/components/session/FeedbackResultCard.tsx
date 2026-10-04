@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { ScoreResult, WordScore } from "@/lib/scoring";
 import { SessionClip } from "@/lib/content";
-import { ClipContentCard } from "@/components/session/ClipContentCard";
-import { ChunkyButton } from "@/components/chunkyButton";
+import { FeedbackSheet, SheetLine, praiseFor } from "@/components/session/FeedbackSheet";
 
 interface FeedbackResultCardProps {
   result: ScoreResult;
@@ -13,8 +12,9 @@ interface FeedbackResultCardProps {
   nextLabel?: string;
   /** Show the word, then continue. The caller brings the clip back later. */
   skipOnMistake?: boolean;
-  /** Caller renders Tiếp theo in a shared action row. */
-  hideNext?: boolean;
+  /** Small text action on the sheet, e.g. back to the study card. */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }
 
 function censorWord(word: string): string {
@@ -58,91 +58,29 @@ function renderProgressiveAnswer(words: WordScore[]) {
   });
 }
 
-function ContinueButton({
-  label,
-  onNext,
-  variant,
-}: {
-  label: string;
-  onNext: () => void;
-  variant: "success" | "danger";
-}) {
-  return (
-    <div className="flex flex-col gap-3 pt-6">
-      <ChunkyButton onClick={onNext} variant={variant} className="w-full">
-        {label}
-      </ChunkyButton>
-    </div>
-  );
-}
-
 export function FeedbackResultCard({
   result,
   clip,
   onNext,
   nextLabel = "Tiếp theo",
   skipOnMistake = false,
-  hideNext = false,
+  secondaryLabel,
+  onSecondary,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
-  const canContinue = isPerfect || skipOnMistake;
 
-  useEffect(() => {
-    if (!canContinue) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-      event.preventDefault();
-      event.stopPropagation();
-      onNext();
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [canContinue, onNext]);
-
-  if (isPerfect) {
+  if (isPerfect || skipOnMistake) {
     return (
-      <div className="w-full mt-4">
-        <ClipContentCard
-          clip={clip}
-          className="border-[#34C759]/20"
-          badge={
-            <div className="flex items-center">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#34C759]/10 text-[#34C759] text-[12px] font-bold uppercase tracking-wider">
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                <span>Chính xác 100% · Hoàn hảo</span>
-              </div>
-            </div>
-          }
-        />
-
-        {hideNext ? null : (
-          <ContinueButton label={nextLabel} onNext={onNext} variant="success" />
-        )}
-      </div>
-    );
-  }
-
-  if (skipOnMistake) {
-    return (
-      <div className="mt-4 w-full">
-        <ClipContentCard
-          clip={clip}
-          className="border-[#ff3b30]/20"
-          badge={
-            <div className="flex items-center">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ff3b30]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#ff3b30]">
-                <span className="material-symbols-outlined text-[16px]">cancel</span>
-                <span>Chưa đúng · sẽ quay lại</span>
-              </div>
-            </div>
-          }
-        />
-        {hideNext ? null : (
-          <ContinueButton label={nextLabel} onNext={onNext} variant="danger" />
-        )}
-      </div>
+      <FeedbackSheet
+        tone={isPerfect ? "correct" : "wrong"}
+        title={isPerfect ? praiseFor(clip.id) : "Đáp án đúng:"}
+        actionLabel={nextLabel}
+        onAction={onNext}
+        secondaryLabel={secondaryLabel}
+        onSecondary={onSecondary}
+      >
+        <SheetLine script={clip.script} translation={clip.translationVi} />
+      </FeedbackSheet>
     );
   }
 

@@ -675,16 +675,16 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 onSubmit={submitMc}
               />
             ) : clip.kind === "listening-choice" && clip.audioPath ? (
-              <>
-                <AudioPlayerCard key={`listen-choice-audio-${clip.position}`} audioPath={clip.audioPath} />
-                <McCard
-                  key={`listen-choice-${clip.position}`}
-                  prompt="Câu này nghĩa là gì?"
-                  options={clip.options ?? []}
-                  onSubmit={submitMc}
-                  icon="hearing"
-                />
-              </>
+              <McCard
+                key={`listen-choice-${clip.position}`}
+                prompt="Câu này nghĩa là gì?"
+                options={clip.options ?? []}
+                onSubmit={submitMc}
+                icon="hearing"
+                afterPrompt={
+                  <AudioPlayerCard key={`listen-choice-audio-${clip.position}`} audioPath={clip.audioPath} />
+                }
+              />
             ) : clip.kind === "vi-input" ? (
               <>
                 <section className="flex items-center gap-3 rounded-[24px] bg-white px-5 py-4 shadow-[0_4px_0_0_#dae2fd]">

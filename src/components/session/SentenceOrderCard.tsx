@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { WordChip } from "@/lib/sentence-order";
-import { ChunkyButton } from "@/components/chunkyButton";
+import { CheckBar } from "@/components/session/FeedbackSheet";
 
 type SentenceOrderCardProps = {
   translation: string;
   chips: WordChip[];
   onSubmit: (selected: string[]) => void;
+  /** Checked: the answer stays visible but can no longer change. */
+  locked?: boolean;
 };
 
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
@@ -28,7 +30,12 @@ const ANSWER_LINES =
 /**
  * Duolingo-style word ordering. Remount via parent `key` for each new card.
  */
-export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrderCardProps) {
+export function SentenceOrderCard({
+  translation,
+  chips,
+  onSubmit,
+  locked = false,
+}: SentenceOrderCardProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const reduceMotion = useReducedMotion();
   const chipById = new Map(chips.map((chip) => [chip.id, chip]));
@@ -36,7 +43,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
     .map((id) => chipById.get(id))
     .filter((chip): chip is WordChip => Boolean(chip));
   const used = new Set(selectedIds);
-  const canSubmit = selectedIds.length > 0;
+  const canSubmit = selectedIds.length > 0 && !locked;
 
   const pick = (id: string) => {
     setSelectedIds((current) => (current.includes(id) ? current : [...current, id]));
@@ -54,6 +61,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
   }, [chips, onSubmit, selectedIds]);
 
   useEffect(() => {
+    if (locked) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
       if (event.key === "Enter" && !event.shiftKey) {
@@ -70,7 +78,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
     };
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [canSubmit, handleSubmit]);
+  }, [canSubmit, handleSubmit, locked]);
 
   const transition = reduceMotion
     ? { duration: 0 }
@@ -116,6 +124,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
                 layoutId={chip.id}
                 transition={transition}
                 type="button"
+                disabled={locked}
                 onClick={() => unpick(chip.id)}
                 className={`${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`}
               >
@@ -141,6 +150,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
                     layoutId={chip.id}
                     transition={transition}
                     type="button"
+                    disabled={locked}
                     onClick={() => pick(chip.id)}
                     className={`${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`}
                   >
@@ -153,16 +163,7 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
         </section>
       </LayoutGroup>
 
-      <footer className="mt-6 flex flex-col items-center gap-2">
-        <ChunkyButton
-          variant={canSubmit ? "primary" : "disabled"}
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className="w-full"
-        >
-          Kiểm tra · Prüfen
-        </ChunkyButton>
-      </footer>
+      {locked ? null : <CheckBar disabled={!canSubmit} onClick={handleSubmit} />}
     </>
   );
 }

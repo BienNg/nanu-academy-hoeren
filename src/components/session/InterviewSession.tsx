@@ -288,29 +288,28 @@ export function InterviewSession({ beruf, clips, courses, liveRound = null }: In
               audioPath={currentClip.audioPath}
             />
 
+            {scoreResult && !isPerfect ? (
+              <FeedbackResultCard
+                result={scoreResult}
+                clip={currentClip}
+                onNext={handleNext}
+              />
+            ) : null}
+            <DictationInputCard
+              key={`dictation-${currentClip.id}`}
+              value={draft}
+              onChange={setDraft}
+              onSubmit={handleSubmit}
+              disabled={isPerfect}
+              showSubmit={!isPerfect}
+            />
             {isPerfect && scoreResult ? (
               <FeedbackResultCard
                 result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
               />
-            ) : (
-              <>
-                {scoreResult ? (
-                  <FeedbackResultCard
-                    result={scoreResult}
-                    clip={currentClip}
-                    onNext={handleNext}
-                  />
-                ) : null}
-                <DictationInputCard
-                  key={`dictation-${currentClip.id}`}
-                  value={draft}
-                  onChange={setDraft}
-                  onSubmit={handleSubmit}
-                />
-              </>
-            )}
+            ) : null}
           </div>
         </main>
       )}

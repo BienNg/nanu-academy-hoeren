@@ -28,7 +28,7 @@ import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
-import { ChunkyButton, type ChunkyVariant } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
@@ -51,7 +51,6 @@ function SessionActions({
   backDisabled = false,
   backLabel,
   actionLabel,
-  actionVariant = "primary",
   actionDisabled = false,
   onAction,
 }: {
@@ -59,7 +58,6 @@ function SessionActions({
   backDisabled?: boolean;
   backLabel: string;
   actionLabel: string;
-  actionVariant?: ChunkyVariant;
   actionDisabled?: boolean;
   onAction: () => void;
 }) {
@@ -75,7 +73,7 @@ function SessionActions({
         <MaterialIcon name="arrow_back" className="text-[22px]" />
       </ChunkyButton>
       <ChunkyButton
-        variant={actionDisabled ? "disabled" : actionVariant}
+        variant={actionDisabled ? "disabled" : "primary"}
         disabled={actionDisabled}
         onClick={onAction}
         className="min-w-0 flex-1"
@@ -862,12 +860,23 @@ export function StudySession({
                   ) : (
                     <div className="-mt-4">
                       {recallPerfect && scoreResult ? (
-                        <FeedbackResultCard
-                          result={scoreResult}
-                          clip={currentClip}
-                          onNext={finishRecall}
-                          hideNext
-                        />
+                        <>
+                          <DictationInputCard
+                            key={`dictation-${currentClip.id}`}
+                            value={draft}
+                            onChange={setDraft}
+                            onSubmit={handleRecallSubmit}
+                            disabled
+                            showSubmit={false}
+                          />
+                          <FeedbackResultCard
+                            result={scoreResult}
+                            clip={currentClip}
+                            onNext={finishRecall}
+                            secondaryLabel="Xem lại thẻ"
+                            onSecondary={goPrev}
+                          />
+                        </>
                       ) : (
                         <>
                           {scoreResult ? (
@@ -875,7 +884,6 @@ export function StudySession({
                               result={scoreResult}
                               clip={currentClip}
                               onNext={finishRecall}
-                              hideNext
                             />
                           ) : null}
                           <DictationInputCard
@@ -901,15 +909,7 @@ export function StudySession({
                 actionLabel="Tiếp theo"
                 onAction={openRecall}
               />
-            ) : recallPerfect ? (
-              <SessionActions
-                onBack={goPrev}
-                backLabel="Xem lại thẻ"
-                actionLabel="Tiếp theo"
-                actionVariant="success"
-                onAction={finishRecall}
-              />
-            ) : (
+            ) : recallPerfect ? null : (
               <SessionActions
                 onBack={goPrev}
                 backLabel="Xem lại thẻ"

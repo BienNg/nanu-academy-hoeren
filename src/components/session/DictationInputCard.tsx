@@ -8,7 +8,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { ChunkyButton } from "@/components/chunkyButton";
+import { CheckBar } from "@/components/session/FeedbackSheet";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 
@@ -154,18 +154,7 @@ export function DictationInputCard({
         </div>
       </section>
 
-      {showSubmit ? (
-        <footer className="mt-6 flex flex-col items-center gap-2">
-          <ChunkyButton
-            variant={canSubmit ? "primary" : "disabled"}
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="w-full"
-          >
-            Kiểm tra · Prüfen
-          </ChunkyButton>
-        </footer>
-      ) : null}
+      {showSubmit ? <CheckBar disabled={!canSubmit} onClick={handleSubmit} /> : null}
     </>
   );
 }

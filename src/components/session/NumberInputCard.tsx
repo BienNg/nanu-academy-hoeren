@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ChunkyButton } from "@/components/chunkyButton";
+import { CheckBar } from "@/components/session/FeedbackSheet";
 
 type NumberInputCardProps = {
   onSubmit: (value: string) => void;
+  /** Checked: the typed number stays visible but can no longer change. */
+  locked?: boolean;
 };
 
 const EXTRA_KEYS = [",", ":"] as const;
@@ -21,11 +23,11 @@ function MaterialIcon({ name, className }: { name: string; className?: string })
  * Zahlen-Ohr: the student hears a price or time and types only the number.
  * Remount via parent `key` for each new card.
  */
-export function NumberInputCard({ onSubmit }: NumberInputCardProps) {
+export function NumberInputCard({ onSubmit, locked = false }: NumberInputCardProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
-  const canSubmit = value.trim().length > 0;
+  const canSubmit = value.trim().length > 0 && !locked;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -75,6 +77,7 @@ export function NumberInputCard({ onSubmit }: NumberInputCardProps) {
             inputMode="decimal"
             autoComplete="off"
             value={value}
+            readOnly={locked}
             onChange={(event) => setValue(event.target.value)}
             placeholder="vd. 35,50 hoặc 15:30"
             className="h-14 min-w-0 flex-1 rounded-2xl bg-[#f5f5f7] px-4 text-center text-[24px] font-bold tabular-nums tracking-wide text-[#1d1d1f] placeholder:text-[16px] placeholder:font-medium placeholder:text-[#86868b] focus:outline-none focus:ring-2 focus:ring-[#0066cc]/30"
@@ -83,6 +86,7 @@ export function NumberInputCard({ onSubmit }: NumberInputCardProps) {
             <button
               key={char}
               type="button"
+              disabled={locked}
               onClick={() => insert(char)}
               aria-label={`Thêm ${char}`}
               className="flex h-14 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-[22px] font-bold text-[#1d1d1f] transition-colors hover:bg-[#e8e8ed] active:bg-[#0066cc] active:text-white"
@@ -93,16 +97,7 @@ export function NumberInputCard({ onSubmit }: NumberInputCardProps) {
         </form>
       </section>
 
-      <footer className="mt-6 flex flex-col items-center gap-2">
-        <ChunkyButton
-          variant={canSubmit ? "primary" : "disabled"}
-          disabled={!canSubmit}
-          onClick={submit}
-          className="w-full"
-        >
-          Kiểm tra · Prüfen
-        </ChunkyButton>
-      </footer>
+      {locked ? null : <CheckBar disabled={!canSubmit} onClick={submit} />}
     </>
   );
 }
