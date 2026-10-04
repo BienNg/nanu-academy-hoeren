@@ -32,7 +32,7 @@ import {
   dropStreakForUnfinishedSession,
 } from "@/lib/progress";
 import { isAdminUser } from "@/lib/admins";
-import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
+import { useProgress } from "@/lib/useProgress";
 import {
   buildListeningRunRecord,
   clipResultsForCardDeck,
@@ -47,7 +47,7 @@ import { insertDiscreteCards, mixListeningChoice } from "@/lib/practice-deck";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
+import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { QuitDialog } from "@/components/session/QuitDialog";
@@ -237,7 +237,6 @@ export function LearnSession({
     streakDays,
     progress,
   } = useProgress();
-  const streakCelebrationPending = useStreakCelebrationPending();
   const chapterProgressKey = course.progressKey;
   const lessonKey = course.lessonKey;
   const pathHref = course.pathHref;
@@ -784,8 +783,6 @@ export function LearnSession({
     });
     if (!failed) {
       commitPart();
-      playCelebrationSound();
-      if (isLastPart) revealStreakCelebration();
     }
     setPhase("complete");
     if (!run) return;
@@ -945,7 +942,6 @@ export function LearnSession({
       {!ready || phase === "leaving" ? (
         <SessionContentSkeleton kind="practice" />
       ) : phase === "complete" && summary ? (
-        isLastPart && !failedRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
           partNumber={nodeRange ? partNumber - nodeRange.first + 1 : partNumber}
           partCount={nodeRange ? nodeRange.last - nodeRange.first + 1 : partCount}
@@ -959,6 +955,7 @@ export function LearnSession({
           xpPending={summary.xpPending}
           questUpdate={summary.quests}
           streakDays={streakDays}
+          celebrateStreak={isLastPart && !failedRun}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}
           continueLabel={exitLabel}
@@ -973,7 +970,6 @@ export function LearnSession({
               : undefined
           }
         />
-        )
       ) : !currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">

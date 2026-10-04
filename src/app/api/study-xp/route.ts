@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const quests = await syncQuestsQuietly(
     session.user.id,
     resolveQuestZone(request.headers.get(QUEST_TIME_ZONE_HEADER)),
+    { kind: "study", xp: grant.xp ?? 0 },
   );
   return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready, quests });
 }

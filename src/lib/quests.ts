@@ -172,27 +172,90 @@ export function claimsToCreate(
   return claims;
 }
 
+/** What one finished part added to today's events. */
+export type QuestEventDelta =
+  | { kind: "listening"; accuracy: number; xp: number }
+  | { kind: "study"; xp: number };
+
+/** Today's events as they were before `delta` was stored. */
+export function eventsBefore(events: QuestEvents, delta: QuestEventDelta | null): QuestEvents {
+  if (!delta || delta.xp <= 0) return events;
+  const baseXp = Math.max(0, events.baseXp - delta.xp);
+  if (delta.kind === "study") {
+    return { ...events, studyParts: Math.max(0, events.studyParts - 1), baseXp };
+  }
+  const index = events.listeningAccuracies.lastIndexOf(delta.accuracy);
+  const listeningAccuracies =
+    index < 0
+      ? events.listeningAccuracies
+      : events.listeningAccuracies.filter((_, at) => at !== index);
+  return { ...events, listeningAccuracies, baseXp };
+}
+
+/** One quest after a sync, with the progress it had before the part that triggered it. */
+export type QuestStep = QuestProgress & { before: number };
+
 export type QuestUpdate = {
   /** XP stored by one sync. */
   xp: number;
   /** Titles of quests that finished in that sync. */
   completed: string[];
   bonus: boolean;
+  /** Today's quests. Empty when the board could not be read. */
+  quests: QuestStep[];
 };
 
-export const NO_QUEST_UPDATE: QuestUpdate = { xp: 0, completed: [], bonus: false };
+export const NO_QUEST_UPDATE: QuestUpdate = { xp: 0, completed: [], bonus: false, quests: [] };
 
-/** Reads the `quests` field a run or study response carries. Null when nothing finished. */
+export function questStepMoved(step: QuestStep): boolean {
+  return step.progress > step.before;
+}
+
+function readQuestStep(value: unknown): QuestStep | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.id !== "string" ||
+    typeof raw.title !== "string" ||
+    typeof raw.xp !== "number" ||
+    typeof raw.target !== "number" ||
+    raw.target <= 0 ||
+    typeof raw.progress !== "number" ||
+    typeof raw.done !== "boolean" ||
+    !QUEST_KINDS.includes(raw.kind as QuestKind)
+  ) {
+    return null;
+  }
+  const before = typeof raw.before === "number" ? raw.before : raw.progress;
+  return {
+    id: raw.id,
+    kind: raw.kind as QuestKind,
+    title: raw.title,
+    xp: raw.xp,
+    target: raw.target,
+    progress: raw.progress,
+    done: raw.done,
+    before: Math.min(Math.max(0, before), raw.progress),
+  };
+}
+
+/**
+ * Reads the `quests` field a run or study response carries. Null when no
+ * quest moved or finished.
+ */
 export function readQuestUpdate(value: unknown): QuestUpdate | null {
   if (!value || typeof value !== "object") return null;
-  const raw = value as { xp?: unknown; completed?: unknown; bonus?: unknown };
+  const raw = value as { xp?: unknown; completed?: unknown; bonus?: unknown; quests?: unknown };
   const completed = Array.isArray(raw.completed)
     ? raw.completed.filter((title): title is string => typeof title === "string")
     : [];
   const xp = typeof raw.xp === "number" && raw.xp > 0 ? raw.xp : 0;
   const bonus = raw.bonus === true;
-  if (xp === 0 && completed.length === 0 && !bonus) return null;
-  return { xp, completed, bonus };
+  const quests = Array.isArray(raw.quests)
+    ? raw.quests.map(readQuestStep).filter((step): step is QuestStep => step != null)
+    : [];
+  if (xp === 0 && completed.length === 0 && !bonus && !quests.some(questStepMoved)) return null;
+  return { xp, completed, bonus, quests };
 }
 
 export const QUEST_TIME_ZONE_HEADER = "x-time-zone";

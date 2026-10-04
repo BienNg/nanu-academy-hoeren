@@ -35,8 +35,8 @@ import {
 import { isAdminUser } from "@/lib/admins";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
-import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
+import { playSuccessSound } from "@/lib/sfx";
+import { useProgress } from "@/lib/useProgress";
 import { ChunkyButton } from "@/components/chunkyButton";
 import {
   cardShortcutsBlocked,
@@ -147,7 +147,6 @@ export function StudySession({
     recordLeftSession,
     streakDays,
   } = useProgress();
-  const streakCelebrationPending = useStreakCelebrationPending();
 
   const chapterProgressKey = course.progressKey;
   const lessonKey = course.lessonKey;
@@ -425,7 +424,6 @@ export function StudySession({
       if (!committedRef.current && partClipIds.length > 0) {
         committedRef.current = true;
         commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, finishesStudy);
-        if (finishesStudy) revealStreakCelebration();
       }
       setSummary({
         questionCount: count,
@@ -506,13 +504,11 @@ export function StudySession({
     if (!committedRef.current) {
       committedRef.current = true;
       commitStudyPartDone(chapterProgressKey, partClipIds, lessonKey, finishesStudy);
-      if (finishesStudy) revealStreakCelebration();
     }
     if (xpRequestedRef.current) return;
     xpRequestedRef.current = true;
     const elapsedMs = Math.max(0, Date.now() - partStartedAtRef.current);
     setXpGrant({ xp: null, kind: null, pending: true });
-    playCelebrationSound();
     void fetch("/api/study-xp", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...questZoneHeaders() },
@@ -776,7 +772,6 @@ export function StudySession({
       {!ready || !progressReady || visitPart == null ? (
         <SessionContentSkeleton kind="study" />
       ) : visitPart === "done" || complete ? (
-        summary?.finishRun && streakCelebrationPending ? null : (
         <PartCompleteScreen
           partNumber={
             nodeMode
@@ -791,9 +786,17 @@ export function StudySession({
           elapsedMs={summary?.elapsedMs ?? null}
           xp={openedFinishedLesson ? null : (xpGrant?.xp ?? null)}
           xpKind={openedFinishedLesson ? null : (xpGrant?.kind ?? null)}
-          xpPending={openedFinishedLesson ? false : Boolean(xpGrant?.pending)}
+          xpPending={
+            openedFinishedLesson
+              ? false
+              : xpGrant
+                ? xpGrant.pending
+                : // The XP request starts in an effect after this render.
+                  visitPart !== "done" && partClipIds.length > 0
+          }
           questUpdate={openedFinishedLesson ? null : (xpGrant?.quests ?? null)}
           streakDays={streakDays}
+          celebrateStreak={!openedFinishedLesson && Boolean(summary?.finishRun)}
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
           continueLabel={nodeHasNextPart ? "Phần tiếp theo" : "Về bài học"}
@@ -809,7 +812,6 @@ export function StudySession({
                 : undefined
           }
         />
-        )
       ) : clips.length === 0 ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <p className="text-lg font-medium text-[#86868b]">

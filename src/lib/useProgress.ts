@@ -526,6 +526,7 @@ function noteStreakIncrease(before: StoredProgress, after: StoredProgress): void
   }
   if (visibleCelebration) return;
   queuedCelebration = step;
+  notifyCelebration();
 }
 
 /** Show a queued flame. No-op when this run did not raise the streak. */
@@ -534,6 +535,20 @@ export function revealStreakCelebration(): void {
   visibleCelebration = queuedCelebration;
   queuedCelebration = null;
   notifyCelebration();
+}
+
+/** The step waiting for a finished run, without showing it. */
+export function readQueuedStreakCelebration(): StreakCelebration | null {
+  return queuedCelebration;
+}
+
+/** Hands the queued step to a screen that shows the flame itself. */
+export function takeStreakCelebration(): StreakCelebration | null {
+  const step = queuedCelebration;
+  if (!step) return null;
+  queuedCelebration = null;
+  notifyCelebration();
+  return step;
 }
 
 export function dismissStreakCelebration(): void {

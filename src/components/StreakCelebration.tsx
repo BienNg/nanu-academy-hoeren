@@ -82,7 +82,7 @@ export function StreakCelebration() {
   );
 }
 
-function StreakCount({
+export function StreakCount({
   from,
   to,
   still,
@@ -117,7 +117,7 @@ function StreakCount({
   );
 }
 
-function Flame({ still }: { still: boolean }) {
+export function Flame({ still }: { still: boolean }) {
   return (
     <div className="relative flex h-44 w-44 items-center justify-center">
       <motion.span

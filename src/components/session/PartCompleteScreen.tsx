@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Pingu } from "@/components/session/Pingu";
+import { ChillPingu, PATH_POSES, Pingu, type PathPose } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
+import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
+import { Flame, StreakCount } from "@/components/StreakCelebration";
 import { isCardEnter } from "@/lib/keyboard";
-import type { QuestUpdate } from "@/lib/quests";
+import { questStepMoved, type QuestStep, type QuestUpdate } from "@/lib/quests";
+import { playCelebrationSound } from "@/lib/sfx";
+import {
+  readQueuedStreakCelebration,
+  subscribeStreakCelebration,
+  takeStreakCelebration,
+  type StreakCelebration,
+} from "@/lib/useProgress";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -18,9 +27,11 @@ type PartCompleteScreenProps = {
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
-  /** Quests this part finished, when the server reports any. */
+  /** Quests this part moved or finished, when the server reports any. */
   questUpdate?: QuestUpdate | null;
   streakDays: number;
+  /** True when a streak step this run raised should show after the completed screen. */
+  celebrateStreak?: boolean;
   finishRun: boolean;
   failed: boolean;
   continueLabel: string;
@@ -48,6 +59,33 @@ const CONFETTI = [
   { delay: 0.09, duration: 1.15, x: 168, y: -72, rotate: 50, color: "#34C759", w: 10, h: 14 },
 ] as const;
 
+/** The loader stays at least this long, so it never just flickers. */
+const LOADER_MIN_MS = 700;
+/** After this the completed screen shows even if the server has not answered. */
+const LOADER_MAX_MS = 10_000;
+
+/** Focuses the continue button and lets Enter press it once the screen settles. */
+function useContinueShortcut(onContinue: () => void) {
+  const continueRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    continueRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    const armedAt = Date.now() + 400;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isCardEnter(event) || Date.now() < armedAt) return;
+      event.preventDefault();
+      onContinue();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onContinue]);
+
+  return continueRef;
+}
+
 function formatPartDuration(elapsedMs: number | null): string {
   if (elapsedMs == null) return "—";
   const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
@@ -71,26 +109,86 @@ function subtitleFor(
   return `Phần ${partNumber} / ${partCount}`;
 }
 
-function xpCaption(xp: number | null, kind: string | null): { value: string; note: string | null } {
+function xpCaption(
+  xp: number | null,
+  kind: string | null,
+): { value: string; amount: number; note: string | null } {
   if (kind === "rejected") {
     return {
       value: "+0 XP",
+      amount: 0,
       note: "Lần này chưa cộng điểm. Làm lại phần để nhận XP.",
     };
   }
   if (kind === "repeat") {
-    return { value: "+0 XP", note: "Phần này đã được tính hôm nay" };
+    return { value: "+0 XP", amount: 0, note: "Phần này đã được tính hôm nay" };
   }
   if (kind === "review" && (xp ?? 0) === 0) {
-    return { value: "+0 XP", note: "Đã đủ 30 XP ôn tập hôm nay" };
+    return { value: "+0 XP", amount: 0, note: "Đã đủ 30 XP ôn tập hôm nay" };
   }
   return {
     value: `+${xp ?? 0} XP`,
+    amount: xp ?? 0,
     note: kind === "review" ? "Ôn tập" : null,
   };
 }
 
-export function PartCompleteScreen({
+type CompleteViewProps = Omit<PartCompleteScreenProps, "questUpdate" | "celebrateStreak"> & {
+  /** Shown only when no quest screen follows. */
+  questUpdate: QuestUpdate | null;
+  /** The learner's total XP before and after this part. Null when unknown. */
+  totalXp: { from: number; to: number } | null;
+};
+
+const XP_COUNT_DURATION = 0.8;
+const TOTAL_COUNT_DURATION = 0.8;
+const STAT_GAP = 0.15;
+
+/**
+ * Start times, in seconds, for the completed screen. Each block waits for the
+ * one above it, and blocks that are not shown leave no gap.
+ */
+function completeBeats(shown: {
+  earned: boolean;
+  countsXp: boolean;
+  stats: number;
+  perfect: boolean;
+  streak: boolean;
+  total: boolean;
+}) {
+  // Pingu rises first and his bubble lands around 0.6s.
+  let cursor = 0.55;
+  const next = (gap: number) => {
+    const start = cursor;
+    cursor += gap;
+    return start;
+  };
+  const label = next(0.15);
+  const title = next(0.15);
+  const subtitle = next(0.3);
+  const xp = shown.earned ? next(shown.countsXp ? 0.2 + XP_COUNT_DURATION + 0.2 : 0.35) : cursor;
+  const xpCount = xp + 0.2;
+  const stats = next(shown.stats * STAT_GAP + 0.2);
+  const perfect = shown.perfect ? next(0.3) : cursor;
+  const streak = shown.streak ? next(0.3) : cursor;
+  const total = shown.total ? next(0.3 + TOTAL_COUNT_DURATION + 0.3) : cursor;
+  const totalCount = total + 0.3;
+  return {
+    label,
+    title,
+    subtitle,
+    xp,
+    xpCount,
+    stats,
+    perfect,
+    streak,
+    total,
+    totalCount,
+    button: cursor,
+  };
+}
+
+function CompleteView({
   partNumber,
   partCount,
   levelLabel,
@@ -105,13 +203,15 @@ export function PartCompleteScreen({
   streakDays,
   finishRun,
   failed,
+  totalXp,
   continueLabel,
   onContinue,
   secondaryLabel,
   onSecondary,
-}: PartCompleteScreenProps) {
+}: CompleteViewProps) {
   const reduceMotion = useReducedMotion();
-  const continueRef = useRef<HTMLButtonElement>(null);
+  const continueRef = useContinueShortcut(onContinue);
+  const soundPlayedRef = useRef(false);
   const perfect = accuracy != null && accuracy >= 100;
   const earned = !failed && (xpPending || xpKind) ? xpCaption(xp, xpKind) : null;
   const stats = [
@@ -119,22 +219,23 @@ export function PartCompleteScreen({
     { label: "Chính xác", value: accuracy == null ? "—" : `${accuracy}%`, color: perfect ? "#34C759" : "#ff9f0a" },
     { label: "Thời gian", value: formatPartDuration(elapsedMs), color: "#5e5ce6" },
   ];
+  const showPerfect = perfect && !failed;
+  const showTotal = totalXp != null && !failed;
+  const beats = completeBeats({
+    earned: earned != null,
+    countsXp: earned != null && !xpPending && earned.amount > 0,
+    stats: stats.length,
+    perfect: showPerfect,
+    streak: streakDays > 0,
+    total: showTotal,
+  });
+  const at = (seconds: number) => (reduceMotion ? 0 : seconds);
 
   useEffect(() => {
-    continueRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  useEffect(() => {
-    const armedAt = Date.now() + 400;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isCardEnter(event) || Date.now() < armedAt) return;
-      event.preventDefault();
-      onContinue();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onContinue]);
+    if (failed || soundPlayedRef.current) return;
+    soundPlayedRef.current = true;
+    playCelebrationSound();
+  }, [failed]);
 
   return (
     <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
@@ -176,7 +277,7 @@ export function PartCompleteScreen({
           className="text-[13px] font-semibold uppercase tracking-wider text-[#86868b]"
           initial={reduceMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.12, duration: 0.25 }}
+          transition={{ delay: at(beats.label), duration: 0.25 }}
         >
           {levelLabel} · {chapterLabel}
         </motion.p>
@@ -185,7 +286,7 @@ export function PartCompleteScreen({
           style={{ letterSpacing: "-0.03em" }}
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.18, duration: 0.3 }}
+          transition={{ delay: at(beats.title), duration: 0.3 }}
         >
           {failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!"}
         </motion.h2>
@@ -193,7 +294,7 @@ export function PartCompleteScreen({
           className="mt-2 text-[17px] font-medium text-[#86868b]"
           initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: reduceMotion ? 0 : 0.24, duration: 0.25 }}
+          transition={{ delay: at(beats.subtitle), duration: 0.25 }}
         >
           {subtitleFor(failed, finishRun, partNumber, partCount)}
         </motion.p>
@@ -203,7 +304,7 @@ export function PartCompleteScreen({
             className="mt-3 flex flex-col items-center gap-1"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: 0.2 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: beats.xp }}
           >
             <span className="inline-flex items-center gap-1 text-[28px] font-extrabold leading-none text-[#f59e0b]">
               <span
@@ -213,12 +314,21 @@ export function PartCompleteScreen({
               >
                 bolt
               </span>
-              {xpPending ? "Đang cộng XP…" : earned.value}
+              {xpPending ? (
+                "Đang cộng XP…"
+              ) : earned.amount > 0 ? (
+                <>
+                  +<CountUp from={0} to={earned.amount} delay={beats.xpCount} duration={XP_COUNT_DURATION} />
+                  {" XP"}
+                </>
+              ) : (
+                earned.value
+              )}
             </span>
             {!xpPending && earned.note ? (
               <span className="text-[13px] font-semibold text-[#86868b]">{earned.note}</span>
             ) : null}
-            {!xpPending && questUpdate ? (
+            {!xpPending && questUpdate && (questUpdate.completed.length > 0 || questUpdate.bonus) ? (
               <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e9f9ee] px-3 py-1 text-[13px] font-bold text-[#1f8a3b]">
                 <span
                   className="material-symbols-outlined text-[16px]"
@@ -248,7 +358,7 @@ export function PartCompleteScreen({
               transition={
                 reduceMotion
                   ? { duration: 0 }
-                  : { type: "spring", stiffness: 380, damping: 24, delay: 0.28 + index * 0.08 }
+                  : { type: "spring", stiffness: 380, damping: 24, delay: beats.stats + index * STAT_GAP }
               }
             >
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
@@ -264,12 +374,12 @@ export function PartCompleteScreen({
           ))}
         </div>
 
-        {perfect && !failed ? (
+        {showPerfect ? (
           <motion.div
             className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]"
             initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: reduceMotion ? 0 : 0.5 }}
+            transition={{ delay: at(beats.perfect) }}
           >
             <span
               className="material-symbols-outlined text-[16px]"
@@ -287,7 +397,7 @@ export function PartCompleteScreen({
             className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-white px-3 py-1.5 text-[14px] font-semibold text-[#1d1d1f] shadow-sm"
             initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.55 }}
+            transition={{ delay: at(beats.streak) }}
           >
             <span
               className="material-symbols-outlined text-[18px] text-[#ff9500]"
@@ -297,6 +407,41 @@ export function PartCompleteScreen({
               local_fire_department
             </span>
             Chuỗi {streakDays} ngày
+          </motion.div>
+        ) : null}
+
+        {totalXp && showTotal ? (
+          <motion.div
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-white px-3 py-1.5 text-[14px] font-semibold text-[#1d1d1f] shadow-sm"
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: at(beats.total) }}
+            aria-label={`Tổng ${totalXp.to} XP`}
+          >
+            <span
+              className="material-symbols-outlined text-[18px] text-[#f59e0b]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+              aria-hidden="true"
+            >
+              bolt
+            </span>
+            <motion.span
+              className="tabular-nums"
+              style={{ minWidth: `${String(totalXp.to).length}ch` }}
+              initial={false}
+              animate={
+                reduceMotion || totalXp.to === totalXp.from ? { scale: 1 } : { scale: [1, 1.18, 1] }
+              }
+              transition={{ duration: 0.4, delay: beats.totalCount + TOTAL_COUNT_DURATION }}
+            >
+              <CountUp
+                from={totalXp.from}
+                to={totalXp.to}
+                delay={beats.totalCount}
+                duration={TOTAL_COUNT_DURATION}
+              />
+            </motion.span>
+            XP
           </motion.div>
         ) : null}
 
@@ -310,7 +455,7 @@ export function PartCompleteScreen({
             className={chunkyButton("primary", "w-full")}
             initial={reduceMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.4, duration: 0.25 }}
+            transition={{ delay: at(beats.button), duration: 0.25 }}
           >
             {continueLabel}
           </motion.button>
@@ -331,5 +476,535 @@ export function PartCompleteScreen({
           ) : null}
       </div>
     </main>
+  );
+}
+
+/** Shown the moment a part ends, while the server works out the XP. */
+function XpLoader() {
+  const reduceMotion = useReducedMotion();
+  const [pose] = useState<PathPose>(
+    () => PATH_POSES[Math.floor(Math.random() * PATH_POSES.length)] ?? "tea",
+  );
+
+  return (
+    <main
+      className="fixed inset-0 z-10 flex flex-col items-center justify-center bg-[#fbfbfd] px-6 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <motion.div
+        className="flex h-[170px] items-end justify-center"
+        initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 22 }}
+      >
+        <div className="origin-bottom scale-[1.9]" aria-hidden="true">
+          <ChillPingu pose={pose} />
+        </div>
+      </motion.div>
+      <p className="mt-6 text-[17px] font-bold text-[#1d1d1f]">Đang tính XP</p>
+      <div className="mt-3 flex gap-1.5" aria-hidden="true">
+        {[0, 1, 2].map((dot) => (
+          <motion.span
+            key={dot}
+            className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]"
+            animate={reduceMotion ? undefined : { y: [0, -6, 0], opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 0.9, repeat: Infinity, delay: dot * 0.15, ease: "easeInOut" }}
+          />
+        ))}
+      </div>
+    </main>
+  );
+}
+
+/** Seconds into the quest screen when the first moving bar starts to fill. */
+const QUEST_FILL_START = 0.45;
+const QUEST_FILL_GAP = 0.35;
+const QUEST_FILL_DURATION = 0.8;
+
+function QuestStepRow({
+  step,
+  index,
+  fillDelay,
+}: {
+  step: QuestStep;
+  index: number;
+  /** Null when this quest did not move. */
+  fillDelay: number | null;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const moved = fillDelay != null;
+  const finishesNow = moved && step.done && step.before < step.target;
+  const [filled, setFilled] = useState(!moved || reduceMotion);
+
+  useEffect(() => {
+    if (filled || fillDelay == null) return;
+    const timer = window.setTimeout(
+      () => setFilled(true),
+      (fillDelay + QUEST_FILL_DURATION) * 1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [filled, fillDelay]);
+
+  const done = step.done && (filled || !finishesNow);
+  const shown = { ...step, done };
+
+  return (
+    <motion.li
+      className={`relative flex items-center gap-3 px-4 py-4 ${index > 0 ? "border-t-2 border-[#f2f2f7]" : ""} ${
+        moved ? "bg-[#fffbeb]" : ""
+      }`}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 18, delay: 0.08 * index }}
+    >
+      <motion.div
+        initial={false}
+        animate={finishesNow && filled && !reduceMotion ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+      >
+        <KindTile kind={step.kind} done={done} />
+      </motion.div>
+      <div className="min-w-0 flex-1 text-left">
+        <div className="flex items-start justify-between gap-2">
+          <p
+            className={`text-[15px] leading-5 font-extrabold ${
+              done && !finishesNow ? "text-[#86868b]" : "text-[#1d1d1f]"
+            }`}
+          >
+            {step.title}
+          </p>
+          {finishesNow && filled ? (
+            <motion.span
+              className="mt-px inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[#34C759] px-2 py-0.5 text-[12px] font-extrabold text-white"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.5, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 520, damping: 16 }}
+            >
+              +{step.xp} XP
+            </motion.span>
+          ) : (
+            <span className="mt-px inline-flex shrink-0 items-center gap-0.5 text-[13px] font-extrabold text-[#f59e0b]">
+              <span
+                className="material-symbols-outlined text-[16px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                bolt
+              </span>
+              {step.xp}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <QuestProgressBar
+            quest={shown}
+            delay={fillDelay ?? 0}
+            from={moved ? step.before : undefined}
+          />
+          <QuestChest open={done} size={36} />
+        </div>
+      </div>
+    </motion.li>
+  );
+}
+
+/** Seconds between the beats of the XP hand-off on the quest screen. */
+const XP_SHOW_GAP = 0.25;
+const XP_SLIDE_AFTER = 0.7;
+const XP_TOTAL_AFTER = 0.45;
+const XP_TRANSFER_AFTER = 0.5;
+const XP_TRANSFER_DURATION = 0.9;
+
+type XpBeat = "hidden" | "gained" | "slid" | "total" | "transfer" | "settled";
+
+/**
+ * The quest XP pops in, slides left, the learner's total joins it, then the
+ * gained XP drains into the total.
+ */
+function QuestXpTransfer({
+  gained,
+  totalAfter,
+  startAt,
+}: {
+  gained: number;
+  totalAfter: number | null;
+  startAt: number;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const hasTotal = totalAfter != null;
+  const [beat, setBeat] = useState<XpBeat>(
+    reduceMotion ? (hasTotal ? "settled" : "gained") : "hidden",
+  );
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const beats: [XpBeat, number][] = [["gained", startAt + XP_SHOW_GAP]];
+    if (hasTotal) {
+      let at = startAt + XP_SHOW_GAP + XP_SLIDE_AFTER;
+      beats.push(["slid", at]);
+      at += XP_TOTAL_AFTER;
+      beats.push(["total", at]);
+      at += XP_TRANSFER_AFTER;
+      beats.push(["transfer", at]);
+      at += XP_TRANSFER_DURATION + 0.35;
+      beats.push(["settled", at]);
+    }
+    const timers = beats.map(([next, at]) => window.setTimeout(() => setBeat(next), at * 1000));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [reduceMotion, hasTotal, startAt]);
+
+  if (beat === "hidden") return <div className="mt-6 h-16" aria-hidden="true" />;
+
+  const totalShown = beat === "total" || beat === "transfer" || beat === "settled";
+  const draining = beat === "transfer" || beat === "settled";
+  const totalBefore = (totalAfter ?? 0) - gained;
+  const spring = { type: "spring" as const, stiffness: 380, damping: 24 };
+
+  return (
+    <div
+      className="mt-6 flex h-16 w-full items-center justify-center gap-4"
+      aria-label={hasTotal ? `+${gained} XP, tổng ${totalAfter} XP` : `+${gained} XP`}
+    >
+      {beat !== "settled" ? (
+        <motion.span
+          layout
+          className={`inline-flex items-center gap-1 text-[30px] leading-none font-extrabold text-[#f59e0b] tabular-nums ${
+            beat === "gained" ? "" : "mr-auto"
+          }`}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.5, y: 10 }}
+          animate={{ opacity: draining ? 0.55 : 1, scale: 1, y: 0 }}
+          transition={reduceMotion ? { duration: 0 } : spring}
+          aria-hidden="true"
+        >
+          <span
+            className="material-symbols-outlined text-[28px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            bolt
+          </span>
+          +{draining ? <CountUp from={gained} to={0} duration={XP_TRANSFER_DURATION} /> : gained}
+        </motion.span>
+      ) : null}
+      {totalShown ? (
+        <motion.span
+          layout
+          className="inline-flex items-center gap-2 rounded-full border border-black/[0.05] bg-white px-4 py-2 shadow-sm"
+          initial={reduceMotion ? false : { opacity: 0, x: 24, scale: 0.85 }}
+          animate={
+            beat === "settled" && !reduceMotion
+              ? { opacity: 1, x: 0, scale: [1, 1.12, 1] }
+              : { opacity: 1, x: 0, scale: 1 }
+          }
+          transition={reduceMotion ? { duration: 0 } : beat === "settled" ? { duration: 0.4 } : spring}
+          aria-hidden="true"
+        >
+          <span
+            className="material-symbols-outlined text-[22px] text-[#f59e0b]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            bolt
+          </span>
+          <span
+            className="text-[22px] font-extrabold text-[#1d1d1f] tabular-nums"
+            style={{ minWidth: `${String(totalAfter).length}ch` }}
+          >
+            {draining ? (
+              <CountUp from={totalBefore} to={totalAfter ?? 0} duration={XP_TRANSFER_DURATION} />
+            ) : (
+              totalBefore
+            )}
+          </span>
+          <span className="text-[14px] font-bold text-[#86868b]">XP</span>
+        </motion.span>
+      ) : null}
+    </div>
+  );
+}
+
+function QuestStepView({
+  update,
+  totalXp,
+  continueLabel,
+  onContinue,
+  secondaryLabel,
+  onSecondary,
+}: {
+  update: QuestUpdate;
+  /** The learner's total XP with this sync's quest XP included. */
+  totalXp: number | null;
+  continueLabel: string;
+  onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const continueRef = useContinueShortcut(onContinue);
+  const steps = update.quests;
+  const movedIds = steps.filter(questStepMoved).map((step) => step.id);
+  const finished = steps.filter((step) => questStepMoved(step) && step.done && step.before < step.target);
+  const allDone = steps.length > 0 && steps.every((step) => step.done);
+  const fillsEnd =
+    QUEST_FILL_START + Math.max(0, movedIds.length - 1) * QUEST_FILL_GAP + QUEST_FILL_DURATION;
+  const bonusAt = fillsEnd + 0.15;
+  const xpAt = update.bonus ? bonusAt + 0.5 : fillsEnd;
+
+  return (
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+        <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+          <motion.div
+            className="flex h-[110px] items-end justify-center"
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 22 }}
+            aria-hidden="true"
+          >
+            <div className="origin-bottom scale-[1.35]">
+              <ChillPingu pose={allDone ? "balloon" : "pen"} />
+            </div>
+          </motion.div>
+          <h2
+            className="mt-4 text-[30px] font-bold tracking-tight text-[#1d1d1f]"
+            style={{ letterSpacing: "-0.03em" }}
+          >
+            {update.bonus || allDone
+              ? "Xong hết nhiệm vụ!"
+              : finished.length > 0
+                ? "Nhiệm vụ hoàn thành!"
+                : "Tiến gần hơn rồi!"}
+          </h2>
+
+          <ul className="mt-5 w-full overflow-hidden rounded-[24px] border-2 border-[#e5e5ea] bg-white shadow-[0_4px_0_0_#e5e5ea]">
+            {steps.map((step, index) => {
+              const order = movedIds.indexOf(step.id);
+              return (
+                <QuestStepRow
+                  key={step.id}
+                  step={step}
+                  index={index}
+                  fillDelay={order < 0 ? null : QUEST_FILL_START + order * QUEST_FILL_GAP}
+                />
+              );
+            })}
+          </ul>
+
+          {update.bonus ? (
+            <motion.div
+              className="mt-3 flex w-full items-center gap-3 rounded-[20px] border-2 border-[#ffd66b] bg-[#fff8e1] px-4 py-3 text-left shadow-[0_4px_0_0_#ffd66b]"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 420, damping: 16, delay: bonusAt }
+              }
+            >
+              <QuestChest open size={44} />
+              <p className="text-[15px] font-extrabold text-[#1d1d1f]">Mở rương thưởng</p>
+            </motion.div>
+          ) : null}
+
+          {update.xp > 0 ? (
+            <QuestXpTransfer gained={update.xp} totalAfter={totalXp} startAt={xpAt} />
+          ) : null}
+        </div>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
+        <motion.button
+          ref={continueRef}
+          type="button"
+          onClick={onContinue}
+          className={chunkyButton("primary", "w-full")}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduceMotion ? 0 : 0.4, duration: 0.25 }}
+        >
+          {continueLabel}
+        </motion.button>
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+      </div>
+    </main>
+  );
+}
+
+function SecondaryButton({ label, onClick }: { label?: string; onClick?: () => void }) {
+  if (!label || !onClick) return null;
+  return (
+    <button type="button" onClick={onClick} className={chunkyButton("secondary", "mt-3 w-full")}>
+      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+        replay
+      </span>
+      {label}
+    </button>
+  );
+}
+
+/** The flame and the day counter ticking up, after the completed screen. */
+function StreakStepView({
+  step,
+  continueLabel,
+  onContinue,
+  secondaryLabel,
+  onSecondary,
+}: {
+  step: StreakCelebration;
+  continueLabel: string;
+  onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const continueRef = useContinueShortcut(onContinue);
+
+  return (
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+        <Flame still={reduceMotion} />
+        <StreakCount from={step.from} to={step.to} still={reduceMotion} />
+        <p className="mt-2 text-[20px] font-semibold tracking-tight text-[#1d1d1f]">
+          ngày liên tiếp
+        </p>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
+        <motion.button
+          ref={continueRef}
+          type="button"
+          onClick={onContinue}
+          className={chunkyButton("primary", "w-full")}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduceMotion ? 0 : 0.85, duration: 0.25 }}
+        >
+          {continueLabel}
+        </motion.button>
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+      </div>
+    </main>
+  );
+}
+
+type Stage = "complete" | "streak" | "quests";
+
+/**
+ * The end of a part: a loader while the server counts XP, the completed
+ * screen, the streak flame when this run raised it, then the daily quests
+ * when this part moved one.
+ */
+export function PartCompleteScreen(props: PartCompleteScreenProps) {
+  const {
+    xp,
+    xpKind,
+    xpPending,
+    questUpdate,
+    failed,
+    celebrateStreak = false,
+    continueLabel,
+    onContinue,
+    secondaryLabel,
+    onSecondary,
+  } = props;
+  const [loaderShown] = useState(() => xpPending && !failed);
+  const [minElapsed, setMinElapsed] = useState(!loaderShown);
+  const [gaveUp, setGaveUp] = useState(false);
+  /** Undefined while loading, null when it could not be read. */
+  const [totalXp, setTotalXp] = useState<number | null | undefined>(undefined);
+  const [stage, setStage] = useState<Stage>("complete");
+  const [streakStep, setStreakStep] = useState<StreakCelebration | null>(null);
+  const queuedStreak = useSyncExternalStore(
+    subscribeStreakCelebration,
+    readQueuedStreakCelebration,
+    () => null,
+  );
+
+  useEffect(() => {
+    if (minElapsed) return;
+    const timer = window.setTimeout(() => setMinElapsed(true), LOADER_MIN_MS);
+    return () => window.clearTimeout(timer);
+  }, [minElapsed]);
+
+  useEffect(() => {
+    if (!xpPending || failed) return;
+    const timer = window.setTimeout(() => setGaveUp(true), LOADER_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, [xpPending, failed]);
+
+  // The total is read once the part's XP is stored, so it already counts it.
+  useEffect(() => {
+    if (!loaderShown || xpPending) return;
+    let cancelled = false;
+    void fetch("/api/xp")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { ready?: unknown; total?: unknown } | null) => {
+        if (cancelled) return;
+        setTotalXp(data && data.ready !== false && typeof data.total === "number" ? data.total : null);
+      })
+      .catch(() => {
+        if (!cancelled) setTotalXp(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loaderShown, xpPending]);
+
+  const waiting = xpPending || (loaderShown && totalXp === undefined);
+  const loading = !failed && (!minElapsed || (waiting && !gaveUp));
+  const partXp = xpCaption(xp, xpKind).amount;
+  const questXp = questUpdate?.xp ?? 0;
+  const questsAhead =
+    !failed && !xpPending && questUpdate != null && questUpdate.quests.some(questStepMoved);
+  const streakAhead = !failed && celebrateStreak && (streakStep != null || queuedStreak != null);
+
+  const following: Stage[] = [];
+  if (streakAhead) following.push("streak");
+  if (questsAhead) following.push("quests");
+  const next = following[following.indexOf(stage) + 1];
+  const last = next == null;
+
+  const advance = () => {
+    if (!next) {
+      onContinue();
+      return;
+    }
+    if (next === "streak") {
+      const step = streakStep ?? takeStreakCelebration();
+      if (!step) {
+        setStage(questsAhead ? "quests" : "complete");
+        if (!questsAhead) onContinue();
+        return;
+      }
+      setStreakStep(step);
+    }
+    setStage(next);
+  };
+
+  const shared = {
+    continueLabel: last ? continueLabel : "Tiếp tục",
+    onContinue: advance,
+    secondaryLabel: last ? secondaryLabel : undefined,
+    onSecondary: last ? onSecondary : undefined,
+  };
+
+  if (loading) return <XpLoader />;
+
+  if (stage === "streak" && streakStep) {
+    return <StreakStepView step={streakStep} {...shared} />;
+  }
+
+  if (stage === "quests" && questUpdate) {
+    return <QuestStepView update={questUpdate} totalXp={totalXp ?? null} {...shared} />;
+  }
+
+  return (
+    <CompleteView
+      {...props}
+      questUpdate={questsAhead ? null : (questUpdate ?? null)}
+      totalXp={
+        totalXp == null || partXp <= 0
+          ? null
+          : { from: totalXp - questXp - partXp, to: totalXp - questXp }
+      }
+      {...shared}
+    />
   );
 }

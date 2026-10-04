@@ -3,14 +3,17 @@ import { getSupabaseAdmin } from "@/lib/progress-store";
 import {
   claimsToCreate,
   evaluateQuests,
+  eventsBefore,
   MAX_QUEST_XP,
   pickDailyQuests,
   questDay,
   QUEST_BONUS_ID,
   QUEST_BONUS_XP,
   NO_QUEST_UPDATE,
+  type QuestEventDelta,
   type QuestEvents,
   type QuestProgress,
+  type QuestStep,
   type QuestUpdate,
   zonedDayRange,
 } from "@/lib/quests";
@@ -162,12 +165,14 @@ function boardFrom(
 /**
  * Counts today's progress, stores XP for quests that just finished, and
  * returns the board. Safe to call any time. A quest pays once per local day
- * in `zone`.
+ * in `zone`. `latest` is the part that triggered the sync, so the update can
+ * say how far each quest moved.
  */
 export async function syncQuests(
   userId: string,
   zone: string,
   now = new Date(),
+  latest: QuestEventDelta | null = null,
 ): Promise<{ board: QuestBoard; update: QuestUpdate }> {
   const day = questDay(now, zone);
   const supabase = getSupabaseAdmin();
@@ -180,10 +185,19 @@ export async function syncQuests(
   const events = await readEvents(supabase, userId, zonedDayRange(day, zone));
   if (!events) return { board: emptyBoard(day, false), update: NO_QUEST_UPDATE };
 
-  const progress = evaluateQuests(pickDailyQuests(userId, day), events);
+  const picked = pickDailyQuests(userId, day);
+  const progress = evaluateQuests(picked, events);
+  const earlier = evaluateQuests(picked, eventsBefore(events, latest));
+  const steps: QuestStep[] = progress.map((quest, index) => ({
+    ...quest,
+    before: Math.min(earlier[index]?.progress ?? quest.progress, quest.progress),
+  }));
   const toCreate = claimsToCreate(progress, new Set(claims.keys()));
   if (toCreate.length === 0) {
-    return { board: boardFrom(day, progress, claims), update: NO_QUEST_UPDATE };
+    return {
+      board: boardFrom(day, progress, claims),
+      update: { ...NO_QUEST_UPDATE, quests: steps },
+    };
   }
 
   // Insert one by one. A row that already exists means another request paid
@@ -217,14 +231,19 @@ export async function syncQuests(
         .filter((claim) => claim.questId !== QUEST_BONUS_ID)
         .map((claim) => titles.get(claim.questId) ?? claim.questId),
       bonus: stored.some((claim) => claim.questId === QUEST_BONUS_ID),
+      quests: steps,
     },
   };
 }
 
 /** Same as syncQuests, but a quest failure never breaks the caller. */
-export async function syncQuestsQuietly(userId: string, zone: string): Promise<QuestUpdate> {
+export async function syncQuestsQuietly(
+  userId: string,
+  zone: string,
+  latest: QuestEventDelta | null = null,
+): Promise<QuestUpdate> {
   try {
-    return (await syncQuests(userId, zone)).update;
+    return (await syncQuests(userId, zone, new Date(), latest)).update;
   } catch (error) {
     console.error("syncQuests", error);
     return NO_QUEST_UPDATE;

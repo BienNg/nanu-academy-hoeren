@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   claimsToCreate,
   evaluateQuests,
+  eventsBefore,
   EMPTY_QUEST_EVENTS,
   MAX_QUEST_XP,
   pickDailyQuests,
@@ -133,7 +134,47 @@ test("readQuestUpdate keeps real updates and drops empty ones", () => {
     xp: 25,
     completed: ["A"],
     bonus: true,
+    quests: [],
   });
+});
+
+test("readQuestUpdate keeps a quest that moved without finishing", () => {
+  const step = {
+    id: "study-2",
+    kind: "study",
+    title: "Hoàn thành 2 phần học",
+    xp: 15,
+    target: 2,
+    progress: 1,
+    done: false,
+  };
+  assert.equal(
+    readQuestUpdate({ xp: 0, completed: [], bonus: false, quests: [{ ...step, before: 1 }] }),
+    null,
+  );
+  const update = readQuestUpdate({
+    xp: 0,
+    completed: [],
+    bonus: false,
+    quests: [{ ...step, before: 0 }, { id: "bad" }],
+  });
+  assert.deepEqual(update?.quests, [{ ...step, before: 0 }]);
+});
+
+test("eventsBefore takes back exactly the part that triggered the sync", () => {
+  const events = { listeningAccuracies: [80, 95, 80], studyParts: 2, baseXp: 90 };
+  assert.deepEqual(eventsBefore(events, { kind: "listening", accuracy: 80, xp: 35 }), {
+    listeningAccuracies: [80, 95],
+    studyParts: 2,
+    baseXp: 55,
+  });
+  assert.deepEqual(eventsBefore(events, { kind: "study", xp: 20 }), {
+    listeningAccuracies: [80, 95, 80],
+    studyParts: 1,
+    baseXp: 70,
+  });
+  assert.equal(eventsBefore(events, { kind: "study", xp: 0 }), events);
+  assert.equal(eventsBefore(events, null), events);
 });
 
 test("a request without a real zone falls back to Vietnam", () => {
