@@ -73,6 +73,9 @@ export type AdminActivityCard = {
   percent: number;
   /** Items finished out of the items on this card, e.g. "14/19". */
   progressLabel: string;
+  /** Completed parts of this node. The learn path draws one ring segment per part. */
+  partsDone: number;
+  partCount: number;
   /** Extra stored context, such as how many full listening or study runs. */
   note: string | null;
   struggling: boolean;
@@ -302,6 +305,8 @@ function projectLesson(
             : study
               ? `${node.partsDone}/${node.parts.length}`
               : `${node.clipsDone}/${node.clipCount}`,
+          partsDone: node.partsDone,
+          partCount: node.parts.length,
           note: lastOfKind ? (study ? studyNote : practiceNote) : null,
           struggling: !study && !node.done && listeningStruggling,
         } satisfies AdminActivityCard;
@@ -317,6 +322,8 @@ function projectLesson(
                   status: studyStatus,
                   percent: studyDone ? 100 : percentOf(studyParts.done, studyParts.total),
                   progressLabel: studyDone ? "" : `${studyParts.done}/${studyParts.total}`,
+                  partsDone: studyDone ? studyParts.total : studyParts.done,
+                  partCount: studyParts.total,
                   note: studyNote,
                   struggling: false,
                 } satisfies AdminActivityCard,
@@ -328,6 +335,8 @@ function projectLesson(
             status: listeningStatus,
             percent: listeningCompletedOnce ? 100 : percentOf(completedCount, clipTotal),
             progressLabel: listeningCompletedOnce ? "" : `${completedCount}/${clipTotal}`,
+            partsDone: 0,
+            partCount: 0,
             note: practiceNote,
             struggling: listeningStruggling,
           },

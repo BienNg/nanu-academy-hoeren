@@ -165,6 +165,9 @@ type TrailNode = {
   icon: string;
   href: string | null;
   percent: number;
+  /** Parts on this node. More than one splits the progress ring. */
+  partCount: number;
+  partsDone: number;
   complete: boolean;
   struggling: boolean;
   primary: string | null;
@@ -280,6 +283,8 @@ function lessonTrailNodes(
     icon: "smart_display",
     href: videoHref(video.id),
     percent: video.status === "watched" ? 100 : 0,
+    partCount: 0,
+    partsDone: 0,
     complete: video.status === "watched",
     struggling: false,
     primary: video.title,
@@ -298,19 +303,22 @@ function lessonTrailNodes(
     const trailNode = lessonNodeFromActivityId(activity.id);
     const isStudy = trailNode?.kind === "study";
     const numbered = /-\d+$/.test(activity.id) && trailNode ? ` ${trailNode.node}` : "";
-    const primary = isStudy ? activity.progressLabel || null : null;
+    const partProgress =
+      activity.partCount > 1 ? `${activity.partsDone}/${activity.partCount}` : null;
     const label = isStudy
-      ? [`Study${numbered}`, activity.progressLabel || null].filter(Boolean).join(", ")
-      : `Luyện tập${numbered}`;
+      ? [`Study${numbered}`, partProgress].filter(Boolean).join(", ")
+      : [`Luyện tập${numbered}`, partProgress].filter(Boolean).join(", ");
     const page = isStudy ? "study" : "practice";
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "fitness_center",
       href: numbered ? `${lessonHref}/${page}?node=${trailNode?.node}` : `${lessonHref}/${page}`,
       percent: activity.percent,
+      partCount: activity.partCount,
+      partsDone: activity.partsDone,
       complete: activity.status === "completed",
       struggling: activity.struggling,
-      primary,
+      primary: null,
       secondary: null,
       start: startFor(activity.id),
       label,
@@ -394,15 +402,51 @@ function trailNodeLocked(
 
 function ProgressRing({
   percent,
+  parts,
+  partsDone,
   track,
   stroke,
 }: {
   percent: number;
+  /** More than one part draws that many arcs. A finished part fills its arc. */
+  parts: number;
+  partsDone: number;
   track: string;
   stroke: string;
 }) {
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
+  const count = Math.max(0, Math.round(parts));
+  const done = Math.min(count, Math.max(0, Math.round(partsDone)));
+
+  if (count > 1) {
+    const slot = circumference / count;
+    const gap = Math.min(10, slot * 0.18);
+    const segment = slot - gap;
+    return (
+      <svg
+        className="absolute inset-1 -rotate-90"
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+      >
+        {Array.from({ length: count }, (_, index) => (
+          <circle
+            key={index}
+            cx="32"
+            cy="32"
+            r={radius}
+            fill="none"
+            style={{ stroke: index < done ? stroke : track }}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={`${segment} ${circumference - segment}`}
+            strokeDashoffset={-index * (segment + gap)}
+          />
+        ))}
+      </svg>
+    );
+  }
+
   const clamped = Math.min(100, Math.max(0, percent));
   const dashOffset = circumference * (1 - clamped / 100);
 
@@ -578,12 +622,16 @@ export function LessonPathIcon({
 function PathCircle({
   icon,
   percent,
+  partCount,
+  partsDone,
   complete,
   locked,
   struggling,
 }: {
   icon: string;
   percent: number;
+  partCount: number;
+  partsDone: number;
   complete: boolean;
   locked: boolean;
   struggling: boolean;
@@ -619,7 +667,13 @@ function PathCircle({
 
   return (
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-      <ProgressRing percent={percent} track="#e2e8f0" stroke={ring} />
+      <ProgressRing
+        percent={percent}
+        parts={partCount}
+        partsDone={partsDone}
+        track="#e2e8f0"
+        stroke={ring}
+      />
       {glyph}
     </span>
   );
@@ -787,6 +841,8 @@ function PathStop({
       <PathCircle
         icon={node.icon}
         percent={node.percent}
+        partCount={node.partCount}
+        partsDone={node.partsDone}
         complete={node.complete}
         locked={locked}
         struggling={node.struggling}
