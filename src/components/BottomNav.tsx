@@ -21,6 +21,24 @@ function isCurrent(pathname: string, href: string): boolean {
 const DUEL_TAB_KEY = "nanu-duel-tab";
 const DUEL_TAB_EVENT = "nanu-duel-tab-change";
 
+let pendingNavPath: string | null = null;
+const pendingNavListeners = new Set<() => void>();
+
+/** The tab the learner just clicked, until that route actually opens. */
+export function publishPendingNav(path: string | null): void {
+  pendingNavPath = path;
+  pendingNavListeners.forEach((listener) => listener());
+}
+
+function subscribePendingNav(onChange: () => void): () => void {
+  pendingNavListeners.add(onChange);
+  return () => pendingNavListeners.delete(onChange);
+}
+
+function readPendingNav(): string | null {
+  return pendingNavPath;
+}
+
 /**
  * Whether the Duel tab shows. Remembered for the tab session, so a learner
  * without a class does not see it flash in on every page before the badge
@@ -49,7 +67,9 @@ function subscribeDuelTab(onChange: () => void): () => void {
 }
 
 export function BottomNav() {
-  const pathname = usePathname() ?? "/";
+  const livePath = usePathname() ?? "/";
+  const pendingPath = useSyncExternalStore(subscribePendingNav, readPendingNav, () => null);
+  const pathname = pendingPath ?? livePath;
   const [challenges, setChallenges] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
   const questsLeft = useSyncExternalStore(subscribeQuestBadge, readQuestBadge, () => 0);

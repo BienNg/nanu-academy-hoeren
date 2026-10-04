@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BottomNav } from "@/components/BottomNav";
+import { BottomNav, publishPendingNav } from "@/components/BottomNav";
 
 const screenFont = {
   fontFamily:
@@ -157,65 +157,75 @@ function LearnerHeader({
   );
 }
 
-export function HomeScreenSkeleton() {
+export function QuestsScreenSkeleton() {
   return (
-    <ScreenFrame>
-      <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <Bone className="h-10 w-10 rounded-full" />
-            <LoadingTitle />
-          </div>
-          <div className="flex items-center gap-2">
-            <Bone className="h-8 w-20 rounded-full" />
-            <Bone className="h-9 w-9 rounded-full" />
-          </div>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+    >
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between px-4 pt-3 pb-2.5">
+          <div className="h-7 w-32 animate-pulse rounded-full bg-[#e2e7ff]" />
+          <div className="h-7 w-28 animate-pulse rounded-full bg-[#e2e7ff]" />
         </div>
       </header>
-      <main className="relative flex w-full flex-1 flex-col items-center">
-        <div className="flex w-full max-w-4xl flex-col gap-6 px-6 pb-12 pt-4">
-          <div className="rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-            <Bone className="h-5 w-24 rounded-full" />
-            <Bone className="mt-4 h-7 w-2/3 rounded-full" />
-            <Bone className="mt-3 h-4 w-1/3 rounded-full" />
-            <Bone className="mt-6 h-1.5 w-full rounded-full" />
-            <Bone className="mt-5 h-[52px] w-full rounded-[16px]" />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {Array.from({ length: 2 }, (_, index) => (
-              <div key={index} className="overflow-hidden rounded-2xl border-2 border-[#e5e5e5] bg-white">
-                <div className={`flex items-center gap-3 px-4 py-4 ${index === 0 ? "bg-[#e0f2fe]" : "bg-[#fff4d6]"}`}>
-                  <Bone className="h-14 w-14 rounded-2xl" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Bone className="h-3 w-16 rounded-full" />
-                    <Bone className="h-6 w-32 rounded-full" />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 px-4 py-4">
-                  <Bone className="h-4 w-full rounded-full" />
-                  <Bone className="h-4 w-2/3 rounded-full" />
-                  <Bone className="h-12 w-full rounded-2xl" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <Bone className="h-7 w-56 rounded-full" />
-          <div className="flex gap-4 overflow-hidden">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div
-                key={index}
-                className="h-[200px] w-[240px] shrink-0 rounded-[28px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-              >
-                <Bone className="h-4 w-16 rounded-full" />
-                <Bone className="mt-3 h-7 w-20 rounded-full" />
-                <Bone className="mt-16 h-4 w-24 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-4 pb-28">
+        <div className="h-36 animate-pulse rounded-[24px] bg-[#ffb020]/25" />
+        <div className="h-72 animate-pulse rounded-[24px] bg-white shadow-[0_4px_0_0_#e5e5ea]" />
+        <div className="h-28 animate-pulse rounded-[24px] bg-white shadow-[0_4px_0_0_#e5e5ea]" />
       </main>
       <BottomNav />
-    </ScreenFrame>
+    </div>
+  );
+}
+
+export function DuelScreenSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+    >
+      <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl px-4 py-4 sm:px-6">
+          <div className="h-7 w-24 animate-pulse rounded-full bg-[#e2e7ff]" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-3 px-4 pb-28 pt-4 sm:px-6">
+        <div className="h-40 animate-pulse rounded-[28px] bg-[#0284c7]/20" />
+        <div className="h-24 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
+export function LeaderboardScreenSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+    >
+      <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:px-6">
+          <div className="h-7 w-40 animate-pulse rounded-full bg-[#e2e7ff]" />
+          <div className="h-11 w-full animate-pulse rounded-full bg-[#e2e7ff]" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-3 px-4 pb-28 pt-4 sm:px-6">
+        <div className="h-36 animate-pulse rounded-[28px] bg-[#0284c7]/20" />
+        <div className="h-64 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+      </main>
+      <BottomNav />
+    </div>
   );
 }
 
@@ -480,7 +490,7 @@ export function VideoLessonSkeleton({ path }: { path?: string }) {
 
 export function ScreenForPath({ path }: { path: string }) {
   const parts = path.split("/").filter(Boolean);
-  if (parts.length === 0) return <HomeScreenSkeleton />;
+  if (parts.length === 0) return <LevelScreenSkeleton path={path} />;
   if (parts[0] === "account" || parts[0] === "session-ended") {
     return <AccountScreenSkeleton path={path} />;
   }
@@ -510,7 +520,10 @@ export function ScreenForPath({ path }: { path: string }) {
     return <LevelScreenSkeleton path={path} />;
   }
   if (parts[0] === "learn") return <ChapterScreenSkeleton path={path} />;
-  return <HomeScreenSkeleton />;
+  if (parts[0] === "quests") return <QuestsScreenSkeleton />;
+  if (parts[0] === "duel") return <DuelScreenSkeleton />;
+  if (parts[0] === "leaderboard") return <LeaderboardScreenSkeleton />;
+  return <LevelScreenSkeleton path={path} />;
 }
 
 function isPlainLeftClick(event: MouseEvent): boolean {
@@ -532,6 +545,10 @@ export function NavigationFeedback() {
     setSeenPath(pathname);
     setPendingPath(null);
   }
+
+  useEffect(() => {
+    publishPendingNav(null);
+  }, [pathname]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -559,6 +576,7 @@ export function NavigationFeedback() {
         return;
       }
       setPendingPath(url.pathname);
+      publishPendingNav(url.pathname);
     };
 
     document.addEventListener("click", onClick, true);
@@ -567,7 +585,10 @@ export function NavigationFeedback() {
 
   useEffect(() => {
     if (!pendingPath) return;
-    const id = window.setTimeout(() => setPendingPath(null), 20000);
+    const id = window.setTimeout(() => {
+      setPendingPath(null);
+      publishPendingNav(null);
+    }, 20000);
     return () => window.clearTimeout(id);
   }, [pendingPath]);
 
