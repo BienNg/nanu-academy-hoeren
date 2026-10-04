@@ -122,9 +122,11 @@ function QuestList({ quests }: { quests: readonly QuestRow[] }) {
 }
 
 function BonusChest({ board }: { board: QuestBoardPayload }) {
+  const reduceMotion = useReducedMotion() ?? false;
   const done = board.quests.filter((quest) => quest.done).length;
   const total = board.quests.length;
   const claimed = board.bonus.claimed;
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <section
       aria-label="Rương thưởng"
@@ -142,13 +144,21 @@ function BonusChest({ board }: { board: QuestBoardPayload }) {
             ? `Bạn đã mở rương và nhận +${board.bonus.xp} XP!`
             : `Xong cả ${total} nhiệm vụ để mở rương +${board.bonus.xp} XP`}
         </p>
-        <div className="mt-2 flex gap-1.5" aria-label={`${done} / ${total} nhiệm vụ`}>
-          {board.quests.map((quest) => (
-            <span
-              key={quest.id}
-              className={`h-2.5 flex-1 rounded-full ${quest.done ? "bg-[#34C759]" : "bg-[#e5e5ea]"}`}
-            />
-          ))}
+        <div
+          className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-[#e5e5ea]"
+          role="progressbar"
+          aria-valuenow={done}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-label={`${done} / ${total} nhiệm vụ`}
+        >
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ backgroundColor: claimed || done === total ? "#34C759" : "#FFC800" }}
+            initial={reduceMotion ? false : { width: "0%" }}
+            animate={{ width: `${percent}%` }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.8, ease: "easeOut" }}
+          />
         </div>
       </div>
     </section>
