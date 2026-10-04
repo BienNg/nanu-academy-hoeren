@@ -62,24 +62,26 @@ function SessionActions({
   onAction: () => void;
 }) {
   return (
-    <div className="flex gap-3 pt-6">
-      <ChunkyButton
-        variant={backDisabled ? "disabled" : "secondary"}
-        disabled={backDisabled}
-        onClick={onBack}
-        className="w-[52px] shrink-0 px-0"
-        aria-label={backLabel}
-      >
-        <MaterialIcon name="arrow_back" className="text-[22px]" />
-      </ChunkyButton>
-      <ChunkyButton
-        variant={actionDisabled ? "disabled" : "primary"}
-        disabled={actionDisabled}
-        onClick={onAction}
-        className="min-w-0 flex-1"
-      >
-        {actionLabel}
-      </ChunkyButton>
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-[#fbfbfd]/95 backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-2xl gap-3 px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <ChunkyButton
+          variant={backDisabled ? "disabled" : "secondary"}
+          disabled={backDisabled}
+          onClick={onBack}
+          className="w-[52px] shrink-0 px-0"
+          aria-label={backLabel}
+        >
+          <MaterialIcon name="arrow_back" className="text-[22px]" />
+        </ChunkyButton>
+        <ChunkyButton
+          variant={actionDisabled ? "disabled" : "primary"}
+          disabled={actionDisabled}
+          onClick={onAction}
+          className="min-w-0 flex-1"
+        >
+          {actionLabel}
+        </ChunkyButton>
+      </div>
     </div>
   );
 }
@@ -859,47 +861,29 @@ export function StudySession({
                     />
                   ) : (
                     <div className="-mt-4">
-                      {recallPerfect && scoreResult ? (
-                        <>
-                          <DictationInputCard
-                            key={`dictation-${currentClip.id}`}
-                            value={draft}
-                            onChange={setDraft}
-                            onSubmit={handleRecallSubmit}
-                            disabled
-                            showSubmit={false}
-                          />
-                          <FeedbackResultCard
-                            result={scoreResult}
-                            clip={currentClip}
-                            onNext={finishRecall}
-                            secondaryLabel="Xem lại thẻ"
-                            onSecondary={goPrev}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          {scoreResult ? (
-                            <FeedbackResultCard
-                              result={scoreResult}
-                              clip={currentClip}
-                              onNext={finishRecall}
-                            />
-                          ) : null}
-                          <DictationInputCard
-                            key={`dictation-${currentClip.id}`}
-                            value={draft}
-                            onChange={setDraft}
-                            onSubmit={handleRecallSubmit}
-                            showSubmit={false}
-                          />
-                        </>
-                      )}
+                      <DictationInputCard
+                        key={`dictation-${currentClip.id}`}
+                        value={draft}
+                        onChange={setDraft}
+                        onSubmit={handleRecallSubmit}
+                        disabled={recallPerfect}
+                        showSubmit={false}
+                      />
                     </div>
                   )}
                 </motion.div>
               </div>
             </div>
+
+            {shownPhase === "recall" && scoreResult ? (
+              <FeedbackResultCard
+                result={scoreResult}
+                clip={currentClip}
+                onNext={finishRecall}
+                secondaryLabel={recallPerfect ? "Xem lại thẻ" : undefined}
+                onSecondary={recallPerfect ? goPrev : undefined}
+              />
+            ) : null}
 
             {shownPhase === "study" ? (
               <SessionActions
