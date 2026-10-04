@@ -34,21 +34,23 @@ function indexOfListening(deck: ReturnType<typeof buildPracticeDeck>, clipId: st
   return deck.findIndex((card) => card.kind === "listening" && card.clip.id === clipId);
 }
 
-test("layers exactly one pairing card and one MC card per eligible clip onto the deck", () => {
+const MEANING_KINDS = new Set(["multiple-choice", "vi-input", "vi-choice"]);
+
+test("layers exactly one pairing card and one meaning drill per translated clip onto the deck", () => {
   const base = buildPracticeDeck(partClips, partClips, seeded(1));
   const deck = insertDiscreteCards(base, partClips, partClips, [], seeded(2));
 
   const listening = deck.filter((card) => card.kind === "listening");
   const pairing = deck.filter((card) => card.kind === "pairing");
   const mc = deck.filter((card) => card.kind === "multiple-choice");
-  const viInput = deck.filter((card) => card.kind === "vi-input");
-  const viChoice = deck.filter((card) => card.kind === "vi-choice");
 
   assert.equal(listening.length, 6);
   assert.equal(pairing.length, 1);
-  assert.equal(mc.length, 5); // c1-c5, never c6
-  assert.equal(viInput.length, 6);
-  assert.equal(viChoice.length, 6);
+  assert.equal(deck.length, 6 + 1 + 6);
+  for (const clip of partClips) {
+    const drills = deck.filter((card) => MEANING_KINDS.has(card.kind) && card.clip.id === clip.id);
+    assert.equal(drills.length, 1, `${clip.id} got ${drills.length} meaning drills`);
+  }
 
   assert.equal(pairing[0]?.pairItems?.length, 5);
   assert.ok(!mc.some((card) => card.clip.id === "c6"));
@@ -88,9 +90,25 @@ test("the heaviest clips still fit in one run of at most 20 cards", () => {
     sentenceOrder: true,
   }));
   const maxClips = maxClipsPerPracticePart(heavy);
-  assert.equal(maxClips, 4);
+  assert.equal(maxClips, 6); // listening + order + one meaning drill = 3 cards each
   assert.ok(practiceCardCount(heavy.slice(0, maxClips), heavy) <= MAX_PRACTICE_CARDS);
   assert.ok(practiceCardCount(heavy.slice(0, maxClips + 1), heavy) > MAX_PRACTICE_CARDS);
+});
+
+test("every clip gets one meaning drill, and the kind varies across deals", () => {
+  const seen = new Set<string>();
+  for (let seed = 1; seed <= 30; seed += 1) {
+    const deck = insertDiscreteCards(
+      buildPracticeDeck(partClips, partClips, seeded(seed)),
+      partClips,
+      partClips,
+      [],
+      seeded(seed + 200),
+    );
+    assert.equal(deck.length, practiceCardCount(partClips, partClips));
+    for (const card of deck) if (MEANING_KINDS.has(card.kind)) seen.add(card.kind);
+  }
+  assert.deepEqual([...seen].sort(), ["multiple-choice", "vi-choice", "vi-input"]);
 });
 
 test("a clip with an empty Vietnamese translation is a listening card only", () => {
@@ -225,7 +243,6 @@ test("60% of listening cards become listening-choice cards in place", () => {
       assert.equal(deck[at]?.clip.id, card.clip.id);
       assert.equal(card.options?.length, 4);
       assert.equal(card.options?.find((option) => option.correct)?.text, card.clip.translationVi);
-      assert.ok(mixed.some((other) => other.kind === "multiple-choice" && other.clip.id === card.clip.id));
     }
   }
 });
