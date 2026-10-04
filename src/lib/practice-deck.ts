@@ -7,7 +7,12 @@
  */
 
 import { buildPracticeDeck, isAnchorKind, type OrderSourceClip, type PracticeCard } from "./sentence-order";
-import { buildDeMcOptions, buildMcOptions, isMultipleChoiceEligible } from "./multiple-choice";
+import {
+  buildDeMcOptions,
+  buildMcOptions,
+  isGermanChoiceEligible,
+  isMultipleChoiceEligible,
+} from "./multiple-choice";
 import { buildPairingSet, isPairingItemEligible } from "./pairing";
 
 /**
@@ -15,6 +20,9 @@ import { buildPairingSet, isPairingItemEligible } from "./pairing";
  * The part split may deal more so a part is not shorter than the clip minimum.
  */
 export const MAX_PRACTICE_CARDS = 20;
+
+/** Most pairing cards one practice part holds. */
+export const MAX_PAIRING_CARDS = 1;
 
 function zeroRandom(): number {
   return 0;
@@ -71,15 +79,17 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
     const hasTranslation = Boolean(clip.translationVi?.trim());
     const multipleChoice = hasTranslation && isMultipleChoiceEligible(clip, lessonClips);
     // Must mirror the cards buildPracticeDeck and insertDiscreteCards deal per clip.
-    // vi-input needs only a translation, so it covers vi-choice's eligibility too.
-    const viDrills = !clip.answer && !clip.imageUrl;
-    const meaningDrill = multipleChoice || (viDrills && hasTranslation) ? 1 : 0;
+    // Practice deals no typed Vietnamese prompt, so the German choice drill needs its own distractors.
+    const viDrills = !clip.answer && !clip.imageUrl && isGermanChoiceEligible(clip, lessonClips);
+    // A clip with a reply-choice card gets no meaning drill: the two share one slot.
+    const replyChoice = hasReplyChoice(clip);
+    const meaningDrill = !replyChoice && (multipleChoice || (viDrills && hasTranslation)) ? 1 : 0;
     const base = clip.answer
       ? 1 + meaningDrill
       : 1 +
         (clip.sentenceOrder && hasTranslation ? 1 : 0) +
         meaningDrill +
-        (hasReplyChoice(clip) ? 1 : 0);
+        (replyChoice ? 1 : 0);
     return {
       clip,
       base,
@@ -122,7 +132,7 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
  * Adds one meaning drill per translated clip in `partClips` (a random pick of
  * multiple choice, Vietnamese-prompt typing, or Vietnamese-to-German choice,
  * from the ones the clip qualifies for), one reply-choice card per clip with
- * replies, and as many 5-clip pairing cards as `partClips` has eligible clips for, to a deck that
+ * replies, and one 5-clip pairing card when `partClips` has enough eligible clips, to a deck that
  * already has a listening (and possibly order) card for every part clip.
  *
  * Pairing groups are built first and only from `partClips` — every clip in a
@@ -154,7 +164,8 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
     next.splice(at, 0, card);
   }
 
-  for (;;) {
+  // At most one pairing card per part, so a long part does not stack several.
+  for (let sets = 0; sets < MAX_PAIRING_CARDS; sets += 1) {
     const set = buildPairingSet(partClips, [], usedForPairing, random);
     if (!set) break;
     for (const clip of set) usedForPairing.add(clip.id);
@@ -188,7 +199,9 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
   }
 
   // One meaning drill per clip, picked from the kinds the clip qualifies for.
+  // A clip that already got a reply-choice card skips it, so a clip never deals both.
   for (const clip of partClips) {
+    if (hasReplyChoice(clip)) continue;
     const anchorIndex = listeningIndexOf(clip.id);
     if (anchorIndex === -1) continue;
     const drills = meaningDrills(clip, lessonClips, levelClips, random);
@@ -201,8 +214,8 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
 }
 
 /**
- * The meaning drills a clip qualifies for: Vietnamese → type German,
- * Vietnamese → German choice, and German → Vietnamese multiple choice.
+ * The meaning drills a clip qualifies for: Vietnamese → German choice
+ *  and German → Vietnamese multiple choice.
  * insertDiscreteCards deals one of them, so a clip adds at most one card here.
  */
 function meaningDrills<C extends OrderSourceClip>(
@@ -214,14 +227,11 @@ function meaningDrills<C extends OrderSourceClip>(
   const translationVi = clip.translationVi;
   if (!translationVi?.trim()) return [];
   const drills: PracticeCard<C>[] = [];
-  // A number clip's script is spelled out; typing it from Vietnamese is not the skill.
+  // A number clip's script is spelled out; choosing it from Vietnamese is not the skill.
   // A picture word is drilled by picture pairing instead, which keeps 5 of them in one part.
-  if (!clip.answer && !clip.imageUrl) {
-    drills.push({ key: `${clip.id}:vi-input`, kind: "vi-input", clip });
-    if (clip.script.trim()) {
-      const options = buildDeMcOptions(clip, lessonClips, levelClips, random);
-      if (options) drills.push({ key: `${clip.id}:vi-choice`, kind: "vi-choice", clip, options });
-    }
+  if (!clip.answer && !clip.imageUrl && clip.script.trim()) {
+    const options = buildDeMcOptions(clip, lessonClips, levelClips, random);
+    if (options) drills.push({ key: `${clip.id}:vi-choice`, kind: "vi-choice", clip, options });
   }
   const options = buildMcOptions({ ...clip, translationVi }, lessonClips, levelClips, random);
   if (options) drills.push({ key: `${clip.id}:mc`, kind: "multiple-choice", clip, options });

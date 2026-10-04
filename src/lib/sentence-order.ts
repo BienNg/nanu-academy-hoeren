@@ -206,11 +206,11 @@ export function buildPracticeDeck<C extends OrderSourceClip>(
   lessonClips: readonly OrderSourceClip[],
   random: () => number = Math.random,
 ): PracticeCard<C>[] {
-  const deck: PracticeCard<C>[] = partClips.map((clip) =>
-    clip.answer
-      ? { key: `${clip.id}:number`, kind: "number-input", clip }
-      : { key: `${clip.id}:listen`, kind: "listening", clip },
-  );
+  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
+    key: `${clip.id}:listen`,
+    kind: "listening",
+    clip,
+  }));
   for (const clip of partClips) {
     if (!clip.sentenceOrder || clip.answer || !clip.translationVi?.trim()) continue;
     const listenAt = deck.findIndex(

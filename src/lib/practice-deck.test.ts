@@ -108,7 +108,7 @@ test("every clip gets one meaning drill, and the kind varies across deals", () =
     assert.equal(deck.length, practiceCardCount(partClips, partClips));
     for (const card of deck) if (MEANING_KINDS.has(card.kind)) seen.add(card.kind);
   }
-  assert.deepEqual([...seen].sort(), ["multiple-choice", "vi-choice", "vi-input"]);
+  assert.deepEqual([...seen].sort(), ["multiple-choice", "vi-choice"]);
 });
 
 test("a clip with an empty Vietnamese translation is a listening card only", () => {
@@ -160,17 +160,17 @@ const livingClips = [
   },
 ];
 
-test("a number clip is dealt as a number-input card instead of dictation", () => {
+test("a number clip is dealt as a listening card, with no number-input or typed drill", () => {
   const base = buildPracticeDeck(livingClips, livingClips, seeded(3));
   const deck = insertDiscreteCards(base, livingClips, livingClips, [], seeded(4));
   const numberCards = deck.filter((card) => card.clip.id === "n1");
   const kinds = numberCards.map((card) => card.kind);
-  assert.ok(kinds.includes("number-input"));
-  assert.ok(!kinds.includes("listening"));
+  assert.ok(kinds.includes("listening"));
+  assert.ok(!kinds.includes("number-input"));
   assert.ok(!kinds.includes("order"));
   assert.ok(!kinds.includes("vi-input"));
   assert.ok(!kinds.includes("vi-choice"));
-  assert.equal(kinds.filter((kind) => kind === "number-input").length, 1);
+  assert.equal(kinds.filter((kind) => kind === "listening").length, 1);
 });
 
 test("a clip with replies gets one reply-choice card after its listening card", () => {
@@ -199,11 +199,31 @@ test("card counting matches the dealt deck for Living clips", () => {
     );
     assert.equal(deck.length, practiceCardCount(livingClips, livingClips));
   }
+  // A reply-choice card takes the slot of the clip's meaning drill. It adds a card only
+  // for a clip that had no drill to give up.
   const withoutReplies = livingClips.map((clip) => ({ ...clip, replies: undefined }));
-  assert.equal(
-    practiceCardCount(livingClips, livingClips),
-    practiceCardCount(withoutReplies, withoutReplies) + 1,
+  const extra =
+    practiceCardCount(livingClips, livingClips) - practiceCardCount(withoutReplies, withoutReplies);
+  assert.ok(extra >= 0 && extra <= livingClips.filter((clip) => clip.replies).length);
+});
+
+test("a clip with a reply-choice card gets no meaning drill", () => {
+  const deck = insertDiscreteCards(
+    buildPracticeDeck(livingClips, livingClips, seeded(1)),
+    livingClips,
+    livingClips,
+    [],
+    seeded(2),
   );
+  const drillKinds = ["vi-input", "vi-choice", "multiple-choice"];
+  const replyClipIds = deck.filter((card) => card.kind === "reply-choice").map((card) => card.clip.id);
+  assert.ok(replyClipIds.length > 0);
+  for (const id of replyClipIds) {
+    assert.equal(
+      deck.some((card) => card.clip.id === id && drillKinds.includes(card.kind)),
+      false,
+    );
+  }
 });
 
 test("five picture words fit one part and get a picture pairing card", () => {
@@ -254,4 +274,21 @@ test("listening cards without German distractors stay typing cards", () => {
     mixed.map((card) => card.kind),
     deck.map((card) => card.kind),
   );
+});
+
+test("a part with enough clips for two pairing sets still gets one pairing card", () => {
+  const many = Array.from({ length: 10 }, (_, index) => ({
+    id: `p${index}`,
+    script: `Wort${index}`,
+    translationVi: `từ ${index}`,
+  }));
+  const deck = insertDiscreteCards(
+    buildPracticeDeck(many, many, seeded(1)),
+    many,
+    many,
+    [],
+    seeded(2),
+  );
+  assert.equal(deck.filter((card) => card.kind === "pairing").length, 1);
+  assert.equal(deck.length, practiceCardCount(many, many));
 });
