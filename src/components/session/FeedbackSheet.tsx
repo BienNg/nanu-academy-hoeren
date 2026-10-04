@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import type { Howl } from "howler";
 import { ChunkyButton } from "@/components/chunkyButton";
+import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
 
 const PRAISE = ["Tuyệt vời!", "Xuất sắc!", "Chính xác!", "Giỏi lắm!", "Perfekt!", "Super!"];
 
@@ -13,11 +15,60 @@ export function praiseFor(seed: string): string {
   return PRAISE[Math.abs(hash) % PRAISE.length] as string;
 }
 
+/** Tap-to-hear control for a sheet line that has no player of its own. */
+function SpeakButton({ audioPath }: { audioPath: string }) {
+  const howlRef = useRef<Howl | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const howl = createClipHowl(resolveAudioUrl(audioPath), 1, {
+      onPlay: () => setPlaying(true),
+      onPause: () => setPlaying(false),
+      onEnd: () => setPlaying(false),
+      onStop: () => setPlaying(false),
+    });
+    howlRef.current = howl;
+    return () => {
+      howl.unload();
+      howlRef.current = null;
+    };
+  }, [audioPath]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const howl = howlRef.current;
+        if (!howl) return;
+        if (howl.playing()) howl.stop();
+        else howl.play();
+      }}
+      aria-label={playing ? "Tạm dừng âm thanh" : "Nghe câu"}
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/80"
+    >
+      <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+        {playing ? "stop" : "volume_up"}
+      </span>
+    </button>
+  );
+}
+
 /** German line plus its Vietnamese meaning, the usual sheet body. */
-export function SheetLine({ script, translation }: { script: string; translation?: string | null }) {
+export function SheetLine({
+  script,
+  translation,
+  audioPath,
+}: {
+  script: string;
+  translation?: string | null;
+  audioPath?: string | null;
+}) {
   return (
     <>
-      <p className="font-bold">{script}</p>
+      <p className="flex items-center gap-2 font-bold">
+        {audioPath ? <SpeakButton audioPath={audioPath} /> : null}
+        <span>{script}</span>
+      </p>
       {translation ? <p className="italic opacity-80">“{translation}”</p> : null}
     </>
   );

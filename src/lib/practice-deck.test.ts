@@ -234,20 +234,19 @@ test("60% of listening cards become listening-choice cards in place", () => {
     const choice = mixed.filter((card) => card.kind === "listening-choice");
 
     assert.equal(mixed.length, deck.length);
-    assert.equal(choice.length, 4); // round(6 * 0.6), all from c1-c5
+    assert.equal(choice.length, 4); // round(6 * 0.6)
     assert.equal(mixed.filter((card) => card.kind === "listening").length, 2);
-    assert.ok(!choice.some((card) => card.clip.id === "c6"));
     for (const card of choice) {
       const at = mixed.indexOf(card);
       assert.equal(deck[at]?.kind, "listening");
       assert.equal(deck[at]?.clip.id, card.clip.id);
       assert.equal(card.options?.length, 4);
-      assert.equal(card.options?.find((option) => option.correct)?.text, card.clip.translationVi);
+      assert.equal(card.options?.find((option) => option.correct)?.text, card.clip.script);
     }
   }
 });
 
-test("listening cards without Vietnamese distractors stay typing cards", () => {
+test("listening cards without German distractors stay typing cards", () => {
   const untranslated = partClips.map((clip) => ({ ...clip, translationVi: "" }));
   const deck = buildPracticeDeck(untranslated, untranslated, seeded(1));
   const mixed = mixListeningChoice(deck, untranslated, [], seeded(2));

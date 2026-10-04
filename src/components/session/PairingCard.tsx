@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ChunkyButton } from "@/components/chunkyButton";
+import { CheckBar } from "@/components/session/FeedbackSheet";
 
 /** `image` (a public URL) replaces the Vietnamese text in the left column. */
 type PairingItem = { id: string; vi: string; de: string; image?: string };
@@ -204,13 +204,7 @@ export function PairingCard({
         </div>
       </section>
 
-      {solved ? (
-        <footer className="mt-6 flex flex-col items-center gap-2">
-          <ChunkyButton onClick={onNext} className="w-full">
-            {nextLabel}
-          </ChunkyButton>
-        </footer>
-      ) : null}
+      {solved ? <CheckBar label={nextLabel} onClick={onNext} /> : null}
     </>
   );
 }

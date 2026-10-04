@@ -233,9 +233,11 @@ export const LISTENING_CHOICE_SHARE = 0.6;
 
 /**
  * Turns LISTENING_CHOICE_SHARE of the deck's listening cards into
- * listening-choice cards: the audio plays and the student picks its
- * Vietnamese meaning. Only clips with enough Vietnamese distractors can
- * switch, so a deck short on them keeps more typing cards. Each card stays
+ * listening-choice cards: the audio plays and the student picks the German
+ * text they heard. The student hasn't learned the clip's meaning yet at this
+ * point, so the options are German, not Vietnamese. Only clips with enough
+ * German distractors can switch, so a deck short on them keeps more typing
+ * cards. Each card stays
  * in place and stays the clip's anchor, so the card count never changes.
  */
 export function mixListeningChoice<C extends OrderSourceClip>(
@@ -256,9 +258,8 @@ export function mixListeningChoice<C extends OrderSourceClip>(
   for (const index of indexes) {
     if (choices.size >= target) break;
     const card = deck[index];
-    const translationVi = card?.clip.translationVi;
-    if (!card || !translationVi?.trim()) continue;
-    const options = buildMcOptions({ ...card.clip, translationVi }, lessonClips, levelClips, random);
+    if (!card?.clip.script.trim()) continue;
+    const options = buildDeMcOptions(card.clip, lessonClips, levelClips, random);
     if (!options) continue;
     choices.set(index, {
       key: `${card.clip.id}:listen-choice`,

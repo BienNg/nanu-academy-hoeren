@@ -15,6 +15,8 @@ interface FeedbackResultCardProps {
   /** Small text action on the sheet, e.g. back to the study card. */
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Speaker beside the script. Used when the card itself has no player. */
+  speak?: boolean;
 }
 
 function censorWord(word: string): string {
@@ -66,6 +68,7 @@ export function FeedbackResultCard({
   skipOnMistake = false,
   secondaryLabel,
   onSecondary,
+  speak = false,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
 
@@ -79,7 +82,11 @@ export function FeedbackResultCard({
         secondaryLabel={secondaryLabel}
         onSecondary={onSecondary}
       >
-        <SheetLine script={clip.script} translation={clip.translationVi} />
+        <SheetLine
+          script={clip.script}
+          translation={clip.translationVi}
+          audioPath={speak ? clip.audioPath : null}
+        />
       </FeedbackSheet>
     );
   }

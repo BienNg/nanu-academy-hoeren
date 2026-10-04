@@ -1019,15 +1019,6 @@ export function LearnSession({
           <div className="flex w-full max-w-2xl flex-col px-6 pt-6 pb-24">
             {currentCard?.kind === "order" ? (
               <>
-                {scoreResult ? (
-                  // Order cards hide the audio until checked, then it plays with the feedback.
-                  <div className="mb-4">
-                    <AudioPlayerCard
-                      key={`order-audio-${cardKey}`}
-                      audioPath={currentClip.audioPath}
-                    />
-                  </div>
-                ) : null}
                 <SentenceOrderCard
                   key={`order-${cardKey}`}
                   translation={currentClip.translationVi}
@@ -1057,7 +1048,7 @@ export function LearnSession({
             ) : currentCard?.kind === "listening-choice" ? (
               <McCard
                 key={`listen-choice-${cardKey}`}
-                prompt="Câu này nghĩa là gì?"
+                prompt="Bạn nghe thấy gì?"
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}
                 result={mcResult}
@@ -1095,14 +1086,6 @@ export function LearnSession({
               />
             ) : currentCard?.kind === "vi-input" ? (
               <>
-                {scoreResult ? (
-                  <div className="mb-4">
-                    <AudioPlayerCard
-                      key={`vi-audio-${cardKey}`}
-                      audioPath={currentClip.audioPath}
-                    />
-                  </div>
-                ) : null}
                 <DictationInputCard
                   key={`vi-input-${cardKey}`}
                   prompt={currentClip.translationVi}
@@ -1154,6 +1137,7 @@ export function LearnSession({
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
                 skipOnMistake
+                speak={currentCard?.kind === "order" || currentCard?.kind === "vi-input"}
               />
             ) : null}
           </div>
