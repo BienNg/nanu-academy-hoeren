@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { ScoreResult, WordScore } from "@/lib/scoring";
 import { SessionClip } from "@/lib/content";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 interface FeedbackResultCardProps {
   result: ScoreResult;
@@ -13,6 +13,8 @@ interface FeedbackResultCardProps {
   nextLabel?: string;
   /** Show the word, then continue. The caller brings the clip back later. */
   skipOnMistake?: boolean;
+  /** Caller renders Tiếp theo in a shared action row. */
+  hideNext?: boolean;
 }
 
 function censorWord(word: string): string {
@@ -67,9 +69,9 @@ function ContinueButton({
 }) {
   return (
     <div className="flex flex-col gap-3 pt-6">
-      <button onClick={onNext} className={chunkyButton(variant, "w-full")} type="button">
+      <ChunkyButton onClick={onNext} variant={variant} className="w-full">
         {label}
-      </button>
+      </ChunkyButton>
     </div>
   );
 }
@@ -80,6 +82,7 @@ export function FeedbackResultCard({
   onNext,
   nextLabel = "Tiếp theo",
   skipOnMistake = false,
+  hideNext = false,
 }: FeedbackResultCardProps) {
   const isPerfect = result.accuracy === 100;
   const canContinue = isPerfect || skipOnMistake;
@@ -114,7 +117,9 @@ export function FeedbackResultCard({
           }
         />
 
-        <ContinueButton label={nextLabel} onNext={onNext} variant="success" />
+        {hideNext ? null : (
+          <ContinueButton label={nextLabel} onNext={onNext} variant="success" />
+        )}
       </div>
     );
   }
@@ -134,7 +139,9 @@ export function FeedbackResultCard({
             </div>
           }
         />
-        <ContinueButton label={nextLabel} onNext={onNext} variant="danger" />
+        {hideNext ? null : (
+          <ContinueButton label={nextLabel} onNext={onNext} variant="danger" />
+        )}
       </div>
     );
   }

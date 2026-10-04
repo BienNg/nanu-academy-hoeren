@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 /** `image` (a public URL) replaces the Vietnamese text in the left column. */
 type PairingItem = { id: string; vi: string; de: string; image?: string };
@@ -206,13 +206,9 @@ export function PairingCard({
 
       {solved ? (
         <footer className="mt-6 flex flex-col items-center gap-2">
-          <button
-            type="button"
-            onClick={onNext}
-            className={chunkyButton("primary", "w-full")}
-          >
+          <ChunkyButton onClick={onNext} className="w-full">
             {nextLabel}
-          </button>
+          </ChunkyButton>
         </footer>
       ) : null}
     </>

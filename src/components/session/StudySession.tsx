@@ -28,7 +28,7 @@ import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { revealStreakCelebration, useProgress, useStreakCelebrationPending } from "@/lib/useProgress";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton, type ChunkyVariant } from "@/components/chunkyButton";
 
 type StudyViewMode = "cards" | "list";
 type StudyCardPhase = "study" | "recall";
@@ -45,6 +45,46 @@ type StudySessionProps = {
    */
   node?: number | "current";
 };
+
+function SessionActions({
+  onBack,
+  backDisabled = false,
+  backLabel,
+  actionLabel,
+  actionVariant = "primary",
+  actionDisabled = false,
+  onAction,
+}: {
+  onBack: () => void;
+  backDisabled?: boolean;
+  backLabel: string;
+  actionLabel: string;
+  actionVariant?: ChunkyVariant;
+  actionDisabled?: boolean;
+  onAction: () => void;
+}) {
+  return (
+    <div className="flex gap-3 pt-6">
+      <ChunkyButton
+        variant={backDisabled ? "disabled" : "secondary"}
+        disabled={backDisabled}
+        onClick={onBack}
+        className="w-[52px] shrink-0 px-0"
+        aria-label={backLabel}
+      >
+        <MaterialIcon name="arrow_back" className="text-[22px]" />
+      </ChunkyButton>
+      <ChunkyButton
+        variant={actionDisabled ? "disabled" : actionVariant}
+        disabled={actionDisabled}
+        onClick={onAction}
+        className="min-w-0 flex-1"
+      >
+        {actionLabel}
+      </ChunkyButton>
+    </div>
+  );
+}
 
 function MaterialIcon({
   name,
@@ -826,6 +866,7 @@ export function StudySession({
                           result={scoreResult}
                           clip={currentClip}
                           onNext={finishRecall}
+                          hideNext
                         />
                       ) : (
                         <>
@@ -834,6 +875,7 @@ export function StudySession({
                               result={scoreResult}
                               clip={currentClip}
                               onNext={finishRecall}
+                              hideNext
                             />
                           ) : null}
                           <DictationInputCard
@@ -841,6 +883,7 @@ export function StudySession({
                             value={draft}
                             onChange={setDraft}
                             onSubmit={handleRecallSubmit}
+                            showSubmit={false}
                           />
                         </>
                       )}
@@ -851,35 +894,29 @@ export function StudySession({
             </div>
 
             {shownPhase === "study" ? (
-              <div className="flex gap-3 pt-6">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  disabled={clipIndex === 0}
-                  className={chunkyButton(clipIndex === 0 ? "disabled" : "secondary", "w-[52px] shrink-0 px-0")}
-                  aria-label="Thẻ trước"
-                >
-                  <MaterialIcon name="arrow_back" className="text-[22px]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={openRecall}
-                  className={chunkyButton("primary", "min-w-0 flex-1")}
-                >
-                  Tiếp theo
-                </button>
-              </div>
+              <SessionActions
+                onBack={goPrev}
+                backDisabled={clipIndex === 0}
+                backLabel="Thẻ trước"
+                actionLabel="Tiếp theo"
+                onAction={openRecall}
+              />
+            ) : recallPerfect ? (
+              <SessionActions
+                onBack={goPrev}
+                backLabel="Xem lại thẻ"
+                actionLabel="Tiếp theo"
+                actionVariant="success"
+                onAction={finishRecall}
+              />
             ) : (
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[15px] font-semibold text-[#0066cc] transition-colors hover:bg-[#f5f5f7]"
-                >
-                  <MaterialIcon name="arrow_back" className="text-[18px]" />
-                  Xem lại thẻ
-                </button>
-              </div>
+              <SessionActions
+                onBack={goPrev}
+                backLabel="Xem lại thẻ"
+                actionLabel="Kiểm tra · Prüfen"
+                actionDisabled={draft.trim().length === 0}
+                onAction={() => handleRecallSubmit(draft)}
+              />
             )}
           </div>
         </main>

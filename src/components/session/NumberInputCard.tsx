@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 type NumberInputCardProps = {
   onSubmit: (value: string) => void;
@@ -94,14 +94,14 @@ export function NumberInputCard({ onSubmit }: NumberInputCardProps) {
       </section>
 
       <footer className="mt-6 flex flex-col items-center gap-2">
-        <button
-          type="button"
+        <ChunkyButton
+          variant={canSubmit ? "primary" : "disabled"}
           disabled={!canSubmit}
           onClick={submit}
-          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
+          className="w-full"
         >
           Kiểm tra · Prüfen
-        </button>
+        </ChunkyButton>
       </footer>
     </>
   );

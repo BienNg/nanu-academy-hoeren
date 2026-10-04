@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { McOption, McResult } from "@/lib/multiple-choice";
 import type { SessionClip } from "@/lib/content";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 type McFeedbackCardProps = {
   result: McResult;
@@ -25,9 +25,9 @@ function ContinueButton({
 }) {
   return (
     <div className="flex flex-col gap-3 pt-6">
-      <button onClick={onNext} className={chunkyButton(variant, "w-full")} type="button">
+      <ChunkyButton onClick={onNext} variant={variant} className="w-full">
         {label}
-      </button>
+      </ChunkyButton>
     </div>
   );
 }

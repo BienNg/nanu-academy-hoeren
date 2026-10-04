@@ -1,8 +1,13 @@
+"use client";
+
+import type { ButtonHTMLAttributes } from "react";
+
 /**
  * Duolingo-style 3D button: a solid darker "lip" under the face that the
  * button sinks into on press. The lip is a hard box-shadow rather than a
  * bottom border, so pressing never shifts the surrounding layout.
- * Returns a class string so it works on <button>, <Link> and motion.button.
+ * `chunkyButton` returns a class string for <Link> and motion.button.
+ * `ChunkyButton` is the shared <button> so the markup is not copied per screen.
  */
 export type ChunkyVariant =
   | "primary"
@@ -29,4 +34,19 @@ export function chunkyButton(
   className = "",
 ): string {
   return `${BASE} ${VARIANTS[variant]} ${className}`.trim();
+}
+
+type ChunkyButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ChunkyVariant;
+};
+
+export function ChunkyButton({
+  variant = "primary",
+  className = "",
+  type = "button",
+  ...props
+}: ChunkyButtonProps) {
+  return (
+    <button type={type} className={chunkyButton(variant, className)} {...props} />
+  );
 }

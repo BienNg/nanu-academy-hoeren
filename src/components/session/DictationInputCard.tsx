@@ -8,7 +8,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 const SPECIAL_CHARS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 
@@ -20,6 +20,8 @@ type DictationInputCardProps = {
   onChange?: (value: string) => void;
   /** Vietnamese prompt. Shown in the same row multiple choice uses. */
   prompt?: string;
+  /** Parent renders Kiểm tra in a shared action row. */
+  showSubmit?: boolean;
 };
 
 function MaterialIcon({
@@ -49,6 +51,7 @@ export function DictationInputCard({
   value: controlledValue,
   onChange,
   prompt,
+  showSubmit = true,
 }: DictationInputCardProps) {
   const inputId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -151,16 +154,18 @@ export function DictationInputCard({
         </div>
       </section>
 
-      <footer className="mt-6 flex flex-col items-center gap-2">
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
-        >
-          Kiểm tra · Prüfen
-        </button>
-      </footer>
+      {showSubmit ? (
+        <footer className="mt-6 flex flex-col items-center gap-2">
+          <ChunkyButton
+            variant={canSubmit ? "primary" : "disabled"}
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="w-full"
+          >
+            Kiểm tra · Prüfen
+          </ChunkyButton>
+        </footer>
+      ) : null}
     </>
   );
 }

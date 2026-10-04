@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { WordChip } from "@/lib/sentence-order";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 type SentenceOrderCardProps = {
   translation: string;
@@ -154,14 +154,14 @@ export function SentenceOrderCard({ translation, chips, onSubmit }: SentenceOrde
       </LayoutGroup>
 
       <footer className="mt-6 flex flex-col items-center gap-2">
-        <button
-          type="button"
+        <ChunkyButton
+          variant={canSubmit ? "primary" : "disabled"}
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
+          className="w-full"
         >
           Kiểm tra · Prüfen
-        </button>
+        </ChunkyButton>
       </footer>
     </>
   );

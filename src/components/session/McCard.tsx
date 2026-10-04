@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { McOption } from "@/lib/multiple-choice";
-import { chunkyButton } from "@/components/chunkyButton";
+import { ChunkyButton } from "@/components/chunkyButton";
 
 type McCardProps = {
   prompt: string;
@@ -73,14 +73,14 @@ export function McCard({
       </section>
 
       <footer className="mt-6 flex flex-col items-center gap-2">
-        <button
-          type="button"
+        <ChunkyButton
+          variant={canSubmit ? "primary" : "disabled"}
           disabled={!canSubmit}
           onClick={handleSubmit}
-          className={chunkyButton(canSubmit ? "primary" : "disabled", "w-full")}
+          className="w-full"
         >
           Kiểm tra · Prüfen
-        </button>
+        </ChunkyButton>
       </footer>
     </>
   );
