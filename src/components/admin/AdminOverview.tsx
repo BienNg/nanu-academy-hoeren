@@ -7,6 +7,20 @@ import { setAdminUserClass } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import {
+  CARD,
+  HeaderChip,
+  IconTile,
+  PanelHeader,
+  Pager,
+  SectionHeading,
+  TH,
+  THEAD,
+  TR,
+  formatCount,
+  formatPercent,
+} from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ACTIVE_USER_TIMELINE_CAP,
@@ -28,10 +42,6 @@ import {
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
@@ -70,32 +80,55 @@ function useNow(intervalMs = 30_000): number | null {
   return now;
 }
 
-function ActivityStat({
-  label,
-  value,
+type DomainStat = { label: string; value: string; hint: string };
+
+/** One silo of the metric deck: a coloured rule, a domain banner, and its stats. */
+function DomainCard({
   icon,
-  hint,
+  title,
+  color,
+  badge,
+  stats,
 }: {
-  label: string;
-  value: string;
   icon: string;
-  hint: string;
+  title: string;
+  color: string;
+  badge?: string;
+  stats: readonly DomainStat[];
 }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
+    <article
+      className={`${CARD} flex flex-col gap-space-16 border-t-2 p-space-16 2xl:p-space-20`}
+      style={{ borderTopColor: color }}
+    >
+      <header className="flex items-center justify-between gap-space-8">
+        <div className="flex min-w-0 items-center gap-space-8">
+          <IconTile icon={icon} color={color} />
+          <h3 className="truncate text-admin-label-sm uppercase text-admin-ink-muted">{title}</h3>
         </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
+        {badge ? (
+          <span
+            className="inline-flex h-5 shrink-0 items-center rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 tabular-nums"
+            style={{ backgroundColor: `${color}14`, color }}
+          >
+            {badge}
+          </span>
+        ) : null}
+      </header>
+      <dl
+        className={`grid gap-space-12 ${stats.length === 3 ? "grid-cols-3" : "grid-cols-2"} divide-x divide-admin-hairline`}
+      >
+        {stats.map((stat, index) => (
+          <div key={stat.label} className={`flex min-w-0 flex-col ${index > 0 ? "pl-space-12" : ""}`}>
+            <dt className="truncate text-admin-body-sm text-admin-ink-muted">{stat.label}</dt>
+            <dd className="font-admin-display text-admin-metric tabular-nums text-admin-ink">
+              {stat.value}
+            </dd>
+            <dd className="text-[12px] leading-4 text-admin-ink-subtle">{stat.hint}</dd>
+          </div>
+        ))}
+      </dl>
+    </article>
   );
 }
 
@@ -104,7 +137,14 @@ function xpRangeTitle(range: AdminRange): string {
   return `XP earned in the last ${adminRangeLabel(range).toLowerCase()}`;
 }
 
-const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
+const AVATAR_COLORS = [
+  ADMIN_COLORS.cobalt,
+  ADMIN_COLORS.violet,
+  ADMIN_COLORS.emerald,
+  ADMIN_COLORS.ember,
+  ADMIN_COLORS.amber,
+  ADMIN_COLORS.inkMuted,
+];
 
 function avatarColor(name: string): string {
   let hash = 0;
@@ -118,18 +158,27 @@ function initialFor(name: string): string {
   return Array.from(name)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
-function TimelineAvatar({ name, image }: { name: string; image: string | null }) {
+function StudentAvatar({
+  name,
+  image,
+  size = 20,
+}: {
+  name: string;
+  image: string | null;
+  size?: 20 | 24;
+}) {
   const [failed, setFailed] = useState(false);
+  const box = size === 20 ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-[11px]";
   if (image && !failed) {
     return (
-      <span className="relative inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full">
+      <span className={`relative inline-flex shrink-0 overflow-hidden rounded-full ${box}`}>
         <Image
           src={image}
           alt=""
-          width={28}
-          height={28}
+          width={size}
+          height={size}
           referrerPolicy="no-referrer"
-          className="h-7 w-7 rounded-full object-cover"
+          className="h-full w-full rounded-full object-cover"
           onError={() => setFailed(true)}
         />
       </span>
@@ -137,7 +186,7 @@ function TimelineAvatar({ name, image }: { name: string; image: string | null })
   }
   return (
     <span
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
+      className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${box}`}
       style={{ backgroundColor: avatarColor(name) }}
       aria-hidden="true"
     >
@@ -156,15 +205,27 @@ function TimelineStudentButton({
   const when = formatAbsoluteTime(student.lastLoginAt);
   const label = when ? `${student.displayName}, last seen ${when}` : student.displayName;
   return (
-    <button
-      type="button"
-      title={when ? `${student.displayName}, ${when}` : student.displayName}
-      aria-label={label}
-      onClick={() => onSelect(student.userId)}
-      className="inline-flex overflow-hidden rounded-full hover:ring-2 hover:ring-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >
-      <TimelineAvatar name={student.displayName} image={student.image} />
-    </button>
+    <span className="group/avatar relative -mt-1.5 inline-flex last:mt-0 hover:z-10 focus-within:z-10">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => onSelect(student.userId)}
+        className="inline-flex rounded-full ring-2 ring-admin-card outline-none transition-transform hover:scale-110 hover:ring-admin-cobalt focus-visible:ring-admin-cobalt"
+      >
+        <StudentAvatar name={student.displayName} image={student.image} />
+      </button>
+      <span
+        role="presentation"
+        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-space-8 hidden w-max max-w-[14rem] -translate-x-1/2 rounded-admin-control bg-admin-ink px-space-8 py-space-4 text-left shadow-admin-pop group-hover/avatar:block group-focus-within/avatar:block"
+      >
+        <span className="block truncate text-admin-label-md font-semibold text-white">
+          {student.displayName}
+        </span>
+        {when ? (
+          <span className="block text-[11px] leading-[14px] text-white/70">Last seen {when}</span>
+        ) : null}
+      </span>
+    </span>
   );
 }
 
@@ -183,63 +244,90 @@ function ActiveUsersTimeline({
     if (clockKey == null) return null;
     return buildActiveUserTimeline(users, range, timelineDateFromClockKey(clockKey));
   }, [users, range, clockKey]);
-  const [openKey, setOpenKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    setOpenKey(null);
-  }, [clockKey, range, users]);
+  // The open overflow list belongs to one timeline; a new clock tick, range, or
+  // user list makes it stale, so it is dropped by comparison instead of an effect.
+  const [open, setOpen] = useState<{
+    key: string;
+    clockKey: string | null;
+    range: AdminRange;
+    users: readonly AdminUserRow[];
+  } | null>(null);
+  const openKey =
+    open && open.clockKey === clockKey && open.range === range && open.users === users
+      ? open.key
+      : null;
 
   useEffect(() => {
     if (!openKey) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenKey(null);
+      if (event.key === "Escape") setOpen(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openKey]);
 
-  if (!timeline) return null;
+  if (!timeline) return <div className={`${CARD} h-64`} aria-hidden="true" />;
 
   const openColumn = timeline.columns.find((column) => column.key === openKey) ?? null;
   const hidden = openColumn ? openColumn.students.slice(ACTIVE_USER_TIMELINE_CAP) : [];
   const fillsWidth = range === "today" || range === "7d";
-  const columnWidth = fillsWidth ? "min-w-0 flex-1" : "w-8 shrink-0";
+  const columnWidth = fillsWidth ? "min-w-0 flex-1" : "w-7 shrink-0";
+  const columnLabel = (column: { label: string; marker: string | null }) =>
+    timeline.grain === "hour"
+      ? `${column.label}:00`
+      : column.marker
+        ? `${column.marker} ${column.label}`
+        : column.label;
 
   return (
-    <div className="flex flex-col gap-space-8 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div>
-        <h3 className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          Last seen
-        </h3>
-        <p className="font-caption text-caption text-on-surface-variant">
-          {timeline.grain === "hour"
-            ? "Each photo sits on the hour of that student's latest visit. Times are Vietnam."
-            : "Each photo sits on the day of that student's latest visit. Times are Vietnam."}
-        </p>
-      </div>
-      <div className={fillsWidth ? undefined : "overflow-x-auto"}>
+    <div className={`${CARD} flex h-full flex-col gap-space-12 p-space-16 sm:p-space-20`}>
+      <PanelHeader
+        icon="timeline"
+        title="Last seen"
+        color={ADMIN_COLORS.ember}
+        hint={
+          timeline.grain === "hour"
+            ? "Each avatar sits on the Vietnam hour of that student's latest visit. Hover for details."
+            : "Each avatar sits on the Vietnam day of that student's latest visit. Hover for details."
+        }
+      />
+      {/* Top padding leaves room for the hover card inside the scroll box. */}
+      <div className={`flex-1 pt-space-48 ${fillsWidth ? "" : "overflow-x-auto"}`}>
         <div
-          className={`flex items-end gap-1 ${fillsWidth ? "w-full" : "min-w-max"}`}
+          className={`flex h-full items-end gap-0.5 border-b border-admin-hairline ${fillsWidth ? "w-full" : "min-w-max"}`}
           role="list"
           aria-label="Last seen timeline"
         >
           {timeline.columns.map((column) => {
             const visible = column.students.slice(0, ACTIVE_USER_TIMELINE_CAP);
             const extra = column.students.length - visible.length;
-            const axis =
-              timeline.grain === "hour"
-                ? `${column.label}:00`
-                : column.marker
-                  ? `${column.marker} ${column.label}`
-                  : column.label;
+            const axis = columnLabel(column);
+            const busy = column.students.length > 0;
             return (
               <div
                 key={column.key}
                 role="listitem"
                 aria-label={`${axis}, ${column.students.length} ${column.students.length === 1 ? "student" : "students"}`}
-                className={`flex ${columnWidth} flex-col items-center`}
+                className={`flex ${columnWidth} flex-col items-center justify-end pb-space-8`}
               >
-                <div className="flex flex-col items-center gap-1">
+                {extra > 0 ? (
+                  <button
+                    type="button"
+                    aria-expanded={openKey === column.key}
+                    aria-label={`Show ${extra} more last seen at ${axis}`}
+                    onClick={() =>
+                      setOpen((current) =>
+                        current?.key === column.key && openKey === column.key
+                          ? null
+                          : { key: column.key, clockKey, range, users },
+                      )
+                    }
+                    className="mb-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-admin-subtle px-1 text-[10px] font-semibold tabular-nums text-admin-ink-muted ring-2 ring-admin-card outline-none hover:bg-admin-hairline focus-visible:shadow-admin-focus"
+                  >
+                    +{extra}
+                  </button>
+                ) : null}
+                <div className="flex flex-col-reverse items-center">
                   {visible.map((student) => (
                     <TimelineStudentButton
                       key={student.userId}
@@ -247,46 +335,36 @@ function ActiveUsersTimeline({
                       onSelect={onSelect}
                     />
                   ))}
-                  {extra > 0 ? (
-                    <button
-                      type="button"
-                      aria-expanded={openKey === column.key}
-                      aria-label={`Show ${extra} more last seen at ${axis}`}
-                      onClick={() =>
-                        setOpenKey((current) => (current === column.key ? null : column.key))
-                      }
-                      className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-surface-container px-1 font-caption text-caption font-semibold tabular-nums text-on-surface hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    >
-                      +{extra}
-                    </button>
-                  ) : null}
                 </div>
-                <div className="mt-space-8 flex h-8 flex-col items-center justify-end text-center">
-                  {column.marker ? (
-                    <span className="font-caption text-[10px] leading-none text-on-surface-variant">
-                      {column.marker}
-                    </span>
-                  ) : null}
-                  <span className="font-caption text-caption tabular-nums text-on-surface-variant">
-                    {column.label}
-                  </span>
-                </div>
+                {!busy ? (
+                  <span className="h-1 w-1 rounded-full bg-admin-hairline" aria-hidden="true" />
+                ) : null}
               </div>
             );
           })}
         </div>
+        <div className={`flex gap-0.5 ${fillsWidth ? "w-full" : "min-w-max"}`} aria-hidden="true">
+          {timeline.columns.map((column) => (
+            <div
+              key={column.key}
+              className={`flex ${columnWidth} h-8 flex-col items-center justify-start pt-1 text-center`}
+            >
+              <span className="text-[11px] leading-[14px] tabular-nums text-admin-ink-subtle">
+                {column.label}
+              </span>
+              {column.marker ? (
+                <span className="text-[10px] leading-3 text-admin-ink-faint">{column.marker}</span>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
       {hidden.length > 0 && openColumn ? (
-        <div className="flex flex-col gap-1 rounded-xl bg-surface-container-low p-space-8">
-          <p className="font-caption text-caption text-on-surface-variant">
-            {hidden.length} more at{" "}
-            {timeline.grain === "hour"
-              ? `${openColumn.label}:00`
-              : openColumn.marker
-                ? `${openColumn.marker} ${openColumn.label}`
-                : openColumn.label}
+        <div className="flex flex-col gap-1 rounded-admin-control border border-admin-hairline bg-admin-canvas p-space-8">
+          <p className="px-space-4 text-admin-label-md text-admin-ink-muted">
+            {hidden.length} more at {columnLabel(openColumn)}
           </p>
-          <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+          <ul className="flex max-h-48 flex-col overflow-y-auto">
             {hidden.map((student) => {
               const when = formatAbsoluteTime(student.lastLoginAt);
               return (
@@ -294,15 +372,15 @@ function ActiveUsersTimeline({
                   <button
                     type="button"
                     onClick={() => onSelect(student.userId)}
-                    className="flex w-full items-center gap-space-8 rounded-lg px-space-8 py-1 text-left hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                    className="flex w-full items-center gap-space-8 rounded-admin-control px-space-8 py-1.5 text-left outline-none hover:bg-admin-subtle focus-visible:shadow-admin-focus"
                   >
-                    <TimelineAvatar name={student.displayName} image={student.image} />
+                    <StudentAvatar name={student.displayName} image={student.image} size={24} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-label-sm text-label-sm font-semibold text-on-surface">
+                      <span className="block truncate text-admin-label-md font-semibold text-admin-ink">
                         {student.displayName}
                       </span>
                       {when ? (
-                        <span className="block font-caption text-caption text-on-surface-variant">
+                        <span className="block text-[11px] leading-[14px] text-admin-ink-subtle">
                           {when}
                         </span>
                       ) : null}
@@ -315,7 +393,7 @@ function ActiveUsersTimeline({
         </div>
       ) : null}
       {timeline.unplaced > 0 ? (
-        <p className="font-caption text-caption text-on-surface-variant">
+        <p className="text-admin-body-sm text-admin-ink-subtle">
           {timeline.unplaced === 1
             ? "1 active user has no last-seen time in this window."
             : `${timeline.unplaced.toLocaleString("en-GB")} active users have no last-seen time in this window.`}
@@ -325,7 +403,128 @@ function ActiveUsersTimeline({
   );
 }
 
-function ActiveUsersSection({
+const HIGHLIGHT_COUNT = 5;
+
+function HighlightList({
+  title,
+  icon,
+  color,
+  empty,
+  items,
+  onSelect,
+}: {
+  title: string;
+  icon: string;
+  color: string;
+  empty: string;
+  items: readonly { row: AdminUserRow; value: string }[];
+  onSelect: (userId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-space-4">
+      <h4 className="flex items-center gap-space-4 px-space-8 text-admin-label-sm uppercase text-admin-ink-subtle">
+        <span className="flex" style={{ color }}>
+          <MaterialIcon name={icon} className="text-[16px]" filled />
+        </span>
+        {title}
+      </h4>
+      {items.length === 0 ? (
+        <p className="px-space-8 py-space-8 text-admin-body-sm text-admin-ink-subtle">{empty}</p>
+      ) : (
+        <ol className="flex flex-col">
+          {items.map((item, index) => (
+            <li key={item.row.userId}>
+              <button
+                type="button"
+                onClick={() => onSelect(item.row.userId)}
+                className="flex w-full items-center gap-space-8 rounded-admin-control px-space-8 py-1.5 text-left outline-none transition-colors hover:bg-admin-canvas focus-visible:shadow-admin-focus"
+              >
+                <span className="w-4 shrink-0 text-right text-admin-label-md tabular-nums text-admin-ink-faint">
+                  {index + 1}
+                </span>
+                <StudentAvatar name={item.row.displayName} image={item.row.image ?? null} size={24} />
+                <span className="min-w-0 flex-1 truncate text-admin-body-md font-medium text-admin-ink">
+                  {item.row.displayName}
+                </span>
+                <span
+                  className="shrink-0 text-admin-label-md font-semibold tabular-nums"
+                  style={{ color }}
+                >
+                  {item.value}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** The 4-column insight feed beside the timeline: who is on a streak, who earned most. */
+function HighlightsPanel({
+  users,
+  range,
+  rangeXp,
+  rangeXpReady,
+  onSelect,
+}: {
+  users: readonly AdminUserRow[];
+  range: AdminRange;
+  rangeXp: Readonly<Record<string, number>>;
+  rangeXpReady: boolean;
+  onSelect: (userId: string) => void;
+}) {
+  const streaks = useMemo(
+    () =>
+      users
+        .filter((row) => row.streakDays > 0)
+        .sort((a, b) => b.streakDays - a.streakDays)
+        .slice(0, HIGHLIGHT_COUNT)
+        .map((row) => ({ row, value: `${row.streakDays} d` })),
+    [users],
+  );
+  const earners = useMemo(
+    () =>
+      users
+        .map((row) => ({ row, xp: rangeXp[row.userId] ?? 0 }))
+        .filter((item) => item.xp > 0)
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, HIGHLIGHT_COUNT)
+        .map((item) => ({ row: item.row, value: `${formatCount(item.xp)} XP` })),
+    [users, rangeXp],
+  );
+  return (
+    <div className={`${CARD} flex h-full flex-col gap-space-16 p-space-16 sm:p-space-20`}>
+      <PanelHeader
+        icon="insights"
+        title="Highlights"
+        color={ADMIN_COLORS.amber}
+        hint="Among active users. Click a name for their detail."
+      />
+      <HighlightList
+        title="Longest streaks"
+        icon="local_fire_department"
+        color={ADMIN_COLORS.ember}
+        empty="No one is on a streak."
+        items={streaks}
+        onSelect={onSelect}
+      />
+      {rangeXpReady ? (
+        <HighlightList
+          title={xpRangeTitle(range)}
+          icon="bolt"
+          color={ADMIN_COLORS.amber}
+          empty="No XP earned in this window."
+          items={earners}
+          onSelect={onSelect}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ActiveUsersTable({
   users,
   window,
   range,
@@ -335,7 +534,6 @@ function ActiveUsersSection({
   practicePartsByUser,
   classSuggestions,
   savingClassIds,
-  classError,
   displayClass,
   onSaveClass,
   onSelect,
@@ -349,7 +547,6 @@ function ActiveUsersSection({
   practicePartsByUser: Readonly<Record<string, number>> | null;
   classSuggestions: readonly string[];
   savingClassIds: readonly string[];
-  classError: string | null;
   displayClass: (row: AdminUserRow) => string | null;
   onSaveClass: (row: AdminUserRow, next: string) => void;
   onSelect: (userId: string) => void;
@@ -367,196 +564,155 @@ function ActiveUsersSection({
   const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
 
   return (
-    <section aria-label="Active users" className="flex flex-col gap-space-12">
-      <div>
-        <h2 className="font-headline-sm text-headline-sm text-on-surface">Active users</h2>
-        <p className="font-caption text-caption text-on-surface-variant">
-          Everyone seen or practicing {window}. Click a row to open their detail.
-        </p>
-      </div>
-      {classError ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          {classError}
-        </div>
-      ) : null}
-      <ActiveUsersTimeline users={users} range={range} onSelect={onSelect} />
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left">
-            <thead className="bg-surface-container-low">
+    <div className={`${CARD} flex flex-col overflow-hidden`}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse text-left">
+          <thead className={THEAD}>
+            <tr>
+              <th className={TH}>User</th>
+              <th className={TH}>Class</th>
+              <th className={TH}>Last seen</th>
+              <th className={`${TH} text-right`}>Streak</th>
+              <th className={`${TH} text-right`}>Study parts</th>
+              <th className={`${TH} text-right`}>Practice parts</th>
+              <th className={`${TH} text-right`}>Video</th>
+            </tr>
+          </thead>
+          <tbody className="text-admin-body-md text-admin-ink">
+            {paged.pageRows.length === 0 ? (
               <tr>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  User
-                </th>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Class
-                </th>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Last seen
-                </th>
-                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Streak
-                </th>
-                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Study parts
-                </th>
-                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Practice parts
-                </th>
-                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Video
-                </th>
+                <td
+                  colSpan={7}
+                  className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
+                >
+                  No one has been active {window}.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paged.pageRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
+            ) : (
+              paged.pageRows.map((row) => {
+                const lastSeen = formatAbsoluteTime(row.lastLoginAt);
+                const relative =
+                  row.lastLoginAt && now != null
+                    ? formatRelativeTime(row.lastLoginAt, now)
+                    : null;
+                const earned = rangeXp[row.userId] ?? 0;
+                const studyParts = studyPartsByUser?.[row.userId] ?? 0;
+                const practiceParts = practicePartsByUser?.[row.userId] ?? 0;
+                const videoMinutes = videoMinutesInRange(row.progress, vietnamDays);
+                return (
+                  <tr
+                    key={row.userId}
+                    tabIndex={0}
+                    onClick={() => onSelect(row.userId)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") onSelect(row.userId);
+                    }}
+                    className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
                   >
-                    No one has been active {window}.
-                  </td>
-                </tr>
-              ) : (
-                paged.pageRows.map((row) => {
-                  const lastSeen = formatAbsoluteTime(row.lastLoginAt);
-                  const relative =
-                    row.lastLoginAt && now != null
-                      ? formatRelativeTime(row.lastLoginAt, now)
-                      : null;
-                  const earned = rangeXp[row.userId] ?? 0;
-                  const studyParts = studyPartsByUser?.[row.userId] ?? 0;
-                  const practiceParts = practicePartsByUser?.[row.userId] ?? 0;
-                  const videoMinutes = videoMinutesInRange(row.progress, vietnamDays);
-                  return (
-                    <tr
-                      key={row.userId}
-                      tabIndex={0}
-                      onClick={() => onSelect(row.userId)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") onSelect(row.userId);
-                      }}
-                      className="cursor-pointer border-t border-outline-variant/20 hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
-                    >
-                      <td className="px-space-16 py-space-16">
-                        <div className="flex min-w-[14rem] flex-col">
-                          <span className="font-label-md text-label-md font-semibold text-on-surface">
+                    <td className="px-space-16 py-space-8">
+                      <div className="flex min-w-[14rem] items-center gap-space-12">
+                        <StudentAvatar name={row.displayName} image={row.image ?? null} size={24} />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
                             {row.displayName}
                           </span>
                           {row.email && row.email !== row.displayName ? (
-                            <span className="font-body-sm text-body-sm text-on-surface-variant">
+                            <span className="truncate text-admin-body-sm text-admin-ink-subtle">
                               {row.email}
                             </span>
                           ) : null}
                         </div>
-                      </td>
-                      <ClassCell
-                        userId={row.userId}
-                        studentName={row.displayName}
-                        value={displayClass(row)}
-                        suggestions={classSuggestions}
-                        saving={savingClassIds.includes(row.userId)}
-                        onSave={(next) => onSaveClass(row, next)}
-                      />
-                      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
-                        {lastSeen ? (
-                          <div className="flex flex-col items-start gap-0.5">
-                            <time dateTime={row.lastLoginAt ?? undefined}>{lastSeen}</time>
-                            {relative ? (
-                              <span className="font-caption text-caption text-on-surface-variant">
-                                {relative}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span className="text-outline">Not seen yet</span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-space-16 py-space-16 text-right">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span
-                            className={`inline-flex items-center gap-space-4 ${
-                              row.streakDays > 0 ? "text-on-surface" : "text-outline"
-                            }`}
-                          >
-                            <MaterialIcon
-                              name="local_fire_department"
-                              className={`text-[16px] ${row.streakDays > 0 ? "text-[#ff9500]" : "text-outline"}`}
-                              filled={row.streakDays > 0}
-                            />
-                            <span className="font-label-sm text-label-sm font-semibold tabular-nums">
-                              {row.streakDays}
-                            </span>
-                          </span>
-                          {rangeXpReady ? (
-                            <span
-                              className={`inline-flex items-center gap-0.5 font-caption text-caption tabular-nums ${
-                                earned > 0 ? "text-on-surface" : "text-outline"
-                              }`}
-                              title={xpTitle}
-                            >
-                              <MaterialIcon
-                                name="bolt"
-                                className={`text-[14px] ${earned > 0 ? "text-[#f59e0b]" : "text-outline"}`}
-                                filled={earned > 0}
-                              />
-                              {earned.toLocaleString("en-GB")}
-                            </span>
+                      </div>
+                    </td>
+                    <ClassCell
+                      userId={row.userId}
+                      studentName={row.displayName}
+                      value={displayClass(row)}
+                      suggestions={classSuggestions}
+                      saving={savingClassIds.includes(row.userId)}
+                      onSave={(next) => onSaveClass(row, next)}
+                    />
+                    <td className="whitespace-nowrap px-space-16 py-space-8 text-admin-body-sm text-admin-ink">
+                      {lastSeen ? (
+                        <div className="flex flex-col items-start">
+                          <time dateTime={row.lastLoginAt ?? undefined}>{lastSeen}</time>
+                          {relative ? (
+                            <span className="text-[12px] leading-4 text-admin-ink-subtle">{relative}</span>
                           ) : null}
                         </div>
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
-                        title={partTitle}
-                      >
-                        {studyPartsByUser == null ? "—" : formatCount(studyParts)}
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
-                        title={`${partTitle}. Passed parts only.`}
-                      >
-                        {practicePartsByUser == null ? "—" : formatCount(practiceParts)}
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-space-16 py-space-16 text-right font-label-sm text-label-sm tabular-nums text-on-surface"
-                        title={`Video played ${window}`}
-                      >
-                        {videoMinutes === 0 ? "0 min" : `${formatCount(videoMinutes)} min`}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-space-12 border-t border-outline-variant/20 px-space-16 py-space-12">
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {paged.total === 0 ? "0 users" : `${rangeStart}–${rangeEnd} of ${paged.total}`}
-          </p>
-          <div className="flex items-center gap-space-8">
-            <button
-              type="button"
-              disabled={paged.page <= 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={paged.page >= paged.pageCount}
-              onClick={() => setPage((current) => Math.min(paged.pageCount, current + 1))}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+                      ) : (
+                        <span className="text-admin-ink-subtle">Not seen yet</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-space-16 py-space-8 text-right">
+                      <div className="flex flex-col items-end">
+                        <span
+                          className={`inline-flex items-center gap-space-4 text-admin-label-md font-semibold tabular-nums ${
+                            row.streakDays > 0 ? "text-admin-ember-ink" : "text-admin-ink-faint"
+                          }`}
+                        >
+                          <MaterialIcon
+                            name="local_fire_department"
+                            className={`text-[16px] ${row.streakDays > 0 ? "text-admin-ember" : ""}`}
+                            filled={row.streakDays > 0}
+                          />
+                          {row.streakDays}
+                        </span>
+                        {rangeXpReady ? (
+                          <span
+                            className={`inline-flex items-center gap-0.5 text-[12px] leading-4 tabular-nums ${
+                              earned > 0 ? "text-admin-amber-ink" : "text-admin-ink-faint"
+                            }`}
+                            title={xpTitle}
+                          >
+                            <MaterialIcon
+                              name="bolt"
+                              className={`text-[14px] ${earned > 0 ? "text-admin-amber" : ""}`}
+                              filled={earned > 0}
+                            />
+                            {earned.toLocaleString("en-GB")}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
+                      title={partTitle}
+                    >
+                      {studyPartsByUser == null ? "—" : formatCount(studyParts)}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
+                      title={`${partTitle}. Passed parts only.`}
+                    >
+                      {practicePartsByUser == null ? "—" : formatCount(practiceParts)}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
+                      title={`Video played ${window}`}
+                    >
+                      {videoMinutes === 0 ? "0 min" : `${formatCount(videoMinutes)} min`}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
-    </section>
+
+      <div className="border-t border-admin-hairline bg-admin-canvas px-space-16 py-space-12 sm:px-space-20">
+        <Pager
+          page={paged.page}
+          pageCount={paged.pageCount}
+          start={rangeStart}
+          end={rangeEnd}
+          total={paged.total}
+          noun="users"
+          onPage={setPage}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -622,6 +778,7 @@ export function AdminOverview({
     },
     [classOptions],
   );
+  const activeShare = activity.users > 0 ? activity.activeUsers / activity.users : 0;
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const detailRow = useMemo(() => {
     const row = liveRows.find((item) => item.userId === detailUserId);
@@ -658,83 +815,148 @@ export function AdminOverview({
 
   return (
     <>
-      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
+      <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
         <AdminPageHeader
           kicker="Admin"
           title="Overview"
-          subtitle={`Platform activity ${window}. Times are Vietnam.`}
+          subtitle={`Platform activity ${window}.`}
+          trailing={<HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>}
         />
 
         {!storeConfigured ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+          <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
             Cloud progress is not configured. This dashboard only counts learners who have
             synced progress to Supabase.
           </div>
         ) : null}
 
-        <section aria-label="Activity" className="flex flex-col gap-space-12">
-          <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-4">
-            <ActivityStat
-              label="All students"
-              value={formatCount(activity.users)}
-              icon="group"
-              hint="Every account, including inactive"
+        <section aria-labelledby="overview-metrics" className="flex flex-col gap-space-12">
+          <SectionHeading
+            id="overview-metrics"
+            icon="grid_view"
+            title="At a glance"
+            meta={adminRangeLabel(range)}
+          />
+          <div className="grid grid-cols-1 gap-space-16 md:grid-cols-2 xl:grid-cols-3 2xl:gap-space-20">
+            <DomainCard
+              icon="local_fire_department"
+              title="Engagement"
+              color={ADMIN_COLORS.ember}
+              badge={`${formatPercent(activeShare)} active`}
+              stats={[
+                {
+                  label: "Active",
+                  value: formatCount(activity.activeUsers),
+                  hint: `Used the app ${window}`,
+                },
+                {
+                  label: "All students",
+                  value: formatCount(activity.users),
+                  hint: "Every account",
+                },
+              ]}
             />
-            <ActivityStat
-              label="Active"
-              value={formatCount(activity.activeUsers)}
-              icon="person"
-              hint={`Used the app ${window}`}
-            />
-            <ActivityStat
-              label="Videos watched"
-              value={formatCount(activity.videosWatched)}
-              icon="smart_display"
-              hint={`Marked watched ${window}`}
-            />
-            <ActivityStat
-              label="Study runs"
-              value={formatCount(activity.studyRuns)}
+            <DomainCard
               icon="menu_book"
-              hint={`Whole study lessons finished ${window}`}
+              title="Curriculum"
+              color={ADMIN_COLORS.emerald}
+              stats={[
+                {
+                  label: "Study runs",
+                  value: formatCount(activity.studyRuns),
+                  hint: "Whole lessons",
+                },
+                {
+                  label: "Study parts",
+                  value: studyParts == null ? "—" : formatCount(studyParts),
+                  hint: "Parts finished",
+                },
+              ]}
             />
-            <ActivityStat
-              label="Study parts"
-              value={studyParts == null ? "—" : formatCount(studyParts)}
-              icon="auto_stories"
-              hint={`Study parts finished ${window}, Vietnam time`}
-            />
-            <ActivityStat
-              label="Practice runs"
-              value={formatCount(practiceRuns ?? activity.practiceRuns)}
-              icon="headphones"
-              hint={`Whole practice lessons finished ${window}, Vietnam time`}
-            />
-            <ActivityStat
-              label="Practice parts"
-              value={practiceParts == null ? "—" : formatCount(practiceParts)}
-              icon="hearing"
-              hint={`Practice parts finished ${window}, Vietnam time`}
-            />
+            <div className="md:col-span-2 xl:col-span-1">
+              <DomainCard
+                icon="headphones"
+                title="Video & audio"
+                color={ADMIN_COLORS.violet}
+                stats={[
+                  {
+                    label: "Videos",
+                    value: formatCount(activity.videosWatched),
+                    hint: "Marked watched",
+                  },
+                  {
+                    label: "Practice runs",
+                    value: formatCount(practiceRuns ?? activity.practiceRuns),
+                    hint: "Whole lessons",
+                  },
+                  {
+                    label: "Practice parts",
+                    value: practiceParts == null ? "—" : formatCount(practiceParts),
+                    hint: "Parts finished",
+                  },
+                ]}
+              />
+            </div>
           </div>
         </section>
 
         {storeConfigured ? (
-          <ActiveUsersSection
-            users={activeUsers}
-            window={window}
-            range={range}
-            rangeXp={rangeXp}
-            rangeXpReady={rangeXpReady}
-            studyPartsByUser={studyPartsByUser}
-            practicePartsByUser={practicePartsByUser}
-            classSuggestions={classOptions.map((option) => option.label)}
-            savingClassIds={savingClassIds}
-            classError={classError}
-            displayClass={displayClass}
-            onSaveClass={(row, next) => void saveClass(row, next)}
-            onSelect={setDetailUserId}
-          />
+          <>
+            <section aria-labelledby="overview-live" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="overview-live"
+                icon="monitoring"
+                title="Who was here"
+                meta={`${formatCount(activeUsers.length)} active ${window}`}
+              />
+              <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-12 2xl:gap-space-20">
+                <div className="min-w-0 lg:col-span-8">
+                  <ActiveUsersTimeline
+                    users={activeUsers}
+                    range={range}
+                    onSelect={setDetailUserId}
+                  />
+                </div>
+                <div className="min-w-0 lg:col-span-4">
+                  <HighlightsPanel
+                    users={activeUsers}
+                    range={range}
+                    rangeXp={rangeXp}
+                    rangeXpReady={rangeXpReady}
+                    onSelect={setDetailUserId}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section aria-labelledby="overview-users" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="overview-users"
+                icon="group"
+                title="Active users"
+                meta="Click a row to open their detail"
+              />
+              {classError ? (
+                <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
+                  {classError}
+                </div>
+              ) : null}
+              <ActiveUsersTable
+                users={activeUsers}
+                window={window}
+                range={range}
+                rangeXp={rangeXp}
+                rangeXpReady={rangeXpReady}
+                studyPartsByUser={studyPartsByUser}
+                practicePartsByUser={practicePartsByUser}
+                classSuggestions={classOptions.map((option) => option.label)}
+                savingClassIds={savingClassIds}
+                displayClass={displayClass}
+                onSaveClass={(row, next) => void saveClass(row, next)}
+                onSelect={setDetailUserId}
+              />
+            </section>
+          </>
         ) : null}
       </main>
 
