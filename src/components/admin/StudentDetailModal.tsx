@@ -18,7 +18,7 @@ import { ActivityTab } from "@/components/admin/student-detail/ActivityTab";
 import { CoursesTab, type PendingDelete } from "@/components/admin/student-detail/CoursesTab";
 import { visibleLessons } from "@/components/admin/student-detail/meters";
 import { OverviewTab } from "@/components/admin/student-detail/OverviewTab";
-import { formatAbsoluteTime, type DetailTab } from "@/components/admin/student-detail/shared";
+import { useNow, type DetailTab } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import {
   projectStudentDetail,
@@ -29,7 +29,7 @@ import {
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { activeStreakDays, type StoredProgress } from "@/lib/progress";
-import type { AdminUserRow } from "@/lib/admin-overview";
+import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
 
 export { LessonContentMeters } from "@/components/admin/student-detail/meters";
 
@@ -180,11 +180,9 @@ export function StudentDetailModal({
   const streakDays = activeStreakDays(progress);
   const signIns = [...(payload?.signIns ?? row.signIns)].reverse();
   const appUses = [...(payload?.appUses ?? row.appUses)].reverse();
-  const lastSignInAt = payload?.signIns.length
-    ? (payload.signIns[payload.signIns.length - 1]?.at ?? row.lastSignInAt)
-    : row.lastSignInAt;
-  const lastLogin = formatAbsoluteTime(lastSignInAt);
-  const lastSeen = formatAbsoluteTime(row.lastLoginAt);
+  const now = useNow();
+  const lastSeen = formatRelativeLastSeen(row.lastLoginAt, new Date(now));
+  const lastSeenExact = formatAdminTimestamp(row.lastLoginAt);
 
   // State only changes in the callback; the parent remounts this per student.
   useEffect(() => {
@@ -372,18 +370,17 @@ export function StudentDetailModal({
     }
   }
 
-  const openLevelCount = row.isAdmin
-    ? levels.length
-    : levels.filter((entry) => levelAccess.includes(entry.id)).length;
-  const openLivingCount = row.isAdmin
-    ? livingCourses.length
-    : livingCourses.filter((entry) => courseGranted(entry)).length;
-
-  const identityFacts = [
-    row.email && row.email !== row.displayName ? { label: "Email", value: row.email } : null,
-    { label: "Sign-in", value: lastLogin ?? "No sign-in recorded" },
-    lastSeen ? { label: "Last seen", value: lastSeen } : null,
-  ].filter((fact): fact is { label: string; value: string } => fact != null);
+  const identityFacts: { label: string; value: string; title?: string }[] = [];
+  if (row.email && row.email !== row.displayName) {
+    identityFacts.push({ label: "Email", value: row.email });
+  }
+  if (lastSeen) {
+    identityFacts.push({
+      label: "Last seen",
+      value: lastSeen,
+      title: lastSeenExact ?? undefined,
+    });
+  }
 
   return (
     <>
@@ -435,8 +432,15 @@ export function StudentDetailModal({
                     {identityFacts.map((fact) => (
                       <div key={fact.label} className="min-w-0">
                         <dt className="text-admin-label-sm uppercase text-admin-ink-subtle">{fact.label}</dt>
-                        <dd className="mt-0.5 max-w-[280px] truncate text-admin-body-sm tabular-nums text-admin-ink">
-                          {fact.value}
+                        <dd
+                          className="mt-0.5 max-w-[280px] truncate text-admin-body-sm text-admin-ink"
+                          title={fact.title}
+                        >
+                          {fact.label === "Last seen" && row.lastLoginAt ? (
+                            <time dateTime={row.lastLoginAt}>{fact.value}</time>
+                          ) : (
+                            fact.value
+                          )}
                         </dd>
                       </div>
                     ))}
@@ -488,14 +492,7 @@ export function StudentDetailModal({
                     range={range}
                     onRange={setRange}
                     summary={visitLog.summary}
-                    detail={detail}
-                    isAdmin={row.isAdmin}
-                    interviewAccess={interviewAccess}
-                    openLevels={openLevelCount}
-                    totalLevels={levels.length}
-                    openLiving={openLivingCount}
-                    totalLiving={livingCourses.length}
-                    onChangeAccess={() => setTab("courses")}
+                    chart={visitLog.chart}
                   />
                 ) : null}
                 {tab === "courses" ? (

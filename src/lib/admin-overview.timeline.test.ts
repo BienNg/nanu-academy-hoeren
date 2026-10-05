@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ACTIVE_USER_TIMELINE_CAP,
   buildActiveUserTimeline,
+  formatRelativeLastSeen,
   type AdminUserRow,
 } from "./admin-overview.js";
 
@@ -114,4 +115,18 @@ test("longer ranges mark the month on the first column and on the 1st", () => {
   assert.equal(first?.label, "1");
   const second = timeline.columns.find((column) => column.key === "2026-10-02");
   assert.equal(second?.marker, null);
+});
+
+test("last seen is hours today, yesterday, or calendar days ago", () => {
+  // 2026-10-02 13:30 in Asia/Ho_Chi_Minh.
+  assert.equal(formatRelativeLastSeen("2026-10-02T06:00:00.000Z", NOW), "less than an hour ago");
+  assert.equal(formatRelativeLastSeen("2026-10-02T05:30:00.000Z", NOW), "1 hour ago");
+  assert.equal(formatRelativeLastSeen("2026-10-02T03:30:00.000Z", NOW), "3 hours ago");
+  assert.equal(formatRelativeLastSeen("2026-10-01T16:30:00.000Z", NOW), "yesterday");
+  assert.equal(formatRelativeLastSeen("2026-09-29T06:30:00.000Z", NOW), "3 days ago");
+  assert.equal(formatRelativeLastSeen(null, NOW), null);
+
+  // 00:30 on 3 Oct still calls 23:00 on 2 Oct yesterday.
+  const afterMidnight = new Date("2026-10-02T17:30:00.000Z");
+  assert.equal(formatRelativeLastSeen("2026-10-02T16:00:00.000Z", afterMidnight), "yesterday");
 });

@@ -11,9 +11,10 @@ import {
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
 import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
+import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import { projectStudentVisits, type AdminCatalogCourse } from "@/lib/admin-detail";
-import { formatAdminTimestamp, type AdminUserRow } from "@/lib/admin-overview";
+import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { activeStreakDays, formatActiveDuration } from "@/lib/progress";
 
@@ -186,6 +187,8 @@ export function StudentDetail({
     };
   }, [row.userId]);
 
+  const now = useNow();
+
   if (full) {
     return (
       <StudentDetailModal
@@ -200,9 +203,8 @@ export function StudentDetail({
   }
 
   const streakDays = activeStreakDays(current?.ok ? current.payload.progress : row.progress);
-  const lastSeen = formatAdminTimestamp(row.lastLoginAt);
-  const signIns = current?.ok ? current.payload.signIns : row.signIns;
-  const lastSignIn = formatAdminTimestamp(signIns[signIns.length - 1]?.at ?? row.lastSignInAt);
+  const lastSeen = formatRelativeLastSeen(row.lastLoginAt, new Date(now));
+  const lastSeenExact = formatAdminTimestamp(row.lastLoginAt);
 
   return (
     <Drawer
@@ -255,15 +257,15 @@ export function StudentDetail({
             {streakDays} {streakDays === 1 ? "day" : "days"}
           </Badge>
         </div>
-        <dl className="grid grid-cols-2 gap-space-12">
+        <dl>
           <div className="min-w-0">
             <dt className="text-admin-body-sm text-admin-ink-muted">Last seen</dt>
-            <dd className="truncate text-admin-body-md text-admin-ink">{lastSeen ?? "Not seen yet"}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-admin-body-sm text-admin-ink-muted">Sign-in</dt>
-            <dd className="truncate text-admin-body-md text-admin-ink">
-              {lastSignIn ?? "None recorded"}
+            <dd className="truncate text-admin-body-md text-admin-ink" title={lastSeenExact ?? undefined}>
+              {row.lastLoginAt && lastSeen ? (
+                <time dateTime={row.lastLoginAt}>{lastSeen}</time>
+              ) : (
+                "Not seen yet"
+              )}
             </dd>
           </div>
         </dl>

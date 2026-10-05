@@ -22,15 +22,6 @@ import {
   type AdminUserRow,
 } from "@/lib/admin-overview";
 
-/** The zig-zag of the learner level overview, so the trail reads the same. */
-const PATH_SHIFT = [
-  "-translate-x-9",
-  "translate-x-9",
-  "translate-x-0",
-  "-translate-x-6",
-  "translate-x-8",
-] as const;
-
 const STACK_LIMIT = 3;
 
 function PersonAvatar({ person }: { person: AdminLevelPathPerson }) {
@@ -63,11 +54,13 @@ function StudentStack({
   people,
   onOpen,
   limit = STACK_LIMIT,
+  nowrap = false,
   className = "max-w-[7.5rem]",
 }: {
   people: readonly AdminLevelPathPerson[];
   onOpen: (userId: string) => void;
   limit?: number;
+  nowrap?: boolean;
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -77,7 +70,9 @@ function StudentStack({
   const hidden = people.length - shown.length;
 
   return (
-    <span className={`flex flex-wrap items-center gap-y-1 ${className}`}>
+    <span
+      className={`flex items-center gap-y-1 ${nowrap ? "flex-nowrap" : "flex-wrap"} ${className}`}
+    >
       {shown.map((person) => (
         <button
           key={person.userId}
@@ -188,8 +183,8 @@ function PathNode({
           <NodeCircle icon={node.icon} />
         </button>
         {node.here.length > 0 ? (
-          <span className="absolute left-full top-1/2 ml-2 -translate-y-1/2">
-            <StudentStack people={node.here} onOpen={onOpen} />
+          <span className="absolute top-1/2 left-full ml-3 -translate-y-1/2">
+            <StudentStack people={node.here} onOpen={onOpen} nowrap className="" />
           </span>
         ) : null}
       </span>
@@ -269,13 +264,11 @@ function LessonTrail({
         </div>
       </div>
       {empty ? null : (
-        <ul className="flex w-full flex-col items-center gap-space-12 py-space-12">
-          {lesson.nodes.map((node, index) => (
+        <ul className="flex w-full flex-col items-start gap-space-12 py-space-12 pl-space-8">
+          {lesson.nodes.map((node) => (
             <li
               key={node.id}
-              className={`relative ${PATH_SHIFT[index % PATH_SHIFT.length]} ${
-                selectedId === `${lesson.id}:${node.id}` ? "z-20" : ""
-              }`}
+              className={selectedId === `${lesson.id}:${node.id}` ? "relative z-20" : "relative"}
             >
               <PathNode
                 node={node}

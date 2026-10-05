@@ -116,7 +116,7 @@ function DomainCard({
         ) : null}
       </header>
       <dl
-        className={`grid gap-space-12 ${stats.length === 3 ? "grid-cols-3" : "grid-cols-2"} divide-x divide-admin-hairline`}
+        className={`grid gap-space-12 ${stats.length === 3 ? "grid-cols-3" : stats.length === 1 ? "grid-cols-1" : "grid-cols-2"} divide-x divide-admin-hairline`}
       >
         {stats.map((stat, index) => (
           <div key={stat.label} className={`flex min-w-0 flex-col ${index > 0 ? "pl-space-12" : ""}`}>
@@ -726,8 +726,6 @@ type AdminOverviewProps = {
   rangeXpReady: boolean;
   studyParts: number | null;
   studyPartsByUser: Readonly<Record<string, number>> | null;
-  /** Whole listening lessons finished in the Vietnam window. Null keeps the activity count. */
-  practiceRuns: number | null;
   practiceParts: number | null;
   practicePartsByUser: Readonly<Record<string, number>> | null;
   /** Learners who finished a study or practice part in the window, pass or fail. */
@@ -744,7 +742,6 @@ export function AdminOverview({
   rangeXpReady,
   studyParts,
   studyPartsByUser,
-  practiceRuns,
   practiceParts,
   practicePartsByUser,
   cardUserIds,
@@ -841,7 +838,7 @@ export function AdminOverview({
             title="At a glance"
             meta={adminRangeLabel(range)}
           />
-          <div className="grid grid-cols-1 gap-space-16 md:grid-cols-2 xl:grid-cols-3 2xl:gap-space-20">
+          <div className="grid grid-cols-1 gap-space-16 md:grid-cols-2 2xl:gap-space-20">
             <DomainCard
               icon="local_fire_department"
               title="Engagement"
@@ -862,45 +859,21 @@ export function AdminOverview({
             />
             <DomainCard
               icon="menu_book"
-              title="Curriculum"
+              title="Study & practice"
               color={ADMIN_COLORS.emerald}
               stats={[
-                {
-                  label: "Study runs",
-                  value: formatCount(activity.studyRuns),
-                  hint: "Whole lessons",
-                },
                 {
                   label: "Study parts",
                   value: studyParts == null ? "—" : formatCount(studyParts),
                   hint: "Parts finished",
                 },
+                {
+                  label: "Practice parts",
+                  value: practiceParts == null ? "—" : formatCount(practiceParts),
+                  hint: "Parts finished",
+                },
               ]}
             />
-            <div className="md:col-span-2 xl:col-span-1">
-              <DomainCard
-                icon="headphones"
-                title="Video & audio"
-                color={ADMIN_COLORS.violet}
-                stats={[
-                  {
-                    label: "Videos",
-                    value: formatCount(activity.videosWatched),
-                    hint: "Marked watched",
-                  },
-                  {
-                    label: "Practice runs",
-                    value: formatCount(practiceRuns ?? activity.practiceRuns),
-                    hint: "Whole lessons",
-                  },
-                  {
-                    label: "Practice parts",
-                    value: practiceParts == null ? "—" : formatCount(practiceParts),
-                    hint: "Parts finished",
-                  },
-                ]}
-              />
-            </div>
           </div>
         </section>
 

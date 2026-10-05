@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { MaterialIcon } from "@/components/admin/AdminShell";
 import { CARD, Segmented } from "@/components/admin/AdminUi";
 import type { AdminVisitRange } from "@/lib/admin-detail";
@@ -11,6 +11,16 @@ export type DetailTab = "overview" | "courses" | "activity" | "account";
 
 export function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
+}
+
+/** Wall clock that ticks so relative last-seen labels stay current. */
+export function useNow(intervalMs = 60_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 export function formatClock(seconds: number): string {

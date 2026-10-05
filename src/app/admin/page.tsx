@@ -98,9 +98,6 @@ export default async function AdminPage({
         partCounts == null ? 0 : partCounts[0].ready ? partCounts[0].count : null
       }
       studyPartsByUser={partCounts?.[0]?.ready ? partCounts[0].byUser : null}
-      practiceRuns={
-        partCounts == null ? null : partCounts[1].ready ? partCounts[1].runs : null
-      }
       practiceParts={
         partCounts == null ? 0 : partCounts[1].ready ? partCounts[1].parts : null
       }

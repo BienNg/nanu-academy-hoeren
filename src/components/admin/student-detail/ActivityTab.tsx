@@ -68,14 +68,26 @@ function visitMetrics(stats: AdminVisitStats): {
   label: string;
 }[] {
   const metrics: { category: VisitCategory; icon?: string; value: string; label: string }[] = [];
-  if (stats.clipsStudied > 0) {
+  if (stats.studyParts > 0) {
+    metrics.push({
+      category: "study",
+      value: String(stats.studyParts),
+      label: stats.studyParts === 1 ? "Study part" : "Study parts",
+    });
+  } else if (stats.clipsStudied > 0) {
     metrics.push({
       category: "study",
       value: String(stats.clipsStudied),
       label: stats.clipsStudied === 1 ? "Clip studied" : "Clips studied",
     });
   }
-  if (stats.practiceClips > 0) {
+  if (stats.practiceParts > 0) {
+    metrics.push({
+      category: "listening",
+      value: String(stats.practiceParts),
+      label: stats.practiceParts === 1 ? "Practice part" : "Practice parts",
+    });
+  } else if (stats.practiceClips > 0) {
     metrics.push({
       category: "listening",
       value: String(stats.practiceClips),

@@ -17,6 +17,7 @@ import {
   lessonNodeParts,
   lessonPathNodes,
   selectVisits,
+  splitStudyParts,
   summarizeVisits,
   type VisitRange,
 } from "@/lib/progress";
@@ -704,6 +705,10 @@ export type AdminVisitDetailGroup = {
 export type AdminVisitStats = {
   clipsStudied: number;
   practiceClips: number;
+  /** Study parts whose clips were all reviewed in this visit. */
+  studyParts: number;
+  /** Practice parts finished in this visit. A replay of the same part counts again. */
+  practiceParts: number;
   practiceRuns: number;
   leftUnfinished: number;
   videoSeconds: number;
@@ -729,9 +734,24 @@ export type AdminVisitRow = {
   details: AdminVisitDetailGroup[];
 };
 
+/** What a student did in one hour, day or week of the visit chart, by visit start time. */
+export type AdminVisitChartPoint = {
+  label: string;
+  visits: number;
+  activeMinutes: number;
+  videoMinutes: number;
+  studyParts: number;
+  practiceParts: number;
+  practiceRuns: number;
+  leftUnfinished: number;
+  videosWatched: number;
+  wrongAttempts: number;
+};
+
 export type AdminVisitLog = {
   summary: VisitSummary;
   visits: AdminVisitRow[];
+  chart: AdminVisitChartPoint[];
   emptyMessage: string;
 };
 
@@ -841,7 +861,12 @@ function visitDetails(
       exerciseLessons.length > 0
         ? exerciseLessons.map((lesson) => {
             const facts: string[] = [];
-            if (lesson.completed > 0) {
+            const parts = practicePartsForLesson(courses, lesson.lessonKey, lesson.completed);
+            if (parts > 0) {
+              facts.push(
+                `${parts} practice ${parts === 1 ? "part" : "parts"} finished`,
+              );
+            } else if (lesson.completed > 0) {
               facts.push(
                 `${lesson.completed} practice ${lesson.completed === 1 ? "clip" : "clips"} completed`,
               );
@@ -911,10 +936,78 @@ function visitDetails(
   return groups;
 }
 
-function visitStats(visit: Visit): AdminVisitStats {
+/**
+ * Whole parts that fit in a clip total.
+ * Parts of one lesson differ in length by at most one, so each total belongs
+ * to one part count. A few clips past that total are not another part.
+ */
+function partsCoveredByClips(sizes: readonly number[], clipsDone: number): number {
+  if (clipsDone <= 0) return 0;
+  const positive = sizes.filter((size) => size > 0);
+  if (positive.length === 0) return 0;
+  const min = Math.min(...positive);
+  const max = Math.max(...positive);
+  for (let count = Math.floor(clipsDone / min); count >= 1; count -= 1) {
+    const low = count * min;
+    const high = count * max;
+    if (clipsDone >= low && clipsDone <= high) return count;
+    if (clipsDone > high && clipsDone - high < min) return count;
+  }
+  return 0;
+}
+
+function studyPartsFinished(
+  courses: readonly AdminCatalogCourse[],
+  visit: Visit,
+): number {
+  const byLesson = new Map<string, Set<string>>();
+  for (const clip of visit.clips) {
+    const ids = byLesson.get(clip.lessonKey) ?? new Set<string>();
+    ids.add(clip.clipId);
+    byLesson.set(clip.lessonKey, ids);
+  }
+  let count = 0;
+  for (const [lessonKey, ids] of byLesson) {
+    const lesson = catalogLesson(courses, lessonKey).lesson;
+    if (!lesson || lesson.clips.length === 0) continue;
+    for (const part of splitStudyParts(lesson.clips)) {
+      if (part.length > 0 && part.every((clip) => ids.has(clip.id))) count += 1;
+    }
+  }
+  return count;
+}
+
+function practicePartsForLesson(
+  courses: readonly AdminCatalogCourse[],
+  lessonKey: string,
+  clipsDone: number,
+): number {
+  const lesson = catalogLesson(courses, lessonKey).lesson;
+  // Trail practice finishes the same parts as study. Other lessons keep clip totals.
+  if (!lesson?.pathNodes || lesson.clips.length === 0) return 0;
+  const sizes = splitStudyParts(lesson.clips).map((part) => part.length);
+  return partsCoveredByClips(sizes, clipsDone);
+}
+
+function practicePartsFinished(
+  courses: readonly AdminCatalogCourse[],
+  visit: Visit,
+): number {
+  return (visit.exerciseLessons ?? []).reduce(
+    (sum, lesson) => sum + practicePartsForLesson(courses, lesson.lessonKey, lesson.completed),
+    0,
+  );
+}
+
+function visitStats(
+  visit: Visit,
+  courses: readonly AdminCatalogCourse[] = [],
+): AdminVisitStats {
   return {
     clipsStudied: visit.clips.length,
     practiceClips: visit.exercisesCompleted,
+    studyParts: studyPartsFinished(courses, visit),
+    practiceParts: practicePartsFinished(courses, visit),
     practiceRuns: visit.listeningRuns,
     leftUnfinished: (visit.leftSessions ?? []).length,
     videoSeconds: visit.videos.reduce((sum, video) => sum + video.seconds, 0),
@@ -1013,7 +1106,7 @@ export function projectStudentVisits(
       abandonedVideo: abandonedVideo(visit),
     };
     const signal = describeVisitSignal(signalInput);
-    const stats = visitStats(visit);
+    const stats = visitStats(visit, courses);
     const idle = visitIsIdle(stats);
     return {
       id: visit.id,
@@ -1033,8 +1126,96 @@ export function projectStudentVisits(
   return {
     summary: summarizeVisits(progress, range, now),
     visits,
+    chart: visitChart(all, courses, range, now),
     emptyMessage: emptyVisitMessage(range),
   };
+}
+
+const DAY_MS = 86_400_000;
+/** Above this many days, the all-time chart groups visits by week. */
+const VISIT_CHART_DAILY_CAP = 60;
+
+/**
+ * Visits bucketed by start time on the viewing device's clock, matching the
+ * visit list: hours for today, days for 7 days, days or weeks for all time.
+ */
+function visitChart(
+  visits: readonly Visit[],
+  courses: readonly AdminCatalogCourse[],
+  range: AdminVisitRange,
+  now: Date,
+): AdminVisitChartPoint[] {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const starts: number[] = [];
+  let label: (start: Date) => string;
+
+  if (range === "today") {
+    for (let hour = 0; hour < 24; hour += 1) {
+      starts.push(new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour).getTime());
+    }
+    label = (start) => `${start.getHours().toString().padStart(2, "0")}:00`;
+  } else {
+    let first = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+    if (range === "all") {
+      const earliest = visits.reduce((min, visit) => {
+        const time = Date.parse(visit.startedAt);
+        return Number.isNaN(time) ? min : Math.min(min, time);
+      }, today.getTime());
+      const e = new Date(earliest);
+      const earliestDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+      if (earliestDay < first) first = earliestDay;
+    }
+    const days = Math.round((today.getTime() - first.getTime()) / DAY_MS) + 1;
+    const step = days > VISIT_CHART_DAILY_CAP ? 7 : 1;
+    // Walk back from today so the last bucket always ends on today.
+    for (let offset = 0; offset < days; offset += step) {
+      starts.unshift(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset - (step - 1)).getTime(),
+      );
+    }
+    label =
+      step === 1 && range === "7d"
+        ? (start) => `${WEEKDAYS[start.getDay()]} ${start.getDate()}`
+        : (start) => `${start.getDate()} ${MONTHS[start.getMonth()]}`;
+  }
+
+  const points = starts.map((start) => ({
+    label: label(new Date(start)),
+    visits: 0,
+    activeSeconds: 0,
+    videoSeconds: 0,
+    studyParts: 0,
+    practiceParts: 0,
+    practiceRuns: 0,
+    leftUnfinished: 0,
+    videosWatched: 0,
+    wrongAttempts: 0,
+  }));
+  for (const visit of visits) {
+    const time = Date.parse(visit.startedAt);
+    if (Number.isNaN(time) || time < starts[0]) continue;
+    let index = starts.length - 1;
+    while (index > 0 && starts[index] > time) index -= 1;
+    if (range === "today" && time >= starts[index] + 3_600_000) continue;
+    if (range !== "today" && time >= today.getTime() + DAY_MS) continue;
+    const point = points[index];
+    const stats = visitStats(visit, courses);
+    point.visits += 1;
+    point.activeSeconds += visit.activeSeconds;
+    point.videoSeconds += stats.videoSeconds;
+    point.studyParts += stats.studyParts;
+    point.practiceParts += stats.practiceParts;
+    point.practiceRuns += stats.practiceRuns;
+    point.leftUnfinished += stats.leftUnfinished;
+    point.videosWatched += stats.videosWatched;
+    point.wrongAttempts += visit.wrongAttempts ?? 0;
+  }
+  const minutes = (seconds: number) => Math.round(seconds / 6) / 10;
+  return points.map(({ activeSeconds, videoSeconds, ...point }) => ({
+    ...point,
+    activeMinutes: minutes(activeSeconds),
+    videoMinutes: minutes(videoSeconds),
+  }));
 }
 
 function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): string[] {

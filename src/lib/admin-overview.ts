@@ -590,6 +590,37 @@ export function formatAdminTimestamp(iso: string | null | undefined): string | n
   }).format(date);
 }
 
+/** Whole Vietnam calendar days from `earlier` to `later` (`YYYY-MM-DD`). */
+function calendarDayGap(earlier: string, later: string): number {
+  const [y1, m1, d1] = earlier.split("-").map(Number);
+  const [y2, m2, d2] = later.split("-").map(Number);
+  const start = Date.UTC(y1 ?? 0, (m1 ?? 1) - 1, d1 ?? 1);
+  const end = Date.UTC(y2 ?? 0, (m2 ?? 1) - 1, d2 ?? 1);
+  return Math.round((end - start) / 86_400_000);
+}
+
+/**
+ * Last seen relative to now. Same Vietnam calendar day is hours ago,
+ * the previous day is "yesterday", and older days are "x days ago".
+ */
+export function formatRelativeLastSeen(
+  iso: string | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime()) || Number.isNaN(now.getTime())) return null;
+
+  const dayGap = calendarDayGap(dayKey(then), dayKey(now));
+  if (dayGap <= 0) {
+    const hours = Math.floor((now.getTime() - then.getTime()) / (60 * 60 * 1000));
+    if (hours < 1) return "less than an hour ago";
+    return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+  }
+  if (dayGap === 1) return "yesterday";
+  return `${dayGap} days ago`;
+}
+
 function formatUtcDayLabel(day: string): string {
   const date = new Date(`${day}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return day;
