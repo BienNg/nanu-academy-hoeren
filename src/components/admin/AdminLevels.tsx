@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { Badge, CARD, KpiTile, ScopeChips } from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
@@ -36,7 +38,7 @@ function PersonAvatar({ person }: { person: AdminLevelPathPerson }) {
 
   if (person.image && !failed) {
     return (
-      <span className="block h-8 w-8 overflow-hidden rounded-full bg-surface-container">
+      <span className="block h-8 w-8 overflow-hidden rounded-full bg-admin-subtle">
         <Image
           src={person.image}
           alt=""
@@ -51,7 +53,7 @@ function PersonAvatar({ person }: { person: AdminLevelPathPerson }) {
   }
 
   return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-label-sm text-[13px] font-bold uppercase text-on-primary">
+    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-admin-cobalt text-[12px] font-semibold uppercase text-white">
       {Array.from(person.displayName)[0]?.toLocaleUpperCase("vi") ?? "?"}
     </span>
   );
@@ -83,7 +85,7 @@ function StudentStack({
           onClick={() => onOpen(person.userId)}
           title={person.displayName}
           aria-label={`Open ${person.displayName}`}
-          className="-ml-2 rounded-full ring-2 ring-white transition-transform first:ml-0 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="-ml-2 rounded-full ring-2 ring-admin-card outline-none transition-transform first:ml-0 hover:-translate-y-0.5 hover:ring-admin-cobalt focus-visible:ring-admin-cobalt"
         >
           <PersonAvatar person={person} />
         </button>
@@ -93,7 +95,7 @@ function StudentStack({
           type="button"
           onClick={() => setExpanded(true)}
           aria-label={`Show ${hidden} more ${hidden === 1 ? "student" : "students"}`}
-          className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high font-label-sm text-[11px] font-bold tabular-nums text-on-surface ring-2 ring-white"
+          className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-admin-subtle text-[11px] font-semibold tabular-nums text-admin-ink-muted ring-2 ring-admin-card outline-none hover:bg-admin-hairline focus-visible:shadow-admin-focus"
         >
           +{hidden}
         </button>
@@ -104,7 +106,7 @@ function StudentStack({
 
 function NodeCircle({ icon }: { icon: string }) {
   return (
-    <span className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
+    <span className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-admin-card shadow-[0_6px_0_0_#bec8d2]">
       <LessonPathIcon name={icon} onWhite className="h-10 w-10" />
     </span>
   );
@@ -181,7 +183,7 @@ function PathNode({
           aria-expanded={open}
           aria-label={detailLabel}
           onClick={onToggle}
-          className="rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          className="rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-admin-cobalt"
         >
           <NodeCircle icon={node.icon} />
         </button>
@@ -191,7 +193,7 @@ function PathNode({
           </span>
         ) : null}
       </span>
-      <span className="mt-1.5 line-clamp-2 font-label-sm text-[12px] font-bold leading-4 text-on-surface">
+      <span className="mt-1.5 line-clamp-2 text-[12px] font-semibold leading-4 text-admin-ink">
         {node.label}
       </span>
       {node.here.length > 0 ? (
@@ -201,23 +203,23 @@ function PathNode({
         <div
           role="dialog"
           aria-label={node.label}
-          className="mt-2 w-[13.5rem] rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-space-12 py-space-12 text-left shadow-[0_8px_24px_rgba(25,28,30,0.12)]"
+          className="mt-2 w-[13.5rem] rounded-admin-card border border-admin-border bg-admin-card px-space-12 py-space-12 text-left shadow-admin-pop"
         >
-          <p className="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+          <p className="text-admin-label-sm uppercase text-admin-ink-subtle">
             {node.kind === "video" ? "Video" : node.kind === "study" ? "Study" : "Practice"}
           </p>
-          <p className="mt-1 font-label-sm text-[13px] font-bold leading-4 text-on-surface">
+          <p className="mt-1 text-[13px] font-semibold leading-4 text-admin-ink">
             {node.label}
           </p>
           {stat ? (
-            <p className="mt-space-8 font-headline-sm text-headline-sm tabular-nums text-on-surface">
+            <p className="mt-space-8 font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
               {stat.value}
-              <span className="ml-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+              <span className="ml-1 text-admin-label-md font-semibold text-admin-ink-muted">
                 {stat.label.toLowerCase()}
               </span>
             </p>
           ) : (
-            <p className="mt-space-8 font-body-sm text-body-sm text-on-surface-variant">
+            <p className="mt-space-8 text-admin-body-sm text-admin-ink-muted">
               Length is not in the data loaded on this page.
             </p>
           )}
@@ -250,25 +252,20 @@ function LessonTrail({
   return (
     <li className={`flex flex-col items-center ${raised ? "relative z-20" : ""}`}>
       <div
-        className={`w-full rounded-2xl p-space-16 ${
-          empty
-            ? "bg-surface-container-low"
-            : "bg-surface-container-lowest shadow-[0_4px_0_0_#dae2fd]"
+        className={`w-full rounded-admin-card border px-space-16 py-space-12 ${
+          empty ? "border-dashed border-admin-border bg-admin-subtle" : "border-admin-hairline bg-admin-card shadow-admin-card"
         }`}
       >
         <div className="flex items-center justify-between gap-space-12">
           <h3
-            className={`min-w-0 font-headline-sm text-headline-sm font-semibold tracking-tight ${
-              empty ? "text-on-surface-variant" : "text-on-surface"
+            className={`flex min-w-0 items-center gap-space-8 font-admin-display text-admin-headline-sm ${
+              empty ? "text-admin-ink-muted" : "text-admin-ink"
             }`}
           >
-            {levelLabel} - {lesson.label}
+            <Badge tone={empty ? "neutral" : "amber"}>{levelLabel}</Badge>
+            <span className="truncate">{lesson.label}</span>
           </h3>
-          {empty ? (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-surface-container px-2.5 py-1 font-caption text-caption font-semibold uppercase tracking-wider text-on-surface-variant">
-              Coming soon
-            </span>
-          ) : null}
+          {empty ? <Badge>Coming soon</Badge> : null}
         </div>
       </div>
       {empty ? null : (
@@ -293,76 +290,6 @@ function LessonTrail({
         </ul>
       )}
     </li>
-  );
-}
-
-function FilterChips<T extends string>({
-  label,
-  options,
-  value,
-  onSelect,
-}: {
-  label: string;
-  options: readonly { key: T; label: string; count?: number }[];
-  value: T;
-  onSelect: (key: T) => void;
-}) {
-  return (
-    <div role="tablist" aria-label={label} className="flex flex-wrap gap-space-8">
-      {options.map((option) => {
-        const on = option.key === value;
-        return (
-          <button
-            key={option.key}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onSelect(option.key)}
-            className={`inline-flex h-9 items-center gap-space-4 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-              on
-                ? "bg-primary text-on-primary"
-                : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-            }`}
-          >
-            {option.label}
-            {option.count == null ? null : (
-              <span className={`tabular-nums ${on ? "text-on-primary/70" : "text-outline"}`}>
-                {option.count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
   );
 }
 
@@ -394,6 +321,13 @@ export function AdminLevels({
     [students, courseCatalog],
   );
   const classOptions = useMemo(() => listAdminClasses(students), [students]);
+  const grantedByLevel = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of students) {
+      for (const slug of row.levelAccess) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+    return counts;
+  }, [students]);
   const unassignedCount = useMemo(
     () => students.filter((row) => !classKey(row.className)).length,
     [students],
@@ -452,24 +386,33 @@ export function AdminLevels({
       />
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           Cloud progress is not configured, so no student can be placed on a path.
         </div>
       ) : null}
 
       <section className="flex flex-col gap-space-12">
-        <FilterChips
+        <ScopeChips
           label="Level"
+          icon="stairs"
+          ariaLabel="Level"
+          tone="amber"
           value={levelSlug}
           onSelect={(slug) => {
             setLevelSlug(slug);
             setSelectedNodeId(null);
           }}
-          options={levels.map((level) => ({ key: level.slug, label: level.level }))}
+          options={levels.map((level) => ({
+            key: level.slug,
+            label: level.level,
+            count: grantedByLevel.get(level.slug) ?? 0,
+          }))}
         />
         {classOptions.length > 0 || unassignedCount > 0 ? (
-          <FilterChips
+          <ScopeChips
             label="Class"
+            icon="school"
+            ariaLabel="Class"
             value={classFilter}
             onSelect={(key) => {
               setClassFilter(key);
@@ -482,41 +425,40 @@ export function AdminLevels({
                 label: option.label,
                 count: option.count,
               })),
-              ...(unassignedCount > 0
-                ? [{ key: "", label: "Unassigned", count: unassignedCount }]
-                : []),
+              ...(unassignedCount > 0 ? [{ key: "", label: "Unassigned", count: unassignedCount }] : []),
             ]}
           />
         ) : null}
       </section>
 
       {path == null ? (
-        <p className="font-body-md text-body-md text-on-surface-variant">
+        <p className="text-admin-body-md text-admin-ink-muted">
           This level is not in the catalog.
         </p>
       ) : (
         <>
-          <section
-            aria-label="Level totals"
-            className="grid grid-cols-2 gap-space-12"
-          >
-            <SummaryStat
+          <section aria-label="Level totals" className="grid grid-cols-2 gap-space-16 lg:max-w-2xl">
+            <KpiTile
+              icon="group"
               label="On the path"
               value={String(path.studentCount)}
-              icon="group"
-              hint={`Of ${grantedCount} granted ${path.label}`}
+              caption={`Of ${grantedCount} granted ${path.label}`}
+              color={ADMIN_COLORS.amber}
+              progress={grantedCount > 0 ? path.studentCount / grantedCount : 0}
+              progressLabel={`Share of students granted ${path.label} who have started it`}
             />
-            <SummaryStat
+            <KpiTile
+              icon="library_books"
               label="Lektionen"
               value={String(path.lessons.length)}
-              icon="library_books"
-              hint={`${path.lessons.reduce((sum, lesson) => sum + lesson.nodes.length, 0)} nodes on the path`}
+              caption={`${path.lessons.reduce((sum, lesson) => sum + lesson.nodes.length, 0)} nodes on the path`}
+              color={ADMIN_COLORS.emerald}
             />
           </section>
 
           <section aria-label={`${path.label} path`} className="flex flex-col gap-space-16">
             {path.studentCount === 0 ? (
-              <p className="font-body-md text-body-md text-on-surface-variant">
+              <p className="text-admin-body-md text-admin-ink-muted">
                 {grantedCount === 0
                   ? `Nobody has access to ${path.label} yet. Grant it on the Access page.`
                   : `Nobody has opened ${path.label} yet, so the path has no avatars.`}
@@ -539,10 +481,13 @@ export function AdminLevels({
             </ol>
 
             {path.finished.length > 0 ? (
-              <div className="mx-auto flex w-full max-w-lg flex-col gap-space-12 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
+              <div
+                className={`${CARD} mx-auto flex w-full max-w-lg flex-col gap-space-12 border-t-2 p-space-16`}
+                style={{ borderTopColor: ADMIN_COLORS.emerald }}
+              >
                 <div className="flex items-center gap-space-8">
-                  <MaterialIcon name="flag_circle" className="text-[22px] text-primary" filled />
-                  <p className="font-label-md text-label-md font-semibold text-on-surface">
+                  <MaterialIcon name="flag_circle" className="text-[22px] text-admin-emerald" filled />
+                  <p className="text-admin-body-md font-semibold text-admin-ink">
                     Finished {path.label}
                   </p>
                 </div>

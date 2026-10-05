@@ -779,7 +779,7 @@ export function AdminActivity({
       ) : null}
 
       {!storeConfigured ? (
-        <div className="rounded-admin-card border border-admin-crimson-border bg-error-container/40 px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           Cloud progress is not configured. This page only counts learners who have
           synced progress to Supabase.
         </div>
