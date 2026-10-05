@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
-  ANALYTICS,
   CategoryCard,
   CountPill,
-  GLASS,
+  CARD,
   MiniBars,
   Pager,
   ScopeChips,
@@ -18,7 +17,8 @@ import {
   formatCount,
   formatPercent,
   paginate,
-} from "@/components/admin/AnalyticsUi";
+} from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { describeCatalogClip, type AdminCatalogCourse } from "@/lib/admin-detail";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin-overview";
 import {
@@ -34,10 +34,10 @@ import {
 type SortKey = "missRate" | "failures" | "successes" | "studentsFailed" | "attempts";
 type SortDir = "asc" | "desc";
 
-const CLIPS = ANALYTICS.indigo;
-const MISSES = ANALYTICS.rose;
-const PASSES = "#047857";
-const HARDEST = ANALYTICS.slate;
+const CLIPS = ADMIN_COLORS.violet;
+const MISSES = ADMIN_COLORS.crimson;
+const PASSES = ADMIN_COLORS.emerald;
+const HARDEST = ADMIN_COLORS.ink;
 
 /** Most groups shown in a card's mini bars. */
 const MINI_BAR_LIMIT = 6;
@@ -76,10 +76,10 @@ function perItem(total: number, count: number): string {
 
 /** Colour for a miss rate: green when easy, amber in the middle, rose when hard. */
 function rateColor(rate: number, attempts: number): string {
-  if (attempts === 0) return ANALYTICS.axis;
-  if (rate >= 0.5) return ANALYTICS.rose;
-  if (rate >= 0.25) return "#f59e0b";
-  return ANALYTICS.emerald;
+  if (attempts === 0) return ADMIN_COLORS.axis;
+  if (rate >= 0.5) return ADMIN_COLORS.crimson;
+  if (rate >= 0.25) return ADMIN_COLORS.amber;
+  return ADMIN_COLORS.emerald;
 }
 
 function rateIcon(rate: number): string {
@@ -232,7 +232,7 @@ function SortHeader({
 function Notice({ tone, children }: { tone: "error" | "info"; children: string }) {
   return (
     <div
-      className={`${GLASS} flex items-start gap-space-12 border-l-4 p-space-16 ${
+      className={`${CARD} flex items-start gap-space-12 border-l-4 p-space-16 ${
         tone === "error" ? "border-l-[#e11d48]" : "border-l-[#4338ca]"
       }`}
     >
@@ -384,7 +384,7 @@ export function AdminClipDifficulty({
   }
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
         kicker="Learning"
         title="Practice clip difficulty"

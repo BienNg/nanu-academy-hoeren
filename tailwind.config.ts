@@ -6,6 +6,13 @@ import {
   fontSize,
   spacing,
 } from "./src/lib/tokens";
+import {
+  adminBorderRadius,
+  adminBoxShadow,
+  adminColors,
+  adminFontFamily,
+  adminFontSize,
+} from "./src/lib/admin-tokens";
 
 const plusJakarta = "var(--font-plus-jakarta-sans)";
 const beVietnam = "var(--font-be-vietnam-pro)";
@@ -23,10 +30,11 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
-      colors,
-      fontFamily,
-      fontSize,
-      borderRadius,
+      colors: { ...colors, ...adminColors },
+      fontFamily: { ...fontFamily, ...adminFontFamily },
+      fontSize: { ...fontSize, ...adminFontSize },
+      borderRadius: { ...borderRadius, ...adminBorderRadius },
+      boxShadow: adminBoxShadow,
       spacing,
     },
   },

@@ -17,11 +17,10 @@ import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
-  ANALYTICS,
   CategoryCard,
   ChartTooltip,
   CountPill,
-  GLASS,
+  CARD,
   LegendChips,
   PanelHeader,
   Pager,
@@ -32,7 +31,8 @@ import {
   formatPercent,
   paginate,
   type MicroMetric,
-} from "@/components/admin/AnalyticsUi";
+} from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
   adminRangeLabel,
   buildAdminActivityBoard,
@@ -46,12 +46,12 @@ import {
   type AdminUserRow,
 } from "@/lib/admin-overview";
 
-const AXIS = ANALYTICS.axis;
-const GRID = ANALYTICS.grid;
-const PRIMARY = ANALYTICS.indigo;
-const STUDY = ANALYTICS.ocean;
-const PRACTICE = ANALYTICS.azure;
-const VIDEOS = ANALYTICS.slate;
+const AXIS = ADMIN_COLORS.axis;
+const GRID = ADMIN_COLORS.grid;
+const PRIMARY = ADMIN_COLORS.ember;
+const STUDY = ADMIN_COLORS.emerald;
+const PRACTICE = ADMIN_COLORS.violet;
+const VIDEOS = ADMIN_COLORS.violetSoft;
 
 /** Students per page in the "Most time in the app" table. */
 const LEADER_PAGE_SIZE = 10;
@@ -199,7 +199,7 @@ function ChartCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`${GLASS} flex flex-col p-space-20`}>
+    <section className={`${CARD} flex flex-col p-space-20`}>
       <PanelHeader icon={icon} title={title} hint={hint} trailing={trailing} />
       <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
     </section>
@@ -356,7 +356,7 @@ function TotalsTable({
     videos: peakPoint(points, "videosWatched")?.key,
   };
   return (
-    <div className={`${GLASS} flex flex-col overflow-hidden`}>
+    <div className={`${CARD} flex flex-col overflow-hidden`}>
       <div className="bg-[#f2f3ff]/40 p-space-20">
         <PanelHeader
           icon="table_rows"
@@ -488,7 +488,7 @@ function LeadersTable({
   ).length;
 
   return (
-    <div className={`${GLASS} flex flex-col overflow-hidden`}>
+    <div className={`${CARD} flex flex-col overflow-hidden`}>
       <div className="bg-[#f2f3ff]/40 p-space-20">
         <PanelHeader
           icon="leaderboard"
@@ -763,7 +763,7 @@ export function AdminActivity({
   const byGrain = hourly ? "by hour" : "by day";
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
         kicker="Engagement"
         title="Activity"

@@ -25,7 +25,7 @@ import {
 } from "@/lib/admin-overview";
 
 const RAIL_EXPANDED = "16.25rem";
-const RAIL_COLLAPSED = "4.25rem";
+const RAIL_COLLAPSED = "4.5rem";
 const RAIL_STORAGE_KEY = "nanu-admin-rail-collapsed";
 
 /**
@@ -61,7 +61,7 @@ export function useAdminRole(): AdminDashboardRole {
 
 export function StaffBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f2fc] px-2 py-0.5 font-label-sm text-[11px] font-semibold text-[#0066cc]">
+    <span className="inline-flex items-center gap-1 rounded-admin-badge border border-admin-cobalt/20 bg-admin-cobalt-wash px-1.5 py-0.5 text-admin-label-sm text-admin-cobalt">
       <MaterialIcon name="admin_panel_settings" className="text-[14px]" />
       Staff
     </span>
@@ -201,19 +201,19 @@ function NavRow({
     <>
       <MaterialIcon
         name={item.icon}
-        className={`shrink-0 text-[20px] ${active ? "" : "text-outline"}`}
+        className={`shrink-0 text-[20px] ${active ? "" : "text-admin-ink-subtle"}`}
         filled={active}
       />
       <span
-        className={`min-w-0 flex-1 truncate text-left font-label-md text-label-md ${
-          active ? "font-bold" : "font-medium"
+        className={`min-w-0 flex-1 truncate text-left text-admin-body-md ${
+          active ? "font-semibold" : "font-medium"
         } ${collapsed ? "lg:hidden" : ""}`}
       >
         {item.label}
       </span>
       {item.ready ? null : (
         <span
-          className={`shrink-0 rounded-full bg-surface-container-high px-2 py-0.5 font-caption text-[10px] font-semibold uppercase tracking-wider text-outline ${
+          className={`shrink-0 rounded-admin-badge bg-admin-subtle px-1.5 py-0.5 text-admin-label-sm uppercase text-admin-ink-subtle ${
             collapsed ? "lg:hidden" : ""
           }`}
         >
@@ -224,7 +224,7 @@ function NavRow({
   );
 
   const shared =
-    "flex h-10 w-full items-center gap-space-12 rounded-xl px-space-12 transition-colors";
+    "flex h-9 w-full items-center gap-space-12 rounded-admin-control px-space-12 transition-colors";
 
   if (!item.ready) {
     return (
@@ -233,7 +233,7 @@ function NavRow({
           aria-disabled="true"
           aria-label={`${item.label} — not built yet`}
           title={`${item.label} is not built yet`}
-          className={`${shared} cursor-not-allowed text-outline`}
+          className={`${shared} cursor-not-allowed text-admin-ink-faint`}
         >
           {body}
         </span>
@@ -253,8 +253,8 @@ function NavRow({
         title={collapsed ? item.label : undefined}
         className={`${shared} ${
           active
-            ? "bg-primary-fixed text-on-primary-fixed"
-            : "text-on-surface hover:bg-surface-container"
+            ? "bg-admin-cobalt-wash text-admin-cobalt"
+            : "text-admin-ink-muted hover:bg-admin-subtle hover:text-admin-ink"
         }`}
       >
         {body}
@@ -283,12 +283,12 @@ function AdminSidebar({
     <aside
       id="admin-sidebar"
       aria-label="Admin sections"
-      className={`fixed inset-y-0 left-0 z-50 flex w-[16.25rem] flex-col border-r border-outline-variant/30 bg-surface-container-lowest transition-transform duration-200 lg:w-[var(--admin-rail)] lg:translate-x-0 lg:transition-[width,transform] ${
+      className={`fixed inset-y-0 left-0 z-50 flex w-[16.25rem] flex-col border-r border-admin-hairline bg-admin-card transition-transform duration-200 lg:w-[var(--admin-rail)] lg:translate-x-0 lg:transition-[width,transform] ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
       <div
-        className={`flex min-h-16 shrink-0 items-center gap-space-8 border-b border-outline-variant/30 px-space-16 py-space-8 ${
+        className={`flex min-h-16 shrink-0 items-center gap-space-8 border-b border-admin-hairline px-space-16 py-space-8 ${
           collapsed
             ? "lg:h-auto lg:flex-col lg:justify-center lg:gap-space-8 lg:px-space-8 lg:py-space-12"
             : ""
@@ -298,18 +298,18 @@ function AdminSidebar({
           href="/"
           onClick={onNavigate}
           aria-label="Back to the learner app"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary transition-opacity hover:opacity-90"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-card bg-admin-cobalt text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.15)] transition-colors hover:bg-admin-cobalt-strong"
         >
           <MaterialIcon name="hearing" className="text-[20px]" filled />
         </Link>
         <span
           className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
         >
-          <span className="block truncate font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">
+          <span className="block truncate font-admin-display text-admin-headline-sm text-admin-ink">
             Admin
           </span>
           {role === "staff" ? (
-            <span className="block truncate font-caption text-[11px] font-medium text-on-surface-variant">
+            <span className="block truncate text-[11px] font-medium leading-[14px] text-admin-ink-subtle">
               Staff · cannot delete
             </span>
           ) : null}
@@ -320,7 +320,7 @@ function AdminSidebar({
           aria-expanded={!collapsed}
           aria-controls="admin-sidebar"
           aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-          className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl text-on-surface-variant transition-colors hover:bg-surface-container lg:flex ${
+          className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-admin-control text-admin-ink-subtle transition-colors hover:bg-admin-subtle hover:text-admin-ink lg:flex ${
             collapsed ? "" : "ml-auto"
           }`}
         >
@@ -336,7 +336,7 @@ function AdminSidebar({
           <div key={group.id} className="mb-space-12 last:mb-0">
             {group.label ? (
               <p
-                className={`px-space-12 pb-space-4 pt-space-8 font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline ${
+                className={`px-space-12 pb-space-4 pt-space-8 text-admin-label-sm uppercase text-admin-ink-faint ${
                   collapsed ? "lg:hidden" : ""
                 }`}
               >
@@ -385,10 +385,10 @@ function RangeOption({
       type="button"
       aria-pressed={selected}
       onClick={() => onSelect(range)}
-      className={`h-7 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors ${
+      className={`h-7 rounded-admin-badge px-space-12 text-admin-label-md font-semibold transition-colors ${
         selected
-          ? "bg-surface-container-lowest text-on-surface shadow-[0_1px_2px_rgba(27,27,29,0.12)]"
-          : "text-on-surface-variant hover:text-on-surface"
+          ? "bg-admin-card text-admin-cobalt shadow-admin-card ring-1 ring-admin-hairline"
+          : "text-admin-ink-muted hover:text-admin-ink"
       }`}
     >
       {adminRangeLabel(range)}
@@ -422,7 +422,7 @@ function RangePill() {
     <div
       role="group"
       aria-label="Date range"
-      className="inline-flex items-center rounded-full bg-surface-container p-1"
+      className="inline-flex items-center gap-0.5 rounded-admin-control bg-admin-subtle p-0.5"
     >
       {ADMIN_RANGES.map((range) => (
         <RangeOption
@@ -437,7 +437,7 @@ function RangePill() {
 }
 
 function RangePillFallback() {
-  return <div className="h-9 w-[17rem] rounded-full bg-surface-container" />;
+  return <div className="h-8 w-[17rem] rounded-admin-control bg-admin-subtle" />;
 }
 
 function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
@@ -445,14 +445,14 @@ function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const showRange = activeItem(pathname)?.ranged === true;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-outline-variant/30 bg-surface/90 pt-safe backdrop-blur-xl">
-      <div className="flex h-16 w-full items-center gap-space-12 px-space-16 sm:px-space-24">
+    <header className="sticky top-0 z-40 w-full border-b border-admin-hairline/80 bg-white/85 pt-safe backdrop-blur-[12px]">
+      <div className="flex h-16 w-full items-center gap-space-12 px-space-16 sm:px-space-24 min-[1440px]:px-space-32">
         <button
           type="button"
           onClick={onOpenSidebar}
           aria-label="Open admin menu"
           aria-controls="admin-sidebar"
-          className="-ml-space-8 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-container lg:hidden"
+          className="-ml-space-8 flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-control text-admin-ink transition-colors hover:bg-admin-subtle lg:hidden"
         >
           <MaterialIcon name="menu" className="text-[22px]" />
         </button>
@@ -469,7 +469,7 @@ function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
         <Link
           href="/"
-          className="hidden h-9 shrink-0 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:inline-flex"
+          className="hidden h-9 shrink-0 items-center gap-space-4 rounded-admin-control border border-admin-hairline px-space-12 text-admin-label-md font-semibold text-admin-ink-muted transition-colors hover:border-admin-border hover:bg-admin-canvas hover:text-admin-ink sm:inline-flex"
         >
           Learner app
         </Link>
@@ -478,7 +478,7 @@ function AdminTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
       </div>
 
       {showRange ? (
-        <div className="flex w-full justify-center border-t border-outline-variant/20 px-space-16 py-space-8 sm:hidden">
+        <div className="flex w-full justify-center border-t border-admin-hairline/80 px-space-16 py-space-8 sm:hidden">
           <Suspense fallback={<RangePillFallback />}>
             <RangePill />
           </Suspense>
@@ -507,15 +507,15 @@ export function AdminPageHeader({
     <div className="flex flex-wrap items-end justify-between gap-space-12">
       <div className="min-w-0">
         {kicker ? (
-          <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
+          <p className="text-admin-label-sm uppercase text-admin-cobalt">
             {kicker}
           </p>
         ) : null}
-        <h1 className="font-headline-lg text-headline-lg tracking-tight text-on-surface">
+        <h1 className="font-admin-display text-admin-headline-lg text-admin-ink sm:text-admin-display-mobile">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-1 max-w-2xl font-body-sm text-body-sm text-on-surface-variant">
+          <p className="mt-1 max-w-2xl text-admin-body-md text-admin-ink-subtle">
             {subtitle}
           </p>
         ) : null}
@@ -530,9 +530,12 @@ export function AdminPageHeader({
 export function AdminShell({
   children,
   role,
+  fontClassName,
 }: {
   children: ReactNode;
   role: AdminDashboardRole;
+  /** next/font variable classes for Inter and JetBrains Mono, set by the layout. */
+  fontClassName?: string;
 }) {
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
@@ -566,7 +569,7 @@ export function AdminShell({
     <AdminRoleContext.Provider value={role}>
     <div
       data-layout="wide"
-      className="flex min-h-dvh w-full flex-1 bg-surface"
+      className={`admin-root flex min-h-dvh w-full flex-1 ${fontClassName ?? ""}`}
       style={
         {
           "--admin-rail": collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED,
@@ -578,7 +581,7 @@ export function AdminShell({
           type="button"
           aria-label="Close admin menu"
           onClick={closeSidebar}
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-admin-ink/30 lg:hidden"
         />
       ) : null}
 

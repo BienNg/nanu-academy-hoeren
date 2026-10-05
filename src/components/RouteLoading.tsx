@@ -385,24 +385,33 @@ export function AccountScreenSkeleton({ path }: { path?: string }) {
 
 function AdminBody() {
   return (
-    <main className="flex w-full flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+    <main className="flex w-full flex-1 flex-col gap-5 px-4 py-6 sm:px-6 min-[1440px]:px-8">
       <div className="flex flex-col gap-2">
-        <Bone className="h-3 w-16 rounded-full" />
-        <LoadingTitle />
+        <Bone className="h-3 w-16 rounded-admin-badge" />
+        <Bone className="h-7 w-56 max-w-full rounded-admin-control" />
       </div>
-      <Bone className="h-12 w-full max-w-md rounded-full" />
-      <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-white">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <div
+            key={index}
+            className="flex flex-col gap-3 rounded-admin-card border border-admin-hairline bg-admin-card p-5 shadow-admin-card"
+          >
+            <Bone className="h-3 w-24 rounded-admin-badge" />
+            <Bone className="h-9 w-28 rounded-admin-control" />
+            <Bone className="h-3 w-40 max-w-full rounded-admin-badge" />
+          </div>
+        ))}
+      </div>
+      <div className="overflow-hidden rounded-admin-card border border-admin-hairline bg-admin-card shadow-admin-card">
+        <div className="h-10 border-b border-admin-hairline bg-admin-subtle" />
         {Array.from({ length: 6 }, (_, index) => (
           <div
             key={index}
-            className="flex items-center gap-4 border-b border-outline-variant/15 px-4 py-4 last:border-b-0"
+            className="flex h-[52px] items-center gap-4 border-b border-admin-hairline px-4 last:border-b-0"
           >
-            <Bone className="h-10 w-10 shrink-0 rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <Bone className="h-4 w-40 rounded-full" />
-              <Bone className="h-3 w-56 max-w-full rounded-full" />
-            </div>
-            <Bone className="hidden h-8 w-24 rounded-full sm:block" />
+            <Bone className="h-7 w-7 shrink-0 rounded-full" />
+            <Bone className="h-3.5 w-40 rounded-admin-badge" />
+            <Bone className="ml-auto hidden h-5 w-16 rounded-admin-badge sm:block" />
           </div>
         ))}
       </div>
@@ -438,29 +447,29 @@ export function AdminScreenSkeleton() {
       aria-live="polite"
       aria-busy="true"
       aria-label="Đang tải nội dung"
-      className="flex min-h-dvh w-full flex-1 bg-surface"
+      className="flex min-h-dvh w-full flex-1 bg-admin-canvas"
     >
       <LoadingBar />
-      <aside className="hidden w-[16.25rem] shrink-0 flex-col border-r border-outline-variant/30 bg-white lg:flex">
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-outline-variant/30 px-4">
-          <Bone className="h-9 w-9 rounded-xl" />
-          <Bone className="h-4 w-20 rounded-full" />
+      <aside className="hidden w-[16.25rem] shrink-0 flex-col border-r border-admin-hairline bg-admin-card lg:flex">
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-admin-hairline px-4">
+          <Bone className="h-9 w-9 rounded-admin-card" />
+          <Bone className="h-4 w-20 rounded-admin-badge" />
         </div>
         <div className="flex flex-col gap-1 p-2">
           {Array.from({ length: 9 }, (_, index) => (
-            <div key={index} className="flex h-10 items-center gap-3 px-3">
-              <Bone className="h-5 w-5 shrink-0 rounded" />
-              <Bone className="h-3 w-24 rounded-full" />
+            <div key={index} className="flex h-9 items-center gap-3 px-3">
+              <Bone className="h-5 w-5 shrink-0 rounded-admin-badge" />
+              <Bone className="h-3 w-24 rounded-admin-badge" />
             </div>
           ))}
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 w-full border-b border-outline-variant/30 bg-surface/90 pt-safe backdrop-blur-xl">
+        <header className="sticky top-0 z-40 w-full border-b border-admin-hairline/80 bg-white/85 pt-safe backdrop-blur-[12px]">
           <div className="flex h-16 w-full items-center gap-3 px-4 sm:px-6">
-            <Bone className="h-10 w-10 rounded-full lg:hidden" />
+            <Bone className="h-9 w-9 rounded-admin-control lg:hidden" />
             <div className="min-w-0 flex-1" />
-            <Bone className="hidden h-9 w-28 rounded-full sm:block" />
+            <Bone className="hidden h-9 w-28 rounded-admin-control sm:block" />
             <Bone className="h-9 w-9 shrink-0 rounded-full" />
           </div>
         </header>

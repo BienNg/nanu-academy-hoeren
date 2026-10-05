@@ -321,7 +321,7 @@ export function AdminClassStats({
 
   return (
     <>
-      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+      <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
         <AdminPageHeader
           kicker="People"
           title="Classes"

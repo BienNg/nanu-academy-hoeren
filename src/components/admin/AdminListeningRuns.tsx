@@ -12,10 +12,9 @@ import {
 } from "recharts";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
-  ANALYTICS,
   ChartTooltip,
   CountPill,
-  GLASS,
+  CARD,
   KpiTile,
   LegendChips,
   PanelHeader,
@@ -31,7 +30,8 @@ import {
   formatCount,
   formatPercent,
   paginate,
-} from "@/components/admin/AnalyticsUi";
+} from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
   describeCatalogClip,
   describeCatalogLesson,
@@ -49,8 +49,8 @@ import {
 } from "@/lib/admin-overview";
 import { LISTENING_SCHEMA_HINT, type ListeningReadStatus } from "@/lib/listening-runs";
 
-const PASSED = ANALYTICS.emerald;
-const FAILED = ANALYTICS.rose;
+const PASSED = ADMIN_COLORS.emerald;
+const FAILED = ADMIN_COLORS.crimson;
 
 type Outcome = "all" | "success" | "fail";
 
@@ -70,9 +70,9 @@ function share(part: number, whole: number): number {
 }
 
 function accuracyColor(accuracy: number): string {
-  if (accuracy >= 80) return ANALYTICS.emerald;
-  if (accuracy >= 50) return "#f59e0b";
-  return ANALYTICS.rose;
+  if (accuracy >= 80) return ADMIN_COLORS.emerald;
+  if (accuracy >= 50) return ADMIN_COLORS.amber;
+  return ADMIN_COLORS.crimson;
 }
 
 function initialOf(name: string): string {
@@ -89,7 +89,7 @@ function tickInterval(count: number): number {
 function Notice({ tone, children }: { tone: "error" | "info"; children: string }) {
   return (
     <div
-      className={`${GLASS} flex items-start gap-space-12 border-l-4 p-space-16 ${
+      className={`${CARD} flex items-start gap-space-12 border-l-4 p-space-16 ${
         tone === "error" ? "border-l-[#e11d48]" : "border-l-[#4338ca]"
       }`}
     >
@@ -119,22 +119,22 @@ function RunChart({ data }: { data: readonly AdminListeningRunPoint[] }) {
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid
-          stroke={ANALYTICS.grid}
+          stroke={ADMIN_COLORS.grid}
           strokeOpacity={0.6}
           strokeDasharray="3 6"
           vertical={false}
         />
         <XAxis
           dataKey="label"
-          tick={{ fill: ANALYTICS.axis, fontSize: 11 }}
+          tick={{ fill: ADMIN_COLORS.axis, fontSize: 11 }}
           tickLine={false}
-          axisLine={{ stroke: ANALYTICS.grid }}
+          axisLine={{ stroke: ADMIN_COLORS.grid }}
           interval={tickInterval(data.length)}
         />
         <YAxis
           allowDecimals={false}
           width={32}
-          tick={{ fill: ANALYTICS.axis, fontSize: 11 }}
+          tick={{ fill: ADMIN_COLORS.axis, fontSize: 11 }}
           tickLine={false}
           axisLine={false}
         />
@@ -162,7 +162,7 @@ function FailedLessons({
   catalog: readonly AdminCatalogCourse[];
 }) {
   return (
-    <section className={`${GLASS} flex flex-col p-space-20`}>
+    <section className={`${CARD} flex flex-col p-space-20`}>
       <PanelHeader
         icon="heart_broken"
         color={FAILED}
@@ -278,7 +278,7 @@ export function AdminListeningRuns({
   const showChart = board.points.length > 1;
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
         kicker="Learning"
         title="Practice"
@@ -314,7 +314,7 @@ export function AdminListeningRuns({
         <KpiTile
           icon="percent"
           label="Avg. accuracy"
-          color={ANALYTICS.ocean}
+          color={ADMIN_COLORS.violet}
           value={board.runs === 0 ? "—" : `${board.avgAccuracy}%`}
           progress={board.runs === 0 ? 0 : board.avgAccuracy / 100}
           caption="Across every finished part"
@@ -322,7 +322,7 @@ export function AdminListeningRuns({
         <KpiTile
           icon="group"
           label="Students"
-          color={ANALYTICS.slate}
+          color={ADMIN_COLORS.ink}
           value={formatCount(board.students)}
           caption={
             board.students > 0
@@ -334,7 +334,7 @@ export function AdminListeningRuns({
 
       <div className={`grid grid-cols-1 gap-space-16 2xl:gap-space-20 ${showChart ? "lg:grid-cols-3" : ""}`}>
         {showChart ? (
-          <section className={`${GLASS} flex flex-col p-space-20 lg:col-span-2`}>
+          <section className={`${CARD} flex flex-col p-space-20 lg:col-span-2`}>
             <PanelHeader
               icon="stacked_bar_chart"
               title="Parts by day"

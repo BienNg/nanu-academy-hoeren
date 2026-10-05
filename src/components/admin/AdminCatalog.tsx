@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
-  ANALYTICS,
   CategoryCard,
   CountPill,
-  GLASS,
+  CARD,
   MiniBars,
   Pager,
   ScopeChips,
@@ -19,7 +18,8 @@ import {
   formatCount,
   formatPercent,
   paginate,
-} from "@/components/admin/AnalyticsUi";
+} from "@/components/admin/AdminUi";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
   type AdminCatalogBoard,
   type AdminCatalogLessonStatus,
@@ -29,10 +29,10 @@ import {
 /** Rows per page in the lesson and profession tables. */
 const CATALOG_PAGE_SIZE = 10;
 
-const LESSONS = ANALYTICS.indigo;
-const CLIPS = ANALYTICS.ocean;
-const VIDEOS = ANALYTICS.slate;
-const INTERVIEW = ANALYTICS.azure;
+const LESSONS = ADMIN_COLORS.emerald;
+const CLIPS = ADMIN_COLORS.violet;
+const VIDEOS = ADMIN_COLORS.violetSoft;
+const INTERVIEW = ADMIN_COLORS.cobalt;
 
 const STATUS: Record<
   AdminCatalogLessonStatus,
@@ -45,10 +45,10 @@ const STATUS: Record<
 };
 
 const STATUS_COLOR: Record<AdminCatalogLessonStatus, string> = {
-  ready: ANALYTICS.emerald,
-  silent: "#f59e0b",
-  stub: ANALYTICS.axis,
-  missing: ANALYTICS.rose,
+  ready: ADMIN_COLORS.emerald,
+  silent: ADMIN_COLORS.amber,
+  stub: ADMIN_COLORS.inkFaint,
+  missing: ADMIN_COLORS.crimson,
 };
 
 function share(part: number, whole: number): number {
@@ -211,7 +211,7 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                             className="h-full rounded-full"
                             style={{
                               width: formatPercent(share(lesson.playableClips, topClips)),
-                              backgroundColor: ready ? CLIPS : ANALYTICS.grid,
+                              backgroundColor: ready ? CLIPS : ADMIN_COLORS.grid,
                             }}
                           />
                         </div>
@@ -307,7 +307,7 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
   }));
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
         kicker="Learning"
         title="Catalog"
@@ -447,7 +447,7 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
             {board.issues.map((issue) => (
               <li
                 key={issue.id}
-                className={`${GLASS} flex items-start gap-space-12 border-l-4 border-l-[#e11d48] p-space-16`}
+                className={`${CARD} flex items-start gap-space-12 border-l-4 border-l-[#e11d48] p-space-16`}
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ffe4e6] text-[#e11d48]">
                   <MaterialIcon name="error" className="text-[18px]" />
