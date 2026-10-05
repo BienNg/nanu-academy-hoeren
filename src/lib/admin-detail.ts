@@ -16,6 +16,7 @@ import {
   lessonNodeActivityId,
   lessonNodeParts,
   lessonPathNodes,
+  listeningPartCount,
   selectVisits,
   splitStudyParts,
   summarizeVisits,
@@ -490,6 +491,8 @@ export type AdminLevelPathNode = {
   kind: "video" | "study" | "practice";
   /** Study clip count or practice card count. Videos leave this empty. */
   count: number | null;
+  /** Study or practice parts on this node. Videos are 0. */
+  parts: number;
   /** `${level}/${chapter}/${videoId}` so a length can be read from loaded playback. */
   videoKey: string | null;
 };
@@ -516,6 +519,7 @@ type LevelNodeTemplate = {
   label: string;
   kind: "video" | "study" | "practice";
   count: number | null;
+  parts: number;
   videoKey: string | null;
 };
 
@@ -531,6 +535,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
     label: video.title,
     kind: "video" as const,
     count: null,
+    parts: 0,
     videoKey: lesson.videoKeyPrefix ? `${lesson.videoKeyPrefix}/${video.id}` : null,
   }));
   if (lesson.clips.length === 0) return videos;
@@ -549,6 +554,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
             label: `Study${numbered(node)}`,
             kind: "study" as const,
             count: parts.reduce((sum, part) => sum + part.length, 0),
+            parts: parts.length,
             videoKey: null,
           },
           {
@@ -557,6 +563,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
             label: `Practice${numbered(node)}`,
             kind: "practice" as const,
             count: lesson.nodePracticeCards?.[index] ?? null,
+            parts: parts.length,
             videoKey: null,
           },
         ];
@@ -573,6 +580,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
             label: "Study",
             kind: "study" as const,
             count: lesson.clips.length,
+            parts: splitStudyParts(lesson.clips).length,
             videoKey: null,
           },
         ]
@@ -583,6 +591,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
       label: "Practice",
       kind: "practice" as const,
       count: lesson.practiceCards ?? null,
+      parts: listeningPartCount(lesson.practiceCards ?? 0),
       videoKey: null,
     },
   ];
@@ -637,6 +646,7 @@ export function buildLevelPath(
       label: node.label,
       kind: node.kind,
       count: node.count,
+      parts: node.parts,
       videoKey: node.videoKey,
       here: [],
     })),

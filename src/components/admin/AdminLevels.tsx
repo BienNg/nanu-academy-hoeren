@@ -99,10 +99,40 @@ function StudentStack({
   );
 }
 
-function NodeCircle({ icon }: { icon: string }) {
+/** Segmented ring so a node shows how many parts it holds. One part draws no ring. */
+function PartsRing({ parts }: { parts: number }) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const count = Math.max(2, Math.round(parts));
+  const slot = circumference / count;
+  const gap = Math.min(10, slot * 0.18);
+  const segment = slot - gap;
+
   return (
-    <span className="flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-admin-card shadow-[0_6px_0_0_#bec8d2]">
-      <LessonPathIcon name={icon} onWhite className="h-10 w-10" />
+    <svg className="absolute inset-1 -rotate-90 text-admin-cobalt" viewBox="0 0 64 64" aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => (
+        <circle
+          key={index}
+          cx="32"
+          cy="32"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={`${segment} ${circumference - segment}`}
+          strokeDashoffset={-index * (segment + gap)}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function NodeCircle({ icon, parts }: { icon: string; parts: number }) {
+  return (
+    <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-admin-card shadow-[0_6px_0_0_#bec8d2]">
+      {parts > 1 ? <PartsRing parts={parts} /> : null}
+      <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
     </span>
   );
 }
@@ -152,7 +182,10 @@ function PathNode({
   const rootRef = useRef<HTMLDivElement>(null);
   const names = node.here.map((person) => person.displayName).join(", ");
   const stat = nodeStat(node, lengthSeconds);
-  const detailLabel = stat ? `${node.label}, ${stat.value} ${stat.label.toLowerCase()}` : node.label;
+  const partsLabel = node.parts > 1 ? `${node.parts} parts` : null;
+  const detailLabel = [node.label, partsLabel, stat ? `${stat.value} ${stat.label.toLowerCase()}` : null]
+    .filter(Boolean)
+    .join(", ");
 
   useEffect(() => {
     if (!open) return;
@@ -180,8 +213,54 @@ function PathNode({
           onClick={onToggle}
           className="rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-admin-cobalt"
         >
-          <NodeCircle icon={node.icon} />
+          <NodeCircle icon={node.icon} parts={node.parts} />
         </button>
+        {open ? (
+          <div
+            role="dialog"
+            aria-label={node.label}
+            className="absolute bottom-[calc(100%+10px)] left-1/2 z-30 w-[13.5rem] -translate-x-1/2"
+          >
+            <div className="rounded-admin-card border border-admin-border bg-admin-card px-space-12 py-space-12 text-left shadow-admin-pop">
+              <p className="text-admin-label-sm uppercase text-admin-ink-subtle">
+                {node.kind === "video" ? "Video" : node.kind === "study" ? "Study" : "Practice"}
+              </p>
+              <p className="mt-1 text-[13px] font-semibold leading-4 text-admin-ink">{node.label}</p>
+              {partsLabel ? (
+                <p className="mt-space-8 font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
+                  {node.parts}
+                  <span className="ml-1 text-admin-label-md font-semibold text-admin-ink-muted">parts</span>
+                </p>
+              ) : null}
+              {stat ? (
+                partsLabel ? (
+                  <p className="mt-1 text-admin-body-sm text-admin-ink-muted">
+                    {stat.value} {stat.label.toLowerCase()}
+                  </p>
+                ) : (
+                  <p className="mt-space-8 font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
+                    {stat.value}
+                    <span className="ml-1 text-admin-label-md font-semibold text-admin-ink-muted">
+                      {stat.label.toLowerCase()}
+                    </span>
+                  </p>
+                )
+              ) : (
+                <p className="mt-space-8 text-admin-body-sm text-admin-ink-muted">
+                  Length is not in the data loaded on this page.
+                </p>
+              )}
+            </div>
+            <span
+              aria-hidden="true"
+              className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent border-t-admin-border"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 border-x-[7px] border-t-[7px] border-x-transparent border-t-white"
+            />
+          </div>
+        ) : null}
         {node.here.length > 0 ? (
           <span className="absolute top-1/2 left-full ml-3 -translate-y-1/2">
             <StudentStack people={node.here} onOpen={onOpen} nowrap className="" />
@@ -193,32 +272,6 @@ function PathNode({
       </span>
       {node.here.length > 0 ? (
         <span className="sr-only">Working here: {names}</span>
-      ) : null}
-      {open ? (
-        <div
-          role="dialog"
-          aria-label={node.label}
-          className="mt-2 w-[13.5rem] rounded-admin-card border border-admin-border bg-admin-card px-space-12 py-space-12 text-left shadow-admin-pop"
-        >
-          <p className="text-admin-label-sm uppercase text-admin-ink-subtle">
-            {node.kind === "video" ? "Video" : node.kind === "study" ? "Study" : "Practice"}
-          </p>
-          <p className="mt-1 text-[13px] font-semibold leading-4 text-admin-ink">
-            {node.label}
-          </p>
-          {stat ? (
-            <p className="mt-space-8 font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
-              {stat.value}
-              <span className="ml-1 text-admin-label-md font-semibold text-admin-ink-muted">
-                {stat.label.toLowerCase()}
-              </span>
-            </p>
-          ) : (
-            <p className="mt-space-8 text-admin-body-sm text-admin-ink-muted">
-              Length is not in the data loaded on this page.
-            </p>
-          )}
-        </div>
       ) : null}
     </div>
   );
