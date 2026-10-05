@@ -19,6 +19,7 @@ import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   CategoryCard,
   ChartTooltip,
+  Badge,
   CountPill,
   CARD,
   LegendChips,
@@ -26,11 +27,15 @@ import {
   Pager,
   ScopeChips,
   SectionHeading,
+  TablePanel,
   TH,
+  THEAD,
+  TR,
   formatCount,
   formatPercent,
   paginate,
   type MicroMetric,
+  HeaderChip,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
@@ -139,7 +144,7 @@ function Sparkline({
         <AreaChart data={[...data]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.16} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -148,7 +153,7 @@ function Sparkline({
             type="monotone"
             dataKey={dataKey}
             stroke={color}
-            strokeWidth={2.5}
+            strokeWidth={1.5}
             strokeLinecap="round"
             fill={`url(#${gradientId})`}
             isAnimationActive={false}
@@ -227,7 +232,7 @@ function PeopleChart({
       <AreaChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.28} />
+            <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.18} />
             <stop offset="90%" stopColor={PRIMARY} stopOpacity={0} />
           </linearGradient>
         </defs>
@@ -253,18 +258,18 @@ function PeopleChart({
           name="Active people"
           stroke={PRIMARY}
           fill={`url(#${gradientId})`}
-          strokeWidth={3}
+          strokeWidth={2}
           strokeLinecap="round"
-          activeDot={{ r: 5, stroke: PRIMARY, strokeWidth: 3, fill: "#ffffff" }}
+          activeDot={{ r: 4, stroke: PRIMARY, strokeWidth: 2, fill: ADMIN_COLORS.card }}
         />
         {peak ? (
           <ReferenceDot
             x={peak.label}
             y={peak.activeUsers}
-            r={5}
-            fill="#ffffff"
+            r={4}
+            fill={ADMIN_COLORS.card}
             stroke={PRIMARY}
-            strokeWidth={3}
+            strokeWidth={2}
           />
         ) : null}
       </AreaChart>
@@ -311,14 +316,14 @@ function WorkChart({
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: "#eaedff", opacity: 0.6 }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
         {workBars(grain).map((bar) => (
           <Bar
             key={bar.key}
             dataKey={bar.key}
             name={bar.name}
             fill={bar.color}
-            radius={[3, 3, 0, 0]}
+            radius={[2, 2, 0, 0]}
             maxBarSize={grain === "hour" ? 12 : 18}
           />
         ))}
@@ -356,17 +361,15 @@ function TotalsTable({
     videos: peakPoint(points, "videosWatched")?.key,
   };
   return (
-    <div className={`${CARD} flex flex-col overflow-hidden`}>
-      <div className="bg-[#f2f3ff]/40 p-space-20">
-        <PanelHeader
-          icon="table_rows"
-          title={grain === "hour" ? "Hour by hour" : "Day by day"}
-          hint="The same numbers as the charts, for scanning and for screen readers. Each column's peak is highlighted."
-        />
-      </div>
+    <TablePanel
+      icon="table_rows"
+      title={grain === "hour" ? "Hour by hour" : "Day by day"}
+      hint="The same numbers as the charts, for scanning and for screen readers. Each column's peak is highlighted."
+      color={PRIMARY}
+    >
       <div className="max-h-[28rem] overflow-auto">
         <table className="w-full min-w-[40rem] border-collapse text-left">
-          <thead className="sticky top-0 z-10 bg-[#f2f3ff] text-on-surface-variant">
+          <thead className={THEAD}>
             <tr>
               <th className={TH}>{grain === "hour" ? "Vietnam hour" : "Vietnam day"}</th>
               <th className={`${TH} text-center`}>People</th>
@@ -376,27 +379,27 @@ function TotalsTable({
               <th className={`${TH} text-center`}>Videos</th>
             </tr>
           </thead>
-          <tbody className="font-body-md text-body-md text-on-surface">
+          <tbody className="text-admin-body-md text-admin-ink">
             {rows.map((point) => {
               const busy = point.activeUsers > 0 || point.activeSeconds > 0;
               const isPeakTime = peaks.time === point.key;
               return (
                 <tr
                   key={point.key}
-                  className={`border-t border-[#e2e8f0]/70 transition-colors hover:bg-[#f2f3ff]/60 ${
-                    isPeakTime ? "bg-[#eaedff]/60" : ""
+                  className={`border-t border-admin-hairline transition-colors hover:bg-admin-canvas ${
+                    isPeakTime ? "bg-admin-ember-wash" : ""
                   }`}
                 >
                   <td
-                    className={`px-space-16 py-space-8 font-label-md text-label-md font-bold ${
-                      busy ? "text-[#4338ca]" : "text-on-surface-variant"
+                    className={`px-space-16 py-space-8 text-admin-body-md font-semibold ${
+                      busy ? "text-admin-ink" : "text-admin-ink-subtle"
                     }`}
                   >
                     {grain === "day" ? (formatDayWithWeekday(point.key) ?? point.label) : point.label}
                   </td>
                   <td
                     className={`px-space-16 py-space-8 text-center tabular-nums ${
-                      point.activeUsers > 0 ? "font-bold" : "text-outline"
+                      point.activeUsers > 0 ? "font-semibold" : "text-admin-ink-subtle"
                     }`}
                   >
                     {formatCount(point.activeUsers)}
@@ -404,10 +407,10 @@ function TotalsTable({
                   <td
                     className={`px-space-16 py-space-8 text-center tabular-nums ${
                       isPeakTime
-                        ? "font-bold text-[#4338ca]"
+                        ? "font-semibold text-admin-ember-ink"
                         : point.activeSeconds >= 30
                           ? ""
-                          : "text-outline"
+                          : "text-admin-ink-subtle"
                     }`}
                   >
                     {formatMinutes(point.activeSeconds)}
@@ -427,21 +430,18 @@ function TotalsTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </TablePanel>
   );
 }
 
 const RANK_STYLES = [
-  "bg-[#4338ca] text-white shadow-sm",
-  "bg-[#006398] text-white",
-  "bg-[#dae2fd] text-[#131b2e]",
+  "bg-admin-ember text-white",
+  "bg-admin-ember-wash text-admin-ember-ink ring-1 ring-inset ring-admin-ember/20",
+  "bg-admin-ember-wash text-admin-ember-ink ring-1 ring-inset ring-admin-ember/20",
 ];
 
-const AVATAR_STYLES = [
-  "bg-[#e3dfff] text-[#2a14b4]",
-  "bg-[#cce5ff] text-[#006398]",
-  "bg-[#dae2fd] text-on-surface",
-];
+/** Podium avatars share the ember wash; the rest stay neutral. */
+const PODIUM_AVATAR = "bg-admin-ember-wash text-admin-ember-ink";
 
 function initialOf(name: string): string {
   const letter = name.trim().charAt(0);
@@ -450,18 +450,18 @@ function initialOf(name: string): string {
 
 function LastSeen({ iso, ms, now }: { iso: string | null; ms: number; now: number | null }) {
   if (!iso || now == null) {
-    return <span className="text-outline">—</span>;
+    return <span className="text-admin-ink-subtle">—</span>;
   }
   if (now - ms <= ACTIVE_NOW_MS) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#6ffbbe]/30 px-space-8 py-0.5 font-label-sm text-label-sm font-bold text-[#00442d]">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#10b981]" aria-hidden="true" />
+      <Badge tone="emerald">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-admin-emerald" aria-hidden="true" />
         Active now
-      </span>
+      </Badge>
     );
   }
   return (
-    <span className="inline-flex rounded-full bg-[#eaedff] px-space-8 py-0.5 font-label-sm text-label-sm text-on-surface-variant">
+    <span className="text-admin-body-sm text-admin-ink-muted">
       {formatRelativeTime(iso, now) ?? "—"}
     </span>
   );
@@ -488,24 +488,22 @@ function LeadersTable({
   ).length;
 
   return (
-    <div className={`${CARD} flex flex-col overflow-hidden`}>
-      <div className="bg-[#f2f3ff]/40 p-space-20">
-        <PanelHeader
-          icon="leaderboard"
-          title="Most time in the app"
-          hint="Every student in this view, ranked by active minutes, then by videos and runs. Click a student for their detail."
-        />
-      </div>
+    <TablePanel
+      icon="leaderboard"
+      title="Most time in the app"
+      hint="Every student in this view, ranked by active minutes, then by videos and runs. Click a student for their detail."
+      color={PRIMARY}
+    >
       {leaders.length === 0 ? (
-        <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
-          <MaterialIcon name="person_off" className="text-[20px] text-outline" />
+        <p className="flex items-center gap-space-8 px-space-20 py-space-24 text-admin-body-md text-admin-ink-muted">
+          <MaterialIcon name="person_off" className="text-[20px] text-admin-ink-subtle" />
           No students in this view.
         </p>
       ) : (
         <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[54rem] border-collapse text-left">
-              <thead className="bg-[#f2f3ff] text-on-surface-variant">
+              <thead className={THEAD}>
                 <tr>
                   <th className={`${TH} w-16 text-center`}>Rank</th>
                   <th className={`${TH} min-w-[15rem]`}>Student</th>
@@ -520,7 +518,7 @@ function LeadersTable({
                   </th>
                 </tr>
               </thead>
-              <tbody className="font-body-md text-body-md text-on-surface">
+              <tbody className="text-admin-body-md text-admin-ink">
                 {paged.pageItems.map((leader, offset) => {
                   // Rank stays global across pages.
                   const index = paged.start - 1 + offset;
@@ -533,17 +531,17 @@ function LeadersTable({
                     <tr
                       key={leader.userId}
                       onClick={() => onSelect(leader.userId)}
-                      className="group cursor-pointer border-t border-[#e2e8f0]/70 transition-colors hover:bg-[#f2f3ff]/60"
+                      className={`${TR} cursor-pointer`}
                     >
                       <td className="px-space-16 py-space-12 text-center">
                         {podium ? (
                           <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-label-sm text-label-sm font-bold tabular-nums ${RANK_STYLES[index]}`}
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-admin-badge text-admin-label-md font-semibold tabular-nums ${RANK_STYLES[index]}`}
                           >
                             {index + 1}
                           </span>
                         ) : (
-                          <span className="font-label-sm text-label-sm font-semibold tabular-nums text-outline">
+                          <span className="text-admin-label-md font-semibold tabular-nums text-admin-ink-subtle">
                             {index + 1}
                           </span>
                         )}
@@ -551,10 +549,8 @@ function LeadersTable({
                       <td className="px-space-16 py-space-12">
                         <div className="flex items-center gap-space-12">
                           <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-headline-sm text-headline-sm font-bold ${
-                              podium
-                                ? AVATAR_STYLES[index]
-                                : "bg-[#e2e7ff] text-on-surface-variant"
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-admin-label-md font-semibold ${
+                              podium ? PODIUM_AVATAR : "bg-admin-subtle text-admin-ink-muted"
                             }`}
                             aria-hidden="true"
                           >
@@ -567,12 +563,12 @@ function LeadersTable({
                                 event.stopPropagation();
                                 onSelect(leader.userId);
                               }}
-                              className="truncate rounded text-left font-bold text-on-surface transition-colors group-hover:text-[#4338ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4338ca]"
+                              className="truncate rounded text-left font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-cobalt"
                             >
                               {leader.displayName}
                             </button>
                             {row?.email ? (
-                              <span className="truncate font-body-sm text-body-sm text-outline">
+                              <span className="truncate text-admin-body-sm text-admin-ink-subtle">
                                 {row.email}
                               </span>
                             ) : null}
@@ -580,38 +576,32 @@ function LeadersTable({
                         </div>
                       </td>
                       <td className="px-space-16 py-space-12">
-                        <span
-                          className={`whitespace-nowrap rounded-md px-space-8 py-1 font-label-sm text-label-sm font-bold ${
-                            leader.className
-                              ? "bg-[#c3c0ff]/40 text-[#100069]"
-                              : "bg-[#eaedff] text-on-surface-variant"
-                          }`}
-                        >
+                        <Badge tone={leader.className ? "cobalt" : "neutral"}>
                           {leader.className ?? "Unassigned"}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-space-16 py-space-12">
                         <div className="flex w-full max-w-[10rem] flex-col gap-1">
-                          <div className="flex items-center justify-between font-label-sm text-label-sm font-semibold">
+                          <div className="flex items-center justify-between text-admin-label-md font-semibold">
                             <span
                               className={`tabular-nums ${
                                 index === 0 && hasTime
-                                  ? "font-bold text-[#4338ca]"
+                                  ? "font-semibold text-admin-ember-ink"
                                   : hasTime
-                                    ? "font-bold text-on-surface"
-                                    : "text-outline"
+                                    ? "font-semibold text-admin-ink"
+                                    : "text-admin-ink-subtle"
                               }`}
                             >
                               {formatMinutes(leader.activeSeconds)}
                             </span>
-                            <span className="tabular-nums text-outline">
+                            <span className="tabular-nums text-admin-ink-subtle">
                               {formatPercent(timeShare)}
                             </span>
                           </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle">
                             <div
                               className={`h-full rounded-full ${
-                                index === 0 ? "bg-[#4338ca]" : index < 3 ? "bg-[#006398]" : "bg-[#c7c4d7]"
+                                index === 0 ? "bg-admin-ember" : index < 3 ? "bg-admin-ember/60" : "bg-admin-border"
                               }`}
                               style={{ width: formatPercent(barShare) }}
                             />
@@ -637,7 +627,7 @@ function LeadersTable({
                       <td className="px-space-12 py-space-12 text-right">
                         <MaterialIcon
                           name="chevron_right"
-                          className="text-[20px] text-outline transition-colors group-hover:text-[#4338ca]"
+                          className="text-[20px] text-admin-ink-subtle transition-colors group-hover:text-admin-cobalt"
                         />
                       </td>
                     </tr>
@@ -646,7 +636,7 @@ function LeadersTable({
               </tbody>
             </table>
           </div>
-          <div className="flex flex-col gap-space-8 border-t border-[#e2e8f0]/70 bg-[#f2f3ff]/40 px-space-20 py-space-12">
+          <div className="flex flex-col gap-space-8 border-t border-admin-hairline bg-admin-canvas px-space-20 py-space-12">
             <Pager
               page={paged.page}
               pageCount={paged.pageCount}
@@ -656,14 +646,14 @@ function LeadersTable({
               noun="students"
               onPage={setPage}
             />
-            <p className="font-body-sm text-[12px] leading-[18px] text-outline">
+            <p className="text-admin-body-sm text-admin-ink-subtle">
               {formatCount(withActivity)} of {formatCount(leaders.length)} did something in this
               window. The share is each student&apos;s part of all time in the app.
             </p>
           </div>
         </>
       )}
-    </div>
+    </TablePanel>
   );
 }
 
@@ -773,10 +763,7 @@ export function AdminActivity({
             : `Who opened the app ${window}${classScope}. Each point is a Vietnam day.`
         }
         trailing={
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2e7ff] px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-            <MaterialIcon name="public" className="text-[16px] text-[#4338ca]" />
-            Vietnam time · GMT+7
-          </span>
+          <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
         }
       />
 
@@ -787,11 +774,12 @@ export function AdminActivity({
           value={classFilter}
           options={filterOptions}
           onSelect={setClassFilter}
+          tone="ember"
         />
       ) : null}
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-error-container/40 px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           Cloud progress is not configured. This page only counts learners who have
           synced progress to Supabase.
         </div>

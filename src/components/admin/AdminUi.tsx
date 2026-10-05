@@ -114,6 +114,16 @@ export function Badge({
   );
 }
 
+/** Quiet context tag beside a page title, like "Vietnam time · GMT+7". */
+export function HeaderChip({ icon, children }: { icon: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-admin-badge border border-admin-hairline bg-admin-card px-space-8 text-admin-label-md font-medium text-admin-ink-muted">
+      <MaterialIcon name={icon} className="text-[16px] text-admin-ink-subtle" />
+      {children}
+    </span>
+  );
+}
+
 /** IDs, emails, file paths and env keys. */
 export function Mono({ children, className }: { children: ReactNode; className?: string }) {
   return (

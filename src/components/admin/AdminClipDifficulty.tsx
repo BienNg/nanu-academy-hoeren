@@ -17,6 +17,8 @@ import {
   formatCount,
   formatPercent,
   paginate,
+  HeaderChip,
+  INPUT,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { describeCatalogClip, type AdminCatalogCourse } from "@/lib/admin-detail";
@@ -105,9 +107,9 @@ function FooterAside({ label, color }: { label: string | null; color: string }) 
 }
 
 const RANK_STYLES = [
-  "bg-[#4338ca] text-white shadow-sm",
-  "bg-[#006398] text-white",
-  "bg-[#dae2fd] text-[#131b2e]",
+  "bg-admin-ink text-white",
+  "bg-admin-subtle text-admin-ink ring-1 ring-inset ring-admin-hairline",
+  "bg-admin-subtle text-admin-ink ring-1 ring-inset ring-admin-hairline",
 ];
 
 function ClipRankPanel({
@@ -139,8 +141,8 @@ function ClipRankPanel({
   return (
     <TablePanel icon={icon} title={title} hint={hint} color={color}>
       {rows.length === 0 ? (
-        <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
-          <MaterialIcon name="hourglass_empty" className="text-[20px] text-outline" />
+        <p className="flex items-center gap-space-8 px-space-20 py-space-24 text-admin-body-md text-admin-ink-muted">
+          <MaterialIcon name="hourglass_empty" className="text-[20px] text-admin-ink-subtle" />
           {empty}
         </p>
       ) : (
@@ -157,20 +159,20 @@ function ClipRankPanel({
                 className={`${TR} flex items-center gap-space-12 px-space-16 py-space-12`}
               >
                 <span
-                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-label-sm text-label-sm font-bold tabular-nums ${
-                    RANK_STYLES[index] ?? "text-outline"
+                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-admin-badge text-admin-label-md font-semibold tabular-nums ${
+                    RANK_STYLES[index] ?? "text-admin-ink-subtle"
                   }`}
                 >
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-body-sm text-[12px] leading-[18px] text-outline">
+                  <span className="block truncate text-admin-body-sm text-admin-ink-subtle">
                     {place}
                   </span>
-                  <span className="mt-0.5 block font-body-md text-body-md font-semibold text-on-surface transition-colors group-hover:text-[#4338ca]">
+                  <span className="mt-0.5 block text-admin-body-md font-semibold text-admin-ink">
                     {clipExcerpt(described.prompt)}
                   </span>
-                  <span className="mt-1 block h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-[#eaedff]">
+                  <span className="mt-1 block h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-admin-subtle">
                     <span
                       className="block h-full rounded-full"
                       style={{ width: formatPercent(value / top), backgroundColor: color }}
@@ -179,7 +181,7 @@ function ClipRankPanel({
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   <CountPill value={value} tone={tone} />
-                  <span className="whitespace-nowrap font-label-sm text-[11px] leading-4 text-on-surface-variant">
+                  <span className="whitespace-nowrap text-[11px] leading-4 text-admin-ink-muted">
                     {outcomeCount(value, countLabel[0], countLabel[1])} ·{" "}
                     {outcomeCount(students(row), "student", "students")}
                   </span>
@@ -215,14 +217,14 @@ function SortHeader({
       <button
         type="button"
         onClick={() => onSort(column)}
-        className={`inline-flex items-center gap-space-4 rounded-md px-space-4 py-0.5 uppercase tracking-wider transition-colors hover:bg-[#e2e7ff] hover:text-on-surface ${
-          active ? "text-[#4338ca]" : ""
+        className={`inline-flex items-center gap-space-4 rounded-admin-badge px-space-4 py-0.5 uppercase tracking-wider transition-colors hover:bg-admin-hairline hover:text-admin-ink ${
+          active ? "text-admin-cobalt" : ""
         }`}
       >
         {label}
         <MaterialIcon
           name={!active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"}
-          className={`text-[16px] ${active ? "text-[#4338ca]" : "text-outline"}`}
+          className={`text-[16px] ${active ? "text-admin-cobalt" : "text-admin-ink-subtle"}`}
         />
       </button>
     </th>
@@ -232,18 +234,18 @@ function SortHeader({
 function Notice({ tone, children }: { tone: "error" | "info"; children: string }) {
   return (
     <div
-      className={`${CARD} flex items-start gap-space-12 border-l-4 p-space-16 ${
-        tone === "error" ? "border-l-[#e11d48]" : "border-l-[#4338ca]"
+      className={`${CARD} flex items-start gap-space-12 border-l-2 p-space-16 ${
+        tone === "error" ? "border-l-admin-crimson" : "border-l-admin-cobalt"
       }`}
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          tone === "error" ? "bg-[#ffe4e6] text-[#e11d48]" : "bg-[#eaedff] text-[#4338ca]"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control ${
+          tone === "error" ? "bg-admin-crimson-wash text-admin-crimson" : "bg-admin-cobalt-wash text-admin-cobalt"
         }`}
       >
         <MaterialIcon name={tone === "error" ? "error" : "info"} className="text-[18px]" />
       </div>
-      <p className="pt-1 font-body-md text-body-md text-on-surface">{children}</p>
+      <p className="pt-1 text-admin-body-md text-admin-ink">{children}</p>
     </div>
   );
 }
@@ -390,10 +392,7 @@ export function AdminClipDifficulty({
         title="Practice clip difficulty"
         subtitle="All-time misses and passes from finished practice parts. A miss that is later corrected counts on both sides."
         trailing={
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2e7ff] px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-            <MaterialIcon name="all_inclusive" className="text-[16px] text-[#4338ca]" />
-            All-time totals
-          </span>
+          <HeaderChip icon="all_inclusive">All-time totals</HeaderChip>
         }
       />
 
@@ -570,6 +569,7 @@ export function AdminClipDifficulty({
               setCourse(key);
               setPage(1);
             }}
+            tone="violet"
           />
         ) : null}
         <TablePanel
@@ -578,9 +578,12 @@ export function AdminClipDifficulty({
           hint="Sort any column. Turn on “3+ outcomes” to hide clips with too little data to judge."
           trailing={
             <div className="flex w-full flex-wrap items-center gap-space-8 sm:w-auto">
-              <label className="relative flex min-w-0 flex-1 items-center rounded-xl bg-white px-space-12 py-1.5 shadow-sm sm:w-72 sm:flex-none">
+              <label className="relative flex min-w-0 flex-1 items-center sm:w-72 sm:flex-none">
                 <span className="sr-only">Search clips</span>
-                <MaterialIcon name="search" className="mr-space-4 text-[18px] text-outline" />
+                <MaterialIcon
+                  name="search"
+                  className="pointer-events-none absolute left-space-12 text-[18px] text-admin-ink-faint"
+                />
                 <input
                   type="search"
                   value={query}
@@ -589,12 +592,14 @@ export function AdminClipDifficulty({
                     setPage(1);
                   }}
                   placeholder="Search script, lesson, or clip id"
-                  className="w-full bg-transparent font-body-sm text-body-sm text-on-surface outline-none placeholder:text-outline"
+                  className={`${INPUT} pl-9`}
                 />
               </label>
               <label
-                className={`inline-flex cursor-pointer items-center gap-space-8 rounded-xl px-space-12 py-1.5 font-label-sm text-label-sm font-semibold shadow-sm transition-colors ${
-                  sampled ? "bg-[#4338ca] text-white" : "bg-white text-on-surface-variant hover:text-on-surface"
+                className={`inline-flex h-[38px] cursor-pointer items-center gap-space-8 rounded-admin-control border px-space-12 text-admin-label-md font-semibold transition-colors has-[:focus-visible]:shadow-admin-focus ${
+                  sampled
+                    ? "border-admin-violet bg-admin-violet-wash text-admin-violet-ink"
+                    : "border-admin-hairline bg-admin-card text-admin-ink-muted hover:border-admin-border hover:text-admin-ink"
                 }`}
               >
                 <input
@@ -653,15 +658,15 @@ export function AdminClipDifficulty({
                   <SortHeader label="Outcomes" column="attempts" sort={sort} dir={dir} onSort={handleSort} />
                 </tr>
               </thead>
-              <tbody className="font-body-md text-body-md text-on-surface">
+              <tbody className="text-admin-body-md text-admin-ink">
                 {paged.pageItems.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
+                      className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                     >
                       <span className="inline-flex items-center gap-space-8">
-                        <MaterialIcon name="search_off" className="text-[20px] text-outline" />
+                        <MaterialIcon name="search_off" className="text-[20px] text-admin-ink-subtle" />
                         {rows.length === 0
                           ? "No finished practice parts have clip results yet."
                           : "No clips match this filter."}
@@ -676,17 +681,17 @@ export function AdminClipDifficulty({
                         <td className="px-space-16 py-space-12">
                           <div className="flex items-center gap-space-12">
                             <div
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                              style={{ backgroundColor: `${color}1a`, color }}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control"
+                              style={{ backgroundColor: `${color}14`, color }}
                               aria-hidden="true"
                             >
                               <MaterialIcon name={rateIcon(item.missRate)} className="text-[18px]" />
                             </div>
                             <div className="flex min-w-0 flex-col">
-                              <span className="font-semibold text-on-surface transition-colors group-hover:text-[#4338ca]">
+                              <span className="font-semibold text-admin-ink">
                                 {clipExcerpt(item.prompt)}
                               </span>
-                              <span className="truncate font-body-sm text-[12px] leading-[18px] text-outline">
+                              <span className="truncate text-admin-body-sm text-admin-ink-subtle">
                                 {item.lesson ? `${item.course} · ${item.lesson}` : item.course}
                               </span>
                             </div>
@@ -694,10 +699,10 @@ export function AdminClipDifficulty({
                         </td>
                         <td className="px-space-16 py-space-12">
                           <div className="flex w-full min-w-[8rem] max-w-[10rem] flex-col gap-1">
-                            <span className="font-label-sm text-label-sm font-bold tabular-nums" style={{ color }}>
+                            <span className="text-admin-label-md font-semibold tabular-nums" style={{ color }}>
                               {formatRate(item.missRate)}
                             </span>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle">
                               <div
                                 className="h-full rounded-full"
                                 style={{ width: formatPercent(item.missRate), backgroundColor: color }}
@@ -714,7 +719,7 @@ export function AdminClipDifficulty({
                         <td className="px-space-16 py-space-12 text-center">
                           <CountPill value={item.row.studentsFailed} />
                         </td>
-                        <td className="px-space-16 py-space-12 text-center font-label-sm text-label-sm font-semibold tabular-nums text-on-surface-variant">
+                        <td className="px-space-16 py-space-12 text-center text-admin-label-md font-semibold tabular-nums text-admin-ink-muted">
                           {formatCount(item.attempts)}
                         </td>
                       </tr>

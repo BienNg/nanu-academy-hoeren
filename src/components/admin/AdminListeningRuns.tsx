@@ -89,18 +89,18 @@ function tickInterval(count: number): number {
 function Notice({ tone, children }: { tone: "error" | "info"; children: string }) {
   return (
     <div
-      className={`${CARD} flex items-start gap-space-12 border-l-4 p-space-16 ${
-        tone === "error" ? "border-l-[#e11d48]" : "border-l-[#4338ca]"
+      className={`${CARD} flex items-start gap-space-12 border-l-2 p-space-16 ${
+        tone === "error" ? "border-l-admin-crimson" : "border-l-admin-cobalt"
       }`}
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          tone === "error" ? "bg-[#ffe4e6] text-[#e11d48]" : "bg-[#eaedff] text-[#4338ca]"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control ${
+          tone === "error" ? "bg-admin-crimson-wash text-admin-crimson" : "bg-admin-cobalt-wash text-admin-cobalt"
         }`}
       >
         <MaterialIcon name={tone === "error" ? "error" : "info"} className="text-[18px]" />
       </div>
-      <p className="pt-1 font-body-md text-body-md text-on-surface">{children}</p>
+      <p className="pt-1 text-admin-body-md text-admin-ink">{children}</p>
     </div>
   );
 }
@@ -109,8 +109,8 @@ function RunChart({ data }: { data: readonly AdminListeningRunPoint[] }) {
   const hasVolume = data.some((point) => point.passed > 0 || point.failed > 0);
   if (!hasVolume) {
     return (
-      <p className="flex h-full items-center justify-center gap-space-8 font-body-md text-body-md text-on-surface-variant">
-        <MaterialIcon name="bar_chart_off" className="text-[20px] text-outline" />
+      <p className="flex h-full items-center justify-center gap-space-8 text-admin-body-md text-admin-ink-muted">
+        <MaterialIcon name="bar_chart_off" className="text-[20px] text-admin-ink-subtle" />
         No finished parts in this window.
       </p>
     );
@@ -170,8 +170,8 @@ function FailedLessons({
         hint="Ranked by failed parts in this window."
       />
       {rows.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center gap-space-8 py-space-24 font-body-md text-body-md text-on-surface-variant">
-          <MaterialIcon name="sentiment_satisfied" className="text-[20px] text-outline" />
+        <p className="flex flex-1 items-center justify-center gap-space-8 py-space-24 text-admin-body-md text-admin-ink-muted">
+          <MaterialIcon name="sentiment_satisfied" className="text-[20px] text-admin-ink-subtle" />
           Nothing failed in this window.
         </p>
       ) : (
@@ -182,18 +182,18 @@ function FailedLessons({
             return (
               <li
                 key={row.lessonKey}
-                className="flex items-center gap-space-12 border-t border-[#e2e8f0]/70 py-space-8 first:border-t-0"
+                className="flex items-center gap-space-12 border-t border-admin-hairline py-space-8 first:border-t-0"
               >
-                <span className="w-4 shrink-0 text-center font-label-sm text-label-sm font-semibold tabular-nums text-outline">
+                <span className="w-4 shrink-0 text-center text-admin-label-md font-semibold tabular-nums text-admin-ink-subtle">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-label-md text-label-md font-semibold text-on-surface">
+                  <p className="truncate text-admin-body-md font-semibold text-admin-ink">
                     {place?.lesson ?? row.lessonKey}
                   </p>
                   <div className="mt-1 flex items-center gap-space-8">
                     <div
-                      className="flex h-1.5 w-full max-w-[9rem] overflow-hidden rounded-full bg-[#eaedff]"
+                      className="flex h-1.5 w-full max-w-[9rem] overflow-hidden rounded-full bg-admin-subtle"
                       aria-hidden="true"
                     >
                       <div
@@ -206,7 +206,7 @@ function FailedLessons({
                       />
                     </div>
                     {place?.course ? (
-                      <span className="truncate font-label-sm text-[11px] leading-4 text-outline">
+                      <span className="truncate text-[11px] leading-4 text-admin-ink-subtle">
                         {place.course}
                       </span>
                     ) : null}
@@ -215,7 +215,7 @@ function FailedLessons({
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <CountPill value={row.failed} tone="alert" />
                   <span
-                    className="font-label-sm text-[11px] font-bold leading-4 tabular-nums"
+                    className="text-[11px] font-semibold leading-4 tabular-nums"
                     style={{ color: accuracy == null ? undefined : accuracyColor(accuracy) }}
                   >
                     {accuracy == null ? "—" : `${accuracy}% avg`}
@@ -416,15 +416,15 @@ export function AdminListeningRuns({
                   <th className={`${TH} text-right`}>Time</th>
                 </tr>
               </thead>
-              <tbody className="font-body-md text-body-md text-on-surface">
+              <tbody className="text-admin-body-md text-admin-ink">
                 {paged.pageItems.length === 0 ? (
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-space-16 py-space-48 text-center text-on-surface-variant"
+                      className="px-space-16 py-space-48 text-center text-admin-ink-muted"
                     >
                       <span className="inline-flex items-center gap-space-8">
-                        <MaterialIcon name="search_off" className="text-[20px] text-outline" />
+                        <MaterialIcon name="search_off" className="text-[20px] text-admin-ink-subtle" />
                         {board.recent.length === 0
                           ? "No finished parts in this window."
                           : "No parts match this filter."}
@@ -445,16 +445,16 @@ export function AdminListeningRuns({
                           <td className="px-space-16 py-space-12">
                             <div className="flex items-center gap-space-12">
                               <div
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e2e7ff] font-headline-sm text-headline-sm font-bold text-on-surface-variant"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-admin-subtle text-admin-label-md font-semibold text-admin-ink-muted"
                                 aria-hidden="true"
                               >
                                 {initialOf(name)}
                               </div>
                               <div className="flex min-w-0 flex-col">
-                                <span className="truncate font-bold transition-colors group-hover:text-[#4338ca]">
+                                <span className="truncate font-semibold">
                                   {name}
                                 </span>
-                                <span className="whitespace-nowrap font-body-sm text-[12px] leading-[18px] tabular-nums text-outline">
+                                <span className="whitespace-nowrap text-admin-body-sm tabular-nums text-admin-ink-subtle">
                                   {formatWhen(run.createdAt)}
                                 </span>
                               </div>
@@ -462,7 +462,7 @@ export function AdminListeningRuns({
                           </td>
                           <td className="px-space-16 py-space-12">
                             <p className="truncate font-semibold">{place?.lesson ?? run.lessonKey}</p>
-                            <p className="truncate font-body-sm text-[12px] leading-[18px] text-outline">
+                            <p className="truncate text-admin-body-sm text-admin-ink-subtle">
                               {place?.course ? `${place.course} · ` : ""}Part {run.partNumber} of{" "}
                               {run.partCount}
                             </p>
@@ -475,13 +475,13 @@ export function AdminListeningRuns({
                           </td>
                           <td className="px-space-16 py-space-12">
                             <div className="flex items-center gap-space-8">
-                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#eaedff]">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-admin-subtle">
                                 <div
                                   className="h-full rounded-full"
                                   style={{ width: `${run.accuracy}%`, backgroundColor: color }}
                                 />
                               </div>
-                              <span className="font-label-sm text-label-sm font-bold tabular-nums" style={{ color }}>
+                              <span className="text-admin-label-md font-semibold tabular-nums" style={{ color }}>
                                 {run.accuracy}%
                               </span>
                               {missed.length > 0 ? (
@@ -489,7 +489,7 @@ export function AdminListeningRuns({
                                   type="button"
                                   aria-expanded={open}
                                   onClick={() => setOpenRun(open ? null : run.id)}
-                                  className="inline-flex items-center gap-0.5 rounded-full bg-[#ffe4e6] py-0.5 pl-space-8 pr-1 font-label-sm text-[11px] font-semibold leading-4 text-[#9f1239] transition-colors hover:bg-[#fecdd3]"
+                                  className="inline-flex h-5 items-center gap-0.5 rounded-admin-badge bg-admin-crimson-wash pl-1.5 pr-0.5 text-[12px] font-semibold leading-4 text-admin-crimson-ink ring-1 ring-inset ring-admin-crimson-border/60 outline-none transition-colors hover:bg-[#fee2e2] focus-visible:shadow-admin-focus"
                                 >
                                   {missed.length} missed
                                   <MaterialIcon
@@ -500,21 +500,21 @@ export function AdminListeningRuns({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold tabular-nums text-on-surface-variant">
+                          <td className="px-space-16 py-space-12 text-right text-admin-label-md font-semibold tabular-nums text-admin-ink-muted">
                             {formatElapsed(run.elapsedMs)}
                           </td>
                         </tr>
                         {open ? (
-                          <tr className="bg-[#f2f3ff]/60">
+                          <tr className="bg-admin-canvas">
                             <td colSpan={5} className="px-space-16 pb-space-12 pt-0 sm:pl-[4.25rem]">
-                              <p className="pb-space-8 font-label-sm text-[11px] font-bold uppercase leading-4 tracking-wider text-on-surface-variant">
+                              <p className="pb-space-8 text-[11px] font-semibold uppercase leading-4 tracking-wider text-admin-ink-muted">
                                 Missed clips
                               </p>
                               <ul className="flex flex-wrap gap-space-8">
                                 {missed.map((clipId) => (
                                   <li
                                     key={clipId}
-                                    className="rounded-lg border border-[#e2e8f0] bg-white px-space-8 py-1 font-body-sm text-body-sm text-on-surface"
+                                    className="rounded-admin-control border border-admin-hairline bg-admin-card px-space-8 py-1 text-admin-body-sm text-admin-ink"
                                   >
                                     {describeCatalogClip(catalog, run.lessonKey, clipId).prompt}
                                   </li>

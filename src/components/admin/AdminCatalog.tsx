@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
+  Badge,
   CategoryCard,
   CountPill,
   CARD,
@@ -18,6 +19,7 @@ import {
   formatCount,
   formatPercent,
   paginate,
+  HeaderChip,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
@@ -87,7 +89,7 @@ function StatusBar({ level }: { level: AdminCatalogLevelRow }) {
   const total = level.lessons.length;
   return (
     <div className="flex flex-col gap-space-8">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle">
         {counts.map(({ status, count }) =>
           count > 0 ? (
             <div
@@ -98,7 +100,7 @@ function StatusBar({ level }: { level: AdminCatalogLevelRow }) {
           ) : null,
         )}
       </div>
-      <ul className="flex flex-wrap gap-x-space-12 gap-y-1 font-label-sm text-[11px] leading-4 text-on-surface-variant">
+      <ul className="flex flex-wrap gap-x-space-12 gap-y-1 text-[11px] leading-4 text-admin-ink-muted">
         {counts.map(({ status, count }) => (
           <li key={status} className="flex items-center gap-space-4">
             <span
@@ -107,7 +109,7 @@ function StatusBar({ level }: { level: AdminCatalogLevelRow }) {
               aria-hidden="true"
             />
             {STATUS[status].label}
-            <span className="font-bold tabular-nums text-on-surface">{formatCount(count)}</span>
+            <span className="font-semibold tabular-nums text-admin-ink">{formatCount(count)}</span>
           </li>
         ))}
       </ul>
@@ -142,8 +144,8 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
       }
     >
       {level.lessons.length === 0 ? (
-        <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
-          <MaterialIcon name="folder_off" className="text-[20px] text-outline" />
+        <p className="flex items-center gap-space-8 px-space-20 py-space-24 text-admin-body-md text-admin-ink-muted">
+          <MaterialIcon name="folder_off" className="text-[20px] text-admin-ink-subtle" />
           No lessons are listed for {level.label} yet.
         </p>
       ) : (
@@ -158,7 +160,7 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                 <th className={`${TH} text-center`}>Videos</th>
               </tr>
             </thead>
-            <tbody className="font-body-md text-body-md text-on-surface">
+            <tbody className="text-admin-body-md text-admin-ink">
               {paged.pageItems.map((lesson) => {
                 const status = STATUS[lesson.status];
                 const ready = lesson.status === "ready";
@@ -167,9 +169,9 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                     <td className="px-space-16 py-space-12">
                       <div className="flex items-center gap-space-12">
                         <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control"
                           style={{
-                            backgroundColor: `${STATUS_COLOR[lesson.status]}1a`,
+                            backgroundColor: `${STATUS_COLOR[lesson.status]}14`,
                             color: STATUS_COLOR[lesson.status],
                           }}
                           aria-hidden="true"
@@ -177,8 +179,8 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                           <MaterialIcon name={status.icon} className="text-[18px]" />
                         </div>
                         <span
-                          className={`truncate font-bold transition-colors group-hover:text-[#4338ca] ${
-                            ready ? "text-on-surface" : "text-on-surface-variant"
+                          className={`truncate font-semibold ${
+                            ready ? "text-admin-ink" : "text-admin-ink-muted"
                           }`}
                         >
                           {lesson.label}
@@ -190,23 +192,23 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                     </td>
                     <td className="px-space-16 py-space-12">
                       <div className="flex w-full max-w-[10rem] flex-col gap-1">
-                        <div className="flex items-center justify-between font-label-sm text-label-sm font-semibold">
+                        <div className="flex items-center justify-between text-admin-label-md font-semibold">
                           <span
                             className={`tabular-nums ${
-                              lesson.playableClips > 0 ? "font-bold text-on-surface" : "text-outline"
+                              lesson.playableClips > 0 ? "font-semibold text-admin-ink" : "text-admin-ink-subtle"
                             }`}
                           >
                             {formatCount(lesson.playableClips)}
-                            <span className="font-normal text-outline">
+                            <span className="font-normal text-admin-ink-subtle">
                               {" "}
                               / {formatCount(lesson.listedClips)}
                             </span>
                           </span>
-                          <span className="tabular-nums text-outline">
+                          <span className="tabular-nums text-admin-ink-subtle">
                             {formatPercent(share(lesson.playableClips, lesson.listedClips))}
                           </span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -224,10 +226,10 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                       <span className="inline-flex items-center gap-space-4">
                         <CountPill value={lesson.videos} />
                         {lesson.brokenVideos > 0 ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[#ffe4e6] px-space-8 py-0.5 font-label-sm text-label-sm font-semibold text-[#9f1239]">
-                            <MaterialIcon name="link_off" className="text-[14px]" />
+                          <Badge tone="crimson">
+                            <MaterialIcon name="link_off" className="-mx-0.5 text-[14px]" />
                             {formatCount(lesson.brokenVideos)}
-                          </span>
+                          </Badge>
                         ) : null}
                       </span>
                     </td>
@@ -313,10 +315,7 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
         title="Catalog"
         subtitle="What is published on disk. Practice clip difficulty and Videos go clip-by-clip and video-by-video."
         trailing={
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2e7ff] px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-            <MaterialIcon name="folder_open" className="text-[16px] text-[#4338ca]" />
-            Read from disk
-          </span>
+          <HeaderChip icon="folder_open">Read from disk</HeaderChip>
         }
       />
 
@@ -447,16 +446,16 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
             {board.issues.map((issue) => (
               <li
                 key={issue.id}
-                className={`${CARD} flex items-start gap-space-12 border-l-4 border-l-[#e11d48] p-space-16`}
+                className={`${CARD} flex items-start gap-space-12 border-l-2 border-l-admin-crimson p-space-16`}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ffe4e6] text-[#e11d48]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control bg-admin-crimson-wash text-admin-crimson">
                   <MaterialIcon name="error" className="text-[18px]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-label-md text-label-md font-bold text-on-surface">
+                  <p className="text-admin-body-md font-semibold text-admin-ink">
                     {issue.label}
                   </p>
-                  <p className="mt-0.5 font-body-sm text-[12px] leading-[18px] text-on-surface-variant">
+                  <p className="mt-0.5 text-admin-body-sm text-admin-ink-muted">
                     {issue.detail}
                   </p>
                 </div>
@@ -481,6 +480,7 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
             value={active?.slug ?? ""}
             options={levelOptions}
             onSelect={setSelected}
+            tone="amber"
           />
         ) : null}
         {active ? <LessonTable key={active.slug} level={active} /> : null}
@@ -513,8 +513,8 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
           }
         >
           {board.tracks.length === 0 ? (
-            <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
-              <MaterialIcon name="work_off" className="text-[20px] text-outline" />
+            <p className="flex items-center gap-space-8 px-space-20 py-space-24 text-admin-body-md text-admin-ink-muted">
+              <MaterialIcon name="work_off" className="text-[20px] text-admin-ink-subtle" />
               No professions are listed yet.
             </p>
           ) : (
@@ -529,27 +529,27 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
                     <th className={`${TH} text-center`}>No audio</th>
                   </tr>
                 </thead>
-                <tbody className="font-body-md text-body-md text-on-surface">
+                <tbody className="text-admin-body-md text-admin-ink">
                   {tracksPaged.pageItems.map((track) => (
                     <tr key={track.slug} className={TR}>
                       <td className="px-space-16 py-space-12">
                         <div className="flex items-center gap-space-12">
                           <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-headline-sm text-headline-sm font-bold ${
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-admin-control text-admin-label-md font-semibold ${
                               track.ready
-                                ? "bg-[#e0f2fe] text-[#0284c7]"
-                                : "bg-[#e2e7ff] text-on-surface-variant"
+                                ? "bg-admin-cobalt-wash text-admin-cobalt-ink"
+                                : "bg-admin-subtle text-admin-ink-muted"
                             }`}
                             aria-hidden="true"
                           >
                             {initialOf(track.shortLabel)}
                           </div>
                           <div className="flex min-w-0 flex-col">
-                            <span className="truncate font-bold text-on-surface transition-colors group-hover:text-[#4338ca]">
+                            <span className="truncate font-semibold text-admin-ink">
                               {track.shortLabel}
                             </span>
                             {track.label !== track.shortLabel ? (
-                              <span className="truncate font-body-sm text-body-sm text-outline">
+                              <span className="truncate text-admin-body-sm text-admin-ink-subtle">
                                 {track.label}
                               </span>
                             ) : null}
