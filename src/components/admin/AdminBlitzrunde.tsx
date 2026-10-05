@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { CARD, INPUT, buttonClass } from "@/components/admin/AdminUi";
 import { BlitzrundeProgressChart } from "@/components/blitzrunde/BlitzrundeProgressChart";
 import {
   cancelBlitzrunde,
@@ -60,19 +61,16 @@ const STATUS_LABEL: Record<ParticipantStatus, string> = {
 };
 
 const STATUS_TONE: Record<ParticipantStatus, string> = {
-  waiting: "bg-surface-container-high text-on-surface-variant",
-  playing: "bg-primary-fixed text-on-primary-fixed",
-  finished: "bg-[#34C759]/15 text-[#1f7a3a]",
-  disconnected: "bg-error-container text-on-error-container",
-  no_result: "bg-surface-container-high text-on-surface-variant",
+  waiting: "bg-admin-subtle text-admin-ink-muted",
+  playing: "bg-admin-cobalt-wash text-admin-cobalt",
+  finished: "bg-admin-emerald-wash text-admin-emerald-ink",
+  disconnected: "bg-admin-crimson-wash text-admin-crimson-ink",
+  no_result: "bg-admin-subtle text-admin-ink-muted",
 };
 
-const SELECT =
-  "h-10 w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-space-12 font-body-sm text-body-sm text-on-surface outline-none focus:border-primary";
-const PRIMARY =
-  "inline-flex h-10 items-center justify-center gap-space-8 rounded-xl bg-primary px-space-16 font-label-md text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
-const SECONDARY =
-  "inline-flex h-10 items-center justify-center gap-space-8 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-space-16 font-label-md text-label-md font-semibold text-on-surface transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40";
+const SELECT = `${INPUT} pr-space-8`;
+const PRIMARY = buttonClass("primary", "default");
+const SECONDARY = buttonClass("secondary", "default");
 
 function formatWhen(iso: string | null): string {
   return formatAdminTimestamp(iso) ?? "—";
@@ -130,32 +128,32 @@ function roundStatusLabel(round: { status: string; endedReason: string | null; r
 function Banner({ tone, children }: { tone: "error" | "info"; children: React.ReactNode }) {
   const style =
     tone === "error"
-      ? "border-error-container bg-error-container/40 text-on-error-container"
-      : "border-outline-variant/30 bg-surface-container text-on-surface-variant";
+      ? "border-admin-crimson-border bg-admin-crimson-wash text-admin-crimson-ink"
+      : "border-admin-cobalt/20 bg-admin-cobalt-wash text-admin-cobalt-ink";
   return (
-    <div className={`rounded-2xl border px-space-20 py-space-16 font-body-sm text-body-sm ${style}`}>{children}</div>
+    <div className={`rounded-admin-card border px-space-16 py-space-12 text-admin-body-sm ${style}`}>{children}</div>
   );
 }
 
 function Card({ title, hint, children, trailing }: { title: string; hint?: string; children: React.ReactNode; trailing?: React.ReactNode }) {
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-space-12 px-space-16 py-space-12">
-        <div>
-          <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-          {hint ? <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p> : null}
+    <section className={`${CARD} flex flex-col overflow-hidden`}>
+      <div className="flex flex-wrap items-start justify-between gap-space-12 border-b border-admin-hairline px-space-16 py-space-12 sm:px-space-20">
+        <div className="min-w-0">
+          <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">{title}</h2>
+          {hint ? <p className="mt-0.5 max-w-3xl text-admin-body-sm text-admin-ink-subtle">{hint}</p> : null}
         </div>
         {trailing}
       </div>
-      <div className="px-space-16 pb-space-16">{children}</div>
+      <div className="px-space-16 py-space-16 sm:px-space-20">{children}</div>
     </section>
   );
 }
 
 function DeckCounts({ total, counts }: { total: number; counts: Record<BlitzrundeKind, number> }) {
   return (
-    <p className="font-body-sm text-body-sm text-on-surface-variant">
-      <span className="font-semibold text-on-surface tabular-nums">{total}</span> cards ·{" "}
+    <p className="text-admin-body-sm text-admin-ink-muted">
+      <span className="font-semibold text-admin-ink tabular-nums">{total}</span> cards ·{" "}
       {(Object.keys(KIND_LABEL) as BlitzrundeKind[])
         .map((kind) => `${counts[kind]} ${KIND_LABEL[kind].toLowerCase()}`)
         .join(" · ")}
@@ -225,7 +223,7 @@ function CreateRound({
     >
       <div className="grid gap-space-12 sm:grid-cols-3">
         <label className="flex flex-col gap-1">
-          <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">Class</span>
+          <span className="text-admin-label-md font-semibold text-admin-ink-muted">Class</span>
           <select className={SELECT} value={classLabel} onChange={(event) => setClassLabel(event.target.value)}>
             {classes.map((option) => (
               <option key={option.key} value={option.label}>
@@ -235,7 +233,7 @@ function CreateRound({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">Level</span>
+          <span className="text-admin-label-md font-semibold text-admin-ink-muted">Level</span>
           <select
             className={SELECT}
             value={levelSlug}
@@ -253,7 +251,7 @@ function CreateRound({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="font-label-sm text-label-sm font-semibold text-on-surface-variant">Lektion</span>
+          <span className="text-admin-label-md font-semibold text-admin-ink-muted">Lektion</span>
           <select className={SELECT} value={chapterSlug} onChange={(event) => setChapterSlug(event.target.value)}>
             {chapters.map((chapter) => (
               <option key={chapter.slug} value={chapter.slug}>
@@ -267,21 +265,21 @@ function CreateRound({
       <div className="mt-space-12 flex flex-wrap items-center justify-between gap-space-12">
         <div className="min-w-0">
           {current === undefined ? (
-            <p className="font-body-sm text-body-sm text-on-surface-variant">Counting cards…</p>
+            <p className="text-admin-body-sm text-admin-ink-muted">Counting cards…</p>
           ) : current ? (
             <>
               <DeckCounts total={current.total} counts={current.counts} />
               {current.total === 0 ? (
-                <p className="mt-1 font-caption text-caption text-error">No usable cards in this Lektion.</p>
+                <p className="mt-1 text-[11px] leading-[14px] text-admin-crimson">No usable cards in this Lektion.</p>
               ) : current.total < THIN_DECK_WARNING ? (
-                <p className="mt-1 font-caption text-caption text-error">
+                <p className="mt-1 text-[11px] leading-[14px] text-admin-crimson">
                   Short deck — fast students will finish well before the 7 minutes are up.
                 </p>
               ) : null}
             </>
           ) : null}
           {classCount < MIN_RANKED ? (
-            <p className="mt-1 font-caption text-caption text-on-surface-variant">
+            <p className="mt-1 text-[12px] leading-4 text-admin-ink-subtle">
               This class has fewer than {MIN_RANKED} students, so the round can only run unranked.
             </p>
           ) : null}
@@ -296,7 +294,7 @@ function CreateRound({
           {busy ? "Opening…" : "Open lobby"}
         </button>
       </div>
-      {error ? <p className="mt-space-8 font-body-sm text-body-sm text-error">{error}</p> : null}
+      {error ? <p className="mt-space-8 text-admin-body-sm text-admin-crimson">{error}</p> : null}
     </Card>
   );
 }
@@ -326,16 +324,32 @@ function ParticipantRow({
       : "—";
   return (
     <Fragment>
-      <tr className="border-t border-outline-variant/20">
-        <td className="py-space-8 pr-space-8 tabular-nums text-on-surface-variant">{participant.rank ?? "—"}</td>
-        <td className="py-space-8 pr-space-8 font-semibold text-on-surface">{participant.name}</td>
+      <tr className="h-11 border-t border-admin-hairline">
+        <td className="py-space-8 pr-space-8 tabular-nums text-admin-ink-muted">
+          {participant.rank != null && participant.rank <= 3 ? (
+            <span
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-admin-badge text-admin-label-md font-semibold ${
+                participant.rank === 1
+                  ? "bg-admin-amber text-white"
+                  : "bg-admin-amber-wash text-admin-amber-ink ring-1 ring-inset ring-admin-amber/25"
+              }`}
+            >
+              {participant.rank}
+            </span>
+          ) : (
+            (participant.rank ?? "—")
+          )}
+        </td>
+        <td className="py-space-8 pr-space-8 font-semibold text-admin-ink">{participant.name}</td>
         <td className="py-space-8 pr-space-8">
-          <span className={`inline-flex rounded-full px-2 py-0.5 font-caption text-caption font-semibold ${STATUS_TONE[participant.status]}`}>
+          <span
+            className={`inline-flex h-5 items-center rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 ring-1 ring-inset ring-black/5 ${STATUS_TONE[participant.status]}`}
+          >
             {STATUS_LABEL[participant.status]}
           </span>
         </td>
         {showProgress ? <td className="py-space-8 pr-space-8 tabular-nums">{progress}</td> : null}
-        <td className="py-space-8 pr-space-8 text-right tabular-nums font-semibold text-on-surface">
+        <td className="py-space-8 pr-space-8 text-right tabular-nums font-semibold text-admin-ink">
           {finished ? participant.finalScore.toLocaleString("en-GB") : "—"}
         </td>
         <td className="py-space-8 pr-space-8 text-right tabular-nums">
@@ -350,7 +364,7 @@ function ParticipantRow({
             <button
               type="button"
               onClick={onToggle}
-              className="font-label-sm text-label-sm font-semibold text-primary hover:underline"
+              className="rounded-admin-badge text-admin-label-md font-semibold text-admin-cobalt outline-none hover:underline focus-visible:shadow-admin-focus"
             >
               {expanded ? "Hide" : "Answers"}
             </button>
@@ -360,9 +374,9 @@ function ParticipantRow({
       {expanded ? (
         <tr>
           <td colSpan={showProgress ? 9 : 8} className="pb-space-12">
-            <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-surface-container-low">
-              <table className="w-full min-w-[640px] font-caption text-caption">
-                <thead className="text-left text-on-surface-variant">
+            <div className="overflow-x-auto rounded-admin-card border border-admin-hairline bg-admin-canvas">
+              <table className="w-full min-w-[640px] text-[11px] leading-[14px]">
+                <thead className="bg-admin-subtle text-left text-admin-label-sm uppercase text-admin-ink-subtle">
                   <tr>
                     <th className="px-space-8 py-1.5 font-semibold">#</th>
                     <th className="px-space-8 py-1.5 font-semibold">Card</th>
@@ -377,14 +391,14 @@ function ParticipantRow({
                   {answers.map((answer) => {
                     const card = deck[answer.position];
                     return (
-                      <tr key={answer.position} className="border-t border-outline-variant/20 text-on-surface">
+                      <tr key={answer.position} className="border-t border-admin-hairline text-admin-ink">
                         <td className="px-space-8 py-1.5 tabular-nums">{answer.position + 1}</td>
                         <td className="px-space-8 py-1.5">{KIND_LABEL[answer.kind]}</td>
                         <td className="max-w-[220px] truncate px-space-8 py-1.5">{cardSummary(card)}</td>
                         <td className="max-w-[220px] truncate px-space-8 py-1.5">{answerSummary(answer, card)}</td>
                         <td
                           className={`px-space-8 py-1.5 text-right tabular-nums ${
-                            answer.accuracy === 100 ? "text-[#1f7a3a]" : answer.accuracy === 0 ? "text-error" : ""
+                            answer.accuracy === 100 ? "text-admin-emerald-ink" : answer.accuracy === 0 ? "text-admin-crimson" : ""
                           }`}
                         >
                           {answer.accuracy}%
@@ -438,7 +452,12 @@ function RoundPanel({
       title={`${meta.classLabel} · ${meta.levelLabel} ${meta.lektionLabel}`}
       hint={`${roundStatusLabel(meta)} · opened ${formatWhen(meta.createdAt)}${meta.status !== "lobby" && meta.status !== "cancelled" ? (meta.ranked ? " · ranked" : " · unranked practice") : ""}`}
       trailing={
-        <button type="button" onClick={onClose} className="text-on-surface-variant hover:text-on-surface" aria-label="Close">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-admin-control text-admin-ink-subtle outline-none transition-colors hover:bg-admin-subtle hover:text-admin-ink focus-visible:shadow-admin-focus"
+          aria-label="Close"
+        >
           <MaterialIcon name="close" className="text-[20px]" />
         </button>
       }
@@ -448,7 +467,7 @@ function RoundPanel({
       <div className="mt-space-12 flex flex-wrap items-center gap-space-12">
         {meta.status === "lobby" ? (
           <>
-            <p className="font-body-md text-body-md text-on-surface">
+            <p className="text-admin-body-md text-admin-ink">
               <span className="font-semibold tabular-nums">{joined}</span> joined
             </p>
             <button
@@ -464,7 +483,7 @@ function RoundPanel({
               Cancel
             </button>
             {joined > 0 && joined < MIN_RANKED ? (
-              <p className="font-caption text-caption text-on-surface-variant">
+              <p className="text-[12px] leading-4 text-admin-ink-subtle">
                 With fewer than {MIN_RANKED} students the round does not count on the Blitzrunde board.
               </p>
             ) : null}
@@ -472,10 +491,10 @@ function RoundPanel({
         ) : null}
         {live ? (
           <>
-            <p className="font-headline-md text-headline-md tabular-nums text-on-surface">
+            <p className="font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
               {formatRemaining(remainingMs(meta.endsAt, now))}
             </p>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
+            <p className="text-admin-body-sm text-admin-ink-muted">
               {finished}/{joined} finished
             </p>
             <button type="button" className={PRIMARY} disabled={busy} onClick={() => void act(() => endBlitzrunde(meta.id))}>
@@ -485,12 +504,12 @@ function RoundPanel({
           </>
         ) : null}
       </div>
-      {error ? <p className="mt-space-8 font-body-sm text-body-sm text-error">{error}</p> : null}
+      {error ? <p className="mt-space-8 text-admin-body-sm text-admin-crimson">{error}</p> : null}
 
       {participants.length > 0 ? (
         <div className="mt-space-16 overflow-x-auto">
-          <table className="w-full min-w-[640px] font-body-sm text-body-sm">
-            <thead className="text-left font-label-sm text-label-sm text-on-surface-variant">
+          <table className="w-full min-w-[640px] text-admin-body-sm">
+            <thead className="text-left text-admin-label-sm uppercase text-admin-ink-subtle">
               <tr>
                 <th className="pb-space-8 pr-space-8 font-semibold">Rank</th>
                 <th className="pb-space-8 pr-space-8 font-semibold">Student</th>
@@ -503,7 +522,7 @@ function RoundPanel({
                 <th className="pb-space-8" />
               </tr>
             </thead>
-            <tbody className="text-on-surface-variant">
+            <tbody className="text-admin-ink-muted">
               {participants.map((participant) => (
                 <ParticipantRow
                   key={participant.userId}
@@ -520,7 +539,7 @@ function RoundPanel({
           </table>
         </div>
       ) : meta.status === "lobby" ? (
-        <p className="mt-space-12 font-body-sm text-body-sm text-on-surface-variant">
+        <p className="mt-space-12 text-admin-body-sm text-admin-ink-muted">
           Waiting for students to tap “Tham gia” on their lesson page…
         </p>
       ) : null}
@@ -540,15 +559,15 @@ function History({
   if (rounds.length === 0) {
     return (
       <Card title="Past rounds">
-        <p className="font-body-sm text-body-sm text-on-surface-variant">No rounds yet.</p>
+        <p className="text-admin-body-sm text-admin-ink-muted">No rounds yet.</p>
       </Card>
     );
   }
   return (
     <Card title="Past rounds" hint="Newest first. Pick a round to see every student's answers.">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] font-body-sm text-body-sm">
-          <thead className="text-left font-label-sm text-label-sm text-on-surface-variant">
+        <table className="w-full min-w-[640px] text-admin-body-sm">
+          <thead className="text-left text-admin-label-sm uppercase text-admin-ink-subtle">
             <tr>
               <th className="pb-space-8 pr-space-8 font-semibold">When</th>
               <th className="pb-space-8 pr-space-8 font-semibold">Class</th>
@@ -563,12 +582,12 @@ function History({
               <tr
                 key={round.id}
                 onClick={() => onSelect(round.id)}
-                className={`cursor-pointer border-t border-outline-variant/20 text-on-surface-variant hover:bg-surface-container ${
-                  round.id === selectedId ? "bg-surface-container" : ""
+                className={`h-11 cursor-pointer border-t border-admin-hairline text-admin-ink-muted transition-colors hover:bg-admin-canvas ${
+                  round.id === selectedId ? "bg-admin-cobalt-tint hover:bg-admin-cobalt-wash" : ""
                 }`}
               >
                 <td className="py-space-8 pr-space-8 tabular-nums">{formatWhen(round.createdAt)}</td>
-                <td className="py-space-8 pr-space-8 text-on-surface">{round.classLabel}</td>
+                <td className="py-space-8 pr-space-8 text-admin-ink">{round.classLabel}</td>
                 <td className="py-space-8 pr-space-8">
                   {round.levelLabel} {round.lektionLabel}
                 </td>
@@ -578,9 +597,10 @@ function History({
                 </td>
                 <td className="py-space-8">
                   {round.winnerName ? (
-                    <span className="text-on-surface">
+                    <span className="inline-flex items-center gap-space-4 text-admin-ink">
+                      <MaterialIcon name="emoji_events" className="text-[16px] text-admin-amber" filled />
                       {round.winnerName}{" "}
-                      <span className="tabular-nums text-on-surface-variant">
+                      <span className="tabular-nums text-admin-ink-muted">
                         ({(round.winnerScore ?? 0).toLocaleString("en-GB")})
                       </span>
                     </span>
@@ -603,7 +623,7 @@ function ClassProgressSection({ progress }: { progress: AdminClassProgress[] }) 
   if (!current) {
     return (
       <Card title="Class progress">
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="text-admin-body-sm text-admin-ink-muted">
           Charts appear after a class has finished a ranked round (2+ students).
         </p>
       </Card>
@@ -617,7 +637,7 @@ function ClassProgressSection({ progress }: { progress: AdminClassProgress[] }) 
       trailing={
         progress.length > 1 ? (
           <select
-            className="h-9 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-space-12 font-body-sm text-body-sm text-on-surface"
+            className={`${INPUT} h-9 w-auto pr-space-8`}
             value={current.classKey}
             onChange={(event) => setClassKey(event.target.value)}
             aria-label="Class"
@@ -629,12 +649,12 @@ function ClassProgressSection({ progress }: { progress: AdminClassProgress[] }) 
             ))}
           </select>
         ) : (
-          <span className="font-label-md text-label-md font-semibold text-on-surface">{current.classLabel}</span>
+          <span className="text-admin-body-md font-semibold text-admin-ink">{current.classLabel}</span>
         )
       }
     >
       {current.rounds.length < 2 ? (
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="text-admin-body-sm text-admin-ink-muted">
           Only one ranked round so far — the line chart starts with the second round.
         </p>
       ) : (
@@ -777,7 +797,11 @@ export function AdminBlitzrunde({
       {liveRound && liveRound.id !== selectedId ? (
         <Banner tone="info">
           {liveRound.classLabel} has an open round.{" "}
-          <button type="button" className="font-semibold text-primary hover:underline" onClick={() => setSelectedId(liveRound.id)}>
+          <button
+            type="button"
+            className="rounded-admin-badge font-semibold text-admin-cobalt outline-none hover:underline focus-visible:shadow-admin-focus"
+            onClick={() => setSelectedId(liveRound.id)}
+          >
             Open it
           </button>
         </Banner>
