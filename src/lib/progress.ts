@@ -1416,6 +1416,24 @@ function leftSessionKey(session: VisitLeftSession): string {
   return `${session.lessonKey}\n${session.kind}\n${session.partNumber}\n${session.startedAt}`;
 }
 
+/** Study, practice, a watched video, or a click. Sitting on an open page is none of these. */
+function visitHasStudy(visit: Visit): boolean {
+  if (visit.clips.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) {
+    return true;
+  }
+  if ((visit.leftSessions ?? []).length > 0 || (visit.wrongAttempts ?? 0) > 0) return true;
+  if ((visit.exerciseLessons ?? []).some((lesson) => lesson.completed > 0 || lesson.fullRuns > 0)) {
+    return true;
+  }
+  const played = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
+  return played >= 1 || visit.videos.some((video) => video.watched);
+}
+
+function withoutIdleActiveTime(visit: Visit): Visit {
+  if (visitHasStudy(visit) || visit.activeSeconds === 0) return visit;
+  return { ...visit, activeSeconds: 0 };
+}
+
 function withVisitTotals(visit: Visit): Visit {
   const exerciseLessons = visit.exerciseLessons ?? [];
   const leftSessions = visit.leftSessions ?? [];
@@ -1444,7 +1462,7 @@ function withVisitTotals(visit: Visit): Visit {
   if (leftSessions.length > 0) next.leftSessions = leftSessions;
   else delete next.leftSessions;
   if (!next.wrongAttempts) delete next.wrongAttempts;
-  return next;
+  return withoutIdleActiveTime(next);
 }
 
 function normalizeVisit(value: unknown): Visit | null {
@@ -1680,9 +1698,12 @@ function raiseActivityFromVisits(
       clips: Math.max(current.clips, bucket.clips.size),
       exercises: Math.max(current.exercises, bucket.exercises),
       videoSeconds: Math.max(current.videoSeconds, roundSeconds(bucket.videoSeconds)),
-      activeSeconds: Math.max(current.activeSeconds, roundSeconds(bucket.activeSeconds)),
+      // Visits still on the document are the whole story for this day.
+      // An open page with no study must not keep earlier idle seconds.
+      activeSeconds: roundSeconds(bucket.activeSeconds),
     });
     if (packed) next[day] = packed;
+    else delete next[day];
   }
   return normalizeActivity(next, now);
 }
@@ -1774,12 +1795,27 @@ export function touchVisit(
     return { progress: next, visitId };
   }
 
-  const add = roundSeconds(Math.min(visibleSeconds, Math.max(0, gapMs / 1000)));
+  const engaged = visitHasStudy(existing);
+  const add = engaged ? roundSeconds(Math.min(visibleSeconds, Math.max(0, gapMs / 1000))) : 0;
+  const endedAt = now.toISOString();
+  if (!engaged) {
+    if (existing.activeSeconds === 0 && existing.endedAt === endedAt) {
+      return { progress, visitId: existing.id };
+    }
+    const updated: Visit = { ...existing, endedAt, activeSeconds: 0 };
+    return {
+      visitId: existing.id,
+      progress: applyVisitRetention(
+        { ...progress, visits: replaceVisit(progress.visits ?? [], updated) },
+        now,
+      ),
+    };
+  }
   if (add <= 0) return { progress, visitId: existing.id };
 
   const updated: Visit = {
     ...existing,
-    endedAt: now.toISOString(),
+    endedAt,
     activeSeconds: existing.activeSeconds + add,
   };
   return {

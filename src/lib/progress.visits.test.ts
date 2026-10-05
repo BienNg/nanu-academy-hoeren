@@ -42,6 +42,7 @@ test("a fresh progress document has no fabricated visits", () => {
 test("hidden time is skipped and a 15 minute gap starts a new visit", () => {
   const start = new Date("2026-09-24T10:00:00.000Z");
   let result = touchVisit(blank(), start, { preferredId: "visit-a", visibleSeconds: 0 });
+  result = recordVisitClip(result.progress, start, result.visitId, "a1-1/lektion-1", "clip-1");
   result = touchVisit(result.progress, new Date(start.getTime() + 60_000), {
     preferredId: result.visitId,
     visibleSeconds: 60,
@@ -135,15 +136,49 @@ test("a seek longer than about 2 seconds is not watch time", () => {
   assert.equal(video?.watched, false);
 });
 
+test("an open app with no study records no active time", () => {
+  const start = new Date("2026-10-01T09:01:04.138Z");
+  const day = "2026-10-01";
+  let result = touchVisit(blank(), start, { preferredId: "idle", visibleSeconds: 0 });
+  result = touchVisit(result.progress, new Date(start.getTime() + 4 * 60_000), {
+    preferredId: result.visitId,
+    visibleSeconds: 240,
+  });
+  assert.equal(result.progress.visits?.[0]?.activeSeconds, 0);
+  assert.equal(result.progress.activity?.[day]?.activeSeconds ?? 0, 0);
+
+  const stored = normalizeProgress({
+    activity: {
+      [day]: { studyRuns: 0, practiceRuns: 0, activeSeconds: 236 },
+    },
+    visits: [
+      {
+        id: "idle",
+        startedAt: start.toISOString(),
+        endedAt: new Date(start.getTime() + 236_000).toISOString(),
+        activeSeconds: 236,
+        lessons: [],
+        clips: [],
+        exercisesCompleted: 0,
+        listeningRuns: 0,
+        videos: [],
+      },
+    ],
+  });
+  assert.equal(stored.visits?.[0]?.activeSeconds, 0);
+  assert.equal(stored.activity?.[day]?.activeSeconds ?? 0, 0);
+  assert.equal(summarizeVisits(stored, "all", start).activeSeconds, 0);
+});
+
 test("aged-out visits roll into the daily activity map without dropping counts", () => {
   const now = new Date();
   const started = new Date(now.getTime() - 100 * 86_400_000);
   let result = touchVisit(blank(), started, { preferredId: "old", visibleSeconds: 0 });
+  result = recordVisitClip(result.progress, started, "old", "a1-1/lektion-4", "clip-1");
   result = touchVisit(result.progress, new Date(started.getTime() + 120_000), {
     preferredId: "old",
     visibleSeconds: 120,
   });
-  result = recordVisitClip(result.progress, started, "old", "a1-1/lektion-4", "clip-1");
   result = recordVisitExercise(result.progress, started, "old", "a1-1/lektion-4");
   result = recordVisitVideo(result.progress, started, "old", {
     key: "a1-1/lektion-4/abc",
