@@ -1631,15 +1631,27 @@ export async function insertListeningRun(
   throw new Error(`Supabase insertListeningRun clips: ${clipError.message}`);
 }
 
+type ListeningRunWindow = { fromIso: string; toIso: string };
+
+function applyRunWindow<T extends { gte: (column: string, value: string) => T; lt: (column: string, value: string) => T }>(
+  query: T,
+  window: ListeningRunWindow | null,
+): T {
+  if (!window) return query;
+  return query.gte("created_at", window.fromIso).lt("created_at", window.toIso);
+}
+
 async function countListeningRuns(
   supabase: SupabaseClient,
   userId: string,
   outcome?: ListeningRunInput["outcome"],
+  window: ListeningRunWindow | null = null,
 ): Promise<number> {
   let query = supabase
     .from(RUNS_TABLE)
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
+  query = applyRunWindow(query, window);
   if (outcome) query = query.eq("outcome", outcome);
   const { count, error } = await query;
   if (error) {
@@ -1652,6 +1664,7 @@ async function countListeningRuns(
 export async function listStudentListeningRuns(
   userId: string,
   offset = 0,
+  window: ListeningRunWindow | null = null,
 ): Promise<StudentRunsPage> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return emptyStudentRuns("error");
@@ -1659,13 +1672,15 @@ export async function listStudentListeningRuns(
   const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
   try {
     const studentRunsSelect = (columns: string) =>
-      supabase
-        .from(RUNS_TABLE)
-        .select(columns)
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
-        .range(start, start + STUDENT_RUN_PAGE - 1);
+      applyRunWindow(
+        supabase
+          .from(RUNS_TABLE)
+          .select(columns)
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false }),
+        window,
+      ).range(start, start + STUDENT_RUN_PAGE - 1);
 
     const runColumns =
       "id, lesson_key, part_number, part_count, outcome, accuracy, answered_count, clip_count, elapsed_ms, created_at";
@@ -1700,9 +1715,9 @@ export async function listStudentListeningRuns(
     }
 
     const [total, passed, failed] = await Promise.all([
-      countListeningRuns(supabase, userId),
-      countListeningRuns(supabase, userId, "success"),
-      countListeningRuns(supabase, userId, "fail"),
+      countListeningRuns(supabase, userId, undefined, window),
+      countListeningRuns(supabase, userId, "success", window),
+      countListeningRuns(supabase, userId, "fail", window),
     ]);
     const runs = (list.data ?? [])
       .map((row) => storedListeningRunFromRow(row))

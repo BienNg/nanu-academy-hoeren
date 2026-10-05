@@ -34,6 +34,7 @@ import {
   type StudentProgressPart,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
+import { visitRangeIso } from "@/lib/progress";
 import {
   LISTENING_SCHEMA_HINT,
   type StoredListeningRun,
@@ -1179,14 +1180,24 @@ function ListeningRunRow({
   );
 }
 
+function practiceEmptyMessage(range: AdminVisitRange): string {
+  if (range === "today") return "No finished practice parts today.";
+  if (range === "7d") return "No finished practice parts in the last 7 days.";
+  return "No finished practice parts yet.";
+}
+
 function ListeningRunsSection({
   userId,
   catalog,
   revision,
+  range,
+  timeZone,
 }: {
   userId: string;
   catalog: readonly AdminCatalogCourse[];
   revision: number;
+  range: AdminVisitRange;
+  timeZone: string | undefined;
 }) {
   const [page, setPage] = useState<StudentRunsPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -1194,12 +1205,16 @@ function ListeningRunsSection({
   const [openRunId, setOpenRunId] = useState<string | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
-  const requestKey = `${userId}:${revision}`;
+  const window = useMemo(
+    () => visitRangeIso(range, new Date(), timeZone),
+    [range, timeZone],
+  );
+  const requestKey = `${userId}:${revision}:${range}:${window?.fromIso ?? "all"}`;
   const visible = loadedFor === requestKey ? page : null;
 
   useEffect(() => {
     let cancelled = false;
-    void listAdminStudentRuns(userId, 0).then((result) => {
+    void listAdminStudentRuns(userId, 0, window).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
         setLoadedFor(requestKey);
@@ -1218,14 +1233,14 @@ function ListeningRunsSection({
     return () => {
       cancelled = true;
     };
-  }, [requestKey, userId]);
+  }, [requestKey, userId, window]);
 
   async function loadMore() {
     if (!visible || loadingMore || visible.runs.length >= visible.total) return;
     const requestUser = userId;
     const offset = visible.runs.length;
     setLoadingMore(true);
-    const result = await listAdminStudentRuns(requestUser, offset);
+    const result = await listAdminStudentRuns(requestUser, offset, window);
     if (userIdRef.current !== requestUser) {
       setLoadingMore(false);
       return;
@@ -1276,7 +1291,7 @@ function ListeningRunsSection({
         ) : visible.total === 0 ? (
           <Panel>
             <p className="px-6 py-10 text-center font-body-sm text-body-sm text-on-surface-variant">
-              No finished practice parts yet.
+              {practiceEmptyMessage(range)}
             </p>
           </Panel>
         ) : (
@@ -2074,7 +2089,13 @@ export function StudentDetailModal({
                       )}
                     </div>
                   </section>
-                  <ListeningRunsSection userId={row.userId} catalog={catalog} revision={runsRevision} />
+                  <ListeningRunsSection
+                    userId={row.userId}
+                    catalog={catalog}
+                    revision={runsRevision}
+                    range={range}
+                    timeZone={progress.streakTimeZone}
+                  />
                 </div>
               ) : null}
 

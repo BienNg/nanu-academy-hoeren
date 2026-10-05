@@ -2141,6 +2141,20 @@ function shiftIsoDay(day: string, days: number): string {
 }
 
 /** Ranges follow the student's calendar day, else the viewing device's. */
+/** Inclusive start and exclusive end of a visit range, as UTC ISO timestamps. `null` means all time. */
+export function visitRangeIso(
+  range: VisitRange,
+  now = new Date(),
+  timeZone?: string,
+): { fromIso: string; toIso: string } | null {
+  const bounds = visitRangeBounds(range, now, timeZone);
+  if (!bounds) return null;
+  return {
+    fromIso: new Date(bounds.startMs).toISOString(),
+    toIso: new Date(bounds.endMs).toISOString(),
+  };
+}
+
 function visitRangeBounds(
   range: VisitRange,
   now: Date,

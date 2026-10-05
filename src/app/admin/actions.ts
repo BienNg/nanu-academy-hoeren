@@ -183,9 +183,20 @@ export async function loadAdminStudentDetail(userId: string): Promise<
   return { ok: true, ...detail };
 }
 
+function parseRunWindow(
+  window: { fromIso: string; toIso: string } | null,
+): { fromIso: string; toIso: string } | null {
+  if (!window) return null;
+  const from = Date.parse(window.fromIso);
+  const to = Date.parse(window.toIso);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) return null;
+  return { fromIso: new Date(from).toISOString(), toIso: new Date(to).toISOString() };
+}
+
 export async function listAdminStudentRuns(
   userId: string,
   offset = 0,
+  window: { fromIso: string; toIso: string } | null = null,
 ): Promise<({ ok: true } & StudentRunsPage) | { ok: false; error: string }> {
   if (!(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
@@ -198,7 +209,9 @@ export async function listAdminStudentRuns(
   }
 
   const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
-  const page = await listStudentListeningRuns(id, start);
+  const bounds = parseRunWindow(window);
+  if (window && !bounds) return { ok: false, error: "Invalid time range" };
+  const page = await listStudentListeningRuns(id, start, bounds);
   return { ok: true, ...page, runs: page.runs.map(withPartCardCount) };
 }
 
