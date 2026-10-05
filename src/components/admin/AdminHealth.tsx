@@ -3,15 +3,23 @@
 import Link from "next/link";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
+  HeaderChip,
+  KpiTile,
+  Mono,
+  StatusPill,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+} from "@/components/admin/AdminUi";
+import {
   formatAdminTimestamp,
   type AdminHealthBoard,
   type AdminHealthCheck,
   type AdminHealthStatus,
 } from "@/lib/admin-overview";
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
 function formatWhen(iso: string): string {
   return formatAdminTimestamp(iso) ?? "—";
@@ -46,108 +54,77 @@ function statusLabel(status: AdminHealthStatus): string {
   return "Skip";
 }
 
-function StatusChip({ status }: { status: AdminHealthStatus }) {
-  const tone =
-    status === "ok"
-      ? "bg-primary-fixed text-on-primary-fixed"
-      : status === "fail"
-        ? "bg-error-container text-on-error-container"
-        : "bg-surface-container-high text-on-surface-variant";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-space-12 py-1 font-label-sm text-label-sm font-semibold ${tone}`}
-    >
-      {statusLabel(status)}
-    </span>
-  );
-}
+const STATUS_TONE: Record<AdminHealthStatus, "good" | "warn" | "bad" | "muted"> = {
+  ok: "good",
+  warn: "warn",
+  fail: "bad",
+  skip: "muted",
+};
 
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-  danger = false,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-  danger?: boolean;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-            danger
-              ? "bg-error-container text-on-error-container"
-              : "bg-primary-fixed text-on-primary-fixed"
-          }`}
-        >
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
+const OVERALL_COLOR: Record<AdminHealthBoard["overall"], string> = {
+  ok: ADMIN_COLORS.emerald,
+  warn: ADMIN_COLORS.amber,
+  fail: ADMIN_COLORS.crimson,
+};
+
+/** Env keys and table names read as code; plain-language labels stay in Inter. */
+function isIdentifier(label: string): boolean {
+  return /^[A-Za-z0-9_.]+$/.test(label) && /[_A-Z]/.test(label.slice(1));
 }
 
 function CheckTable({
+  icon,
   title,
   hint,
   checks,
   showSql,
 }: {
+  icon: string;
   title: string;
   hint: string;
   checks: readonly AdminHealthCheck[];
   showSql?: boolean;
 }) {
+  const failing = checks.some((check) => check.status === "fail");
+  const warning = checks.some((check) => check.status === "warn");
   return (
-    <section className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
+    <TablePanel
+      icon={icon}
+      title={title}
+      hint={hint}
+      color={failing ? ADMIN_COLORS.crimson : warning ? ADMIN_COLORS.amber : ADMIN_COLORS.emerald}
+    >
       <div className="overflow-x-auto">
         <table className="w-full min-w-[36rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Check</th>
-              <th className="px-space-12 py-space-8">Status</th>
-              {showSql ? <th className="px-space-12 py-space-8">SQL</th> : null}
-              <th className="px-space-16 py-space-8">Detail</th>
+          <thead className={THEAD}>
+            <tr>
+              <th className={TH}>Check</th>
+              <th className={TH}>Status</th>
+              {showSql ? <th className={TH}>SQL</th> : null}
+              <th className={TH}>Detail</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="text-admin-body-sm text-admin-ink">
             {checks.map((check) => (
-              <tr
-                key={check.id}
-                className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-              >
-                <td className="px-space-16 py-space-8 font-medium">{check.label}</td>
-                <td className="px-space-12 py-space-8">
-                  <StatusChip status={check.status} />
+              <tr key={check.id} className={TR}>
+                <td className="px-space-16 py-space-8 font-semibold">
+                  {isIdentifier(check.label) ? <Mono>{check.label}</Mono> : check.label}
+                </td>
+                <td className="px-space-16 py-space-8">
+                  <StatusPill label={statusLabel(check.status)} tone={STATUS_TONE[check.status]} />
                 </td>
                 {showSql ? (
-                  <td className="px-space-12 py-space-8 font-caption text-caption text-on-surface-variant">
-                    {check.sqlFile ?? "—"}
+                  <td className="px-space-16 py-space-8 text-admin-ink-muted">
+                    {check.sqlFile ? <Mono>{check.sqlFile}</Mono> : "—"}
                   </td>
                 ) : null}
-                <td className="px-space-16 py-space-8 text-on-surface-variant">{check.detail}</td>
+                <td className="px-space-16 py-space-8 text-admin-ink-muted">{check.detail}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </section>
+    </TablePanel>
   );
 }
 
@@ -159,58 +136,61 @@ export function AdminHealth({ board }: { board: AdminHealthBoard }) {
         kicker="System"
         title="Health"
         subtitle="Whether this deploy can sign in, write to Supabase, and play listed files. Catalog still owns the lesson inventory."
+        trailing={
+          <HeaderChip icon="schedule">
+            Checked {formatWhen(board.checkedAt)} · values never shown
+          </HeaderChip>
+        }
       />
 
-      <p className="font-caption text-caption text-on-surface-variant">
-        Checked {formatWhen(board.checkedAt)}. Values are never shown.
-      </p>
-
-      <section
-        aria-label="Health totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-4"
-      >
-        <SummaryStat
+      <section aria-label="Health totals" className="grid grid-cols-2 gap-space-16 md:grid-cols-4">
+        <KpiTile
+          icon={board.overall === "ok" ? "verified" : board.overall === "warn" ? "warning" : "error"}
           label="Overall"
           value={copy.title}
-          icon={board.overall === "ok" ? "verified" : "monitor_heart"}
-          hint={copy.hint}
-          danger={board.overall === "fail"}
+          caption={copy.hint}
+          color={OVERALL_COLOR[board.overall]}
         />
-        <SummaryStat
+        <KpiTile
+          icon="vpn_key"
           label="Env"
           value={`${formatCount(board.envOk)}/${formatCount(board.envTotal)}`}
-          icon="vpn_key"
-          hint="Required Auth.js and Supabase secrets"
+          caption="Required Auth.js and Supabase secrets"
+          color={board.envOk < board.envTotal ? ADMIN_COLORS.crimson : ADMIN_COLORS.emerald}
+          progress={board.envTotal > 0 ? board.envOk / board.envTotal : 0}
+          progressLabel="Env checks passing"
         />
-        <SummaryStat
+        <KpiTile
+          icon="database"
           label="Stores"
           value={`${formatCount(board.storeOk)}/${formatCount(board.storeTotal)}`}
-          icon="database"
-          hint="Tables and clip_outcome_totals, head-only"
+          caption="Tables and clip_outcome_totals, head-only"
+          color={board.storeOk < board.storeTotal ? ADMIN_COLORS.amber : ADMIN_COLORS.emerald}
+          progress={board.storeTotal > 0 ? board.storeOk / board.storeTotal : 0}
+          progressLabel="Store checks passing"
         />
-        <SummaryStat
+        <KpiTile
+          icon="folder"
           label="Files"
           value={
             board.contentIssues > 0
               ? formatCount(board.contentIssues)
               : `${formatCount(board.lessonsReady)}/${formatCount(board.lessonsListed)}`
           }
-          icon="folder"
-          hint={
-            board.contentIssues > 0
-              ? "Urgent Catalog issues"
-              : "Playable lessons of those listed"
-          }
+          caption={board.contentIssues > 0 ? "Urgent Catalog issues" : "Playable lessons of those listed"}
+          color={board.contentIssues > 0 ? ADMIN_COLORS.crimson : ADMIN_COLORS.emerald}
         />
       </section>
 
       <CheckTable
+        icon="vpn_key"
         title="Environment"
         hint="Present or missing only. Slack is optional and never fails this page."
         checks={board.env}
       />
 
       <CheckTable
+        icon="database"
         title="Supabase schema"
         hint="Head requests. Run the listed SQL once in the editor if a table is missing."
         checks={board.stores}
@@ -218,42 +198,39 @@ export function AdminHealth({ board }: { board: AdminHealthBoard }) {
       />
 
       <CheckTable
+        icon="folder"
         title="Disk files"
         hint={`${formatCount(board.clipsMissingAudio)} clips without audio. ${formatCount(board.videosBroken)} broken video URLs.`}
         checks={board.content}
       />
 
       {board.issues.length > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-error-container bg-error-container/30 shadow-sm">
-          <div className="px-space-16 py-space-12">
-            <h2 className="font-label-md text-label-md font-semibold text-on-error-container">
-              Urgent files
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-error-container/80">
-              Same list as Catalog. Empty placeholder lessons stay on that page.
-            </p>
-          </div>
-          <ul className="flex flex-col border-t border-error-container/40">
+        <TablePanel
+          icon="report"
+          title="Urgent files"
+          hint="Same list as Catalog. Empty placeholder lessons stay on that page."
+          color={ADMIN_COLORS.crimson}
+        >
+          <ul className="flex flex-col">
             {board.issues.map((issue) => (
               <li
                 key={issue.id}
-                className="flex flex-col gap-0.5 border-t border-error-container/25 px-space-16 py-space-12 first:border-t-0"
+                className="flex items-start gap-space-12 border-t border-admin-hairline border-l-2 border-l-admin-crimson px-space-16 py-space-12 first:border-t-0 sm:px-space-20"
               >
-                <p className="font-label-md text-label-md font-semibold text-on-error-container">
-                  {issue.label}
-                </p>
-                <p className="font-caption text-caption text-on-error-container/80">
-                  {issue.detail}
-                </p>
+                <MaterialIcon name="error" className="mt-0.5 text-[18px] text-admin-crimson" filled />
+                <div className="min-w-0">
+                  <p className="text-admin-body-md font-semibold text-admin-ink">{issue.label}</p>
+                  <p className="text-admin-body-sm text-admin-ink-muted">{issue.detail}</p>
+                </div>
               </li>
             ))}
           </ul>
-        </section>
+        </TablePanel>
       ) : null}
 
-      <p className="font-body-sm text-body-sm text-on-surface-variant">
+      <p className="text-admin-body-sm text-admin-ink-muted">
         Lesson-by-lesson inventory is on{" "}
-        <Link href="/admin/content" className="font-semibold text-primary underline-offset-2 hover:underline">
+        <Link href="/admin/content" className="rounded-admin-badge font-semibold text-admin-cobalt underline-offset-2 outline-none hover:underline focus-visible:shadow-admin-focus">
           Catalog
         </Link>
         . Clip miss rates and finished parts stay on Practice clip difficulty and Practice.
