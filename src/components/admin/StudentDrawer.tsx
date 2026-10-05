@@ -10,19 +10,12 @@ import {
   type StudentAccessPatch,
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
+import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
 import { RecapShareButton } from "@/components/RecapShareButton";
-import {
-  projectStudentDetail,
-  projectStudentVisits,
-  type AdminCatalogCourse,
-} from "@/lib/admin-detail";
+import { projectStudentVisits, type AdminCatalogCourse } from "@/lib/admin-detail";
 import { formatAdminTimestamp, type AdminUserRow } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
-import { workplaceFromAccessSlug } from "@/lib/living-content";
 import { activeStreakDays, formatActiveDuration } from "@/lib/progress";
-
-/** Courses listed under "In progress" before pointing to the full view. */
-const IN_PROGRESS_LIMIT = 4;
 
 type LoadState =
   | { userId: string; ok: true; payload: StudentDetailPayload }
@@ -101,35 +94,17 @@ function DrawerSkeleton() {
 }
 
 function StudentSummary({
-  row,
   catalog,
   payload,
 }: {
-  row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   payload: StudentDetailPayload;
 }) {
-  const detail = useMemo(
-    () => projectStudentDetail(catalog, payload.progress),
+  const weekLog = useMemo(
+    () => projectStudentVisits(catalog, payload.progress, "7d"),
     [catalog, payload.progress],
   );
-  const week = useMemo(
-    () => projectStudentVisits(catalog, payload.progress, "7d").summary,
-    [catalog, payload.progress],
-  );
-  const levels = detail.courses.filter((course) => course.kind === "cefr" && !course.living);
-  const livingCourses = detail.courses.filter((course) => course.living);
-  const openLevels = row.isAdmin
-    ? levels.length
-    : levels.filter((course) => row.levelAccess.includes(course.id)).length;
-  const openLiving = row.isAdmin
-    ? livingCourses.length
-    : livingCourses.filter((course) => {
-        const workplace = workplaceFromAccessSlug(course.id);
-        return workplace != null && row.livingAccess.includes(workplace);
-      }).length;
-  const inProgress = detail.startedCourses.slice(0, IN_PROGRESS_LIMIT);
-  const moreCourses = detail.startedCourses.length - inProgress.length;
+  const week = weekLog.summary;
 
   return (
     <>
@@ -157,83 +132,13 @@ function StudentSummary({
         />
       </Section>
 
-      <Section title="Learning, all time">
-        <StatGrid
-          items={[
-            { label: "Courses started", value: formatCount(detail.coursesStarted) },
-            {
-              label: "Lessons done",
-              value: formatCount(detail.lessonsCompleted),
-              color: detail.lessonsCompleted > 0 ? ADMIN_COLORS.emerald : undefined,
-            },
-            { label: "Practice runs", value: formatCount(detail.listeningRepetitions) },
-            { label: "Videos watched", value: formatCount(detail.videosWatched) },
-          ]}
-        />
-      </Section>
-
-      <Section title="In progress">
-        {inProgress.length === 0 ? (
-          <p className="text-admin-body-sm text-admin-ink-subtle">No course started yet.</p>
+      <section className="px-space-12 py-space-16">
+        {weekLog.visits.length === 0 ? (
+          <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{weekLog.emptyMessage}</p>
         ) : (
-          <ul className="flex flex-col gap-space-12">
-            {inProgress.map((course) => (
-              <li key={course.id} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between gap-space-8">
-                  <span className="truncate text-admin-body-md font-medium text-admin-ink">
-                    {course.shortLabel}
-                  </span>
-                  <span className="shrink-0 text-admin-label-md tabular-nums text-admin-ink-subtle">
-                    {course.completedLessons} / {course.totalLessons} lessons
-                  </span>
-                </div>
-                <div
-                  className="h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle"
-                  role="progressbar"
-                  aria-label={`${course.shortLabel} progress`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={course.percent}
-                >
-                  <div
-                    className="h-full rounded-full bg-admin-emerald"
-                    style={{ width: `${course.percent}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <VisitDayList visits={weekLog.visits} />
         )}
-        {moreCourses > 0 ? (
-          <p className="pt-space-8 text-admin-body-sm text-admin-ink-subtle">
-            {moreCourses} more in full details.
-          </p>
-        ) : null}
-      </Section>
-
-      <Section title="Access">
-        {row.isAdmin ? (
-          <p className="flex items-center gap-space-8 text-admin-body-sm text-admin-ink">
-            <MaterialIcon name="verified" className="text-[18px] text-admin-cobalt" filled />
-            Admins already have every course.
-          </p>
-        ) : (
-          <dl className="grid grid-cols-3 divide-x divide-admin-hairline">
-            {[
-              { label: "Levels", value: `${openLevels} / ${levels.length}` },
-              { label: "Interview", value: row.interviewAccess ? "Open" : "Locked" },
-              { label: "Leben", value: `${openLiving} / ${livingCourses.length}` },
-            ].map((fact, index) => (
-              <div key={fact.label} className={`min-w-0 ${index > 0 ? "pl-space-12" : ""}`}>
-                <dt className="text-admin-body-sm text-admin-ink-muted">{fact.label}</dt>
-                <dd className="text-admin-body-md font-semibold tabular-nums text-admin-ink">
-                  {fact.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </Section>
+      </section>
     </>
   );
 }
@@ -367,7 +272,7 @@ export function StudentDetail({
       {current == null ? (
         <DrawerSkeleton />
       ) : current.ok ? (
-        <StudentSummary row={row} catalog={catalog} payload={current.payload} />
+        <StudentSummary catalog={catalog} payload={current.payload} />
       ) : (
         <p
           role="alert"

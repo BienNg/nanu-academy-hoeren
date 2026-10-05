@@ -58,7 +58,6 @@ export default async function AdminPage({
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
-  const activity = buildAdminActivityStats(rows, range);
   const xpDays = adminRangeVietnamDayKeys(range);
   const fromDay = xpDays[xpDays.length - 1] ?? xpDays[0];
   const toDay = xpDays[0];
@@ -73,6 +72,18 @@ export default async function AdminPage({
         countAdminPracticeParts(partWindow.from, partWindow.to, learnerIds),
       ])
     : null;
+  const cardUserIds = new Set<string>();
+  if (partCounts?.[0]?.ready) {
+    for (const [userId, count] of Object.entries(partCounts[0].byUser)) {
+      if (count > 0) cardUserIds.add(userId);
+    }
+  }
+  if (partCounts?.[1]?.ready) {
+    for (const [userId, count] of Object.entries(partCounts[1].partsByUser)) {
+      if (count > 0) cardUserIds.add(userId);
+    }
+  }
+  const activity = buildAdminActivityStats(rows, range, new Date(), cardUserIds);
 
   return (
     <AdminOverview
@@ -94,6 +105,7 @@ export default async function AdminPage({
         partCounts == null ? 0 : partCounts[1].ready ? partCounts[1].parts : null
       }
       practicePartsByUser={partCounts?.[1]?.ready ? partCounts[1].passedByUser : null}
+      cardUserIds={[...cardUserIds]}
     />
   );
 }

@@ -679,9 +679,19 @@ export function AdminActivity({
     if (classFilter === "all") return rows;
     return rows.filter((row) => classKey(row.className) === classFilter);
   }, [rows, classFilter]);
+  const cardUsers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [userId, count] of Object.entries(studyPartsByUser)) {
+      if (count > 0) ids.add(userId);
+    }
+    for (const [userId, count] of Object.entries(practicePartsByUser)) {
+      if (count > 0) ids.add(userId);
+    }
+    return ids;
+  }, [studyPartsByUser, practicePartsByUser]);
   const activity = useMemo(
-    () => buildAdminActivityStats(filteredRows, range),
-    [filteredRows, range],
+    () => buildAdminActivityStats(filteredRows, range, new Date(), cardUsers),
+    [filteredRows, range, cardUsers],
   );
   const partTotals = useMemo(() => {
     let studyParts = 0;
@@ -774,7 +784,7 @@ export function AdminActivity({
           <TrendCard
             icon="groups"
             title="People"
-            hint={`Seen or practiced ${window}`}
+            hint={`Finished a card ${window}`}
             color={PRIMARY}
             value={formatCount(activity.activeUsers)}
             unit={`of ${formatCount(activity.users)} students`}

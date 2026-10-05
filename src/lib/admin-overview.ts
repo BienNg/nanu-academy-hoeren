@@ -677,29 +677,24 @@ function dayWork(progress: StoredProgress, day: string): {
   };
 }
 
-function userTouchedDay(progress: StoredProgress, day: string): boolean {
-  const dayActivity = progress.activity?.[day];
+/** A finished study or practice card. A miss counts; opening the app does not. */
+function visitFinishedCard(visit: { clips: readonly unknown[]; exercisesCompleted: number; listeningRuns: number; wrongAttempts?: number }): boolean {
   return (
-    progress.lastPracticeDate === day ||
-    (dayActivity?.activeSeconds ?? 0) > 0 ||
-    (dayActivity?.clips ?? 0) > 0 ||
-    (dayActivity?.exercises ?? 0) > 0 ||
-    (dayActivity?.videoSeconds ?? 0) > 0
+    visit.clips.length > 0 ||
+    visit.exercisesCompleted > 0 ||
+    visit.listeningRuns > 0 ||
+    (visit.wrongAttempts ?? 0) > 0
   );
 }
 
-function userActiveOnDay(
-  row: AdminUserRow,
-  day: string,
-  work: { videos: number; study: number; practice: number },
-): boolean {
-  return (
-    userTouchedDay(row.progress, day) ||
-    calendarDay(row.lastLoginAt) === day ||
-    work.videos > 0 ||
-    work.study > 0 ||
-    work.practice > 0
-  );
+function completedCardOnDay(progress: StoredProgress, day: string): boolean {
+  if (studyRunsOnDay(progress, day) > 0 || practiceRunsOnDay(progress, day) > 0) return true;
+  const dayActivity = progress.activity?.[day];
+  if ((dayActivity?.clips ?? 0) > 0 || (dayActivity?.exercises ?? 0) > 0) return true;
+  for (const visit of progress.visits ?? []) {
+    if (calendarDay(visit.startedAt) === day && visitFinishedCard(visit)) return true;
+  }
+  return false;
 }
 
 function emptyPoint(key: string, label: string): AdminActivityPoint {
@@ -718,19 +713,10 @@ function emptyPoint(key: string, label: string): AdminActivityPoint {
 function isRowActiveInWindow(
   row: AdminUserRow,
   days: readonly string[],
-  window: ReadonlySet<string>,
+  cardUserIds?: ReadonlySet<string>,
 ): boolean {
-  let touched = false;
-  let hasWork = false;
-
-  for (const day of days) {
-    const work = dayWork(row.progress, day);
-    if (work.videos > 0 || work.study > 0 || work.practice > 0) hasWork = true;
-    if (userTouchedDay(row.progress, day)) touched = true;
-  }
-
-  const lastSeenDay = calendarDay(row.lastLoginAt);
-  return touched || hasWork || (lastSeenDay != null && window.has(lastSeenDay));
+  if (cardUserIds?.has(row.userId)) return true;
+  return days.some((day) => completedCardOnDay(row.progress, day));
 }
 
 /** Students only. Admins and staff (teachers) stay out of engagement totals. */
@@ -743,10 +729,10 @@ export function buildAdminActivityStats(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
+  cardUserIds?: ReadonlySet<string>,
 ): AdminActivityStats {
   const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
-  const window = new Set(days);
   let activeUsers = 0;
   let videosWatched = 0;
   let videoSeconds = 0;
@@ -770,7 +756,7 @@ export function buildAdminActivityStats(
     studyRuns += rowStudy;
     practiceRuns += rowPractice;
 
-    if (isRowActiveInWindow(row, days, window)) activeUsers += 1;
+    if (isRowActiveInWindow(row, days, cardUserIds)) activeUsers += 1;
   }
 
   return {
@@ -788,11 +774,11 @@ export function listActiveAdminUsers(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
+  cardUserIds?: ReadonlySet<string>,
 ): AdminUserRow[] {
   const days = adminRangeDayKeys(range, now);
-  const window = new Set(days);
   return learnerRows(rows)
-    .filter((row) => isRowActiveInWindow(row, days, window))
+    .filter((row) => isRowActiveInWindow(row, days, cardUserIds))
     .sort((a, b) => b.lastLoginMs - a.lastLoginMs);
 }
 
@@ -840,7 +826,7 @@ function buildDailyActivityPoints(
       if (index == null) continue;
       const point = points[index];
       const work = dayWork(row.progress, day);
-      if (userActiveOnDay(row, day, work)) point.activeUsers += 1;
+      if (completedCardOnDay(row.progress, day)) point.activeUsers += 1;
       point.activeSeconds += activeSecondsOnDay(row.progress, day);
       point.videosWatched += work.videos;
       point.studyRuns += work.study;
@@ -869,15 +855,10 @@ function buildHourlyActivityPoints(
       if (calendarDay(visit.startedAt) !== day) continue;
       const hour = vietnamHour(visit.startedAt);
       if (hour == null) continue;
-      usersByHour[hour].add(row.userId);
+      if (visitFinishedCard(visit)) usersByHour[hour].add(row.userId);
       points[hour].activeSeconds += visit.activeSeconds;
       points[hour].clips += visit.clips.length;
       points[hour].practiceRuns += visit.listeningRuns;
-    }
-
-    if (calendarDay(row.lastLoginAt) === day) {
-      const hour = vietnamHour(row.lastLoginAt);
-      if (hour != null) usersByHour[hour].add(row.userId);
     }
 
     for (const entry of Object.values(row.progress.videos)) {
@@ -887,8 +868,7 @@ function buildHourlyActivityPoints(
       points[hour].videosWatched += 1;
     }
 
-    const work = dayWork(row.progress, day);
-    if (userActiveOnDay(row, day, work) && usersByHour.every((set) => !set.has(row.userId))) {
+    if (completedCardOnDay(row.progress, day) && usersByHour.every((set) => !set.has(row.userId))) {
       // Seen that Vietnam day without a timestamped visit: count them at midnight
       // rather than dropping them from the hourly chart.
       usersByHour[0].add(row.userId);
@@ -983,7 +963,7 @@ function utcDayDiff(later: string, earlier: string): number {
 }
 
 function isActiveOn(row: AdminUserRow, day: string): boolean {
-  return userActiveOnDay(row, day, dayWork(row.progress, day));
+  return completedCardOnDay(row.progress, day);
 }
 
 function firstSeenDay(row: AdminUserRow): string | null {

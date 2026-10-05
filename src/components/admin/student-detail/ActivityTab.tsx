@@ -657,6 +657,18 @@ function visitStripStats(visits: readonly AdminVisitRow[]) {
   };
 }
 
+export function VisitDayList({ visits }: { visits: AdminVisitRow[] }) {
+  const [openVisitId, setOpenVisitId] = useState<string | null>(null);
+  if (visits.length === 0) return null;
+  return (
+    <VisitFeed
+      visits={visits}
+      openVisitId={openVisitId}
+      onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
+    />
+  );
+}
+
 export function ActivityTab({
   userId,
   catalog,

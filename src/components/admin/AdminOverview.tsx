@@ -730,6 +730,8 @@ type AdminOverviewProps = {
   practiceRuns: number | null;
   practiceParts: number | null;
   practicePartsByUser: Readonly<Record<string, number>> | null;
+  /** Learners who finished a study or practice part in the window, pass or fail. */
+  cardUserIds: readonly string[];
 };
 
 export function AdminOverview({
@@ -745,6 +747,7 @@ export function AdminOverview({
   practiceRuns,
   practiceParts,
   practicePartsByUser,
+  cardUserIds,
 }: AdminOverviewProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -764,9 +767,10 @@ export function AdminOverview({
     [rows, classByUser],
   );
   const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
+  const cardUsers = useMemo(() => new Set(cardUserIds), [cardUserIds]);
   const activeUsers = useMemo(
-    () => listActiveAdminUsers(liveRows, range),
-    [liveRows, range],
+    () => listActiveAdminUsers(liveRows, range, new Date(), cardUsers),
+    [liveRows, range, cardUsers],
   );
   const displayClass = useCallback(
     (row: AdminUserRow): string | null => {
@@ -847,7 +851,7 @@ export function AdminOverview({
                 {
                   label: "Active",
                   value: formatCount(activity.activeUsers),
-                  hint: `Used the app ${window}`,
+                  hint: `Finished a card ${window}`,
                 },
                 {
                   label: "All students",
