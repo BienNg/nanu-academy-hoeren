@@ -1,6 +1,5 @@
 "use client";
 
-import { type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -12,17 +11,15 @@ import {
 } from "recharts";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import {
-  CARD,
   ChartTooltip,
   KpiTile,
-  LegendChips,
-  PanelHeader,
   SectionHeading,
   TH,
   THEAD,
   TR,
   TablePanel,
   formatCount,
+  ChartPanel,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
@@ -60,33 +57,6 @@ const QUEST_KIND_LABEL: Record<QuestKind, string> = {
   study: "Study",
   habit: "Habit (XP goal)",
 };
-
-function ChartCard({
-  icon,
-  title,
-  hint,
-  legend,
-  children,
-}: {
-  icon: string;
-  title: string;
-  hint: string;
-  legend: readonly { name: string; color: string }[];
-  children: ReactNode;
-}) {
-  return (
-    <section className={`${CARD} flex flex-col p-space-16 sm:p-space-20`}>
-      <PanelHeader
-        icon={icon}
-        title={title}
-        hint={hint}
-        color={ADMIN_COLORS.amber}
-        trailing={<LegendChips items={legend} />}
-      />
-      <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
-    </section>
-  );
-}
 
 function tickInterval(count: number): number {
   if (count <= 8) return 0;
@@ -393,14 +363,15 @@ export function AdminXp({
         />
       </section>
 
-      <ChartCard
+      <ChartPanel
+        color={ADMIN_COLORS.amber}
         icon="bar_chart"
         legend={XP_LEGEND}
         title="XP by day"
         hint="Stacked by first pass, review, and duels. Empty days stay on the axis."
       >
         <XpChart data={board.points} />
-      </ChartCard>
+      </ChartPanel>
 
       <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
         <LeadersTable rows={board.leaders} />
@@ -456,14 +427,15 @@ export function AdminXp({
           />
         </div>
         <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
-          <ChartCard
+          <ChartPanel
+        color={ADMIN_COLORS.amber}
             icon="flag"
             legend={QUEST_LEGEND}
             title="Quests by day"
             hint="Finished quests, and learners who finished all three."
           >
             <QuestChart data={quests.points} />
-          </ChartCard>
+          </ChartPanel>
           <QuestKindTable board={quests} />
         </div>
       </section>

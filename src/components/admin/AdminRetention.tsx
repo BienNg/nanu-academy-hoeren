@@ -1,6 +1,5 @@
 "use client";
 
-import { type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -12,15 +11,14 @@ import {
 } from "recharts";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import {
-  CARD,
   HeaderChip,
   KpiTile,
-  PanelHeader,
   THEAD,
   TH,
   TR,
   TablePanel,
   formatCount,
+  ChartPanel,
 } from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
@@ -57,25 +55,6 @@ function formatDaysAgo(daysAgo: number): string {
   if (daysAgo <= 0) return "Today";
   if (daysAgo === 1) return "1 day ago";
   return `${daysAgo} days ago`;
-}
-
-function ChartCard({
-  icon,
-  title,
-  hint,
-  children,
-}: {
-  icon: string;
-  title: string;
-  hint: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`${CARD} flex flex-col p-space-16 sm:p-space-20`}>
-      <PanelHeader icon={icon} title={title} hint={hint} color={ADMIN_COLORS.ember} />
-      <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
-    </section>
-  );
 }
 
 type TooltipRow = {
@@ -355,16 +334,16 @@ export function AdminRetention({
       </section>
 
       <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
-        <ChartCard icon="redo" title="Came back the next day" hint={d1Hint}>
+        <ChartPanel color={ADMIN_COLORS.ember} icon="redo" title="Came back the next day" hint={d1Hint}>
           <ReturnChart data={board.d1} />
-        </ChartCard>
-        <ChartCard
+        </ChartPanel>
+        <ChartPanel color={ADMIN_COLORS.ember}
           icon="local_fire_department"
           title="Current streaks"
           hint="Every synced student, including those at zero. The streak is the same one the learner app shows."
         >
           <StreakChart data={board.streaks} />
-        </ChartCard>
+        </ChartPanel>
       </div>
 
       <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -21,9 +21,7 @@ import {
   ChartTooltip,
   Badge,
   CountPill,
-  CARD,
   LegendChips,
-  PanelHeader,
   Pager,
   ScopeChips,
   SectionHeading,
@@ -36,6 +34,7 @@ import {
   paginate,
   type MicroMetric,
   HeaderChip,
+  ChartPanel,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
@@ -187,27 +186,6 @@ function TrendCard({
     >
       <Sparkline data={trend.data} dataKey={trend.key} color={card.color} />
     </CategoryCard>
-  );
-}
-
-function ChartCard({
-  icon,
-  title,
-  hint,
-  trailing,
-  children,
-}: {
-  icon: string;
-  title: string;
-  hint: string;
-  trailing?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`${CARD} flex flex-col p-space-20`}>
-      <PanelHeader icon={icon} title={title} hint={hint} trailing={trailing} />
-      <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
-    </section>
   );
 }
 
@@ -887,7 +865,7 @@ export function AdminActivity({
           title={hourly ? "Hourly trends" : "Daily trends"}
         />
         <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
-          <ChartCard
+          <ChartPanel
             icon="groups"
             title={hourly ? "People in the app by hour" : "Daily active people"}
             hint={
@@ -898,8 +876,8 @@ export function AdminActivity({
             trailing={<LegendChips items={[{ name: "Active people", color: PRIMARY }]} />}
           >
             <PeopleChart data={board.points} grain={board.grain} />
-          </ChartCard>
-          <ChartCard
+          </ChartPanel>
+          <ChartPanel
             icon="stacked_bar_chart"
             title={hourly ? "Work during those hours" : "Study, practice, and videos"}
             hint={
@@ -910,7 +888,7 @@ export function AdminActivity({
             trailing={<LegendChips items={workBars(board.grain)} />}
           >
             <WorkChart data={board.points} grain={board.grain} />
-          </ChartCard>
+          </ChartPanel>
         </div>
       </section>
 

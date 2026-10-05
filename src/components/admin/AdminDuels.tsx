@@ -1,17 +1,26 @@
 "use client";
 
-import { type ReactNode } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminPageHeader } from "@/components/admin/AdminShell";
+import {
+  Badge,
+  ChartPanel,
+  ChartTooltip,
+  KpiTile,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
   formatAdminTimestamp,
@@ -21,111 +30,22 @@ import {
   type AdminDuelPoint,
   type AdminRange,
 } from "@/lib/admin-overview";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
-const AXIS = "#717785";
-const GRID = "#c1c6d6";
-const STARTED = "#0059b5";
-const FINISHED = "#0071e3";
-const EXPIRED = "#5e5e63";
+const AXIS = ADMIN_COLORS.axis;
+const GRID = ADMIN_COLORS.grid;
+const STARTED = ADMIN_COLORS.cobalt;
+const FINISHED = ADMIN_COLORS.amber;
+const EXPIRED = ADMIN_COLORS.inkFaint;
 
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
+const DUEL_LEGEND = [
+  { name: "Started", color: STARTED },
+  { name: "Finished", color: FINISHED },
+  { name: "Expired", color: EXPIRED },
+];
 
 function formatWhen(iso: string | null): string {
   return formatAdminTimestamp(iso) ?? "—";
-}
-
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
-}
-
-function ChartCard({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
-      <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">{children}</div>
-    </section>
-  );
-}
-
-type TooltipRow = {
-  name?: string;
-  value?: number | string;
-  color?: string;
-};
-
-function ChartTooltip({
-  active,
-  label,
-  payload,
-}: {
-  active?: boolean;
-  label?: string | number;
-  payload?: readonly TooltipRow[];
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
-      <p className="font-label-sm text-label-sm font-semibold text-on-surface">{label}</p>
-      <ul className="mt-1 flex flex-col gap-0.5">
-        {payload.map((row) => (
-          <li
-            key={row.name}
-            className="flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant"
-          >
-            <span className="flex items-center gap-space-8">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: row.color }}
-                aria-hidden="true"
-              />
-              {row.name}
-            </span>
-            <span className="tabular-nums text-on-surface">
-              {typeof row.value === "number" ? formatCount(row.value) : row.value}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 function tickInterval(count: number): number {
@@ -140,7 +60,7 @@ function DuelChart({ data }: { data: readonly AdminDuelPoint[] }) {
   );
   if (!hasVolume) {
     return (
-      <p className="flex h-full items-center justify-center px-space-16 font-body-sm text-body-sm text-on-surface-variant">
+      <p className="flex h-full items-center justify-center px-space-16 text-admin-body-sm text-admin-ink-muted">
         No duels were started or settled in this window.
       </p>
     );
@@ -148,7 +68,7 @@ function DuelChart({ data }: { data: readonly AdminDuelPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={[...data]} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+        <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: AXIS, fontSize: 11 }}
@@ -163,8 +83,7 @@ function DuelChart({ data }: { data: readonly AdminDuelPoint[] }) {
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={<ChartTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 12, color: AXIS }} iconType="circle" iconSize={8} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
         <Bar dataKey="started" name="Started" stackId="duels" fill={STARTED} maxBarSize={28} />
         <Bar dataKey="finished" name="Finished" stackId="duels" fill={FINISHED} maxBarSize={28} />
         <Bar
@@ -172,7 +91,7 @@ function DuelChart({ data }: { data: readonly AdminDuelPoint[] }) {
           name="Expired"
           stackId="duels"
           fill={EXPIRED}
-          radius={[4, 4, 0, 0]}
+          radius={[2, 2, 0, 0]}
           maxBarSize={28}
         />
       </BarChart>
@@ -182,69 +101,57 @@ function DuelChart({ data }: { data: readonly AdminDuelPoint[] }) {
 
 function LeadersTable({ rows }: { rows: readonly AdminDuelLeader[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-          Win record
-        </h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          Settled matches in this window. An expired challenge counts as a win for the challenger.
-        </p>
-      </div>
+    <TablePanel
+      icon="emoji_events"
+      title="Win record"
+      hint="Settled matches in this window. An expired challenge counts as a win for the challenger."
+      color={ADMIN_COLORS.amber}
+    >
       {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
+        <p className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted sm:px-space-20">
           No matches settled in this window.
         </p>
       ) : (
-        <table className="w-full min-w-[32rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Student</th>
-              <th className="px-space-12 py-space-8">Class</th>
-              <th className="px-space-12 py-space-8 text-right">Wins</th>
-              <th className="px-space-12 py-space-8 text-right">Losses</th>
-              <th className="px-space-12 py-space-8 text-right">Ties</th>
-              <th className="px-space-16 py-space-8 text-right">Played</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.userId}
-                className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-              >
-                <td className="px-space-16 py-space-8 font-medium">{row.displayName}</td>
-                <td className="px-space-12 py-space-8 text-on-surface-variant">
-                  {row.className ?? "—"}
-                </td>
-                <td className="px-space-12 py-space-8 text-right tabular-nums">
-                  {formatCount(row.wins)}
-                </td>
-                <td className="px-space-12 py-space-8 text-right tabular-nums">
-                  {formatCount(row.losses)}
-                </td>
-                <td className="px-space-12 py-space-8 text-right tabular-nums">
-                  {formatCount(row.ties)}
-                </td>
-                <td className="px-space-16 py-space-8 text-right tabular-nums font-medium">
-                  {formatCount(row.played)}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-collapse text-left">
+            <thead className={THEAD}>
+              <tr>
+                <th className={TH}>Student</th>
+                <th className={TH}>Class</th>
+                <th className={`${TH} text-right`}>Wins</th>
+                <th className={`${TH} text-right`}>Losses</th>
+                <th className={`${TH} text-right`}>Ties</th>
+                <th className={`${TH} text-right`}>Played</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="text-admin-body-md tabular-nums text-admin-ink">
+              {rows.map((row) => (
+                <tr key={row.userId} className={TR}>
+                  <td className="px-space-16 font-semibold">{row.displayName}</td>
+                  <td className="px-space-16 text-admin-body-sm text-admin-ink-muted">{row.className ?? "—"}</td>
+                  <td className="px-space-16 text-right font-semibold text-admin-amber-ink">{formatCount(row.wins)}</td>
+                  <td className="px-space-16 text-right">{formatCount(row.losses)}</td>
+                  <td className="px-space-16 text-right text-admin-ink-muted">{formatCount(row.ties)}</td>
+                  <td className="px-space-16 text-right font-semibold">{formatCount(row.played)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </TablePanel>
   );
 }
 
 function MatchTable({
+  icon,
   title,
   hint,
   empty,
   rows,
   timeLabel,
 }: {
+  icon: string;
   title: string;
   hint: string;
   empty: string;
@@ -252,47 +159,40 @@ function MatchTable({
   timeLabel: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
+    <TablePanel icon={icon} title={title} hint={hint} color={timeLabel === "Started" ? ADMIN_COLORS.cobalt : ADMIN_COLORS.amber}>
       {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          {empty}
-        </p>
+        <p className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted sm:px-space-20">{empty}</p>
       ) : (
-        <table className="w-full min-w-[28rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Match</th>
-              <th className="px-space-12 py-space-8">{timeLabel}</th>
-              <th className="px-space-16 py-space-8 text-right">Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-              >
-                <td className="px-space-16 py-space-8">
-                  <span className="font-medium">{row.challengerName}</span>
-                  <span className="text-on-surface-variant"> vs </span>
-                  <span className="font-medium">{row.opponentName}</span>
-                </td>
-                <td className="px-space-12 py-space-8 tabular-nums text-on-surface-variant">
-                  {formatWhen(timeLabel === "Started" ? row.createdAt : row.completedAt)}
-                </td>
-                <td className="px-space-16 py-space-8 text-right tabular-nums">
-                  {row.result}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[28rem] border-collapse text-left">
+            <thead className={THEAD}>
+              <tr>
+                <th className={TH}>Match</th>
+                <th className={TH}>{timeLabel}</th>
+                <th className={`${TH} text-right`}>Result</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="text-admin-body-md text-admin-ink">
+              {rows.map((row) => (
+                <tr key={row.id} className={TR}>
+                  <td className="px-space-16">
+                    <span className="font-semibold">{row.challengerName}</span>
+                    <span className="text-admin-ink-subtle"> vs </span>
+                    <span className="font-semibold">{row.opponentName}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-space-16 text-admin-body-sm tabular-nums text-admin-ink-muted">
+                    {formatWhen(timeLabel === "Started" ? row.createdAt : row.completedAt)}
+                  </td>
+                  <td className="px-space-16 text-right">
+                    <Badge tone={timeLabel === "Started" ? "cobalt" : "neutral"}>{row.result}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </TablePanel>
   );
 }
 
@@ -319,64 +219,74 @@ export function AdminDuels({
       />
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           Cloud progress is not configured. This page only counts duels stored in Supabase.
         </div>
       ) : null}
 
       {storeConfigured && !duelsReady ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           The duels table is missing. Run supabase/duels.sql once in Supabase.
         </div>
       ) : null}
 
       <section
         aria-label="Duel totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-space-16 md:grid-cols-3 xl:grid-cols-5"
       >
-        <SummaryStat
+        <KpiTile
+          icon="swords"
           label="Started"
           value={formatCount(board.started)}
-          icon="swords"
-          hint={`Challenges created ${window}`}
+          caption={`Challenges created ${window}`}
+          color={ADMIN_COLORS.cobalt}
+          trend={board.points.map((point) => point.started)}
         />
-        <SummaryStat
+        <KpiTile
+          icon="flag"
           label="Finished"
           value={formatCount(board.finished)}
-          icon="flag"
-          hint="Both sides played, not expired"
+          caption="Both sides played, not expired"
+          color={ADMIN_COLORS.amber}
         />
-        <SummaryStat
+        <KpiTile
+          icon="timer_off"
           label="Expired"
           value={formatCount(board.expired)}
-          icon="timer_off"
-          hint="Closed after the 3-day deadline"
+          caption="Closed after the 3-day deadline"
+          color={ADMIN_COLORS.inkSubtle}
         />
-        <SummaryStat
+        <KpiTile
+          icon="hourglass_empty"
           label="Open"
           value={formatCount(board.open)}
-          icon="hourglass_empty"
-          hint="Waiting now, not this window"
+          caption="Waiting now, not this window"
+          color={ADMIN_COLORS.cobalt}
         />
-        <SummaryStat
+        <KpiTile
+          icon="group"
           label="Players"
           value={formatCount(board.players)}
-          icon="group"
-          hint={`Students in a match ${window}`}
+          caption={`Students in a match ${window}`}
+          color={ADMIN_COLORS.amber}
         />
       </section>
 
-      <ChartCard
+      <ChartPanel
+        icon="bar_chart"
+        color={ADMIN_COLORS.amber}
+        legend={DUEL_LEGEND}
         title="Duels by day"
         hint="Started on the day the challenge was sent. Finished and expired on the day they settled."
       >
         <DuelChart data={board.points} />
-      </ChartCard>
+      </ChartPanel>
 
       <LeadersTable rows={board.leaders} />
 
-      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
         <MatchTable
+          icon="hourglass_empty"
           title="Open matches"
           hint="Currently waiting. Oldest challenges still sit here until they finish or expire."
           empty="No open challenges right now."
@@ -384,6 +294,7 @@ export function AdminDuels({
           timeLabel="Started"
         />
         <MatchTable
+          icon="history"
           title="Recently settled"
           hint={`Finished or expired ${window}. Vietnam time.`}
           empty="No matches settled in this window."

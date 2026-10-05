@@ -352,6 +352,38 @@ export function TablePanel({
   );
 }
 
+/** Card for one chart: icon header, hint, optional legend or control, fixed-height plot. */
+export function ChartPanel({
+  icon,
+  title,
+  hint,
+  color,
+  legend,
+  trailing,
+  children,
+}: {
+  icon: string;
+  title: string;
+  hint: string;
+  color?: string;
+  legend?: readonly { name: string; color: string }[];
+  trailing?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${CARD} flex flex-col p-space-16 sm:p-space-20`}>
+      <PanelHeader
+        icon={icon}
+        title={title}
+        hint={hint}
+        color={color}
+        trailing={trailing ?? (legend ? <LegendChips items={legend} /> : undefined)}
+      />
+      <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
+    </section>
+  );
+}
+
 export function LegendChips({ items }: { items: readonly { name: string; color: string }[] }) {
   return (
     <ul className="flex flex-wrap items-center gap-space-12 text-admin-label-md text-admin-ink-muted">
