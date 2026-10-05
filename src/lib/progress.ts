@@ -2101,14 +2101,57 @@ export function describeVisitSignal(input: {
   return null;
 }
 
+/** Milliseconds `timeZone` is ahead of UTC at `ms`. */
+function zoneOffsetMs(ms: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(ms));
+  const field = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const wall = Date.UTC(
+    field("year"),
+    field("month") - 1,
+    field("day"),
+    field("hour"),
+    field("minute"),
+    field("second"),
+  );
+  return wall - Math.floor(ms / 1000) * 1000;
+}
+
+/** UTC instant of local midnight on `day` (`YYYY-MM-DD`) in `timeZone`. */
+function zoneMidnightMs(day: string, timeZone: string | undefined): number {
+  const utcMidnight = Date.parse(`${day}T00:00:00.000Z`);
+  if (!timeZone) return utcMidnight;
+  const guess = utcMidnight - zoneOffsetMs(utcMidnight, timeZone);
+  return utcMidnight - zoneOffsetMs(guess, timeZone);
+}
+
+function shiftIsoDay(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00.000Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Ranges follow the student's calendar day, else the viewing device's. */
 function visitRangeBounds(
   range: VisitRange,
   now: Date,
+  timeZone: string | undefined,
 ): { startMs: number; endMs: number } | null {
   if (range === "all") return null;
-  const todayStart = Date.parse(`${todayIsoDate(now)}T00:00:00.000Z`);
-  if (range === "today") return { startMs: todayStart, endMs: todayStart + 86_400_000 };
-  return { startMs: todayStart - 6 * 86_400_000, endMs: todayStart + 86_400_000 };
+  const zone = validTimeZone(timeZone) ?? deviceTimeZone();
+  const today = localCalendarDay(now, zone);
+  const endMs = zoneMidnightMs(shiftIsoDay(today, 1), zone);
+  const firstDay = range === "today" ? today : shiftIsoDay(today, -6);
+  return { startMs: zoneMidnightMs(firstDay, zone), endMs };
 }
 
 function visitOverlaps(visit: Visit, bounds: { startMs: number; endMs: number } | null): boolean {
@@ -2139,7 +2182,7 @@ export function selectVisits(
   range: VisitRange,
   now = new Date(),
 ): Visit[] {
-  const bounds = visitRangeBounds(range, now);
+  const bounds = visitRangeBounds(range, now, progress.streakTimeZone);
   return (progress.visits ?? [])
     .filter((visit) => visitOverlaps(visit, bounds))
     .sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
@@ -2151,7 +2194,7 @@ export function summarizeVisits(
   range: VisitRange,
   now = new Date(),
 ): VisitSummary {
-  const bounds = visitRangeBounds(range, now);
+  const bounds = visitRangeBounds(range, now, progress.streakTimeZone);
   const visits = selectVisits(progress, range, now);
   const clips = new Set<string>();
   const watched = new Set<string>();

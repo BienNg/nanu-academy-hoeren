@@ -232,6 +232,24 @@ test("range totals follow today, 7 days, and all time", () => {
   assert.equal(all.clipCount, 2);
 });
 
+test("today follows the student's timezone, not UTC", () => {
+  // 06:30 on 5 Oct in Vietnam is still 4 Oct in UTC.
+  const morning = new Date("2026-10-04T23:30:00.000Z");
+  let result = touchVisit(
+    { ...blank(), streakTimeZone: "Asia/Ho_Chi_Minh" },
+    morning,
+    { preferredId: "morning", visibleSeconds: 0 },
+  );
+  result = recordVisitClip(result.progress, morning, "morning", "a1-1/lektion-1", "clip");
+
+  // Admin opens the dashboard at 15:00 Vietnam time the same day.
+  const now = new Date("2026-10-05T08:00:00.000Z");
+  assert.equal(summarizeVisits(result.progress, "today", now).visitCount, 1);
+  // The day before in Vietnam no longer counts the morning visit as today.
+  const dayBefore = new Date("2026-10-04T08:00:00.000Z");
+  assert.equal(summarizeVisits(result.progress, "today", dayBefore).visitCount, 0);
+});
+
 test("visit signals use one line and the measured gap", () => {
   assert.equal(
     describeVisitSignal({
