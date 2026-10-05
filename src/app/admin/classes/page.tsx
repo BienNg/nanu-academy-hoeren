@@ -13,6 +13,7 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
   listAllUserProgress,
+  listPendingLevelGrants,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -43,6 +44,7 @@ export default async function AdminClassesPage() {
   }
 
   const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
@@ -52,6 +54,10 @@ export default async function AdminClassesPage() {
       rows={rows}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
+      pending={(pending ?? []).map((grant) => ({
+        email: grant.email,
+        className: grant.className,
+      }))}
     />
   );
 }

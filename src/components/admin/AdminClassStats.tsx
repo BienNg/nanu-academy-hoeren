@@ -157,16 +157,23 @@ function CountCell({ value }: { value: number }) {
   );
 }
 
+type WaitingClassMember = {
+  email: string;
+  className: string | null;
+};
+
 type AdminClassStatsProps = {
   rows: AdminUserRow[];
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
+  pending?: readonly WaitingClassMember[];
 };
 
 export function AdminClassStats({
   rows,
   courseCatalog,
   storeConfigured,
+  pending = [],
 }: AdminClassStatsProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -189,7 +196,10 @@ export function AdminClassStats({
       ),
     [rows, classByUser],
   );
-  const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
+  const classOptions = useMemo(
+    () => listAdminClasses([...liveRows, ...pending]),
+    [liveRows, pending],
+  );
   const unassignedCount = useMemo(
     () => liveRows.filter((row) => !classKey(row.className)).length,
     [liveRows],
@@ -208,6 +218,10 @@ export function AdminClassStats({
       : (classOptions.find((option) => option.key === activeKey)?.label ?? "Class");
 
   const classRows = useMemo(() => usersInClass(liveRows, activeKey), [liveRows, activeKey]);
+  const waitingHere = useMemo(
+    () => pending.filter((row) => row.className && classKey(row.className) === activeKey),
+    [pending, activeKey],
+  );
   const stats = useMemo(
     () => buildClassStats(classRows, courseCatalog),
     [classRows, courseCatalog],
@@ -326,7 +340,7 @@ export function AdminClassStats({
           </div>
         ) : null}
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && classOptions.length === 0 ? (
           <section className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-space-24 py-space-48 text-center shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
             <p className="font-body-md text-body-md text-on-surface-variant">
               No users have synced progress yet.
@@ -375,6 +389,11 @@ export function AdminClassStats({
                   <p className="mt-1 max-w-xl font-body-sm text-body-sm text-on-surface-variant">
                     Streaks, lessons, practice runs, and videos for everyone in this class.
                     Assign a class from the student row.
+                    {waitingHere.length > 0
+                      ? ` ${formatCount(waitingHere.length)} ${
+                          waitingHere.length === 1 ? "email is" : "emails are"
+                        } waiting to sign up.`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -412,6 +431,29 @@ export function AdminClassStats({
                   icon="smart_display"
                 />
               </div>
+
+              {waitingHere.length > 0 ? (
+                <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
+                  <div className="border-b border-outline-variant/20 px-space-16 py-space-12">
+                    <h3 className="font-headline-sm text-headline-sm text-on-surface">
+                      Waiting to sign up
+                    </h3>
+                    <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+                      These emails already belong to {activeLabel}. They join this class when they sign in.
+                    </p>
+                  </div>
+                  <ul className="flex flex-col">
+                    {waitingHere.map((row) => (
+                      <li
+                        key={row.email}
+                        className="border-t border-outline-variant/15 px-space-16 py-space-12 font-label-md text-label-md font-semibold text-on-surface first:border-t-0"
+                      >
+                        {row.email}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
               {classError ? (
                 <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
@@ -464,7 +506,11 @@ export function AdminClassStats({
                             colSpan={8}
                             className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
                           >
-                            No students in this class match your search.
+                            {query.trim()
+                              ? "No students in this class match your search."
+                              : waitingHere.length > 0
+                                ? "No one in this class has signed up yet."
+                                : "No students in this class."}
                           </td>
                         </tr>
                       ) : (

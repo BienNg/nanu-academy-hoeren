@@ -422,6 +422,7 @@ export function AdminAccess({
   const [draftInterview, setDraftInterview] = useState(false);
   const [draftLiving, setDraftLiving] = useState<string[]>([]);
   const [draftClass, setDraftClass] = useState("");
+  const [pendingClassFilter, setPendingClassFilter] = useState<string | "all">("all");
   const [savingGrant, setSavingGrant] = useState(false);
   const [pendingRows, setPendingRows] = useState(pending);
   const [savingPending, setSavingPending] = useState<string[]>([]);
@@ -466,11 +467,55 @@ export function AdminAccess({
     [rows, accessByUser, interviewByUser, livingByUser],
   );
 
-  const board = useMemo(
-    () => buildAdminAccessBoard(liveRows, levels),
-    [liveRows, levels],
+  const waitingMembers = useMemo(
+    () =>
+      pendingRows.map((row) => ({
+        className: row.className,
+        levelAccess: row.levelAccess,
+        interviewAccess: row.interviewAccess,
+      })),
+    [pendingRows],
   );
-  const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
+  const board = useMemo(
+    () => buildAdminAccessBoard(liveRows, levels, waitingMembers),
+    [liveRows, levels, waitingMembers],
+  );
+  const classOptions = useMemo(
+    () => listAdminClasses([...liveRows, ...waitingMembers]),
+    [liveRows, waitingMembers],
+  );
+  const pendingClassOptions = useMemo(
+    () => listAdminClasses(pendingRows),
+    [pendingRows],
+  );
+  const pendingUnassigned = useMemo(
+    () => pendingRows.filter((row) => !classKey(row.className)).length,
+    [pendingRows],
+  );
+  const pendingFilterValid =
+    pendingClassFilter === "all" ||
+    (pendingClassFilter === ""
+      ? pendingUnassigned > 0
+      : pendingClassOptions.some((option) => option.key === pendingClassFilter));
+  if (!pendingFilterValid) {
+    setPendingClassFilter("all");
+  }
+  const activePendingClass = pendingFilterValid ? pendingClassFilter : "all";
+  const visiblePending = useMemo(() => {
+    if (activePendingClass === "all") return pendingRows;
+    return pendingRows.filter((row) => classKey(row.className) === activePendingClass);
+  }, [pendingRows, activePendingClass]);
+  const pendingClassChips: { key: string | "all"; label: string; count: number }[] = [
+    { key: "all", label: "All", count: pendingRows.length },
+    ...pendingClassOptions.map((option) => ({
+      key: option.key,
+      label: option.label,
+      count: option.count,
+    })),
+    ...(pendingUnassigned > 0
+      ? [{ key: "" as const, label: "Unassigned", count: pendingUnassigned }]
+      : []),
+  ];
   const unassignedCount = useMemo(
     () => liveRows.filter((row) => !classKey(row.className)).length,
     [liveRows],
@@ -840,7 +885,7 @@ export function AdminAccess({
               Coverage by class
             </h2>
             <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Granted counts include admins in that class.
+              Counts include admins and emails that have not signed up yet.
             </p>
           </div>
           {board.classes.length === 0 ? (
@@ -982,7 +1027,34 @@ export function AdminAccess({
             No emails are waiting to sign up.
           </p>
         ) : (
-          <div className="overflow-x-auto border-t border-outline-variant/20">
+          <div className="flex flex-col gap-space-12 border-t border-outline-variant/20 pt-space-16">
+            <div role="tablist" aria-label="Filter pre-unlock by class" className="flex flex-wrap gap-space-8">
+              {pendingClassChips.map((chip) => {
+                const selected = chip.key === activePendingClass;
+                return (
+                  <button
+                    key={chip.key === "" ? "unassigned" : chip.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setPendingClassFilter(chip.key)}
+                    className={`inline-flex h-9 items-center gap-space-8 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
+                      selected
+                        ? "bg-primary text-on-primary"
+                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {chip.label}
+                    <span
+                      className={`tabular-nums ${selected ? "text-on-primary/80" : "text-on-surface-variant"}`}
+                    >
+                      {chip.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-left">
               <thead>
                 <tr className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
@@ -995,7 +1067,17 @@ export function AdminAccess({
                 </tr>
               </thead>
               <tbody>
-                {pendingRows.map((row) => {
+                {visiblePending.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-space-4 py-space-24 font-body-sm text-body-sm text-on-surface-variant"
+                    >
+                      No waiting emails in this class.
+                    </td>
+                  </tr>
+                ) : null}
+                {visiblePending.map((row) => {
                   const busy = savingPending.includes(row.email);
                   return (
                     <tr key={row.email} className="border-t border-outline-variant/20">
@@ -1048,6 +1130,7 @@ export function AdminAccess({
                 })}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </section>
@@ -1146,7 +1229,11 @@ export function AdminAccess({
                   >
                     {liveRows.length === 0
                       ? "No users have synced progress yet."
-                      : "No students match this filter."}
+                      : classFilter !== "all" &&
+                          usersInClass(liveRows, classFilter).length === 0 &&
+                          waitingMembers.some((row) => classKey(row.className) === classFilter)
+                        ? "No signed-in students in this class yet. Emails waiting to join are listed under Pre-unlock."
+                        : "No students match this filter."}
                   </td>
                 </tr>
               ) : (

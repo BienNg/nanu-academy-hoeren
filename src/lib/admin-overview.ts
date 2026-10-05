@@ -277,7 +277,9 @@ export function buildAdminRosterTrend(
 }
 
 /** Distinct classes, labeled with the most common spelling of each name. */
-export function listAdminClasses(rows: readonly AdminUserRow[]): AdminClassOption[] {
+export function listAdminClasses(
+  rows: readonly { className?: string | null }[],
+): AdminClassOption[] {
   const groups = new Map<string, Map<string, number>>();
   for (const row of rows) {
     const key = classKey(row.className);
@@ -1633,6 +1635,13 @@ export type AdminAccessClassRow = {
   grantedBySlug: Record<string, number>;
 };
 
+/** An email that has a class before that person has signed in. */
+export type AdminWaitingClassMember = {
+  className: string | null;
+  levelAccess: readonly string[];
+  interviewAccess: boolean;
+};
+
 export type AdminAccessBoard = {
   students: number;
   learners: number;
@@ -1661,6 +1670,7 @@ function hasInterview(row: AdminUserRow): boolean {
 export function buildAdminAccessBoard(
   people: readonly AdminUserRow[],
   levels: readonly AdminLevelOption[],
+  waiting: readonly AdminWaitingClassMember[] = [],
 ): AdminAccessBoard {
   const learners = people.filter((row) => !row.isAdmin);
   const withLevel = learners.filter((row) => row.levelAccess.length > 0).length;
@@ -1678,28 +1688,38 @@ export function buildAdminAccessBoard(
     };
   });
 
-  const classOptions = listAdminClasses(people);
+  const classOptions = listAdminClasses([...people, ...waiting]);
   const groups: { key: string; label: string }[] = [
     ...classOptions.map((option) => ({ key: option.key, label: option.label })),
   ];
-  if (people.some((row) => !classKey(row.className))) {
+  if (
+    people.some((row) => !classKey(row.className)) ||
+    waiting.some((row) => !classKey(row.className))
+  ) {
     groups.push({ key: "", label: "Unassigned" });
   }
 
   const classes: AdminAccessClassRow[] = groups.map((group) => {
     const members = usersInClass(people, group.key);
+    const waitingMembers = waiting.filter((row) => classKey(row.className) === group.key);
     const classLearners = members.filter((row) => !row.isAdmin);
     const grantedBySlug: Record<string, number> = {};
     for (const level of levels) {
-      grantedBySlug[level.slug] = members.filter((row) => hasLevel(row, level.slug)).length;
+      grantedBySlug[level.slug] =
+        members.filter((row) => hasLevel(row, level.slug)).length +
+        waitingMembers.filter((row) => row.levelAccess.includes(level.slug)).length;
     }
     return {
       key: group.key,
       label: group.label,
-      students: members.length,
-      learners: classLearners.length,
-      locked: classLearners.filter((row) => row.levelAccess.length === 0).length,
-      interview: members.filter((row) => hasInterview(row)).length,
+      students: members.length + waitingMembers.length,
+      learners: classLearners.length + waitingMembers.length,
+      locked:
+        classLearners.filter((row) => row.levelAccess.length === 0).length +
+        waitingMembers.filter((row) => row.levelAccess.length === 0).length,
+      interview:
+        members.filter((row) => hasInterview(row)).length +
+        waitingMembers.filter((row) => row.interviewAccess).length,
       grantedBySlug,
     };
   });
