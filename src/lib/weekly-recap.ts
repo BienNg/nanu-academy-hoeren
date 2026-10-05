@@ -185,7 +185,18 @@ export function buildWeeklyRecap(input: {
   return { ...recap, headline: recapHeadline(recap) };
 }
 
-/** `nanu-tong-ket-tuan-2026-09-29.png` */
-export function recapFileName(week: string): string {
-  return `nanu-tong-ket-tuan-${week}.png`;
+/** Vietnam-local `YYYYMMDD-HHMMSS-mmm`, so two downloads in one second still differ. */
+function recapStamp(now: Date): string {
+  const vn = new Date(now.getTime() + VN_OFFSET_MS);
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  return (
+    `${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1)}${pad(vn.getUTCDate())}` +
+    `-${pad(vn.getUTCHours())}${pad(vn.getUTCMinutes())}${pad(vn.getUTCSeconds())}` +
+    `-${pad(vn.getUTCMilliseconds(), 3)}`
+  );
+}
+
+/** `nanu-tong-ket-tuan-2026-09-29-20261005-100412-847.png` */
+export function recapFileName(week: string, now = new Date()): string {
+  return `nanu-tong-ket-tuan-${week}-${recapStamp(now)}.png`;
 }

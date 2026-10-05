@@ -103,5 +103,8 @@ test("range label spans a year change", () => {
     runs: [],
   });
   assert.equal(recap.rangeLabel, "28/12/2026 – 03/01/2027");
-  assert.equal(recapFileName("2026-12-28"), "nanu-tong-ket-tuan-2026-12-28.png");
+  assert.equal(
+    recapFileName("2026-12-28", new Date("2026-10-05T03:04:12.847Z")),
+    "nanu-tong-ket-tuan-2026-12-28-20261005-100412-847.png",
+  );
 });

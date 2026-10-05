@@ -316,21 +316,6 @@ export function RecapCard({
           />
         </div>
       </div>
-
-      <div
-        style={{
-          display: "flex",
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 40,
-          fontWeight: 800,
-          letterSpacing: -0.5,
-          textAlign: "center",
-        }}
-      >
-        {recap.headline}
-      </div>
     </div>
   );
 }

@@ -113,7 +113,7 @@ function RecapShareSheet({
     if (card.status !== "ready") return;
     const link = document.createElement("a");
     link.href = card.url;
-    link.download = card.file.name;
+    link.download = recapFileName(week);
     link.click();
   }
 
