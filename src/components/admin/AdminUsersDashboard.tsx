@@ -46,6 +46,9 @@ import {
   TR,
   formatCount,
   SortHeader,
+  GrantChip,
+  POPOVER,
+  POPOVER_ITEM,
 } from "@/components/admin/AdminUi";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -68,13 +71,6 @@ import { ADMIN_COLORS } from "@/lib/admin-tokens";
 const STUDENTS_PAGE_SIZE = 15;
 
 type RosterSeries = "users" | "classes";
-
-/** Popover surface shared by the row menu and the class picker. */
-const POPOVER =
-  "fixed z-[80] overflow-hidden rounded-admin-card border border-admin-border bg-admin-card py-1 shadow-admin-pop";
-
-const POPOVER_ITEM =
-  "flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left text-admin-body-md font-medium text-admin-ink outline-none hover:bg-admin-subtle focus-visible:bg-admin-subtle disabled:opacity-40";
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
@@ -445,12 +441,6 @@ export function ClassCell(props: Parameters<typeof ClassEditor>[0]) {
   );
 }
 
-const LEVEL_CHIP =
-  "inline-flex h-7 items-center gap-1 rounded-admin-badge border px-space-8 text-admin-label-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus disabled:opacity-50";
-const LEVEL_ON = "border-admin-amber bg-admin-amber-wash text-admin-amber-ink";
-const LEVEL_OFF =
-  "border-transparent bg-admin-subtle text-admin-ink-muted hover:bg-admin-hairline hover:text-admin-ink";
-
 function LevelAccessChips({
   row,
   levels,
@@ -488,31 +478,23 @@ function LevelAccessChips({
       {levels.map((level) => {
         const on = granted.includes(level.slug);
         return (
-          <button
+          <GrantChip
             key={level.slug}
-            type="button"
-            aria-pressed={on}
+            label={level.level}
+            on={on}
             disabled={saving || interviewSaving}
             title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
-            onClick={() => onToggle(level.slug)}
-            className={`${LEVEL_CHIP} ${on ? LEVEL_ON : LEVEL_OFF}`}
-          >
-            <MaterialIcon name={on ? "lock_open" : "lock"} className="text-[14px]" />
-            {level.level}
-          </button>
+            onToggle={() => onToggle(level.slug)}
+          />
         );
       })}
-      <button
-        type="button"
-        aria-pressed={interviewAccess}
+      <GrantChip
+        label="Phỏng vấn"
+        on={interviewAccess}
         disabled={saving || interviewSaving}
         title={interviewAccess ? "Hide Luyện phỏng vấn theo nghề" : "Show Luyện phỏng vấn theo nghề"}
-        onClick={onToggleInterview}
-        className={`${LEVEL_CHIP} ${interviewAccess ? LEVEL_ON : LEVEL_OFF}`}
-      >
-        <MaterialIcon name={interviewAccess ? "lock_open" : "lock"} className="text-[14px]" />
-        Phỏng vấn
-      </button>
+        onToggle={onToggleInterview}
+      />
     </div>
   );
 }

@@ -1,7 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   removeAdminPendingAccess,
@@ -12,6 +20,26 @@ import {
 } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import {
+  Badge,
+  Button,
+  CARD,
+  Checkbox,
+  GrantChip,
+  INPUT,
+  KpiTile,
+  Mono,
+  POPOVER,
+  POPOVER_ITEM,
+  PanelHeader,
+  Pager,
+  ScopeChips,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import {
   ADMIN_PAGE_SIZE,
   buildAdminAccessBoard,
@@ -24,72 +52,8 @@ import {
   type AdminLevelOption,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import type { PendingLevelGrant } from "@/lib/progress-store";
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
-
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
-}
-
-function GrantChip({
-  label,
-  on,
-  disabled,
-  title,
-  onToggle,
-}: {
-  label: string;
-  on: boolean;
-  disabled: boolean;
-  title: string;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      disabled={disabled}
-      title={title}
-      onClick={onToggle}
-      className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
-        on
-          ? "bg-primary text-on-primary"
-          : "border border-outline-variant/60 bg-surface text-on-surface-variant hover:bg-surface-container"
-      }`}
-    >
-      <MaterialIcon name={on ? "lock_open" : "lock"} className="text-[14px]" />
-      {label}
-    </button>
-  );
-}
 
 const INTERVIEW_LABEL = "Phỏng vấn";
 
@@ -144,6 +108,27 @@ function useMenuBox(open: boolean, anchorRef: RefObject<HTMLElement | null>) {
   }, [open, anchorRef]);
 
   return box;
+}
+
+function PickerOption({
+  on,
+  label,
+  onToggle,
+}: {
+  on: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button type="button" role="option" aria-selected={on} onClick={onToggle} className={POPOVER_ITEM}>
+      <MaterialIcon
+        name={on ? "check_box" : "check_box_outline_blank"}
+        className={`text-[18px] ${on ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
+        filled={on}
+      />
+      <span className="truncate">{label}</span>
+    </button>
+  );
 }
 
 function CoursePicker({
@@ -212,60 +197,30 @@ function CoursePicker({
             role="listbox"
             aria-multiselectable="true"
             aria-label={label}
-            className="fixed z-[80] max-h-72 overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            className={`${POPOVER} max-h-72 overflow-y-auto`}
             style={{ top: box.top, left: box.left, width: box.width }}
           >
-            {levels.map((level) => {
-              const on = levelAccess.includes(level.slug);
-              return (
-                <button
-                  key={level.slug}
-                  type="button"
-                  role="option"
-                  aria-selected={on}
-                  onClick={() => toggleLevel(level.slug)}
-                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
-                >
-                  <MaterialIcon
-                    name={on ? "check_box" : "check_box_outline_blank"}
-                    className={`text-[18px] ${on ? "text-primary" : "text-outline"}`}
-                  />
-                  <span className="truncate">{level.level}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              role="option"
-              aria-selected={interview}
-              onClick={() => onChange([...levelAccess], !interview, [...living])}
-              className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
-            >
-              <MaterialIcon
-                name={interview ? "check_box" : "check_box_outline_blank"}
-                className={`text-[18px] ${interview ? "text-primary" : "text-outline"}`}
+            {levels.map((level) => (
+              <PickerOption
+                key={level.slug}
+                on={levelAccess.includes(level.slug)}
+                label={level.level}
+                onToggle={() => toggleLevel(level.slug)}
               />
-              <span className="truncate">{INTERVIEW_LABEL}</span>
-            </button>
-            {workplaces.map((workplace) => {
-              const on = living.includes(workplace.slug);
-              return (
-                <button
-                  key={workplace.slug}
-                  type="button"
-                  role="option"
-                  aria-selected={on}
-                  onClick={() => toggleWorkplace(workplace.slug)}
-                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
-                >
-                  <MaterialIcon
-                    name={on ? "check_box" : "check_box_outline_blank"}
-                    className={`text-[18px] ${on ? "text-primary" : "text-outline"}`}
-                  />
-                  <span className="truncate">Leben in DE · {workplace.label}</span>
-                </button>
-              );
-            })}
+            ))}
+            <PickerOption
+              on={interview}
+              label={INTERVIEW_LABEL}
+              onToggle={() => onChange([...levelAccess], !interview, [...living])}
+            />
+            {workplaces.map((workplace) => (
+              <PickerOption
+                key={workplace.slug}
+                on={living.includes(workplace.slug)}
+                label={`Leben in DE · ${workplace.label}`}
+                onToggle={() => toggleWorkplace(workplace.slug)}
+              />
+            ))}
           </div>,
           document.body,
         )
@@ -280,14 +235,12 @@ function CoursePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`flex h-11 w-full items-center justify-between gap-space-8 rounded-2xl border px-space-16 text-left font-body-md text-body-md outline-none transition-colors disabled:opacity-50 ${
-          open
-            ? "border-primary-container ring-2 ring-primary-fixed"
-            : "border-outline-variant/50 hover:bg-surface-container"
-        } ${chosen ? "text-on-surface" : "text-outline"}`}
+        className={`${INPUT} flex items-center justify-between gap-space-8 text-left ${
+          open ? "border-admin-cobalt shadow-admin-focus" : "hover:border-admin-ink-faint"
+        } ${chosen ? "text-admin-ink" : "text-admin-ink-faint"}`}
       >
         <span className="truncate">{summary}</span>
-        <MaterialIcon name="expand_more" className="shrink-0 text-[20px] text-on-surface-variant" />
+        <MaterialIcon name="expand_more" className="shrink-0 text-[20px] text-admin-ink-subtle" />
       </button>
       {menu}
     </div>
@@ -328,13 +281,14 @@ function ClassNameField({
       ? createPortal(
           <div
             ref={menuRef}
+            id="pending-class-options"
             role="listbox"
             aria-label="Classes"
-            className="fixed z-[80] max-h-60 overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            className={`${POPOVER} max-h-60 overflow-y-auto`}
             style={{ top: box.top, left: box.left, width: box.width }}
           >
             {matches.length === 0 ? (
-              <p className="px-space-12 py-space-8 font-body-sm text-body-sm text-on-surface-variant">
+              <p className="px-space-12 py-space-8 text-admin-body-sm text-admin-ink-muted">
                 {suggestions.length === 0
                   ? "Type a class name."
                   : "No matching classes. This name will be created."}
@@ -345,14 +299,15 @@ function ClassNameField({
                   key={label}
                   type="button"
                   role="option"
+                  aria-selected={classKey(label) === needle}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onChange(label);
                     setOpen(false);
                   }}
-                  className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
+                  className={POPOVER_ITEM}
                 >
-                  <MaterialIcon name="school" className="text-[16px] text-primary" />
+                  <MaterialIcon name="school" className="text-[16px] text-admin-cobalt" />
                   <span className="truncate">{label}</span>
                 </button>
               ))
@@ -374,6 +329,7 @@ function ClassNameField({
         placeholder="Class name"
         role="combobox"
         aria-expanded={open}
+        aria-controls="pending-class-options"
         aria-autocomplete="list"
         onFocus={() => setOpen(true)}
         onChange={(event) => {
@@ -383,11 +339,26 @@ function ClassNameField({
         onKeyDown={(event) => {
           if (event.key === "Escape") setOpen(false);
         }}
-        className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+        className={INPUT}
       />
       {menu}
     </div>
   );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink"
+    >
+      {children}
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="text-admin-label-md font-semibold text-admin-ink">{children}</span>;
 }
 
 export function AdminAccess({
@@ -775,6 +746,18 @@ export function AdminAccess({
       : []),
   ];
 
+  const learnerShare = (count: number) => (board.learners > 0 ? count / board.learners : 0);
+  const pendingDisabled = !storeConfigured || !pendingReady || savingGrant;
+  const classSuggestions = classOptions.map((option) => option.label);
+  const emptyGrants =
+    liveRows.length === 0
+      ? "No users have synced progress yet."
+      : classFilter !== "all" &&
+          usersInClass(liveRows, classFilter).length === 0 &&
+          waitingMembers.some((row) => classKey(row.className) === classFilter)
+        ? "No signed-in students in this class yet. Emails waiting to join are listed under Pre-unlock."
+        : "No students match this filter.";
+
   return (
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
@@ -784,93 +767,89 @@ export function AdminAccess({
       />
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Cloud progress is not configured. This page only lists learners who have
-          synced progress to Supabase.
-        </div>
+        <Notice>
+          Cloud progress is not configured. This page only lists learners who have synced progress
+          to Supabase.
+        </Notice>
       ) : null}
 
-      {accessError ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          {accessError}
-        </div>
-      ) : null}
+      {accessError ? <Notice>{accessError}</Notice> : null}
 
       <section
         aria-label="Access totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-2 gap-space-16 md:grid-cols-3 2xl:grid-cols-6"
       >
-        <SummaryStat
+        <KpiTile
+          icon="group"
           label="Students"
           value={formatCount(board.students)}
-          icon="group"
-          hint="Everyone with a progress record"
+          caption="Everyone with a progress record"
+          color={ADMIN_COLORS.cobalt}
         />
-        <SummaryStat
+        <KpiTile
+          icon="lock_open"
           label="With a level"
           value={formatCount(board.withLevel)}
-          icon="lock_open"
-          hint="Learners granted at least one CEFR level"
+          caption="At least one CEFR level"
+          color={ADMIN_COLORS.amber}
+          progress={learnerShare(board.withLevel)}
+          progressLabel="Share of learners with a level"
         />
-        <SummaryStat
+        <KpiTile
+          icon="lock"
           label="None"
           value={formatCount(board.locked)}
-          icon="lock"
-          hint="Learners with no CEFR level yet"
+          caption="No CEFR level yet"
+          color={board.locked > 0 ? ADMIN_COLORS.crimson : ADMIN_COLORS.inkSubtle}
         />
-        <SummaryStat
+        <KpiTile
+          icon="record_voice_over"
           label="Interview"
           value={formatCount(board.interview)}
-          icon="record_voice_over"
-          hint="Learners who can open Luyện phỏng vấn"
+          caption="Can open Luyện phỏng vấn"
+          color={ADMIN_COLORS.amber}
         />
-        <SummaryStat
+        <KpiTile
+          icon="storefront"
           label="Leben in DE"
           value={formatCount(board.living)}
-          icon="storefront"
-          hint="Learners with at least one workplace"
+          caption="At least one workplace"
+          color={ADMIN_COLORS.amber}
         />
-        <SummaryStat
+        <KpiTile
+          icon="verified"
           label="Admins"
           value={formatCount(board.admins)}
-          icon="verified"
-          hint="Already have every course"
+          caption="Already have every course"
+          color={ADMIN_COLORS.cobalt}
         />
       </section>
 
-      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
-        <section className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-          <div className="px-space-16 py-space-12">
-            <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-              Coverage by level
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Share of learners, not including admins.
-            </p>
-          </div>
+      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
+        <section className={`${CARD} flex flex-col gap-space-16 p-space-16 sm:p-space-20`}>
+          <PanelHeader
+            icon="stacked_bar_chart"
+            title="Coverage by level"
+            hint="Share of learners, not including admins."
+            color={ADMIN_COLORS.amber}
+          />
           {board.learners === 0 ? (
-            <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-              No learners to count yet.
-            </p>
+            <p className="text-admin-body-sm text-admin-ink-muted">No learners to count yet.</p>
           ) : (
-            <ul className="flex flex-col gap-space-12 px-space-16 pb-space-16">
+            <ul className="flex flex-col gap-space-12">
               {board.levels.map((level) => {
                 const pct = Math.round((level.granted / learnerDenom) * 100);
                 return (
                   <li key={level.slug}>
                     <div className="flex items-baseline justify-between gap-space-12">
-                      <p className="font-label-md text-label-md font-semibold text-on-surface">
-                        {level.label}
-                      </p>
-                      <p className="font-caption text-caption tabular-nums text-on-surface-variant">
-                        {formatCount(level.granted)} of {formatCount(board.learners)} · {pct}%
+                      <Badge tone="amber">{level.label}</Badge>
+                      <p className="text-admin-label-md tabular-nums text-admin-ink-subtle">
+                        {formatCount(level.granted)} of {formatCount(board.learners)} ·{" "}
+                        <span className="font-semibold text-admin-ink">{pct}%</span>
                       </p>
                     </div>
-                    <div className="mt-space-8 h-2 overflow-hidden rounded-full bg-surface-container-high">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${pct}%` }}
-                      />
+                    <div className="mt-space-8 h-1.5 overflow-hidden rounded-full bg-admin-subtle">
+                      <div className="h-full rounded-full bg-admin-amber" style={{ width: `${pct}%` }} />
                     </div>
                   </li>
                 );
@@ -879,57 +858,47 @@ export function AdminAccess({
           )}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-          <div className="px-space-16 py-space-12">
-            <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-              Coverage by class
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Counts include admins and emails that have not signed up yet.
-            </p>
-          </div>
+        <TablePanel
+          icon="table_chart"
+          title="Coverage by class"
+          hint="Counts include admins and emails that have not signed up yet."
+        >
           {board.classes.length === 0 ? (
-            <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
+            <p className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted sm:px-space-20">
               No classes yet. Assign one on Students.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[32rem] border-collapse text-left">
-                <thead>
-                  <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                    <th className="px-space-16 py-space-8">Class</th>
-                    <th className="px-space-12 py-space-8 text-right">Students</th>
+                <thead className={THEAD}>
+                  <tr>
+                    <th className={TH}>Class</th>
+                    <th className={`${TH} text-right`}>Students</th>
                     {levels.map((level) => (
-                      <th key={level.slug} className="px-space-12 py-space-8 text-right">
+                      <th key={level.slug} className={`${TH} text-right`}>
                         {level.level}
                       </th>
                     ))}
-                    <th className="px-space-12 py-space-8 text-right">Interview</th>
-                    <th className="px-space-16 py-space-8 text-right">None</th>
+                    <th className={`${TH} text-right`}>Interview</th>
+                    <th className={`${TH} text-right`}>None</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="text-admin-body-sm tabular-nums text-admin-ink">
                   {board.classes.map((row) => (
-                    <tr
-                      key={row.key || "unassigned"}
-                      className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-                    >
-                      <td className="px-space-16 py-space-8 font-medium">{row.label}</td>
-                      <td className="px-space-12 py-space-8 text-right tabular-nums">
-                        {formatCount(row.students)}
-                      </td>
+                    <tr key={row.key || "unassigned"} className="h-11 border-t border-admin-hairline">
+                      <td className="px-space-16 font-medium">{row.label}</td>
+                      <td className="px-space-16 text-right">{formatCount(row.students)}</td>
                       {levels.map((level) => (
-                        <td
-                          key={level.slug}
-                          className="px-space-12 py-space-8 text-right tabular-nums"
-                        >
+                        <td key={level.slug} className="px-space-16 text-right">
                           {formatCount(row.grantedBySlug[level.slug] ?? 0)}
                         </td>
                       ))}
-                      <td className="px-space-12 py-space-8 text-right tabular-nums">
-                        {formatCount(row.interview)}
-                      </td>
-                      <td className="px-space-16 py-space-8 text-right tabular-nums font-medium">
+                      <td className="px-space-16 text-right">{formatCount(row.interview)}</td>
+                      <td
+                        className={`px-space-16 text-right font-semibold ${
+                          row.locked > 0 ? "text-admin-crimson" : "text-admin-ink-faint"
+                        }`}
+                      >
                         {formatCount(row.locked)}
                       </td>
                     </tr>
@@ -938,38 +907,30 @@ export function AdminAccess({
               </table>
             </div>
           )}
-        </section>
+        </TablePanel>
       </div>
 
-      <section className="flex flex-col gap-space-16 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-        <div>
-          <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-            Pre-unlock
-          </h2>
-          <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-            Grant courses and a class to an email that has not signed up yet.
-            When they sign in with Google using that address, those courses are
-            already open and they join that class.
-          </p>
-        </div>
-        {storeConfigured && !pendingReady ? (
-          <p className="rounded-2xl border border-error-container bg-error-container/40 px-space-16 py-space-12 font-body-sm text-body-sm text-on-error-container">
-            Pre-unlock is not ready yet. Run supabase/pending_level_access.sql once
-            in the Supabase SQL editor, then reload this page.
-          </p>
-        ) : null}
-        <form
-          className="flex flex-col gap-space-12"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void savePendingGrant();
-          }}
-        >
-          <div className="grid gap-space-12 sm:grid-cols-2">
-            <label className="flex min-w-0 flex-col gap-space-8">
-              <span className="font-label-sm text-label-sm font-semibold text-on-surface">
-                Email
-              </span>
+      <TablePanel
+        icon="mark_email_unread"
+        title="Pre-unlock"
+        hint="Grant courses and a class to an email that has not signed up yet. When they sign in with Google using that address, those courses are already open and they join that class."
+      >
+        <div className="flex flex-col gap-space-16 p-space-16 sm:p-space-20">
+          {storeConfigured && !pendingReady ? (
+            <Notice>
+              Pre-unlock is not ready yet. Run <Mono>supabase/pending_level_access.sql</Mono> once in
+              the Supabase SQL editor, then reload this page.
+            </Notice>
+          ) : null}
+          <form
+            className="grid gap-space-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void savePendingGrant();
+            }}
+          >
+            <label className="flex min-w-0 flex-col gap-space-4">
+              <FieldLabel>Email</FieldLabel>
               <input
                 type="email"
                 required
@@ -977,263 +938,206 @@ export function AdminAccess({
                 value={grantEmail}
                 onChange={(event) => setGrantEmail(event.target.value)}
                 placeholder="student@email.com"
-                disabled={!storeConfigured || !pendingReady || savingGrant}
-                className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed disabled:opacity-50"
+                disabled={pendingDisabled}
+                className={INPUT}
               />
             </label>
-            <label className="flex min-w-0 flex-col gap-space-8">
-              <span className="font-label-sm text-label-sm font-semibold text-on-surface">
-                Class
-              </span>
+            <label className="flex min-w-0 flex-col gap-space-4">
+              <FieldLabel>Class</FieldLabel>
               <ClassNameField
                 value={draftClass}
-                suggestions={classOptions.map((option) => option.label)}
-                disabled={!storeConfigured || !pendingReady || savingGrant}
+                suggestions={classSuggestions}
+                disabled={pendingDisabled}
                 onChange={setDraftClass}
               />
             </label>
-          </div>
-          <label className="flex w-full max-w-md flex-col gap-space-8">
-            <span className="font-label-sm text-label-sm font-semibold text-on-surface">
-              Courses
-            </span>
-            <CoursePicker
-              label="Courses to pre-unlock"
-              levels={levels}
-              levelAccess={draftLevels}
-              interview={draftInterview}
-              workplaces={workplaces}
-              living={draftLiving}
-              disabled={!storeConfigured || !pendingReady || savingGrant}
-              onChange={(nextLevels, nextInterview, nextLiving) => {
-                setDraftLevels(nextLevels);
-                setDraftInterview(nextInterview);
-                setDraftLiving(nextLiving);
-              }}
-            />
-          </label>
-          <div>
-            <button
-              type="submit"
-              disabled={!storeConfigured || !pendingReady || savingGrant}
-              className="inline-flex h-11 items-center rounded-2xl bg-primary px-space-16 font-label-md text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
+            <label className="flex min-w-0 flex-col gap-space-4">
+              <FieldLabel>Courses</FieldLabel>
+              <CoursePicker
+                label="Courses to pre-unlock"
+                levels={levels}
+                levelAccess={draftLevels}
+                interview={draftInterview}
+                workplaces={workplaces}
+                living={draftLiving}
+                disabled={pendingDisabled}
+                onChange={(nextLevels, nextInterview, nextLiving) => {
+                  setDraftLevels(nextLevels);
+                  setDraftInterview(nextInterview);
+                  setDraftLiving(nextLiving);
+                }}
+              />
+            </label>
+            <Button type="submit" variant="primary" icon="key" disabled={pendingDisabled} className="h-[38px]">
               {savingGrant ? "Saving…" : "Pre-unlock"}
-            </button>
-          </div>
-        </form>
+            </Button>
+          </form>
+        </div>
+
         {!pendingReady ? null : pendingRows.length === 0 ? (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
+          <p className="border-t border-admin-hairline px-space-16 py-space-16 text-admin-body-sm text-admin-ink-muted sm:px-space-20">
             No emails are waiting to sign up.
           </p>
         ) : (
-          <div className="flex flex-col gap-space-12 border-t border-outline-variant/20 pt-space-16">
-            <div role="tablist" aria-label="Filter pre-unlock by class" className="flex flex-wrap gap-space-8">
-              {pendingClassChips.map((chip) => {
-                const selected = chip.key === activePendingClass;
-                return (
-                  <button
-                    key={chip.key === "" ? "unassigned" : chip.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => setPendingClassFilter(chip.key)}
-                    className={`inline-flex h-9 items-center gap-space-8 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                      selected
-                        ? "bg-primary text-on-primary"
-                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    {chip.label}
-                    <span
-                      className={`tabular-nums ${selected ? "text-on-primary/80" : "text-on-surface-variant"}`}
-                    >
-                      {chip.count}
-                    </span>
-                  </button>
-                );
-              })}
+          <div className="flex flex-col border-t border-admin-hairline">
+            <div className="px-space-16 py-space-12 sm:px-space-20">
+              <ScopeChips
+                label="Waiting"
+                icon="hourglass_top"
+                ariaLabel="Filter pre-unlock by class"
+                value={activePendingClass}
+                options={pendingClassChips}
+                onSelect={setPendingClassFilter}
+              />
             </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-left">
-              <thead>
-                <tr className="font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  <th className="px-space-4 py-space-12">Email</th>
-                  <th className="px-space-16 py-space-12">Class</th>
-                  <th className="px-space-16 py-space-12">Courses</th>
-                  <th className="w-28 px-space-4 py-space-12 text-right">
-                    <span className="sr-only">Remove</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiblePending.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left">
+                <thead className={THEAD}>
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-space-4 py-space-24 font-body-sm text-body-sm text-on-surface-variant"
-                    >
-                      No waiting emails in this class.
-                    </td>
+                    <th className={TH}>Email</th>
+                    <th className={TH}>Class</th>
+                    <th className={TH}>Courses</th>
+                    <th className={`${TH} w-28 text-right`}>
+                      <span className="sr-only">Remove</span>
+                    </th>
                   </tr>
-                ) : null}
-                {visiblePending.map((row) => {
-                  const busy = savingPending.includes(row.email);
-                  return (
-                    <tr key={row.email} className="border-t border-outline-variant/20">
-                      <td className="px-space-4 py-space-12">
-                        <p className="min-w-[12rem] font-label-md text-label-md font-semibold text-on-surface">
-                          {row.email}
-                        </p>
-                      </td>
-                      <ClassCell
-                        userId={row.email}
-                        studentName={row.email}
-                        value={row.className}
-                        suggestions={classOptions.map((option) => option.label)}
-                        saving={busy}
-                        onSave={(next) =>
-                          void savePendingRow(row, { ...row, className: next || null })
-                        }
-                      />
-                      <td className="min-w-[14rem] px-space-16 py-space-12">
-                        <CoursePicker
-                          label={`Courses for ${row.email}`}
-                          levels={levels}
-                          levelAccess={row.levelAccess}
-                          interview={row.interviewAccess}
-                          workplaces={workplaces}
-                          living={row.livingAccess}
-                          disabled={busy}
-                          onChange={(nextLevels, nextInterview, nextLiving) =>
-                            void savePendingRow(row, {
-                              ...row,
-                              levelAccess: nextLevels,
-                              interviewAccess: nextInterview,
-                              livingAccess: nextLiving,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="px-space-4 py-space-12 text-right">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void removePending(row.email)}
-                          className="inline-flex h-8 items-center rounded-full px-space-12 font-label-sm text-label-sm font-semibold text-error hover:bg-error-container/40 disabled:opacity-50"
-                        >
-                          Remove
-                        </button>
+                </thead>
+                <tbody>
+                  {visiblePending.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted">
+                        No waiting emails in this class.
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ) : null}
+                  {visiblePending.map((row) => {
+                    const busy = savingPending.includes(row.email);
+                    return (
+                      <tr key={row.email} className={TR}>
+                        <td className="px-space-16 py-space-8">
+                          <Mono className="block min-w-[12rem] text-admin-ink">{row.email}</Mono>
+                        </td>
+                        <ClassCell
+                          userId={row.email}
+                          studentName={row.email}
+                          value={row.className}
+                          suggestions={classSuggestions}
+                          saving={busy}
+                          onSave={(next) => void savePendingRow(row, { ...row, className: next || null })}
+                        />
+                        <td className="min-w-[14rem] px-space-16 py-space-8">
+                          <CoursePicker
+                            label={`Courses for ${row.email}`}
+                            levels={levels}
+                            levelAccess={row.levelAccess}
+                            interview={row.interviewAccess}
+                            workplaces={workplaces}
+                            living={row.livingAccess}
+                            disabled={busy}
+                            onChange={(nextLevels, nextInterview, nextLiving) =>
+                              void savePendingRow(row, {
+                                ...row,
+                                levelAccess: nextLevels,
+                                interviewAccess: nextInterview,
+                                livingAccess: nextLiving,
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-space-16 py-space-8 text-right">
+                          <Button
+                            variant="ghost"
+                            icon="close"
+                            disabled={busy}
+                            onClick={() => void removePending(row.email)}
+                            className="text-admin-crimson hover:bg-admin-crimson-wash hover:text-admin-crimson"
+                          >
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-      </section>
+      </TablePanel>
 
-      <section className="flex flex-col gap-space-12 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-        <div className="flex flex-col gap-space-12 px-space-16 py-space-12">
-          <div>
-            <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-              Grants
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Toggle a level to unlock or lock it. Same grants as on Students.
-            </p>
-          </div>
-          <div className="flex flex-col gap-space-12 lg:flex-row lg:items-center">
-            <label className="relative w-full max-w-md">
+      <TablePanel
+        icon="key"
+        title="Grants"
+        hint="Toggle a level to unlock or lock it. Same grants as on Students."
+        footer={
+          <Pager
+            page={paged.page}
+            pageCount={paged.pageCount}
+            start={rangeStart}
+            end={rangeEnd}
+            total={paged.total}
+            noun="students"
+            onPage={setPage}
+          />
+        }
+      >
+        <div className="flex flex-col gap-space-12 border-b border-admin-hairline px-space-16 py-space-12 sm:px-space-20">
+          <div className="flex flex-col gap-space-12 sm:flex-row sm:items-center">
+            <label className="relative flex w-full max-w-md items-center">
               <span className="sr-only">Search by name, email, or class</span>
               <MaterialIcon
                 name="search"
-                className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+                className="pointer-events-none absolute left-space-12 text-[18px] text-admin-ink-faint"
               />
               <input
                 type="search"
                 value={query}
                 onChange={(event) => handleQueryChange(event.target.value)}
                 placeholder="Search by name, email, or class"
-                className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest py-space-8 pl-10 pr-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
+                className={`${INPUT} pl-9`}
               />
             </label>
-            <label className="inline-flex h-11 cursor-pointer items-center gap-space-8 rounded-2xl border border-outline-variant/40 px-space-16 font-label-sm text-label-sm font-semibold text-on-surface">
-              <input
-                type="checkbox"
+            <label
+              className={`inline-flex h-[38px] shrink-0 cursor-pointer items-center gap-space-8 rounded-admin-control border px-space-12 text-admin-label-md font-semibold transition-colors has-[:focus-visible]:shadow-admin-focus ${
+                lockedOnly
+                  ? "border-admin-crimson-border bg-admin-crimson-wash text-admin-crimson-ink"
+                  : "border-admin-hairline bg-admin-card text-admin-ink-muted hover:border-admin-border"
+              }`}
+            >
+              <Checkbox
                 checked={lockedOnly}
                 onChange={(event) => {
                   setLockedOnly(event.target.checked);
                   setPage(1);
                 }}
-                className="h-4 w-4 accent-primary"
               />
               No CEFR level
             </label>
           </div>
-          <div
-            role="tablist"
-            aria-label="Filter by class"
-            className="flex flex-wrap gap-space-8"
-          >
-            {classChips.map((chip) => {
-              const selected = chip.key === classFilter;
-              return (
-                <button
-                  key={chip.key === "" ? "unassigned" : chip.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => handleClassFilter(chip.key)}
-                  className={`inline-flex h-9 items-center gap-space-8 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                    selected
-                      ? "bg-primary text-on-primary"
-                      : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-                  }`}
-                >
-                  {chip.label}
-                  <span
-                    className={`tabular-nums ${selected ? "text-on-primary/80" : "text-on-surface-variant"}`}
-                  >
-                    {chip.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <ScopeChips
+            label="Class"
+            icon="school"
+            ariaLabel="Filter by class"
+            value={classFilter}
+            options={classChips}
+            onSelect={handleClassFilter}
+          />
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
-            <thead className="bg-surface-container-low">
+            <thead className={THEAD}>
               <tr>
-                <th className="sticky left-0 z-10 bg-surface-container-low px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Student
-                </th>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Class
-                </th>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Levels
-                </th>
+                <th className={`${TH} sticky left-0 z-20 bg-admin-subtle`}>Student</th>
+                <th className={TH}>Class</th>
+                <th className={TH}>Levels</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="text-admin-body-md text-admin-ink">
               {paged.pageRows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={3}
-                    className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
-                  >
-                    {liveRows.length === 0
-                      ? "No users have synced progress yet."
-                      : classFilter !== "all" &&
-                          usersInClass(liveRows, classFilter).length === 0 &&
-                          waitingMembers.some((row) => classKey(row.className) === classFilter)
-                        ? "No signed-in students in this class yet. Emails waiting to join are listed under Pre-unlock."
-                        : "No students match this filter."}
+                  <td colSpan={3} className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
+                    {emptyGrants}
                   </td>
                 </tr>
               ) : (
@@ -1241,43 +1145,38 @@ export function AdminAccess({
                   const granted = grantedFor(row);
                   const interview = interviewFor(row);
                   const living = livingFor(row);
-                  const busy =
-                    savingIds.includes(row.userId) ||
-                    savingInterviewIds.includes(row.userId);
+                  const busy = savingIds.includes(row.userId) || savingInterviewIds.includes(row.userId);
                   const classLabel =
-                    classOptions.find((option) => option.key === classKey(row.className))
-                      ?.label ?? row.className;
+                    classOptions.find((option) => option.key === classKey(row.className))?.label ??
+                    row.className;
                   return (
-                    <tr
-                      key={row.userId}
-                      className="border-t border-outline-variant/20"
-                    >
-                      <td className="sticky left-0 z-10 bg-surface-container-lowest px-space-16 py-space-16">
+                    <tr key={row.userId} className={TR}>
+                      <td className="sticky left-0 z-10 bg-admin-card px-space-16 py-space-8 group-hover:bg-admin-canvas">
                         <div className="flex min-w-[12rem] flex-col">
                           <span className="flex flex-wrap items-center gap-space-8">
-                            <span className="font-label-md text-label-md font-semibold text-on-surface">
-                              {row.displayName}
-                            </span>
+                            <span className="font-semibold text-admin-ink">{row.displayName}</span>
                             {row.staff && !row.isAdmin ? <StaffBadge /> : null}
                           </span>
                           {row.email && row.email !== row.displayName ? (
-                            <span className="font-body-sm text-body-sm text-on-surface-variant">
-                              {row.email}
-                            </span>
+                            <span className="truncate text-admin-body-sm text-admin-ink-subtle">{row.email}</span>
                           ) : null}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface-variant">
-                        {classLabel ?? "—"}
-                      </td>
-                      <td className="px-space-16 py-space-16">
-                        {row.isAdmin ? (
-                          <span className="inline-flex items-center gap-space-4 rounded-full bg-primary-fixed px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-primary-fixed">
-                            <MaterialIcon name="verified" className="text-[16px]" filled />
-                            All access
-                          </span>
+                      <td className="whitespace-nowrap px-space-16 py-space-8">
+                        {classLabel ? (
+                          <Badge tone="cobalt">{classLabel}</Badge>
                         ) : (
-                          <div className="flex max-w-[40rem] flex-wrap gap-space-8">
+                          <span className="text-admin-ink-faint">—</span>
+                        )}
+                      </td>
+                      <td className="px-space-16 py-space-8">
+                        {row.isAdmin ? (
+                          <Badge tone="cobalt">
+                            <MaterialIcon name="verified" className="-mx-0.5 text-[14px]" filled />
+                            All access
+                          </Badge>
+                        ) : (
+                          <div className="flex max-w-[40rem] flex-wrap gap-space-4">
                             {levels.map((level) => {
                               const on = granted.includes(level.slug);
                               return (
@@ -1292,14 +1191,10 @@ export function AdminAccess({
                               );
                             })}
                             <GrantChip
-                              label="Phỏng vấn"
+                              label={INTERVIEW_LABEL}
                               on={interview}
                               disabled={busy}
-                              title={
-                                interview
-                                  ? "Hide Luyện phỏng vấn theo nghề"
-                                  : "Show Luyện phỏng vấn theo nghề"
-                              }
+                              title={interview ? "Hide Luyện phỏng vấn theo nghề" : "Show Luyện phỏng vấn theo nghề"}
                               onToggle={() => void toggleInterview(row)}
                             />
                             {workplaces.map((workplace) => {
@@ -1329,33 +1224,7 @@ export function AdminAccess({
             </tbody>
           </table>
         </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-space-12 border-t border-outline-variant/20 px-space-16 py-space-12">
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {paged.total === 0
-              ? "0 students"
-              : `${rangeStart}–${rangeEnd} of ${paged.total}`}
-          </p>
-          <div className="flex items-center gap-space-8">
-            <button
-              type="button"
-              disabled={paged.page <= 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface disabled:text-outline hover:bg-surface-container"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={paged.page >= paged.pageCount}
-              onClick={() => setPage((current) => current + 1)}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface disabled:text-outline hover:bg-surface-container"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      </section>
+      </TablePanel>
     </main>
   );
 }

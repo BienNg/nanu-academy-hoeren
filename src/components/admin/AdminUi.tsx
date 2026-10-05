@@ -114,6 +114,46 @@ export function Badge({
   );
 }
 
+/** Floating menu surface for row menus, pickers and comboboxes. */
+export const POPOVER =
+  "fixed z-[80] overflow-hidden rounded-admin-card border border-admin-border bg-admin-card py-1 shadow-admin-pop";
+
+export const POPOVER_ITEM =
+  "flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left text-admin-body-md font-medium text-admin-ink outline-none hover:bg-admin-subtle focus-visible:bg-admin-subtle disabled:opacity-40";
+
+/** 28px lock/unlock chip for course grants. Open grants read amber, the CEFR colour. */
+export function GrantChip({
+  label,
+  on,
+  disabled,
+  title,
+  onToggle,
+}: {
+  label: string;
+  on: boolean;
+  disabled: boolean;
+  title: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      disabled={disabled}
+      title={title}
+      onClick={onToggle}
+      className={`inline-flex h-7 items-center gap-1 rounded-admin-badge border px-space-8 text-admin-label-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus disabled:opacity-50 ${
+        on
+          ? "border-admin-amber bg-admin-amber-wash text-admin-amber-ink"
+          : "border-transparent bg-admin-subtle text-admin-ink-muted hover:bg-admin-hairline hover:text-admin-ink"
+      }`}
+    >
+      <MaterialIcon name={on ? "lock_open" : "lock"} className="text-[14px]" />
+      {label}
+    </button>
+  );
+}
+
 /** Quiet context tag beside a page title, like "Vietnam time · GMT+7". */
 export function HeaderChip({ icon, children }: { icon: string; children: ReactNode }) {
   return (
