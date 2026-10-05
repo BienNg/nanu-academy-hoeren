@@ -336,8 +336,15 @@ export type AdminRange = (typeof ADMIN_RANGES)[number];
 
 export const DEFAULT_ADMIN_RANGE: AdminRange = "30d";
 
-/** Overview opens on today. Other ranged pages keep the 30-day default. */
+/** Overview and Activity open on today. Other ranged pages keep the 30-day default. */
 export const OVERVIEW_ADMIN_RANGE: AdminRange = "today";
+
+const TODAY_FIRST_ADMIN_PATHS = new Set(["/admin", "/admin/activity"]);
+
+/** The range a ranged admin page shows when the URL has no `?range=`. */
+export function defaultAdminRangeForPath(pathname: string): AdminRange {
+  return TODAY_FIRST_ADMIN_PATHS.has(pathname) ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+}
 
 const RANGE_DAYS: Record<AdminRange, number> = {
   today: 1,

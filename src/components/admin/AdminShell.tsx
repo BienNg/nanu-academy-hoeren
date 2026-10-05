@@ -18,8 +18,7 @@ import type { AdminDashboardRole } from "@/lib/admins";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import {
   ADMIN_RANGES,
-  DEFAULT_ADMIN_RANGE,
-  OVERVIEW_ADMIN_RANGE,
+  defaultAdminRangeForPath,
   adminRangeLabel,
   parseAdminRange,
   type AdminRange,
@@ -174,14 +173,10 @@ function activeItem(pathname: string): AdminNavItem | null {
   return best;
 }
 
-function defaultRangeForHref(href: string): AdminRange {
-  return href === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
-}
-
 function withAdminRange(href: string, range: string | null): string {
   if (
     !range ||
-    range === defaultRangeForHref(href) ||
+    range === defaultAdminRangeForPath(href) ||
     !(ADMIN_RANGES as readonly string[]).includes(range)
   ) {
     return href;
@@ -406,7 +401,7 @@ function RangePill() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const fallback = pathname === "/admin" ? OVERVIEW_ADMIN_RANGE : DEFAULT_ADMIN_RANGE;
+  const fallback = defaultAdminRangeForPath(pathname);
   const current = parseAdminRange(searchParams.get("range") ?? undefined, fallback);
 
   const select = useCallback(

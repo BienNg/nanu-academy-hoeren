@@ -4,6 +4,7 @@ import { AdminActivity } from "@/components/admin/AdminActivity";
 import {
   adminRangeVietnamDayKeys,
   adminRangeVietnamInterval,
+  OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
   toAdminUserRow,
   withSessionIdentity,
@@ -29,7 +30,7 @@ export default async function AdminActivityPage({
 }) {
   await connection();
   const session = await requireAdmin();
-  const range = parseAdminRange((await searchParams).range);
+  const range = parseAdminRange((await searchParams).range, OVERVIEW_ADMIN_RANGE);
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
