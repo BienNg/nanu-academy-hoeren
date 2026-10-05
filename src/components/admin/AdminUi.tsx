@@ -140,7 +140,7 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   secondary:
     "border border-admin-hairline bg-admin-card text-admin-ink-muted hover:border-admin-border hover:bg-admin-canvas hover:text-admin-ink",
   destructive:
-    "border border-admin-crimson-border bg-admin-crimson-wash text-admin-crimson hover:bg-[#fee2e2]",
+    "border border-admin-crimson-border bg-admin-crimson-wash text-admin-crimson hover:bg-admin-crimson-hover",
   ghost: "text-admin-ink-muted hover:bg-admin-subtle hover:text-admin-ink",
 };
 

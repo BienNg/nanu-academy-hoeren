@@ -489,7 +489,7 @@ export function AdminListeningRuns({
                                   type="button"
                                   aria-expanded={open}
                                   onClick={() => setOpenRun(open ? null : run.id)}
-                                  className="inline-flex h-5 items-center gap-0.5 rounded-admin-badge bg-admin-crimson-wash pl-1.5 pr-0.5 text-[12px] font-semibold leading-4 text-admin-crimson-ink ring-1 ring-inset ring-admin-crimson-border/60 outline-none transition-colors hover:bg-[#fee2e2] focus-visible:shadow-admin-focus"
+                                  className="inline-flex h-5 items-center gap-0.5 rounded-admin-badge bg-admin-crimson-wash pl-1.5 pr-0.5 text-[12px] font-semibold leading-4 text-admin-crimson-ink ring-1 ring-inset ring-admin-crimson-border/60 outline-none transition-colors hover:bg-admin-crimson-hover focus-visible:shadow-admin-focus"
                                 >
                                   {missed.length} missed
                                   <MaterialIcon

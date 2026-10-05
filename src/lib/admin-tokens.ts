@@ -58,12 +58,26 @@ export const adminColors = {
       subtle: c.inkSubtle,
       faint: c.inkFaint,
     },
-    cobalt: { DEFAULT: c.cobalt, strong: c.cobaltStrong, wash: c.cobaltWash, ink: c.cobalt },
+    /** `tint` marks selected rows; `hover` deepens a cobalt wash under the pointer. */
+    cobalt: {
+      DEFAULT: c.cobalt,
+      strong: c.cobaltStrong,
+      wash: c.cobaltWash,
+      ink: c.cobalt,
+      tint: "#f5f8ff",
+      hover: "#dbeafe",
+    },
     ember: { DEFAULT: c.ember, wash: c.emberWash, ink: "#9a3412" },
     amber: { DEFAULT: c.amber, wash: c.amberWash, ink: "#92400e" },
     emerald: { DEFAULT: c.emerald, wash: c.emeraldWash, ink: "#065f46" },
     violet: { DEFAULT: c.violet, wash: c.violetWash, ink: "#5b21b6" },
-    crimson: { DEFAULT: c.crimson, wash: c.crimsonWash, ink: "#b91c1c", border: c.crimsonBorder },
+    crimson: {
+      DEFAULT: c.crimson,
+      wash: c.crimsonWash,
+      ink: "#b91c1c",
+      border: c.crimsonBorder,
+      hover: "#fee2e2",
+    },
   },
 } as const;
 

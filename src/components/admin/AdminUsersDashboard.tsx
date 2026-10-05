@@ -1,7 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   CartesianGrid,
@@ -21,6 +29,23 @@ import {
 } from "@/app/admin/actions";
 import { AdminPageHeader, MaterialIcon, StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
+import {
+  Badge,
+  Button,
+  CARD,
+  ChartTooltip,
+  Checkbox,
+  Dialog,
+  HeaderChip,
+  INPUT,
+  PanelHeader,
+  Pager,
+  Segmented,
+  TH,
+  THEAD,
+  TR,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   CLASS_NAME_MAX_LENGTH,
@@ -37,13 +62,18 @@ import {
   type AdminSortKey,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
 const STUDENTS_PAGE_SIZE = 15;
-const AXIS = "#717785";
-const GRID = "#c1c6d6";
-const LINE_COLOR = "#0059b5";
 
 type RosterSeries = "users" | "classes";
+
+/** Popover surface shared by the row menu and the class picker. */
+const POPOVER =
+  "fixed z-[80] overflow-hidden rounded-admin-card border border-admin-border bg-admin-card py-1 shadow-admin-pop";
+
+const POPOVER_ITEM =
+  "flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left text-admin-body-md font-medium text-admin-ink outline-none hover:bg-admin-subtle focus-visible:bg-admin-subtle disabled:opacity-40";
 
 function SortHeader({
   label,
@@ -52,6 +82,7 @@ function SortHeader({
   dir,
   onSort,
   className,
+  children,
 }: {
   label: string;
   column: AdminSortKey;
@@ -59,29 +90,30 @@ function SortHeader({
   dir: AdminSortDir;
   onSort: (column: AdminSortKey) => void;
   className?: string;
+  /** Rendered before the sort button, e.g. the select-all checkbox. */
+  children?: ReactNode;
 }) {
   const active = sort === column;
   const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
 
   return (
-    <th
-      scope="col"
-      aria-sort={ariaSort}
-      className={`whitespace-nowrap px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant ${className ?? ""}`}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className="inline-flex items-center gap-space-4 rounded-md px-space-4 py-0.5 transition-colors hover:bg-surface-container-high hover:text-on-surface"
-      >
-        {label}
-        <MaterialIcon
-          name={
-            !active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"
-          }
-          className={`text-[16px] ${active ? "text-primary" : "text-outline"}`}
-        />
-      </button>
+    <th scope="col" aria-sort={ariaSort} className={`${TH} whitespace-nowrap text-left ${className ?? ""}`}>
+      <span className="inline-flex items-center gap-space-12">
+        {children}
+        <button
+          type="button"
+          onClick={() => onSort(column)}
+          className={`-mx-space-4 inline-flex items-center gap-space-4 rounded-admin-badge px-space-4 py-0.5 uppercase outline-none transition-colors hover:bg-admin-hairline hover:text-admin-ink focus-visible:shadow-admin-focus ${
+            active ? "text-admin-cobalt" : ""
+          }`}
+        >
+          {label}
+          <MaterialIcon
+            name={!active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"}
+            className={`text-[16px] ${active ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
+          />
+        </button>
+      </span>
     </th>
   );
 }
@@ -90,61 +122,39 @@ function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
 }
 
-function StreakCell({ days }: { days: number }) {
+function Streak({ days }: { days: number }) {
   const active = days > 0;
-
   return (
-    <td className="whitespace-nowrap px-space-16 py-space-16">
-      <span
-        className={`inline-flex items-center gap-space-4 ${
-          active ? "text-on-surface" : "text-outline"
-        }`}
-        title={
-          active
-            ? `${days} day${days === 1 ? "" : "s"} in a row`
-            : "No active streak"
-        }
-      >
-        <MaterialIcon
-          name="local_fire_department"
-          className={`text-[18px] ${active ? "text-[#ff9500]" : "text-outline"}`}
-          filled={active}
-        />
-        <span className="font-label-md text-label-md font-semibold">
-          {days}
-        </span>
-        <span className="font-caption text-caption text-on-surface-variant">
-          {days === 1 ? "day" : "days"}
-        </span>
-      </span>
-    </td>
+    <span
+      className={`inline-flex items-center gap-space-4 tabular-nums ${
+        active ? "text-admin-ember-ink" : "text-admin-ink-faint"
+      }`}
+      title={active ? `${days} day${days === 1 ? "" : "s"} in a row` : "No active streak"}
+    >
+      <MaterialIcon
+        name="local_fire_department"
+        className={`text-[18px] ${active ? "text-admin-ember" : ""}`}
+        filled={active}
+      />
+      <span className="text-admin-body-md font-semibold">{days}</span>
+      <span className="text-admin-body-sm text-admin-ink-subtle">{days === 1 ? "day" : "days"}</span>
+    </span>
   );
 }
 
-function LastLoginCell({ iso }: { iso: string | null }) {
+function LastSeen({ iso }: { iso: string | null }) {
   const absolute = formatAbsoluteTime(iso);
-
   if (!iso || !absolute) {
-    return (
-      <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-outline">
-        Not seen yet
-      </td>
-    );
+    return <span className="text-admin-body-sm text-admin-ink-subtle">Not seen yet</span>;
   }
-
   const comma = absolute.indexOf(", ");
   const date = comma === -1 ? absolute : absolute.slice(0, comma);
   const time = comma === -1 ? null : absolute.slice(comma + 2);
-
   return (
-    <td className="px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
-      <time dateTime={iso} className="flex flex-col">
-        <span className="whitespace-nowrap">{date}</span>
-        {time ? (
-          <span className="whitespace-nowrap text-on-surface-variant">{time}</span>
-        ) : null}
-      </time>
-    </td>
+    <time dateTime={iso} className="flex flex-col text-admin-body-sm text-admin-ink">
+      <span className="whitespace-nowrap">{date}</span>
+      {time ? <span className="whitespace-nowrap text-admin-ink-subtle">{time}</span> : null}
+    </time>
   );
 }
 
@@ -218,7 +228,7 @@ function RowActionsMenu({
             ref={menuRef}
             role="menu"
             aria-label={`Actions for ${name}`}
-            className="fixed z-[80] w-[220px] overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            className={`${POPOVER} w-[220px]`}
             style={{ top: box.top, left: box.left }}
           >
             {isAdmin ? null : (
@@ -230,9 +240,9 @@ function RowActionsMenu({
                   setOpen(false);
                   onStaff();
                 }}
-                className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40"
+                className={POPOVER_ITEM}
               >
-                <MaterialIcon name="admin_panel_settings" className="text-[18px] text-primary" />
+                <MaterialIcon name="admin_panel_settings" className="text-[18px] text-admin-cobalt" />
                 {isStaff ? "Remove staff" : "Make staff"}
               </button>
             )}
@@ -243,7 +253,7 @@ function RowActionsMenu({
                 setOpen(false);
                 onDelete();
               }}
-              className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-error hover:bg-error-container"
+              className={`${POPOVER_ITEM} text-admin-crimson hover:bg-admin-crimson-wash focus-visible:bg-admin-crimson-wash`}
             >
               <MaterialIcon name="delete" className="text-[18px]" />
               Delete
@@ -254,28 +264,28 @@ function RowActionsMenu({
       : null;
 
   return (
-    <td
-      className="sticky right-0 z-10 bg-surface-container-lowest px-space-12 py-space-16 text-right group-hover:bg-surface-container-low"
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-    >
+    <>
       <button
         ref={buttonRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Actions for ${name}`}
-        onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((current) => !current);
+        }}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-admin-control text-admin-ink-subtle outline-none transition-colors hover:bg-admin-subtle hover:text-admin-ink focus-visible:shadow-admin-focus"
       >
         <MaterialIcon name="more_vert" className="text-[20px]" />
       </button>
       {menu}
-    </td>
+    </>
   );
 }
 
-export function ClassCell({
+/** Inline class editor with a suggestion list. Rendered bare so cards can reuse it. */
+function ClassEditor({
   userId,
   studentName,
   value,
@@ -362,115 +372,128 @@ export function ClassCell({
   const menu =
     editing && menuBox && typeof document !== "undefined"
       ? createPortal(
-            <div
-              id={listId}
-              role="listbox"
-              aria-label={`Classes for ${studentName}`}
-              className="fixed z-[80] max-h-60 overflow-y-auto rounded-2xl border border-outline-variant/30 bg-surface-container-lowest py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
-              style={{ top: menuBox.top, left: menuBox.left, width: menuBox.width }}
-            >
-              {matches.length === 0 ? (
-                <p className="px-space-12 py-space-8 font-body-sm text-body-sm text-on-surface-variant">
-                  {suggestions.length === 0
-                    ? "Type a class name, then save."
-                    : "No matching classes. Save to create this one."}
-                </p>
-              ) : (
-                matches.map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="option"
-                    aria-selected={classKey(label) === classKey(value)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => commitFrom(label)}
-                    className="flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container"
-                  >
-                    <MaterialIcon name="school" className="text-[16px] text-primary" />
-                    <span className="truncate">{label}</span>
-                  </button>
-                ))
-              )}
-            </div>,
-            document.body,
-          )
+          <div
+            id={listId}
+            role="listbox"
+            aria-label={`Classes for ${studentName}`}
+            className={`${POPOVER} max-h-60 overflow-y-auto`}
+            style={{ top: menuBox.top, left: menuBox.left, width: menuBox.width }}
+          >
+            {matches.length === 0 ? (
+              <p className="px-space-12 py-space-8 text-admin-body-sm text-admin-ink-muted">
+                {suggestions.length === 0
+                  ? "Type a class name, then save."
+                  : "No matching classes. Save to create this one."}
+              </p>
+            ) : (
+              matches.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="option"
+                  aria-selected={classKey(label) === classKey(value)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => commitFrom(label)}
+                  className={POPOVER_ITEM}
+                >
+                  <MaterialIcon name="school" className="text-[16px] text-admin-cobalt" />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )
       : null;
 
   return (
-    <td
-      className="w-44 min-w-44 max-w-44 px-space-16 py-space-16"
+    <div
+      className="w-44 max-w-44"
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <div className="w-44 max-w-44">
-        {editing ? (
-          <form
-            className="relative w-full"
-            onSubmit={(event) => {
-              event.preventDefault();
-              commitFrom(inputRef.current?.value ?? draft);
-            }}
-          >
-            <label className="sr-only" htmlFor={`class-${userId}`}>
-              Class for {studentName}
-            </label>
-            <input
-              ref={inputRef}
-              id={`class-${userId}`}
-              autoFocus
-              value={draft}
-              role="combobox"
-              aria-expanded={matches.length > 0}
-              aria-controls={listId}
-              aria-autocomplete="list"
-              maxLength={CLASS_NAME_MAX_LENGTH}
-              disabled={saving}
-              placeholder="Class name"
-              autoComplete="off"
-              onChange={(event) => setDraft(event.target.value)}
-              onBlur={(event) => commitFrom(event.target.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  cancel();
-                }
-              }}
-              className="h-8 w-full rounded-full border border-primary-container bg-white py-0 pl-space-12 pr-8 font-label-sm text-label-sm text-on-surface outline-none focus:ring-2 focus:ring-primary-fixed"
-            />
-            <button
-              type="submit"
-              disabled={saving}
-              aria-label={`Save class for ${studentName}`}
-              onMouseDown={(event) => event.preventDefault()}
-              className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              <MaterialIcon name="check" className="text-[16px]" />
-            </button>
-          </form>
-        ) : (
-          <button
-            type="button"
+      {editing ? (
+        <form
+          className="relative w-full"
+          onSubmit={(event) => {
+            event.preventDefault();
+            commitFrom(inputRef.current?.value ?? draft);
+          }}
+        >
+          <label className="sr-only" htmlFor={`class-${userId}`}>
+            Class for {studentName}
+          </label>
+          <input
+            ref={inputRef}
+            id={`class-${userId}`}
+            autoFocus
+            value={draft}
+            role="combobox"
+            aria-expanded={matches.length > 0}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            maxLength={CLASS_NAME_MAX_LENGTH}
             disabled={saving}
-            onClick={begin}
-            aria-label={value ? `Class ${value} for ${studentName}` : `Add class for ${studentName}`}
-            className={`inline-flex h-8 max-w-full items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
-              value
-                ? "bg-surface-container text-on-surface hover:bg-surface-container-high"
-                : "border border-dashed border-outline-variant/70 text-on-surface-variant hover:bg-surface-container"
-            }`}
+            placeholder="Class name"
+            autoComplete="off"
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={(event) => commitFrom(event.target.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancel();
+              }
+            }}
+            className="h-8 w-full rounded-admin-control border border-admin-cobalt bg-admin-card py-0 pl-space-8 pr-8 text-admin-body-sm text-admin-ink shadow-admin-focus outline-none"
+          />
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={`Save class for ${studentName}`}
+            onMouseDown={(event) => event.preventDefault()}
+            className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-admin-badge bg-admin-cobalt text-white transition-colors hover:bg-admin-cobalt-strong disabled:opacity-50"
           >
-            <MaterialIcon name={value ? "school" : "add"} className="text-[14px]" />
-            <span className="truncate">{value ?? "Add class"}</span>
+            <MaterialIcon name="check" className="text-[16px]" />
           </button>
-        )}
-      </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={begin}
+          aria-label={value ? `Class ${value} for ${studentName}` : `Add class for ${studentName}`}
+          className={`inline-flex h-7 max-w-full items-center gap-1 rounded-admin-badge px-space-8 text-admin-label-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus disabled:opacity-50 ${
+            value
+              ? "bg-admin-cobalt-wash text-admin-cobalt-ink ring-1 ring-inset ring-admin-cobalt/20 hover:bg-admin-cobalt-hover"
+              : "border border-dashed border-admin-border text-admin-ink-muted hover:border-admin-ink-faint hover:bg-admin-subtle"
+          }`}
+        >
+          <MaterialIcon name={value ? "school" : "add"} className="text-[14px]" />
+          <span className="truncate">{value ?? "Add class"}</span>
+        </button>
+      )}
       {menu}
+    </div>
+  );
+}
+
+/** Table cell around ClassEditor, also used by the Overview's active users table. */
+export function ClassCell(props: Parameters<typeof ClassEditor>[0]) {
+  return (
+    <td className="w-44 min-w-44 max-w-44 px-space-16 py-space-8">
+      <ClassEditor {...props} />
     </td>
   );
 }
 
-function LevelAccessCell({
+const LEVEL_CHIP =
+  "inline-flex h-7 items-center gap-1 rounded-admin-badge border px-space-8 text-admin-label-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus disabled:opacity-50";
+const LEVEL_ON = "border-admin-amber bg-admin-amber-wash text-admin-amber-ink";
+const LEVEL_OFF =
+  "border-transparent bg-admin-subtle text-admin-ink-muted hover:bg-admin-hairline hover:text-admin-ink";
+
+function LevelAccessChips({
   row,
   levels,
   granted,
@@ -491,70 +514,151 @@ function LevelAccessCell({
 }) {
   if (row.isAdmin) {
     return (
-      <td className="px-space-16 py-space-16">
-        <span className="inline-flex items-center gap-space-4 rounded-full bg-primary-fixed px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-primary-fixed">
-          <MaterialIcon name="verified" className="text-[16px]" filled />
-          All access
-        </span>
-      </td>
+      <Badge tone="cobalt">
+        <MaterialIcon name="verified" className="-mx-0.5 text-[14px]" filled />
+        All access
+      </Badge>
     );
   }
 
   return (
-    <td
-      className="px-space-16 py-space-16"
+    <div
+      className="flex max-w-[32rem] flex-wrap gap-space-4"
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <div className="flex max-w-[32rem] flex-wrap gap-space-8">
-        {levels.map((level) => {
-          const on = granted.includes(level.slug);
-          return (
-            <button
-              key={level.slug}
-              type="button"
-              aria-pressed={on}
-              disabled={saving || interviewSaving}
-              title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
-              onClick={() => onToggle(level.slug)}
-              className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
-                on
-                  ? "bg-primary text-on-primary"
-                  : "border border-outline-variant/60 bg-surface text-on-surface-variant hover:bg-surface-container"
-              }`}
-            >
-              <MaterialIcon
-                name={on ? "lock_open" : "lock"}
-                className="text-[14px]"
-              />
-              {level.level}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          aria-pressed={interviewAccess}
-          disabled={saving || interviewSaving}
-          title={
-            interviewAccess
-              ? "Hide Luyện phỏng vấn theo nghề"
-              : "Show Luyện phỏng vấn theo nghề"
-          }
-          onClick={onToggleInterview}
-          className={`inline-flex h-8 items-center gap-1 rounded-full px-space-12 font-label-sm text-label-sm font-semibold transition-colors disabled:opacity-50 ${
-            interviewAccess
-              ? "bg-primary text-on-primary"
-              : "border border-outline-variant/60 bg-surface text-on-surface-variant hover:bg-surface-container"
-          }`}
-        >
-          <MaterialIcon
-            name={interviewAccess ? "lock_open" : "lock"}
-            className="text-[14px]"
-          />
-          Phỏng vấn
-        </button>
-      </div>
-    </td>
+      {levels.map((level) => {
+        const on = granted.includes(level.slug);
+        return (
+          <button
+            key={level.slug}
+            type="button"
+            aria-pressed={on}
+            disabled={saving || interviewSaving}
+            title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
+            onClick={() => onToggle(level.slug)}
+            className={`${LEVEL_CHIP} ${on ? LEVEL_ON : LEVEL_OFF}`}
+          >
+            <MaterialIcon name={on ? "lock_open" : "lock"} className="text-[14px]" />
+            {level.level}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        aria-pressed={interviewAccess}
+        disabled={saving || interviewSaving}
+        title={interviewAccess ? "Hide Luyện phỏng vấn theo nghề" : "Show Luyện phỏng vấn theo nghề"}
+        onClick={onToggleInterview}
+        className={`${LEVEL_CHIP} ${interviewAccess ? LEVEL_ON : LEVEL_OFF}`}
+      >
+        <MaterialIcon name={interviewAccess ? "lock_open" : "lock"} className="text-[14px]" />
+        Phỏng vấn
+      </button>
+    </div>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink"
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Bar that appears while rows are selected, for class and level changes in one go. */
+function BulkBar({
+  count,
+  levels,
+  classSuggestions,
+  busy,
+  onSetClass,
+  onLevel,
+  onClear,
+}: {
+  count: number;
+  levels: readonly AdminLevelOption[];
+  classSuggestions: readonly string[];
+  busy: boolean;
+  onSetClass: (className: string) => void;
+  onLevel: (slug: string, grant: boolean) => void;
+  onClear: () => void;
+}) {
+  const [className, setClassName] = useState("");
+  const [level, setLevel] = useState(levels[0]?.slug ?? "");
+  return (
+    <div
+      role="region"
+      aria-label="Bulk actions"
+      className="sticky top-16 z-30 flex flex-wrap items-center gap-space-12 rounded-admin-card border border-admin-cobalt/30 bg-admin-cobalt-wash px-space-16 py-space-12 shadow-admin-card"
+    >
+      <span className="flex items-center gap-space-8 text-admin-body-md font-semibold text-admin-cobalt-ink">
+        <MaterialIcon name="check_box" className="text-[18px]" filled />
+        {formatCount(count)} selected
+      </span>
+      <form
+        className="flex items-center gap-space-8"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSetClass(className);
+        }}
+      >
+        <label className="sr-only" htmlFor="bulk-class">
+          Class for selected students
+        </label>
+        <input
+          id="bulk-class"
+          list="bulk-class-options"
+          value={className}
+          maxLength={CLASS_NAME_MAX_LENGTH}
+          placeholder="Class name"
+          disabled={busy}
+          onChange={(event) => setClassName(event.target.value)}
+          className={`${INPUT} h-9 w-40`}
+        />
+        <datalist id="bulk-class-options">
+          {classSuggestions.map((label) => (
+            <option key={label} value={label} />
+          ))}
+        </datalist>
+        <Button type="submit" icon="school" disabled={busy || !normalizeClassName(className)}>
+          Set class
+        </Button>
+      </form>
+      {levels.length > 0 ? (
+        <div className="flex items-center gap-space-8">
+          <label className="sr-only" htmlFor="bulk-level">
+            Level for selected students
+          </label>
+          <select
+            id="bulk-level"
+            value={level}
+            disabled={busy}
+            onChange={(event) => setLevel(event.target.value)}
+            className={`${INPUT} h-9 w-24 pr-space-8`}
+          >
+            {levels.map((option) => (
+              <option key={option.slug} value={option.slug}>
+                {option.level}
+              </option>
+            ))}
+          </select>
+          <Button icon="lock_open" disabled={busy || !level} onClick={() => onLevel(level, true)}>
+            Unlock
+          </Button>
+          <Button icon="lock" disabled={busy || !level} onClick={() => onLevel(level, false)}>
+            Lock
+          </Button>
+        </div>
+      ) : null}
+      <Button variant="ghost" className="ml-auto" disabled={busy} onClick={onClear}>
+        {busy ? "Saving…" : "Clear"}
+      </Button>
+    </div>
   );
 }
 
@@ -805,6 +909,7 @@ export function AdminUsersDashboard({
       current.includes(deletedId) ? current : [...current, deletedId],
     );
     setDetailUserId((current) => (current === deletedId ? null : current));
+    setSelected((current) => current.filter((id) => id !== deletedId));
     setConfirmRow(null);
     setDeleting(false);
     startTransition(() => {
@@ -839,6 +944,146 @@ export function AdminUsersDashboard({
     paged.total === 0 ? 0 : (paged.page - 1) * STUDENTS_PAGE_SIZE + 1;
   const rangeEnd = Math.min(paged.page * STUDENTS_PAGE_SIZE, paged.total);
 
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const selectedRows = useMemo(
+    () => visibleRows.filter((row) => selected.includes(row.userId)),
+    [visibleRows, selected],
+  );
+  const pageIds = paged.pageRows.map((row) => row.userId);
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+
+  function toggleSelected(userId: string) {
+    setSelected((current) =>
+      current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId],
+    );
+  }
+
+  function togglePage() {
+    setSelected((current) =>
+      allOnPage
+        ? current.filter((id) => !pageIds.includes(id))
+        : [...current, ...pageIds.filter((id) => !current.includes(id))],
+    );
+  }
+
+  function finishBulk(done: number, failed: number, firstError: string | undefined, what: string) {
+    setBulkBusy(false);
+    setBulkMessage(
+      failed === 0
+        ? { ok: true, text: `${what} for ${formatCount(done)} ${done === 1 ? "student" : "students"}.` }
+        : {
+            ok: false,
+            text: `${formatCount(failed)} of ${formatCount(done + failed)} could not be saved. ${firstError ?? ""}`.trim(),
+          },
+    );
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  // One request per student, in order, so a failure names how many did not save.
+  async function bulkSetClass(raw: string) {
+    const next = normalizeClassName(raw);
+    if (!next || bulkBusy) return;
+    setBulkBusy(true);
+    setBulkMessage(null);
+    let done = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+    for (const row of selectedRows) {
+      const result = await setAdminUserClass(row.userId, next);
+      if (result.ok) {
+        done += 1;
+        setClassByUser((prev) => ({ ...prev, [row.userId]: result.className }));
+      } else {
+        failed += 1;
+        firstError ??= result.error;
+      }
+    }
+    finishBulk(done, failed, firstError, `Class set to ${next}`);
+  }
+
+  async function bulkLevel(slug: string, grant: boolean) {
+    if (bulkBusy) return;
+    const label = levels.find((level) => level.slug === slug)?.level ?? slug;
+    setBulkBusy(true);
+    setBulkMessage(null);
+    let done = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+    for (const row of selectedRows) {
+      if (row.isAdmin) continue;
+      const current = grantedFor(row);
+      const has = current.includes(slug);
+      if (has === grant) {
+        done += 1;
+        continue;
+      }
+      const next = grant ? [...current, slug] : current.filter((item) => item !== slug);
+      const result = await setAdminUserLevelAccess(row.userId, next);
+      if (result.ok) {
+        done += 1;
+        setAccessByUser((prev) => ({ ...prev, [row.userId]: result.levelAccess }));
+      } else {
+        failed += 1;
+        firstError ??= result.error;
+      }
+    }
+    finishBulk(done, failed, firstError, `${label} ${grant ? "unlocked" : "locked"}`);
+  }
+
+  const classSuggestions = classOptions.map((option) => option.label);
+
+  function rowActions(row: AdminUserRow) {
+    return (
+      <RowActionsMenu
+        name={row.displayName}
+        isAdmin={row.isAdmin}
+        isStaff={staffFor(row)}
+        staffSaving={staffSaving}
+        onStaff={() => {
+          setStaffError(null);
+          setStaffPrompt({ row, next: !staffFor(row) });
+        }}
+        onDelete={() => {
+          setDeleteError(null);
+          setConfirmRow(row);
+        }}
+      />
+    );
+  }
+
+  function levelChips(row: AdminUserRow) {
+    return (
+      <LevelAccessChips
+        row={row}
+        levels={levels}
+        granted={grantedFor(row)}
+        saving={savingIds.includes(row.userId)}
+        onToggle={(slug) => void toggleLevel(row, slug)}
+        interviewAccess={interviewFor(row)}
+        interviewSaving={savingInterviewIds.includes(row.userId)}
+        onToggleInterview={() => void toggleInterview(row)}
+      />
+    );
+  }
+
+  function classEditor(row: AdminUserRow) {
+    return {
+      userId: row.userId,
+      studentName: row.displayName,
+      value: displayClass(row),
+      suggestions: classSuggestions,
+      saving: savingClassIds.includes(row.userId) || bulkBusy,
+      onSave: (next: string) => void saveClass(row, next),
+    };
+  }
+
+  const emptyMessage =
+    visibleRows.length === 0 ? "No users have synced progress yet." : "No users match your search.";
+
   return (
     <>
       <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
@@ -851,99 +1096,63 @@ export function AdminUsersDashboard({
               : "Assign classes and grant courses. You can see every stat. Deleting accounts or progress stays with the main admin."
           }
           trailing={
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {visibleRows.length} {visibleRows.length === 1 ? "user" : "users"}
-            </p>
+            <HeaderChip icon="group">
+              {formatCount(visibleRows.length)} {visibleRows.length === 1 ? "user" : "users"}
+            </HeaderChip>
           }
         />
 
-        <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-space-12 px-space-16 py-space-12">
-            <div>
-              <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-                Last 30 days
-              </h2>
-              <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-                {rosterSeries === "users"
-                  ? "Users by the day each account was first seen."
-                  : "Classes by the day each one first appeared."}{" "}
-                Days are Vietnam time.
-              </p>
-            </div>
-            <div role="tablist" aria-label="Chart series" className="flex gap-space-8">
-              {(
-                [
+        <section className={`${CARD} flex flex-col gap-space-16 p-space-16 sm:p-space-20`}>
+          <PanelHeader
+            icon="trending_up"
+            title="Last 30 days"
+            hint={`${
+              rosterSeries === "users"
+                ? "Users by the day each account was first seen."
+                : "Classes by the day each one first appeared."
+            } Days are Vietnam time.`}
+            trailing={
+              <Segmented
+                ariaLabel="Chart series"
+                value={rosterSeries}
+                options={[
                   { key: "users", label: "Users" },
                   { key: "classes", label: "Classes" },
-                ] as const
-              ).map((option) => {
-                const on = rosterSeries === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => setRosterSeries(option.key)}
-                    className={`inline-flex h-9 items-center rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                      on
-                        ? "bg-primary text-on-primary"
-                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">
+                ]}
+                onSelect={setRosterSeries}
+              />
+            }
+          />
+          <div className="h-56 w-full sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rosterTrend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+                <CartesianGrid stroke={ADMIN_COLORS.grid} vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fill: AXIS, fontSize: 11 }}
+                  tick={{ fill: ADMIN_COLORS.axis, fontSize: 11 }}
                   tickLine={false}
-                  axisLine={{ stroke: GRID }}
+                  axisLine={{ stroke: ADMIN_COLORS.grid }}
                   interval={3}
                 />
                 <YAxis
                   allowDecimals={false}
                   width={36}
-                  tick={{ fill: AXIS, fontSize: 11 }}
+                  tick={{ fill: ADMIN_COLORS.axis, fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                 />
                 <Tooltip
-                  content={({ active, label, payload }) => {
-                    const row = payload?.[0];
-                    if (!active || !row) return null;
-                    return (
-                      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
-                        <p className="font-label-sm text-label-sm font-semibold text-on-surface">
-                          {label}
-                        </p>
-                        <p className="mt-1 flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant">
-                          <span>{row.name}</span>
-                          <span className="tabular-nums text-on-surface">
-                            {typeof row.value === "number"
-                              ? row.value.toLocaleString("en-GB")
-                              : row.value}
-                          </span>
-                        </p>
-                      </div>
-                    );
-                  }}
+                  content={<ChartTooltip />}
+                  cursor={{ stroke: ADMIN_COLORS.border, strokeDasharray: "3 3" }}
                 />
                 <Line
                   type="monotone"
                   dataKey={rosterSeries}
                   name={rosterSeries === "users" ? "Users" : "Classes"}
-                  stroke={LINE_COLOR}
+                  stroke={ADMIN_COLORS.cobalt}
                   strokeWidth={2}
                   dot={false}
-                  activeDot={{ r: 4 }}
+                  activeDot={{ r: 4, stroke: ADMIN_COLORS.cobalt, strokeWidth: 2, fill: ADMIN_COLORS.card }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -951,47 +1160,63 @@ export function AdminUsersDashboard({
         </section>
 
         {!storeConfigured ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-            Cloud progress is not configured. This dashboard only lists
-            learners who have synced progress to Supabase.
-          </div>
+          <Notice>
+            Cloud progress is not configured. This dashboard only lists learners who have synced
+            progress to Supabase.
+          </Notice>
         ) : null}
 
-        <label className="relative w-full max-w-md">
+        <label className="relative flex w-full max-w-md items-center">
           <span className="sr-only">Search by name, email, or class</span>
           <MaterialIcon
             name="search"
-            className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
+            className="pointer-events-none absolute left-space-12 text-[18px] text-admin-ink-faint"
           />
           <input
             type="search"
             value={query}
             onChange={(event) => handleQueryChange(event.target.value)}
             placeholder="Search by name, email, or class"
-            className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest py-space-8 pl-10 pr-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
+            className={`${INPUT} pl-9`}
           />
         </label>
 
-        {accessError ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-            {accessError}
-          </div>
+        {accessError ? <Notice>{accessError}</Notice> : null}
+        {classError ? <Notice>{classError}</Notice> : null}
+        {staffError && !staffPrompt ? <Notice>{staffError}</Notice> : null}
+
+        {selectedRows.length > 0 ? (
+          <BulkBar
+            count={selectedRows.length}
+            levels={levels}
+            classSuggestions={classSuggestions}
+            busy={bulkBusy}
+            onSetClass={(next) => void bulkSetClass(next)}
+            onLevel={(slug, grant) => void bulkLevel(slug, grant)}
+            onClear={() => {
+              setSelected([]);
+              setBulkMessage(null);
+            }}
+          />
         ) : null}
-        {classError ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-            {classError}
-          </div>
-        ) : null}
-        {staffError && !staffPrompt ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-            {staffError}
-          </div>
+        {bulkMessage ? (
+          bulkMessage.ok ? (
+            <p
+              role="status"
+              className="flex items-center gap-space-8 text-admin-body-sm text-admin-emerald-ink"
+            >
+              <MaterialIcon name="check_circle" className="text-[18px] text-admin-emerald" filled />
+              {bulkMessage.text}
+            </p>
+          ) : (
+            <Notice>{bulkMessage.text}</Notice>
+          )
         ) : null}
 
-        <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-          <div className="overflow-x-auto">
+        <section className={`${CARD} overflow-hidden`}>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full border-collapse text-left">
-              <thead className="bg-surface-container-low">
+              <thead className={THEAD}>
                 <tr>
                   <SortHeader
                     label="User"
@@ -999,8 +1224,15 @@ export function AdminUsersDashboard({
                     sort={sort}
                     dir={dir}
                     onSort={handleSort}
-                    className="sticky left-0 z-10 bg-surface-container-low"
-                  />
+                    className="sticky left-0 z-20 bg-admin-subtle"
+                  >
+                    <Checkbox
+                      aria-label={allOnPage ? "Clear this page" : "Select this page"}
+                      checked={allOnPage}
+                      disabled={pageIds.length === 0 || bulkBusy}
+                      onChange={togglePage}
+                    />
+                  </SortHeader>
                   <SortHeader
                     label="Class"
                     column="class"
@@ -1009,146 +1241,177 @@ export function AdminUsersDashboard({
                     onSort={handleSort}
                     className="w-44 min-w-44 max-w-44"
                   />
-                  <SortHeader
-                    label="Last seen"
-                    column="lastLogin"
-                    sort={sort}
-                    dir={dir}
-                    onSort={handleSort}
-                  />
-                  <SortHeader
-                    label="Streak"
-                    column="streak"
-                    sort={sort}
-                    dir={dir}
-                    onSort={handleSort}
-                  />
-                  <th
-                    scope="col"
-                    className="px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
-                  >
+                  <SortHeader label="Last seen" column="lastLogin" sort={sort} dir={dir} onSort={handleSort} />
+                  <SortHeader label="Streak" column="streak" sort={sort} dir={dir} onSort={handleSort} />
+                  <th scope="col" className={`${TH} text-left`}>
                     Level access
                   </th>
                   {isOwner ? (
-                    <th
-                      scope="col"
-                      className="sticky right-0 z-10 w-14 bg-surface-container-low px-space-12 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant"
-                    >
+                    <th scope="col" className={`${TH} sticky right-0 z-20 w-14 bg-admin-subtle`}>
                       <span className="sr-only">Actions</span>
                     </th>
                   ) : null}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="text-admin-body-md text-admin-ink">
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={isOwner ? 6 : 5}
-                      className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
+                      className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                     >
-                      {visibleRows.length === 0
-                        ? "No users have synced progress yet."
-                        : "No users match your search."}
+                      {emptyMessage}
                     </td>
                   </tr>
                 ) : (
-                  paged.pageRows.map((row) => (
-                    <tr
-                      key={row.userId}
-                      tabIndex={0}
-                      onClick={() => setDetailUserId(row.userId)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") setDetailUserId(row.userId);
-                      }}
-                      className="group cursor-pointer border-t border-outline-variant/20 hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
-                    >
-                      <td className="sticky left-0 z-10 bg-surface-container-lowest px-space-16 py-space-16 group-hover:bg-surface-container-low">
-                        <div className="flex min-w-[14rem] flex-col">
-                          <span className="flex flex-wrap items-center gap-space-8">
-                            <span className="font-label-md text-label-md font-semibold text-on-surface">
-                              {row.displayName}
+                  paged.pageRows.map((row) => {
+                    const picked = selected.includes(row.userId);
+                    const stickyBg = picked
+                      ? "bg-admin-cobalt-tint group-hover:bg-admin-cobalt-wash"
+                      : "bg-admin-card group-hover:bg-admin-canvas";
+                    return (
+                      <tr
+                        key={row.userId}
+                        tabIndex={0}
+                        aria-selected={picked}
+                        onClick={() => setDetailUserId(row.userId)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") setDetailUserId(row.userId);
+                        }}
+                        className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50 ${
+                          picked ? "bg-admin-cobalt-tint hover:bg-admin-cobalt-wash" : ""
+                        }`}
+                      >
+                        <td className={`sticky left-0 z-10 px-space-16 py-space-8 ${stickyBg}`}>
+                          <div className="flex min-w-[15rem] items-center gap-space-12">
+                            <span
+                              className="flex"
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              <Checkbox
+                                aria-label={`Select ${row.displayName}`}
+                                checked={picked}
+                                disabled={bulkBusy}
+                                onChange={() => toggleSelected(row.userId)}
+                              />
                             </span>
-                            {staffFor(row) ? <StaffBadge /> : null}
-                          </span>
-                          {row.email && row.email !== row.displayName ? (
-                            <span className="font-body-sm text-body-sm text-on-surface-variant">
-                              {row.email}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <ClassCell
-                        userId={row.userId}
-                        studentName={row.displayName}
-                        value={displayClass(row)}
-                        suggestions={classOptions.map((option) => option.label)}
-                        saving={savingClassIds.includes(row.userId)}
-                        onSave={(next) => void saveClass(row, next)}
-                      />
-                      <LastLoginCell iso={row.lastLoginAt} />
-                      <StreakCell days={row.streakDays} />
-                      <LevelAccessCell
-                        row={row}
-                        levels={levels}
-                        granted={grantedFor(row)}
-                        saving={savingIds.includes(row.userId)}
-                        onToggle={(slug) => void toggleLevel(row, slug)}
-                        interviewAccess={interviewFor(row)}
-                        interviewSaving={savingInterviewIds.includes(row.userId)}
-                        onToggleInterview={() => void toggleInterview(row)}
-                      />
-                      {isOwner ? (
-                        <RowActionsMenu
-                          name={row.displayName}
-                          isAdmin={row.isAdmin}
-                          isStaff={staffFor(row)}
-                          staffSaving={staffSaving}
-                          onStaff={() => {
-                            setStaffError(null);
-                            setStaffPrompt({ row, next: !staffFor(row) });
-                          }}
-                          onDelete={() => {
-                            setDeleteError(null);
-                            setConfirmRow(row);
-                          }}
-                        />
-                      ) : null}
-                    </tr>
-                  ))
+                            <div className="flex min-w-0 flex-col">
+                              <span className="flex flex-wrap items-center gap-space-8">
+                                <span className="font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
+                                  {row.displayName}
+                                </span>
+                                {staffFor(row) ? <StaffBadge /> : null}
+                              </span>
+                              {row.email && row.email !== row.displayName ? (
+                                <span className="truncate text-admin-body-sm text-admin-ink-subtle">
+                                  {row.email}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                        <ClassCell {...classEditor(row)} />
+                        <td className="px-space-16 py-space-8">
+                          <LastSeen iso={row.lastLoginAt} />
+                        </td>
+                        <td className="whitespace-nowrap px-space-16 py-space-8">
+                          <Streak days={row.streakDays} />
+                        </td>
+                        <td className="px-space-16 py-space-8">{levelChips(row)}</td>
+                        {isOwner ? (
+                          <td
+                            className={`sticky right-0 z-10 px-space-12 py-space-8 text-right ${stickyBg}`}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            {rowActions(row)}
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-space-12 border-t border-outline-variant/20 px-space-16 py-space-12">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {paged.total === 0
-                ? "0 users"
-                : `${rangeStart}–${rangeEnd} of ${paged.total}`}
-            </p>
-            <div className="flex items-center gap-space-8">
-              <button
-                type="button"
-                disabled={paged.page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="inline-flex h-9 items-center rounded-xl border border-outline-variant/50 bg-white px-space-12 font-label-sm text-label-sm text-on-surface transition-opacity hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">
-                Page {paged.page}/{paged.pageCount}
-              </span>
-              <button
-                type="button"
-                disabled={paged.page >= paged.pageCount}
-                onClick={() =>
-                  setPage((current) => Math.min(paged.pageCount, current + 1))
-                }
-                className="inline-flex h-9 items-center rounded-xl border border-outline-variant/50 bg-white px-space-12 font-label-sm text-label-sm text-on-surface transition-opacity hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
+          <div className="md:hidden">
+            {paged.pageRows.length === 0 ? (
+              <p className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
+                {emptyMessage}
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center gap-space-12 border-b border-admin-hairline bg-admin-subtle px-space-16 py-space-8">
+                  <Checkbox
+                    aria-label={allOnPage ? "Clear this page" : "Select this page"}
+                    checked={allOnPage}
+                    disabled={bulkBusy}
+                    onChange={togglePage}
+                  />
+                  <span className="text-admin-label-sm uppercase text-admin-ink-subtle">Select page</span>
+                </div>
+                <ul>
+                  {paged.pageRows.map((row) => {
+                    const picked = selected.includes(row.userId);
+                    return (
+                      <li
+                        key={row.userId}
+                        className={`flex flex-col gap-space-12 border-t border-admin-hairline px-space-16 py-space-12 first:border-t-0 ${
+                          picked ? "bg-admin-cobalt-tint" : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-space-12">
+                          <span className="flex pt-0.5">
+                            <Checkbox
+                              aria-label={`Select ${row.displayName}`}
+                              checked={picked}
+                              disabled={bulkBusy}
+                              onChange={() => toggleSelected(row.userId)}
+                            />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setDetailUserId(row.userId)}
+                            className="min-w-0 flex-1 rounded-admin-badge text-left outline-none focus-visible:shadow-admin-focus"
+                          >
+                            <span className="flex flex-wrap items-center gap-space-8">
+                              <span className="font-semibold text-admin-ink">{row.displayName}</span>
+                              {staffFor(row) ? <StaffBadge /> : null}
+                            </span>
+                            {row.email && row.email !== row.displayName ? (
+                              <span className="block truncate text-admin-body-sm text-admin-ink-subtle">
+                                {row.email}
+                              </span>
+                            ) : null}
+                          </button>
+                          {isOwner ? rowActions(row) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-space-16 gap-y-space-8 pl-7">
+                          <ClassEditor {...classEditor(row)} />
+                          <Streak days={row.streakDays} />
+                          <LastSeen iso={row.lastLoginAt} />
+                        </div>
+                        <div className="pl-7">{levelChips(row)}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-admin-hairline bg-admin-canvas px-space-16 py-space-12 sm:px-space-20">
+            <Pager
+              page={paged.page}
+              pageCount={paged.pageCount}
+              start={rangeStart}
+              end={rangeEnd}
+              total={paged.total}
+              noun="users"
+              onPage={setPage}
+            />
           </div>
         </section>
       </main>
@@ -1172,138 +1435,102 @@ export function AdminUsersDashboard({
         />
       ) : null}
 
-      {confirmRow ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-space-24"
-          role="presentation"
-          onClick={() => {
-            if (!deleting) {
-              setConfirmRow(null);
-              setDeleteError(null);
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-account-title"
-            className="w-full max-w-md rounded-3xl bg-surface-container-lowest p-space-24 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2
-              id="delete-account-title"
-              className="font-headline-sm text-headline-sm text-on-surface"
-            >
-              Delete account?
-            </h2>
-            <p className="mt-space-8 font-body-md text-body-md text-on-surface-variant">
+      <Dialog
+        open={confirmRow != null}
+        onClose={() => {
+          if (deleting) return;
+          setConfirmRow(null);
+          setDeleteError(null);
+        }}
+        title="Delete account?"
+        description={
+          confirmRow ? (
+            <>
               This removes{" "}
-              <span className="font-semibold text-on-surface">
+              <span className="font-semibold text-admin-ink">
                 {confirmRow.email ?? confirmRow.displayName}
               </span>
-              {confirmRow.userId === currentUserId ? " (you)" : ""} from the
-              dashboard and deletes their cloud progress. They can sign in again
-              and start over.
-            </p>
-            {deleteError ? (
-              <p className="mt-space-12 font-body-sm text-body-sm text-error">
-                {deleteError}
-              </p>
-            ) : null}
-            <div className="mt-space-24 flex justify-end gap-space-8">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => {
-                  setConfirmRow(null);
-                  setDeleteError(null);
-                }}
-                className="inline-flex h-11 items-center rounded-2xl px-space-16 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void handleConfirmDelete()}
-                className="inline-flex h-11 items-center rounded-2xl bg-error px-space-16 font-label-md text-label-md text-on-error transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {staffPrompt ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-space-24"
-          role="presentation"
-          onClick={() => {
-            if (!staffSaving) {
-              setStaffPrompt(null);
-              setStaffError(null);
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="staff-access-title"
-            className="w-full max-w-md rounded-3xl bg-surface-container-lowest p-space-24 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2
-              id="staff-access-title"
-              className="font-headline-sm text-headline-sm text-on-surface"
+              {confirmRow.userId === currentUserId ? " (you)" : ""} from the dashboard and deletes
+              their cloud progress. They can sign in again and start over.
+            </>
+          ) : null
+        }
+        actions={
+          <>
+            <Button
+              disabled={deleting}
+              onClick={() => {
+                setConfirmRow(null);
+                setDeleteError(null);
+              }}
             >
-              {staffPrompt.next ? "Give staff access?" : "Remove staff access?"}
-            </h2>
-            <p className="mt-space-8 font-body-md text-body-md text-on-surface-variant">
-              <span className="font-semibold text-on-surface">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              icon="delete"
+              disabled={deleting}
+              onClick={() => void handleConfirmDelete()}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </>
+        }
+      >
+        {deleteError ? (
+          <p role="alert" className="text-admin-body-sm text-admin-crimson">
+            {deleteError}
+          </p>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={staffPrompt != null}
+        onClose={() => {
+          if (staffSaving) return;
+          setStaffPrompt(null);
+          setStaffError(null);
+        }}
+        title={staffPrompt?.next ? "Give staff access?" : "Remove staff access?"}
+        description={
+          staffPrompt ? (
+            <>
+              <span className="font-semibold text-admin-ink">
                 {staffPrompt.row.email ?? staffPrompt.row.displayName}
               </span>{" "}
               {staffPrompt.next
                 ? "will be able to open this dashboard, see every stat, and grant classes and courses. They will not be able to delete accounts or progress."
                 : "will no longer open this dashboard. Their class and course access stay as they are."}
-            </p>
-            {staffError ? (
-              <p className="mt-space-12 font-body-sm text-body-sm text-error">
-                {staffError}
-              </p>
-            ) : null}
-            <div className="mt-space-24 flex justify-end gap-space-8">
-              <button
-                type="button"
-                disabled={staffSaving}
-                onClick={() => {
-                  setStaffPrompt(null);
-                  setStaffError(null);
-                }}
-                className="inline-flex h-11 items-center rounded-2xl px-space-16 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={staffSaving}
-                onClick={() => void handleConfirmStaff()}
-                className={`inline-flex h-11 items-center rounded-2xl px-space-16 font-label-md text-label-md transition-opacity hover:opacity-90 disabled:opacity-40 ${
-                  staffPrompt.next
-                    ? "bg-primary text-on-primary"
-                    : "bg-error text-on-error"
-                }`}
-              >
-                {staffSaving
-                  ? "Saving…"
-                  : staffPrompt.next
-                    ? "Give access"
-                    : "Remove access"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </>
+          ) : null
+        }
+        actions={
+          <>
+            <Button
+              disabled={staffSaving}
+              onClick={() => {
+                setStaffPrompt(null);
+                setStaffError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={staffPrompt?.next ? "primary" : "destructive"}
+              disabled={staffSaving}
+              onClick={() => void handleConfirmStaff()}
+            >
+              {staffSaving ? "Saving…" : staffPrompt?.next ? "Give access" : "Remove access"}
+            </Button>
+          </>
+        }
+      >
+        {staffError ? (
+          <p role="alert" className="text-admin-body-sm text-admin-crimson">
+            {staffError}
+          </p>
+        ) : null}
+      </Dialog>
     </>
   );
 }
