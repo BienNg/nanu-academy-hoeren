@@ -983,7 +983,54 @@ function ColumnHeader({
   );
 }
 
-function StatStrip({ items }: { items: { label: string; value: string }[] }) {
+function visitStripStats(visits: readonly AdminVisitRow[]) {
+  const study = visits.filter((visit) => !visit.idle);
+  const studySeconds = study.reduce((sum, visit) => sum + visit.activeSeconds, 0);
+  return {
+    studyCount: study.length,
+    idleCount: visits.length - study.length,
+    studySeconds,
+    averageSeconds: study.length > 0 ? Math.round(studySeconds / study.length) : 0,
+  };
+}
+
+function StatStrip({
+  items,
+}: {
+  items: { label: string; value: string; icon?: string; tint?: string; ink?: string }[];
+}) {
+  const iconic = items.every((item) => item.icon);
+  if (iconic) {
+    const columns =
+      items.length === 4 ? "grid-cols-4" : items.length === 2 ? "grid-cols-2" : "grid-cols-3";
+    return (
+      <Panel>
+        <div className={`grid ${columns}`}>
+          {items.map((item, index) => (
+            <div
+              key={item.label}
+              className={`flex min-w-0 flex-col items-center gap-1 px-1.5 py-3 text-center sm:px-2 ${
+                index < items.length - 1 ? "border-r border-black/[0.06]" : ""
+              }`}
+            >
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${item.tint ?? "bg-[#0071e3]/10"} ${item.ink ?? "text-[#0066cc]"}`}
+              >
+                <MaterialIcon name={item.icon!} className="text-[18px]" filled />
+              </span>
+              <p className="font-label-md text-[15px] font-semibold leading-tight tabular-nums text-on-surface">
+                {item.value}
+              </p>
+              <p className="font-caption text-[11px] font-medium leading-tight text-on-surface-variant">
+                {item.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <Panel>
       <div className="grid grid-cols-3">
@@ -1407,6 +1454,7 @@ export function StudentDetailModal({
   const lastLogin = formatAbsoluteTime(lastSignInAt);
   const lastSeen = formatAbsoluteTime(row.lastLoginAt);
   const summary = visitLog.summary;
+  const visitStats = visitStripStats(visitLog.visits);
 
   useEffect(() => {
     let cancelled = false;
@@ -2066,15 +2114,33 @@ export function StudentDetailModal({
                         <>
                           <StatStrip
                             items={[
-                              { label: "Visits", value: String(summary.visitCount) },
-                              { label: "Active time", value: shortDuration(summary.activeSeconds) },
+                              {
+                                label: "Visits",
+                                value: String(visitStats.studyCount),
+                                icon: "schedule",
+                                tint: "bg-[#0071e3]/10",
+                                ink: "text-[#0066cc]",
+                              },
+                              {
+                                label: "Active time",
+                                value: shortDuration(visitStats.studySeconds),
+                                icon: "timer",
+                                tint: "bg-[#5e5ce6]/10",
+                                ink: "text-[#4b48c9]",
+                              },
                               {
                                 label: "Avg. visit",
-                                value: shortDuration(
-                                  summary.visitCount > 0
-                                    ? Math.round(summary.activeSeconds / summary.visitCount)
-                                    : 0,
-                                ),
+                                value: shortDuration(visitStats.averageSeconds),
+                                icon: "pace",
+                                tint: "bg-[#34C759]/12",
+                                ink: "text-[#248a3d]",
+                              },
+                              {
+                                label: "No study",
+                                value: String(visitStats.idleCount),
+                                icon: "hourglass_empty",
+                                tint: "bg-black/[0.06]",
+                                ink: "text-outline",
                               },
                             ]}
                           />
