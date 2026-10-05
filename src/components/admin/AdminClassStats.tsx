@@ -5,6 +5,20 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import {
+  CARD,
+  HeaderChip,
+  KpiTile,
+  Mono,
+  ScopeChips,
+  SearchField,
+  SortHeader,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildClassStats,
@@ -19,6 +33,7 @@ import {
   usersInClass,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
 type MemberSortKey =
   | "name"
@@ -33,84 +48,6 @@ type SortDir = "asc" | "desc";
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
-}
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
-
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint?: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      {hint ? (
-        <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function SortHeader({
-  label,
-  column,
-  sort,
-  dir,
-  align = "left",
-  onSort,
-}: {
-  label: string;
-  column: MemberSortKey;
-  sort: MemberSortKey;
-  dir: SortDir;
-  align?: "left" | "right";
-  onSort: (column: MemberSortKey) => void;
-}) {
-  const active = sort === column;
-  const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
-
-  return (
-    <th
-      scope="col"
-      aria-sort={ariaSort}
-      className={`whitespace-nowrap px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant ${
-        align === "right" ? "text-right" : "text-left"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className="inline-flex items-center gap-space-4 rounded-md px-space-4 py-0.5 transition-colors hover:bg-surface-container-high hover:text-on-surface"
-      >
-        {label}
-        <MaterialIcon
-          name={
-            !active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"
-          }
-          className={`text-[16px] ${active ? "text-primary" : "text-outline"}`}
-        />
-      </button>
-    </th>
-  );
 }
 
 function loginMs(iso: string | null): number {
@@ -148,8 +85,8 @@ function compareMembers(a: ClassMemberStat, b: ClassMemberStat, sort: MemberSort
 function CountCell({ value }: { value: number }) {
   return (
     <td
-      className={`whitespace-nowrap px-space-16 py-space-16 text-right font-label-md text-label-md font-semibold tabular-nums ${
-        value > 0 ? "text-on-surface" : "text-outline"
+      className={`whitespace-nowrap px-space-16 py-space-8 text-right font-semibold tabular-nums ${
+        value > 0 ? "text-admin-ink" : "text-admin-ink-faint"
       }`}
     >
       {formatCount(value)}
@@ -319,6 +256,12 @@ export function AdminClassStats({
       : []),
   ];
 
+  const emptyMessage = query.trim()
+    ? "No students in this class match your search."
+    : waitingHere.length > 0
+      ? "No one in this class has signed up yet."
+      : "No students in this class.";
+
   return (
     <>
       <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
@@ -327,190 +270,173 @@ export function AdminClassStats({
           title="Classes"
           subtitle="Compare one class as a group, then open a student for detail."
           trailing={
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {classOptions.length} {classOptions.length === 1 ? "class" : "classes"}
-            </p>
+            <HeaderChip icon="school">
+              {formatCount(classOptions.length)} {classOptions.length === 1 ? "class" : "classes"}
+            </HeaderChip>
           }
         />
 
         {!storeConfigured ? (
-          <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-            Cloud progress is not configured. This view only includes learners
-            who have synced progress to Supabase.
+          <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
+            Cloud progress is not configured. This view only includes learners who have synced
+            progress to Supabase.
           </div>
         ) : null}
 
         {rows.length === 0 && classOptions.length === 0 ? (
-          <section className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-space-24 py-space-48 text-center shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              No users have synced progress yet.
-            </p>
+          <section className={`${CARD} px-space-24 py-space-48 text-center`}>
+            <p className="text-admin-body-md text-admin-ink-muted">No users have synced progress yet.</p>
           </section>
         ) : (
           <>
-            <div
-              role="tablist"
-              aria-label="Classes"
-              className="flex flex-wrap gap-space-8"
-            >
-              {chips.map((chip) => {
-                const selected = chip.key === activeKey;
-                return (
-                  <button
-                    key={chip.key || "unassigned"}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => selectClass(chip.key)}
-                    className={`inline-flex h-9 items-center gap-space-8 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                      selected
-                        ? "bg-primary text-on-primary"
-                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    {chip.label}
-                    <span className={`tabular-nums ${selected ? "text-on-primary/80" : "text-on-surface-variant"}`}>
-                      {chip.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <ScopeChips
+              label="Class"
+              icon="school"
+              ariaLabel="Classes"
+              value={activeKey}
+              options={chips}
+              onSelect={selectClass}
+            />
 
             <section role="tabpanel" aria-label={activeLabel} className="flex flex-col gap-space-20">
-              <div className="flex flex-wrap items-end justify-between gap-space-12">
-                <div>
-                  <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-primary">
-                    Class
-                  </p>
-                  <h2 className="font-headline-md text-headline-md tracking-tight text-on-surface">
-                    {activeLabel}
-                  </h2>
-                  <p className="mt-1 max-w-xl font-body-sm text-body-sm text-on-surface-variant">
-                    Streaks, lessons, practice runs, and videos for everyone in this class.
-                    Assign a class from the student row.
-                    {waitingHere.length > 0
-                      ? ` ${formatCount(waitingHere.length)} ${
-                          waitingHere.length === 1 ? "email is" : "emails are"
-                        } waiting to sign up.`
-                      : ""}
-                  </p>
-                </div>
+              <div>
+                <p className="text-admin-label-sm uppercase text-admin-cobalt">Class</p>
+                <h2 className="font-admin-display text-admin-headline-lg text-admin-ink">{activeLabel}</h2>
+                <p className="mt-1 max-w-xl text-admin-body-md text-admin-ink-subtle">
+                  Streaks, lessons, practice runs, and videos for everyone in this class. Assign a
+                  class from the student row.
+                  {waitingHere.length > 0
+                    ? ` ${formatCount(waitingHere.length)} ${
+                        waitingHere.length === 1 ? "email is" : "emails are"
+                      } waiting to sign up.`
+                    : ""}
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-space-12 md:grid-cols-3">
-                <SummaryStat
+              <div className="grid grid-cols-2 gap-space-16 md:grid-cols-3 2xl:grid-cols-6">
+                <KpiTile
+                  icon="group"
                   label="Students"
                   value={formatCount(stats.studentCount)}
-                  icon="group"
+                  caption={waitingHere.length > 0 ? `+${formatCount(waitingHere.length)} waiting` : "Signed up"}
+                  color={ADMIN_COLORS.cobalt}
                 />
-                <SummaryStat
+                <KpiTile
+                  icon="local_fire_department"
                   label="Avg. streak"
                   value={formatCount(stats.averageStreak)}
-                  icon="local_fire_department"
-                  hint={`${formatCount(stats.activeStreaks)} active`}
+                  caption={`${formatCount(stats.activeStreaks)} on a streak`}
+                  color={ADMIN_COLORS.ember}
+                  progress={stats.studentCount > 0 ? stats.activeStreaks / stats.studentCount : 0}
+                  progressLabel="Share of the class on a streak"
                 />
-                <SummaryStat
+                <KpiTile
+                  icon="menu_book"
                   label="Courses"
                   value={formatCount(stats.coursesStarted)}
-                  icon="menu_book"
+                  caption="Started"
+                  color={ADMIN_COLORS.emerald}
                 />
-                <SummaryStat
+                <KpiTile
+                  icon="check_circle"
                   label="Lessons"
                   value={formatCount(stats.lessonsCompleted)}
-                  icon="check_circle"
+                  caption="All parts finished"
+                  color={ADMIN_COLORS.emerald}
                 />
-                <SummaryStat
+                <KpiTile
+                  icon="headphones"
                   label="Practice runs"
                   value={formatCount(stats.listeningRepetitions)}
-                  icon="headphones"
+                  caption="Finished passes"
+                  color={ADMIN_COLORS.violet}
                 />
-                <SummaryStat
+                <KpiTile
+                  icon="smart_display"
                   label="Videos"
                   value={formatCount(stats.videosWatched)}
-                  icon="smart_display"
+                  caption="Marked watched"
+                  color={ADMIN_COLORS.violet}
                 />
               </div>
 
               {waitingHere.length > 0 ? (
-                <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-                  <div className="border-b border-outline-variant/20 px-space-16 py-space-12">
-                    <h3 className="font-headline-sm text-headline-sm text-on-surface">
-                      Waiting to sign up
-                    </h3>
-                    <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-                      These emails already belong to {activeLabel}. They join this class when they sign in.
-                    </p>
-                  </div>
+                <TablePanel
+                  icon="hourglass_top"
+                  title="Waiting to sign up"
+                  hint={`These emails already belong to ${activeLabel}. They join this class when they sign in.`}
+                  color={ADMIN_COLORS.amber}
+                >
                   <ul className="flex flex-col">
                     {waitingHere.map((row) => (
                       <li
                         key={row.email}
-                        className="border-t border-outline-variant/15 px-space-16 py-space-12 font-label-md text-label-md font-semibold text-on-surface first:border-t-0"
+                        className="flex h-11 items-center gap-space-8 border-t border-admin-hairline px-space-16 first:border-t-0 sm:px-space-20"
                       >
-                        {row.email}
+                        <MaterialIcon name="mail" className="text-[16px] text-admin-ink-faint" />
+                        <Mono className="truncate text-admin-ink">{row.email}</Mono>
                       </li>
                     ))}
                   </ul>
-                </section>
+                </TablePanel>
               ) : null}
 
               {classError ? (
-                <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+                <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
                   {classError}
                 </div>
               ) : null}
 
-              <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
-                <div className="flex flex-wrap items-center justify-between gap-space-12 border-b border-outline-variant/20 px-space-16 py-space-12">
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Students</h3>
-                  <label className="relative w-full max-w-xs">
-                    <span className="sr-only">Search students in this class</span>
-                    <MaterialIcon
-                      name="search"
-                      className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[18px] text-outline"
-                    />
-                    <input
-                      type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search this class"
-                      className="h-10 w-full rounded-2xl border border-outline-variant/50 bg-surface py-space-8 pl-10 pr-space-12 font-body-sm text-body-sm text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
-                    />
-                  </label>
-                </div>
+              <TablePanel
+                icon="group"
+                title="Students"
+                hint="Select a row for the student summary."
+                trailing={
+                  <SearchField
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search this class"
+                    label="Search students in this class"
+                  />
+                }
+                footer={
+                  query.trim()
+                    ? `${formatCount(visibleMembers.length)} of ${formatCount(stats.studentCount)} students`
+                    : `${formatCount(stats.studentCount)} ${stats.studentCount === 1 ? "student" : "students"}`
+                }
+              >
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-left">
                     <caption className="sr-only">Students in {activeLabel}</caption>
-                    <thead className="bg-surface-container-low">
+                    <thead className={THEAD}>
                       <tr>
                         <SortHeader label="User" column="name" sort={sort} dir={dir} onSort={handleSort} />
-                        <th
-                          scope="col"
-                          className="whitespace-nowrap px-space-16 py-space-12 text-left font-label-sm text-label-sm font-semibold text-on-surface-variant"
-                        >
+                        <th scope="col" className={`${TH} text-left`}>
                           Class
                         </th>
                         <SortHeader label="Last seen" column="lastLogin" sort={sort} dir={dir} onSort={handleSort} />
                         <SortHeader label="Streak" column="streak" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Courses" column="courses" sort={sort} dir={dir} align="right" onSort={handleSort} />
                         <SortHeader label="Lessons" column="lessons" sort={sort} dir={dir} align="right" onSort={handleSort} />
-                        <SortHeader label="Practice runs" column="listening" sort={sort} dir={dir} align="right" onSort={handleSort} />
+                        <SortHeader
+                          label="Practice runs"
+                          column="listening"
+                          sort={sort}
+                          dir={dir}
+                          align="right"
+                          onSort={handleSort}
+                        />
                         <SortHeader label="Videos" column="videos" sort={sort} dir={dir} align="right" onSort={handleSort} />
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-admin-body-md text-admin-ink">
                       {visibleMembers.length === 0 ? (
                         <tr>
                           <td
                             colSpan={8}
-                            className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
+                            className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                           >
-                            {query.trim()
-                              ? "No students in this class match your search."
-                              : waitingHere.length > 0
-                                ? "No one in this class has signed up yet."
-                                : "No students in this class."}
+                            {emptyMessage}
                           </td>
                         </tr>
                       ) : (
@@ -525,15 +451,15 @@ export function AdminClassStats({
                               onKeyDown={(event) => {
                                 if (event.key === "Enter") setDetailUserId(member.userId);
                               }}
-                              className="cursor-pointer border-t border-outline-variant/20 hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                              className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
                             >
-                              <td className="px-space-16 py-space-16">
+                              <td className="px-space-16 py-space-8">
                                 <div className="flex min-w-[12rem] flex-col">
-                                  <span className="font-label-md text-label-md font-semibold text-on-surface">
+                                  <span className="font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
                                     {member.displayName}
                                   </span>
                                   {member.email && member.email !== member.displayName ? (
-                                    <span className="font-body-sm text-body-sm text-on-surface-variant">
+                                    <span className="truncate text-admin-body-sm text-admin-ink-subtle">
                                       {member.email}
                                     </span>
                                   ) : null}
@@ -551,29 +477,25 @@ export function AdminClassStats({
                               ) : (
                                 <td />
                               )}
-                              <td className="whitespace-nowrap px-space-16 py-space-16 font-body-sm text-body-sm text-on-surface">
+                              <td className="whitespace-nowrap px-space-16 py-space-8 text-admin-body-sm tabular-nums">
                                 {when ? (
                                   <time dateTime={member.lastLoginAt ?? undefined}>{when}</time>
                                 ) : (
-                                  <span className="text-outline">Not seen yet</span>
+                                  <span className="text-admin-ink-subtle">Not seen yet</span>
                                 )}
                               </td>
-                              <td className="whitespace-nowrap px-space-16 py-space-16 text-right">
+                              <td className="whitespace-nowrap px-space-16 py-space-8 text-right">
                                 <span
-                                  className={`inline-flex items-center justify-end gap-space-4 ${
-                                    member.streakDays > 0 ? "text-on-surface" : "text-outline"
+                                  className={`inline-flex items-center justify-end gap-space-4 font-semibold tabular-nums ${
+                                    member.streakDays > 0 ? "text-admin-ember-ink" : "text-admin-ink-faint"
                                   }`}
                                 >
                                   <MaterialIcon
                                     name="local_fire_department"
-                                    className={`text-[18px] ${
-                                      member.streakDays > 0 ? "text-[#ff9500]" : "text-outline"
-                                    }`}
+                                    className={`text-[18px] ${member.streakDays > 0 ? "text-admin-ember" : ""}`}
                                     filled={member.streakDays > 0}
                                   />
-                                  <span className="font-label-md text-label-md font-semibold tabular-nums">
-                                    {member.streakDays}
-                                  </span>
+                                  {member.streakDays}
                                 </span>
                               </td>
                               <CountCell value={member.coursesStarted} />
@@ -587,15 +509,7 @@ export function AdminClassStats({
                     </tbody>
                   </table>
                 </div>
-                <div className="border-t border-outline-variant/20 px-space-16 py-space-12">
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    {query.trim()
-                      ? `${visibleMembers.length} of ${stats.studentCount} students`
-                      : `${stats.studentCount} ${stats.studentCount === 1 ? "student" : "students"}`}
-                    . Select a row for lesson detail.
-                  </p>
-                </div>
-              </section>
+              </TablePanel>
             </section>
           </>
         )}

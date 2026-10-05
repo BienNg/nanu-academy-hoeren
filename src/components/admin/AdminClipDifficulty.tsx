@@ -19,6 +19,7 @@ import {
   paginate,
   HeaderChip,
   INPUT,
+  SortHeader,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { describeCatalogClip, type AdminCatalogCourse } from "@/lib/admin-detail";
@@ -192,42 +193,6 @@ function ClipRankPanel({
         </ol>
       )}
     </TablePanel>
-  );
-}
-
-function SortHeader({
-  label,
-  column,
-  sort,
-  dir,
-  onSort,
-  align = "center",
-}: {
-  label: string;
-  column: SortKey;
-  sort: SortKey;
-  dir: SortDir;
-  onSort: (column: SortKey) => void;
-  align?: "left" | "center";
-}) {
-  const active = sort === column;
-  const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
-  return (
-    <th scope="col" aria-sort={ariaSort} className={`${TH} whitespace-nowrap ${align === "left" ? "text-left" : "text-center"}`}>
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className={`inline-flex items-center gap-space-4 rounded-admin-badge px-space-4 py-0.5 uppercase tracking-wider transition-colors hover:bg-admin-hairline hover:text-admin-ink ${
-          active ? "text-admin-cobalt" : ""
-        }`}
-      >
-        {label}
-        <MaterialIcon
-          name={!active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"}
-          className={`text-[16px] ${active ? "text-admin-cobalt" : "text-admin-ink-subtle"}`}
-        />
-      </button>
-    </th>
   );
 }
 
@@ -646,16 +611,17 @@ export function AdminClipDifficulty({
                     onSort={handleSort}
                     align="left"
                   />
-                  <SortHeader label="Misses" column="failures" sort={sort} dir={dir} onSort={handleSort} />
-                  <SortHeader label="Passes" column="successes" sort={sort} dir={dir} onSort={handleSort} />
+                  <SortHeader align="center" label="Misses" column="failures" sort={sort} dir={dir} onSort={handleSort} />
+                  <SortHeader align="center" label="Passes" column="successes" sort={sort} dir={dir} onSort={handleSort} />
                   <SortHeader
+                    align="center"
                     label="Students missed"
                     column="studentsFailed"
                     sort={sort}
                     dir={dir}
                     onSort={handleSort}
                   />
-                  <SortHeader label="Outcomes" column="attempts" sort={sort} dir={dir} onSort={handleSort} />
+                  <SortHeader align="center" label="Outcomes" column="attempts" sort={sort} dir={dir} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="text-admin-body-md text-admin-ink">

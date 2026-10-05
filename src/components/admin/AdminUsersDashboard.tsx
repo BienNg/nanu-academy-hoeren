@@ -45,6 +45,7 @@ import {
   THEAD,
   TR,
   formatCount,
+  SortHeader,
 } from "@/components/admin/AdminUi";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -74,49 +75,6 @@ const POPOVER =
 
 const POPOVER_ITEM =
   "flex w-full items-center gap-space-8 px-space-12 py-space-8 text-left text-admin-body-md font-medium text-admin-ink outline-none hover:bg-admin-subtle focus-visible:bg-admin-subtle disabled:opacity-40";
-
-function SortHeader({
-  label,
-  column,
-  sort,
-  dir,
-  onSort,
-  className,
-  children,
-}: {
-  label: string;
-  column: AdminSortKey;
-  sort: AdminSortKey;
-  dir: AdminSortDir;
-  onSort: (column: AdminSortKey) => void;
-  className?: string;
-  /** Rendered before the sort button, e.g. the select-all checkbox. */
-  children?: ReactNode;
-}) {
-  const active = sort === column;
-  const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
-
-  return (
-    <th scope="col" aria-sort={ariaSort} className={`${TH} whitespace-nowrap text-left ${className ?? ""}`}>
-      <span className="inline-flex items-center gap-space-12">
-        {children}
-        <button
-          type="button"
-          onClick={() => onSort(column)}
-          className={`-mx-space-4 inline-flex items-center gap-space-4 rounded-admin-badge px-space-4 py-0.5 uppercase outline-none transition-colors hover:bg-admin-hairline hover:text-admin-ink focus-visible:shadow-admin-focus ${
-            active ? "text-admin-cobalt" : ""
-          }`}
-        >
-          {label}
-          <MaterialIcon
-            name={!active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"}
-            className={`text-[16px] ${active ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
-          />
-        </button>
-      </span>
-    </th>
-  );
-}
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);

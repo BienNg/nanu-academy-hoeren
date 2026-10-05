@@ -622,6 +622,52 @@ export function StatusPill({
   );
 }
 
+/** Sortable column header: the active column turns cobalt and shows its direction. */
+export function SortHeader<K extends string>({
+  label,
+  column,
+  sort,
+  dir,
+  onSort,
+  align = "left",
+  className,
+  children,
+}: {
+  label: string;
+  column: K;
+  sort: K;
+  dir: "asc" | "desc";
+  onSort: (column: K) => void;
+  align?: "left" | "center" | "right";
+  className?: string;
+  /** Rendered before the sort button, e.g. a select-all checkbox. */
+  children?: ReactNode;
+}) {
+  const active = sort === column;
+  const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
+  const alignment = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+  return (
+    <th scope="col" aria-sort={ariaSort} className={`${TH} whitespace-nowrap ${alignment} ${className ?? ""}`}>
+      <span className="inline-flex items-center gap-space-12">
+        {children}
+        <button
+          type="button"
+          onClick={() => onSort(column)}
+          className={`-mx-space-4 inline-flex items-center gap-space-4 rounded-admin-badge px-space-4 py-0.5 uppercase outline-none transition-colors hover:bg-admin-hairline hover:text-admin-ink focus-visible:shadow-admin-focus ${
+            active ? "text-admin-cobalt" : ""
+          }`}
+        >
+          {label}
+          <MaterialIcon
+            name={!active ? "unfold_more" : dir === "asc" ? "arrow_upward" : "arrow_downward"}
+            className={`text-[16px] ${active ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
+          />
+        </button>
+      </span>
+    </th>
+  );
+}
+
 /** One page of `items`, with the page clamped into range. */
 export function paginate<T>(
   items: readonly T[],
