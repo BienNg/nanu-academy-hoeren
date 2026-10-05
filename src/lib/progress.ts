@@ -2294,12 +2294,72 @@ export function collectPracticeDates(progress: StoredProgress): string[] {
   for (const entry of Object.values(progress.interview)) {
     add(entry.completedAt);
   }
-  for (const entry of Object.values(progress.videos)) {
-    add(entry.updatedAt);
-    add(entry.watchedAt);
+
+  for (const day of [...dates]) {
+    if (videoOnlyPracticeDay(progress, day, zone)) dates.delete(day);
   }
 
   return [...dates].sort();
+}
+
+function videoTouchesDay(
+  progress: StoredProgress,
+  day: string,
+  zone: string | undefined,
+): boolean {
+  for (const entry of Object.values(progress.videos)) {
+    if (practiceDayKey(entry.updatedAt, zone) === day) return true;
+    if (practiceDayKey(entry.watchedAt, zone) === day) return true;
+  }
+  return false;
+}
+
+function visitFinishedWork(visit: Visit): boolean {
+  if (visit.clips.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) return true;
+  return (visit.exerciseLessons ?? []).some((lesson) => lesson.completed > 0 || lesson.fullRuns > 0);
+}
+
+/** Lesson, interview, study, or practice credit. Opening a video is not credit. */
+function dayHasPracticeWork(
+  progress: StoredProgress,
+  day: string,
+  zone: string | undefined,
+): boolean {
+  for (const entry of Object.values(progress.learn)) {
+    if (practiceDayKey(entry.completedAt, zone) === day) return true;
+    if (practiceDayKey(entry.studyCompletedAt, zone) === day) return true;
+  }
+  for (const entry of Object.values(progress.interview)) {
+    if (practiceDayKey(entry.completedAt, zone) === day) return true;
+  }
+  const activity = progress.activity?.[day];
+  if (
+    activity &&
+    ((activity.studyRuns ?? 0) > 0 ||
+      (activity.practiceRuns ?? 0) > 0 ||
+      (activity.clips ?? 0) > 0 ||
+      (activity.exercises ?? 0) > 0)
+  ) {
+    return true;
+  }
+  return (progress.visits ?? []).some(
+    (visit) => practiceDayKey(visit.startedAt, zone) === day && visitFinishedWork(visit),
+  );
+}
+
+/**
+ * A saved practice day that this document can explain only with a video
+ * playhead. Days with no visit are kept: that record may be a real session
+ * whose visit has aged out.
+ */
+function videoOnlyPracticeDay(
+  progress: StoredProgress,
+  day: string,
+  zone: string | undefined,
+): boolean {
+  if (!videoTouchesDay(progress, day, zone)) return false;
+  if (dayHasPracticeWork(progress, day, zone)) return false;
+  return (progress.visits ?? []).some((visit) => practiceDayKey(visit.startedAt, zone) === day);
 }
 
 function datesForStreak(progress: StoredProgress): Set<string> {
@@ -2371,7 +2431,7 @@ function stampIsToday(value: string | undefined, today: string, timeZone: string
   return practiceDayKey(value, timeZone) === today;
 }
 
-/** Another lesson, a study pass, a finished listening run, an interview, or a video already counted today. */
+/** Another lesson, a study pass, a finished listening run, or an interview already counted today. */
 function finishedElsewhereToday(progress: StoredProgress, today: string): boolean {
   const zone = validTimeZone(progress.streakTimeZone);
   for (const entry of Object.entries(progress.learn)) {
@@ -2381,11 +2441,6 @@ function finishedElsewhereToday(progress: StoredProgress, today: string): boolea
   }
   for (const entry of Object.values(progress.interview)) {
     if (stampIsToday(entry.completedAt, today, zone)) return true;
-  }
-  for (const entry of Object.values(progress.videos)) {
-    if (stampIsToday(entry.watchedAt, today, zone) || stampIsToday(entry.updatedAt, today, zone)) {
-      return true;
-    }
   }
   const day = readDay(progress.activity?.[today]);
   return day.studyRuns > 0 || day.practiceRuns > 0;

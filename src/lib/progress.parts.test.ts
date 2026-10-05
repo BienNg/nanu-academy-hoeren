@@ -546,6 +546,93 @@ test("a same-day practice does not celebrate again", () => {
   assert.equal(streakCelebrationStep(first, again, today), null);
 });
 
+test("a video playhead does not count as a practice day", () => {
+  const today = new Date("2026-10-05T08:26:47.013Z");
+  const videoKey = "a1-1/lektion-1/alphabet";
+  const opened = normalizeProgress({
+    videos: {
+      [videoKey]: { positionSeconds: 0.24, updatedAt: today.toISOString() },
+    },
+    practiceDates: ["2026-10-05"],
+    lastPracticeDate: "2026-10-05",
+    streakDays: 1,
+    visits: [
+      {
+        id: "visit-video",
+        startedAt: today.toISOString(),
+        endedAt: today.toISOString(),
+        activeSeconds: 336,
+        lessons: ["a1-1/lektion-1"],
+        clips: [],
+        exercisesCompleted: 0,
+        listeningRuns: 0,
+        videos: [
+          {
+            key: videoKey,
+            title: "Alphabet",
+            seconds: 0.07,
+            leftAtSeconds: 0.09,
+            durationSeconds: 1516,
+            watched: false,
+          },
+        ],
+        leftSessions: [
+          {
+            lessonKey: "a1-1/lektion-1",
+            kind: "study",
+            partNumber: 1,
+            partCount: 2,
+            clipsDone: 0,
+            clipCount: 11,
+            startedAt: today.toISOString(),
+            stoppedAt: today.toISOString(),
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(activeStreakDays(opened, today), 0);
+  const merged = mergeProgress(opened, normalizeProgress({}));
+  assert.ok(!merged.practiceDates?.includes("2026-10-05"));
+  assert.equal(merged.streakDays, 0);
+  assert.equal(merged.lastPracticeDate, undefined);
+});
+
+test("a finished part still counts on a day the video was opened", () => {
+  const today = new Date("2026-10-05T08:26:47.013Z");
+  const practiced = commitLearnPart(normalizeProgress({}), "lektion-1", ["clip-a"], {
+    now: today,
+    finishRun: true,
+  });
+  const withVideo = normalizeProgress({
+    ...practiced,
+    videos: {
+      alphabet: { positionSeconds: 4, updatedAt: today.toISOString(), watchedAt: today.toISOString() },
+    },
+  });
+
+  assert.equal(activeStreakDays(withVideo, today), 1);
+  assert.equal(mergeProgress(withVideo, normalizeProgress({})).lastPracticeDate, "2026-10-05");
+});
+
+test("quitting still drops today when a video was the other activity", () => {
+  const yesterday = new Date("2026-09-27T08:00:00.000Z");
+  const today = new Date("2026-09-28T08:00:00.000Z");
+  const prior = bumpStreak(normalizeProgress({}), yesterday);
+  const thisPart = commitLearnPart(prior, "lektion-3", ["clip-a"], { now: today });
+  const withVideo = {
+    ...thisPart,
+    videos: {
+      alphabet: { positionSeconds: 2, updatedAt: today.toISOString() },
+    },
+  };
+  const dropped = dropStreakForUnfinishedSession(withVideo, "lektion-3", today);
+
+  assert.equal(activeStreakDays(dropped, today), 1);
+  assert.equal(dropped.practiceDates?.includes("2026-09-28"), false);
+});
+
 test("a practice day follows the device's local calendar", () => {
   const evening = new Date(2026, 8, 28, 23, 0, 0);
   const afterMidnight = new Date(2026, 8, 29, 0, 30, 0);
