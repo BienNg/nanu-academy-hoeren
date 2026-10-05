@@ -683,18 +683,49 @@ export function buildLevelPath(
 
 export type AdminVisitRange = VisitRange;
 
+export type AdminVisitDetailTone = "neutral" | "success" | "warning";
+
+export type AdminVisitDetailItem = {
+  title: string;
+  context: string | null;
+  facts: string[];
+  tone: AdminVisitDetailTone;
+  /** 0–100 when the item has a measurable share done (clips of a part, minutes of a video). */
+  percent: number | null;
+};
+
 export type AdminVisitDetailGroup = {
-  id: string;
+  id: "study" | "listening" | "left" | "video";
   label: string;
-  items: string[];
+  items: AdminVisitDetailItem[];
   extraCount: number;
 };
+
+export type AdminVisitStats = {
+  clipsStudied: number;
+  practiceClips: number;
+  practiceRuns: number;
+  leftUnfinished: number;
+  videoSeconds: number;
+  videosWatched: number;
+};
+
+export type AdminVisitSignalKind = "returning" | "stuck" | "video";
 
 export type AdminVisitRow = {
   id: string;
   headline: string;
+  /** Local calendar day the visit started, e.g. "Mon 5 Oct". */
+  day: string;
+  /** Local clock range, e.g. "09:12–09:40". */
+  timeRange: string;
+  activeSeconds: number;
+  idle: boolean;
+  lessons: string[];
+  stats: AdminVisitStats;
   lines: string[];
   signal: string | null;
+  signalKind: AdminVisitSignalKind | null;
   details: AdminVisitDetailGroup[];
 };
 
@@ -715,10 +746,12 @@ function formatClock(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
-function formatVisitHeadline(visit: Visit): string {
+function visitWhen(visit: Visit): { day: string; timeRange: string } {
   const start = new Date(visit.startedAt);
   const end = new Date(visit.endedAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Visit";
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { day: "Visit", timeRange: "" };
+  }
   const clock = (date: Date) =>
     `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
   const day = `${WEEKDAYS[start.getDay()]} ${start.getDate()} ${MONTHS[start.getMonth()]}`;
@@ -726,7 +759,13 @@ function formatVisitHeadline(visit: Visit): string {
     start.toDateString() === end.toDateString()
       ? clock(end)
       : `${WEEKDAYS[end.getDay()]} ${clock(end)}`;
-  return `${day} · ${clock(start)}–${endLabel} · ${formatActiveDuration(visit.activeSeconds)}`;
+  return { day, timeRange: `${clock(start)}–${endLabel}` };
+}
+
+function formatVisitHeadline(visit: Visit): string {
+  const { day, timeRange } = visitWhen(visit);
+  if (!timeRange) return day;
+  return `${day} · ${timeRange} · ${formatActiveDuration(visit.activeSeconds)}`;
 }
 
 function catalogLesson(
@@ -764,12 +803,17 @@ function lessonLabels(courses: readonly AdminCatalogCourse[], visit: Visit): str
   return labels;
 }
 
-function capItems(items: string[]): { items: string[]; extraCount: number } {
+function capItems<T>(items: T[]): { items: T[]; extraCount: number } {
   if (items.length <= VISIT_NAME_CAP) return { items, extraCount: 0 };
   return {
     items: items.slice(0, VISIT_NAME_CAP),
     extraCount: items.length - VISIT_NAME_CAP,
   };
+}
+
+function sharePercent(done: number, total: number): number | null {
+  if (!(total > 0)) return null;
+  return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
 }
 
 function visitDetails(
@@ -778,63 +822,115 @@ function visitDetails(
 ): AdminVisitDetailGroup[] {
   const groups: AdminVisitDetailGroup[] = [];
   if (visit.clips.length > 0) {
-    const names = visit.clips.map((clip) => {
+    const items = visit.clips.map((clip): AdminVisitDetailItem => {
       const found = catalogLesson(courses, clip.lessonKey);
-      return `${found.lessonLabel} · ${clipTitle(found.lesson, clip.clipId)}`;
+      return {
+        title: clipTitle(found.lesson, clip.clipId),
+        context: found.lessonLabel,
+        facts: [],
+        tone: "neutral",
+        percent: null,
+      };
     });
-    const capped = capItems(names);
-    groups.push({ id: "study", label: "Study", ...capped });
+    groups.push({ id: "study", label: "Study", ...capItems(items) });
   }
 
   const exerciseLessons = visit.exerciseLessons ?? [];
   if (exerciseLessons.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) {
-    const names =
+    const items: AdminVisitDetailItem[] =
       exerciseLessons.length > 0
         ? exerciseLessons.map((lesson) => {
-            const label = catalogLesson(courses, lesson.lessonKey).lessonLabel;
-            const parts: string[] = [];
+            const facts: string[] = [];
             if (lesson.completed > 0) {
-              parts.push(
+              facts.push(
                 `${lesson.completed} practice ${lesson.completed === 1 ? "clip" : "clips"} completed`,
               );
             }
-            parts.push(
+            facts.push(
               lesson.fullRuns > 0
                 ? `${lesson.fullRuns} practice ${lesson.fullRuns === 1 ? "run" : "runs"} finished`
                 : "practice run not finished",
             );
-            return `${label} · ${parts.join(" · ")}`;
+            return {
+              title: catalogLesson(courses, lesson.lessonKey).lessonLabel,
+              context: null,
+              facts,
+              tone: lesson.fullRuns > 0 ? "success" : "warning",
+              percent: null,
+            };
           })
-        : lessonLabels(courses, visit).map(
-            (label) =>
-              `${label} · ${visit.exercisesCompleted} practice clips completed · ${visit.listeningRuns} practice runs`,
-          );
-    const capped = capItems(names);
-    groups.push({ id: "listening", label: "Practice", ...capped });
+        : lessonLabels(courses, visit).map((label) => ({
+            title: label,
+            context: null,
+            facts: [
+              `${visit.exercisesCompleted} practice clips completed`,
+              `${visit.listeningRuns} practice runs`,
+            ],
+            tone: "neutral",
+            percent: null,
+          }));
+    groups.push({ id: "listening", label: "Practice", ...capItems(items) });
   }
 
   const leftSessions = visit.leftSessions ?? [];
   if (leftSessions.length > 0) {
-    const names = leftSessions.map((session) => {
-      const label = catalogLesson(courses, session.lessonKey).lessonLabel;
-      const mode = session.kind === "study" ? "study" : "practice";
-      return `${label} · ${mode} part ${session.partNumber} of ${session.partCount} · left after ${session.clipsDone} of ${session.clipCount} clips`;
+    const items = leftSessions.map((session): AdminVisitDetailItem => {
+      const mode = session.kind === "study" ? "Study" : "Practice";
+      return {
+        title: catalogLesson(courses, session.lessonKey).lessonLabel,
+        context: null,
+        facts: [
+          `${mode} part ${session.partNumber} of ${session.partCount}`,
+          `Left after ${session.clipsDone} of ${session.clipCount} clips`,
+        ],
+        tone: "warning",
+        percent: sharePercent(session.clipsDone, session.clipCount),
+      };
     });
-    const capped = capItems(names);
-    groups.push({ id: "left", label: "Left unfinished", ...capped });
+    groups.push({ id: "left", label: "Left unfinished", ...capItems(items) });
   }
 
   if (visit.videos.length > 0) {
-    const names = visit.videos.map((video) => {
+    const items = visit.videos.map((video): AdminVisitDetailItem => {
       const played = formatActiveDuration(video.seconds);
-      if (video.watched) return `${video.title} · ${played} · watched`;
-      return `${video.title} · ${played} · left at ${formatClock(video.leftAtSeconds)}`;
+      return {
+        title: video.title,
+        context: null,
+        facts: video.watched
+          ? [`${played} played`, "Watched"]
+          : [`${played} played`, `Left at ${formatClock(video.leftAtSeconds)}`],
+        tone: video.watched ? "success" : "warning",
+        percent: video.watched
+          ? 100
+          : sharePercent(video.leftAtSeconds, video.durationSeconds ?? 0),
+      };
     });
-    const capped = capItems(names);
-    groups.push({ id: "video", label: "Video", ...capped });
+    groups.push({ id: "video", label: "Video", ...capItems(items) });
   }
 
   return groups;
+}
+
+function visitStats(visit: Visit): AdminVisitStats {
+  return {
+    clipsStudied: visit.clips.length,
+    practiceClips: visit.exercisesCompleted,
+    practiceRuns: visit.listeningRuns,
+    leftUnfinished: (visit.leftSessions ?? []).length,
+    videoSeconds: visit.videos.reduce((sum, video) => sum + video.seconds, 0),
+    videosWatched: visit.videos.filter((video) => video.watched).length,
+  };
+}
+
+function visitIsIdle(stats: AdminVisitStats): boolean {
+  return (
+    stats.clipsStudied === 0 &&
+    stats.practiceClips === 0 &&
+    stats.practiceRuns === 0 &&
+    stats.videoSeconds < 1 &&
+    stats.videosWatched === 0 &&
+    stats.leftUnfinished === 0
+  );
 }
 
 function lessonFinished(detail: StudentDetail, lessonKey: string): boolean {
@@ -873,6 +969,16 @@ function visitCountForLesson(visits: readonly Visit[], lessonKey: string, throug
   }).length;
 }
 
+/** Mirrors the precedence in `describeVisitSignal`, for picking a badge style. */
+function visitSignalKind(input: {
+  daysSincePrevious: number | null;
+  unfinishedLessonVisits: number | null;
+}): AdminVisitSignalKind {
+  if (input.daysSincePrevious != null && input.daysSincePrevious >= 7) return "returning";
+  if (input.unfinishedLessonVisits != null && input.unfinishedLessonVisits >= 3) return "stuck";
+  return "video";
+}
+
 function emptyVisitMessage(range: AdminVisitRange): string {
   if (range === "today") return "No visits today.";
   if (range === "7d") return "No visits in the last 7 days.";
@@ -901,15 +1007,25 @@ export function projectStudentVisits(
         unfinishedLessonVisits = count;
       }
     }
+    const signalInput = {
+      daysSincePrevious: older ? daysBetweenUtc(older.endedAt, visit.startedAt) : null,
+      unfinishedLessonVisits,
+      abandonedVideo: abandonedVideo(visit),
+    };
+    const signal = describeVisitSignal(signalInput);
+    const stats = visitStats(visit);
+    const idle = visitIsIdle(stats);
     return {
       id: visit.id,
       headline: formatVisitHeadline(visit),
+      ...visitWhen(visit),
+      activeSeconds: visit.activeSeconds,
+      idle,
+      lessons: idle ? [] : lessonLabels(courses, visit),
+      stats,
       lines: visitLines(courses, visit),
-      signal: describeVisitSignal({
-        daysSincePrevious: older ? daysBetweenUtc(older.endedAt, visit.startedAt) : null,
-        unfinishedLessonVisits,
-        abandonedVideo: abandonedVideo(visit),
-      }),
+      signal,
+      signalKind: signal ? visitSignalKind(signalInput) : null,
       details: visitDetails(courses, visit),
     };
   });

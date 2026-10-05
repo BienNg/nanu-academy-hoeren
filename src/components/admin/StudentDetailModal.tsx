@@ -24,8 +24,13 @@ import {
   type AdminCourseDetail,
   type AdminLessonDetail,
   type AdminVideoDetail,
+  type AdminVisitDetailGroup,
+  type AdminVisitDetailItem,
+  type AdminVisitDetailTone,
   type AdminVisitRange,
   type AdminVisitRow,
+  type AdminVisitSignalKind,
+  type AdminVisitStats,
   type StudentProgressPart,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
@@ -81,18 +86,6 @@ function compactDuration(label: string): string {
     .replace(/(\d+)\s+h\s+(\d+)\s+min/g, "$1h $2m")
     .replace(/(\d+)\s+h/g, "$1h")
     .replace(/(\d+)\s+min/g, "$1m");
-}
-
-function splitVisitHeadline(headline: string): { day: string; time: string; duration: string } {
-  const parts = headline.split(" · ");
-  if (parts.length >= 3) {
-    return {
-      day: parts[0] ?? headline,
-      time: parts[1] ?? "",
-      duration: compactDuration(parts.slice(2).join(" · ")),
-    };
-  }
-  return { day: headline, time: "", duration: "" };
 }
 
 function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -613,7 +606,199 @@ function CourseAccessRow({
   );
 }
 
-function VisitRow({
+type VisitCategory = AdminVisitDetailGroup["id"];
+
+const VISIT_CATEGORY: Record<
+  VisitCategory,
+  { icon: string; tint: string; ink: string; bar: string }
+> = {
+  study: { icon: "menu_book", tint: "bg-[#0071e3]/10", ink: "text-[#0066cc]", bar: "bg-[#0071e3]" },
+  listening: { icon: "headphones", tint: "bg-[#5e5ce6]/10", ink: "text-[#4b48c9]", bar: "bg-[#5e5ce6]" },
+  left: { icon: "pending", tint: "bg-[#ff9500]/12", ink: "text-[#9a6700]", bar: "bg-[#ff9500]" },
+  video: { icon: "play_circle", tint: "bg-[#ff2d55]/10", ink: "text-[#c4173f]", bar: "bg-[#ff2d55]" },
+};
+
+const VISIT_SIGNAL: Record<AdminVisitSignalKind, { icon: string; className: string }> = {
+  returning: { icon: "waving_hand", className: "bg-[#0071e3]/10 text-[#0058b0]" },
+  stuck: { icon: "replay", className: "bg-[#ff9500]/12 text-[#8a5c00]" },
+  video: { icon: "videocam_off", className: "bg-[#ff2d55]/10 text-[#b0123a]" },
+};
+
+const DETAIL_TONE: Record<AdminVisitDetailTone, { icon: string; className: string }> = {
+  neutral: { icon: "radio_button_unchecked", className: "text-outline" },
+  success: { icon: "check_circle", className: "text-[#248a3d]" },
+  warning: { icon: "error", className: "text-[#c77700]" },
+};
+
+function shortDuration(seconds: number): string {
+  return compactDuration(formatActiveDuration(seconds));
+}
+
+function visitMetrics(stats: AdminVisitStats): {
+  category: VisitCategory;
+  icon?: string;
+  value: string;
+  label: string;
+}[] {
+  const metrics: { category: VisitCategory; icon?: string; value: string; label: string }[] = [];
+  if (stats.clipsStudied > 0) {
+    metrics.push({
+      category: "study",
+      value: String(stats.clipsStudied),
+      label: stats.clipsStudied === 1 ? "Clip studied" : "Clips studied",
+    });
+  }
+  if (stats.practiceClips > 0) {
+    metrics.push({
+      category: "listening",
+      value: String(stats.practiceClips),
+      label: stats.practiceClips === 1 ? "Practice clip" : "Practice clips",
+    });
+  }
+  if (stats.practiceRuns > 0) {
+    metrics.push({
+      category: "listening",
+      icon: "flag",
+      value: String(stats.practiceRuns),
+      label: stats.practiceRuns === 1 ? "Practice run" : "Practice runs",
+    });
+  }
+  if (stats.videoSeconds >= 1 || stats.videosWatched > 0) {
+    metrics.push({
+      category: "video",
+      value: shortDuration(stats.videoSeconds),
+      label:
+        stats.videosWatched > 0
+          ? `Video · ${stats.videosWatched} watched`
+          : "Video",
+    });
+  }
+  if (stats.leftUnfinished > 0) {
+    metrics.push({
+      category: "left",
+      value: String(stats.leftUnfinished),
+      label: "Left unfinished",
+    });
+  }
+  return metrics;
+}
+
+function VisitMetricTile({
+  category,
+  icon,
+  value,
+  label,
+}: {
+  category: VisitCategory;
+  icon?: string;
+  value: string;
+  label: string;
+}) {
+  const style = VISIT_CATEGORY[category];
+  return (
+    <li className="flex min-w-0 items-center gap-2.5 rounded-2xl bg-surface-container-low px-3 py-2.5">
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${style.tint} ${style.ink}`}
+      >
+        <MaterialIcon name={icon ?? style.icon} className="text-[18px]" filled />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-label-md text-[15px] font-semibold leading-tight tabular-nums text-on-surface">
+          {value}
+        </span>
+        <span className="block truncate font-caption text-[11px] font-medium leading-tight text-on-surface-variant">
+          {label}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function VisitDetailGroup({ group }: { group: AdminVisitDetailGroup }) {
+  const style = VISIT_CATEGORY[group.id];
+  const total = group.items.length + group.extraCount;
+  // Study clips usually come in runs from one Lektion; show its name once per run.
+  const runs: { context: string | null; items: AdminVisitDetailItem[] }[] = [];
+  for (const item of group.items) {
+    const last = runs[runs.length - 1];
+    if (last && last.context === item.context) last.items.push(item);
+    else runs.push({ context: item.context, items: [item] });
+  }
+
+  return (
+    <section className="min-w-0">
+      <h4 className="flex items-center gap-2">
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded-full ${style.tint} ${style.ink}`}
+        >
+          <MaterialIcon name={style.icon} className="text-[15px]" filled />
+        </span>
+        <span className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
+          {group.label}
+        </span>
+        <span className="rounded-full bg-black/[0.05] px-1.5 py-px font-caption text-[11px] font-semibold tabular-nums text-on-surface-variant">
+          {total}
+        </span>
+      </h4>
+      <div className="mt-2 overflow-hidden rounded-2xl border border-black/[0.06] bg-surface-container-lowest">
+        {runs.map((run, runIndex) => (
+          <div key={`${run.context ?? "none"}-${runIndex}`} className="border-b border-black/[0.06] last:border-b-0">
+            {run.context ? (
+              <p className="flex items-center gap-1.5 bg-black/[0.02] px-3.5 pb-1.5 pt-2 font-caption text-[11px] font-semibold text-outline">
+                <MaterialIcon name="school" className="text-[13px]" />
+                {run.context}
+              </p>
+            ) : null}
+            <ul className="divide-y divide-black/[0.05]">
+              {run.items.map((item, index) => {
+                const tone = DETAIL_TONE[item.tone];
+                return (
+                  <li key={`${group.id}-${runIndex}-${index}`} className="flex gap-2.5 px-3.5 py-2.5">
+                    <MaterialIcon
+                      name={tone.icon}
+                      className={`mt-px text-[17px] ${tone.className}`}
+                      filled={item.tone !== "neutral"}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-body-sm text-body-sm leading-snug text-on-surface">
+                        {item.title}
+                      </p>
+                      {item.facts.length > 0 ? (
+                        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
+                          {item.facts.join(" · ")}
+                        </p>
+                      ) : null}
+                      {item.percent != null ? (
+                        <span className="mt-1.5 flex items-center gap-2">
+                          <span className="block h-1 flex-1 overflow-hidden rounded-full bg-black/[0.08]">
+                            <span
+                              className={`block h-full rounded-full ${
+                                item.tone === "success" ? "bg-[#34C759]" : style.bar
+                              }`}
+                              style={{ width: `${item.percent}%` }}
+                            />
+                          </span>
+                          <span className="w-9 shrink-0 text-right font-caption text-[11px] font-semibold tabular-nums text-on-surface-variant">
+                            {item.percent}%
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {group.extraCount > 0 ? (
+        <p className="mt-1.5 px-1 font-caption text-caption text-outline">+{group.extraCount} more</p>
+      ) : null}
+    </section>
+  );
+}
+
+function VisitCard({
   visit,
   open,
   onToggle,
@@ -623,94 +808,199 @@ function VisitRow({
   onToggle: () => void;
 }) {
   const expandable = visit.details.length > 0;
-  const { day, time, duration } = splitVisitHeadline(visit.headline);
-  const idle = visit.lines.length === 1 && visit.lines[0]?.startsWith("Opened the app");
-  const lessonLine = idle ? null : (visit.lines[0] ?? null);
-  const facts = idle ? [] : visit.lines.slice(1);
+  const detailId = `visit-detail-${visit.id}`;
+  const duration = shortDuration(visit.activeSeconds);
+  const signal = visit.signalKind ? VISIT_SIGNAL[visit.signalKind] : null;
+
+  if (visit.idle) {
+    return (
+      <li className="flex items-center gap-3 rounded-2xl border border-dashed border-black/[0.1] px-4 py-3">
+        <MaterialIcon name="hourglass_empty" className="text-[18px] text-outline" />
+        <span className="font-label-sm text-label-sm font-semibold tabular-nums text-on-surface-variant">
+          {visit.timeRange}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-body-sm text-body-sm text-outline">
+          Opened the app, no study
+        </span>
+        <span className="shrink-0 font-caption text-caption font-semibold tabular-nums text-outline">
+          {duration}
+        </span>
+      </li>
+    );
+  }
+
+  const metrics = visitMetrics(visit.stats);
 
   return (
     <li>
-      <button
-        type="button"
-        aria-expanded={expandable ? open : undefined}
-        onClick={expandable ? onToggle : undefined}
-        className={`flex w-full items-start gap-space-16 px-5 py-5 text-left sm:px-6 ${expandable ? "hover:bg-black/[0.02]" : "cursor-default"}`}
-      >
-        <span
-          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-            idle ? "bg-surface-container text-outline" : "bg-primary-fixed text-on-primary-fixed"
+      <Panel className={open ? "ring-2 ring-primary/25" : ""}>
+        <button
+          type="button"
+          aria-expanded={expandable ? open : undefined}
+          aria-controls={expandable ? detailId : undefined}
+          onClick={expandable ? onToggle : undefined}
+          className={`block w-full px-4 py-4 text-left sm:px-5 ${
+            expandable ? "transition-colors hover:bg-black/[0.015]" : "cursor-default"
           }`}
         >
-          <MaterialIcon name={idle ? "hourglass_empty" : "menu_book"} className="text-[20px]" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline justify-between gap-space-12">
-            <span className="font-label-md text-label-md font-semibold text-on-surface">{day}</span>
-            {duration ? (
-              <span className="shrink-0 font-label-md text-label-md font-semibold tabular-nums text-on-surface">
-                {duration}
+          <span className="flex items-center gap-3">
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <MaterialIcon name="schedule" className="text-[18px] text-outline" />
+              <span className="font-label-md text-label-md font-semibold tabular-nums text-on-surface">
+                {visit.timeRange || visit.day}
               </span>
-            ) : null}
-          </span>
-          {time ? (
-            <span className="mt-0.5 block font-body-sm text-body-sm text-outline">{time}</span>
-          ) : null}
-          {idle ? (
-            <span className="mt-2 block font-body-sm text-body-sm text-on-surface-variant">
-              {visit.lines[0]}
             </span>
-          ) : lessonLine ? (
-            <span className="mt-2 block font-body-md text-body-md text-on-surface">{lessonLine}</span>
-          ) : null}
-          {facts.length > 0 ? (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-on-surface px-2.5 py-1 font-label-sm text-label-sm font-semibold tabular-nums text-surface-container-lowest"
+              title="Active time"
+            >
+              <MaterialIcon name="timer" className="text-[15px]" filled />
+              {duration}
+            </span>
+            {expandable ? (
+              <MaterialIcon
+                name="expand_more"
+                className={`text-[22px] text-outline transition-transform ${open ? "rotate-180" : ""}`}
+              />
+            ) : (
+              <span className="w-[22px] shrink-0" aria-hidden="true" />
+            )}
+          </span>
+
+          {visit.lessons.length > 0 ? (
             <span className="mt-3 flex flex-wrap gap-1.5">
-              {facts.map((fact) => (
+              {visit.lessons.map((lesson) => (
                 <span
-                  key={fact}
-                  className="rounded-full bg-surface-container-low px-2.5 py-1 font-caption text-caption font-medium text-on-surface-variant"
+                  key={lesson}
+                  className="inline-flex max-w-full items-center gap-1 rounded-[8px] bg-primary-fixed px-2 py-1 font-label-sm text-label-sm font-semibold text-on-primary-fixed"
                 >
-                  {fact}
+                  <MaterialIcon name="school" className="text-[14px]" />
+                  <span className="truncate">{lesson}</span>
                 </span>
               ))}
             </span>
           ) : null}
-          {visit.signal ? (
-            <span className="mt-3 inline-flex rounded-full bg-primary-fixed px-2.5 py-1 font-caption text-caption font-semibold text-on-primary-fixed">
+
+          {metrics.length > 0 ? (
+            <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+              {metrics.map((metric) => (
+                <VisitMetricTile key={`${metric.category}-${metric.label}`} {...metric} />
+              ))}
+            </ul>
+          ) : null}
+
+          {visit.signal && signal ? (
+            <span
+              className={`mt-3 flex items-center gap-1.5 rounded-[12px] px-3 py-2 font-caption text-caption font-semibold ${signal.className}`}
+            >
+              <MaterialIcon name={signal.icon} className="text-[16px]" filled />
               {visit.signal}
             </span>
           ) : null}
-        </span>
-        {expandable ? (
-          <MaterialIcon
-            name={open ? "expand_less" : "expand_more"}
-            className="mt-1 text-[22px] text-outline"
-          />
-        ) : (
-          <span className="w-[22px] shrink-0" aria-hidden="true" />
-        )}
-      </button>
-      {open && visit.details.length > 0 ? (
-        <div className="flex flex-col gap-space-16 border-t border-black/[0.06] bg-[#f5f5f7]/80 px-5 py-5 sm:px-6 sm:pl-[4.75rem]">
-          {visit.details.map((group) => (
-            <div key={group.id}>
-              <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
-                {group.label}
-              </p>
-              <ul className="mt-2 flex flex-col gap-1.5">
-                {group.items.map((item, index) => (
-                  <li key={`${group.id}-${index}`} className="font-body-sm text-body-sm text-on-surface">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              {group.extraCount > 0 ? (
-                <p className="mt-1 font-body-sm text-body-sm text-outline">+{group.extraCount} more</p>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
+        </button>
+        {open && expandable ? (
+          <div
+            id={detailId}
+            className="flex flex-col gap-4 border-t border-black/[0.06] bg-[#f5f5f7]/70 px-4 py-4 sm:px-5"
+          >
+            {visit.details.map((group) => (
+              <VisitDetailGroup key={group.id} group={group} />
+            ))}
+          </div>
+        ) : null}
+      </Panel>
     </li>
+  );
+}
+
+function VisitFeed({
+  visits,
+  openVisitId,
+  onToggle,
+}: {
+  visits: AdminVisitRow[];
+  openVisitId: string | null;
+  onToggle: (id: string) => void;
+}) {
+  const days: { day: string; visits: AdminVisitRow[]; activeSeconds: number }[] = [];
+  for (const visit of visits) {
+    const last = days[days.length - 1];
+    if (last && last.day === visit.day) {
+      last.visits.push(visit);
+      last.activeSeconds += visit.activeSeconds;
+    } else {
+      days.push({ day: visit.day, visits: [visit], activeSeconds: visit.activeSeconds });
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {days.map((group) => (
+        <section key={group.day} aria-label={group.day}>
+          <div className="sticky -top-6 z-[1] -mx-1 flex items-baseline justify-between gap-3 bg-[#f5f5f7]/95 px-1 py-2 backdrop-blur sm:-top-7">
+            <h4 className="font-label-md text-label-md font-semibold text-on-surface">{group.day}</h4>
+            <span className="font-caption text-caption font-medium tabular-nums text-outline">
+              {group.visits.length} {group.visits.length === 1 ? "visit" : "visits"} ·{" "}
+              {shortDuration(group.activeSeconds)}
+            </span>
+          </div>
+          <ul className="mt-1 flex flex-col gap-2.5">
+            {group.visits.map((visit) => (
+              <VisitCard
+                key={visit.id}
+                visit={visit}
+                open={openVisitId === visit.id}
+                onToggle={() => onToggle(visit.id)}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ColumnHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-9 flex-wrap items-start justify-between gap-space-12 px-1">
+      <div className="min-w-0">
+        <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
+          {title}
+        </h3>
+        <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function StatStrip({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <Panel>
+      <div className="grid grid-cols-3">
+        {items.map((item, index) => (
+          <div
+            key={item.label}
+            className={`min-w-0 px-4 py-4 sm:px-5 ${index < items.length - 1 ? "border-r border-black/[0.06]" : ""}`}
+          >
+            <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
+              {item.label}
+            </p>
+            <p className="mt-1 font-headline-sm text-headline-sm font-semibold tabular-nums text-on-surface">
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
 
@@ -745,22 +1035,28 @@ function ListeningRunRow({
   const firstTry = run.clips.filter((clip) => clip.passed && !clip.missed).length;
   const passedRun = run.outcome === "success";
   const facts = [
-    run.partCount > 1 ? `Part ${run.partNumber} of ${run.partCount}` : `Part ${run.partNumber}`,
-    `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}`,
+    {
+      icon: "segment",
+      label: run.partCount > 1 ? `Part ${run.partNumber} of ${run.partCount}` : `Part ${run.partNumber}`,
+    },
+    { icon: "headphones", label: `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}` },
     ...(run.cardCount != null
-      ? [`${run.cardCount} ${run.cardCount === 1 ? "card" : "cards"}`]
+      ? [{ icon: "style", label: `${run.cardCount} ${run.cardCount === 1 ? "card" : "cards"}` }]
       : []),
-    compactDuration(formatActiveDuration(Math.round(run.elapsedMs / 1000))),
-    missed.length > 0 ? `${missed.length} missed` : "No misses",
+    { icon: "timer", label: shortDuration(Math.round(run.elapsedMs / 1000)) },
+    missed.length > 0
+      ? { icon: "close", label: `${missed.length} missed`, warn: true }
+      : { icon: "done_all", label: "No misses" },
   ];
 
   return (
     <li>
+      <Panel className={open ? "ring-2 ring-primary/25" : ""}>
       <button
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className="flex w-full items-start gap-space-16 px-5 py-5 text-left hover:bg-black/[0.02] sm:px-6"
+        className="flex w-full items-start gap-space-12 px-4 py-4 text-left transition-colors hover:bg-black/[0.015] sm:px-5"
       >
         <span
           className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
@@ -778,7 +1074,12 @@ function ListeningRunRow({
             <span className="font-label-md text-label-md font-semibold text-on-surface">
               {passedRun ? "Passed" : "Out of hearts"}
             </span>
-            <span className="shrink-0 font-label-md text-label-md font-semibold tabular-nums text-on-surface">
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 font-label-sm text-label-sm font-semibold tabular-nums ${
+                passedRun ? "bg-[#34C759]/15 text-[#1f7a35]" : "bg-[#ff3b30]/10 text-[#c4251c]"
+              }`}
+              title="Accuracy"
+            >
               {run.accuracy}%
             </span>
           </span>
@@ -789,21 +1090,26 @@ function ListeningRunRow({
           <span className="mt-3 flex flex-wrap gap-1.5">
             {facts.map((fact) => (
               <span
-                key={fact}
-                className="rounded-full bg-surface-container-low px-2.5 py-1 font-caption text-caption font-medium text-on-surface-variant"
+                key={fact.label}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-caption text-caption font-medium tabular-nums ${
+                  "warn" in fact && fact.warn
+                    ? "bg-[#ff3b30]/10 text-[#c4251c]"
+                    : "bg-surface-container-low text-on-surface-variant"
+                }`}
               >
-                {fact}
+                <MaterialIcon name={fact.icon} className="text-[14px]" />
+                {fact.label}
               </span>
             ))}
           </span>
         </span>
         <MaterialIcon
-          name={open ? "expand_less" : "expand_more"}
-          className="mt-1 text-[22px] text-outline"
+          name="expand_more"
+          className={`mt-0.5 text-[22px] text-outline transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open ? (
-        <div className="flex flex-col gap-space-12 border-t border-black/[0.06] bg-[#f5f5f7]/80 px-5 py-5 sm:px-6 sm:pl-[4.75rem]">
+        <div className="flex flex-col gap-space-12 border-t border-black/[0.06] bg-[#f5f5f7]/70 px-4 py-4 sm:px-5">
           {run.clips.length === 0 ? (
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               Clip results were not stored for this run.
@@ -868,6 +1174,7 @@ function ListeningRunRow({
           )}
         </div>
       ) : null}
+      </Panel>
     </li>
   );
 }
@@ -942,13 +1249,11 @@ function ListeningRunsSection({
   const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
 
   return (
-    <section aria-label="Practice" aria-busy={visible == null}>
-      <h3 className="px-1 font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-        Practice
-      </h3>
-      <p className="mt-1 px-1 font-body-sm text-body-sm text-on-surface-variant">
-        Finished practice parts, including ones that ran out of hearts.
-      </p>
+    <section aria-label="Practice" aria-busy={visible == null} className="min-w-0">
+      <ColumnHeader
+        title="Practice"
+        description="Finished practice parts, including ones that ran out of hearts."
+      />
       <div className="mt-4">
         {visible == null ? (
           <Panel>
@@ -975,27 +1280,15 @@ function ListeningRunsSection({
             </p>
           </Panel>
         ) : (
-          <Panel>
-            <div className="grid grid-cols-3 border-b border-black/[0.06]">
-              {[
+          <div className="flex flex-col gap-4">
+            <StatStrip
+              items={[
                 { label: "Finished", value: String(visible.total) },
                 { label: "Passed", value: String(visible.passed) },
                 { label: "Failed", value: String(visible.failed) },
-              ].map((item, index) => (
-                <div
-                  key={item.label}
-                  className={`min-w-0 px-4 py-4 sm:px-6 ${index < 2 ? "border-r border-black/[0.06]" : ""}`}
-                >
-                  <p className="font-label-sm text-[11px] font-semibold uppercase tracking-[0.08em] text-outline">
-                    {item.label}
-                  </p>
-                  <p className="mt-1 font-headline-sm text-headline-sm font-semibold tabular-nums text-on-surface">
-                    {item.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <ul className="divide-y divide-black/[0.06]">
+              ]}
+            />
+            <ul className="flex flex-col gap-2.5">
               {visible.runs.map((run) => (
                 <ListeningRunRow
                   key={run.id}
@@ -1007,18 +1300,16 @@ function ListeningRunsSection({
               ))}
             </ul>
             {earlier > 0 ? (
-              <div className="border-t border-black/[0.06] px-5 py-3 sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => void loadMore()}
-                  disabled={loadingMore}
-                  className="font-label-sm text-label-sm font-semibold text-primary disabled:opacity-50"
-                >
-                  {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "run" : "runs"}`}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => void loadMore()}
+                disabled={loadingMore}
+                className="self-center rounded-full bg-primary/10 px-4 py-2 font-label-sm text-label-sm font-semibold text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "run" : "runs"}`}
+              </button>
             ) : null}
-          </Panel>
+          </div>
         )}
       </div>
     </section>
@@ -1301,7 +1592,7 @@ export function StudentDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 sm:items-center sm:p-6 lg:p-10"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 sm:items-center sm:p-4 lg:p-6"
       role="presentation"
       onClick={() => {
         if (deleting) return;
@@ -1317,7 +1608,7 @@ export function StudentDetailModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="student-detail-title"
-        className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-[#f5f5f7] shadow-2xl sm:max-h-[min(960px,94dvh)] sm:max-w-[1120px] sm:rounded-[28px] xl:max-w-[1240px]"
+        className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-[#f5f5f7] shadow-2xl sm:h-[min(1100px,96dvh)] sm:max-w-[1320px] sm:rounded-[28px] xl:max-w-[1480px] 2xl:max-w-[1640px]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="z-10 shrink-0 border-b border-black/[0.06] bg-surface-container-lowest px-5 py-5 sm:px-8">
@@ -1742,15 +2033,14 @@ export function StudentDetailModal({
               ) : null}
 
               {tab === "activity" ? (
-                <div className="flex flex-col gap-6">
-                  <section aria-label="Visit log">
-                    <div className="flex flex-wrap items-center justify-between gap-space-12">
-                      <h3 className="font-headline-sm text-headline-sm font-semibold tracking-[-0.02em] text-on-surface">
-                        Visits
-                      </h3>
-                      <VisitRangeSwitch range={range} onChange={setRange} />
-                    </div>
-                    <div className="mt-4">
+                <div className="grid items-start gap-x-8 gap-y-10 lg:grid-cols-2">
+                  <section aria-label="Visit log" className="min-w-0">
+                    <ColumnHeader
+                      title="Visits"
+                      description="Each time the app was open, newest first."
+                      action={<VisitRangeSwitch range={range} onChange={setRange} />}
+                    />
+                    <div className="mt-4 flex flex-col gap-4">
                       {visitLog.visits.length === 0 ? (
                         <Panel>
                           <p className="px-6 py-12 text-center font-body-md text-body-md text-on-surface-variant">
@@ -1758,20 +2048,29 @@ export function StudentDetailModal({
                           </p>
                         </Panel>
                       ) : (
-                        <Panel>
-                          <ul className="divide-y divide-black/[0.06]">
-                            {visitLog.visits.map((visit) => (
-                              <VisitRow
-                                key={visit.id}
-                                visit={visit}
-                                open={openVisitId === visit.id}
-                                onToggle={() =>
-                                  setOpenVisitId((current) => (current === visit.id ? null : visit.id))
-                                }
-                              />
-                            ))}
-                          </ul>
-                        </Panel>
+                        <>
+                          <StatStrip
+                            items={[
+                              { label: "Visits", value: String(summary.visitCount) },
+                              { label: "Active time", value: shortDuration(summary.activeSeconds) },
+                              {
+                                label: "Avg. visit",
+                                value: shortDuration(
+                                  summary.visitCount > 0
+                                    ? Math.round(summary.activeSeconds / summary.visitCount)
+                                    : 0,
+                                ),
+                              },
+                            ]}
+                          />
+                          <VisitFeed
+                            visits={visitLog.visits}
+                            openVisitId={openVisitId}
+                            onToggle={(id) =>
+                              setOpenVisitId((current) => (current === id ? null : id))
+                            }
+                          />
+                        </>
                       )}
                     </div>
                   </section>
