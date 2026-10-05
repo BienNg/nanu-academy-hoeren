@@ -84,6 +84,12 @@ export type LearnProgress = InterviewProgress & {
    * so Study stays completed even after the student starts another pass.
    */
   studyCompletedAt?: string;
+  /**
+   * Keys of practice parts finished on a CEFR trail. A part's cards can belong
+   * to clips that are only completed by a later part, so the part itself is
+   * stored. A key no longer matches once that part's cards change.
+   */
+  practicePartKeys?: string[];
 };
 
 function emptyLearnProgress(): LearnProgress {
@@ -143,6 +149,8 @@ export type VisitExerciseLesson = {
   lessonKey: string;
   completed: number;
   fullRuns: number;
+  /** Trail practice parts finished. Absent on visits saved before parts were counted. */
+  parts?: number;
 };
 
 /**
@@ -317,6 +325,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     reviewedClipIds?: unknown;
     studyRunCount?: unknown;
     studyCompletedAt?: unknown;
+    practicePartKeys?: unknown;
   };
 
   const studyCompletedAt =
@@ -324,6 +333,14 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
   const runClipOrder = Array.isArray(record.runClipOrder)
     ? record.runClipOrder.filter(
         (id): id is string => typeof id === "string" && id.length > 0,
+      )
+    : [];
+  const practicePartKeys = Array.isArray(record.practicePartKeys)
+    ? unionIds(
+        record.practicePartKeys.filter(
+          (key): key is string => typeof key === "string" && key.length > 0,
+        ),
+        [],
       )
     : [];
 
@@ -353,6 +370,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           ? 1
           : 0,
     ...(studyCompletedAt ? { studyCompletedAt } : {}),
+    ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
   };
 }
 
@@ -688,6 +706,10 @@ function mergeLearnEntry(
   const cursor = mergeRunCursors(left, right, leftCount, rightCount);
   const runCompletedClipIds = cursor.done;
   const runClipOrder = cursor.order.length > 0 ? cursor.order : undefined;
+  const practicePartKeys = unionIds(
+    left?.practicePartKeys ?? [],
+    right?.practicePartKeys ?? [],
+  );
 
   return {
     ...mergedBase,
@@ -700,6 +722,7 @@ function mergeLearnEntry(
       ? { studyCompletedAt: studyStamps.sort()[0] }
       : {}),
     ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
+    ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
   };
 }
 
@@ -824,6 +847,7 @@ function learnSliceIsEmpty(entry: LearnProgress): boolean {
     entry.runCompletedClipIds.length === 0 &&
     (entry.runClipOrder?.length ?? 0) === 0 &&
     entry.reviewedClipIds.length === 0 &&
+    (entry.practicePartKeys?.length ?? 0) === 0 &&
     entry.runCount === 0 &&
     entry.studyRunCount === 0 &&
     !entry.completedAt &&
@@ -843,6 +867,8 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     if (order.length > 0) nextEntry.runClipOrder = order;
     else delete nextEntry.runClipOrder;
     delete nextEntry.completedAt;
+    // Part keys do not name their clips, so erased practice drops every finished part.
+    delete nextEntry.practicePartKeys;
     nextEntry.runCount = 0;
     nextEntry.currentClipIndex = nextEntry.runCompletedClipIds.length;
   }
@@ -1394,6 +1420,10 @@ function normalizeVisitLeftSession(value: unknown): VisitLeftSession | null {
   };
 }
 
+function exerciseLessonHasWork(lesson: VisitExerciseLesson): boolean {
+  return lesson.completed > 0 || lesson.fullRuns > 0 || (lesson.parts ?? 0) > 0;
+}
+
 function normalizeExerciseLesson(value: unknown): VisitExerciseLesson | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -1401,8 +1431,9 @@ function normalizeExerciseLesson(value: unknown): VisitExerciseLesson | null {
   if (!lessonKey) return null;
   const completed = countField(record.completed);
   const fullRuns = countField(record.fullRuns);
-  if (completed === 0 && fullRuns === 0) return null;
-  return { lessonKey, completed, fullRuns };
+  const parts = countField(record.parts);
+  if (completed === 0 && fullRuns === 0 && parts === 0) return null;
+  return { lessonKey, completed, fullRuns, ...(parts > 0 ? { parts } : {}) };
 }
 
 function stampIso(value: unknown, fallback: string): string {
@@ -1422,7 +1453,7 @@ function visitHasStudy(visit: Visit): boolean {
     return true;
   }
   if ((visit.leftSessions ?? []).length > 0 || (visit.wrongAttempts ?? 0) > 0) return true;
-  if ((visit.exerciseLessons ?? []).some((lesson) => lesson.completed > 0 || lesson.fullRuns > 0)) {
+  if ((visit.exerciseLessons ?? []).some((lesson) => exerciseLessonHasWork(lesson))) {
     return true;
   }
   const played = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
@@ -1569,6 +1600,8 @@ function mergeExerciseLessons(
     }
     existing.completed = Math.max(existing.completed, lesson.completed);
     existing.fullRuns = Math.max(existing.fullRuns, lesson.fullRuns);
+    const parts = Math.max(existing.parts ?? 0, lesson.parts ?? 0);
+    if (parts > 0) existing.parts = parts;
   }
   return [...byKey.values()].slice(0, VISIT_LIST_CAP.exerciseLessons);
 }
@@ -1904,13 +1937,16 @@ export function recordVisitExercise(
   preferredId: string | null,
   lessonKey: string,
   count = 1,
+  parts = 0,
 ): { progress: StoredProgress; visitId: string } {
   const key = textId(lessonKey);
   const amount = countField(count);
-  if (!key || amount === 0) return { progress, visitId: preferredId || "" };
+  const partAmount = countField(parts);
+  if (!key || (amount === 0 && partAmount === 0)) return { progress, visitId: preferredId || "" };
   const opened = openVisit(progress, now, preferredId);
   const visit = bumpExerciseLesson(opened.visit, key, (lesson) => {
     lesson.completed += amount;
+    if (partAmount > 0) lesson.parts = (lesson.parts ?? 0) + partAmount;
   });
   return { visitId: opened.visitId, progress: commitVisit(opened.progress, visit, now) };
 }
@@ -2352,7 +2388,7 @@ function videoTouchesDay(
 
 function visitFinishedWork(visit: Visit): boolean {
   if (visit.clips.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) return true;
-  return (visit.exerciseLessons ?? []).some((lesson) => lesson.completed > 0 || lesson.fullRuns > 0);
+  return (visit.exerciseLessons ?? []).some((lesson) => exerciseLessonHasWork(lesson));
 }
 
 /** Lesson, interview, study, or practice credit. Opening a video is not credit. */
@@ -2607,6 +2643,7 @@ function withoutRunCursor(entry: LearnProgress): LearnProgress {
   };
   if (entry.completedAt) next.completedAt = entry.completedAt;
   if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
+  if (entry.practicePartKeys?.length) next.practicePartKeys = entry.practicePartKeys;
   return next;
 }
 
@@ -2644,18 +2681,22 @@ export function commitLearnPart(
   progress: StoredProgress,
   chapterSlug: string,
   clipIds: readonly string[],
-  options?: { now?: Date; finishRun?: boolean },
+  options?: { now?: Date; finishRun?: boolean; practicePartKey?: string },
 ): StoredProgress {
   const now = options?.now ?? new Date();
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
   const completedClipIds = unionIds(entry.completedClipIds, clipIds);
   const runCompletedClipIds = unionIds(entry.runCompletedClipIds, clipIds);
+  const partKey = options?.practicePartKey;
   let next = bumpStreak(
     withLearnEntry(progress, chapterSlug, {
       ...entry,
       currentClipIndex: runCompletedClipIds.length,
       completedClipIds,
       runCompletedClipIds,
+      ...(partKey
+        ? { practicePartKeys: unionIds(entry.practicePartKeys ?? [], [partKey]) }
+        : {}),
     }),
     now,
   );
@@ -2904,6 +2945,9 @@ export function resetLearnProgress(
         runCount: existing?.runCount ?? 0,
         reviewedClipIds: existing?.reviewedClipIds ?? [],
         studyRunCount: existing?.studyRunCount ?? 0,
+        ...(existing?.practicePartKeys?.length
+          ? { practicePartKeys: existing.practicePartKeys }
+          : {}),
         ...(completedAt ? { completedAt } : {}),
         ...(existing?.studyCompletedAt
           ? { studyCompletedAt: existing.studyCompletedAt }
@@ -3479,7 +3523,7 @@ export function completedStudyPartCount<T extends { id: string }>(
   return { done: Math.min(open, parts.length + 1) - 1, total: parts.length };
 }
 
-/** Most study parts one Lektion trail node holds. The practice node after it holds the same parts. */
+/** Most study parts one Lektion trail node holds. The practice node after it covers the same clips. */
 export const PARTS_PER_NODE = 4;
 
 export type LessonNodeKind = "study" | "practice";
@@ -3488,7 +3532,7 @@ export type LessonNodeKind = "study" | "practice";
  * Study parts grouped into trail nodes, in catalog order.
  * Nodes are as even as the cap allows, so the last node is at most one part
  * shorter than the others: 5 parts are 3 + 2, not 4 + 1.
- * Practice part N covers exactly the clips of study part N.
+ * Practice node N deals the cards of the clips in study node N.
  */
 export function lessonNodeParts<T extends { id: string }>(clips: readonly T[]): T[][][] {
   const parts = splitStudyParts(clips);
@@ -3506,6 +3550,20 @@ export function lessonNodeParts<T extends { id: string }>(clips: readonly T[]): 
   return nodes;
 }
 
+/**
+ * One practice part of a trail node, cut from that node's card deck.
+ * Cards of one clip can fall into two parts, so a part is stored by its key.
+ */
+export type PracticeNodePart = {
+  /** Names this exact run of cards. A saved key stops matching once the cards change. */
+  key: string;
+  /** Clips with a card in this part, in deck order. */
+  clipIds: string[];
+  /** Clips whose last card is in this part. Finishing the part completes them. */
+  completes: string[];
+  cardCount: number;
+};
+
 export type LessonPathState = {
   reviewedClipIds: readonly string[];
   completedClipIds: readonly string[];
@@ -3513,18 +3571,30 @@ export type LessonPathState = {
   studyFinished: boolean;
   /** The Lektion is completed, so every practice node counts as done. */
   practiceFinished: boolean;
+  /**
+   * Practice parts per practice node, cut from each node's cards. Without it
+   * practice part N covers study part N.
+   */
+  practiceParts?: readonly (readonly PracticeNodePart[])[];
+  /** Keys of practice parts the learner finished. */
+  practicePartKeys?: readonly string[];
 };
 
 export type LessonPathNode<T extends { id: string }> = {
   kind: LessonNodeKind;
-  /** 1-based. Study node N and practice node N share their parts. */
+  /** 1-based. Study node N and practice node N cover the same clips. */
   node: number;
   nodeCount: number;
   /** Lesson-wide number of this node's first part. */
   firstPart: number;
-  /** Study parts across the whole Lektion. Part numbers sent with runs and XP use this. */
+  /** Parts of this kind across the whole Lektion. Part numbers sent with runs and XP use this. */
   lessonPartCount: number;
+  /** Clips of each part. A clip can sit in two practice parts. */
   parts: T[][];
+  /** Practice parts cut from cards. Null on study nodes and on practice without a card layout. */
+  practiceParts: PracticeNodePart[] | null;
+  /** Done state of each part, in order. */
+  partDone: boolean[];
   partsDone: number;
   clipsDone: number;
   clipCount: number;
@@ -3533,48 +3603,75 @@ export type LessonPathNode<T extends { id: string }> = {
 
 /**
  * The Lektion trail without videos: Study 1, Practice 1, Study 2, Practice 2...
- * A study part is done once every clip in it is reviewed. A practice part is
- * done once every clip in it is completed, so practice from the old, wider
- * parts still counts clip by clip.
+ * A study part is done once every clip in it is reviewed. A practice part cut
+ * from cards is done once its key is stored, or once every clip with a card in
+ * it is completed, so practice saved under the old parts still counts.
  */
 export function lessonPathNodes<T extends { id: string }>(
   clips: readonly T[],
   state: LessonPathState,
 ): LessonPathNode<T>[] {
   const groups = lessonNodeParts(clips);
-  const lessonPartCount = groups.reduce((sum, group) => sum + group.length, 0);
+  const layout =
+    state.practiceParts && state.practiceParts.length === groups.length
+      ? state.practiceParts
+      : null;
+  const studyPartCount = groups.reduce((sum, group) => sum + group.length, 0);
+  const practicePartCount = layout
+    ? layout.reduce((sum, parts) => sum + parts.length, 0)
+    : studyPartCount;
   const reviewed = new Set(state.reviewedClipIds);
   const completed = new Set(state.completedClipIds);
+  const finishedKeys = new Set(state.practicePartKeys ?? []);
+  const byId = new Map(clips.map((clip) => [clip.id, clip]));
   const nodes: LessonPathNode<T>[] = [];
-  let firstPart = 1;
-  groups.forEach((parts, index) => {
+  let firstStudyPart = 1;
+  let firstPracticePart = 1;
+  groups.forEach((group, index) => {
+    const groupClips = group.flat();
+    const practiceParts = layout ? [...(layout[index] ?? [])] : null;
     for (const kind of ["study", "practice"] as const) {
       const finished = kind === "study" ? state.studyFinished : state.practiceFinished;
       const doneIds = kind === "study" ? reviewed : completed;
-      const clipCount = parts.reduce((sum, part) => sum + part.length, 0);
+      const cut = kind === "practice" ? practiceParts : null;
+      const parts = cut
+        ? cut.map((part) =>
+            part.clipIds.flatMap((id) => {
+              const clip = byId.get(id);
+              return clip ? [clip] : [];
+            }),
+          )
+        : group;
+      const partDone = cut
+        ? cut.map(
+            (part) =>
+              finished ||
+              finishedKeys.has(part.key) ||
+              (part.clipIds.length > 0 && part.clipIds.every((id) => completed.has(id))),
+          )
+        : group.map((part) => finished || part.every((clip) => doneIds.has(clip.id)));
+      const clipCount = groupClips.length;
       const clipsDone = finished
         ? clipCount
-        : parts.reduce(
-            (sum, part) => sum + part.filter((clip) => doneIds.has(clip.id)).length,
-            0,
-          );
-      const partsDone = finished
-        ? parts.length
-        : parts.filter((part) => part.every((clip) => doneIds.has(clip.id))).length;
+        : groupClips.filter((clip) => doneIds.has(clip.id)).length;
+      const partsDone = partDone.filter(Boolean).length;
       nodes.push({
         kind,
         node: index + 1,
         nodeCount: groups.length,
-        firstPart,
-        lessonPartCount,
+        firstPart: kind === "study" ? firstStudyPart : firstPracticePart,
+        lessonPartCount: kind === "study" ? studyPartCount : practicePartCount,
         parts,
+        practiceParts: cut,
+        partDone,
         partsDone,
         clipsDone,
         clipCount,
         done: partsDone >= parts.length,
       });
     }
-    firstPart += parts.length;
+    firstStudyPart += group.length;
+    firstPracticePart += practiceParts ? practiceParts.length : group.length;
   });
   return nodes;
 }
@@ -3609,8 +3706,8 @@ export type NodePart<T> = {
 
 /**
  * The first unfinished part of a node, or null when the node is done.
- * Study plays the whole part. Practice skips clips completed before, which
- * only happens for practice saved under the old, wider parts.
+ * Study and practice cut from cards play the whole part. Practice without a
+ * card layout skips clips completed before.
  */
 export function nextNodePart<T extends { id: string }>(
   node: LessonPathNode<T>,
@@ -3618,12 +3715,15 @@ export function nextNodePart<T extends { id: string }>(
 ): NodePart<T> | null {
   if (node.done) return null;
   const done = new Set(doneIds);
-  const index = node.parts.findIndex((part) => part.some((clip) => !done.has(clip.id)));
+  const index = node.practiceParts
+    ? node.partDone.indexOf(false)
+    : node.parts.findIndex((part) => part.some((clip) => !done.has(clip.id)));
   if (index < 0) return null;
   const partClips = node.parts[index] ?? [];
+  const skipDone = node.kind === "practice" && !node.practiceParts;
   return {
     partNumber: node.firstPart + index,
-    clips: node.kind === "practice" ? partClips.filter((clip) => !done.has(clip.id)) : partClips,
+    clips: skipDone ? partClips.filter((clip) => !done.has(clip.id)) : partClips,
     partClips,
   };
 }
@@ -3813,6 +3913,7 @@ function hasLearnActivity(entry: LearnProgress | undefined): boolean {
       entry.runCompletedClipIds.length > 0 ||
       (entry.runClipOrder?.length ?? 0) > 0 ||
       entry.reviewedClipIds.length > 0 ||
+      (entry.practicePartKeys?.length ?? 0) > 0 ||
       entry.currentClipIndex > 0,
   );
 }

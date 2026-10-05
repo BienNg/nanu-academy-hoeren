@@ -490,6 +490,7 @@ function getServerSnapshot(): StoredProgress {
 }
 
 const EMPTY_RUN_ORDER: readonly string[] = [];
+const EMPTY_PART_KEYS: readonly string[] = [];
 const EMPTY_TOTALS: Record<string, number> = {};
 const EMPTY_LEVEL_CATALOG: ContinueLevelCatalogEntry[] = [];
 
@@ -730,16 +731,22 @@ export function useProgress(
       clipIds: readonly string[],
       lessonKey: string,
       finishRun: boolean,
+      practicePartKey?: string,
     ) => {
       const now = new Date();
       const current = readProgressSnapshot();
-      let next = commitLearnPart(current, chapterSlug, clipIds, { now, finishRun });
+      let next = commitLearnPart(current, chapterSlug, clipIds, {
+        now,
+        finishRun,
+        practicePartKey,
+      });
       const exercised = recordVisitExercise(
         next,
         now,
         readVisitId(),
         lessonKey,
         clipIds.length,
+        practicePartKey ? 1 : 0,
       );
       let visitId = exercised.visitId;
       next = exercised.progress;
@@ -1011,6 +1018,8 @@ export function useProgress(
       progress.learn[chapterSlug]?.completedClipIds ?? [],
     completedLearnRunClipIdsFor: (chapterSlug: string) =>
       learnRunCompletedClipIds(progress, chapterSlug),
+    learnPracticePartKeysFor: (chapterSlug: string) =>
+      progress.learn[chapterSlug]?.practicePartKeys ?? EMPTY_PART_KEYS,
     learnRunClipOrderFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.runClipOrder ?? EMPTY_RUN_ORDER,
     learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),

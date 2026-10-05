@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -44,6 +44,7 @@ import {
 import type { CardKind } from "@/lib/card-kinds";
 import { buildPracticeDeck, checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
 import { insertDiscreteCards, mixListeningChoice } from "@/lib/practice-deck";
+import { practiceNodeDecks, practicePartLayout } from "@/lib/practice-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
@@ -205,6 +206,8 @@ export function LearnSession({
   const [nodeRange, setNodeRange] = useState<{ first: number; last: number } | null>(null);
   /** This part completes the last clip of the Lektion. */
   const [partFinishesLesson, setPartFinishesLesson] = useState(false);
+  /** Trail practice part being played: its saved key and the clips finishing it completes. */
+  const [nodePart, setNodePart] = useState<{ key: string; completes: string[] } | null>(null);
   const comboCountedKeyRef = useRef<string | null>(null);
   const initializedSourceRef = useRef("");
   const committedRef = useRef(false);
@@ -222,6 +225,7 @@ export function LearnSession({
     completedLearnClipIdsFor,
     completedLearnRunClipIdsFor,
     learnRunClipOrderFor,
+    learnPracticePartKeysFor,
     learnChapterCompleted,
     learnStudyCompleted,
     learnRunCountFor,
@@ -250,12 +254,20 @@ export function LearnSession({
   const reviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
   const studyFinished = learnStudyCompleted(chapterProgressKey);
   const practiceFinished = chapterMarkedDone || learnRunCountFor(chapterProgressKey) > 0;
-  const pathNodes = nodeMode
+  const practicePartKeys = learnPracticePartKeysFor(chapterProgressKey);
+  const nodeDecks = useMemo(
+    () => (nodeMode ? practiceNodeDecks(lessonKey, clips) : null),
+    [nodeMode, lessonKey, clips],
+  );
+  const nodeLayout = useMemo(() => (nodeDecks ? practicePartLayout(nodeDecks) : null), [nodeDecks]);
+  const pathNodes = nodeLayout
     ? lessonPathNodes(clips, {
         reviewedClipIds: reviewedIds,
         completedClipIds: completedIds,
         studyFinished,
         practiceFinished,
+        practiceParts: nodeLayout,
+        practicePartKeys,
       })
     : null;
   const practiceNodeCount = pathNodes?.filter((entry) => entry.kind === "practice").length ?? 0;
@@ -279,6 +291,7 @@ export function LearnSession({
   const completedKey = completedIds.join("\n");
   const runCompletedKey = runCompletedIds.join("\n");
   const runOrderKey = runOrder.join("\n");
+  const practicePartKeysKey = practicePartKeys.join("\n");
   const clipKey = clips.map((clip) => `${clip.id}\t${clip.script}`).join("\n");
 
   // One part per visit. Ordered on the first pass, shuffled once per review run.
@@ -328,7 +341,7 @@ export function LearnSession({
     }
 
     if (nodeMode) {
-      if (!practiceNode || !pathNodes) return;
+      if (!practiceNode || !pathNodes || !nodeDecks) return;
       const first = practiceNode.firstPart;
       const last = first + practiceNode.parts.length - 1;
       // A finished node is replayed part by part inside this visit. Nothing about
@@ -336,10 +349,12 @@ export function LearnSession({
       const open = replayPart == null ? nextNodePart(practiceNode, absorbedCompleted) : null;
       const replaying = replayPart != null || open == null;
       const playPart = replaying ? (replayPart ?? first) : open.partNumber;
-      const nextPartClips = replaying
-        ? (practiceNode.parts[playPart - first] ?? [])
-        : open.clips;
-      const doneAfter = new Set([...absorbedCompleted, ...nextPartClips.map((clip) => clip.id)]);
+      const partIndex = playPart - first;
+      const layoutPart = practiceNode.practiceParts?.[partIndex];
+      const nextPartClips = practiceNode.parts[partIndex] ?? [];
+      const nextPartCards = nodeDecks[practiceNode.node - 1]?.[partIndex] ?? [];
+      const completes = layoutPart?.completes ?? [];
+      const doneAfter = new Set([...absorbedCompleted, ...completes]);
       const finishesLesson =
         !replaying && !chapterMarkedDone && clipIds.every((id) => doneAfter.has(id));
       const signature = [
@@ -347,7 +362,7 @@ export function LearnSession({
         String(practiceNode.node),
         replaying ? "replay" : "first",
         String(playPart),
-        nextPartClips.map((clip) => clip.id).join("|"),
+        layoutPart?.key ?? "",
       ].join("~");
       if (initializedSourceRef.current === signature) return;
 
@@ -371,13 +386,10 @@ export function LearnSession({
       setReplayPart(replaying ? playPart : null);
       setNodeRange({ first, last });
       setPartFinishesLesson(finishesLesson);
+      setNodePart(layoutPart ? { key: layoutPart.key, completes } : null);
       setPartClips(nextPartClips);
-      setPartCards(
-        mixListeningChoice(
-          insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []),
-          clips,
-        ),
-      );
+      // Cards come from the node's seeded deck, so the server can deal the same part.
+      setPartCards(nextPartCards);
       setPartNumber(playPart);
       setPartCount(practiceNode.lessonPartCount);
       setClipIndex(0);
@@ -490,6 +502,7 @@ export function LearnSession({
     runCompletedKey,
     runOrderKey,
     reviewedKey,
+    practicePartKeysKey,
     replayPart,
     nodeMode,
     node,
@@ -714,11 +727,13 @@ export function LearnSession({
     if (committedRef.current || !partClips || partClips.length === 0) return;
     committedRef.current = true;
     const finishRun = isLastPart;
+    // A trail part completes only the clips whose last card it holds; the part itself is saved by key.
     commitLearnListeningPart(
       chapterProgressKey,
-      partClips.map((clip) => clip.id),
+      nodeMode && nodePart ? nodePart.completes : partClips.map((clip) => clip.id),
       lessonKey,
       finishRun,
+      nodeMode ? nodePart?.key : undefined,
     );
     if (finishRun) pendingRunOrders.delete(chapterProgressKey);
     if (!finishRun) {

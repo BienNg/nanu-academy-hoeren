@@ -300,7 +300,8 @@ function nodeStartOffer(
   const next = nextNodePart(node, doneIds);
   const replay = next == null;
   const localPart = replay ? 1 : next.partNumber - node.firstPart + 1;
-  const clips = replay ? node.parts.flat() : next.clips;
+  // Cards of one clip can span two practice parts, so a replay counts each clip once.
+  const clips = replay ? [...new Map(node.parts.flat().map((clip) => [clip.id, clip])).values()] : next.clips;
   const unit = clipUnit(clips);
   return {
     title: study ? "Học từ vựng" : "Luyện tập",
@@ -1295,17 +1296,19 @@ export default function LevelViewClient({
     learnStudyRunCountFor,
     learnChapterCompleted,
     learnStudyCompleted,
+    learnPracticePartKeysFor,
     reviewedLearnClipIdsFor,
     streakDays,
     settleStudyReviews,
   } = useProgress();
-  const pathNodeLessonIds = useMemo(
+  /** Practice parts per node for every trail Lektion of this level, by lesson id. */
+  const pathNodeLayouts = useMemo(
     () =>
-      new Set(
+      new Map(
         cefrCatalog
           .find((entry) => entry.id === level.slug)
           ?.lessons.filter((lesson) => lesson.pathNodes)
-          .map((lesson) => lesson.id) ?? [],
+          .map((lesson) => [lesson.id, lesson.practiceNodeParts] as const) ?? [],
       ),
     [cefrCatalog, level.slug],
   );
@@ -1651,12 +1654,15 @@ export default function LevelViewClient({
               : null;
             const reviewedIds = reviewedLearnClipIdsFor(progressKeyOf(chapter));
             const completedIds = completedLearnClipIdsFor(progressKeyOf(chapter));
-            const pathNodes = pathNodeLessonIds.has(`${level.slug}-${chapter.slug}`)
+            const lessonId = `${level.slug}-${chapter.slug}`;
+            const pathNodes = pathNodeLayouts.has(lessonId)
               ? lessonPathNodes(practiceClips, {
                   reviewedClipIds: reviewedIds,
                   completedClipIds: completedIds,
                   studyFinished: learnStudyCompleted(progressKeyOf(chapter)),
                   practiceFinished: isCompleted || listeningPasses > 0,
+                  practiceParts: pathNodeLayouts.get(lessonId),
+                  practicePartKeys: learnPracticePartKeysFor(progressKeyOf(chapter)),
                 })
               : null;
             const nodes = lessonTrailNodes(

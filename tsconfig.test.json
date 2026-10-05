@@ -38,6 +38,8 @@
     "src/lib/pairing.test.ts",
     "src/lib/practice-deck.ts",
     "src/lib/practice-deck.test.ts",
+    "src/lib/practice-node.ts",
+    "src/lib/practice-node.test.ts",
     "src/lib/blitzrunde.ts",
     "src/lib/blitzrunde.test.ts",
     "src/lib/living-content.ts",

@@ -2,7 +2,6 @@ import {
   getAusbildungClipInventory,
   getListedBerufe,
   getSessionClips,
-  type SessionClip,
 } from "@/lib/content";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import { shortBerufLabel, type AdminUserRow } from "@/lib/admin-overview";
@@ -21,34 +20,32 @@ import {
 } from "@/lib/living";
 import { livingAccessSlug } from "@/lib/living-content";
 import {
-  lessonNodeParts,
   lessonVideoProgressKey,
   lessonVideoStatus,
+  type PracticeNodePart,
 } from "@/lib/progress";
-import { practiceCardCount } from "@/lib/practice-deck";
-
-/** Practice cards per practice node. Each practice part deals the clips of one study part. */
-function nodePracticeCardsFor(clips: readonly SessionClip[]): number[] {
-  return lessonNodeParts(clips).map((parts) =>
-    parts.reduce((sum, part) => sum + practiceCardCount(part, clips), 0),
-  );
-}
+import { practiceNodeLayout } from "@/lib/practice-node";
 
 function chapterLesson(levelSlug: string, chapterSlug: string): {
   clips: { id: string; prompt: string }[];
   practiceCards: number;
   nodePracticeCards: number[];
+  practiceNodeParts: PracticeNodePart[][];
 } {
   try {
     const clips = getChapterClips(levelSlug, chapterSlug);
-    const nodePracticeCards = nodePracticeCardsFor(clips);
+    const practiceNodeParts = practiceNodeLayout(`${levelSlug}/${chapterSlug}`, clips);
+    const nodePracticeCards = practiceNodeParts.map((parts) =>
+      parts.reduce((sum, part) => sum + part.cardCount, 0),
+    );
     return {
       clips: clips.map((clip) => ({ id: clip.id, prompt: clip.script })),
       practiceCards: nodePracticeCards.reduce((sum, cards) => sum + cards, 0),
       nodePracticeCards,
+      practiceNodeParts,
     };
   } catch {
-    return { clips: [], practiceCards: 0, nodePracticeCards: [] };
+    return { clips: [], practiceCards: 0, nodePracticeCards: [], practiceNodeParts: [] };
   }
 }
 
@@ -100,6 +97,7 @@ export function buildAdminCourseCatalog(
         practiceCards: lesson.practiceCards,
         pathNodes: true,
         nodePracticeCards: lesson.nodePracticeCards,
+        practiceNodeParts: lesson.practiceNodeParts,
         videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
           video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
         ),

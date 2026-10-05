@@ -5,6 +5,7 @@ import type {
   LearnProgress,
   StoredProgress,
   Visit,
+  VisitExerciseLesson,
   VisitSummary,
 } from "@/lib/progress";
 import {
@@ -20,6 +21,7 @@ import {
   selectVisits,
   splitStudyParts,
   summarizeVisits,
+  type PracticeNodePart,
   type VisitRange,
 } from "@/lib/progress";
 
@@ -54,6 +56,8 @@ export type AdminCatalogLesson = {
   pathNodes?: boolean;
   /** Practice cards per practice node, in trail order. */
   nodePracticeCards?: number[];
+  /** Practice parts per practice node, cut from that node's cards. */
+  practiceNodeParts?: PracticeNodePart[][];
 };
 
 export type AdminCatalogCourse = {
@@ -285,6 +289,8 @@ function projectLesson(
           completedClipIds: [...passedIds],
           studyFinished: studyCompletedOnce,
           practiceFinished: listeningCompletedOnce,
+          practiceParts: lesson.practiceNodeParts,
+          practicePartKeys: learn?.practicePartKeys,
         })
       : null;
   const activities: AdminActivityCard[] = pathNodes
@@ -563,7 +569,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
             label: `Practice${numbered(node)}`,
             kind: "practice" as const,
             count: lesson.nodePracticeCards?.[index] ?? null,
-            parts: parts.length,
+            parts: lesson.practiceNodeParts?.[index]?.length ?? parts.length,
             videoKey: null,
           },
         ];
@@ -871,7 +877,7 @@ function visitDetails(
       exerciseLessons.length > 0
         ? exerciseLessons.map((lesson) => {
             const facts: string[] = [];
-            const parts = practicePartsForLesson(courses, lesson.lessonKey, lesson.completed);
+            const parts = practicePartsForLesson(courses, lesson);
             if (parts > 0) {
               facts.push(
                 `${parts} practice ${parts === 1 ? "part" : "parts"} finished`,
@@ -989,14 +995,15 @@ function studyPartsFinished(
 
 function practicePartsForLesson(
   courses: readonly AdminCatalogCourse[],
-  lessonKey: string,
-  clipsDone: number,
+  exercise: VisitExerciseLesson,
 ): number {
-  const lesson = catalogLesson(courses, lessonKey).lesson;
-  // Trail practice finishes the same parts as study. Other lessons keep clip totals.
+  // Visits now count trail parts. Older visits only have clip totals.
+  if (exercise.parts != null) return exercise.parts;
+  const lesson = catalogLesson(courses, exercise.lessonKey).lesson;
+  // Before parts were cut from cards, trail practice finished the same parts as study.
   if (!lesson?.pathNodes || lesson.clips.length === 0) return 0;
   const sizes = splitStudyParts(lesson.clips).map((part) => part.length);
-  return partsCoveredByClips(sizes, clipsDone);
+  return partsCoveredByClips(sizes, exercise.completed);
 }
 
 function practicePartsFinished(
@@ -1004,7 +1011,7 @@ function practicePartsFinished(
   visit: Visit,
 ): number {
   return (visit.exerciseLessons ?? []).reduce(
-    (sum, lesson) => sum + practicePartsForLesson(courses, lesson.lessonKey, lesson.completed),
+    (sum, lesson) => sum + practicePartsForLesson(courses, lesson),
     0,
   );
 }

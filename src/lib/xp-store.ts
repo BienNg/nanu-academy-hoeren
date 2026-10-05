@@ -12,6 +12,7 @@ import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
 import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
+import { practiceNodeLayout } from "@/lib/practice-node";
 import {
   learnRunCount,
   listeningPartSize,
@@ -36,7 +37,6 @@ import {
   dayKey,
   decidePartXp,
   decideStudyPartXp,
-  finishedClipPasses,
   nodePracticeRunSize,
   passesAlreadyFinished,
   emptyLeaderboard,
@@ -60,7 +60,6 @@ const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const RUNS_TABLE = "listening_runs";
-const CLIP_RESULTS_TABLE = "clip_results";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
 
@@ -183,39 +182,39 @@ async function finishedStudyPasses(
 }
 
 /**
- * Earlier passed results per clip for this learner and lesson, excluding the
- * run being scored. Only clips in `clipIds` are read. Null when the read fails.
+ * Earlier successful runs of one trail practice part, excluding the run being
+ * scored. The part count is matched too, so a run saved under another part
+ * layout of this lesson is not counted. Null when the read fails.
  */
-async function priorClipPasses(
+async function finishedPracticePartRuns(
   supabase: SupabaseClient,
   userId: string,
-  lessonKey: string,
-  clipIds: readonly string[],
-  currentRunId: string,
-): Promise<Map<string, number> | null> {
-  const counts = new Map<string, number>();
-  if (clipIds.length === 0) return counts;
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from(CLIP_RESULTS_TABLE)
-      .select("clip_id, run_id")
-      .eq("user_id", userId)
-      .eq("lesson_key", lessonKey)
-      .eq("passed", true)
-      .in("clip_id", [...clipIds])
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      console.error("Supabase priorClipPasses", error.message);
-      return null;
-    }
-    const page = (data ?? []) as { clip_id?: unknown; run_id?: unknown }[];
-    for (const row of page) {
-      if (row.run_id === currentRunId || typeof row.clip_id !== "string") continue;
-      counts.set(row.clip_id, (counts.get(row.clip_id) ?? 0) + 1);
-    }
-    if (page.length < PAGE_SIZE) return counts;
-    from += PAGE_SIZE;
+  input: ListeningRunInput,
+): Promise<number | null> {
+  const { count, error } = await supabase
+    .from(RUNS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("lesson_key", input.lessonKey)
+    .eq("outcome", "success")
+    .eq("part_number", input.partNumber)
+    .eq("part_count", input.partCount)
+    .neq("id", input.id);
+  if (error) {
+    console.error("Supabase finishedPracticePartRuns", error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
+/** The chapter's clips with every field, so the cards dealt here match the browser's. */
+function chapterClipsForLayout(lessonKey: string) {
+  const slash = lessonKey.indexOf("/");
+  if (slash <= 0) return [];
+  try {
+    return getChapterClips(lessonKey.slice(0, slash), lessonKey.slice(slash + 1));
+  } catch {
+    return [];
   }
 }
 
@@ -257,43 +256,26 @@ async function lessonPassForRun(
 }
 
 /**
- * CEFR Lektionen practise one study part per run on trail nodes, so a node
- * can be replayed on its own. A pass is counted per clip from earlier passed
- * results, which still holds for practice saved under the old part layout.
+ * CEFR Lektionen practise one part of a trail node per run. Parts are cut from
+ * the node's cards, so the server deals the same cards to check the run, and
+ * a pass is counted per part.
  */
 async function nodePassForRun(
   supabase: SupabaseClient,
   userId: string,
   input: ListeningRunInput,
-  lessonClips: readonly XpLessonClip[],
-  stored: StoredProgress,
-  chapterSlug: string,
 ): Promise<RunPass | null> {
-  const parts = splitStudyParts(lessonClips);
-  const part = parts[input.partNumber - 1] ?? [];
-  const passCounts = await priorClipPasses(
-    supabase,
-    userId,
-    input.lessonKey,
-    part.map((clip) => clip.id),
-    input.id,
-  );
-  if (!passCounts) return null;
-  // Practice from before run history exists only in saved progress.
-  const completedBefore = new Set([
-    ...(chapterSlug ? (stored.learn[chapterSlug]?.completedClipIds ?? []) : []),
-    ...[...passCounts.entries()].filter(([, count]) => count > 0).map(([id]) => id),
-  ]);
-  const runClipIds = input.clips.map((clip) => clip.clipId);
+  const finishedPasses = await finishedPracticePartRuns(supabase, userId, input);
+  if (finishedPasses == null) return null;
+  const parts = practiceNodeLayout(input.lessonKey, chapterClipsForLayout(input.lessonKey)).flat();
   return {
     expectedCount: nodePracticeRunSize({
       parts,
       partNumber: input.partNumber,
       partCount: input.partCount,
-      runClipIds,
-      completedBefore,
+      runClipIds: input.clips.map((clip) => clip.clipId),
     }),
-    finishedPasses: finishedClipPasses(runClipIds, passCounts),
+    finishedPasses,
   };
 }
 
@@ -337,7 +319,7 @@ export async function grantXpForListeningRun(
   const lessonClips = lessonClipsForXp(input.lessonKey);
   const pass = getLivingClipsForLessonKey(input.lessonKey)
     ? await lessonPassForRun(supabase, userId, input, lessonClips, stored, chapterSlug)
-    : await nodePassForRun(supabase, userId, input, lessonClips, stored, chapterSlug);
+    : await nodePassForRun(supabase, userId, input);
   if (!pass) return { ready: false, xp: null, kind: null };
 
   const decision = decidePartXp({
