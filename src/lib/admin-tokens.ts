@@ -70,7 +70,7 @@ export const adminColors = {
     ember: { DEFAULT: c.ember, wash: c.emberWash, ink: "#9a3412" },
     amber: { DEFAULT: c.amber, wash: c.amberWash, ink: "#92400e" },
     emerald: { DEFAULT: c.emerald, wash: c.emeraldWash, ink: "#065f46" },
-    violet: { DEFAULT: c.violet, wash: c.violetWash, ink: "#5b21b6" },
+    violet: { DEFAULT: c.violet, wash: c.violetWash, ink: "#5b21b6", soft: c.violetSoft },
     crimson: {
       DEFAULT: c.crimson,
       wash: c.crimsonWash,
