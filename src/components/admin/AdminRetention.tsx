@@ -10,7 +10,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminPageHeader } from "@/components/admin/AdminShell";
+import {
+  CARD,
+  HeaderChip,
+  KpiTile,
+  PanelHeader,
+  THEAD,
+  TH,
+  TR,
+  TablePanel,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
   type AdminRange,
@@ -19,15 +30,12 @@ import {
   type AdminRetentionPoint,
   type AdminStreakBucket,
 } from "@/lib/admin-overview";
+import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
-const AXIS = "#717785";
-const GRID = "#c1c6d6";
-const PRIMARY = "#0059b5";
-const STREAK = "#00458f";
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
+const AXIS = ADMIN_COLORS.axis;
+const GRID = ADMIN_COLORS.grid;
+const RETURN = ADMIN_COLORS.ember;
+const STREAK = ADMIN_COLORS.ember;
 
 function formatPercent(value: number | null): string {
   if (value == null) return "—";
@@ -51,51 +59,21 @@ function formatDaysAgo(daysAgo: number): string {
   return `${daysAgo} days ago`;
 }
 
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
-}
-
 function ChartCard({
+  icon,
   title,
   hint,
   children,
 }: {
+  icon: string;
   title: string;
   hint: string;
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
-      <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">{children}</div>
+    <section className={`${CARD} flex flex-col p-space-16 sm:p-space-20`}>
+      <PanelHeader icon={icon} title={title} hint={hint} color={ADMIN_COLORS.ember} />
+      <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
     </section>
   );
 }
@@ -119,23 +97,23 @@ function ChartTooltip({
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload;
   return (
-    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
-      <p className="font-label-sm text-label-sm font-semibold text-on-surface">{label}</p>
+    <div className="rounded-admin-control bg-admin-ink px-space-12 py-space-8 shadow-admin-pop">
+      <p className="text-admin-label-md font-semibold text-white/70">{label}</p>
       <ul className="mt-1 flex flex-col gap-0.5">
         {payload.map((row) => (
           <li
             key={row.name}
-            className="flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant"
+            className="flex items-center justify-between gap-space-16 text-admin-body-sm text-white"
           >
             <span className="flex items-center gap-space-8">
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-2 w-2 rounded-[2px]"
                 style={{ backgroundColor: row.color }}
                 aria-hidden="true"
               />
               {row.name}
             </span>
-            <span className="tabular-nums text-on-surface">
+            <span className="font-semibold tabular-nums">
               {row.name?.includes("%") || row.name === "Came back"
                 ? formatPercent(typeof row.value === "number" ? row.value : null)
                 : typeof row.value === "number"
@@ -145,7 +123,7 @@ function ChartTooltip({
           </li>
         ))}
         {point && point.cohort > 0 ? (
-          <li className="font-caption text-caption text-on-surface-variant">
+          <li className="text-[12px] leading-4 text-white/70">
             {formatCount(point.returned)} of {formatCount(point.cohort)} came back
           </li>
         ) : null}
@@ -163,7 +141,7 @@ function tickInterval(count: number): number {
 function ReturnChart({ data }: { data: readonly AdminRetentionPoint[] }) {
   if (data.length === 0) {
     return (
-      <p className="flex h-full items-center justify-center px-space-16 font-body-sm text-body-sm text-on-surface-variant">
+      <p className="flex h-full items-center justify-center px-space-16 text-admin-body-sm text-admin-ink-muted">
         Not enough days yet to measure a next-day return.
       </p>
     );
@@ -171,7 +149,7 @@ function ReturnChart({ data }: { data: readonly AdminRetentionPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={[...data]} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+        <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: AXIS, fontSize: 11 }}
@@ -187,12 +165,12 @@ function ReturnChart({ data }: { data: readonly AdminRetentionPoint[] }) {
           axisLine={false}
           tickFormatter={(value: number) => `${value}%`}
         />
-        <Tooltip content={<ChartTooltip />} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
         <Bar
           dataKey="rate"
           name="Came back"
-          fill={PRIMARY}
-          radius={[4, 4, 0, 0]}
+          fill={RETURN}
+          radius={[2, 2, 0, 0]}
           maxBarSize={data.length === 1 ? 64 : 28}
         />
       </BarChart>
@@ -204,7 +182,7 @@ function StreakChart({ data }: { data: readonly AdminStreakBucket[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={[...data]} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+        <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: AXIS, fontSize: 11 }}
@@ -218,71 +196,75 @@ function StreakChart({ data }: { data: readonly AdminStreakBucket[] }) {
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={<ChartTooltip />} />
-        <Bar dataKey="count" name="Students" fill={STREAK} radius={[4, 4, 0, 0]} maxBarSize={48} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
+        <Bar dataKey="count" name="Students" fill={STREAK} radius={[2, 2, 0, 0]} maxBarSize={48} />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
 function PeopleTable({
+  icon,
   title,
   hint,
   empty,
   rows,
   valueHeader,
   value,
+  tone,
 }: {
+  icon: string;
   title: string;
   hint: string;
   empty: string;
   rows: readonly AdminRetentionPerson[];
   valueHeader: string;
   value: (row: AdminRetentionPerson) => string;
+  tone: "ember" | "crimson";
 }) {
+  const color = tone === "ember" ? ADMIN_COLORS.ember : ADMIN_COLORS.crimson;
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
+    <TablePanel icon={icon} title={title} hint={hint} color={color}>
       {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          {empty}
-        </p>
+        <p className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted sm:px-space-20">{empty}</p>
       ) : (
-        <table className="w-full min-w-[32rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Student</th>
-              <th className="px-space-12 py-space-8">Class</th>
-              <th className="px-space-12 py-space-8">Last active</th>
-              <th className="px-space-16 py-space-8 text-right">{valueHeader}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.userId}
-                className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-              >
-                <td className="px-space-16 py-space-8 font-medium">{row.displayName}</td>
-                <td className="px-space-12 py-space-8 text-on-surface-variant">
-                  {row.className ?? "—"}
-                </td>
-                <td className="px-space-12 py-space-8 text-on-surface-variant">
-                  {formatDay(row.lastActiveDay)}
-                  <span className="mt-0.5 block font-caption text-caption">
-                    {formatDaysAgo(row.daysAgo)}
-                  </span>
-                </td>
-                <td className="px-space-16 py-space-8 text-right tabular-nums">{value(row)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-collapse text-left">
+            <thead className={THEAD}>
+              <tr>
+                <th className={TH}>Student</th>
+                <th className={TH}>Class</th>
+                <th className={TH}>Last active</th>
+                <th className={`${TH} text-right`}>{valueHeader}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="text-admin-body-md text-admin-ink">
+              {rows.map((row) => (
+                <tr key={row.userId} className={TR}>
+                  <td className="px-space-16 py-space-8 font-semibold">{row.displayName}</td>
+                  <td className="px-space-16 py-space-8 text-admin-body-sm text-admin-ink-muted">
+                    {row.className ?? "—"}
+                  </td>
+                  <td className="px-space-16 py-space-8 text-admin-body-sm tabular-nums">
+                    {formatDay(row.lastActiveDay)}
+                    <span className="block text-[12px] leading-4 text-admin-ink-subtle">
+                      {formatDaysAgo(row.daysAgo)}
+                    </span>
+                  </td>
+                  <td
+                    className={`px-space-16 py-space-8 text-right font-semibold tabular-nums ${
+                      tone === "ember" ? "text-admin-ember-ink" : "text-admin-crimson-ink"
+                    }`}
+                  >
+                    {value(row)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </TablePanel>
   );
 }
 
@@ -310,18 +292,16 @@ export function AdminRetention({
         subtitle={`Who came back ${window}, who is on a streak, and who went quiet. Times are Vietnam.`}
         trailing={
           board.stickiness != null ? (
-            <p className="font-label-sm text-label-sm text-on-surface-variant">
+            <HeaderChip icon="push_pin">
               Last-day stickiness{" "}
-              <span className="font-semibold tabular-nums text-on-surface">
-                {formatPercent(board.stickiness)}
-              </span>
-            </p>
+              <span className="font-semibold tabular-nums text-admin-ink">{formatPercent(board.stickiness)}</span>
+            </HeaderChip>
           ) : null
         }
       />
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
+        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
           Cloud progress is not configured. This page only counts learners who have
           synced progress to Supabase.
         </div>
@@ -329,53 +309,57 @@ export function AdminRetention({
 
       <section
         aria-label="Retention totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-space-16 md:grid-cols-3 xl:grid-cols-5"
       >
-        <SummaryStat
+        <KpiTile
+          icon="event_repeat"
           label="Returning"
           value={formatCount(board.returning)}
-          icon="event_repeat"
-          hint={`Active ${window}, also seen before it`}
+          caption={`Active ${window}, also seen before it`}
+          color={ADMIN_COLORS.ember}
         />
-        <SummaryStat
+        <KpiTile
+          icon="person_add"
           label="New"
           value={formatCount(board.newcomers)}
-          icon="person_add"
-          hint={`First seen ${window}`}
+          caption={`First seen ${window}`}
+          color={ADMIN_COLORS.cobalt}
         />
-        <SummaryStat
+        <KpiTile
+          icon="redo"
           label="Next-day return"
           value={formatPercent(board.d1Rate)}
-          icon="redo"
-          hint={
+          caption={
             board.d1Cohort === 0
               ? "No earlier day to compare"
               : `${formatCount(board.d1Returned)} of ${formatCount(board.d1Cohort)} came back`
           }
+          color={ADMIN_COLORS.ember}
+          progress={board.d1Rate == null ? undefined : board.d1Rate / 100}
+          progressLabel="Next-day return rate"
         />
-        <SummaryStat
+        <KpiTile
+          icon="local_fire_department"
           label="On a streak"
           value={formatCount(board.onStreak)}
-          icon="local_fire_department"
-          hint="Current streak of 2 or more days"
+          caption="Current streak of 2 or more days"
+          color={ADMIN_COLORS.ember}
         />
-        <SummaryStat
+        <KpiTile
+          icon="hourglass_disabled"
           label="Quiet"
           value={formatCount(board.lapsed)}
-          icon="hourglass_disabled"
-          hint={
-            range === "today"
-              ? "Last seen before yesterday"
-              : `Seen before this window, not ${window}`
-          }
+          caption={range === "today" ? "Last seen before yesterday" : `Seen before this window, not ${window}`}
+          color={board.lapsed > 0 ? ADMIN_COLORS.crimson : ADMIN_COLORS.inkSubtle}
         />
       </section>
 
-      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
-        <ChartCard title="Came back the next day" hint={d1Hint}>
+      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
+        <ChartCard icon="redo" title="Came back the next day" hint={d1Hint}>
           <ReturnChart data={board.d1} />
         </ChartCard>
         <ChartCard
+          icon="local_fire_department"
           title="Current streaks"
           hint="Every synced student, including those at zero. The streak is the same one the learner app shows."
         >
@@ -383,8 +367,10 @@ export function AdminRetention({
         </ChartCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
         <PeopleTable
+          icon="local_fire_department"
+          tone="ember"
           title="Longest streaks"
           hint="Students whose current streak is at least two days."
           empty="Nobody is on a streak of two days or more."
@@ -393,6 +379,8 @@ export function AdminRetention({
           value={(row) => `${row.streakDays} ${row.streakDays === 1 ? "day" : "days"}`}
         />
         <PeopleTable
+          icon="hourglass_disabled"
+          tone="crimson"
           title="Gone quiet"
           hint={
             range === "today"
