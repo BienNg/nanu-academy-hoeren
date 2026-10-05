@@ -3,128 +3,248 @@
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
+  ANALYTICS,
+  CategoryCard,
+  CountPill,
+  GLASS,
+  MiniBars,
+  Pager,
+  ScopeChips,
+  SectionHeading,
+  StatusPill,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+  formatPercent,
+  paginate,
+} from "@/components/admin/AnalyticsUi";
+import {
   type AdminCatalogBoard,
   type AdminCatalogLessonStatus,
   type AdminCatalogLevelRow,
 } from "@/lib/admin-catalog";
 
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
+/** Rows per page in the lesson and profession tables. */
+const CATALOG_PAGE_SIZE = 10;
+
+const LESSONS = ANALYTICS.indigo;
+const CLIPS = ANALYTICS.ocean;
+const VIDEOS = ANALYTICS.slate;
+const INTERVIEW = ANALYTICS.azure;
+
+const STATUS: Record<
+  AdminCatalogLessonStatus,
+  { label: string; tone: "good" | "warn" | "bad" | "muted"; icon: string }
+> = {
+  ready: { label: "Ready", tone: "good", icon: "check_circle" },
+  silent: { label: "No audio", tone: "warn", icon: "volume_off" },
+  stub: { label: "Empty", tone: "muted", icon: "draft" },
+  missing: { label: "Not on disk", tone: "bad", icon: "error" },
+};
+
+const STATUS_COLOR: Record<AdminCatalogLessonStatus, string> = {
+  ready: ANALYTICS.emerald,
+  silent: "#f59e0b",
+  stub: ANALYTICS.axis,
+  missing: ANALYTICS.rose,
+};
+
+function share(part: number, whole: number): number {
+  return whole > 0 ? part / whole : 0;
 }
 
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
+function perItem(total: number, count: number): string {
+  if (count <= 0) return "—";
+  const value = total / count;
+  return value.toLocaleString("en-GB", { maximumFractionDigits: value < 10 ? 1 : 0 });
+}
+
+/** The label of the biggest item, or null when everything is zero. */
+function topLabel(items: readonly { label: string; value: number }[]): string | null {
+  let best: { label: string; value: number } | null = null;
+  for (const item of items) {
+    if (item.value > 0 && (!best || item.value > best.value)) best = item;
+  }
+  return best?.label ?? null;
+}
+
+function FooterAside({ label, color }: { label: string | null; color: string }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
-}
-
-function statusLabel(status: AdminCatalogLessonStatus): string {
-  if (status === "ready") return "Ready";
-  if (status === "silent") return "No audio";
-  if (status === "stub") return "Empty";
-  return "Not on disk";
-}
-
-function StatusChip({ status }: { status: AdminCatalogLessonStatus }) {
-  const ready = status === "ready";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-space-12 py-1 font-label-sm text-label-sm font-semibold ${
-        ready
-          ? "bg-primary-fixed text-on-primary-fixed"
-          : "bg-surface-container-high text-on-surface-variant"
-      }`}
-    >
-      {statusLabel(status)}
+    <span style={{ color: label ? color : undefined }}>
+      {label ? `Most in ${label}` : "Nothing yet"}
     </span>
   );
 }
 
-function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
+/** Stacked bar of lesson statuses for one level. */
+function StatusBar({ level }: { level: AdminCatalogLevelRow }) {
+  const counts = (Object.keys(STATUS) as AdminCatalogLessonStatus[]).map((status) => ({
+    status,
+    count: level.lessons.filter((lesson) => lesson.status === status).length,
+  }));
+  const total = level.lessons.length;
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-          {level.label} lessons
-        </h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          {formatCount(level.readyLessons)} of {formatCount(level.listedLessons)}{" "}
-          playable. Clips count files learners can hear.
-        </p>
+    <div className="flex flex-col gap-space-8">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+        {counts.map(({ status, count }) =>
+          count > 0 ? (
+            <div
+              key={status}
+              className="h-full"
+              style={{ width: formatPercent(share(count, total)), backgroundColor: STATUS_COLOR[status] }}
+            />
+          ) : null,
+        )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Lesson</th>
-              <th className="px-space-12 py-space-8">Status</th>
-              <th className="px-space-12 py-space-8 text-right">Playable</th>
-              <th className="px-space-12 py-space-8 text-right">Listed</th>
-              <th className="px-space-12 py-space-8 text-right">No audio</th>
-              <th className="px-space-16 py-space-8 text-right">Videos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {level.lessons.map((lesson) => (
-              <tr
-                key={lesson.id}
-                className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-              >
-                <td className="px-space-16 py-space-8 font-medium">{lesson.label}</td>
-                <td className="px-space-12 py-space-8">
-                  <StatusChip status={lesson.status} />
-                </td>
-                <td className="px-space-12 py-space-8 text-right tabular-nums">
-                  {formatCount(lesson.playableClips)}
-                </td>
-                <td className="px-space-12 py-space-8 text-right tabular-nums text-on-surface-variant">
-                  {formatCount(lesson.listedClips)}
-                </td>
-                <td
-                  className={`px-space-12 py-space-8 text-right tabular-nums ${
-                    lesson.missingAudio > 0 ? "font-medium text-on-surface" : "text-outline"
-                  }`}
-                >
-                  {formatCount(lesson.missingAudio)}
-                </td>
-                <td className="px-space-16 py-space-8 text-right tabular-nums">
-                  {formatCount(lesson.videos)}
-                  {lesson.brokenVideos > 0 ? (
-                    <span className="ml-space-8 text-on-surface-variant">
-                      ({formatCount(lesson.brokenVideos)} broken)
-                    </span>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ul className="flex flex-wrap gap-x-space-12 gap-y-1 font-label-sm text-[11px] leading-4 text-on-surface-variant">
+        {counts.map(({ status, count }) => (
+          <li key={status} className="flex items-center gap-space-4">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: STATUS_COLOR[status] }}
+              aria-hidden="true"
+            />
+            {STATUS[status].label}
+            <span className="font-bold tabular-nums text-on-surface">{formatCount(count)}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
+}
+
+function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
+  const [page, setPage] = useState(1);
+  const topClips = Math.max(0, ...level.lessons.map((lesson) => lesson.playableClips));
+  const paged = paginate(level.lessons, page, CATALOG_PAGE_SIZE);
+  return (
+    <TablePanel
+      icon="menu_book"
+      title={`${level.label} lessons`}
+      hint={`${formatCount(level.readyLessons)} of ${formatCount(level.listedLessons)} playable. Clips count files learners can hear.`}
+      trailing={
+        <div className="w-full sm:w-72">
+          <StatusBar level={level} />
+        </div>
+      }
+      footer={
+        <Pager
+          page={paged.page}
+          pageCount={paged.pageCount}
+          start={paged.start}
+          end={paged.end}
+          total={level.lessons.length}
+          noun={`${level.label} lessons`}
+          onPage={setPage}
+        />
+      }
+    >
+      {level.lessons.length === 0 ? (
+        <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
+          <MaterialIcon name="folder_off" className="text-[20px] text-outline" />
+          No lessons are listed for {level.label} yet.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[46rem] border-collapse text-left">
+            <thead className={THEAD}>
+              <tr>
+                <th className={`${TH} min-w-[14rem]`}>Lesson</th>
+                <th className={TH}>Status</th>
+                <th className={`${TH} min-w-[12rem]`}>Playable clips</th>
+                <th className={`${TH} text-center`}>No audio</th>
+                <th className={`${TH} text-center`}>Videos</th>
+              </tr>
+            </thead>
+            <tbody className="font-body-md text-body-md text-on-surface">
+              {paged.pageItems.map((lesson) => {
+                const status = STATUS[lesson.status];
+                const ready = lesson.status === "ready";
+                return (
+                  <tr key={lesson.id} className={TR}>
+                    <td className="px-space-16 py-space-12">
+                      <div className="flex items-center gap-space-12">
+                        <div
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor: `${STATUS_COLOR[lesson.status]}1a`,
+                            color: STATUS_COLOR[lesson.status],
+                          }}
+                          aria-hidden="true"
+                        >
+                          <MaterialIcon name={status.icon} className="text-[18px]" />
+                        </div>
+                        <span
+                          className={`truncate font-bold transition-colors group-hover:text-[#4338ca] ${
+                            ready ? "text-on-surface" : "text-on-surface-variant"
+                          }`}
+                        >
+                          {lesson.label}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-space-16 py-space-12">
+                      <StatusPill label={status.label} tone={status.tone} />
+                    </td>
+                    <td className="px-space-16 py-space-12">
+                      <div className="flex w-full max-w-[10rem] flex-col gap-1">
+                        <div className="flex items-center justify-between font-label-sm text-label-sm font-semibold">
+                          <span
+                            className={`tabular-nums ${
+                              lesson.playableClips > 0 ? "font-bold text-on-surface" : "text-outline"
+                            }`}
+                          >
+                            {formatCount(lesson.playableClips)}
+                            <span className="font-normal text-outline">
+                              {" "}
+                              / {formatCount(lesson.listedClips)}
+                            </span>
+                          </span>
+                          <span className="tabular-nums text-outline">
+                            {formatPercent(share(lesson.playableClips, lesson.listedClips))}
+                          </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-[#eaedff]">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: formatPercent(share(lesson.playableClips, topClips)),
+                              backgroundColor: ready ? CLIPS : ANALYTICS.grid,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-space-16 py-space-12 text-center">
+                      <CountPill value={lesson.missingAudio} tone="alert" />
+                    </td>
+                    <td className="px-space-16 py-space-12 text-center">
+                      <span className="inline-flex items-center gap-space-4">
+                        <CountPill value={lesson.videos} />
+                        {lesson.brokenVideos > 0 ? (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[#ffe4e6] px-space-8 py-0.5 font-label-sm text-label-sm font-semibold text-[#9f1239]">
+                            <MaterialIcon name="link_off" className="text-[14px]" />
+                            {formatCount(lesson.brokenVideos)}
+                          </span>
+                        ) : null}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </TablePanel>
+  );
+}
+
+function initialOf(name: string): string {
+  const letter = name.trim().charAt(0);
+  return letter ? letter.toLocaleUpperCase() : "?";
 }
 
 export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
@@ -133,190 +253,331 @@ export function AdminCatalog({ board }: { board: AdminCatalogBoard }) {
     board.levels[0]?.slug ??
     "";
   const [selected, setSelected] = useState(defaultSlug);
+  const [trackPage, setTrackPage] = useState(1);
   const active = useMemo(() => {
     return board.levels.find((level) => level.slug === selected) ?? board.levels[0] ?? null;
   }, [board.levels, selected]);
 
+  const levelBars = useMemo(
+    () => ({
+      lessons: board.levels.map((level) => ({
+        key: level.slug,
+        label: level.label,
+        value: level.readyLessons,
+      })),
+      clips: board.levels.map((level) => ({
+        key: level.slug,
+        label: level.label,
+        value: level.playableClips,
+      })),
+      videos: board.levels.map((level) => ({
+        key: level.slug,
+        label: level.label,
+        value: level.videos,
+      })),
+    }),
+    [board.levels],
+  );
+  const trackBars = useMemo(
+    () =>
+      board.tracks.map((track) => ({
+        key: track.slug,
+        label: track.shortLabel,
+        value: track.sharedPlayable + track.ownPlayable,
+      })),
+    [board.tracks],
+  );
+  const lessonsWithVideo = useMemo(
+    () =>
+      board.levels.reduce(
+        (sum, level) => sum + level.lessons.filter((lesson) => lesson.videos > 0).length,
+        0,
+      ),
+    [board.levels],
+  );
+  const emptyLessons = board.lessonsListed - board.lessonsReady;
+  const ownClips = board.tracks.reduce((sum, track) => sum + track.ownPlayable, 0);
+  const clipsListed = board.clipsPlayable + board.clipsMissingAudio;
+  const videosListed = board.videosPlayable + board.videosBroken;
+  const tracksPaged = paginate(board.tracks, trackPage, CATALOG_PAGE_SIZE);
+  const levelOptions = board.levels.map((level) => ({
+    key: level.slug,
+    label: level.label,
+    count: `${formatCount(level.readyLessons)}/${formatCount(level.listedLessons)}`,
+  }));
+
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
       <AdminPageHeader
         kicker="Learning"
         title="Catalog"
         subtitle="What is published on disk. Practice clip difficulty and Videos go clip-by-clip and video-by-video."
+        trailing={
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2e7ff] px-space-12 py-1 font-label-sm text-label-sm font-semibold text-on-surface-variant">
+            <MaterialIcon name="folder_open" className="text-[16px] text-[#4338ca]" />
+            Read from disk
+          </span>
+        }
       />
 
-      <section
-        aria-label="Catalog totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
-      >
-        <SummaryStat
-          label="Levels"
-          value={`${formatCount(board.levelsReady)}/${formatCount(board.levelsListed)}`}
-          icon="layers"
-          hint="CEFR levels with at least one playable lesson"
+      <section aria-labelledby="catalog-glance" className="flex flex-col gap-space-12">
+        <SectionHeading
+          id="catalog-glance"
+          icon="grid_view"
+          title="At a glance"
+          meta={`${formatCount(board.levelsListed)} CEFR levels · ${formatCount(board.tracksListed)} professions`}
         />
-        <SummaryStat
-          label="Lessons"
-          value={`${formatCount(board.lessonsReady)}/${formatCount(board.lessonsListed)}`}
-          icon="menu_book"
-          hint="Lektionen with audio learners can play"
-        />
-        <SummaryStat
-          label="Clips"
-          value={formatCount(board.clipsPlayable)}
-          icon="graphic_eq"
-          hint={
-            board.clipsMissingAudio > 0
-              ? `${formatCount(board.clipsMissingAudio)} listed without audio`
-              : "Every listed CEFR clip has audio"
-          }
-        />
-        <SummaryStat
-          label="Videos"
-          value={formatCount(board.videosPlayable)}
-          icon="smart_display"
-          hint={
-            board.videosBroken > 0
-              ? `${formatCount(board.videosBroken)} URL${board.videosBroken === 1 ? "" : "s"} could not be parsed`
-              : "YouTube links on Lektionen"
-          }
-        />
-        <SummaryStat
-          label="Interview"
-          value={formatCount(board.interviewClips)}
-          icon="record_voice_over"
-          hint={`${formatCount(board.tracksReady)} of ${formatCount(board.tracksListed)} professions ready`}
-        />
+        <div className="grid grid-cols-1 gap-space-16 sm:grid-cols-2 lg:grid-cols-4 2xl:gap-space-20">
+          <CategoryCard
+            icon="layers"
+            title="Lessons"
+            hint="Lektionen with audio learners can play"
+            color={LESSONS}
+            value={formatCount(board.lessonsReady)}
+            unit={`of ${formatCount(board.lessonsListed)} lessons`}
+            badge={`${formatPercent(share(board.lessonsReady, board.lessonsListed))} ready`}
+            progress={share(board.lessonsReady, board.lessonsListed)}
+            progressLabel="Share of listed lessons that are playable"
+            metrics={[
+              {
+                icon: "stacks",
+                label: "Levels live",
+                value: `${formatCount(board.levelsReady)}/${formatCount(board.levelsListed)}`,
+              },
+              { icon: "draft", label: "Not playable", value: formatCount(emptyLessons) },
+            ]}
+            footerLabel="Ready lessons by level"
+            footerAside={<FooterAside label={topLabel(levelBars.lessons)} color={LESSONS} />}
+          >
+            <MiniBars items={levelBars.lessons} color={LESSONS} />
+          </CategoryCard>
+          <CategoryCard
+            icon="graphic_eq"
+            title="Clips"
+            hint="CEFR clips with an audio file"
+            color={CLIPS}
+            value={formatCount(board.clipsPlayable)}
+            unit="playable"
+            badge={
+              board.clipsMissingAudio > 0
+                ? `${formatCount(board.clipsMissingAudio)} silent`
+                : "All voiced"
+            }
+            badgeTone={board.clipsMissingAudio > 0 ? "alert" : "accent"}
+            progress={share(board.clipsPlayable, clipsListed)}
+            progressLabel="Share of listed clips with audio"
+            metrics={[
+              {
+                icon: "volume_off",
+                label: "No audio",
+                value: formatCount(board.clipsMissingAudio),
+              },
+              {
+                icon: "functions",
+                label: "Per lesson",
+                value: perItem(board.clipsPlayable, board.lessonsReady),
+              },
+            ]}
+            footerLabel="Playable clips by level"
+            footerAside={<FooterAside label={topLabel(levelBars.clips)} color={CLIPS} />}
+          >
+            <MiniBars items={levelBars.clips} color={CLIPS} />
+          </CategoryCard>
+          <CategoryCard
+            icon="play_circle"
+            title="Videos"
+            hint="YouTube links on Lektionen"
+            color={VIDEOS}
+            value={formatCount(board.videosPlayable)}
+            unit="playable"
+            badge={
+              board.videosBroken > 0 ? `${formatCount(board.videosBroken)} broken` : "All links OK"
+            }
+            badgeTone={board.videosBroken > 0 ? "alert" : "accent"}
+            progress={share(board.videosPlayable, videosListed)}
+            progressLabel="Share of video links that parse"
+            metrics={[
+              { icon: "link_off", label: "Broken URLs", value: formatCount(board.videosBroken) },
+              {
+                icon: "video_library",
+                label: "Lessons with video",
+                value: formatCount(lessonsWithVideo),
+              },
+            ]}
+            footerLabel="Videos by level"
+            footerAside={<FooterAside label={topLabel(levelBars.videos)} color={VIDEOS} />}
+          >
+            <MiniBars items={levelBars.videos} color={VIDEOS} />
+          </CategoryCard>
+          <CategoryCard
+            icon="record_voice_over"
+            title="Interview"
+            hint="Profession question tracks"
+            color={INTERVIEW}
+            value={formatCount(board.interviewClips)}
+            unit="clips"
+            badge={`${formatCount(board.tracksReady)}/${formatCount(board.tracksListed)} ready`}
+            progress={share(board.tracksReady, board.tracksListed)}
+            progressLabel="Share of professions that are ready"
+            metrics={[
+              {
+                icon: "work",
+                label: "Professions ready",
+                value: `${formatCount(board.tracksReady)}/${formatCount(board.tracksListed)}`,
+              },
+              { icon: "person", label: "Own clips", value: formatCount(ownClips) },
+            ]}
+            footerLabel="Clips per profession"
+            footerAside={<FooterAside label={topLabel(trackBars)} color={INTERVIEW} />}
+          >
+            <MiniBars items={trackBars} color={INTERVIEW} />
+          </CategoryCard>
+        </div>
       </section>
 
       {board.issues.length > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-error-container bg-error-container/30 shadow-sm">
-          <div className="px-space-16 py-space-12">
-            <h2 className="font-label-md text-label-md font-semibold text-on-error-container">
-              Needs a file
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-error-container/80">
-              Empty placeholder lesson files are listed in the table, not here.
-            </p>
-          </div>
-          <ul className="flex flex-col border-t border-error-container/40">
+        <section aria-labelledby="catalog-issues" className="flex flex-col gap-space-12">
+          <SectionHeading
+            id="catalog-issues"
+            icon="report"
+            title="Needs a file"
+            meta={`${formatCount(board.issues.length)} to fix · empty placeholders are in the table`}
+          />
+          <ul className="grid grid-cols-1 gap-space-12 md:grid-cols-2 xl:grid-cols-3">
             {board.issues.map((issue) => (
               <li
                 key={issue.id}
-                className="flex flex-col gap-0.5 border-t border-error-container/25 px-space-16 py-space-12 first:border-t-0"
+                className={`${GLASS} flex items-start gap-space-12 border-l-4 border-l-[#e11d48] p-space-16`}
               >
-                <p className="font-label-md text-label-md font-semibold text-on-error-container">
-                  {issue.label}
-                </p>
-                <p className="font-caption text-caption text-on-error-container/80">
-                  {issue.detail}
-                </p>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ffe4e6] text-[#e11d48]">
+                  <MaterialIcon name="error" className="text-[18px]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-label-md text-label-md font-bold text-on-surface">
+                    {issue.label}
+                  </p>
+                  <p className="mt-0.5 font-body-sm text-[12px] leading-[18px] text-on-surface-variant">
+                    {issue.detail}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
 
-      <div
-        role="tablist"
-        aria-label="CEFR levels"
-        className="flex flex-wrap gap-space-8"
-      >
-        {board.levels.map((level) => {
-          const on = level.slug === active?.slug;
-          return (
-            <button
-              key={level.slug}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setSelected(level.slug)}
-              className={`inline-flex h-9 items-center gap-space-8 rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                on
-                  ? "bg-primary text-on-primary"
-                  : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-              }`}
-            >
-              {level.label}
-              <span className={`tabular-nums ${on ? "text-on-primary/80" : "text-on-surface-variant"}`}>
-                {formatCount(level.readyLessons)}/{formatCount(level.listedLessons)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <section aria-labelledby="catalog-levels" className="flex flex-col gap-space-12">
+        <SectionHeading
+          id="catalog-levels"
+          icon="stacks"
+          title="Lessons by level"
+          meta="Ready / listed lessons"
+        />
+        {levelOptions.length > 0 ? (
+          <ScopeChips
+            label="Level"
+            icon="layers"
+            ariaLabel="CEFR levels"
+            value={active?.slug ?? ""}
+            options={levelOptions}
+            onSelect={setSelected}
+          />
+        ) : null}
+        {active ? <LessonTable key={active.slug} level={active} /> : null}
+      </section>
 
-      {active ? <LessonTable level={active} /> : null}
-
-      <section className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-        <div className="px-space-16 py-space-12">
-          <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-            Interview tracks
-          </h2>
-          <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-            Shared questions are counted once. Own clips are that profession only.
-          </p>
-        </div>
-        {board.tracks.length === 0 ? (
-          <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-            No professions are listed yet.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] border-collapse text-left">
-              <thead>
-                <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  <th className="px-space-16 py-space-8">Profession</th>
-                  <th className="px-space-12 py-space-8">Status</th>
-                  <th className="px-space-12 py-space-8 text-right">Shared</th>
-                  <th className="px-space-12 py-space-8 text-right">Own</th>
-                  <th className="px-space-16 py-space-8 text-right">No audio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {board.tracks.map((track) => (
-                  <tr
-                    key={track.slug}
-                    className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-                  >
-                    <td className="px-space-16 py-space-8">
-                      <p className="font-medium">{track.shortLabel}</p>
-                      {track.label !== track.shortLabel ? (
-                        <p className="font-caption text-caption text-on-surface-variant">
-                          {track.label}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-space-12 py-space-8">
-                      <span
-                        className={`inline-flex items-center rounded-full px-space-12 py-1 font-label-sm text-label-sm font-semibold ${
-                          track.ready
-                            ? "bg-primary-fixed text-on-primary-fixed"
-                            : "bg-surface-container-high text-on-surface-variant"
-                        }`}
-                      >
-                        {track.ready ? "Ready" : "Missing"}
-                      </span>
-                    </td>
-                    <td className="px-space-12 py-space-8 text-right tabular-nums">
-                      {formatCount(track.sharedPlayable)}
-                    </td>
-                    <td className="px-space-12 py-space-8 text-right tabular-nums">
-                      {formatCount(track.ownPlayable)}
-                    </td>
-                    <td
-                      className={`px-space-16 py-space-8 text-right tabular-nums ${
-                        track.missingAudio > 0 ? "font-medium" : "text-outline"
-                      }`}
-                    >
-                      {formatCount(track.missingAudio)}
-                    </td>
+      <section aria-labelledby="catalog-interview" className="flex flex-col gap-space-12">
+        <SectionHeading
+          id="catalog-interview"
+          icon="record_voice_over"
+          title="Interview tracks"
+          meta={`${formatCount(board.tracksReady)} of ${formatCount(board.tracksListed)} ready`}
+        />
+        <TablePanel
+          icon="work"
+          title="Professions"
+          hint="Shared questions are counted once. Own clips are that profession only."
+          color={INTERVIEW}
+          footer={
+            board.tracks.length > 0 ? (
+              <Pager
+                page={tracksPaged.page}
+                pageCount={tracksPaged.pageCount}
+                start={tracksPaged.start}
+                end={tracksPaged.end}
+                total={board.tracks.length}
+                noun="professions"
+                onPage={setTrackPage}
+              />
+            ) : undefined
+          }
+        >
+          {board.tracks.length === 0 ? (
+            <p className="flex items-center gap-space-8 px-space-20 py-space-24 font-body-md text-body-md text-on-surface-variant">
+              <MaterialIcon name="work_off" className="text-[20px] text-outline" />
+              No professions are listed yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[36rem] border-collapse text-left">
+                <thead className={THEAD}>
+                  <tr>
+                    <th className={`${TH} min-w-[14rem]`}>Profession</th>
+                    <th className={TH}>Status</th>
+                    <th className={`${TH} text-center`}>Shared</th>
+                    <th className={`${TH} text-center`}>Own</th>
+                    <th className={`${TH} text-center`}>No audio</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="font-body-md text-body-md text-on-surface">
+                  {tracksPaged.pageItems.map((track) => (
+                    <tr key={track.slug} className={TR}>
+                      <td className="px-space-16 py-space-12">
+                        <div className="flex items-center gap-space-12">
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-headline-sm text-headline-sm font-bold ${
+                              track.ready
+                                ? "bg-[#e0f2fe] text-[#0284c7]"
+                                : "bg-[#e2e7ff] text-on-surface-variant"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {initialOf(track.shortLabel)}
+                          </div>
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-bold text-on-surface transition-colors group-hover:text-[#4338ca]">
+                              {track.shortLabel}
+                            </span>
+                            {track.label !== track.shortLabel ? (
+                              <span className="truncate font-body-sm text-body-sm text-outline">
+                                {track.label}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-space-16 py-space-12">
+                        <StatusPill
+                          label={track.ready ? "Ready" : "Missing"}
+                          tone={track.ready ? "good" : "bad"}
+                        />
+                      </td>
+                      <td className="px-space-16 py-space-12 text-center">
+                        <CountPill value={track.sharedPlayable} />
+                      </td>
+                      <td className="px-space-16 py-space-12 text-center">
+                        <CountPill value={track.ownPlayable} />
+                      </td>
+                      <td className="px-space-16 py-space-12 text-center">
+                        <CountPill value={track.missingAudio} tone="alert" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TablePanel>
       </section>
     </main>
   );

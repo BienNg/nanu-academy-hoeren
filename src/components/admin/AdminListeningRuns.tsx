@@ -1,17 +1,37 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import {
+  ANALYTICS,
+  ChartTooltip,
+  CountPill,
+  GLASS,
+  KpiTile,
+  LegendChips,
+  PanelHeader,
+  Pager,
+  SearchField,
+  Segmented,
+  SectionHeading,
+  StatusPill,
+  TH,
+  THEAD,
+  TR,
+  TablePanel,
+  formatCount,
+  formatPercent,
+  paginate,
+} from "@/components/admin/AnalyticsUi";
 import {
   describeCatalogClip,
   describeCatalogLesson,
@@ -22,21 +42,17 @@ import {
   adminRangeLabel,
   formatAdminTimestamp,
   type AdminListeningLessonStat,
-  type AdminListeningRunBoard,
   type AdminListeningRunPoint,
+  type AdminListeningRunBoard,
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
 import { LISTENING_SCHEMA_HINT, type ListeningReadStatus } from "@/lib/listening-runs";
 
-const AXIS = "#717785";
-const GRID = "#c1c6d6";
-const PASSED = "#0059b5";
-const FAILED = "#ba1a1a";
+const PASSED = ANALYTICS.emerald;
+const FAILED = ANALYTICS.rose;
 
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
+type Outcome = "all" | "success" | "fail";
 
 function formatWhen(iso: string): string {
   return formatAdminTimestamp(iso) ?? "—";
@@ -49,96 +65,19 @@ function formatElapsed(ms: number): string {
   return `${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
-function SummaryStat({
-  label,
-  value,
-  icon,
-  hint,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-space-16 shadow-sm">
-      <div className="flex items-center gap-space-8">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed">
-          <MaterialIcon name={icon} className="text-[18px]" />
-        </div>
-        <p className="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </p>
-      </div>
-      <p className="mt-space-12 font-headline-lg text-headline-lg tabular-nums text-on-surface">
-        {value}
-      </p>
-      <p className="mt-1 font-caption text-caption text-on-surface-variant">{hint}</p>
-    </div>
-  );
+function share(part: number, whole: number): number {
+  return whole > 0 ? part / whole : 0;
 }
 
-function ChartCard({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">{title}</h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">{hint}</p>
-      </div>
-      <div className="h-64 w-full px-space-8 pb-space-12 sm:h-72">{children}</div>
-    </section>
-  );
+function accuracyColor(accuracy: number): string {
+  if (accuracy >= 80) return ANALYTICS.emerald;
+  if (accuracy >= 50) return "#f59e0b";
+  return ANALYTICS.rose;
 }
 
-type TooltipRow = {
-  name?: string;
-  value?: number | string;
-  color?: string;
-};
-
-function ChartTooltip({
-  active,
-  label,
-  payload,
-}: {
-  active?: boolean;
-  label?: string | number;
-  payload?: readonly TooltipRow[];
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-space-12 py-space-8 shadow-sm">
-      <p className="font-label-sm text-label-sm font-semibold text-on-surface">{label}</p>
-      <ul className="mt-1 flex flex-col gap-0.5">
-        {payload.map((row) => (
-          <li
-            key={row.name}
-            className="flex items-center justify-between gap-space-16 font-caption text-caption text-on-surface-variant"
-          >
-            <span className="flex items-center gap-space-8">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: row.color }}
-                aria-hidden="true"
-              />
-              {row.name}
-            </span>
-            <span className="tabular-nums text-on-surface">
-              {typeof row.value === "number" ? formatCount(row.value) : row.value}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function initialOf(name: string): string {
+  const letter = name.trim().charAt(0);
+  return letter ? letter.toLocaleUpperCase() : "?";
 }
 
 function tickInterval(count: number): number {
@@ -147,50 +86,75 @@ function tickInterval(count: number): number {
   return 6;
 }
 
+function Notice({ tone, children }: { tone: "error" | "info"; children: string }) {
+  return (
+    <div
+      className={`${GLASS} flex items-start gap-space-12 border-l-4 p-space-16 ${
+        tone === "error" ? "border-l-[#e11d48]" : "border-l-[#4338ca]"
+      }`}
+    >
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          tone === "error" ? "bg-[#ffe4e6] text-[#e11d48]" : "bg-[#eaedff] text-[#4338ca]"
+        }`}
+      >
+        <MaterialIcon name={tone === "error" ? "error" : "info"} className="text-[18px]" />
+      </div>
+      <p className="pt-1 font-body-md text-body-md text-on-surface">{children}</p>
+    </div>
+  );
+}
+
 function RunChart({ data }: { data: readonly AdminListeningRunPoint[] }) {
   const hasVolume = data.some((point) => point.passed > 0 || point.failed > 0);
   if (!hasVolume) {
     return (
-      <p className="flex h-full items-center justify-center px-space-16 font-body-sm text-body-sm text-on-surface-variant">
+      <p className="flex h-full items-center justify-center gap-space-8 font-body-md text-body-md text-on-surface-variant">
+        <MaterialIcon name="bar_chart_off" className="text-[20px] text-outline" />
         No finished parts in this window.
       </p>
     );
   }
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={[...data]} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} />
+      <BarChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid
+          stroke={ANALYTICS.grid}
+          strokeOpacity={0.6}
+          strokeDasharray="3 6"
+          vertical={false}
+        />
         <XAxis
           dataKey="label"
-          tick={{ fill: AXIS, fontSize: 11 }}
+          tick={{ fill: ANALYTICS.axis, fontSize: 11 }}
           tickLine={false}
-          axisLine={{ stroke: GRID }}
+          axisLine={{ stroke: ANALYTICS.grid }}
           interval={tickInterval(data.length)}
         />
         <YAxis
           allowDecimals={false}
-          width={40}
-          tick={{ fill: AXIS, fontSize: 11 }}
+          width={32}
+          tick={{ fill: ANALYTICS.axis, fontSize: 11 }}
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={<ChartTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 12, color: AXIS }} iconType="circle" iconSize={8} />
-        <Bar dataKey="passed" name="Passed" stackId="runs" fill={PASSED} maxBarSize={28} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: "#eaedff", opacity: 0.6 }} />
+        <Bar dataKey="passed" name="Passed" stackId="runs" fill={PASSED} maxBarSize={24} />
         <Bar
           dataKey="failed"
           name="Failed"
           stackId="runs"
           fill={FAILED}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={28}
+          radius={[3, 3, 0, 0]}
+          maxBarSize={24}
         />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
-function LessonsTable({
+/** Compact ranked list: lesson, a pass/fail split bar, and average accuracy. */
+function FailedLessons({
   rows,
   catalog,
 }: {
@@ -198,76 +162,71 @@ function LessonsTable({
   catalog: readonly AdminCatalogCourse[];
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div className="px-space-16 py-space-12">
-        <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-          Lessons that failed
-        </h2>
-        <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-          Ranked by failed parts in this window.
-        </p>
-      </div>
+    <section className={`${GLASS} flex flex-col p-space-20`}>
+      <PanelHeader
+        icon="heart_broken"
+        color={FAILED}
+        title="Lessons that failed"
+        hint="Ranked by failed parts in this window."
+      />
       {rows.length === 0 ? (
-        <p className="px-space-16 py-space-24 font-body-sm text-body-sm text-on-surface-variant">
-          No finished parts in this window.
+        <p className="flex flex-1 items-center justify-center gap-space-8 py-space-24 font-body-md text-body-md text-on-surface-variant">
+          <MaterialIcon name="sentiment_satisfied" className="text-[20px] text-outline" />
+          Nothing failed in this window.
         </p>
       ) : (
-        <table className="w-full min-w-[28rem] border-collapse text-left">
-          <thead>
-            <tr className="border-t border-outline-variant/15 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-              <th className="px-space-16 py-space-8">Lesson</th>
-              <th className="px-space-12 py-space-8 text-right">Passed</th>
-              <th className="px-space-12 py-space-8 text-right">Failed</th>
-              <th className="px-space-16 py-space-8 text-right">Avg. accuracy</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const place = describeCatalogLesson(catalog, row.lessonKey);
-              const label = place ? `${place.course} · ${place.lesson}` : row.lessonKey;
-              return (
-                <tr
-                  key={row.lessonKey}
-                  className="border-t border-outline-variant/15 font-body-sm text-body-sm text-on-surface"
-                >
-                  <td className="px-space-16 py-space-8 font-medium">{label}</td>
-                  <td className="px-space-12 py-space-8 text-right tabular-nums">
-                    {formatCount(row.passed)}
-                  </td>
-                  <td className="px-space-12 py-space-8 text-right tabular-nums">
-                    {formatCount(row.failed)}
-                  </td>
-                  <td className="px-space-16 py-space-8 text-right tabular-nums font-medium">
-                    {row.runs === 0 ? "—" : `${Math.round(row.accuracySum / row.runs)}%`}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ol className="mt-space-12 flex flex-col">
+          {rows.map((row, index) => {
+            const place = describeCatalogLesson(catalog, row.lessonKey);
+            const accuracy = row.runs === 0 ? null : Math.round(row.accuracySum / row.runs);
+            return (
+              <li
+                key={row.lessonKey}
+                className="flex items-center gap-space-12 border-t border-[#e2e8f0]/70 py-space-8 first:border-t-0"
+              >
+                <span className="w-4 shrink-0 text-center font-label-sm text-label-sm font-semibold tabular-nums text-outline">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-label-md text-label-md font-semibold text-on-surface">
+                    {place?.lesson ?? row.lessonKey}
+                  </p>
+                  <div className="mt-1 flex items-center gap-space-8">
+                    <div
+                      className="flex h-1.5 w-full max-w-[9rem] overflow-hidden rounded-full bg-[#eaedff]"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-full"
+                        style={{ width: formatPercent(share(row.passed, row.runs)), backgroundColor: PASSED }}
+                      />
+                      <div
+                        className="h-full"
+                        style={{ width: formatPercent(share(row.failed, row.runs)), backgroundColor: FAILED }}
+                      />
+                    </div>
+                    {place?.course ? (
+                      <span className="truncate font-label-sm text-[11px] leading-4 text-outline">
+                        {place.course}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  <CountPill value={row.failed} tone="alert" />
+                  <span
+                    className="font-label-sm text-[11px] font-bold leading-4 tabular-nums"
+                    style={{ color: accuracy == null ? undefined : accuracyColor(accuracy) }}
+                  >
+                    {accuracy == null ? "—" : `${accuracy}% avg`}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       )}
-    </div>
-  );
-}
-
-function MissedWords({
-  catalog,
-  lessonKey,
-  clipIds,
-}: {
-  catalog: readonly AdminCatalogCourse[];
-  lessonKey: string;
-  clipIds: readonly string[];
-}) {
-  if (clipIds.length === 0) return null;
-  return (
-    <ul className="mt-1 max-w-[14rem] space-y-0.5">
-      {clipIds.map((clipId) => (
-        <li key={clipId} className="font-caption text-caption text-on-surface">
-          {describeCatalogClip(catalog, lessonKey, clipId).prompt}
-        </li>
-      ))}
-    </ul>
+    </section>
   );
 }
 
@@ -295,8 +254,9 @@ export function AdminListeningRuns({
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
   const [query, setQuery] = useState("");
-  const [outcome, setOutcome] = useState<"all" | "success" | "fail">("all");
+  const [outcome, setOutcome] = useState<Outcome>("all");
   const [page, setPage] = useState(1);
+  const [openRun, setOpenRun] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -313,14 +273,12 @@ export function AdminListeningRuns({
     });
   }, [board.recent, catalog, names, outcome, query]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / ADMIN_PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pageRows = filtered.slice((safePage - 1) * ADMIN_PAGE_SIZE, safePage * ADMIN_PAGE_SIZE);
-  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * ADMIN_PAGE_SIZE + 1;
-  const rangeEnd = Math.min(safePage * ADMIN_PAGE_SIZE, filtered.length);
+  const paged = paginate(filtered, page, ADMIN_PAGE_SIZE);
+  const passRate = share(board.passed, board.runs);
+  const showChart = board.points.length > 1;
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24">
+    <main className="flex w-full flex-1 flex-col gap-space-24 px-space-16 py-space-24 sm:px-space-24">
       <AdminPageHeader
         kicker="Learning"
         title="Practice"
@@ -328,252 +286,251 @@ export function AdminListeningRuns({
       />
 
       {!storeConfigured ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Cloud progress is not configured. Finished parts live in Supabase.
-        </div>
-      ) : null}
-
-      {storeConfigured && status === "missing" ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          {LISTENING_SCHEMA_HINT}
-        </div>
-      ) : null}
-
-      {storeConfigured && status === "error" ? (
-        <div className="rounded-2xl border border-error-container bg-error-container/40 px-space-20 py-space-16 font-body-sm text-body-sm text-on-error-container">
-          Practice parts could not be loaded.
-        </div>
+        <Notice tone="error">Cloud progress is not configured. Finished parts live in Supabase.</Notice>
+      ) : status === "missing" ? (
+        <Notice tone="info">{LISTENING_SCHEMA_HINT}</Notice>
+      ) : status === "error" ? (
+        <Notice tone="error">Practice parts could not be loaded.</Notice>
       ) : null}
 
       <section
         aria-label="Practice totals"
-        className="grid grid-cols-2 gap-space-12 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-space-16 lg:grid-cols-4 2xl:gap-space-20"
       >
-        <SummaryStat
-          label="Practice parts"
-          value={formatCount(board.runs)}
+        <KpiTile
           icon="headphones"
-          hint={`Finished ${window}`}
+          label="Parts finished"
+          value={formatCount(board.runs)}
+          caption={`${formatCount(board.students)} student${board.students === 1 ? "" : "s"} ${window}`}
         />
-        <SummaryStat
-          label="Passed"
-          value={formatCount(board.passed)}
+        <KpiTile
           icon="check_circle"
-          hint="Cleared every clip in the part"
+          label="Pass rate"
+          color={PASSED}
+          value={board.runs === 0 ? "—" : formatPercent(passRate)}
+          progress={passRate}
+          caption={`${formatCount(board.passed)} passed · ${formatCount(board.failed)} out of hearts`}
         />
-        <SummaryStat
-          label="Failed"
-          value={formatCount(board.failed)}
-          icon="heart_broken"
-          hint="Ran out of hearts"
-        />
-        <SummaryStat
-          label="Accuracy"
-          value={board.runs === 0 ? "—" : `${board.avgAccuracy}%`}
+        <KpiTile
           icon="percent"
-          hint="Average across finished parts"
+          label="Avg. accuracy"
+          color={ANALYTICS.ocean}
+          value={board.runs === 0 ? "—" : `${board.avgAccuracy}%`}
+          progress={board.runs === 0 ? 0 : board.avgAccuracy / 100}
+          caption="Across every finished part"
         />
-        <SummaryStat
-          label="Students"
-          value={formatCount(board.students)}
+        <KpiTile
           icon="group"
-          hint={`Who finished a part ${window}`}
+          label="Students"
+          color={ANALYTICS.slate}
+          value={formatCount(board.students)}
+          caption={
+            board.students > 0
+              ? `${(board.runs / board.students).toLocaleString("en-GB", { maximumFractionDigits: 1 })} parts each on average`
+              : "Nobody finished a part yet"
+          }
         />
       </section>
 
-      <ChartCard
-        title="Parts by day"
-        hint="Vietnam days. A part is counted on the day it finished."
-      >
-        <RunChart data={board.points} />
-      </ChartCard>
+      <div className={`grid grid-cols-1 gap-space-16 2xl:gap-space-20 ${showChart ? "lg:grid-cols-3" : ""}`}>
+        {showChart ? (
+          <section className={`${GLASS} flex flex-col p-space-20 lg:col-span-2`}>
+            <PanelHeader
+              icon="stacked_bar_chart"
+              title="Parts by day"
+              hint="Vietnam days. A part counts on the day it finished."
+              trailing={
+                <LegendChips
+                  items={[
+                    { name: "Passed", color: PASSED },
+                    { name: "Failed", color: FAILED },
+                  ]}
+                />
+              }
+            />
+            <div className="mt-space-16 h-64 w-full sm:h-72">
+              <RunChart data={board.points} />
+            </div>
+          </section>
+        ) : null}
+        <FailedLessons rows={board.lessons} catalog={catalog} />
+      </div>
 
-      <LessonsTable rows={board.lessons} catalog={catalog} />
-
-      <section className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-        <div className="flex flex-col gap-space-12 px-space-16 py-space-12">
-          <div>
-            <h2 className="font-label-md text-label-md font-semibold text-on-surface">
-              Recent parts
-            </h2>
-            <p className="mt-0.5 font-caption text-caption text-on-surface-variant">
-              Newest first. Open a student on Students for clip-by-clip detail.
-            </p>
-          </div>
-          <div className="flex flex-col gap-space-12 lg:flex-row lg:items-center">
-            <label className="relative w-full max-w-md">
-              <span className="sr-only">Search practice parts</span>
-              <MaterialIcon
-                name="search"
-                className="pointer-events-none absolute left-space-12 top-1/2 -translate-y-1/2 text-[20px] text-outline"
-              />
-              <input
-                type="search"
+      <section aria-labelledby="practice-recent" className="flex flex-col gap-space-12">
+        <SectionHeading
+          id="practice-recent"
+          icon="history"
+          title="Recent parts"
+          meta="Newest first · open a student on Students for clip detail"
+        />
+        <TablePanel
+          icon="headphones"
+          title="Finished parts"
+          hint="Click “missed” on a row to see which clips tripped the student up."
+          trailing={
+            <div className="flex w-full flex-wrap items-center gap-space-8 sm:w-auto">
+              <SearchField
+                label="Search practice parts"
+                placeholder="Search student or lesson"
                 value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
+                onChange={(value) => {
+                  setQuery(value);
                   setPage(1);
                 }}
-                placeholder="Search student or lesson"
-                className="h-11 w-full rounded-2xl border border-outline-variant/50 bg-surface-container-lowest py-space-8 pl-10 pr-space-16 font-body-md text-body-md text-on-surface outline-none placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-fixed"
               />
-            </label>
-            <div role="tablist" aria-label="Filter by outcome" className="flex flex-wrap gap-space-8">
-              {(
-                [
-                  ["all", "All"],
-                  ["success", "Passed"],
-                  ["fail", "Failed"],
-                ] as const
-              ).map(([id, label]) => {
-                const on = outcome === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => {
-                      setOutcome(id);
-                      setPage(1);
-                    }}
-                    className={`inline-flex h-9 items-center rounded-full px-space-16 font-label-sm text-label-sm font-semibold transition-colors ${
-                      on
-                        ? "bg-primary text-on-primary"
-                        : "border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              <Segmented<Outcome>
+                ariaLabel="Filter by outcome"
+                value={outcome}
+                options={[
+                  { key: "all", label: "All" },
+                  { key: "success", label: "Passed" },
+                  { key: "fail", label: "Failed" },
+                ]}
+                onSelect={(key) => {
+                  setOutcome(key);
+                  setPage(1);
+                }}
+              />
             </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left">
-            <thead className="bg-surface-container-low">
-              <tr>
-                <th className="px-space-16 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  When
-                </th>
-                <th className="px-space-12 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Student
-                </th>
-                <th className="px-space-12 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Lesson
-                </th>
-                <th className="px-space-12 py-space-12 font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Result
-                </th>
-                <th className="px-space-12 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Accuracy
-                </th>
-                <th className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold text-on-surface-variant">
-                  Time
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.length === 0 ? (
+          }
+          footer={
+            <Pager
+              page={paged.page}
+              pageCount={paged.pageCount}
+              start={paged.start}
+              end={paged.end}
+              total={filtered.length}
+              noun="parts"
+              onPage={setPage}
+            />
+          }
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[44rem] border-collapse text-left">
+              <thead className={THEAD}>
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-space-16 py-space-48 text-center font-body-md text-body-md text-on-surface-variant"
-                  >
-                    {board.recent.length === 0
-                      ? "No finished parts in this window."
-                      : "No parts match this filter."}
-                  </td>
+                  <th className={`${TH} min-w-[13rem]`}>Student</th>
+                  <th className={`${TH} min-w-[13rem]`}>Lesson</th>
+                  <th className={TH}>Result</th>
+                  <th className={`${TH} min-w-[9rem]`}>Accuracy</th>
+                  <th className={`${TH} text-right`}>Time</th>
                 </tr>
-              ) : (
-                pageRows.map((run) => {
-                  const place = describeCatalogLesson(catalog, run.lessonKey);
-                  const lesson = place
-                    ? `${place.course} · ${place.lesson}`
-                    : run.lessonKey;
-                  return (
-                    <tr
-                      key={run.id}
-                      className="border-t border-outline-variant/20 font-body-sm text-body-sm text-on-surface"
+              </thead>
+              <tbody className="font-body-md text-body-md text-on-surface">
+                {paged.pageItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-space-16 py-space-48 text-center text-on-surface-variant"
                     >
-                      <td className="px-space-16 py-space-12 align-top">
-                        <p className="whitespace-nowrap tabular-nums text-on-surface-variant">
-                          {formatWhen(run.createdAt)}
-                        </p>
-                        {run.accuracy < 100 ? (
-                          <MissedWords
-                            catalog={catalog}
-                            lessonKey={run.lessonKey}
-                            clipIds={missedClipIds[run.id] ?? []}
-                          />
+                      <span className="inline-flex items-center gap-space-8">
+                        <MaterialIcon name="search_off" className="text-[20px] text-outline" />
+                        {board.recent.length === 0
+                          ? "No finished parts in this window."
+                          : "No parts match this filter."}
+                      </span>
+                    </td>
+                  </tr>
+                ) : (
+                  paged.pageItems.map((run) => {
+                    const place = describeCatalogLesson(catalog, run.lessonKey);
+                    const name = names.get(run.userId) ?? run.userId;
+                    const passed = run.outcome === "success";
+                    const missed = missedClipIds[run.id] ?? [];
+                    const open = openRun === run.id;
+                    const color = accuracyColor(run.accuracy);
+                    return (
+                      <Fragment key={run.id}>
+                        <tr className={TR}>
+                          <td className="px-space-16 py-space-12">
+                            <div className="flex items-center gap-space-12">
+                              <div
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e2e7ff] font-headline-sm text-headline-sm font-bold text-on-surface-variant"
+                                aria-hidden="true"
+                              >
+                                {initialOf(name)}
+                              </div>
+                              <div className="flex min-w-0 flex-col">
+                                <span className="truncate font-bold transition-colors group-hover:text-[#4338ca]">
+                                  {name}
+                                </span>
+                                <span className="whitespace-nowrap font-body-sm text-[12px] leading-[18px] tabular-nums text-outline">
+                                  {formatWhen(run.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-space-16 py-space-12">
+                            <p className="truncate font-semibold">{place?.lesson ?? run.lessonKey}</p>
+                            <p className="truncate font-body-sm text-[12px] leading-[18px] text-outline">
+                              {place?.course ? `${place.course} · ` : ""}Part {run.partNumber} of{" "}
+                              {run.partCount}
+                            </p>
+                          </td>
+                          <td className="px-space-16 py-space-12">
+                            <StatusPill
+                              label={passed ? "Passed" : "Out of hearts"}
+                              tone={passed ? "good" : "bad"}
+                            />
+                          </td>
+                          <td className="px-space-16 py-space-12">
+                            <div className="flex items-center gap-space-8">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#eaedff]">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{ width: `${run.accuracy}%`, backgroundColor: color }}
+                                />
+                              </div>
+                              <span className="font-label-sm text-label-sm font-bold tabular-nums" style={{ color }}>
+                                {run.accuracy}%
+                              </span>
+                              {missed.length > 0 ? (
+                                <button
+                                  type="button"
+                                  aria-expanded={open}
+                                  onClick={() => setOpenRun(open ? null : run.id)}
+                                  className="inline-flex items-center gap-0.5 rounded-full bg-[#ffe4e6] py-0.5 pl-space-8 pr-1 font-label-sm text-[11px] font-semibold leading-4 text-[#9f1239] transition-colors hover:bg-[#fecdd3]"
+                                >
+                                  {missed.length} missed
+                                  <MaterialIcon
+                                    name={open ? "expand_less" : "expand_more"}
+                                    className="text-[16px]"
+                                  />
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-space-16 py-space-12 text-right font-label-sm text-label-sm font-semibold tabular-nums text-on-surface-variant">
+                            {formatElapsed(run.elapsedMs)}
+                          </td>
+                        </tr>
+                        {open ? (
+                          <tr className="bg-[#f2f3ff]/60">
+                            <td colSpan={5} className="px-space-16 pb-space-12 pt-0 sm:pl-[4.25rem]">
+                              <p className="pb-space-8 font-label-sm text-[11px] font-bold uppercase leading-4 tracking-wider text-on-surface-variant">
+                                Missed clips
+                              </p>
+                              <ul className="flex flex-wrap gap-space-8">
+                                {missed.map((clipId) => (
+                                  <li
+                                    key={clipId}
+                                    className="rounded-lg border border-[#e2e8f0] bg-white px-space-8 py-1 font-body-sm text-body-sm text-on-surface"
+                                  >
+                                    {describeCatalogClip(catalog, run.lessonKey, clipId).prompt}
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
                         ) : null}
-                      </td>
-                      <td className="px-space-12 py-space-12 font-medium">
-                        {names.get(run.userId) ?? run.userId}
-                      </td>
-                      <td className="px-space-12 py-space-12">
-                        <p>{lesson}</p>
-                        <p className="font-caption text-caption text-on-surface-variant">
-                          Part {run.partNumber} of {run.partCount}
-                        </p>
-                      </td>
-                      <td className="px-space-12 py-space-12">
-                        <span
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
-                            run.outcome === "success"
-                              ? "bg-[#34C759]/15 text-[#248a3d]"
-                              : "bg-[#ff3b30]/10 text-[#ff3b30]"
-                          }`}
-                          aria-label={run.outcome === "success" ? "Passed" : "Out of hearts"}
-                        >
-                          <MaterialIcon
-                            name={run.outcome === "success" ? "check_circle" : "heart_broken"}
-                            className="text-[18px]"
-                            filled
-                          />
-                        </span>
-                      </td>
-                      <td className="px-space-12 py-space-12 text-right tabular-nums">
-                        {run.accuracy}%
-                      </td>
-                      <td className="px-space-16 py-space-12 text-right tabular-nums">
-                        {formatElapsed(run.elapsedMs)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-space-12 border-t border-outline-variant/20 px-space-16 py-space-12">
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {filtered.length === 0
-              ? "0 parts"
-              : `${rangeStart}–${rangeEnd} of ${filtered.length}`}
-          </p>
-          <div className="flex items-center gap-space-8">
-            <button
-              type="button"
-              disabled={safePage <= 1}
-              onClick={() => setPage(Math.max(1, safePage - 1))}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={safePage >= pageCount}
-              onClick={() => setPage(safePage + 1)}
-              className="inline-flex h-9 items-center rounded-xl px-space-12 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container disabled:text-outline"
-            >
-              Next
-            </button>
+                      </Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </TablePanel>
       </section>
     </main>
   );

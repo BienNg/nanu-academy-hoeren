@@ -14,6 +14,25 @@ import {
   YAxis,
 } from "recharts";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
+import {
+  ANALYTICS,
+  CategoryCard,
+  ChartTooltip,
+  CountPill,
+  GLASS,
+  LegendChips,
+  PanelHeader,
+  Pager,
+  ScopeChips,
+  SectionHeading,
+  TH,
+  formatCount,
+  formatPercent,
+  paginate,
+  type MicroMetric,
+} from "@/components/admin/AnalyticsUi";
 import {
   adminRangeLabel,
   buildAdminActivityBoard,
@@ -27,24 +46,18 @@ import {
   type AdminUserRow,
 } from "@/lib/admin-overview";
 
-// Activity uses its own indigo / azure / slate palette, matching the analytics reference.
-const AXIS = "#777586";
-const GRID = "#c7c4d7";
-const PRIMARY = "#4338ca";
-const STUDY = "#006398";
-const PRACTICE = "#0284c7";
-const VIDEOS = "#283044";
+const AXIS = ANALYTICS.axis;
+const GRID = ANALYTICS.grid;
+const PRIMARY = ANALYTICS.indigo;
+const STUDY = ANALYTICS.ocean;
+const PRACTICE = ANALYTICS.azure;
+const VIDEOS = ANALYTICS.slate;
 
-/** Frosted card surface shared by every panel on this page. */
-const GLASS =
-  "rounded-2xl border border-[#e2e8f0]/80 bg-white/85 shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_1px_2px_-1px_rgba(15,23,42,0.03)] backdrop-blur-xl";
+/** Students per page in the "Most time in the app" table. */
+const LEADER_PAGE_SIZE = 10;
 
 /** Last visit within this window reads as "Active now". */
 const ACTIVE_NOW_MS = 5 * 60 * 1000;
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-GB");
-}
 
 function formatMinutes(seconds: number): string {
   const safe = Math.max(0, seconds);
@@ -61,10 +74,6 @@ function formatPerActive(total: number, active: number): string {
   if (active <= 0) return "—";
   const value = total / active;
   return value.toLocaleString("en-GB", { maximumFractionDigits: value < 10 ? 1 : 0 });
-}
-
-function formatPercent(share: number): string {
-  return `${Math.round(Math.min(1, Math.max(0, share)) * 100)}%`;
 }
 
 const RELATIVE_UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
@@ -114,33 +123,6 @@ function peakPoint(
   return best;
 }
 
-function SectionHeading({
-  icon,
-  title,
-  meta,
-  id,
-}: {
-  icon: string;
-  title: string;
-  meta?: ReactNode;
-  id: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-space-8">
-      <h2
-        id={id}
-        className="flex items-center gap-space-8 font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface-variant"
-      >
-        <MaterialIcon name={icon} className="text-[20px] text-[#4338ca]" />
-        {title}
-      </h2>
-      {meta ? (
-        <div className="font-label-sm text-label-sm text-outline">{meta}</div>
-      ) : null}
-    </div>
-  );
-}
-
 function Sparkline({
   data,
   dataKey,
@@ -177,171 +159,29 @@ function Sparkline({
   );
 }
 
-type MicroMetric = { icon: string; label: string; value: string };
 
 /** One activity category: headline number, a share bar, two micro metrics, and its trend. */
-function CategoryCard({
-  icon,
-  title,
-  hint,
-  color,
-  value,
-  unit,
-  badge,
-  progress,
-  progressLabel,
-  metrics,
+/** A CategoryCard whose bottom visual is the series' sparkline and its peak. */
+function TrendCard({
   trend,
-}: {
-  icon: string;
-  title: string;
-  hint: string;
-  color: string;
-  value: string;
-  unit: string;
-  badge: string;
-  /** 0–1 share drawn as a bar under the headline number. */
-  progress: number;
-  progressLabel: string;
+  ...card
+}: Omit<Parameters<typeof CategoryCard>[0], "footerLabel" | "footerAside" | "children"> & {
   metrics: readonly [MicroMetric, MicroMetric];
   trend: { data: readonly AdminActivityPoint[]; key: PointKey; label: string };
 }) {
   const peak = peakPoint(trend.data, trend.key);
   return (
-    <article
-      className={`${GLASS} group flex flex-col justify-between overflow-hidden p-space-16 transition-shadow 2xl:p-space-20 duration-300 hover:shadow-[0_10px_25px_-5px_rgba(67,56,202,0.08),0_8px_10px_-6px_rgba(15,23,42,0.04)]`}
+    <CategoryCard
+      {...card}
+      footerLabel={trend.label}
+      footerAside={
+        <span style={{ color: peak ? card.color : undefined }}>
+          {peak ? `Peak ${peak.label}` : "No activity yet"}
+        </span>
+      }
     >
-      <div className="flex flex-col gap-space-12">
-        <header className="flex items-start justify-between gap-space-8">
-          <div className="flex min-w-0 items-center gap-space-8">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{ backgroundColor: `${color}14`, color }}
-            >
-              <MaterialIcon name={icon} className="text-[22px]" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">
-                {title}
-              </h3>
-              <p className="font-body-sm text-[12px] leading-[18px] text-on-surface-variant">
-                {hint}
-              </p>
-            </div>
-          </div>
-          <span
-            className="shrink-0 whitespace-nowrap rounded-full px-space-8 py-0.5 font-label-sm text-[11px] leading-4 font-bold tabular-nums"
-            style={{ backgroundColor: `${color}14`, color }}
-          >
-            {badge}
-          </span>
-        </header>
-
-        <p className="flex items-baseline gap-space-4 pt-space-4">
-          <span className="font-headline-lg text-[1.875rem] font-extrabold leading-9 tracking-[-0.03em] tabular-nums text-on-surface">
-            {value}
-          </span>
-          <span className="font-body-md text-[14px] leading-[22px] text-on-surface-variant">{unit}</span>
-        </p>
-
-        <div
-          className="h-1.5 w-full overflow-hidden rounded-full bg-[#eaedff]"
-          role="progressbar"
-          aria-label={progressLabel}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(Math.min(1, progress) * 100)}
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-500"
-            style={{ width: formatPercent(progress), backgroundColor: color }}
-          />
-        </div>
-
-        <dl className="grid grid-cols-2 gap-space-8 rounded-xl bg-[#f2f3ff] p-space-8">
-          {metrics.map((metric, index) => (
-            <div key={metric.label} className="flex min-w-0 flex-col">
-              <dt className="flex items-center gap-space-4 font-label-sm text-[11px] leading-4 text-on-surface-variant">
-                <MaterialIcon
-                  name={metric.icon}
-                  className={`text-[14px] ${index === 0 ? "" : "text-outline"}`}
-                />
-                <span className="truncate">{metric.label}</span>
-              </dt>
-              <dd
-                className="truncate font-label-md text-label-md font-bold tabular-nums"
-                style={{ color: index === 0 ? color : undefined }}
-              >
-                {metric.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      <div className="pt-space-12">
-        <div className="flex items-center justify-between gap-space-8 pb-1 font-label-sm text-[11px] leading-4 text-outline">
-          <span className="truncate">{trend.label}</span>
-          <span className="shrink-0 font-bold" style={{ color: peak ? color : undefined }}>
-            {peak ? `Peak ${peak.label}` : "No activity yet"}
-          </span>
-        </div>
-        <Sparkline data={trend.data} dataKey={trend.key} color={color} />
-      </div>
-    </article>
-  );
-}
-
-function IconTile({ icon, color = PRIMARY }: { icon: string; color?: string }) {
-  return (
-    <div
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-      style={{ backgroundColor: `${color}14`, color }}
-    >
-      <MaterialIcon name={icon} className="text-[18px]" />
-    </div>
-  );
-}
-
-function PanelHeader({
-  icon,
-  title,
-  hint,
-  trailing,
-}: {
-  icon: string;
-  title: string;
-  hint: string;
-  trailing?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center justify-between gap-space-8">
-        <div className="flex min-w-0 items-center gap-space-8">
-          <IconTile icon={icon} />
-          <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">{title}</h3>
-        </div>
-        {trailing}
-      </div>
-      <p className="font-body-sm text-[12px] leading-[18px] text-on-surface-variant sm:pl-10">{hint}</p>
-    </div>
-  );
-}
-
-function LegendChips({ items }: { items: readonly { name: string; color: string }[] }) {
-  return (
-    <ul className="flex flex-wrap items-center gap-space-12 font-label-sm text-[11px] leading-4 text-on-surface-variant">
-      {items.map((item) => (
-        <li key={item.name} className="flex items-center gap-space-4">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: item.color }}
-            aria-hidden="true"
-          />
-          {item.name}
-        </li>
-      ))}
-    </ul>
+      <Sparkline data={trend.data} dataKey={trend.key} color={card.color} />
+    </CategoryCard>
   );
 }
 
@@ -363,49 +203,6 @@ function ChartCard({
       <PanelHeader icon={icon} title={title} hint={hint} trailing={trailing} />
       <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
     </section>
-  );
-}
-
-type TooltipRow = {
-  name?: string;
-  value?: number | string;
-  color?: string;
-};
-
-function ChartTooltip({
-  active,
-  label,
-  payload,
-}: {
-  active?: boolean;
-  label?: string | number;
-  payload?: readonly TooltipRow[];
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg bg-[#283044] px-space-12 py-space-8 shadow-xl">
-      <p className="font-label-sm text-label-sm font-bold text-[#c3c0ff]">{label}</p>
-      <ul className="mt-1 flex flex-col gap-0.5">
-        {payload.map((row) => (
-          <li
-            key={row.name}
-            className="flex items-center justify-between gap-space-16 font-body-sm text-body-sm text-[#eef0ff]"
-          >
-            <span className="flex items-center gap-space-8">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: row.color }}
-                aria-hidden="true"
-              />
-              {row.name}
-            </span>
-            <span className="font-semibold tabular-nums">
-              {typeof row.value === "number" ? formatCount(row.value) : row.value}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -541,20 +338,6 @@ function formatDayWithWeekday(day: string): string | null {
   }).format(date);
 }
 
-const TH = "px-space-16 py-space-12 font-label-sm text-[11px] leading-4 font-semibold uppercase tracking-wider";
-
-function CountPill({ value, peak }: { value: number; peak: boolean }) {
-  if (value <= 0) return <span className="text-outline">0</span>;
-  return (
-    <span
-      className={`inline-flex min-w-7 justify-center rounded-md px-space-8 py-0.5 font-semibold tabular-nums ${
-        peak ? "bg-[#4338ca] text-white shadow-sm" : "bg-[#eaedff] text-on-surface"
-      }`}
-    >
-      {formatCount(value)}
-    </span>
-  );
-}
 
 function TotalsTable({
   points,
@@ -630,13 +413,13 @@ function TotalsTable({
                     {formatMinutes(point.activeSeconds)}
                   </td>
                   <td className="px-space-16 py-space-8 text-center">
-                    <CountPill value={point[workKey]} peak={peaks.work === point.key} />
+                    <CountPill value={point[workKey]} tone={peaks.work === point.key ? "peak" : "neutral"} />
                   </td>
                   <td className="px-space-16 py-space-8 text-center">
-                    <CountPill value={point.practiceRuns} peak={peaks.practice === point.key} />
+                    <CountPill value={point.practiceRuns} tone={peaks.practice === point.key ? "peak" : "neutral"} />
                   </td>
                   <td className="px-space-16 py-space-8 text-center">
-                    <CountPill value={point.videosWatched} peak={peaks.videos === point.key} />
+                    <CountPill value={point.videosWatched} tone={peaks.videos === point.key ? "peak" : "neutral"} />
                   </td>
                 </tr>
               );
@@ -665,17 +448,6 @@ function initialOf(name: string): string {
   return letter ? letter.toLocaleUpperCase() : "?";
 }
 
-function WorkCount({ value }: { value: number }) {
-  if (value <= 0) {
-    return <span className="font-label-sm text-label-sm font-semibold text-outline">0</span>;
-  }
-  return (
-    <span className="inline-flex min-w-7 justify-center rounded-full bg-[#eaedff] px-2.5 py-0.5 font-label-sm text-label-sm font-semibold tabular-nums text-on-surface">
-      {formatCount(value)}
-    </span>
-  );
-}
-
 function LastSeen({ iso, ms, now }: { iso: string | null; ms: number; now: number | null }) {
   if (!iso || now == null) {
     return <span className="text-outline">—</span>;
@@ -699,12 +471,16 @@ function LeadersTable({
   leaders,
   rowsById,
   totalSeconds,
+  onSelect,
 }: {
   leaders: readonly AdminActivityLeader[];
   rowsById: ReadonlyMap<string, AdminUserRow>;
   totalSeconds: number;
+  onSelect: (userId: string) => void;
 }) {
   const now = useNow();
+  const [page, setPage] = useState(1);
+  const paged = paginate(leaders, page, LEADER_PAGE_SIZE);
   const topSeconds = leaders[0]?.activeSeconds ?? 0;
   const withActivity = leaders.filter(
     (row) =>
@@ -717,7 +493,7 @@ function LeadersTable({
         <PanelHeader
           icon="leaderboard"
           title="Most time in the app"
-          hint="Every student in this view, ranked by active minutes, then by videos and runs."
+          hint="Every student in this view, ranked by active minutes, then by videos and runs. Click a student for their detail."
         />
       </div>
       {leaders.length === 0 ? (
@@ -727,9 +503,9 @@ function LeadersTable({
         </p>
       ) : (
         <>
-          <div className="max-h-[36rem] overflow-auto">
-            <table className="w-full min-w-[52rem] border-collapse text-left">
-              <thead className="sticky top-0 z-10 bg-[#f2f3ff] text-on-surface-variant">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[54rem] border-collapse text-left">
+              <thead className="bg-[#f2f3ff] text-on-surface-variant">
                 <tr>
                   <th className={`${TH} w-16 text-center`}>Rank</th>
                   <th className={`${TH} min-w-[15rem]`}>Student</th>
@@ -739,10 +515,15 @@ function LeadersTable({
                   <th className={`${TH} text-center`}>Study</th>
                   <th className={`${TH} text-center`}>Practice</th>
                   <th className={`${TH} text-center`}>Last seen</th>
+                  <th className={`${TH} w-12`}>
+                    <span className="sr-only">Open</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="font-body-md text-body-md text-on-surface">
-                {leaders.map((leader, index) => {
+                {paged.pageItems.map((leader, offset) => {
+                  // Rank stays global across pages.
+                  const index = paged.start - 1 + offset;
                   const row = rowsById.get(leader.userId);
                   const hasTime = leader.activeSeconds >= 30;
                   const barShare = topSeconds > 0 ? leader.activeSeconds / topSeconds : 0;
@@ -751,7 +532,8 @@ function LeadersTable({
                   return (
                     <tr
                       key={leader.userId}
-                      className="group border-t border-[#e2e8f0]/70 transition-colors hover:bg-[#f2f3ff]/60"
+                      onClick={() => onSelect(leader.userId)}
+                      className="group cursor-pointer border-t border-[#e2e8f0]/70 transition-colors hover:bg-[#f2f3ff]/60"
                     >
                       <td className="px-space-16 py-space-12 text-center">
                         {podium ? (
@@ -779,9 +561,16 @@ function LeadersTable({
                             {initialOf(leader.displayName)}
                           </div>
                           <div className="flex min-w-0 flex-col">
-                            <span className="truncate font-bold text-on-surface transition-colors group-hover:text-[#4338ca]">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onSelect(leader.userId);
+                              }}
+                              className="truncate rounded text-left font-bold text-on-surface transition-colors group-hover:text-[#4338ca] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4338ca]"
+                            >
                               {leader.displayName}
-                            </span>
+                            </button>
                             {row?.email ? (
                               <span className="truncate font-body-sm text-body-sm text-outline">
                                 {row.email}
@@ -830,13 +619,13 @@ function LeadersTable({
                         </div>
                       </td>
                       <td className="px-space-16 py-space-12 text-center">
-                        <WorkCount value={leader.videosWatched} />
+                        <CountPill value={leader.videosWatched} />
                       </td>
                       <td className="px-space-16 py-space-12 text-center">
-                        <WorkCount value={leader.studyRuns} />
+                        <CountPill value={leader.studyRuns} />
                       </td>
                       <td className="px-space-16 py-space-12 text-center">
-                        <WorkCount value={leader.practiceRuns} />
+                        <CountPill value={leader.practiceRuns} />
                       </td>
                       <td className="px-space-16 py-space-12 text-center">
                         <LastSeen
@@ -845,65 +634,35 @@ function LeadersTable({
                           now={now}
                         />
                       </td>
+                      <td className="px-space-12 py-space-12 text-right">
+                        <MaterialIcon
+                          name="chevron_right"
+                          className="text-[20px] text-outline transition-colors group-hover:text-[#4338ca]"
+                        />
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <div className="border-t border-[#e2e8f0]/70 bg-[#f2f3ff]/40 px-space-20 py-space-12 font-body-sm text-body-sm text-on-surface-variant">
-            {formatCount(withActivity)} of {formatCount(leaders.length)} students did something
-            in this window. The share is each student&apos;s part of all time in the app.
+          <div className="flex flex-col gap-space-8 border-t border-[#e2e8f0]/70 bg-[#f2f3ff]/40 px-space-20 py-space-12">
+            <Pager
+              page={paged.page}
+              pageCount={paged.pageCount}
+              start={paged.start}
+              end={paged.end}
+              total={leaders.length}
+              noun="students"
+              onPage={setPage}
+            />
+            <p className="font-body-sm text-[12px] leading-[18px] text-outline">
+              {formatCount(withActivity)} of {formatCount(leaders.length)} did something in this
+              window. The share is each student&apos;s part of all time in the app.
+            </p>
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function ClassFilter({
-  value,
-  options,
-  onSelect,
-}: {
-  value: string;
-  options: readonly { key: string; label: string; count: number }[];
-  onSelect: (key: string) => void;
-}) {
-  return (
-    <div className="-mx-space-16 flex items-center gap-space-8 overflow-x-auto px-space-16 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-      <span className="flex shrink-0 items-center gap-space-4 font-label-sm text-label-sm font-semibold uppercase tracking-wider text-outline">
-        <MaterialIcon name="filter_list" className="text-[16px]" />
-        Class scope
-      </span>
-      <div role="tablist" aria-label="Class" className="flex shrink-0 gap-space-8 sm:flex-wrap">
-        {options.map((option) => {
-          const on = option.key === value;
-          return (
-            <button
-              key={option.key || "unassigned"}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => onSelect(option.key)}
-              className={`inline-flex h-8 shrink-0 items-center gap-space-8 rounded-full pl-space-12 pr-space-4 font-label-sm text-label-sm font-semibold transition-all ${
-                on
-                  ? "bg-[#4338ca] text-white shadow-[0_2px_8px_rgba(67,56,202,0.3)]"
-                  : "border border-outline-variant/40 bg-[#f2f3ff]est text-on-surface-variant hover:-translate-y-px hover:border-[#cbd5e1] hover:text-on-surface"
-              }`}
-            >
-              {option.label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 tabular-nums ${
-                  on ? "bg-white/20 text-white" : "bg-[#eaedff] text-on-surface-variant"
-                }`}
-              >
-                {option.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -917,18 +676,24 @@ function learnersWith(
 
 export function AdminActivity({
   rows,
+  catalog,
   range,
   storeConfigured,
   studyPartsByUser,
   practicePartsByUser,
 }: {
   rows: readonly AdminUserRow[];
+  catalog: readonly AdminCatalogCourse[];
   range: AdminRange;
   storeConfigured: boolean;
   studyPartsByUser: Readonly<Record<string, number>>;
   practicePartsByUser: Readonly<Record<string, number>>;
 }) {
   const [classFilter, setClassFilter] = useState("all");
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const detailRow = detailUserId
+    ? (rows.find((row) => row.userId === detailUserId) ?? null)
+    : null;
   const learners = useMemo(
     () => rows.filter((row) => !row.isAdmin && !row.staff),
     [rows],
@@ -1016,7 +781,9 @@ export function AdminActivity({
       />
 
       {classOptions.length > 0 || unassignedCount > 0 ? (
-        <ClassFilter
+        <ScopeChips
+          label="Class scope"
+          ariaLabel="Class"
           value={classFilter}
           options={filterOptions}
           onSelect={setClassFilter}
@@ -1038,7 +805,7 @@ export function AdminActivity({
           meta={`${adminRangeLabel(range)}${classHint}`}
         />
         <div className="grid grid-cols-1 gap-space-16 sm:grid-cols-2 lg:grid-cols-4 2xl:gap-space-20">
-          <CategoryCard
+          <TrendCard
             icon="groups"
             title="People"
             hint={`Seen or practiced ${window}`}
@@ -1054,7 +821,7 @@ export function AdminActivity({
             ]}
             trend={{ data: board.points, key: "activeUsers", label: `Active people ${byGrain}` }}
           />
-          <CategoryCard
+          <TrendCard
             icon="play_circle"
             title="Videos"
             hint={`Marked watched ${window}`}
@@ -1078,7 +845,7 @@ export function AdminActivity({
             ]}
             trend={{ data: board.points, key: "videosWatched", label: `Videos ${byGrain}` }}
           />
-          <CategoryCard
+          <TrendCard
             icon="menu_book"
             title="Study"
             hint={`Runs finished ${window}`}
@@ -1102,7 +869,7 @@ export function AdminActivity({
               label: hourly ? "Clips studied by hour" : "Study runs by day",
             }}
           />
-          <CategoryCard
+          <TrendCard
             icon="headphones"
             title="Practice"
             hint={`Runs finished ${window}`}
@@ -1166,7 +933,13 @@ export function AdminActivity({
           title="Students"
           meta="Sorted by active minutes"
         />
-        <LeadersTable leaders={board.leaders} rowsById={rowsById} totalSeconds={timeInApp} />
+        <LeadersTable
+          key={`${classFilter}:${range}`}
+          leaders={board.leaders}
+          rowsById={rowsById}
+          totalSeconds={timeInApp}
+          onSelect={setDetailUserId}
+        />
       </section>
 
       <section aria-labelledby="activity-breakdown" className="flex flex-col gap-space-12">
@@ -1177,6 +950,13 @@ export function AdminActivity({
         />
         <TotalsTable points={board.points} grain={board.grain} />
       </section>
+      {detailRow ? (
+        <StudentDetailModal
+          row={detailRow}
+          catalog={catalog}
+          onClose={() => setDetailUserId(null)}
+        />
+      ) : null}
     </main>
   );
 }
