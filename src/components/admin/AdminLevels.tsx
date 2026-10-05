@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
-import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildLevelPath,
   projectStudentDetail,
@@ -559,7 +559,7 @@ export function AdminLevels({
       )}
 
       {detailRow ? (
-        <StudentDetailModal
+        <StudentDetail
           row={detailRow}
           catalog={courseCatalog}
           onClose={() => setDetailUserId(null)}

@@ -1378,16 +1378,26 @@ function ListeningRunsSection({
   );
 }
 
+/** The per-student detail read, shared so the drawer can hand it to the modal. */
+export type StudentDetailPayload = {
+  progress: StoredProgress;
+  signIns: AdminUserRow["signIns"];
+  appUses: AdminUserRow["appUses"];
+};
+
 export function StudentDetailModal({
   row,
   catalog,
   onClose,
   onAccessChange,
+  preloaded,
 }: {
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
   onAccessChange?: (patch: StudentAccessPatch) => void;
+  /** Detail already read for `row.userId`, so opening from the drawer skips a refetch. */
+  preloaded?: StudentDetailPayload;
 }) {
   const router = useRouter();
   const canDelete = useAdminRole() === "owner";
@@ -1401,11 +1411,7 @@ export function StudentDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [runsRevision, setRunsRevision] = useState(0);
-  const [payload, setPayload] = useState<{
-    progress: StoredProgress;
-    signIns: AdminUserRow["signIns"];
-    appUses: AdminUserRow["appUses"];
-  } | null>(null);
+  const [payload, setPayload] = useState<StudentDetailPayload | null>(preloaded ?? null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const serverCaughtUp =
     progressOverride?.userId === row.userId &&
@@ -1457,6 +1463,7 @@ export function StudentDetailModal({
   const visitStats = visitStripStats(visitLog.visits);
 
   useEffect(() => {
+    if (preloaded) return;
     let cancelled = false;
     setPayload(null);
     setDetailError(null);
@@ -1475,7 +1482,7 @@ export function StudentDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [row.userId]);
+  }, [row.userId, preloaded]);
 
   useEffect(() => {
     setTab("overview");

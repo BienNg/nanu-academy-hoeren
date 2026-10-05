@@ -20,7 +20,7 @@ import {
   setAdminUserStaff,
 } from "@/app/admin/actions";
 import { AdminPageHeader, MaterialIcon, StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
-import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   CLASS_NAME_MAX_LENGTH,
@@ -1154,7 +1154,7 @@ export function AdminUsersDashboard({
       </main>
 
       {detailRow ? (
-        <StudentDetailModal
+        <StudentDetail
           row={detailRow}
           catalog={courseCatalog}
           onClose={closeDetail}

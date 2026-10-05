@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { setAdminUserClass } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
-import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   CARD,
   HeaderChip,
@@ -961,7 +961,7 @@ export function AdminOverview({
       </main>
 
       {detailRow ? (
-        <StudentDetailModal
+        <StudentDetail
           row={detailRow}
           catalog={courseCatalog}
           onClose={() => setDetailUserId(null)}

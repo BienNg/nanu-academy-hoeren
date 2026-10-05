@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
-import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   CategoryCard,
@@ -939,7 +939,7 @@ export function AdminActivity({
         <TotalsTable points={board.points} grain={board.grain} />
       </section>
       {detailRow ? (
-        <StudentDetailModal
+        <StudentDetail
           row={detailRow}
           catalog={catalog}
           onClose={() => setDetailUserId(null)}

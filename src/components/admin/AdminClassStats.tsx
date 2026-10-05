@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
-import { StudentDetailModal } from "@/components/admin/StudentDetailModal";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildClassStats,
   type AdminCatalogCourse,
@@ -602,7 +602,7 @@ export function AdminClassStats({
       </main>
 
       {detailRow ? (
-        <StudentDetailModal row={detailRow} catalog={courseCatalog} onClose={closeDetail} />
+        <StudentDetail row={detailRow} catalog={courseCatalog} onClose={closeDetail} />
       ) : null}
     </>
   );
