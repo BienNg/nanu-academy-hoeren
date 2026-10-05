@@ -24,6 +24,8 @@ export const ADMIN_COLORS = {
   /** Achievement: XP, CEFR levels, badges, leaderboards. */
   amber: "#d97706",
   amberWash: "#fffbeb",
+  /** Second achievement series when two amber stacks share a chart. */
+  amberSoft: "#fbbf24",
   /** Curriculum: lessons, passes, completion. */
   emerald: "#059669",
   emeraldWash: "#ecfdf5",
