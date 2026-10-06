@@ -14,10 +14,12 @@ import {
   clipWinner,
   extractStudiedClips,
   clipCanStart,
+  dealUniqueDuelCards,
   duelCardsFromClips,
   formatDuelTime,
   homeBucket,
   isChallengeExpired,
+  isDuelMatchFailureSchemaMissing,
   isDuelSchemaMissing,
   matchPool,
   opponentCanSeeDuel,
@@ -286,6 +288,31 @@ test("time labels use a comma", () => {
   assert.equal(formatDuelTime(65_000), "1:05");
 });
 
+test("extra kinds of one clip still deal that clip once", () => {
+  const hallo = { lessonKey: "a1-1/lektion-1", clipId: "hallo" };
+  const tschuss = { lessonKey: "a1-1/lektion-1", clipId: "tschuss" };
+  const variants = [
+    { clip: hallo, kind: "listening" as const },
+    { clip: hallo, kind: "vi-input" as const },
+    { clip: hallo, kind: "vi-choice" as const },
+    { clip: hallo, kind: "listening-order" as const },
+    { clip: tschuss, kind: "order" as const },
+  ];
+  for (let roll = 0; roll < 20; roll += 1) {
+    const dealt = dealUniqueDuelCards(variants, 15, () => roll / 20);
+    assert.equal(dealt.length, 2);
+    assert.equal(new Set(dealt.map((card) => `${card.clip.lessonKey}/${card.clip.clipId}`)).size, 2);
+  }
+  assert.equal(
+    dealUniqueDuelCards(variants, 15, () => 0).find((card) => card.clip.clipId === "hallo")?.kind,
+    "listening",
+  );
+  assert.equal(
+    dealUniqueDuelCards(variants, 15, () => 0.99).find((card) => card.clip.clipId === "hallo")?.kind,
+    "listening-order",
+  );
+});
+
 test("a duel uses each clip once, as listening, sentence order, or multiple choice", () => {
   const cards = duelCardsFromClips([
     { lessonKey: "a1-1/lektion-4", clipId: "schon", translationVi: "đã", sentenceOrder: true },
@@ -396,4 +423,9 @@ test("schema hint only matches missing duel tables", () => {
     true,
   );
   assert.equal(isDuelSchemaMissing("xp_awards does not exist"), false);
+  assert.equal(
+    isDuelMatchFailureSchemaMissing("Could not find the table public.duel_match_failures in the schema cache"),
+    true,
+  );
+  assert.equal(isDuelMatchFailureSchemaMissing("duels does not exist"), false);
 });

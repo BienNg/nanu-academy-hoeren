@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createDuel, getDuelHome, listUnstartedChallenges } from "@/lib/duel-store";
+import { createDuel, getDuelHome, listUnstartedChallenges, logDuelMatchFailure } from "@/lib/duel-store";
 import { isAdminUser } from "@/lib/admins";
 import {
   getUserClassName,
@@ -50,6 +50,10 @@ export async function POST() {
   const gate = await viewer();
   if ("response" in gate && gate.response) {
     if (!isProgressStoreConfigured()) {
+      const session = await auth();
+      if (session?.user?.id) {
+        await logDuelMatchFailure(session.user.id, "Progress store is not configured.");
+      }
       return NextResponse.json({ ok: false, block: "unavailable" }, { status: 503 });
     }
     return gate.response;

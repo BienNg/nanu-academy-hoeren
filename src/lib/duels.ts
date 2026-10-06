@@ -220,6 +220,29 @@ export function isDuelSchemaMissing(message: string): boolean {
   );
 }
 
+export const DUEL_MATCH_FAILURE_SCHEMA_HINT =
+  "Duel match failures are not being logged yet. Run supabase/duel_match_failures.sql once in the Supabase SQL editor.";
+
+export function isDuelMatchFailureSchemaMissing(message: string): boolean {
+  return (
+    /duel_match_failures/i.test(message) &&
+    /does not exist|schema cache|could not find the table/i.test(message)
+  );
+}
+
+/** One time a new duel stopped with “Chưa thể tìm đối thủ lúc này.” */
+export type DuelMatchFailure = {
+  id: string;
+  reason: string;
+  createdAt: string;
+};
+
+export type StudentDuelMatchFailuresPage = {
+  status: "ready" | "missing" | "error";
+  failures: DuelMatchFailure[];
+  total: number;
+};
+
 export function studiedKey(lessonKey: string, clipId: string): string {
   return `${lessonKey}\0${clipId}`;
 }
@@ -318,6 +341,30 @@ export function sharedStudied(
     shared.push({ lessonKey: clip.lessonKey, clipId: clip.clipId });
   }
   return shared;
+}
+
+/**
+ * One card per clip. Extra kinds of the same clip compete with its base card.
+ * A clip is stored once, so it cannot be dealt twice.
+ * `random` returns a number in [0, 1).
+ */
+export function dealUniqueDuelCards<T extends { lessonKey: string; clipId: string }>(
+  variants: readonly { clip: T; kind: DuelCardKind }[],
+  count: number,
+  random: () => number,
+): { clip: T; kind: DuelCardKind }[] {
+  const byClip = new Map<string, { clip: T; kind: DuelCardKind }[]>();
+  for (const variant of variants) {
+    const key = studiedKey(variant.clip.lessonKey, variant.clip.clipId);
+    const options = byClip.get(key);
+    if (options) options.push(variant);
+    else byClip.set(key, [variant]);
+  }
+  const chosen = [...byClip.values()].map((options) => {
+    const index = Math.min(options.length - 1, Math.max(0, Math.floor(random() * options.length)));
+    return options[index]!;
+  });
+  return sampleItems(chosen, count, random);
 }
 
 /** `random` returns a number in [0, 1). */

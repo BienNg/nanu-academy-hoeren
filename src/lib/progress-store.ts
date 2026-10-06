@@ -2282,6 +2282,15 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     table: "duel_xp_awards",
     column: "duel_id",
   },
+  {
+    id: "duel_match_failures",
+    label: "duel_match_failures",
+    sqlFile: "supabase/duel_match_failures.sql",
+    severity: "warn",
+    kind: "table",
+    table: "duel_match_failures",
+    column: "id",
+  },
 ];
 
 const loggedMissingRoutine = new Set<string>();

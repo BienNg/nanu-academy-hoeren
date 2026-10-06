@@ -403,6 +403,22 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   }, [phase, livePosition]);
 
   const clip = view?.clips.find((item) => item.position === livePosition) ?? null;
+  const choiceMissingOptions =
+    clip != null &&
+    (clip.kind === "vi-choice" || clip.kind === "multiple-choice" || clip.kind === "listening-choice") &&
+    !(clip.options && clip.options.length > 0);
+  useEffect(() => {
+    if (phase !== "play" || !choiceMissingOptions) return;
+    let cancelled = false;
+    void post("open").then((payload) => {
+      if (!cancelled && payload) remember(payload.view);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Refresh once so a choice card saved without its answers can load them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, livePosition, choiceMissingOptions]);
   const bankKey =
     view?.clips
       .map((item) => `${item.position}:${item.kind}:${item.script ?? ""}:${item.translationVi ?? ""}`)

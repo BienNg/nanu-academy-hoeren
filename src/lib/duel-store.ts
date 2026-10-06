@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
+import { seedToRandom } from "@/lib/blitzrunde";
 import { scoreAttempt } from "@/lib/scoring";
 import { checkOrder, isListeningOrderEligible } from "@/lib/sentence-order";
 import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "@/lib/multiple-choice";
@@ -28,6 +29,7 @@ import {
   DUEL_EXPIRE_CHALLENGER_XP,
   DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
+  dealUniqueDuelCards,
   duelCardsFromClips,
   MAX_ANSWER_CHARS,
   MAX_OPEN_WITH_CLASSMATE,
@@ -55,11 +57,13 @@ import {
   type DuelClipView,
   type DuelFeedback,
   type DuelHome,
+  type DuelMatchFailure,
   type DuelOutcome,
   type IncomingChallenge,
   type DuelView,
   type MatchBlock,
   type PlayState,
+  type StudentDuelMatchFailuresPage,
   type StudiedClip,
 } from "@/lib/duels";
 
@@ -68,7 +72,9 @@ const DUELS_TABLE = "duels";
 const CLIPS_TABLE = "duel_clips";
 const PLAYS_TABLE = "duel_plays";
 const XP_TABLE = "duel_xp_awards";
+const FAILURES_TABLE = "duel_match_failures";
 const PROFILES_TABLE = "user_progress";
+const FAILURE_PAGE = 25;
 const DUEL_COLUMNS_BASE =
   "id, challenger_id, opponent_id, created_at, completed_at, challenger_points, opponent_points";
 const DUEL_COLUMNS = `${DUEL_COLUMNS_BASE}, expired`;
@@ -228,7 +234,10 @@ export function listCatalogClips(): CatalogClip[] {
  * shows the same options). Distractors come from the clip's own lektion,
  * topped up from the rest of the level — same rule as regular practice.
  */
-function mcOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
+function mcOptionsForClip(
+  clip: CatalogClip | undefined,
+  random: () => number = Math.random,
+): McOptionRow[] | null {
   if (!clip?.multipleChoice || !clip.translationVi) return null;
   const levelSlug = clip.lessonKey.split("/")[0] ?? "";
   const catalog = listCatalogClips();
@@ -238,21 +247,46 @@ function mcOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
     { id: clip.clipId, translationVi: clip.translationVi },
     lektionClips.map((item) => ({ id: item.clipId, translationVi: item.translationVi })),
     levelClips.map((item) => ({ id: item.clipId, translationVi: item.translationVi })),
+    random,
   );
   return options;
 }
 
-function deOptionsForClip(clip: CatalogClip | undefined): McOptionRow[] | null {
+function deOptionsForClip(
+  clip: CatalogClip | undefined,
+  random: () => number = Math.random,
+): McOptionRow[] | null {
   if (!clip?.germanChoice || !clip.script) return null;
   const levelSlug = clip.lessonKey.split("/")[0] ?? "";
   const catalog = listCatalogClips();
   const lektionClips = catalog.filter((item) => item.lessonKey === clip.lessonKey);
   const levelClips = catalog.filter((item) => item.lessonKey.startsWith(`${levelSlug}/`));
+  const sources = (items: readonly CatalogClip[]) =>
+    items.map((item) => ({
+      id: item.clipId,
+      script: item.script,
+      translationVi: item.translationVi,
+    }));
   return buildDeMcOptions(
     { id: clip.clipId, script: clip.script },
-    lektionClips.map((item) => ({ id: item.clipId, script: item.script })),
-    levelClips.map((item) => ({ id: item.clipId, script: item.script })),
+    sources(lektionClips),
+    sources(levelClips),
+    random,
   );
+}
+
+/** Choice cards saved before the options column existed still need their four answers. */
+function storedChoiceOptions(
+  kind: DuelCardKind,
+  known: CatalogClip | undefined,
+  duelId: string,
+  position: number,
+  stored: McOptionRow[] | null,
+): McOptionRow[] | null {
+  if (stored && stored.length > 0) return stored;
+  if (kind !== "multiple-choice" && kind !== "listening-choice" && kind !== "vi-choice") return null;
+  const random = seedToRandom(`${duelId}:${position}:${kind}`);
+  return kind === "vi-choice" ? deOptionsForClip(known, random) : mcOptionsForClip(known, random);
 }
 
 function catalogIndex(clips: readonly CatalogClip[]): Map<string, CatalogClip> {
@@ -279,6 +313,53 @@ function asOutcome(value: unknown): DuelOutcome | null {
 
 function logDuel(message: string): void {
   console.error("Supabase duel", message);
+}
+
+type QueryError = { error: string };
+
+function isQueryError(value: unknown): value is QueryError {
+  if (!value || typeof value !== "object" || value instanceof Map || Array.isArray(value)) return false;
+  return "error" in value && typeof value.error === "string";
+}
+
+function duelMatchFailureSchemaMissing(message: string): boolean {
+  return (
+    /duel_match_failures/i.test(message) &&
+    /does not exist|schema cache|could not find the table/i.test(message)
+  );
+}
+
+function matchFailureText(step: string, error?: string | null): string {
+  const detail = error?.replace(/\s+/g, " ").trim();
+  const text = detail ? `${step}: ${detail}` : step;
+  return text.length > 500 ? `${text.slice(0, 497)}…` : text;
+}
+
+/** Remember why a new duel showed “Chưa thể tìm đối thủ lúc này.” */
+export async function logDuelMatchFailure(userId: string, reason: string): Promise<void> {
+  const text = matchFailureText(reason) || "Duel matching failed.";
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    logDuel(`match failure (${userId}): ${text}`);
+    return;
+  }
+  const { error } = await supabase.from(FAILURES_TABLE).insert({ user_id: userId, reason: text });
+  if (!error) return;
+  if (duelMatchFailureSchemaMissing(error.message)) {
+    logDuel(`match failure table missing (${text})`);
+    return;
+  }
+  logDuel(`could not log match failure: ${error.message} (${text})`);
+}
+
+async function unavailableMatch(userId: string, reason: string): Promise<DuelCreateResult> {
+  try {
+    await logDuelMatchFailure(userId, reason);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logDuel(`could not log match failure: ${message} (${reason})`);
+  }
+  return { ok: false, block: "unavailable" };
 }
 
 function schemaGone(message: string): boolean {
@@ -330,8 +411,13 @@ export async function deleteUserDuelXp(userId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
   const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
-  if (!error || isDuelSchemaMissing(error.message)) return;
-  throw new Error(`Could not delete duel XP (${error.message}).`);
+  if (error && !isDuelSchemaMissing(error.message)) {
+    throw new Error(`Could not delete duel XP (${error.message}).`);
+  }
+  const { error: failureError } = await supabase.from(FAILURES_TABLE).delete().eq("user_id", userId);
+  if (failureError && !duelMatchFailureSchemaMissing(failureError.message)) {
+    throw new Error(`Could not delete duel match failures (${failureError.message}).`);
+  }
 }
 
 export async function syncStudiedClips(userId: string, progress: StoredProgress): Promise<void> {
@@ -377,7 +463,7 @@ async function upsertStudied(
   return true;
 }
 
-async function listProfiles(supabase: SupabaseClient): Promise<Profile[] | null> {
+async function listProfiles(supabase: SupabaseClient): Promise<Profile[] | QueryError> {
   const rows: Profile[] = [];
   let from = 0;
   for (;;) {
@@ -387,7 +473,7 @@ async function listProfiles(supabase: SupabaseClient): Promise<Profile[] | null>
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
       logDuel(error.message);
-      return null;
+      return { error: error.message };
     }
     const page = (data ?? []) as {
       user_id?: unknown;
@@ -436,7 +522,7 @@ async function readProgressMaps(
 async function readStudied(
   supabase: SupabaseClient,
   userIds: readonly string[],
-): Promise<Map<string, StudiedClip[]> | null> {
+): Promise<Map<string, StudiedClip[]> | QueryError> {
   const maps = new Map<string, StudiedClip[]>();
   for (const id of userIds) maps.set(id, []);
   for (const page of chunks(userIds, 50)) {
@@ -448,7 +534,8 @@ async function readStudied(
         .in("user_id", [...page])
         .range(from, from + PAGE_SIZE - 1);
       if (error) {
-        if (schemaGone(error.message)) return null;
+        schemaGone(error.message);
+        if (isDuelSchemaMissing(error.message)) return { error: error.message };
         return maps;
       }
       const rows = (data ?? []) as { user_id?: unknown; lesson_key?: unknown; clip_id?: unknown }[];
@@ -477,6 +564,7 @@ async function refreshStudied(
 ): Promise<{
   studied: Map<string, StudiedClip[]> | null;
   progress: Map<string, StoredProgress>;
+  error: string | null;
 }> {
   const progress = await readProgressMaps(supabase, userIds);
   const catalog = listCatalogClips();
@@ -485,12 +573,16 @@ async function refreshStudied(
     clips: extractStudiedClips(stored.learn, catalog),
   }));
   await upsertStudied(supabase, groups);
-  return { studied: await readStudied(supabase, userIds), progress };
+  const studied = await readStudied(supabase, userIds);
+  if (isQueryError(studied)) return { studied: null, progress, error: studied.error };
+  return { studied, progress, error: null };
 }
 
 type ClassContext = {
   ready: boolean;
   block: MatchBlock;
+  /** Why matching could not run. Set only when `ready` is false. */
+  failure: string | null;
   viewerIsAdmin: boolean;
   studiedCount: number;
   pool: string[];
@@ -521,6 +613,7 @@ async function loadClassContext(user: {
   const empty: ClassContext = {
     ready: false,
     block: "unavailable",
+    failure: "Progress store is not configured.",
     viewerIsAdmin: isAdminUser(user),
     studiedCount: 0,
     pool: [],
@@ -532,7 +625,9 @@ async function loadClassContext(user: {
   if (!supabase) return empty;
 
   const profiles = await listProfiles(supabase);
-  if (!profiles) return empty;
+  if (isQueryError(profiles)) {
+    return { ...empty, failure: matchFailureText("Could not load class profiles", profiles.error) };
+  }
   const viewer = profiles.find((profile) => profile.userId === user.id && !profile.deleted);
   const viewerIsAdmin = isAdminUser({
     id: user.id,
@@ -554,12 +649,21 @@ async function loadClassContext(user: {
   ]);
   const viewerProgress = refreshed.progress.get(user.id) ?? normalizeProgress(undefined);
   const studied = refreshed.studied;
-  if (!studied) return { ...empty, viewerIsAdmin, names, viewerProgress };
+  if (!studied) {
+    return {
+      ...empty,
+      viewerIsAdmin,
+      names,
+      viewerProgress,
+      failure: matchFailureText("Could not read studied clips", refreshed.error),
+    };
+  }
   const studiedCount = studied.get(user.id)?.length ?? 0;
   if (viewerIsAdmin) {
     return {
       ready: true,
       block: "admin",
+      failure: null,
       viewerIsAdmin,
       studiedCount,
       pool: [],
@@ -570,7 +674,15 @@ async function loadClassContext(user: {
   }
 
   const openCounts = await openDuelsByOpponent(supabase, user.id);
-  if (openCounts == null) return { ...empty, viewerIsAdmin, names, viewerProgress };
+  if (isQueryError(openCounts)) {
+    return {
+      ...empty,
+      viewerIsAdmin,
+      names,
+      viewerProgress,
+      failure: matchFailureText("Could not load open duels", openCounts.error),
+    };
+  }
   const mine = studied.get(user.id) ?? [];
   const candidates = classmates.map((profile) => ({
     userId: profile.userId,
@@ -581,6 +693,7 @@ async function loadClassContext(user: {
   return {
     ready: true,
     block: match.block,
+    failure: null,
     viewerIsAdmin,
     studiedCount,
     pool: match.pool,
@@ -593,10 +706,10 @@ async function loadClassContext(user: {
 async function openDuelsByOpponent(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Map<string, number> | null> {
+): Promise<Map<string, number> | QueryError> {
   const counts = new Map<string, number>();
   const rows = await viewerDuels(supabase, userId);
-  if (!rows) return null;
+  if (isQueryError(rows)) return rows;
   for (const duel of rows) {
     if (duel.completed_at) continue;
     const other = duel.challenger_id === userId ? duel.opponent_id : duel.challenger_id;
@@ -605,7 +718,7 @@ async function openDuelsByOpponent(
   return counts;
 }
 
-async function viewerDuels(supabase: SupabaseClient, userId: string): Promise<DuelRow[] | null> {
+async function viewerDuels(supabase: SupabaseClient, userId: string): Promise<DuelRow[] | QueryError> {
   const load = (columns: string) =>
     Promise.all([
       supabase.from(DUELS_TABLE).select(columns).eq("challenger_id", userId),
@@ -619,11 +732,11 @@ async function viewerDuels(supabase: SupabaseClient, userId: string): Promise<Du
   }
   if (asChallenger.error) {
     schemaGone(asChallenger.error.message);
-    return null;
+    return { error: asChallenger.error.message };
   }
   if (asOpponent.error) {
     schemaGone(asOpponent.error.message);
-    return null;
+    return { error: asOpponent.error.message };
   }
   const seen = new Set<string>();
   const rows: DuelRow[] = [];
@@ -736,7 +849,7 @@ async function insertDuelClips(
     kind: DuelCardKind;
     options?: McOptionRow[] | null;
   }[],
-): Promise<"ok" | "unavailable"> {
+): Promise<"ok" | QueryError> {
   const base = cards.map(({ clip }, position) => ({
     duel_id: duelId,
     position,
@@ -778,14 +891,14 @@ async function insertDuelClips(
   }
   if (!inserted.error) return "ok";
   schemaGone(inserted.error.message);
-  return "unavailable";
+  return { error: inserted.error.message };
 }
 
 async function countOpenPair(
   supabase: SupabaseClient,
   leftId: string,
   rightId: string,
-): Promise<number | null> {
+): Promise<number | QueryError> {
   const [forward, backward] = await Promise.all([
     supabase
       .from(DUELS_TABLE)
@@ -801,8 +914,9 @@ async function countOpenPair(
       .eq("opponent_id", leftId),
   ]);
   if (forward.error || backward.error) {
-    schemaGone(forward.error?.message ?? backward.error?.message ?? "");
-    return null;
+    const message = forward.error?.message ?? backward.error?.message ?? "Unknown error";
+    schemaGone(message);
+    return { error: message };
   }
   return (forward.count ?? 0) + (backward.count ?? 0);
 }
@@ -814,7 +928,7 @@ export async function getDuelHome(user: {
   const prepared = getSupabaseAdmin();
   if (prepared) {
     const open = await viewerDuels(prepared, user.id);
-    if (open) await expireOverdueDuels(prepared, open, new Date());
+    if (Array.isArray(open)) await expireOverdueDuels(prepared, open, new Date());
   }
   const context = await loadClassContext(user);
   if (!context.ready) {
@@ -824,7 +938,7 @@ export async function getDuelHome(user: {
   if (!supabase) return emptyDuelHome(false);
 
   const duels = await viewerDuels(supabase, user.id);
-  if (!duels) return { ...emptyDuelHome(false), viewerIsAdmin: context.viewerIsAdmin };
+  if (!Array.isArray(duels)) return { ...emptyDuelHome(false), viewerIsAdmin: context.viewerIsAdmin };
 
   const plays = await playsForDuels(
     supabase,
@@ -1032,14 +1146,16 @@ export async function createDuel(user: {
   const prepared = getSupabaseAdmin();
   if (prepared) {
     const open = await viewerDuels(prepared, user.id);
-    if (open) await expireOverdueDuels(prepared, open, new Date());
+    if (Array.isArray(open)) await expireOverdueDuels(prepared, open, new Date());
   }
   const context = await loadClassContext(user);
-  if (!context.ready) return { ok: false, block: "unavailable" };
+  if (!context.ready) {
+    return unavailableMatch(user.id, context.failure ?? "Duel matching was not ready.");
+  }
   if (context.block !== "ok") return { ok: false, block: context.block };
 
   const supabase = getSupabaseAdmin();
-  if (!supabase) return { ok: false, block: "unavailable" };
+  if (!supabase) return unavailableMatch(user.id, "Progress store is not configured.");
   const mine = context.studied.get(user.id) ?? [];
   const pool = [...context.pool];
   let blockedByCap = false;
@@ -1049,7 +1165,12 @@ export async function createDuel(user: {
     const opponentId = pool.splice(index, 1)[0];
     if (!opponentId) break;
     const open = await countOpenPair(supabase, user.id, opponentId);
-    if (open == null) return { ok: false, block: "unavailable" };
+    if (isQueryError(open)) {
+      return unavailableMatch(
+        user.id,
+        matchFailureText("Could not count open duels with a classmate", open.error),
+      );
+    }
     if (open >= MAX_OPEN_WITH_CLASSMATE) {
       blockedByCap = true;
       continue;
@@ -1078,7 +1199,7 @@ export async function createDuel(user: {
       if (known?.listeningOrder && known.audioPath) extras.push({ clip: card.clip, kind: "listening-order" });
       return [card, ...extras];
     });
-    const cards = sampleItems(variants, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000).map((card) => {
+    const cards = dealUniqueDuelCards(variants, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000).map((card) => {
       const known = catalog.get(studiedKey(card.clip.lessonKey, card.clip.clipId));
       return {
         ...card,
@@ -1097,19 +1218,24 @@ export async function createDuel(user: {
       .single();
     if (created.error || !created.data) {
       if (created.error) schemaGone(created.error.message);
-      return { ok: false, block: "unavailable" };
+      return unavailableMatch(
+        user.id,
+        matchFailureText("Could not create the duel", created.error?.message ?? "The insert returned no row."),
+      );
     }
     const duelId = (created.data as { id?: unknown }).id;
-    if (typeof duelId !== "string") return { ok: false, block: "unavailable" };
+    if (typeof duelId !== "string") {
+      return unavailableMatch(user.id, "Could not create the duel: the new row had no id.");
+    }
 
     const clipInsert = await insertDuelClips(supabase, duelId, cards);
-    if (clipInsert === "unavailable") {
+    if (clipInsert !== "ok") {
       await supabase.from(DUELS_TABLE).delete().eq("id", duelId);
-      return { ok: false, block: "unavailable" };
+      return unavailableMatch(user.id, matchFailureText("Could not save the duel clips", clipInsert.error));
     }
 
     const openAfter = await countOpenPair(supabase, user.id, opponentId);
-    if (openAfter != null && openAfter > MAX_OPEN_WITH_CLASSMATE) {
+    if (!isQueryError(openAfter) && openAfter > MAX_OPEN_WITH_CLASSMATE) {
       blockedByCap = true;
       await supabase.from(DUELS_TABLE).delete().eq("id", duelId);
       continue;
@@ -1118,6 +1244,45 @@ export async function createDuel(user: {
   }
 
   return { ok: false, block: blockedByCap ? "cap" : "no_overlap" };
+}
+
+export async function listStudentDuelMatchFailures(
+  userId: string,
+  offset = 0,
+  window: { fromIso: string; toIso: string } | null = null,
+): Promise<StudentDuelMatchFailuresPage> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { status: "error", failures: [], total: 0 };
+  const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
+  let list = supabase
+    .from(FAILURES_TABLE)
+    .select("id, reason, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  let count = supabase
+    .from(FAILURES_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (window) {
+    list = list.gte("created_at", window.fromIso).lt("created_at", window.toIso);
+    count = count.gte("created_at", window.fromIso).lt("created_at", window.toIso);
+  }
+  const [rows, total] = await Promise.all([list.range(start, start + FAILURE_PAGE - 1), count]);
+  const message = rows.error?.message ?? total.error?.message;
+  if (message) {
+    if (duelMatchFailureSchemaMissing(message)) return { status: "missing", failures: [], total: 0 };
+    logDuel(message);
+    return { status: "error", failures: [], total: 0 };
+  }
+  const failures = (rows.data ?? []).flatMap((row): DuelMatchFailure[] => {
+    const record = row as { id?: unknown; reason?: unknown; created_at?: unknown };
+    if (typeof record.id !== "string" || typeof record.reason !== "string" || typeof record.created_at !== "string") {
+      return [];
+    }
+    return [{ id: record.id, reason: record.reason, createdAt: record.created_at }];
+  });
+  return { status: "ready", failures, total: total.count ?? failures.length };
 }
 
 function challengeDeadline(
@@ -1875,7 +2040,7 @@ function buildView(input: {
         script: known?.script ?? null,
         audioPath: known?.audioPath ?? null,
         translationVi: known?.translationVi ?? null,
-        options: clip.options,
+        options: storedChoiceOptions(clip.kind, known, input.duel.id, clip.position, clip.options),
         you: {
           state: yourState,
           elapsedMs: you?.state === "done" ? you.elapsed_ms : null,

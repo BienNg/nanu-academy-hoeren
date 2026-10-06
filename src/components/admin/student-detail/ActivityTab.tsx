@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listAdminStudentJumpRuns, listAdminStudentRuns } from "@/app/admin/actions";
+import {
+  listAdminStudentDuelMatchFailures,
+  listAdminStudentJumpRuns,
+  listAdminStudentRuns,
+} from "@/app/admin/actions";
 import { MaterialIcon } from "@/components/admin/AdminShell";
 import { Badge, Button } from "@/components/admin/AdminUi";
 import {
@@ -32,6 +36,11 @@ import {
   type AdminVisitStats,
   type projectStudentVisits,
 } from "@/lib/admin-detail";
+import {
+  DUEL_MATCH_FAILURE_SCHEMA_HINT,
+  type DuelMatchFailure,
+  type StudentDuelMatchFailuresPage,
+} from "@/lib/duels";
 import {
   JUMP_RUNS_SCHEMA_HINT,
   type JumpRunOutcome,
@@ -915,6 +924,127 @@ function JumpRunsSection({
   );
 }
 
+function duelFailureEmptyMessage(range: AdminVisitRange): string {
+  if (range === "today") return "No failed duel matches today.";
+  if (range === "7d") return "No failed duel matches in the last 7 days.";
+  return "No failed duel matches yet.";
+}
+
+function DuelMatchFailuresSection({
+  userId,
+  revision,
+  range,
+  timeZone,
+}: {
+  userId: string;
+  revision: number;
+  range: AdminVisitRange;
+  timeZone: string | undefined;
+}) {
+  const [page, setPage] = useState<StudentDuelMatchFailuresPage | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+  const window = useMemo(() => visitRangeIso(range, new Date(), timeZone), [range, timeZone]);
+  const requestKey = `${userId}:${revision}:${range}:${window?.fromIso ?? "all"}`;
+  const visible = loadedFor === requestKey ? page : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAdminStudentDuelMatchFailures(userId, 0, window).then((result) => {
+      if (cancelled) return;
+      setLoadedFor(requestKey);
+      if (!result.ok) {
+        setPage({ status: "error", failures: [], total: 0 });
+        return;
+      }
+      const { ok: _ok, ...loaded } = result;
+      setPage(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, window]);
+
+  async function loadMore() {
+    if (!visible || loadingMore || visible.failures.length >= visible.total) return;
+    const requestUser = userId;
+    setLoadingMore(true);
+    const result = await listAdminStudentDuelMatchFailures(requestUser, visible.failures.length, window);
+    setLoadingMore(false);
+    if (userIdRef.current !== requestUser || !result.ok || result.status !== "ready") return;
+    setPage((current) => {
+      if (!current) return current;
+      const seen = new Set(current.failures.map((failure) => failure.id));
+      const { ok: _ok, failures, ...counts } = result;
+      return {
+        ...current,
+        ...counts,
+        failures: [...current.failures, ...failures.filter((failure) => !seen.has(failure.id))],
+      };
+    });
+  }
+
+  const earlier = visible ? Math.max(0, visible.total - visible.failures.length) : 0;
+
+  return (
+    <section aria-label="Duel match failures" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
+      <ColumnHeader
+        title="Duel matches"
+        description="Each time a new duel showed “Chưa thể tìm đối thủ lúc này,” with the reason it failed."
+      />
+      {visible == null ? (
+        <EmptyPanel>Loading duel matches…</EmptyPanel>
+      ) : visible.status === "missing" ? (
+        <EmptyPanel>{DUEL_MATCH_FAILURE_SCHEMA_HINT}</EmptyPanel>
+      ) : visible.status === "error" ? (
+        <EmptyPanel>Duel matches could not be loaded.</EmptyPanel>
+      ) : visible.total === 0 ? (
+        <EmptyPanel>{duelFailureEmptyMessage(range)}</EmptyPanel>
+      ) : (
+        <div className="flex flex-col gap-space-12">
+          <StatStrip items={[{ label: "Failed matches", value: String(visible.total) }]} />
+          <ul className="flex flex-col gap-space-8">
+            {visible.failures.map((failure) => (
+              <DuelMatchFailureRow key={failure.id} failure={failure} />
+            ))}
+          </ul>
+          {earlier > 0 ? (
+            <Button className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
+              {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "failure" : "failures"}`}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DuelMatchFailureRow({ failure }: { failure: DuelMatchFailure }) {
+  const when = formatAbsoluteTime(failure.createdAt);
+  return (
+    <li>
+      <Panel>
+        <div className="flex items-start gap-space-12 px-space-16 py-space-12">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-control bg-admin-crimson-wash text-admin-crimson">
+            <MaterialIcon name="swords" className="text-[20px]" filled />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-admin-body-md font-semibold text-admin-ink">Could not find an opponent</span>
+            {when ? (
+              <span className="mt-0.5 block text-admin-body-sm tabular-nums text-admin-ink-subtle">{when}</span>
+            ) : null}
+            <span className="mt-space-8 block text-admin-body-sm leading-relaxed text-admin-ink">{failure.reason}</span>
+          </span>
+        </div>
+      </Panel>
+    </li>
+  );
+}
+
 function visitStripStats(visits: readonly AdminVisitRow[]) {
   const study = visits.filter((visit) => !visit.idle);
   const studySeconds = study.reduce((sum, visit) => sum + visit.activeSeconds, 0);
@@ -1002,6 +1132,12 @@ export function ActivityTab({
         )}
       </section>
       <div className="flex min-w-0 flex-col gap-space-40">
+        <DuelMatchFailuresSection
+          userId={userId}
+          revision={runsRevision}
+          range={range}
+          timeZone={timeZone}
+        />
         <ListeningRunsSection
           userId={userId}
           catalog={catalog}
