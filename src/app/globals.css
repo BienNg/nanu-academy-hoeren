@@ -1000,3 +1000,339 @@ body {
     opacity: 1;
   }
 }
+
+/* Badge unlock. One pose per tier, from the celebration sheet: he arrives,
+   celebrates, and leaves, then the earned medal pops in and stays. */
+.pingu-cele * {
+  transform-box: fill-box;
+}
+
+.pingu-cele [transform] {
+  transform-box: view-box;
+}
+
+.pingu-cele-fl-l {
+  transform-origin: 100% 0%;
+}
+
+.pingu-cele-fl-r {
+  transform-origin: 0% 0%;
+}
+
+.pingu-cele-mascot {
+  transform-origin: 50% 100%;
+}
+
+.pingu-cele-pop {
+  animation: pingu-cele-pop 5s ease-in-out both;
+}
+
+@keyframes pingu-cele-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  7% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  11%,
+  48% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  56%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+.pingu-cele-slide {
+  animation: pingu-cele-slide 5s ease-in-out both;
+}
+
+@keyframes pingu-cele-slide {
+  0% {
+    transform: translateX(-300px) rotate(-18deg);
+    opacity: 0;
+  }
+  10% {
+    transform: translateX(8px) rotate(4deg);
+    opacity: 1;
+  }
+  14%,
+  46% {
+    transform: translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  56%,
+  100% {
+    transform: translateX(300px) rotate(18deg);
+    opacity: 0;
+  }
+}
+
+.pingu-cele-drop {
+  animation: pingu-cele-drop 5s ease-in both;
+}
+
+@keyframes pingu-cele-drop {
+  0% {
+    transform: translateY(-340px);
+  }
+  9% {
+    transform: translateY(0) scale(1.1, 0.88);
+  }
+  13% {
+    transform: translateY(0) scale(0.97, 1.04);
+  }
+  16%,
+  46% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+  58%,
+  100% {
+    transform: translateY(-340px);
+  }
+}
+
+.pingu-cele-rocket {
+  animation: pingu-cele-rocket 5s ease-in-out both;
+}
+
+@keyframes pingu-cele-rocket {
+  0% {
+    transform: translateY(340px);
+  }
+  9% {
+    transform: translateY(-26px);
+  }
+  14%,
+  46% {
+    transform: translateY(0);
+  }
+  51% {
+    transform: translateY(10px) scale(1.07, 0.92);
+  }
+  60%,
+  100% {
+    transform: translateY(-380px);
+  }
+}
+
+.pingu-cele-hop {
+  transform-origin: 50% 100%;
+  animation: pingu-cele-hop 0.7s ease-in-out infinite;
+}
+
+@keyframes pingu-cele-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(0) scale(1.06, 0.93);
+  }
+  50% {
+    transform: translateY(-20px) scale(0.98, 1.03);
+  }
+  85% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+}
+
+.pingu-cele-dance {
+  transform-origin: 50% 100%;
+  animation: pingu-cele-dance 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-dance {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+.pingu-cele-flap-l {
+  animation: pingu-cele-flap-l 0.25s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-flap-l {
+  from {
+    transform: rotate(75deg);
+  }
+  to {
+    transform: rotate(130deg);
+  }
+}
+
+.pingu-cele-flap-r {
+  animation: pingu-cele-flap-r 0.25s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-flap-r {
+  from {
+    transform: rotate(-75deg);
+  }
+  to {
+    transform: rotate(-130deg);
+  }
+}
+
+.pingu-cele-wave-l {
+  animation: pingu-cele-wave-l 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-wave-l {
+  from {
+    transform: rotate(95deg);
+  }
+  to {
+    transform: rotate(140deg);
+  }
+}
+
+.pingu-cele-wave-r {
+  animation: pingu-cele-wave-r 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-wave-r {
+  from {
+    transform: rotate(-140deg);
+  }
+  to {
+    transform: rotate(-95deg);
+  }
+}
+
+.pingu-cele-gem {
+  transform-origin: 50% 50%;
+  animation: pingu-cele-gem 1s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-cele-gem {
+  from {
+    transform: translateY(0) rotate(-6deg);
+  }
+  to {
+    transform: translateY(-8px) rotate(6deg);
+  }
+}
+
+.pingu-cele-conf {
+  transform-origin: 50% 50%;
+  animation: pingu-cele-conf 5s ease-in both;
+  opacity: 0;
+}
+
+@keyframes pingu-cele-conf {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateY(-30px) rotate(0deg);
+  }
+  14% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+    transform: translateY(150px) rotate(300deg);
+  }
+}
+
+.pingu-cele-ring {
+  transform-origin: 50% 50%;
+  animation: pingu-cele-ring 5s ease-out both;
+  opacity: 0;
+}
+
+@keyframes pingu-cele-ring {
+  0%,
+  52% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  58% {
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pingu-cele-tw {
+  transform-origin: 50% 50%;
+  animation: pingu-cele-tw 5s ease-in-out both;
+  opacity: 0;
+}
+
+@keyframes pingu-cele-tw {
+  0%,
+  52% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  66% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+  72%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Percentages keep the pop at the same moment on the 5s celebration.
+   The buttons are timed separately and come in as this pop starts. */
+.pingu-cele-badge {
+  transform-origin: 50% 50%;
+  animation: pingu-cele-badge 3.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes pingu-cele-badge {
+  0%,
+  79% {
+    transform: scale(0) rotate(-30deg);
+    opacity: 0;
+  }
+  90% {
+    transform: scale(1.15) rotate(4deg);
+    opacity: 1;
+  }
+  97%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pingu-cele-mascot,
+  .pingu-cele-mascot *,
+  .pingu-cele-conf,
+  .pingu-cele-ring {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .pingu-cele-badge,
+  .pingu-cele-tw {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

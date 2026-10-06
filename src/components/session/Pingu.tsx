@@ -764,3 +764,293 @@ function Oops() {
     </svg>
   );
 }
+
+const CELE_FLIPPER_L = "M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z";
+const CELE_FLIPPER_R = "M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z";
+
+const CELE_POSES = [
+  {
+    label: "Pingu đội mũ tiệc nhảy mừng",
+    ring: "#E8AE88",
+    enter: "pingu-cele-pop",
+  },
+  {
+    label: "Pingu đeo nơ nhảy mừng",
+    ring: "#DDE4ED",
+    enter: "pingu-cele-slide",
+  },
+  {
+    label: "Pingu đội vương miện nhảy mừng",
+    ring: "#FFE9A6",
+    enter: "pingu-cele-drop",
+  },
+  {
+    label: "Pingu đeo kính râm cầm kim cương",
+    ring: "#C4EEFF",
+    enter: "pingu-cele-rocket",
+  },
+] as const;
+
+function CeleConfetti({
+  bits,
+}: {
+  bits: readonly { x: number; y: number; fill: string; delay: string }[];
+}) {
+  return bits.map((bit) => (
+    <rect
+      key={`${bit.x}-${bit.y}`}
+      className="pingu-cele-conf"
+      x={bit.x}
+      y={bit.y}
+      width={9}
+      height={13}
+      rx={2}
+      fill={bit.fill}
+      style={{ animationDelay: bit.delay }}
+    />
+  ));
+}
+
+function CeleFeet() {
+  return (
+    <>
+      <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+      <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+    </>
+  );
+}
+
+function CeleFlippers({ flap }: { flap: "flap" | "wave" | "up" }) {
+  if (flap === "up") {
+    return (
+      <>
+        <g className="pingu-cele-fl-l" style={{ transform: "rotate(150deg)" }}>
+          <path d={CELE_FLIPPER_L} fill="#232F4B" />
+        </g>
+        <g className="pingu-cele-fl-r" style={{ transform: "rotate(-150deg)" }}>
+          <path d={CELE_FLIPPER_R} fill="#232F4B" />
+        </g>
+      </>
+    );
+  }
+  const left = flap === "flap" ? "pingu-cele-flap-l" : "pingu-cele-wave-l";
+  const right = flap === "flap" ? "pingu-cele-flap-r" : "pingu-cele-wave-r";
+  return (
+    <>
+      <g className={`pingu-cele-fl-l ${left}`}>
+        <path d={CELE_FLIPPER_L} fill="#232F4B" />
+      </g>
+      <g className={`pingu-cele-fl-r ${right}`}>
+        <path d={CELE_FLIPPER_R} fill="#232F4B" />
+      </g>
+    </>
+  );
+}
+
+/** Happy eyes, cheeks, and beak from the celebration sheet. */
+function CeleSmile() {
+  return (
+    <>
+      <ellipse cx="76" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+      <ellipse cx="164" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+      <path d="M82 122 Q92 106 102 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" />
+      <path d="M138 122 Q148 106 158 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" />
+      <ellipse cx="120" cy="150" rx="9" ry="7" fill="#D9423A" />
+      <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+    </>
+  );
+}
+
+function CeleBody({ highlight }: { highlight: "hat" | "tuft" | "crown" }) {
+  return (
+    <>
+      <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+      {highlight === "hat" ? (
+        <ellipse cx="78" cy="84" rx="22" ry="11" fill="#3A4A72" transform="rotate(-32 78 84)" />
+      ) : highlight === "crown" ? (
+        <ellipse cx="76" cy="88" rx="20" ry="10" fill="#3A4A72" transform="rotate(-34 76 88)" />
+      ) : (
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+      )}
+      <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+    </>
+  );
+}
+
+function CeleHair() {
+  return (
+    <path
+      d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32"
+      stroke="#232F4B"
+      strokeWidth="6"
+      strokeLinecap="round"
+    />
+  );
+}
+
+/**
+ * Tier celebration from the unlock sheet. Đồng pops in a party hat, Bạc slides
+ * in with a bow tie, Vàng drops in a crown, Kim cương blasts off in sunglasses.
+ * The earned medal is drawn on top by the unlock screen.
+ */
+export function CelebratePingu({ tier }: { tier: number }) {
+  const pose = CELE_POSES[Math.min(Math.max(tier, 1), 4) - 1]!;
+  return (
+    <svg
+      className="pingu-cele h-full w-full overflow-hidden"
+      viewBox="-20 -50 280 300"
+      fill="none"
+      role="img"
+      aria-label={pose.label}
+    >
+      {tier <= 1 ? (
+        <>
+          <CeleConfetti
+            bits={[
+              { x: 20, y: 0, fill: "#C97B4A", delay: "0s" },
+              { x: 70, y: -24, fill: "#E8AE88", delay: "0.2s" },
+              { x: 168, y: -20, fill: "#C97B4A", delay: "0.1s" },
+              { x: 214, y: 6, fill: "#E8AE88", delay: "0.3s" },
+            ]}
+          />
+          <g className={`pingu-cele-mascot ${pose.enter}`}>
+            <g className="pingu-cele-hop">
+              <CeleFeet />
+              <CeleFlippers flap="flap" />
+              <CeleBody highlight="hat" />
+              <path d="M94 50 L120 -12 L146 50 Q120 40 94 50 Z" fill="#C97B4A" />
+              <path d="M103 29 Q120 22 137 29 L132 17 Q120 13 108 17 Z" fill="#E8AE88" />
+              <circle cx="120" cy="-14" r="8" fill="#E8AE88" />
+              <CeleSmile />
+            </g>
+          </g>
+          <circle className="pingu-cele-ring" cx="120" cy="95" r="80" stroke={pose.ring} strokeWidth="8" />
+        </>
+      ) : tier === 2 ? (
+        <>
+          <CeleConfetti
+            bits={[
+              { x: 14, y: -6, fill: "#AEB8C6", delay: "0.1s" },
+              { x: 58, y: -28, fill: "#0071E3", delay: "0.3s" },
+              { x: 120, y: -36, fill: "#DDE4ED", delay: "0s" },
+              { x: 176, y: -26, fill: "#AEB8C6", delay: "0.2s" },
+              { x: 220, y: -2, fill: "#0071E3", delay: "0.35s" },
+            ]}
+          />
+          <g className={`pingu-cele-mascot ${pose.enter}`}>
+            <g className="pingu-cele-dance">
+              <CeleFeet />
+              <CeleFlippers flap="wave" />
+              <CeleBody highlight="tuft" />
+              <CeleHair />
+              <CeleSmile />
+              <path d="M118 176 L92 162 Q88 176 92 190 Z" fill="#AEB8C6" stroke="#7C8898" strokeWidth="2.5" strokeLinejoin="round" />
+              <path d="M122 176 L148 162 Q152 176 148 190 Z" fill="#AEB8C6" stroke="#7C8898" strokeWidth="2.5" strokeLinejoin="round" />
+              <circle cx="120" cy="176" r="8" fill="#DDE4ED" stroke="#7C8898" strokeWidth="2.5" />
+            </g>
+          </g>
+          <circle className="pingu-cele-ring" cx="120" cy="95" r="80" stroke={pose.ring} strokeWidth="8" />
+        </>
+      ) : tier === 3 ? (
+        <>
+          <CeleConfetti
+            bits={[
+              { x: 10, y: -4, fill: "#FFC83D", delay: "0.15s" },
+              { x: 46, y: -30, fill: "#FF9500", delay: "0.3s" },
+              { x: 90, y: -40, fill: "#FFE9A6", delay: "0.05s" },
+              { x: 146, y: -40, fill: "#FFC83D", delay: "0.25s" },
+              { x: 190, y: -28, fill: "#FF9500", delay: "0.1s" },
+              { x: 226, y: -2, fill: "#FFE9A6", delay: "0.35s" },
+            ]}
+          />
+          <g className={`pingu-cele-mascot ${pose.enter}`}>
+            <g className="pingu-cele-hop">
+              <CeleFeet />
+              <CeleFlippers flap="flap" />
+              <CeleBody highlight="crown" />
+              <path
+                d="M88 56 L82 14 L104 32 L120 4 L136 32 L158 14 L152 56 Q120 44 88 56 Z"
+                fill="#FFC83D"
+                stroke="#D99A00"
+                strokeWidth="3"
+                strokeLinejoin="round"
+              />
+              <circle cx="120" cy="38" r="5" fill="#E5484D" />
+              <circle cx="100" cy="44" r="3.5" fill="#0071E3" />
+              <circle cx="140" cy="44" r="3.5" fill="#0071E3" />
+              <CeleSmile />
+            </g>
+          </g>
+          <circle className="pingu-cele-ring" cx="120" cy="95" r="80" stroke={pose.ring} strokeWidth="8" />
+          <path className="pingu-cele-tw" d="M22 30 L26 42 L38 46 L26 50 L22 62 L18 50 L6 46 L18 42 Z" fill="#FFC83D" />
+          <path
+            className="pingu-cele-tw"
+            d="M222 120 L225 129 L234 132 L225 135 L222 144 L219 135 L210 132 L219 129 Z"
+            fill="#FFC83D"
+            style={{ animationDelay: "0.15s" }}
+          />
+        </>
+      ) : (
+        <>
+          <CeleConfetti
+            bits={[
+              { x: 6, y: -2, fill: "#5CC8F5", delay: "0.1s" },
+              { x: 36, y: -30, fill: "#C4EEFF", delay: "0.3s" },
+              { x: 70, y: -40, fill: "#0071E3", delay: "0s" },
+              { x: 162, y: -40, fill: "#5CC8F5", delay: "0.2s" },
+              { x: 198, y: -30, fill: "#FFC83D", delay: "0.35s" },
+              { x: 230, y: -2, fill: "#C4EEFF", delay: "0.15s" },
+              { x: 118, y: -44, fill: "#FFC83D", delay: "0.25s" },
+            ]}
+          />
+          <g className={`pingu-cele-mascot ${pose.enter}`}>
+            <g className="pingu-cele-hop">
+              <CeleFeet />
+              <CeleFlippers flap="up" />
+              <CeleBody highlight="tuft" />
+              <CeleHair />
+              <ellipse cx="76" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+              <ellipse cx="164" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+              <rect x="70" y="103" width="44" height="28" rx="12" fill="#5CC8F5" stroke="#141B2E" strokeWidth="5" />
+              <rect x="126" y="103" width="44" height="28" rx="12" fill="#5CC8F5" stroke="#141B2E" strokeWidth="5" />
+              <path d="M114 112 H126" stroke="#141B2E" strokeWidth="5" strokeLinecap="round" />
+              <path d="M80 118 L90 110 M136 118 L146 110" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" opacity="0.8" />
+              <ellipse cx="120" cy="152" rx="9" ry="7" fill="#D9423A" />
+              <path d="M107 134 Q120 124 133 134 Q131 147 120 148 Q109 147 107 134 Z" fill="#FF9500" />
+              <g className="pingu-cele-gem">
+                <path
+                  d="M98 -18 L108 -32 H132 L142 -18 L120 8 Z"
+                  fill="#5CC8F5"
+                  stroke="#2A93D1"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M98 -18 H142 M108 -32 L114 -18 L120 8 L126 -18 L132 -32"
+                  stroke="#C4EEFF"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              </g>
+            </g>
+          </g>
+          <circle className="pingu-cele-ring" cx="120" cy="95" r="80" stroke={pose.ring} strokeWidth="8" />
+          <path className="pingu-cele-tw" d="M18 96 L21 105 L30 108 L21 111 L18 120 L15 111 L6 108 L15 105 Z" fill="#5CC8F5" />
+          <path
+            className="pingu-cele-tw"
+            d="M226 150 L229 159 L238 162 L229 165 L226 174 L223 165 L214 162 L223 159 Z"
+            fill="#5CC8F5"
+            style={{ animationDelay: "0.15s" }}
+          />
+          <path
+            className="pingu-cele-tw"
+            d="M208 -20 L210.5 -12.5 L218 -10 L210.5 -7.5 L208 0 L205.5 -7.5 L198 -10 L205.5 -12.5 Z"
+            fill="#FFC83D"
+            style={{ animationDelay: "0.3s" }}
+          />
+        </>
+      )}
+    </svg>
+  );
+}

@@ -1,9 +1,10 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } from "react";
 import { chunkyButton } from "@/components/chunkyButton";
+import { CelebratePingu } from "@/components/session/Pingu";
 import { BADGE_FAMILIES, BADGE_TIERS, type FreshBadge } from "@/lib/badges";
 
 /** Medal metals from the badge design. Index 0 is Đồng. */
@@ -271,11 +272,14 @@ export function BadgeMedal({
   tier,
   size = 64,
   muted = false,
+  fit = false,
 }: {
   familyId: string;
   tier: number;
   size?: number;
   muted?: boolean;
+  /** Stretch to the parent box. Used when the unlock pose places the medal. */
+  fit?: boolean;
 }) {
   const family = BADGE_FAMILIES.find((entry) => entry.id === familyId);
   const locked = tier <= 0;
@@ -283,11 +287,11 @@ export function BadgeMedal({
   const ribbon = locked || !family ? LOCKED_RIBBON : RIBBONS[family.group];
   return (
     <span
-      className="relative inline-flex shrink-0"
-      style={{ width: size, height: size, opacity: muted ? 0.4 : 1 }}
+      className={`relative inline-flex shrink-0 ${fit ? "h-full w-full" : ""}`}
+      style={fit ? { opacity: muted ? 0.4 : 1 } : { width: size, height: size, opacity: muted ? 0.4 : 1 }}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 120 120" width={size} height={size} fill="none">
+      <svg viewBox="0 0 120 120" width="100%" height="100%" fill="none">
         <path d="M38 84 L30 115 L42 108 L50 117 L54 88 Z" fill={ribbon.light} />
         <path d="M82 84 L90 115 L78 108 L70 117 L66 88 Z" fill={ribbon.dark} />
         <circle cx="60" cy="58" r="44" fill={metal.dark} />
@@ -417,10 +421,9 @@ export function BadgeSheet({
 }
 
 /**
- * Full-screen "Huy hiệu mới!" celebration, one badge at a time, laid out like
- * the streak fire: the medal fills the middle and the button sits full width
- * along the bottom. `onDone` gets every id that was shown, so the caller can
- * mark them seen.
+ * Full-screen "Huy hiệu mới!" celebration, one badge at a time. Pingu plays the
+ * pose for that tier, then the earned medal pops into his place. `onDone` gets
+ * every id that was shown, so the caller can mark them seen.
  */
 export function BadgeUnlockSheet({
   badges,
@@ -432,10 +435,12 @@ export function BadgeUnlockSheet({
   showCollectionLink?: boolean;
 }) {
   const [index, setIndex] = useState(0);
+  const [readyId, setReadyId] = useState<string | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const badge = badges[Math.min(index, badges.length - 1)];
+  const actionsReady = reduceMotion || readyId === badge?.id;
   const finish = useEffectEvent(() => {
     onDone(badges.map((entry) => entry.id));
   });
@@ -454,7 +459,7 @@ export function BadgeUnlockSheet({
       if (event.key !== "Tab") return;
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]") ?? [],
-      );
+      ).filter((element) => !element.closest("[inert]"));
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;
@@ -476,8 +481,20 @@ export function BadgeUnlockSheet({
   }, []);
 
   useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();
-  }, [badge?.id]);
+    const id = badge?.id;
+    if (reduceMotion) {
+      setReadyId(id ?? null);
+      return;
+    }
+    if (!id) return;
+    const show = window.setTimeout(() => setReadyId(id), 2900);
+    return () => window.clearTimeout(show);
+  }, [badge?.id, reduceMotion]);
+
+  useEffect(() => {
+    if (!actionsReady) return;
+    dialogRef.current?.querySelector<HTMLElement>("button:not([disabled]), a[href]")?.focus();
+  }, [actionsReady, badge?.id]);
 
   if (!badge) return null;
   const last = index >= badges.length - 1;
@@ -496,38 +513,15 @@ export function BadgeUnlockSheet({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <div key={badge.id} className="flex flex-1 flex-col items-center justify-center text-center">
         <span className="text-[13px] font-extrabold tracking-wider text-[#0071E3] uppercase">
           Huy hiệu mới{badges.length > 1 ? ` · ${index + 1} / ${badges.length}` : ""}
         </span>
-        <div className="relative my-6 flex h-44 w-44 items-center justify-center">
-          <motion.span
-            key={`glow-${badge.id}`}
-            className="absolute h-40 w-40 rounded-full blur-2xl"
-            style={{ backgroundColor: tier?.glow ?? "#f2f2f7" }}
-            initial={reduceMotion ? false : { scale: 0.4, opacity: 0 }}
-            animate={
-              reduceMotion
-                ? { scale: 1, opacity: 0.85 }
-                : { scale: [0.92, 1.06, 0.96], opacity: [0.55, 0.9, 0.65] }
-            }
-            transition={
-              reduceMotion ? { duration: 0.2 } : { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
-            }
-            aria-hidden="true"
-          />
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={badge.id}
-              className="relative"
-              initial={reduceMotion ? false : { scale: 0.15, rotate: -12, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              exit={reduceMotion ? undefined : { scale: 0.6, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 280, damping: 14 }}
-            >
-              <BadgeMedal familyId={badge.family} tier={badge.tier} size={128} />
-            </motion.span>
-          </AnimatePresence>
+        <div className="relative mx-auto my-4 aspect-[14/15] w-[min(280px,78vw)]" aria-hidden="true">
+          <CelebratePingu tier={badge.tier} />
+          <div className="pingu-cele-badge absolute top-[18.67%] left-[14.64%] h-[66%] w-[70.71%]">
+            <BadgeMedal familyId={badge.family} tier={badge.tier} fit />
+          </div>
         </div>
         <h2 id={titleId} className="text-[28px] leading-8 font-extrabold tracking-tight text-[#1d1d1f]">
           {badge.title}
@@ -537,38 +531,32 @@ export function BadgeUnlockSheet({
         </p>
         <p className="mt-2 max-w-xs text-[17px] leading-snug font-semibold text-[#6e6e73]">{badge.goal}</p>
       </div>
-      <div className="flex w-full max-w-md flex-col gap-3 pb-6">
+      <motion.div
+        className="flex w-full max-w-md flex-col gap-3 pb-6"
+        inert={actionsReady ? undefined : true}
+        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+        animate={actionsReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+        transition={{ duration: actionsReady && !reduceMotion ? 0.25 : 0 }}
+      >
         {last ? (
-          <motion.button
-            type="button"
-            autoFocus
-            className={chunkyButton("success", "w-full")}
-            onClick={finish}
-            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.45, duration: 0.25 }}
-          >
+          <button type="button" className={chunkyButton("success", "w-full")} onClick={finish}>
             Tuyệt vời!
-          </motion.button>
+          </button>
         ) : (
-          <motion.button
+          <button
             type="button"
-            autoFocus
             className={chunkyButton("primary", "w-full")}
             onClick={() => setIndex((current) => current + 1)}
-            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.45, duration: 0.25 }}
           >
             Tiếp theo
-          </motion.button>
+          </button>
         )}
         {showCollectionLink ? (
           <Link href="/badges" className={chunkyButton("secondary", "w-full")} onClick={finish}>
             Xem bộ sưu tập
           </Link>
         ) : null}
-      </div>
+      </motion.div>
     </motion.div>
   );
 }

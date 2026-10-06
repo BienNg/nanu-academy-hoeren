@@ -53,6 +53,7 @@ const SEQUENCES: readonly {
 type SceneId =
   | "badge"
   | "badges"
+  | "tiers"
   | "fail"
   | "part"
   | "lesson"
@@ -77,6 +78,12 @@ const SCENES: readonly { id: SceneId; group: string; title: string; detail: stri
     group: "Badges",
     title: "Two badges in a row",
     detail: "Next, then the done button.",
+  },
+  {
+    id: "tiers",
+    group: "Badges",
+    title: "One pose per tier",
+    detail: "Đồng, Bạc, Vàng, then Kim cương. Each uses the badge that was earned.",
   },
   {
     id: "fail",
@@ -147,7 +154,12 @@ const SCENES: readonly { id: SceneId; group: string; title: string; detail: stri
 ];
 
 function badgesFor(id: SceneId): FreshBadge[] {
-  const ids = id === "badges" ? ["streak-2", "xp-1"] : ["listening-1"];
+  const ids =
+    id === "badges"
+      ? ["streak-2", "xp-1"]
+      : id === "tiers"
+        ? ["listening-1", "streak-2", "xp-3", "duel-4"]
+        : ["listening-1"];
   return ids.flatMap((badgeId) => {
     const badge = freshBadge(badgeId);
     return badge ? [badge] : [];
@@ -353,7 +365,7 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
       >
         Close
       </button>
-      {scene === "badge" || scene === "badges" ? (
+      {scene === "badge" || scene === "badges" || scene === "tiers" ? (
         <BadgeUnlockSheet badges={badgesFor(scene)} onDone={onClose} />
       ) : null}
       {scene === "climb" && SAMPLE_CLIMB ? (
@@ -365,7 +377,7 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
           onContinue={onClose}
         />
       ) : null}
-      {scene !== "badge" && scene !== "badges" && scene !== "climb" ? (
+      {scene !== "badge" && scene !== "badges" && scene !== "tiers" && scene !== "climb" ? (
         <PartCompleteScreen key={scene} {...partProps(scene, onClose)} />
       ) : null}
     </div>
