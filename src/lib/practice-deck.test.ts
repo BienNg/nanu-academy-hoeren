@@ -241,7 +241,7 @@ test("five picture words fit one part and get a picture pairing card", () => {
   assert.ok(deck.length <= MAX_PRACTICE_CARDS);
 });
 
-test("60% of listening cards become listening-choice cards in place", () => {
+test("75% of listening cards become listening-choice cards in place", () => {
   for (let seed = 1; seed <= 20; seed += 1) {
     const deck = insertDiscreteCards(
       buildPracticeDeck(partClips, partClips, seeded(seed)),
@@ -254,8 +254,8 @@ test("60% of listening cards become listening-choice cards in place", () => {
     const choice = mixed.filter((card) => card.kind === "listening-choice");
 
     assert.equal(mixed.length, deck.length);
-    assert.equal(choice.length, 4); // round(6 * 0.6)
-    assert.equal(mixed.filter((card) => card.kind === "listening").length, 2);
+    assert.equal(choice.length, 5); // round(6 * 0.75)
+    assert.equal(mixed.filter((card) => card.kind === "listening").length, 1);
     for (const card of choice) {
       const at = mixed.indexOf(card);
       assert.equal(deck[at]?.kind, "listening");

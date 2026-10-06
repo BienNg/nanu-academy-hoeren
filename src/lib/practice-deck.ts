@@ -239,7 +239,7 @@ function meaningDrills<C extends OrderSourceClip>(
 }
 
 /** Share of a deck's listening cards that become listening-choice cards. */
-export const LISTENING_CHOICE_SHARE = 0.6;
+export const LISTENING_CHOICE_SHARE = 0.75;
 
 /**
  * Turns LISTENING_CHOICE_SHARE of the deck's listening cards into
