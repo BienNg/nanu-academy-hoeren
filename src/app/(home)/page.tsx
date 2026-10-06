@@ -10,6 +10,7 @@ import {
   lockedLearnerCourses,
 } from "@/lib/levels";
 import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
+import { shouldShowOnboarding } from "@/lib/onboarding-store";
 import { landingInterviewSlug, landingLevelSlug } from "@/lib/progress";
 import { getCloudProgress } from "@/lib/progress-store";
 import LevelViewClient from "../learn/[levelSlug]/LevelViewClient";
@@ -47,7 +48,10 @@ export default async function Home() {
 
   const level = getCefrLevel(LOCKED_PREVIEW_SLUG);
   if (!level) redirect("/account");
-  const liveRound = session.user.id ? await getLiveRoundForUser(session.user.id) : null;
+  const [liveRound, onboarding] = await Promise.all([
+    session.user.id ? getLiveRoundForUser(session.user.id) : null,
+    shouldShowOnboarding(session.user.id),
+  ]);
 
   return (
     <LevelViewClient
@@ -58,6 +62,7 @@ export default async function Home() {
       accessLocked
       loadLessonDictionary={emptyDictionary}
       liveRound={liveRound}
+      onboarding={onboarding}
     />
   );
 }

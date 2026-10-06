@@ -32,7 +32,10 @@ create table if not exists public.user_progress (
   -- Limited dashboard access. Staff can see every stat and grant classes and
   -- courses. They cannot delete accounts or progress. Full admins are the
   -- hardcoded allowlist and ignore this flag.
-  staff boolean not null default false
+  staff boolean not null default false,
+  -- When the learner finished the first-run map tour. Set once, never cleared.
+  -- supabase/onboarding.sql backfills learners who already had XP.
+  onboarding_completed_at timestamptz
 );
 
 alter table public.user_progress
@@ -47,7 +50,8 @@ alter table public.user_progress
   add column if not exists sign_ins timestamptz[] not null default '{}',
   add column if not exists sign_in_log jsonb not null default '[]'::jsonb,
   add column if not exists app_uses jsonb not null default '[]'::jsonb,
-  add column if not exists staff boolean not null default false;
+  add column if not exists staff boolean not null default false,
+  add column if not exists onboarding_completed_at timestamptz;
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);

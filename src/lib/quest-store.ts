@@ -274,6 +274,15 @@ export type QuestClaimRow = {
   week_key: string;
 };
 
+/** Remove every quest claim, and its XP, for this learner. */
+export async function deleteUserQuestClaims(userId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+  const { error } = await supabase.from(CLAIMS_TABLE).delete().eq("user_id", userId);
+  if (!error || isQuestSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete quest XP (${error.message}).`);
+}
+
 /** Quest XP rows for the leaderboard. A missing table gives no rows. */
 export async function listQuestClaimRows(
   supabase: SupabaseClient,

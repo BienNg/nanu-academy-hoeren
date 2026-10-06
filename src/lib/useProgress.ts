@@ -46,6 +46,7 @@ import {
   recordVisitJump,
   recordVisitLeftSession,
   recordVisitListeningRun,
+  recordVisitOnboarding,
   recordVisitVideo,
   recordVisitWrongAttempt,
   saveLessonVideoPosition,
@@ -60,6 +61,7 @@ import {
   type ContinueLevelCatalogEntry,
   type LessonVideoProgress,
   type StoredProgress,
+  type VisitOnboarding,
 } from "@/lib/progress";
 
 /** Cached so useSyncExternalStore gets a stable reference when data is unchanged. */
@@ -795,6 +797,18 @@ export function useProgress(
     [persist],
   );
 
+  const recordOnboarding = useCallback(
+    (outcome: VisitOnboarding["outcome"], reasons: readonly string[] = []) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      const recorded = recordVisitOnboarding(current, now, readVisitId(), outcome, reasons);
+      if (recorded.visitId) writeVisitId(recorded.visitId);
+      if (recorded.progress === current) return;
+      persist(recorded.progress, true);
+    },
+    [persist],
+  );
+
   const completeLessonJump = useCallback(
     (chapterSlug: string, lessonKey: string, clipIds: readonly string[], videoKeys: readonly string[]) => {
       const now = new Date();
@@ -1057,6 +1071,7 @@ export function useProgress(
     commitGrammarPartDone,
     completeLessonJump,
     recordLessonJump,
+    recordOnboarding,
     dropUnfinishedSessionStreak,
     resetProgress,
     resetLearnProgress: resetLearnProgressFn,

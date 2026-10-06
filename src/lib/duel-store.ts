@@ -325,6 +325,15 @@ export async function forgetStudiedClips(
   }
 }
 
+/** Remove every duel XP award this learner earned. The duels and the opponent's awards stay. */
+export async function deleteUserDuelXp(userId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+  const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
+  if (!error || isDuelSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete duel XP (${error.message}).`);
+}
+
 export async function syncStudiedClips(userId: string, progress: StoredProgress): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;

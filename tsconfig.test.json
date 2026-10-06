@@ -67,6 +67,8 @@
     "src/lib/rank-climb.ts",
     "src/lib/rank-climb.test.ts",
     "src/lib/scoring.ts",
-    "src/lib/scoring.test.ts"
+    "src/lib/scoring.test.ts",
+    "src/lib/onboarding.ts",
+    "src/lib/onboarding.test.ts"
   ]
 }

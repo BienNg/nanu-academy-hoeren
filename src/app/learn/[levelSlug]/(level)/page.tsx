@@ -10,6 +10,7 @@ import {
   getLevelChapters,
   loadLearnerCourseMenu,
 } from "@/lib/levels";
+import { shouldShowOnboarding } from "@/lib/onboarding-store";
 import { notFound } from "next/navigation";
 import LevelViewClient from "../LevelViewClient";
 
@@ -47,8 +48,11 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     }
   }
 
-  const courses = await loadLearnerCourseMenu(session.user);
-  const liveRound = session.user.id ? await getLiveRoundForUser(session.user.id) : null;
+  const [courses, liveRound, onboarding] = await Promise.all([
+    loadLearnerCourseMenu(session.user),
+    session.user.id ? getLiveRoundForUser(session.user.id) : null,
+    shouldShowOnboarding(session.user.id),
+  ]);
 
   return (
     <LevelViewClient
@@ -59,6 +63,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       courses={courses}
       loadLessonDictionary={loadLessonDictionary}
       liveRound={liveRound}
+      onboarding={onboarding}
     />
   );
 }

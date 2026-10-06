@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { ChillPingu, PATH_POSES, ReadingPingu, type PathPose } from "@/components/session/Pingu";
@@ -42,6 +43,15 @@ import {
 } from "@/lib/grammar-node";
 import { useProgress } from "@/lib/useProgress";
 import { jumpTarget } from "@/lib/lesson-jump";
+import {
+  ONBOARDING_SKIP_REASON,
+  onboardingSkipReasons,
+  type OnboardingTarget,
+} from "@/lib/onboarding";
+import { setOnboardingActive } from "@/lib/onboarding-gate";
+
+/** Set once the tour is finished, so a client-side move to another map does not rerun it. */
+let onboardingFinishedThisSession = false;
 
 type Chapter = {
   id: string;
@@ -1371,6 +1381,7 @@ export default function LevelViewClient({
   loadLessonDictionary,
   path = {},
   liveRound = null,
+  onboarding = false,
 }: {
   level: Level;
   chapters: Chapter[];
@@ -1383,6 +1394,8 @@ export default function LevelViewClient({
   path?: PathOptions;
   /** Open round found while rendering this page. The banner does not ask again until the tab returns. */
   liveRound?: LiveRound | null;
+  /** The learner has not finished the first-run tour. Only CEFR level maps pass it. */
+  onboarding?: boolean;
 }) {
   const theme = PATH_THEMES[path.theme ?? "level"];
   const containerRef = useRef<HTMLElement>(null);
@@ -1416,7 +1429,55 @@ export default function LevelViewClient({
     reviewedLearnClipIdsFor,
     streakDays,
     settleStudyReviews,
+    recordOnboarding,
   } = useProgress();
+  const onboardingWanted = onboarding && !onboardingFinishedThisSession;
+  const [tourPhase, setTourPhase] = useState<"checking" | "running" | "over">("checking");
+  const tourMarks = onboardingWanted && tourPhase !== "over" && !accessLocked;
+
+  // Hold the daily quest intro back until the tour is over.
+  useEffect(() => {
+    if (!onboardingWanted) return;
+    setOnboardingActive(true);
+    return () => setOnboardingActive(false);
+  }, [onboardingWanted]);
+
+  // Once progress is known (the jump node needs it), start the tour only if
+  // every step has its target. Otherwise log why and try again next visit.
+  useEffect(() => {
+    if (!onboardingWanted || !progressReady || tourPhase !== "checking") return;
+    const frame = window.requestAnimationFrame(() => {
+      const reasons = accessLocked
+        ? [ONBOARDING_SKIP_REASON.noCourse]
+        : onboardingSkipReasons(
+            Object.fromEntries(
+              (["course", "video", "study", "practice", "jump"] as const).map((target) => [
+                target,
+                document.querySelector(`[data-tour="${target}"]`) !== null,
+              ]),
+            ) as Record<OnboardingTarget, boolean>,
+            document.querySelector("[data-tour-lesson]") !== null,
+          );
+      if (reasons.length === 0) {
+        setTourPhase("running");
+        return;
+      }
+      recordOnboarding("skipped", reasons);
+      setTourPhase("over");
+      setOnboardingActive(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [accessLocked, onboardingWanted, progressReady, recordOnboarding, tourPhase]);
+
+  const finishOnboarding = useCallback(() => {
+    onboardingFinishedThisSession = true;
+    setTourPhase("over");
+    setOnboardingActive(false);
+    recordOnboarding("completed");
+    void fetch("/api/onboarding/complete", { method: "POST" }).catch(() => {
+      // Not stamped: the server shows the tour once more on a later visit.
+    });
+  }, [recordOnboarding]);
   /** Practice parts per node for every trail Lektion of this level, by lesson id. */
   const pathNodeLayouts = useMemo(
     () =>
@@ -1461,6 +1522,16 @@ export default function LevelViewClient({
   ).length;
   const overallPercent =
     chapters.length === 0 ? 0 : Math.round((completedLessonCount / chapters.length) * 100);
+
+  // The tour points at the first open, unfinished Lektion.
+  const tourLessonIndex = tourMarks
+    ? chapters.findIndex(
+        (chapter, index) =>
+          chapter.hasAudio !== false &&
+          !learnChapterCompleted(progressKeyOf(chapter)) &&
+          (isAdmin || !firstIncompletePrevious(index)),
+      )
+    : -1;
 
   function firstIncompletePrevious(index: number): Chapter | undefined {
     return chapters
@@ -1754,6 +1825,8 @@ export default function LevelViewClient({
               !isCompleted &&
               Boolean(gateChapter);
             const isOpen = !accessLocked && isAvailable && !isLocked;
+            const tourLesson = index === tourLessonIndex;
+            const tourClaimed = new Set<OnboardingTarget>();
             const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
             const lessonHref = chapter.href ?? `/learn/${level.slug}/${chapter.slug}`;
@@ -1927,6 +2000,7 @@ export default function LevelViewClient({
               <motion.li
                 key={chapter.id}
                 id={`lesson-${chapter.slug}`}
+                data-tour-lesson={tourLesson ? "" : undefined}
                 variants={itemVariants}
                 className={`flex scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))] flex-col items-center ${
                   lessonBubbleOpen ? "relative z-40" : ""
@@ -1950,6 +2024,7 @@ export default function LevelViewClient({
                     {jumpFrom && jump?.targetIndex === index ? (
                       <li
                         className="relative pt-14"
+                        data-tour={tourMarks ? "jump" : undefined}
                         style={{ transform: `translateX(${pathShiftPx(pathStart)}px)` }}
                       >
                         <ContinueGuideBubble
@@ -1975,10 +2050,21 @@ export default function LevelViewClient({
                       if (showGuide) continueGuideClaimed = true;
                       const guideLabel = showGuide ? continueGuideLabel(node) : null;
                       const showMascot = mascot != null && nodeIndex === mascot.index;
+                      const tourKind: OnboardingTarget | null = isVideoTrailNode(node)
+                        ? "video"
+                        : node.icon === "menu_book"
+                          ? "study"
+                          : node.icon === "fitness_center"
+                            ? "practice"
+                            : null;
+                      const tourTarget =
+                        tourLesson && tourKind && !tourClaimed.has(tourKind) ? tourKind : null;
+                      if (tourTarget) tourClaimed.add(tourTarget);
                       return (
                         <li
                           key={node.key}
                           id={guideLabel ? "path-continue" : undefined}
+                          data-tour={tourTarget ?? undefined}
                           className={`${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
                           } ${guideLabel ? "pt-14" : ""}`}
@@ -2039,6 +2125,9 @@ export default function LevelViewClient({
     </main>
     <BottomNav />
     </motion.div>
+    {tourPhase === "running" && tourMarks ? (
+      <OnboardingTour onFinish={finishOnboarding} />
+    ) : null}
     <AnimatePresence>
       {dictionary ? (
         <LessonDictionaryModal

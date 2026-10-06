@@ -25,6 +25,7 @@ import {
   type VisitRange,
 } from "@/lib/progress";
 import { dayKey, weekKey } from "@/lib/xp";
+import { onboardingSkipLine } from "@/lib/onboarding";
 import {
   grammarActivityId,
   grammarNodeProgress,
@@ -883,6 +884,8 @@ export type AdminVisitRow = {
   lessons: string[];
   stats: AdminVisitStats;
   lines: string[];
+  /** "Onboarding completed" or "Onboarding skipped because …". Null when neither happened. */
+  onboarding: string | null;
   signal: string | null;
   signalKind: AdminVisitSignalKind | null;
   details: AdminVisitDetailGroup[];
@@ -1410,6 +1413,7 @@ export function projectStudentVisits(
       lessons: idle ? [] : lessonLabels(courses, visit),
       stats,
       lines: visitLines(courses, visit),
+      onboarding: visitOnboardingLine(visit),
       signal,
       signalKind: signal ? visitSignalKind(signalInput) : null,
       details: visitDetails(courses, visit),
@@ -1528,6 +1532,16 @@ function visitChart(
   }));
 }
 
+function visitOnboardingLine(visit: Visit): string | null {
+  const entries = visit.onboarding ?? [];
+  if (entries.length === 0) return null;
+  return entries
+    .map((entry) =>
+      entry.outcome === "completed" ? "Onboarding completed" : onboardingSkipLine(entry.reasons ?? []),
+    )
+    .join(" · ");
+}
+
 function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): string[] {
   const clipCount = visit.clips.length;
   const exercises = visit.exercisesCompleted;
@@ -1544,7 +1558,10 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
     watched.length > 0 ||
     left.length > 0 ||
     jumps.length > 0;
-  if (!studied) return ["Opened the app, no study"];
+  const onboarding = visitOnboardingLine(visit);
+  if (!studied) {
+    return onboarding ? ["Opened the app, no study", onboarding] : ["Opened the app, no study"];
+  }
 
   const lines: string[] = [];
   const labels = lessonLabels(courses, visit);
@@ -1587,6 +1604,7 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
     else if (watched.length > 1) line += ` · ${watched.length} marked watched`;
     lines.push(line);
   }
+  if (onboarding) lines.push(onboarding);
   return lines;
 }
 

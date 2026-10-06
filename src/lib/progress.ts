@@ -194,6 +194,14 @@ export type VisitJump = {
   passed: boolean;
 };
 
+/** The onboarding tour finished, or was skipped because something it points at was missing. */
+export type VisitOnboarding = {
+  at: string;
+  outcome: "completed" | "skipped";
+  /** Why it was skipped. Absent on a completed tour. */
+  reasons?: string[];
+};
+
 /**
  * A study or practice part the learner opened and left before it finished.
  * Finished parts stay on clips and exercise lessons; this is only the stop.
@@ -229,6 +237,8 @@ export type Visit = {
   leftSessions?: VisitLeftSession[];
   /** Jump tests finished in this visit, one per Lektion. */
   jumps?: VisitJump[];
+  /** Onboarding outcomes in this visit. Not study: an idle visit stays idle. */
+  onboarding?: VisitOnboarding[];
   wrongAttempts?: number;
 };
 
@@ -1436,6 +1446,7 @@ const VISIT_LIST_CAP = {
   exerciseLessons: 24,
   leftSessions: 40,
   jumps: 24,
+  onboarding: 8,
 };
 
 export type VisitRange = "today" | "7d" | "all";
@@ -1555,6 +1566,45 @@ function normalizeVisitJump(value: unknown): VisitJump | null {
   return { lessonKey, passed: record.passed };
 }
 
+function onboardingKey(entry: VisitOnboarding): string {
+  return `${entry.outcome}\n${(entry.reasons ?? []).join("\n")}`;
+}
+
+function normalizeVisitOnboarding(value: unknown): VisitOnboarding | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const at = stampIso(record.at, "");
+  if (!at) return null;
+  if (record.outcome === "completed") return { at, outcome: "completed" };
+  if (record.outcome !== "skipped") return null;
+  const reasons = Array.isArray(record.reasons)
+    ? uniqueTexts(
+        record.reasons
+          .filter((reason): reason is string => typeof reason === "string")
+          .map((reason) => reason.trim().slice(0, 120))
+          .filter(Boolean),
+        8,
+      )
+    : [];
+  return { at, outcome: "skipped", ...(reasons.length > 0 ? { reasons } : {}) };
+}
+
+/** One entry per outcome and reason set; the first time it happened wins. */
+function mergeOnboarding(
+  left: readonly VisitOnboarding[] | undefined,
+  right: readonly VisitOnboarding[] | undefined,
+): VisitOnboarding[] {
+  const byKey = new Map<string, VisitOnboarding>();
+  for (const entry of [...(left ?? []), ...(right ?? [])]) {
+    const key = onboardingKey(entry);
+    const existing = byKey.get(key);
+    if (!existing || entry.at < existing.at) byKey.set(key, { ...entry });
+  }
+  return [...byKey.values()]
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+    .slice(0, VISIT_LIST_CAP.onboarding);
+}
+
 function normalizeExerciseLesson(value: unknown): VisitExerciseLesson | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -1628,6 +1678,7 @@ function withVisitTotals(visit: Visit): Visit {
   else delete next.leftSessions;
   if (jumps.length > 0) next.jumps = jumps;
   else delete next.jumps;
+  if (!next.onboarding?.length) delete next.onboarding;
   if (!next.wrongAttempts) delete next.wrongAttempts;
   return withoutIdleActiveTime(next);
 }
@@ -1699,6 +1750,14 @@ function normalizeVisit(value: unknown): Visit | null {
       if (jumps.length >= VISIT_LIST_CAP.jumps) break;
     }
   }
+  const onboarding = mergeOnboarding(
+    Array.isArray(record.onboarding)
+      ? record.onboarding
+          .map(normalizeVisitOnboarding)
+          .filter((entry): entry is VisitOnboarding => entry !== null)
+      : [],
+    [],
+  );
   const wrongAttempts = countField(record.wrongAttempts);
   return withVisitTotals({
     id,
@@ -1718,6 +1777,7 @@ function normalizeVisit(value: unknown): Visit | null {
     ...(exerciseLessons.length > 0 ? { exerciseLessons } : {}),
     ...(leftSessions.length > 0 ? { leftSessions } : {}),
     ...(jumps.length > 0 ? { jumps } : {}),
+    ...(onboarding.length > 0 ? { onboarding } : {}),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -1844,6 +1904,7 @@ function mergeVisit(left: Visit, right: Visit): Visit {
     exerciseLessons: mergeExerciseLessons(left.exerciseLessons, right.exerciseLessons),
     leftSessions: mergeLeftSessions(left.leftSessions, right.leftSessions),
     jumps: mergeJumps(left.jumps, right.jumps),
+    onboarding: mergeOnboarding(left.onboarding, right.onboarding),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -2147,6 +2208,34 @@ export function recordVisitJump(
         jumps: jumps.slice(0, VISIT_LIST_CAP.jumps),
         lessons: [...opened.visit.lessons, key],
       },
+      now,
+    ),
+  };
+}
+
+/**
+ * Log the onboarding outcome on the current visit. The same outcome with the
+ * same reasons is stored once per visit, so a retried skip does not repeat.
+ */
+export function recordVisitOnboarding(
+  progress: StoredProgress,
+  now: Date,
+  preferredId: string | null,
+  outcome: VisitOnboarding["outcome"],
+  reasons: readonly string[] = [],
+): { progress: StoredProgress; visitId: string } {
+  const entry = normalizeVisitOnboarding({ at: now.toISOString(), outcome, reasons });
+  if (!entry) return { progress, visitId: preferredId || "" };
+  const opened = openVisit(progress, now, preferredId);
+  const existing = opened.visit.onboarding ?? [];
+  if (existing.some((logged) => onboardingKey(logged) === onboardingKey(entry))) {
+    return { progress: opened.progress, visitId: opened.visitId };
+  }
+  return {
+    visitId: opened.visitId,
+    progress: commitVisit(
+      opened.progress,
+      { ...opened.visit, onboarding: mergeOnboarding(existing, [entry]) },
       now,
     ),
   };

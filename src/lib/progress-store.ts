@@ -638,6 +638,31 @@ export async function recordAppUse(
   if (updateError) console.error("Supabase recordAppUse update", updateError.message);
 }
 
+/**
+ * Empty the sign-in and app-use logs. Progress, access, and the account stay.
+ * Columns the SQL has not added yet are skipped.
+ */
+export async function clearUserSignInHistory(userId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Progress store is not configured");
+
+  const columns: { patch: Record<string, unknown[]>; missing: (message: string) => boolean }[] = [
+    {
+      patch: { sign_ins: [] },
+      missing: (message) =>
+        /sign_ins/i.test(message) && /does not exist|schema cache|could not find/i.test(message),
+    },
+    { patch: { sign_in_log: [] }, missing: isMissingSignInLogColumn },
+    { patch: { app_uses: [] }, missing: isMissingAppUsesColumn },
+  ];
+  for (const { patch, missing } of columns) {
+    const { error } = await supabase.from(TABLE).update(patch).eq("user_id", userId);
+    if (error && !missing(error.message)) {
+      throw new Error(`Could not clear sign-in history (${error.message}).`);
+    }
+  }
+}
+
 type SignInRow = {
   deleted_at?: string | null;
   sign_ins?: unknown;

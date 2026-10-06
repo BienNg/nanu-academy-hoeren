@@ -103,6 +103,7 @@ export function CourseMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`Khóa học ${label}. Chọn khóa học khác.`}
+        data-tour="course"
         onClick={() => setOpen((value) => !value)}
         className="flex max-w-[11rem] items-center gap-0.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60 sm:max-w-[16rem]"
       >

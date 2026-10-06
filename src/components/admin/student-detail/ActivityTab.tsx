@@ -261,8 +261,11 @@ function VisitCard({
         <span className="text-admin-label-md font-semibold tabular-nums text-admin-ink-muted">
           {visit.timeRange}
         </span>
-        <span className="min-w-0 flex-1 truncate text-admin-body-sm text-admin-ink-subtle">
-          Opened the app, no study
+        <span className="min-w-0 flex-1 text-admin-body-sm text-admin-ink-subtle">
+          <span className="block truncate">Opened the app, no study</span>
+          {visit.onboarding ? (
+            <span className="block font-semibold text-admin-ink-muted">{visit.onboarding}</span>
+          ) : null}
         </span>
         <span className="shrink-0 text-[12px] font-semibold tabular-nums text-admin-ink-subtle">{duration}</span>
       </li>
@@ -324,6 +327,13 @@ function VisitCard({
                 <VisitMetricTile key={`${metric.category}-${metric.label}`} {...metric} />
               ))}
             </ul>
+          ) : null}
+
+          {visit.onboarding ? (
+            <span className="mt-space-12 flex items-center gap-1.5 text-admin-label-md font-semibold text-admin-ink-muted">
+              <MaterialIcon name="tour" className="text-[16px]" />
+              {visit.onboarding}
+            </span>
           ) : null}
 
           {visit.signal && signal ? (

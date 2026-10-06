@@ -3,9 +3,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { chunkyButton } from "@/components/chunkyButton";
 import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
+import { isOnboardingActive, subscribeOnboardingGate } from "@/lib/onboarding-gate";
 import { localCalendarDay } from "@/lib/progress";
 import { publishQuestBadge } from "@/lib/quest-badge";
 import {
@@ -98,13 +99,15 @@ export function DailyQuestIntro() {
   const [open, setOpen] = useState(false);
   const checked = useRef<string | null>(null);
   const pathnameRef = useRef(pathname);
+  // The first-run map tour goes first. The intro tries again once it is over.
+  const onboarding = useSyncExternalStore(subscribeOnboardingGate, isOnboardingActive, () => false);
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
   useEffect(() => {
-    if (!userId || board || !isQuestIntroSurface(pathname)) return;
+    if (!userId || board || onboarding || !isQuestIntroSurface(pathname)) return;
     const today = localCalendarDay();
     const marker = `${userId}|${today}`;
     if (checked.current === marker) return;
@@ -126,7 +129,11 @@ export function DailyQuestIntro() {
           return;
         }
         // The learner moved into a lesson, or the streak flame is up. Try again later.
-        if (!isQuestIntroSurface(pathnameRef.current) || readStreakCelebration()) {
+        if (
+          !isQuestIntroSurface(pathnameRef.current) ||
+          readStreakCelebration() ||
+          isOnboardingActive()
+        ) {
           checked.current = null;
           return;
         }
@@ -136,7 +143,7 @@ export function DailyQuestIntro() {
       .catch(() => {
         checked.current = null;
       });
-  }, [board, pathname, userId]);
+  }, [board, onboarding, pathname, userId]);
 
   // Today counts as seen once the learner dismisses it. A reload or redirect
   // while it is still up brings it back.

@@ -1,6 +1,7 @@
 "use client";
 
 import { MaterialIcon } from "@/components/admin/AdminShell";
+import { Button } from "@/components/admin/AdminUi";
 import { ColumnHeader, Panel, formatAbsoluteTime } from "@/components/admin/student-detail/shared";
 import type { AdminUserRow } from "@/lib/admin-overview";
 import { signInSummary } from "@/lib/progress";
@@ -58,16 +59,33 @@ function DeviceList({
 export function AccountTab({
   signIns,
   appUses,
+  onRequestClear,
 }: {
   /** Newest first. */
   signIns: readonly AdminUserRow["signIns"][number][];
   /** Newest first. */
   appUses: readonly AdminUserRow["appUses"][number][];
+  /** Owners only. Omitted hides the clear button. */
+  onRequestClear?: () => void;
 }) {
   return (
-    <div className="grid items-start gap-space-24 lg:grid-cols-2">
-      <DeviceList title="Sign-ins" icon="login" empty="No sign-ins recorded yet." entries={signIns} />
-      <DeviceList title="App use" icon="devices" empty="No app use recorded yet." entries={appUses} />
+    <div className="flex flex-col gap-space-16">
+      {onRequestClear ? (
+        <div className="flex justify-end">
+          <Button
+            variant="destructive"
+            icon="delete"
+            disabled={signIns.length === 0 && appUses.length === 0}
+            onClick={onRequestClear}
+          >
+            Clear sign-in history
+          </Button>
+        </div>
+      ) : null}
+      <div className="grid items-start gap-space-24 lg:grid-cols-2">
+        <DeviceList title="Sign-ins" icon="login" empty="No sign-ins recorded yet." entries={signIns} />
+        <DeviceList title="App use" icon="devices" empty="No app use recorded yet." entries={appUses} />
+      </div>
     </div>
   );
 }

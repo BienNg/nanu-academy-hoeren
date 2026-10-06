@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  clearAdminStudentSignIns,
   deleteAdminStudentProgress,
   loadAdminStudentDetail,
   loadAdminStudentXp,
@@ -140,6 +141,9 @@ export function StudentDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [runsRevision, setRunsRevision] = useState(0);
+  const [pendingHistoryClear, setPendingHistoryClear] = useState(false);
+  const [clearingHistory, setClearingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [payload, setPayload] = useState<StudentDetailPayload | null>(preloaded ?? null);
   const [detailError, setDetailError] = useState<string | null>(null);
   /** Null until read; reread after a delete, which can remove awards. */
@@ -236,7 +240,7 @@ export function StudentDetailModal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // The delete dialog handles its own Escape.
-      if (deleting || pendingDelete) return;
+      if (deleting || pendingDelete || clearingHistory || pendingHistoryClear) return;
       onClose();
     };
     document.addEventListener("keydown", onKeyDown);
@@ -246,7 +250,7 @@ export function StudentDetailModal({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [deleting, onClose, pendingDelete]);
+  }, [clearingHistory, deleting, onClose, pendingDelete, pendingHistoryClear]);
 
   function requestDelete(next: PendingDelete) {
     setDeleteError(null);
@@ -289,6 +293,27 @@ export function StudentDetailModal({
     setProgressOverride({ userId: row.userId, progress: result.progress });
     setRunsRevision((current) => current + 1);
     setPendingDelete(null);
+    router.refresh();
+  }
+
+  function closeHistoryClear() {
+    if (clearingHistory) return;
+    setPendingHistoryClear(false);
+    setHistoryError(null);
+  }
+
+  async function confirmHistoryClear() {
+    if (clearingHistory) return;
+    setClearingHistory(true);
+    setHistoryError(null);
+    const result = await clearAdminStudentSignIns(row.userId);
+    setClearingHistory(false);
+    if (!result.ok) {
+      setHistoryError(result.error);
+      return;
+    }
+    setPayload((current) => (current ? { ...current, signIns: [], appUses: [] } : current));
+    setPendingHistoryClear(false);
     router.refresh();
   }
 
@@ -479,7 +504,7 @@ export function StudentDetailModal({
                         scope: "all",
                         label: "all progress",
                         detail:
-                          "Courses, Lektionen, videos, practice, and visit history are cleared. The account, class, and level access stay.",
+                          "Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay.",
                       })
                     }
                   >
@@ -545,7 +570,20 @@ export function StudentDetailModal({
                     timeZone={progress.streakTimeZone}
                   />
                 ) : null}
-                {tab === "account" ? <AccountTab signIns={signIns} appUses={appUses} /> : null}
+                {tab === "account" ? (
+                  <AccountTab
+                    signIns={signIns}
+                    appUses={appUses}
+                    onRequestClear={
+                      canDelete
+                        ? () => {
+                            setHistoryError(null);
+                            setPendingHistoryClear(true);
+                          }
+                        : undefined
+                    }
+                  />
+                ) : null}
               </>
             ) : detailError ? (
               <p
@@ -591,6 +629,39 @@ export function StudentDetailModal({
         {deleteError ? (
           <p role="alert" className="text-admin-body-sm text-admin-crimson">
             {deleteError}
+          </p>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={pendingHistoryClear}
+        onClose={closeHistoryClear}
+        title="Clear sign-in history?"
+        description={
+          <>
+            {row.displayName}&apos;s sign-ins and app use are cleared. Progress, XP, class, and level
+            access stay. New sign-ins are recorded again from now on.
+          </>
+        }
+        actions={
+          <>
+            <Button disabled={clearingHistory} onClick={closeHistoryClear}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              icon="delete"
+              disabled={clearingHistory}
+              onClick={() => void confirmHistoryClear()}
+            >
+              {clearingHistory ? "Clearing…" : "Clear history"}
+            </Button>
+          </>
+        }
+      >
+        {historyError ? (
+          <p role="alert" className="text-admin-body-sm text-admin-crimson">
+            {historyError}
           </p>
         ) : null}
       </Dialog>

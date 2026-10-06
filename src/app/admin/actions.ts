@@ -24,7 +24,7 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import { forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
+import { deleteUserDuelXp, forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
 import type { StudentJumpRunsPage } from "@/lib/lesson-jump";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
@@ -36,6 +36,7 @@ import {
 } from "@/lib/progress";
 import {
   INTERVIEW_ACCESS_SLUG,
+  clearUserSignInHistory,
   deleteListeningRunsForLessons,
   deletePendingLevelGrant,
   deleteStudyXpForLessons,
@@ -60,6 +61,7 @@ import {
   withoutReservedAccess,
   type PendingLevelGrant,
 } from "@/lib/progress-store";
+import { deleteUserQuestClaims } from "@/lib/quest-store";
 import { listUserXpEvents } from "@/lib/xp-store";
 
 /**
@@ -142,11 +144,40 @@ export async function deleteAdminStudentProgress(
     await deleteListeningRunsForLessons(id, built.history.runs);
     await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
+    if (parsed.scope === "all") {
+      // Duel and quest XP are not tied to a Lektion, so only a full wipe removes them.
+      await deleteUserDuelXp(id);
+      await deleteUserQuestClaims(id);
+    }
     await syncStudiedClips(id, progress);
     revalidateAdmin();
     return { ok: true, progress };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete progress";
+    return { ok: false, error: message };
+  }
+}
+
+export async function clearAdminStudentSignIns(
+  userId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id || !isAdminUser(session.user)) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  try {
+    await clearUserSignInHistory(id);
+    revalidateAdmin();
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to clear sign-in history";
     return { ok: false, error: message };
   }
 }
