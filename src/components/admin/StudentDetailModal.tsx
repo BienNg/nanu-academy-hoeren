@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   deleteAdminStudentProgress,
   loadAdminStudentDetail,
+  loadAdminStudentXp,
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
   setAdminUserLivingAccess,
@@ -26,6 +27,7 @@ import {
   type AdminCatalogCourse,
   type AdminCourseDetail,
   type AdminVisitRange,
+  type AdminXpEvent,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { activeStreakDays, type StoredProgress } from "@/lib/progress";
@@ -140,6 +142,8 @@ export function StudentDetailModal({
   const [runsRevision, setRunsRevision] = useState(0);
   const [payload, setPayload] = useState<StudentDetailPayload | null>(preloaded ?? null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  /** Null until read; reread after a delete, which can remove awards. */
+  const [xp, setXp] = useState<{ revision: number; events: AdminXpEvent[] | null } | null>(null);
   const serverCaughtUp =
     progressOverride?.userId === row.userId &&
     (progressOverride.progress.adminClears ?? []).every((clear) =>
@@ -173,9 +177,10 @@ export function StudentDetailModal({
     detail.courses[0];
   const lessons = course ? visibleLessons(course) : [];
   const [range, setRange] = useState<AdminVisitRange>("7d");
+  const xpEvents = xp?.revision === runsRevision ? xp.events : null;
   const visitLog = useMemo(
-    () => projectStudentVisits(catalog, progress, range),
-    [catalog, progress, range],
+    () => projectStudentVisits(catalog, progress, range, undefined, xpEvents ?? []),
+    [catalog, progress, range, xpEvents],
   );
   const streakDays = activeStreakDays(progress);
   const signIns = [...(payload?.signIns ?? row.signIns)].reverse();
@@ -204,6 +209,17 @@ export function StudentDetailModal({
       cancelled = true;
     };
   }, [row.userId, preloaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAdminStudentXp(row.userId).then((result) => {
+      if (cancelled) return;
+      setXp({ revision: runsRevision, events: result.ok ? result.events : null });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.userId, runsRevision]);
 
   useEffect(() => {
     panelRef.current?.scrollTo({ top: 0 });
@@ -493,6 +509,9 @@ export function StudentDetailModal({
                     onRange={setRange}
                     summary={visitLog.summary}
                     chart={visitLog.chart}
+                    xpState={
+                      xp?.revision !== runsRevision ? "loading" : xpEvents ? "ready" : "error"
+                    }
                   />
                 ) : null}
                 {tab === "courses" ? (

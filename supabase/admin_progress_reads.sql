@@ -3,7 +3,11 @@
 -- per learner instead of every award and listening run in the range.
 -- Until this is applied, the app adds those rows up itself.
 
-create or replace function public.admin_xp_by_user(p_from text, p_to text)
+-- Listening, study, duels, lesson jumps and quest claims.
+-- Replaces admin_xp_by_user, which counted only listening and duels.
+drop function if exists public.admin_xp_by_user(text, text);
+
+create or replace function public.admin_range_xp_by_user(p_from text, p_to text)
 returns table (user_id text, xp bigint)
 language sql
 stable
@@ -17,7 +21,19 @@ as $$
     where day_key >= p_from and day_key <= p_to
     union all
     select user_id, xp
+    from public.study_xp_awards
+    where day_key >= p_from and day_key <= p_to
+    union all
+    select user_id, xp
     from public.duel_xp_awards
+    where day_key >= p_from and day_key <= p_to
+    union all
+    select user_id, xp
+    from public.lesson_jump_awards
+    where day_key >= p_from and day_key <= p_to
+    union all
+    select user_id, xp
+    from public.quest_claims
     where day_key >= p_from and day_key <= p_to
   ) as awards
   group by awards.user_id;
@@ -58,10 +74,10 @@ as $$
   group by user_id;
 $$;
 
-revoke all on function public.admin_xp_by_user(text, text) from public, anon, authenticated;
+revoke all on function public.admin_range_xp_by_user(text, text) from public, anon, authenticated;
 revoke all on function public.admin_study_part_counts(text, text) from public, anon, authenticated;
 revoke all on function public.admin_practice_part_counts(timestamptz, timestamptz) from public, anon, authenticated;
 
-grant execute on function public.admin_xp_by_user(text, text) to service_role;
+grant execute on function public.admin_range_xp_by_user(text, text) to service_role;
 grant execute on function public.admin_study_part_counts(text, text) to service_role;
 grant execute on function public.admin_practice_part_counts(timestamptz, timestamptz) to service_role;

@@ -23,7 +23,7 @@ The admin XP page (`src/app/admin/xp/page.tsx`) has a Daily quests section: ques
 Edit `QUEST_POOL`, `QUEST_BONUS_XP` and `QUEST_ACCURACY_MIN` in `quests.ts`. `MAX_QUEST_XP` (currently 75) is derived from them. Changing the pool mid-day can change a learner's quests for that day. Claims already stored keep their XP.
 
 ## Not built yet
-- Quest XP is not in the admin "Total XP" or `sumAdminRangeXp`. The admin XP page shows it in its own Daily quests section.
+- Quest XP is included in overview Highlights (`sumAdminRangeXp`). The admin XP page still shows it in its own Daily quests section, separate from the listening and duel chart.
 - A quest line in the weekly recap.
 - "Today" on the XP chip counts quest XP by Vietnam day, so near midnight it can differ from the learner's quest day.
 - Duel and Blitzrunde quests.

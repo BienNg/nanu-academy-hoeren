@@ -765,7 +765,12 @@ export type AdminVisitChartPoint = {
   leftUnfinished: number;
   videosWatched: number;
   wrongAttempts: number;
+  /** XP awarded in this slot, by award time rather than visit start. */
+  xp: number;
 };
+
+/** One XP award from any source, with when it was given. */
+export type AdminXpEvent = { xp: number; at: string };
 
 export type AdminVisitLog = {
   summary: VisitSummary;
@@ -1103,6 +1108,7 @@ export function projectStudentVisits(
   progress: StoredProgress,
   range: AdminVisitRange,
   now = new Date(),
+  xpEvents: readonly AdminXpEvent[] = [],
 ): AdminVisitLog {
   const detail = projectStudentDetail(courses, progress);
   const all = [...(progress.visits ?? [])].sort((a, b) =>
@@ -1146,7 +1152,7 @@ export function projectStudentVisits(
   return {
     summary: summarizeVisits(progress, range, now),
     visits,
-    chart: visitChart(all, courses, range, now),
+    chart: visitChart(all, xpEvents, courses, range, now),
     emptyMessage: emptyVisitMessage(range),
   };
 }
@@ -1158,9 +1164,11 @@ const VISIT_CHART_DAILY_CAP = 60;
 /**
  * Visits bucketed by start time on the viewing device's clock, matching the
  * visit list: hours for today, days for 7 days, days or weeks for all time.
+ * XP is bucketed by award time on the same slots.
  */
 function visitChart(
   visits: readonly Visit[],
+  xpEvents: readonly AdminXpEvent[],
   courses: readonly AdminCatalogCourse[],
   range: AdminVisitRange,
   now: Date,
@@ -1177,8 +1185,12 @@ function visitChart(
   } else {
     let first = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
     if (range === "all") {
-      const earliest = visits.reduce((min, visit) => {
-        const time = Date.parse(visit.startedAt);
+      // XP can predate visit history, so the earliest award also widens the chart.
+      const earliest = [
+        ...visits.map((visit) => visit.startedAt),
+        ...xpEvents.map((award) => award.at),
+      ].reduce((min, iso) => {
+        const time = Date.parse(iso);
         return Number.isNaN(time) ? min : Math.min(min, time);
       }, today.getTime());
       const e = new Date(earliest);
@@ -1210,14 +1222,21 @@ function visitChart(
     leftUnfinished: 0,
     videosWatched: 0,
     wrongAttempts: 0,
+    xp: 0,
   }));
-  for (const visit of visits) {
-    const time = Date.parse(visit.startedAt);
-    if (Number.isNaN(time) || time < starts[0]) continue;
+  /** The slot a timestamp falls in, or -1 outside the chart. */
+  const slotOf = (iso: string): number => {
+    const time = Date.parse(iso);
+    if (Number.isNaN(time) || time < starts[0]) return -1;
     let index = starts.length - 1;
     while (index > 0 && starts[index] > time) index -= 1;
-    if (range === "today" && time >= starts[index] + 3_600_000) continue;
-    if (range !== "today" && time >= today.getTime() + DAY_MS) continue;
+    if (range === "today" && time >= starts[index] + 3_600_000) return -1;
+    if (range !== "today" && time >= today.getTime() + DAY_MS) return -1;
+    return index;
+  };
+  for (const visit of visits) {
+    const index = slotOf(visit.startedAt);
+    if (index < 0) continue;
     const point = points[index];
     const stats = visitStats(visit, courses);
     point.visits += 1;
@@ -1229,6 +1248,10 @@ function visitChart(
     point.leftUnfinished += stats.leftUnfinished;
     point.videosWatched += stats.videosWatched;
     point.wrongAttempts += visit.wrongAttempts ?? 0;
+  }
+  for (const award of xpEvents) {
+    const index = slotOf(award.at);
+    if (index >= 0) points[index].xp += award.xp;
   }
   const minutes = (seconds: number) => Math.round(seconds / 6) / 10;
   return points.map(({ activeSeconds, videoSeconds, ...point }) => ({

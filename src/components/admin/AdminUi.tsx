@@ -360,6 +360,7 @@ export function ChartPanel({
   color,
   legend,
   trailing,
+  footer,
   children,
 }: {
   icon: string;
@@ -368,6 +369,8 @@ export function ChartPanel({
   color?: string;
   legend?: readonly { name: string; color: string }[];
   trailing?: ReactNode;
+  /** Shown under the chart, inside the same card. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -380,6 +383,7 @@ export function ChartPanel({
         trailing={trailing ?? (legend ? <LegendChips items={legend} /> : undefined)}
       />
       <div className="mt-space-16 h-64 w-full sm:h-72">{children}</div>
+      {footer}
     </section>
   );
 }

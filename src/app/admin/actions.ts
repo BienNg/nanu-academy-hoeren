@@ -6,6 +6,7 @@ import { isAdminUser } from "@/lib/admins";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   studentProgressClear,
+  type AdminXpEvent,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { getCefrLevels, getChapterClips } from "@/lib/levels";
@@ -52,6 +53,7 @@ import {
   withoutReservedAccess,
   type PendingLevelGrant,
 } from "@/lib/progress-store";
+import { listUserXpEvents } from "@/lib/xp-store";
 
 /**
  * Every admin page reads the same user rows, so one layout-scoped call covers
@@ -181,6 +183,19 @@ export async function loadAdminStudentDetail(userId: string): Promise<
   const detail = await getAdminStudentDetail(id);
   if (!detail) return { ok: false, error: "Could not load this student's progress." };
   return { ok: true, ...detail };
+}
+
+export async function loadAdminStudentXp(
+  userId: string,
+): Promise<{ ok: true; events: AdminXpEvent[] } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  const events = await listUserXpEvents(id);
+  if (!events) return { ok: false, error: "Could not load this student's XP." };
+  return { ok: true, events };
 }
 
 function parseRunWindow(

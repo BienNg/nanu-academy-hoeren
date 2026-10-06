@@ -10,12 +10,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartPanel, ChartTooltip, LegendChips, Segmented } from "@/components/admin/AdminUi";
+import {
+  ChartPanel,
+  ChartTooltip,
+  LegendChips,
+  Segmented,
+  formatCount,
+} from "@/components/admin/AdminUi";
 import {
   ColumnHeader,
   MetricBand,
   VisitRangeSwitch,
   compactDuration,
+  shortDuration,
 } from "@/components/admin/student-detail/shared";
 import type {
   AdminVisitChartPoint,
@@ -30,7 +37,8 @@ type VisitSummary = ReturnType<typeof projectStudentVisits>["summary"];
 const AXIS = ADMIN_COLORS.axis;
 const GRID = ADMIN_COLORS.grid;
 
-type ChartTab = "time" | "parts" | "sessions" | "mistakes";
+type ChartTab = "time" | "parts" | "sessions" | "mistakes" | "xp";
+export type XpLoadState = "loading" | "ready" | "error";
 type SeriesKey = Exclude<keyof AdminVisitChartPoint, "label">;
 
 /** Each tab holds series that share a unit, so one axis reads true. */
@@ -41,6 +49,8 @@ const CHART_TABS: Record<
     icon: string;
     color: string;
     unit: string;
+    /** What each slot is keyed on, for the hint under the title. */
+    groupedBy?: string;
     empty: string;
     series: readonly { key: SeriesKey; name: string; color: string }[];
   }
@@ -88,6 +98,20 @@ const CHART_TABS: Record<
     empty: "No wrong answers recorded in this window.",
     series: [{ key: "wrongAttempts", name: "Wrong answers", color: ADMIN_COLORS.crimson }],
   },
+  xp: {
+    label: "XP",
+    icon: "bolt",
+    color: ADMIN_COLORS.amber,
+    unit: "XP",
+    groupedBy: "when it was awarded",
+    empty: "No XP earned in this window.",
+    series: [{ key: "xp", name: "XP gained", color: ADMIN_COLORS.amber }],
+  },
+};
+
+const XP_STATE_MESSAGE: Record<Exclude<XpLoadState, "ready">, string> = {
+  loading: "Loading XP…",
+  error: "Could not load XP for this student.",
 };
 
 const CHART_TAB_OPTIONS = (Object.keys(CHART_TABS) as ChartTab[]).map((key) => ({
@@ -107,12 +131,21 @@ function tickInterval(count: number): number {
   return Math.ceil(count / 8) - 1;
 }
 
-function VisitChart({ data, tab }: { data: readonly AdminVisitChartPoint[]; tab: ChartTab }) {
+function VisitChart({
+  data,
+  tab,
+  xpState,
+}: {
+  data: readonly AdminVisitChartPoint[];
+  tab: ChartTab;
+  xpState: XpLoadState;
+}) {
   const { series, empty } = CHART_TABS[tab];
-  if (!data.some((point) => series.some((entry) => point[entry.key] > 0))) {
+  const blocked = tab === "xp" && xpState !== "ready" ? XP_STATE_MESSAGE[xpState] : null;
+  if (blocked || !data.some((point) => series.some((entry) => point[entry.key] > 0))) {
     return (
       <p className="flex h-full items-center justify-center px-space-16 text-admin-body-sm text-admin-ink-muted">
-        {empty}
+        {blocked ?? empty}
       </p>
     );
   }
@@ -150,12 +183,74 @@ function VisitChart({ data, tab }: { data: readonly AdminVisitChartPoint[]; tab:
   );
 }
 
+const MINUTE_KEYS: ReadonlySet<SeriesKey> = new Set(["activeMinutes", "videoMinutes"]);
+
+function formatTotal(key: SeriesKey, total: number): string {
+  return MINUTE_KEYS.has(key) ? shortDuration(Math.round(total * 60)) : formatCount(total);
+}
+
+/** Window totals for every series on every tab; a card opens its tab. */
+function VisitStatCards({
+  data,
+  tab,
+  xpState,
+  onSelect,
+}: {
+  data: readonly AdminVisitChartPoint[];
+  tab: ChartTab;
+  xpState: XpLoadState;
+  onSelect: (tab: ChartTab) => void;
+}) {
+  const cards = (Object.keys(CHART_TABS) as ChartTab[]).flatMap((key) =>
+    CHART_TABS[key].series.map((entry) => ({ tab: key, ...entry })),
+  );
+  return (
+    <ul
+      aria-label="Totals in this window"
+      className="mt-space-16 grid grid-cols-2 gap-px overflow-hidden rounded-admin-control border border-admin-hairline bg-admin-hairline sm:grid-cols-5"
+    >
+      {cards.map((card) => {
+        const selected = card.tab === tab;
+        const pendingXp = card.tab === "xp" && xpState !== "ready";
+        const total = data.reduce((sum, point) => sum + point[card.key], 0);
+        return (
+          <li key={card.key} className="min-w-0">
+            <button
+              type="button"
+              aria-pressed={selected}
+              title={`Show ${CHART_TABS[card.tab].label} chart`}
+              onClick={() => onSelect(card.tab)}
+              className={`flex h-full w-full flex-col items-start px-space-12 py-space-12 text-left outline-none transition-colors focus-visible:shadow-admin-focus ${
+                selected ? "bg-admin-subtle" : "bg-admin-card hover:bg-admin-canvas"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-space-4 text-admin-label-sm uppercase text-admin-ink-subtle">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: card.color }}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{card.name}</span>
+              </span>
+              <span className="mt-space-4 font-admin-display text-admin-headline-md tabular-nums text-admin-ink">
+                {pendingXp ? (xpState === "loading" ? "…" : "–") : formatTotal(card.key, total)}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function VisitCharts({
   data,
   range,
+  xpState,
 }: {
   data: readonly AdminVisitChartPoint[];
   range: AdminVisitRange;
+  xpState: XpLoadState;
 }) {
   const [tab, setTab] = useState<ChartTab>("time");
   const active = CHART_TABS[tab];
@@ -164,7 +259,7 @@ function VisitCharts({
       icon={active.icon}
       color={active.color}
       title={`What they did · ${active.label}`}
-      hint={`${active.unit} per ${SLOT[range]}, grouped by when each visit started.`}
+      hint={`${active.unit} per ${SLOT[range]}, grouped by ${active.groupedBy ?? "when each visit started"}.`}
       trailing={
         <div className="flex flex-col items-end gap-space-8">
           <Segmented
@@ -176,8 +271,9 @@ function VisitCharts({
           <LegendChips items={active.series} />
         </div>
       }
+      footer={<VisitStatCards data={data} tab={tab} xpState={xpState} onSelect={setTab} />}
     >
-      <VisitChart data={data} tab={tab} />
+      <VisitChart data={data} tab={tab} xpState={xpState} />
     </ChartPanel>
   );
 }
@@ -187,11 +283,13 @@ export function OverviewTab({
   onRange,
   summary,
   chart,
+  xpState,
 }: {
   range: AdminVisitRange;
   onRange: (range: AdminVisitRange) => void;
   summary: VisitSummary;
   chart: readonly AdminVisitChartPoint[];
+  xpState: XpLoadState;
 }) {
   return (
     <section aria-label="Activity" className="flex flex-col gap-space-12">
@@ -216,7 +314,7 @@ export function OverviewTab({
           },
         ]}
       />
-      <VisitCharts data={chart} range={range} />
+      <VisitCharts data={chart} range={range} xpState={xpState} />
     </section>
   );
 }

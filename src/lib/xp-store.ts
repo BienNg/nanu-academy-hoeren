@@ -38,7 +38,8 @@ import {
   readLevelAccess,
 } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
-import { listQuestClaimRows } from "@/lib/quest-store";
+import type { AdminXpEvent } from "@/lib/admin-detail";
+import { isQuestSchemaMissing, listQuestClaimRows } from "@/lib/quest-store";
 import {
   assembleLeaderboard,
   dayKey,
@@ -67,6 +68,7 @@ const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const JUMP_XP_TABLE = "lesson_jump_awards";
+const QUEST_CLAIMS_TABLE = "quest_claims";
 const RUNS_TABLE = "listening_runs";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
@@ -799,6 +801,56 @@ export async function readTotalXp(userId: string): Promise<number | null> {
   return totals.ready ? totals.total : null;
 }
 
+/** Every award table a learner earns XP in, with key columns for stable paging. */
+const USER_XP_SOURCES: readonly {
+  table: string;
+  order: readonly string[];
+  missing: (message: string) => boolean;
+}[] = [
+  { table: XP_TABLE, order: ["run_id"], missing: isXpSchemaMissing },
+  { table: STUDY_XP_TABLE, order: ["id"], missing: isStudyXpSchemaMissing },
+  { table: DUEL_XP_TABLE, order: ["duel_id"], missing: isDuelSchemaMissing },
+  { table: JUMP_XP_TABLE, order: ["id"], missing: isJumpXpSchemaMissing },
+  { table: QUEST_CLAIMS_TABLE, order: ["day_key", "quest_id"], missing: isQuestSchemaMissing },
+];
+
+async function listUserXpEventsFrom(
+  supabase: SupabaseClient,
+  userId: string,
+  source: (typeof USER_XP_SOURCES)[number],
+): Promise<AdminXpEvent[]> {
+  const rows: AdminXpEvent[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase.from(source.table).select("xp, created_at").eq("user_id", userId);
+    for (const column of source.order) query = query.order(column);
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!source.missing(error.message)) {
+        console.error(`Supabase listUserXpEvents ${source.table}`, error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as { xp?: unknown; created_at?: unknown }[];
+    for (const row of page) {
+      if (typeof row.xp !== "number" || row.xp <= 0 || typeof row.created_at !== "string") continue;
+      rows.push({ xp: row.xp, at: row.created_at });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+/** Each XP award one learner received, with when it was given, for the admin chart. */
+export async function listUserXpEvents(userId: string): Promise<AdminXpEvent[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const sources = await Promise.all(
+    USER_XP_SOURCES.map((source) => listUserXpEventsFrom(supabase, userId, source)),
+  );
+  return sources.flat();
+}
+
 type XpAwardSumRow = {
   user_id: string;
   xp: number;
@@ -1528,6 +1580,8 @@ export type AdminDuelXpRow = {
 
 export type AdminXpRead<T> = {
   ready: boolean;
+  /** True when the table is not created yet, so callers can skip that source. */
+  missing: boolean;
   rows: T[];
 };
 
@@ -1541,7 +1595,7 @@ async function listPagedXpRows<T>(
   logLabel: string,
 ): Promise<AdminXpRead<T>> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return { ready: false, rows: [] };
+  if (!supabase) return { ready: false, missing: false, rows: [] };
 
   const rows: T[] = [];
   let from = 0;
@@ -1553,17 +1607,16 @@ async function listPagedXpRows<T>(
       .lte("day_key", toDay)
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
-      if (!onMissing(error.message)) {
-        console.error(logLabel, error.message);
-      }
-      return { ready: false, rows: [] };
+      const missing = onMissing(error.message);
+      if (!missing) console.error(logLabel, error.message);
+      return { ready: false, missing, rows: [] };
     }
     const page = (data ?? []) as unknown as Record<string, unknown>[];
     for (const row of page) {
       const parsed = parse(row);
       if (parsed) rows.push(parsed);
     }
-    if (page.length < PAGE_SIZE) return { ready: true, rows };
+    if (page.length < PAGE_SIZE) return { ready: true, missing: false, rows };
     from += PAGE_SIZE;
   }
 }
@@ -1600,7 +1653,31 @@ async function readUserCounts(
   return rows;
 }
 
-/** Listening plus duel XP in `[fromDay, toDay]`, summed per learner. */
+type AdminUserXp = { userId: string; xp: number };
+
+function parseAdminUserXp(row: Record<string, unknown>): AdminUserXp | null {
+  if (typeof row.user_id !== "string") return null;
+  const xp = typeof row.xp === "number" ? row.xp : Number(row.xp);
+  if (!Number.isFinite(xp)) return null;
+  return { userId: row.user_id, xp };
+}
+
+/** Study, jump, or quest XP in `[fromDay, toDay]`. Only the learner and the amount. */
+function listAdminUserXp(
+  table: string,
+  fromDay: string,
+  toDay: string,
+  onMissing: (message: string) => boolean,
+  logLabel: string,
+): Promise<AdminXpRead<AdminUserXp>> {
+  return listPagedXpRows(table, "user_id, xp", fromDay, toDay, parseAdminUserXp, onMissing, logLabel);
+}
+
+/**
+ * Every XP source in `[fromDay, toDay]`, summed per learner: listening, study,
+ * duels, lesson jumps, and quest claims. Jumps and quests are optional until
+ * their tables exist.
+ */
 export async function sumAdminRangeXp(
   fromDay: string,
   toDay: string,
@@ -1610,7 +1687,7 @@ export async function sumAdminRangeXp(
   if (!supabase) return { ready: false, byUser };
   const grouped = await readUserCounts(
     supabase,
-    "admin_xp_by_user",
+    "admin_range_xp_by_user",
     { p_from: fromDay, p_to: toDay },
     "xp",
   );
@@ -1619,13 +1696,32 @@ export async function sumAdminRangeXp(
     return { ready: true, byUser };
   }
 
-  const [listening, duels] = await Promise.all([
+  const [listening, study, duels, jumps, quests] = await Promise.all([
     listAdminListeningXp(fromDay, toDay),
+    listAdminUserXp(STUDY_XP_TABLE, fromDay, toDay, isStudyXpSchemaMissing, "Supabase listAdminStudyXp"),
     listAdminDuelXp(fromDay, toDay),
+    listAdminUserXp(JUMP_XP_TABLE, fromDay, toDay, isJumpXpSchemaMissing, "Supabase listAdminJumpXp"),
+    listAdminUserXp(
+      QUEST_CLAIMS_TABLE,
+      fromDay,
+      toDay,
+      isQuestSchemaMissing,
+      "Supabase listAdminQuestXp",
+    ),
   ]);
-  if (!listening.ready || !duels.ready) return { ready: false, byUser };
-  for (const row of listening.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
-  for (const row of duels.rows) byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  if (!listening.ready || !study.ready || !duels.ready) return { ready: false, byUser };
+  if ((!jumps.ready && !jumps.missing) || (!quests.ready && !quests.missing)) {
+    return { ready: false, byUser };
+  }
+  for (const row of [
+    ...listening.rows,
+    ...study.rows,
+    ...duels.rows,
+    ...jumps.rows,
+    ...quests.rows,
+  ]) {
+    byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;
+  }
   return { ready: true, byUser };
 }
 
