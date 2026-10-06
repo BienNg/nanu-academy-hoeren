@@ -23,7 +23,6 @@ import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/Ad
 import {
   Badge,
   Button,
-  CARD,
   Checkbox,
   GrantChip,
   INPUT,
@@ -31,7 +30,6 @@ import {
   Mono,
   POPOVER,
   POPOVER_ITEM,
-  PanelHeader,
   Pager,
   ScopeChips,
   TH,
@@ -744,7 +742,6 @@ export function AdminAccess({
 
   const rangeStart = paged.total === 0 ? 0 : (paged.page - 1) * ADMIN_PAGE_SIZE + 1;
   const rangeEnd = Math.min(paged.page * ADMIN_PAGE_SIZE, paged.total);
-  const learnerDenom = Math.max(board.learners, 1);
 
   const classChips: { key: string | "all"; label: string; count: number }[] = [
     { key: "all", label: "All", count: liveRows.length },
@@ -836,91 +833,6 @@ export function AdminAccess({
           color={ADMIN_COLORS.cobalt}
         />
       </section>
-
-      <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
-        <section className={`${CARD} flex flex-col gap-space-16 p-space-16 sm:p-space-20`}>
-          <PanelHeader
-            icon="stacked_bar_chart"
-            title="Coverage by level"
-            hint="Share of learners, not including admins."
-            color={ADMIN_COLORS.amber}
-          />
-          {board.learners === 0 ? (
-            <p className="text-admin-body-sm text-admin-ink-muted">No learners to count yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-space-12">
-              {board.levels.map((level) => {
-                const pct = Math.round((level.granted / learnerDenom) * 100);
-                return (
-                  <li key={level.slug}>
-                    <div className="flex items-baseline justify-between gap-space-12">
-                      <Badge tone="amber">{level.label}</Badge>
-                      <p className="text-admin-label-md tabular-nums text-admin-ink-subtle">
-                        {formatCount(level.granted)} of {formatCount(board.learners)} ·{" "}
-                        <span className="font-semibold text-admin-ink">{pct}%</span>
-                      </p>
-                    </div>
-                    <div className="mt-space-8 h-1.5 overflow-hidden rounded-full bg-admin-subtle">
-                      <div className="h-full rounded-full bg-admin-amber" style={{ width: `${pct}%` }} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <TablePanel
-          icon="table_chart"
-          title="Coverage by class"
-          hint="Counts include admins and emails that have not signed up yet."
-        >
-          {board.classes.length === 0 ? (
-            <p className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted sm:px-space-20">
-              No classes yet. Assign one on Students.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[32rem] border-collapse text-left">
-                <thead className={THEAD}>
-                  <tr>
-                    <th className={TH}>Class</th>
-                    <th className={`${TH} text-right`}>Students</th>
-                    {levels.map((level) => (
-                      <th key={level.slug} className={`${TH} text-right`}>
-                        {level.level}
-                      </th>
-                    ))}
-                    <th className={`${TH} text-right`}>Interview</th>
-                    <th className={`${TH} text-right`}>None</th>
-                  </tr>
-                </thead>
-                <tbody className="text-admin-body-sm tabular-nums text-admin-ink">
-                  {board.classes.map((row) => (
-                    <tr key={row.key || "unassigned"} className="h-11 border-t border-admin-hairline">
-                      <td className="px-space-16 font-medium">{row.label}</td>
-                      <td className="px-space-16 text-right">{formatCount(row.students)}</td>
-                      {levels.map((level) => (
-                        <td key={level.slug} className="px-space-16 text-right">
-                          {formatCount(row.grantedBySlug[level.slug] ?? 0)}
-                        </td>
-                      ))}
-                      <td className="px-space-16 text-right">{formatCount(row.interview)}</td>
-                      <td
-                        className={`px-space-16 text-right font-semibold ${
-                          row.locked > 0 ? "text-admin-crimson" : "text-admin-ink-faint"
-                        }`}
-                      >
-                        {formatCount(row.locked)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TablePanel>
-      </div>
 
       <TablePanel
         icon="mark_email_unread"
