@@ -1,6 +1,6 @@
 # Badges
 
-Learners collect badges for what they already do in the app: earning XP, finishing parts, keeping a streak, finishing daily quests, winning duels, placing in Blitzrunde, and finishing a week on top of the class XP board. Each of the 11 badge families has four tiers: Đồng, Bạc, Vàng and Kim cương. That makes 44 badges.
+Learners collect badges for what they already do in the app: earning XP, finishing parts, keeping a streak, finishing daily quests, winning duels, placing in Blitzrunde, finishing a week on top of the class XP board, and their class finishing a week on top of the classes board. Each of the 13 badge families has four tiers: Đồng, Bạc, Vàng and Kim cương. That makes 52 badges.
 
 ## How it works
 - `src/lib/badges.ts` is pure. `BADGE_FAMILIES` lists each family, the stat it counts and four rising targets. `badgesToAward(stats, owned)` returns the tiers a learner reached but does not own yet.
@@ -21,11 +21,15 @@ Learners collect badges for what they already do in the app: earning XP, finishi
 | Tia chớp | Top 3 in a ranked Blitzrunde | `listRankedResults({ userId })` |
 | Bục vinh quang | Weeks finished in the class top 3 | `weekly_podiums` |
 | Quán quân tuần | Weeks finished first in class | `weekly_podiums` |
+| Lớp trên bục | Weeks their class finished in the top 3 classes | `weekly_class_podiums` |
+| Lớp vô địch | Weeks their class finished first of all classes | `weekly_class_podiums` |
 
 ## Leaderboard weeks
 The XP board only ranks the current week, so finished weeks are stored. The first badge check after a Vietnam week ends (Monday 00:00 plus 15 minutes of grace) ranks that week's class boards with `readWeeklyClassPodiums` and stores each class's top 3 in `weekly_podiums`. The ranking uses the same people and order as the class board (`classPodiums` in `xp.ts`). Admins, learners without a class and learners with 0 XP never take a place. `weekly_podium_weeks` records ranked weeks, so an empty week is not ranked again.
 
 The first check after setup also ranks the 8 weeks before it. Those use each learner's class today, like the board does.
+
+The classes board (see `docs/CLASS_RANKING.md`) is stored the same way in `weekly_class_podiums` and `weekly_class_podium_weeks`, ranked with `classBoardPodiums` in `xp.ts`. Every learner of a top 3 class who earned XP that week gets a row with the class's rank. Learners who sat the week out get nothing.
 
 ## UI
 - `/badges` (`BadgesScreen`) shows the collection, grouped into Học tập, Thói quen and Thi đấu & xếp hạng. Tapping a family opens its four tiers, with goals, progress and the date each was earned.
@@ -34,6 +38,8 @@ The first check after setup also ranks the 8 weeks before it. Those use each lea
 
 ## Setup
 Run `supabase/badges.sql` once in the Supabase SQL editor. Until then `/badges` shows "Chưa tải được huy hiệu" and nothing else is affected.
+
+Then run `supabase/class_podiums.sql` for the two class badges. Until then those two families stay locked and every other badge still works.
 
 ## Tuning
 Edit `targets` in `BADGE_FAMILIES`. Lowering a target awards the tier at the next check. Raising one never takes a badge away. To add a family, give it a new lowercase id and a stat in `BadgeStats`, then count that stat in `readBadgeStats`.

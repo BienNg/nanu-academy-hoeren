@@ -2,7 +2,7 @@
  * Badges a learner collects.
  * Every badge family counts one stat the server already tracks (XP, finished
  * parts, streak, quests, duels, Blitzrunde, finished weeks on the class
- * board). Each family has four tiers. A tier is earned once the stat reaches
+ * board and on the classes board). Each family has four tiers. A tier is earned once the stat reaches
  * its target, and stays earned after that, even if the stat later drops.
  *
  * This file is pure. `badge-store.ts` counts the stats and stores awards. The
@@ -31,6 +31,10 @@ export type BadgeStats = {
   weekTop3: number;
   /** Finished weeks in first place of the class XP board. */
   weekFirst: number;
+  /** Finished weeks the learner's class ended in the top 3 of the classes board. */
+  classWeekTop3: number;
+  /** Finished weeks the learner's class ended first on the classes board. */
+  classWeekFirst: number;
 };
 
 export const EMPTY_BADGE_STATS: BadgeStats = {
@@ -45,6 +49,8 @@ export const EMPTY_BADGE_STATS: BadgeStats = {
   blitzPodiums: 0,
   weekTop3: 0,
   weekFirst: 0,
+  classWeekTop3: 0,
+  classWeekFirst: 0,
 };
 
 export type BadgeGroup = "learning" | "habit" | "compete";
@@ -188,6 +194,27 @@ export const BADGE_FAMILIES: readonly BadgeFamily[] = [
     color: "#F5B400",
     targets: [1, 3, 10, 25],
     goal: (n) => (n === 1 ? "Đứng nhất lớp 1 tuần" : `Đứng nhất lớp ${n} tuần`),
+  },
+  {
+    id: "classpodium",
+    group: "compete",
+    stat: "classWeekTop3",
+    title: "Lớp trên bục",
+    icon: "groups",
+    color: "#5856D6",
+    targets: [1, 3, 10, 25],
+    goal: (n) =>
+      n === 1 ? "Cùng lớp vào top 3 các lớp 1 tuần" : `Cùng lớp vào top 3 các lớp ${n} tuần`,
+  },
+  {
+    id: "classchamp",
+    group: "compete",
+    stat: "classWeekFirst",
+    title: "Lớp vô địch",
+    icon: "workspace_premium",
+    color: "#E0A100",
+    targets: [1, 3, 10, 25],
+    goal: (n) => (n === 1 ? "Cùng lớp đứng nhất các lớp 1 tuần" : `Cùng lớp đứng nhất các lớp ${n} tuần`),
   },
 ];
 

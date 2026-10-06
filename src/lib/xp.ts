@@ -50,6 +50,8 @@ export type BoardPerson = {
   classKey: string;
   className: string | null;
   isAdmin: boolean;
+  /** Staff accounts. Left out of the class ranking. */
+  isStaff?: boolean;
   xp: number;
   reachedAt: string | null;
   won?: number;
@@ -72,8 +74,32 @@ export type LeaderboardClassOption = {
 
 export type LeaderboardScope = "class" | "global";
 export type LeaderboardRange = "week" | "all";
-/** "blitzrunde" reuses the xp slot for Blitzrunde points (not XP) and `won` for rounds won. */
-export type LeaderboardBoard = "xp" | "duel" | "blitzrunde";
+/**
+ * "blitzrunde" reuses the xp slot for Blitzrunde points (not XP) and `won` for rounds won.
+ * "classes" ranks whole classes by week XP. Its rows are in `classes`, not `rows`.
+ */
+export type LeaderboardBoard = "xp" | "duel" | "blitzrunde" | "classes";
+
+export type ClassBoardRow = {
+  rank: number;
+  name: string;
+  /** Week XP of every learner in the class. */
+  xp: number;
+  /** Learners in the class, those without XP included. */
+  members: number;
+  /** `xp / members`, rounded. */
+  xpPerMember: number;
+  isYours: boolean;
+};
+
+export type ClassBoardExtras = {
+  rows: ClassBoardRow[];
+  /** Null when the viewer's class is not ranked. */
+  yourClassRank: number | null;
+  yourClassXp: number;
+  /** The viewer's own week XP, counted in their class. 0 for admins and staff. */
+  yourContribution: number;
+};
 
 export type LeaderboardRow = {
   rank: number | null;
@@ -116,6 +142,8 @@ export type LeaderboardPayload = {
   rows: LeaderboardRow[];
   /** Only on the Blitzrunde board. */
   blitzrunde?: BlitzrundeBoardExtras;
+  /** Only on the classes board. */
+  classes?: ClassBoardExtras;
 };
 
 function pad(value: number): string {
@@ -629,6 +657,93 @@ export function classPodiums(people: readonly BoardPerson[], size = 3): ClassPod
     });
   }
   return places;
+}
+
+/** Learners who take part in the classes board: real classes, no admins or staff. */
+function classLearners(people: readonly BoardPerson[]): BoardPerson[] {
+  return people.filter(
+    (person) =>
+      !person.isAdmin &&
+      !person.isStaff &&
+      person.classKey.length > 0 &&
+      !person.classKey.startsWith(LIVING_BOARD_CLASS_PREFIX),
+  );
+}
+
+type ClassTotal = { classKey: string; name: string; xp: number; members: number; xpPerMember: number };
+
+/** Classes with XP, best first: XP, then XP per learner, then name. */
+function rankClassTotals(learners: readonly BoardPerson[]): ClassTotal[] {
+  const labels = new Map(leaderboardClassOptions(learners).map((option) => [option.key, option.label]));
+  const totals = new Map<string, { xp: number; members: number }>();
+  for (const person of learners) {
+    const total = totals.get(person.classKey) ?? { xp: 0, members: 0 };
+    total.xp += Math.max(0, person.xp);
+    total.members += 1;
+    totals.set(person.classKey, total);
+  }
+  return [...totals]
+    .filter(([, total]) => total.xp > 0)
+    .map(([classKey, total]) => ({
+      classKey,
+      name: labels.get(classKey) ?? classKey,
+      xp: total.xp,
+      members: total.members,
+      xpPerMember: Math.round(total.xp / total.members),
+    }))
+    .sort(
+      (left, right) =>
+        right.xp - left.xp ||
+        right.xpPerMember - left.xpPerMember ||
+        left.name.localeCompare(right.name, "vi", { sensitivity: "base" }),
+    );
+}
+
+/**
+ * Week XP per class, for the classes board. Only real classes compete:
+ * workplace groups, learners without a class, admins and staff are left out.
+ * A class shows once one of its learners has XP. Ties go to the higher XP per
+ * learner, then the name.
+ */
+export function rankClasses(people: readonly BoardPerson[], viewerId: string): ClassBoardExtras {
+  const learners = classLearners(people);
+  const viewer = learners.find((person) => person.userId === viewerId);
+  const rows = rankClassTotals(learners).map(({ classKey, ...entry }, index) => ({
+    ...entry,
+    rank: index + 1,
+    isYours: viewer?.classKey === classKey,
+  }));
+  const yours = rows.find((row) => row.isYours);
+  return {
+    rows,
+    yourClassRank: yours?.rank ?? null,
+    yourClassXp: yours?.xp ?? 0,
+    yourContribution: viewer ? Math.max(0, viewer.xp) : 0,
+  };
+}
+
+export type ClassBoardPodiumPlace = {
+  userId: string;
+  classKey: string;
+  rank: number;
+  /** The class's week XP. */
+  classXp: number;
+};
+
+/**
+ * One place per learner in the top `size` classes of the classes board. Only
+ * learners who earned XP that week share the place, so nobody gets a class
+ * badge for a week they sat out.
+ */
+export function classBoardPodiums(people: readonly BoardPerson[], size = 3): ClassBoardPodiumPlace[] {
+  const learners = classLearners(people);
+  return rankClassTotals(learners)
+    .slice(0, size)
+    .flatMap((entry, index) =>
+      learners
+        .filter((person) => person.classKey === entry.classKey && person.xp > 0)
+        .map((person) => ({ userId: person.userId, classKey: entry.classKey, rank: index + 1, classXp: entry.xp })),
+    );
 }
 
 const HOME_RANK_PREVIEW = 3;

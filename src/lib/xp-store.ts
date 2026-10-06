@@ -53,12 +53,15 @@ import {
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
   boardClassFor,
+  classBoardPodiums,
   classPodiums,
   leaderboardClassKey,
   leaderboardClassOptions,
   leaderboardDisplayName,
+  rankClasses,
   weekKey,
   type BoardPerson,
+  type ClassBoardPodiumPlace,
   type ClassPodiumPlace,
   type LeaderboardClassOption,
   type LeaderboardPayload,
@@ -1033,6 +1036,7 @@ type BoardProfileRow = {
   level_access?: unknown;
   deleted_at?: string | null;
   image?: string | null;
+  staff?: boolean | null;
 };
 
 function boardImage(
@@ -1048,6 +1052,7 @@ function boardImage(
 
 async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfileRow[]> {
   const columnSets = [
+    "user_id, name, email, class_name, level_access, deleted_at, image, staff",
     "user_id, name, email, class_name, level_access, deleted_at, image",
     "user_id, name, email, class_name, deleted_at, image",
     "user_id, name, email, class_name, deleted_at",
@@ -1384,6 +1389,7 @@ async function readXpBoardPeople(
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,
       }),
+      isStaff: row.staff === true,
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
       image: boardImage(row, viewerId, viewerImage),
@@ -1405,6 +1411,61 @@ async function readXpBoardPeople(
   return people;
 }
 
+export type ClassLearner = { userId: string; name: string; image: string | null; className: string };
+
+/**
+ * Learners of one real class, the roster class quests count. Admins, staff and
+ * deleted accounts are left out, the same as on the classes board.
+ */
+export async function listClassLearners(
+  classKey: string,
+  viewerId: string,
+  viewerImage?: string | null,
+): Promise<ClassLearner[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !classKey) return null;
+  const profiles = await listBoardProfiles(supabase);
+  return profiles.flatMap((row) => {
+    const className = readClassName(row.class_name);
+    if (!className || leaderboardClassKey(className) !== classKey || row.staff === true) return [];
+    if (isAdminUser({ id: row.user_id, email: typeof row.email === "string" ? row.email : null })) return [];
+    return [
+      {
+        userId: row.user_id,
+        name: leaderboardDisplayName(row.name),
+        image: boardImage(row, viewerId, viewerImage),
+        className,
+      },
+    ];
+  });
+}
+
+/** Every class ranked by this week's XP. Always the week, whatever range was asked for. */
+export async function getClassLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  const ownClassName = getUserClassName(input.viewerId);
+  const finish = (payload: LeaderboardPayload) =>
+    markBlitzrundeTab(payload, ownClassName, input.canPickClass === true);
+  const now = input.now ?? new Date();
+  const blank = emptyLeaderboard({ scope: input.scope, range: "week", now, ready: false, board: "classes" });
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return finish(blank);
+
+  const people = await readXpBoardPeople(supabase, "week", now, input.viewerId, input.viewerImage);
+  if (!people) return finish(blank);
+
+  const viewer = people.find((person) => person.userId === input.viewerId);
+  const classes = rankClasses(people, input.viewerId);
+  const yours = classes.rows.find((row) => row.isYours);
+  return finish({
+    ...emptyLeaderboard({ scope: input.scope, range: "week", now, ready: true, board: "classes" }),
+    className: yours?.name ?? null,
+    yourXp: classes.yourClassXp,
+    yourRank: classes.yourClassRank,
+    viewerIsAdmin: viewer?.isAdmin ?? false,
+    classes,
+  });
+}
+
 /**
  * Top three of every class on the XP board for the week that contains
  * `inWeek`. Null when XP is unreadable.
@@ -1415,6 +1476,17 @@ export async function readWeeklyClassPodiums(inWeek: Date): Promise<ClassPodiumP
   // No viewer: an empty id never matches a profile and joins no class.
   const people = await readXpBoardPeople(supabase, "week", inWeek, "");
   return people ? classPodiums(people) : null;
+}
+
+/**
+ * Learners of the top three classes on the classes board for the week that
+ * contains `inWeek`. Null when XP is unreadable.
+ */
+export async function readWeeklyClassBoardPodiums(inWeek: Date): Promise<ClassBoardPodiumPlace[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const people = await readXpBoardPeople(supabase, "week", inWeek, "");
+  return people ? classBoardPodiums(people) : null;
 }
 
 export async function getDuelLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {

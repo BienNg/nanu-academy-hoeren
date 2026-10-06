@@ -126,3 +126,14 @@ test("classPodiums ranks each class like the board and skips admins and zero XP"
     ],
   );
 });
+
+test("class podium badges count weeks the class placed", () => {
+  const stats = { ...EMPTY_BADGE_STATS, classWeekTop3: 3, classWeekFirst: 1 };
+  const ids = badgesToAward(stats, new Set());
+  assert.ok(ids.includes("classpodium-1"));
+  assert.ok(ids.includes("classpodium-2"));
+  assert.ok(!ids.includes("classpodium-3"));
+  assert.ok(ids.includes("classchamp-1"));
+  assert.ok(!ids.includes("classchamp-2"));
+  assert.equal(parseBadgeId("classchamp-1")?.family.title, "Lớp vô địch");
+});

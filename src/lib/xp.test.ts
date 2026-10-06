@@ -14,6 +14,8 @@ import {
   googleProfileImage,
   isXpSchemaMissing,
   previewLeaderboardRows,
+  rankClasses,
+  classBoardPodiums,
   weekEndsAt,
   weekKey,
   type BoardPerson,
@@ -502,4 +504,61 @@ test("a node practice run must hold exactly the clips of its card part", () => {
   assert.equal(nodePracticeRunSize({ ...base, runClipIds: ["c3", "c3"] }), null);
   assert.equal(nodePracticeRunSize({ ...base, partCount: 3, runClipIds: ["c2", "c3"] }), null);
   assert.equal(nodePracticeRunSize({ ...base, partNumber: 3, runClipIds: ["c2", "c3"] }), null);
+});
+
+test("classes board sums week XP per class and skips admins, staff and workplaces", () => {
+  const b = { classKey: "lop-b", className: "Lớp B" };
+  const board = rankClasses(
+    [
+      person("a1", 100),
+      person("a2", 40),
+      person("a3", 0),
+      person("b1", 90, b),
+      person("b2", 50, b),
+      person("teacher", 500, { isAdmin: true }),
+      person("staff", 300, { ...b, isStaff: true }),
+      person("living", 900, { classKey: `${LIVING_BOARD_CLASS_PREFIX}cafe`, className: "Café" }),
+      person("loner", 700, { classKey: "", className: null }),
+    ],
+    "a2",
+  );
+  assert.deepEqual(board.rows, [
+    { rank: 1, name: "Lớp B", xp: 140, members: 2, xpPerMember: 70, isYours: false },
+    { rank: 2, name: "Lớp A", xp: 140, members: 3, xpPerMember: 47, isYours: true },
+  ]);
+  assert.equal(board.yourClassRank, 2);
+  assert.equal(board.yourClassXp, 140);
+  assert.equal(board.yourContribution, 40);
+});
+
+test("classes board hides classes without XP and has no class for admins", () => {
+  const board = rankClasses(
+    [person("a1", 0), person("c1", 20, { classKey: "lop-c", className: "Lớp C" }), person("t", 10, { isAdmin: true })],
+    "t",
+  );
+  assert.deepEqual(board.rows.map((row) => row.name), ["Lớp C"]);
+  assert.equal(board.yourClassRank, null);
+  assert.equal(board.yourContribution, 0);
+
+  const viewerClassEmpty = rankClasses([person("a1", 0), person("c1", 20, { classKey: "lop-c" })], "a1");
+  assert.equal(viewerClassEmpty.yourClassRank, null);
+  assert.equal(viewerClassEmpty.yourClassXp, 0);
+});
+
+test("class podiums go to the learners of the top 3 classes who earned XP that week", () => {
+  const cls = (key: string) => ({ classKey: key, className: key.toUpperCase() });
+  const places = classBoardPodiums([
+    person("a1", 100, cls("a")),
+    person("a2", 0, cls("a")),
+    person("b1", 300, cls("b")),
+    person("c1", 50, cls("c")),
+    person("d1", 40, cls("d")),
+    person("staff", 900, { ...cls("d"), isStaff: true }),
+    person("living", 999, cls(`${LIVING_BOARD_CLASS_PREFIX}x`)),
+  ]);
+  assert.deepEqual(places, [
+    { userId: "b1", classKey: "b", rank: 1, classXp: 300 },
+    { userId: "a1", classKey: "a", rank: 2, classXp: 100 },
+    { userId: "c1", classKey: "c", rank: 3, classXp: 50 },
+  ]);
 });

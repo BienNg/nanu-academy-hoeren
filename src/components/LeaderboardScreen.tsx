@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { TopBarStatus } from "@/components/TodayXpChip";
 import {
   googleProfileImage,
+  type ClassBoardExtras,
   type LeaderboardBoard,
   type LeaderboardClassOption,
   type LeaderboardPayload,
@@ -128,8 +129,55 @@ function ClassProgressCard({
   );
 }
 
+function ClassBoardList({ classes }: { classes: ClassBoardExtras }) {
+  return (
+    <>
+      <p className="-mb-1 px-3 text-[11px] font-extrabold uppercase tracking-wide text-[#94a3b8]">
+        Tổng XP tuần này của cả lớp
+      </p>
+      <ol className="flex flex-col gap-2">
+        {classes.rows.map((row) => (
+          <li
+            key={`${row.rank}-${row.name}`}
+            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${
+              row.isYours ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]" : "bg-white shadow-[0_3px_0_0_#dae2fd]"
+            }`}
+          >
+            <RankBadge rank={row.rank} />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-[15px] font-extrabold text-[#131b2e]">{row.name}</span>
+                {row.isYours ? (
+                  <span className="shrink-0 rounded-full bg-[#0284c7] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                    Lớp bạn
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block text-[12px] font-bold text-[#6e7881]">
+                {row.members} học viên · {row.xpPerMember.toLocaleString("vi-VN")} XP/người
+              </span>
+              {row.isYours ? (
+                <span className="block text-[12px] font-extrabold text-[#0284c7]">
+                  Bạn góp {classes.yourContribution.toLocaleString("vi-VN")} XP
+                </span>
+              ) : null}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5 text-[16px] font-extrabold tabular-nums text-[#f59e0b]">
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+                bolt
+              </span>
+              {row.xp.toLocaleString("vi-VN")}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 const BOARD_OPTIONS: { id: LeaderboardBoard; label: string; icon: string; iconClass: string }[] = [
   { id: "xp", label: "XP", icon: "bolt", iconClass: "text-[#f5a524]" },
+  { id: "classes", label: "Lớp", icon: "groups", iconClass: "text-[#0284c7]" },
   { id: "duel", label: "Đấu", icon: "swords", iconClass: "text-[#e11d48]" },
   { id: "blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, iconClass: "text-[#f59e0b]" },
 ];
@@ -177,7 +225,7 @@ function BoardTabs({
             >
               {option.icon}
             </span>
-            {option.label}
+            <span className={!active && options.length > 3 ? "sr-only sm:not-sr-only" : undefined}>{option.label}</span>
           </button>
         );
       })}
@@ -463,10 +511,14 @@ export function LeaderboardScreen({
     setBoardKind("xp");
   }
 
-  const emptyClass = board.ready && scope === "class" && !board.className;
+  const classBoard = board.board === "classes" ? board.classes : undefined;
+  // The classes board is always this week, whatever range the other boards use.
+  const shownRange: LeaderboardRange = board.board === "classes" ? "week" : range;
+  const emptyClass = board.ready && !classBoard && scope === "class" && !board.className;
   const emptyGlobal =
-    board.ready && scope === "global" && board.rows.every((row) => row.xp === 0);
-  const rangeLabel = range === "week" ? "tuần này" : "từ trước đến nay";
+    board.ready && !classBoard && scope === "global" && board.rows.every((row) => row.xp === 0);
+  const emptyClasses = board.ready && board.board === "classes" && (classBoard?.rows.length ?? 0) === 0;
+  const rangeLabel = shownRange === "week" ? "tuần này" : "từ trước đến nay";
 
   return (
     <div
@@ -480,7 +532,7 @@ export function LeaderboardScreen({
               Bảng xếp hạng
             </h1>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {range === "week" && board.countdown ? (
+              {shownRange === "week" && board.countdown ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[12px] font-extrabold text-[#855300] shadow-[0_2px_0_0_#f4d48a]">
                   <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
                     schedule
@@ -503,6 +555,7 @@ export function LeaderboardScreen({
           {boardOptions.length > 1 ? (
             <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
           ) : null}
+          {boardKind === "classes" ? null : (
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             {canPickClass && board.classOptions.length > 0 ? (
               <div className="flex min-w-0 rounded-2xl bg-[#e2e7ff] p-1">
@@ -522,15 +575,18 @@ export function LeaderboardScreen({
             )}
             <RangeMenu range={range} onChange={setRange} />
           </div>
+          )}
         </div>
         <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">
           <div className="relative z-10 flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-sky-100">
-                {board.board === "blitzrunde" && scope === "class" && board.className
-                  ? `${board.className} · `
+                {(board.board === "blitzrunde" && scope === "class") || board.board === "classes"
+                  ? board.className
+                    ? `${board.className} · `
+                    : ""
                   : ""}
-                {range === "week" ? "Tuần này" : "Mọi lúc"}
+                {shownRange === "week" ? "Tuần này" : "Mọi lúc"}
               </p>
               <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
                 {board.yourXp}
@@ -543,9 +599,21 @@ export function LeaderboardScreen({
                 >
                   bolt
                 </span>
-                {board.board === "duel" ? "XP đấu" : board.board === "blitzrunde" ? "Điểm Blitzrunde" : "XP của bạn"}
+                {board.board === "duel"
+                  ? "XP đấu"
+                  : board.board === "blitzrunde"
+                    ? "Điểm Blitzrunde"
+                    : board.board === "classes"
+                      ? "XP của lớp bạn"
+                      : "XP của bạn"}
               </p>
-              {board.board === "duel" ? (
+              {classBoard ? (
+                <p className="mt-2 text-[13px] font-bold text-sky-50">
+                  {classBoard.yourClassRank
+                    ? `Hạng ${classBoard.yourClassRank} / ${classBoard.rows.length} lớp`
+                    : "Lớp bạn chưa có XP tuần này"}
+                </p>
+              ) : board.board === "duel" ? (
                 <p className="mt-2 text-[13px] font-bold text-sky-50">
                   {board.yourWon} thắng · {board.yourTied} hòa · {board.yourLost} thua
                 </p>
@@ -577,7 +645,9 @@ export function LeaderboardScreen({
                 ? "XP từ trận đấu. Hạng theo XP đấu."
                 : board.board === "blitzrunde"
                   ? "Điểm từ các vòng Blitzrunde trên lớp. Không tính vào XP."
-                  : "Điểm từ phần luyện nghe và đấu."}
+                  : board.board === "classes"
+                    ? "Mỗi XP bạn kiếm được cũng cộng cho lớp."
+                    : "Điểm từ phần luyện nghe và đấu."}
           </p>
           <span
             className="pointer-events-none absolute -right-3 -bottom-6 text-white/15 material-symbols-outlined text-[120px]"
@@ -604,6 +674,15 @@ export function LeaderboardScreen({
                   : "Bảng sẽ hiện sau khi giáo viên bật lưu điểm."}
             </p>
           </section>
+        ) : emptyClasses ? (
+          <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
+            <p className="text-[16px] font-extrabold text-[#131b2e]">Chưa có lớp nào có XP tuần này</p>
+            <p className="mt-2 text-[14px] font-medium text-[#6e7881]">
+              Hoàn thành một phần luyện tập để đưa lớp bạn lên bảng.
+            </p>
+          </section>
+        ) : classBoard ? (
+          <ClassBoardList classes={classBoard} />
         ) : emptyClass ? (
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e0f2fe] text-[#0284c7]">

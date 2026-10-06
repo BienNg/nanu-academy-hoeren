@@ -14,11 +14,13 @@ import { listRankedResults } from "@/lib/blitzrunde-store";
 import { collectPracticeDates } from "@/lib/progress";
 import { getCloudProgress, getSupabaseAdmin } from "@/lib/progress-store";
 import { weekKey } from "@/lib/xp";
-import { getUserXpTotals, readWeeklyClassPodiums } from "@/lib/xp-store";
+import { getUserXpTotals, readWeeklyClassBoardPodiums, readWeeklyClassPodiums } from "@/lib/xp-store";
 
 const AWARDS_TABLE = "badge_awards";
 const PODIUMS_TABLE = "weekly_podiums";
 const PODIUM_WEEKS_TABLE = "weekly_podium_weeks";
+const CLASS_PODIUMS_TABLE = "weekly_class_podiums";
+const CLASS_PODIUM_WEEKS_TABLE = "weekly_class_podium_weeks";
 const WEEK_MS = 7 * 86_400_000;
 /** A week is ranked this long after it ends, so late runs still land in it. */
 const WEEK_GRACE_MS = 15 * 60_000;
@@ -29,7 +31,7 @@ export const BADGE_SCHEMA_HINT = "Run supabase/badges.sql once in the Supabase S
 
 export function isBadgeSchemaMissing(message: string): boolean {
   return (
-    /badge_awards|weekly_podium/i.test(message) &&
+    /badge_awards|weekly_(class_)?podium/i.test(message) &&
     /does not exist|schema cache|could not find the table/i.test(message)
   );
 }
@@ -60,9 +62,10 @@ async function countRows(
 
 async function readPodiumCounts(
   supabase: SupabaseClient,
+  table: string,
   userId: string,
 ): Promise<{ top3: number; first: number }> {
-  const { data, error } = await supabase.from(PODIUMS_TABLE).select("rank").eq("user_id", userId);
+  const { data, error } = await supabase.from(table).select("rank").eq("user_id", userId);
   if (error) {
     if (!isBadgeSchemaMissing(error.message)) console.error("Supabase badge podiums", error.message);
     return { top3: 0, first: 0 };
@@ -86,6 +89,7 @@ async function readBadgeStats(supabase: SupabaseClient, userId: string): Promise
     progress,
     blitz,
     podiums,
+    classPodiums,
   ] = await Promise.all([
     getUserXpTotals(userId),
     countRows(
@@ -115,7 +119,8 @@ async function readBadgeStats(supabase: SupabaseClient, userId: string): Promise
     ),
     getCloudProgress(userId),
     listRankedResults({ userId }),
-    readPodiumCounts(supabase, userId),
+    readPodiumCounts(supabase, PODIUMS_TABLE, userId),
+    readPodiumCounts(supabase, CLASS_PODIUMS_TABLE, userId),
   ]);
 
   return {
@@ -131,56 +136,89 @@ async function readBadgeStats(supabase: SupabaseClient, userId: string): Promise
     blitzPodiums: (blitz ?? []).filter((result) => result.rank <= 3).length,
     weekTop3: podiums.top3,
     weekFirst: podiums.first,
+    classWeekTop3: classPodiums.top3,
+    classWeekFirst: classPodiums.first,
   };
 }
 
+/** A weekly podium kept for badges: where it is stored and how a finished week is ranked. */
+type PodiumSource = {
+  label: string;
+  placesTable: string;
+  weeksTable: string;
+  /** Rows for one finished week, without `week_key`. Null when XP is unreadable. */
+  rank: (inWeek: Date) => Promise<Record<string, string | number>[] | null>;
+};
+
+const PODIUM_SOURCES: readonly PodiumSource[] = [
+  {
+    label: "podium",
+    placesTable: PODIUMS_TABLE,
+    weeksTable: PODIUM_WEEKS_TABLE,
+    rank: async (inWeek) =>
+      (await readWeeklyClassPodiums(inWeek))?.map((place) => ({
+        user_id: place.userId,
+        class_key: place.classKey,
+        rank: place.rank,
+        xp: place.xp,
+      })) ?? null,
+  },
+  {
+    label: "class podium",
+    placesTable: CLASS_PODIUMS_TABLE,
+    weeksTable: CLASS_PODIUM_WEEKS_TABLE,
+    rank: async (inWeek) =>
+      (await readWeeklyClassBoardPodiums(inWeek))?.map((place) => ({
+        user_id: place.userId,
+        class_key: place.classKey,
+        rank: place.rank,
+        class_xp: place.classXp,
+      })) ?? null,
+  },
+];
+
 /**
- * Stores the class podiums of recently finished weeks that are not ranked yet.
+ * Stores the podiums of recently finished weeks that are not ranked yet.
  * Cheap once they are: one small read. Two requests racing both write the
- * same rows, and the primary keys keep one copy.
+ * same rows, and the primary keys keep one copy. A missing table only skips
+ * that podium.
  */
-async function rankFinishedWeeks(supabase: SupabaseClient, now: Date): Promise<void> {
+async function rankFinishedWeeks(supabase: SupabaseClient, now: Date, source: PodiumSource): Promise<void> {
   const settled = now.getTime() - WEEK_GRACE_MS;
   const weeks = Array.from({ length: PODIUM_BACKFILL_WEEKS }, (_, index) => {
     const inWeek = new Date(settled - (index + 1) * WEEK_MS);
     return { key: weekKey(inWeek), inWeek };
   });
   const { data, error } = await supabase
-    .from(PODIUM_WEEKS_TABLE)
+    .from(source.weeksTable)
     .select("week_key")
     .in(
       "week_key",
       weeks.map((week) => week.key),
     );
   if (error) {
-    if (!isBadgeSchemaMissing(error.message)) console.error("Supabase podium weeks", error.message);
+    if (!isBadgeSchemaMissing(error.message)) console.error(`Supabase ${source.label} weeks`, error.message);
     return;
   }
   const ranked = new Set(((data ?? []) as { week_key?: unknown }[]).map((row) => row.week_key));
   for (const week of weeks.filter((entry) => !ranked.has(entry.key)).reverse()) {
-    const places = await readWeeklyClassPodiums(week.inWeek);
+    const places = await source.rank(week.inWeek);
     if (!places) return;
     if (places.length > 0) {
-      const { error: placeError } = await supabase.from(PODIUMS_TABLE).upsert(
-        places.map((place) => ({
-          week_key: week.key,
-          user_id: place.userId,
-          class_key: place.classKey,
-          rank: place.rank,
-          xp: place.xp,
-        })),
+      const { error: placeError } = await supabase.from(source.placesTable).upsert(
+        places.map((place) => ({ week_key: week.key, ...place })),
         { onConflict: "week_key,user_id", ignoreDuplicates: true },
       );
       if (placeError) {
-        console.error("Supabase podium insert", placeError.message);
+        console.error(`Supabase ${source.label} insert`, placeError.message);
         return;
       }
     }
     const { error: markError } = await supabase
-      .from(PODIUM_WEEKS_TABLE)
+      .from(source.weeksTable)
       .upsert({ week_key: week.key }, { onConflict: "week_key", ignoreDuplicates: true });
     if (markError) {
-      console.error("Supabase podium week mark", markError.message);
+      console.error(`Supabase ${source.label} week mark`, markError.message);
       return;
     }
   }
@@ -219,7 +257,7 @@ export async function syncBadges(
   const supabase = getSupabaseAdmin();
   if (!supabase) return { board: notReady(), newly: [] };
 
-  await rankFinishedWeeks(supabase, now);
+  await Promise.all(PODIUM_SOURCES.map((source) => rankFinishedWeeks(supabase, now, source)));
   const [stored, stats] = await Promise.all([
     readStoredBadges(supabase, userId),
     readBadgeStats(supabase, userId),
@@ -272,7 +310,7 @@ export async function markBadgesSeen(userId: string, ids: readonly string[]): Pr
 export async function deleteUserBadges(userId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
-  for (const table of [AWARDS_TABLE, PODIUMS_TABLE]) {
+  for (const table of [AWARDS_TABLE, PODIUMS_TABLE, CLASS_PODIUMS_TABLE]) {
     const { error } = await supabase.from(table).delete().eq("user_id", userId);
     if (error && !isBadgeSchemaMissing(error.message)) {
       throw new Error(`Could not delete badges (${error.message}).`);

@@ -1,6 +1,7 @@
 /** Quest completions over an admin window. Pure, so it can be tested without Supabase. */
 
 import { dayKey } from "./xp";
+import { isClassQuestId } from "./class-quests";
 import { QUEST_BONUS_ID, QUEST_KINDS, QUEST_POOL, type QuestKind } from "./quests";
 
 export type AdminQuestClaimRow = {
@@ -59,6 +60,8 @@ export function buildAdminQuestBoard(
   let xp = 0;
 
   for (const claim of claims) {
+    // Class quests are counted apart from the personal daily quests.
+    if (isClassQuestId(claim.questId)) continue;
     const time = Date.parse(claim.createdAt);
     if (!Number.isFinite(time)) continue;
     const point = points[indexByDay.get(dayKey(new Date(time))) ?? -1];

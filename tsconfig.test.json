@@ -71,6 +71,8 @@
     "src/lib/onboarding.ts",
     "src/lib/onboarding.test.ts",
     "src/lib/badges.ts",
-    "src/lib/badges.test.ts"
+    "src/lib/badges.test.ts",
+    "src/lib/class-quests.ts",
+    "src/lib/class-quests.test.ts"
   ]
 }

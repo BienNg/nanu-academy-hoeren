@@ -18,6 +18,7 @@ import {
   zonedDayRange,
 } from "@/lib/quests";
 import type { AdminQuestClaimRow } from "@/lib/admin-quests";
+import { isClassQuestId } from "@/lib/class-quests";
 import { weekKey } from "@/lib/xp";
 
 const CLAIMS_TABLE = "quest_claims";
@@ -142,7 +143,8 @@ async function readClaims(
   }
   const claims = new Map<string, number>();
   for (const row of (data ?? []) as { quest_id?: unknown; xp?: unknown }[]) {
-    if (typeof row.quest_id === "string" && typeof row.xp === "number") {
+    // Class quest claims share the table but are not part of the personal board.
+    if (typeof row.quest_id === "string" && typeof row.xp === "number" && !isClassQuestId(row.quest_id)) {
       claims.set(row.quest_id, row.xp);
     }
   }

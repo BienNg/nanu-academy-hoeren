@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { chunkyButton } from "@/components/chunkyButton";
+import { ClassQuestsSection } from "@/components/ClassQuestParts";
 import { KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
 import { ChillPingu } from "@/components/session/Pingu";
 import { TopBarStatus } from "@/components/TodayXpChip";
@@ -232,6 +233,10 @@ export function QuestsScreen() {
   const board = state.status === "ready" ? state.board : null;
   const allDone = board ? board.quests.every((quest) => quest.done) : false;
   const dismissToast = useCallback(() => setToast(null), []);
+  const onClassClaimed = useCallback(
+    (xp: number) => setToast({ xp, completed: [], bonus: false, quests: [] }),
+    [],
+  );
 
   return (
     <div
@@ -298,6 +303,8 @@ export function QuestsScreen() {
             </p>
           </>
         ) : null}
+
+        <ClassQuestsSection onClaimed={onClassClaimed} />
       </main>
 
       <BottomNav />

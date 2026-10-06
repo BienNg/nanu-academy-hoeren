@@ -17,18 +17,28 @@ function initialFor(name: string): string {
   return Array.from(name)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
-export function PersonAvatar({ name, image }: { name: string; image: string | null }) {
+export function PersonAvatar({
+  name,
+  image,
+  size = 40,
+}: {
+  name: string;
+  image: string | null;
+  size?: number;
+}) {
   const [failed, setFailed] = useState(false);
+  const box = { width: size, height: size };
   if (image && !failed) {
     return (
-      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
+      <span className="relative shrink-0 overflow-hidden rounded-full" style={box}>
         <Image
           src={image}
           alt=""
-          width={40}
-          height={40}
+          width={size}
+          height={size}
           referrerPolicy="no-referrer"
-          className="h-10 w-10 object-cover"
+          className="object-cover"
+          style={box}
           onError={() => setFailed(true)}
         />
       </span>
@@ -36,8 +46,8 @@ export function PersonAvatar({ name, image }: { name: string; image: string | nu
   }
   return (
     <span
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-white"
-      style={{ backgroundColor: avatarColor(name) }}
+      className="flex shrink-0 items-center justify-center rounded-full font-extrabold text-white"
+      style={{ ...box, fontSize: Math.round(size * 0.4), backgroundColor: avatarColor(name) }}
       aria-hidden="true"
     >
       {initialFor(name)}
