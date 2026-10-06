@@ -19,12 +19,13 @@ import {
 } from "@/lib/lesson-jump";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { checkOrder, type PracticeCard } from "@/lib/sentence-order";
-import type { ScoreResult } from "@/lib/scoring";
+import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FOCUS_RING } from "@/lib/keyboard";
 import { chunkyButton } from "@/components/chunkyButton";
 import { CheeringPingu } from "@/components/session/Pingu";
+import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { PartHearts } from "@/components/session/PartHearts";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -152,7 +153,7 @@ export function JumpSession({
   const [phase, setPhase] = useState<"intro" | "quiz" | "complete" | "leaving">("intro");
   const [deck, setDeck] = useState<PracticeCard<SessionClip>[]>([]);
   const [index, setIndex] = useState(0);
-  const [orderResult, setOrderResult] = useState<ScoreResult | null>(null);
+  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [mcResult, setMcResult] = useState<McResult | null>(null);
   const [heartsLeft, setHeartsLeft] = useState(JUMP_HEARTS);
   const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
@@ -187,7 +188,7 @@ export function JumpSession({
 
   const currentCard = deck[index];
   const currentClip = currentCard?.clip;
-  const answered = orderResult !== null || mcResult !== null;
+  const answered = scoreResult !== null || mcResult !== null;
   const progressFill = deck.length === 0 ? 0 : Math.min(1, (index + (answered ? 1 : 0)) / deck.length);
 
   const start = () => {
@@ -198,7 +199,7 @@ export function JumpSession({
     finishingRef.current = false;
     setDeck(buildJumpDeck(clips, jumpSeed(course.lessonKey, id)));
     setIndex(0);
-    setOrderResult(null);
+    setScoreResult(null);
     setMcResult(null);
     setHeartsLeft(JUMP_HEARTS);
     setBreakingIndex(null);
@@ -230,9 +231,15 @@ export function JumpSession({
   };
 
   const handleOrderSubmit = (selected: string[]) => {
-    if (!currentClip || orderResult) return;
-    setOrderResult(checkOrder(selected, currentClip.script));
+    if (!currentClip || scoreResult) return;
+    setScoreResult(checkOrder(selected, currentClip.script));
     recordAnswer(selected);
+  };
+
+  const handleTypedSubmit = (typed: string) => {
+    if (!currentClip || scoreResult) return;
+    setScoreResult(scoreAttempt(typed, currentClip.script));
+    recordAnswer(typed);
   };
 
   const handleMcSubmit = (selectedId: string) => {
@@ -305,7 +312,7 @@ export function JumpSession({
       finish(false);
       return;
     }
-    setOrderResult(null);
+    setScoreResult(null);
     setMcResult(null);
     setIndex((value) => value + 1);
   };
@@ -480,14 +487,14 @@ export function JumpSession({
                 translation={currentClip.translationVi}
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
-                locked={orderResult !== null}
+                locked={scoreResult !== null}
               />
             ) : currentCard.kind === "listening-order" ? (
               <SentenceOrderCard
                 key={`listen-order-${attemptCount}-${currentCard.key}`}
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
-                locked={orderResult !== null}
+                locked={scoreResult !== null}
                 afterPrompt={
                   <div className="mt-4">
                     <AudioPlayerCard
@@ -496,6 +503,14 @@ export function JumpSession({
                     />
                   </div>
                 }
+              />
+            ) : currentCard.kind === "vi-input" ? (
+              <DictationInputCard
+                key={`vi-input-${attemptCount}-${currentCard.key}`}
+                prompt={currentClip.translationVi}
+                onSubmit={handleTypedSubmit}
+                disabled={scoreResult !== null}
+                showSubmit={scoreResult === null}
               />
             ) : (
               <McCard
@@ -518,13 +533,14 @@ export function JumpSession({
                 nextLabel="Tiếp theo"
               />
             ) : null}
-            {orderResult ? (
+            {scoreResult ? (
               <FeedbackResultCard
-                result={orderResult}
+                result={scoreResult}
                 clip={currentClip}
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
                 skipOnMistake
+                speak={currentCard.kind === "vi-input"}
               />
             ) : null}
           </div>

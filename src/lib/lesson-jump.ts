@@ -7,6 +7,7 @@
  */
 
 import { seedToRandom } from "./blitzrunde";
+import { scoreAttempt } from "./scoring";
 import { buildDeMcOptions, buildMcOptions, checkMc } from "./multiple-choice";
 import {
   buildWordBank,
@@ -85,6 +86,7 @@ function jumpCardsFor<C extends OrderSourceClip>(
   if (!clip.answer && !clip.imageUrl) {
     const german = buildDeMcOptions(clip, lessonClips, [], random);
     if (german) cards.push({ key: `${clip.id}:vi-choice`, kind: "vi-choice", clip, options: german });
+    cards.push({ key: `${clip.id}:vi-input`, kind: "vi-input", clip });
   }
   return cards;
 }
@@ -92,8 +94,8 @@ function jumpCardsFor<C extends OrderSourceClip>(
 /**
  * Up to JUMP_CARD_COUNT cards, one per clip, from randomly picked clips of
  * the Lektion. Each clip becomes a random one of the kinds it qualifies for:
- * sentence order, listening sentence order, German → Vietnamese choice, or
- * Vietnamese → German choice.
+ * sentence order, listening sentence order, German → Vietnamese choice,
+ * Vietnamese → German choice, or Vietnamese → typed German.
  */
 export function buildJumpDeck<C extends OrderSourceClip>(
   lessonClips: readonly C[],
@@ -111,12 +113,18 @@ export function buildJumpDeck<C extends OrderSourceClip>(
   return deck;
 }
 
-/** An option id on choice cards, or the chip texts in tapped order on sentence-order cards. */
+/**
+ * An option id on choice cards, the typed German on vi-input cards, or the
+ * chip texts in tapped order on sentence-order cards.
+ */
 export type JumpAnswer = string | string[];
 
 export function checkJumpAnswer(card: PracticeCard, answer: JumpAnswer): boolean {
   if (card.kind === "order" || card.kind === "listening-order") {
     return Array.isArray(answer) && checkOrder(answer, card.clip.script).accuracy === 100;
+  }
+  if (card.kind === "vi-input") {
+    return typeof answer === "string" && scoreAttempt(answer, card.clip.script).accuracy === 100;
   }
   if (typeof answer !== "string" || !card.options) return false;
   return checkMc(answer, card.options).accuracy === 100;

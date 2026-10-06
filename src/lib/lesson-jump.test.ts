@@ -41,11 +41,13 @@ const ID = "6f1c2b8e-3a4d-4c5e-9f60-718293a4b5c6";
 
 function rightAnswer(card: PracticeCard): JumpAnswer {
   if (card.kind === "order" || card.kind === "listening-order") return tokenizeSentence(card.clip.script);
+  if (card.kind === "vi-input") return card.clip.script;
   return card.options?.find((option) => option.correct)?.id ?? "";
 }
 
 function wrongAnswer(card: PracticeCard): JumpAnswer {
   if (card.kind === "order" || card.kind === "listening-order") return ["falsch"];
+  if (card.kind === "vi-input") return "falsch";
   return card.options?.find((option) => !option.correct)?.id ?? "x";
 }
 
@@ -54,9 +56,35 @@ test("a jump deck deals at most 25 cards, one per clip, with no pairing cards", 
   assert.equal(deck.length, JUMP_CARD_COUNT);
   assert.equal(new Set(deck.map((card) => card.clip.id)).size, deck.length);
   for (const card of deck) {
-    assert.ok(["order", "listening-order", "multiple-choice", "vi-choice"].includes(card.kind), card.kind);
+    assert.ok(
+      ["order", "listening-order", "multiple-choice", "vi-choice", "vi-input"].includes(card.kind),
+      card.kind,
+    );
   }
   assert.ok(deck.some((card) => card.kind === "listening-order"));
+  assert.ok(deck.some((card) => card.kind === "vi-input"));
+});
+
+test("a vi-input jump card passes only on a full match, ignoring case and end punctuation", () => {
+  const deck = buildJumpDeck(lessonClips(40), jumpSeed("a1-1/lektion-1", ID));
+  const card = deck.find((entry) => entry.kind === "vi-input");
+  assert.ok(card);
+  assert.equal(checkJumpAnswer(card, card.clip.script), true);
+  assert.equal(checkJumpAnswer(card, `${card.clip.script.toLowerCase()}.`), true);
+  assert.equal(checkJumpAnswer(card, card.clip.script.split(" ").slice(1).join(" ")), false);
+  assert.equal(checkJumpAnswer(card, tokenizeSentence(card.clip.script)), false);
+});
+
+test("number clips and picture words never become vi-input jump cards", () => {
+  const clips = [
+    ...lessonClips(8),
+    { id: "num", script: "Das kostet zwölf Euro", translationVi: "cái này mười hai euro", answer: "12" },
+    { id: "pic", script: "die Nagelfeile", translationVi: "cái dũa móng", imageUrl: "/images/pic.webp" },
+  ];
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const deck = buildJumpDeck(clips, jumpSeed("a1-1/lektion-1", `attempt-${attempt}`));
+    assert.ok(!deck.some((card) => card.kind === "vi-input" && (card.clip.id === "num" || card.clip.id === "pic")));
+  }
 });
 
 test("a listening-order jump card holds the sentence's chips and grades like an order card", () => {
