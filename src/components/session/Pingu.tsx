@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 type PinguMood = "cheering" | "oops";
@@ -13,6 +14,9 @@ export const PATH_POSES = [
   "cups",
   "pen",
   "cube",
+  "music",
+  "pool",
+  "peekaboo",
 ] as const;
 
 export type PathPose = (typeof PATH_POSES)[number];
@@ -62,7 +66,7 @@ export function Pingu({ mood }: { mood: PinguMood }) {
 }
 
 /** One pose for the empty side of a Lektion. Locked trails are drained of color. */
-export function ChillPingu({ pose, locked = false }: { pose: PathPose; locked?: boolean }) {
+export function ChillPingu({ pose, locked = false }: { pose: ChillPose; locked?: boolean }) {
   const art =
     pose === "tea" ? (
       <BubbleTea />
@@ -76,6 +80,12 @@ export function ChillPingu({ pose, locked = false }: { pose: PathPose; locked?: 
       <CupStack />
     ) : pose === "pen" ? (
       <PenSpin />
+    ) : pose === "music" ? (
+      <Music />
+    ) : pose === "pool" ? (
+      <PoolDay />
+    ) : pose === "peekaboo" ? (
+      <Peekaboo />
     ) : (
       <PuzzleCube />
     );
@@ -507,6 +517,158 @@ function PuzzleCube() {
         </g>
         <g className="pingu-fl-r" style={{ transform: "rotate(46deg)" }}>
           <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function Music() {
+  return (
+    <svg
+      className="pingu"
+      viewBox="0 0 240 250"
+      width="78"
+      height="81"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Penguin with headphones bobbing to music"
+    >
+      <ellipse cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+      <g className="pingu-chill-note">
+        <ellipse cx="216" cy="62" rx="6.5" ry="5" fill="#0071E3" />
+        <path d="M221 62 V38 Q232 40 230 51" stroke="#0071E3" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </g>
+      <g className="pingu-chill-note" style={{ animationDelay: "1.2s" }}>
+        <ellipse cx="14" cy="50" rx="6.5" ry="5" fill="#FF9500" />
+        <path d="M19 50 V26 Q30 28 28 39" stroke="#FF9500" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </g>
+      <g className="pingu-chill-tap-a">
+        <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+      </g>
+      <g className="pingu-chill-tap-b">
+        <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+      </g>
+      <g className="pingu-chill-bob">
+        <g className="pingu-fl-l pingu-chill-groove-l">
+          <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+        </g>
+        <g className="pingu-fl-r pingu-chill-groove-r">
+          <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+        </g>
+        <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+        <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+        <path d="M38 116 C38 4 202 4 202 116" stroke="#0071E3" strokeWidth="9" strokeLinecap="round" fill="none" />
+        <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+        <rect x="24" y="100" width="26" height="46" rx="12" fill="#0071E3" />
+        <rect x="24" y="108" width="10" height="30" rx="5" fill="#0A4FA0" />
+        <rect x="190" y="100" width="26" height="46" rx="12" fill="#0071E3" />
+        <rect x="206" y="108" width="10" height="30" rx="5" fill="#0A4FA0" />
+        <ellipse cx="78" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity="0.55" />
+        <ellipse cx="162" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity="0.55" />
+        <path d="M82 122 Q92 110 102 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+        <path d="M138 122 Q148 110 158 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+        <ellipse cx="120" cy="150" rx="7" ry="5.5" fill="#D9423A" />
+        <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+        <path d="M113 134 Q120 129 127 134" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      </g>
+    </svg>
+  );
+}
+
+function PoolDay() {
+  return (
+    <svg
+      className="pingu"
+      viewBox="0 0 240 250"
+      width="78"
+      height="81"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Penguin in sunglasses floating in a pink swim ring"
+    >
+      <ellipse className="pingu-chill-ripple" cx="120" cy="226" rx="118" ry="24" fill="#CFE4FB" />
+      <g className="pingu-chill-floaty">
+        <ellipse cx="120" cy="196" rx="96" ry="26" stroke="#E96C87" strokeWidth="24" fill="none" />
+        <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+        <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+        <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+        <ellipse cx="76" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+        <ellipse cx="164" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+        <rect x="72" y="105" width="40" height="26" rx="11" fill="#141B2E" />
+        <rect x="128" y="105" width="40" height="26" rx="11" fill="#141B2E" />
+        <path d="M110 113 H130" stroke="#141B2E" strokeWidth="5" strokeLinecap="round" />
+        <path d="M81 117 L90 111 M137 117 L146 111" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" opacity="0.65" />
+        <path d="M107 136 Q120 126 133 136 Q131 150 120 152 Q109 150 107 136 Z" fill="#FF9500" />
+        <path d="M113 138 Q120 133 127 138" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        <path d="M24 196 A96 26 0 0 0 216 196" stroke="#FF8FA3" strokeWidth="24" fill="none" />
+        <path d="M46 211 Q76 224 112 226" stroke="#FFC2CE" strokeWidth="5" strokeLinecap="round" fill="none" />
+        <g className="pingu-fl-l" style={{ transform: "rotate(14deg)" }}>
+          <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+        </g>
+        <g className="pingu-fl-r" style={{ transform: "rotate(-14deg)" }}>
+          <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+        </g>
+      </g>
+      <path d="M30 240 Q42 235 54 240 M186 240 Q198 235 210 240 M104 246 Q120 241 136 246" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function Peekaboo() {
+  // Each copy needs its own clip id, or two on one page share the first one's.
+  const clipId = `pingu-peek-${useId().replace(/[^\w-]/g, "")}`;
+  return (
+    <svg
+      className="pingu"
+      viewBox="0 0 240 250"
+      width="78"
+      height="81"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Penguin peeking out of a hole in the ice"
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect x="-20" y="-60" width="280" height="275" />
+          <ellipse cx="120" cy="215" rx="92" ry="20" />
+        </clipPath>
+      </defs>
+      <ellipse cx="120" cy="218" rx="119" ry="32" fill="#D3E6FA" />
+      <ellipse cx="120" cy="215" rx="92" ry="20" fill="#0A4FA0" />
+      <path
+        className="pingu-chill-sparkle"
+        d="M22 176 L25 184 L33 187 L25 190 L22 198 L19 190 L11 187 L19 184 Z"
+        fill="#6DB2F7"
+      />
+      <path
+        className="pingu-chill-sparkle"
+        d="M216 160 L218 166 L224 168 L218 170 L216 176 L214 170 L208 168 L214 166 Z"
+        fill="#6DB2F7"
+        style={{ animationDelay: "1.2s" }}
+      />
+      <g clipPath={`url(#${clipId})`}>
+        <g className="pingu-chill-peek" style={{ transform: "translateY(60px)" }}>
+          <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+          <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+          <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+          <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <ellipse cx="76" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+          <ellipse cx="164" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+          <g className="pingu-blink">
+            <g className="pingu-chill-peer">
+              <ellipse cx="92" cy="118" rx="9.5" ry="11.5" fill="#141B2E" />
+              <ellipse cx="148" cy="118" rx="9.5" ry="11.5" fill="#141B2E" />
+              <circle cx="95.5" cy="113" r="3.6" fill="#FFFFFF" />
+              <circle cx="151.5" cy="113" r="3.6" fill="#FFFFFF" />
+              <circle cx="89.5" cy="123" r="1.6" fill="#FFFFFF" />
+              <circle cx="145.5" cy="123" r="1.6" fill="#FFFFFF" />
+            </g>
+          </g>
+          <path d="M107 134 Q120 124 133 134 Q131 150 120 152 Q109 150 107 134 Z" fill="#FF9500" />
+          <path d="M113 136 Q120 131 127 136" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
         </g>
       </g>
     </svg>

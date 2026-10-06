@@ -595,6 +595,175 @@ body {
   }
 }
 
+.pingu-chill-tap-a {
+  animation: pingu-chill-step 1.2s ease-in-out infinite;
+}
+
+.pingu-chill-tap-b {
+  animation: pingu-chill-step 1.2s ease-in-out 0.6s infinite;
+}
+
+@keyframes pingu-chill-step {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.pingu-chill-bob {
+  transform-origin: 50% 100%;
+  animation: pingu-chill-bob 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-chill-bob {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+
+.pingu-chill-groove-l {
+  animation: pingu-chill-groove-l 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-chill-groove-l {
+  from {
+    transform: rotate(4deg);
+  }
+  to {
+    transform: rotate(26deg);
+  }
+}
+
+.pingu-chill-groove-r {
+  animation: pingu-chill-groove-r 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-chill-groove-r {
+  from {
+    transform: rotate(-26deg);
+  }
+  to {
+    transform: rotate(-4deg);
+  }
+}
+
+.pingu-chill-note {
+  animation: pingu-chill-note 2.4s ease-out infinite;
+  opacity: 0;
+}
+
+@keyframes pingu-chill-note {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) rotate(-8deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) rotate(10deg);
+  }
+}
+
+.pingu-chill-floaty {
+  transform-origin: 50% 80%;
+  animation: pingu-chill-floaty 3.6s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-floaty {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2.5deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(2.5deg);
+  }
+}
+
+.pingu-chill-ripple {
+  transform-origin: 50% 50%;
+  animation: pingu-chill-ripple 3.6s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-ripple {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04, 1.1);
+  }
+}
+
+.pingu-chill-peek {
+  animation: pingu-chill-peek 5s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-peek {
+  0%,
+  8% {
+    transform: translateY(200px);
+  }
+  18% {
+    transform: translateY(54px);
+  }
+  23%,
+  80% {
+    transform: translateY(60px);
+  }
+  92%,
+  100% {
+    transform: translateY(200px);
+  }
+}
+
+.pingu-chill-peer {
+  animation: pingu-chill-peer 5s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-peer {
+  0%,
+  25% {
+    transform: translateX(0);
+  }
+  38%,
+  48% {
+    transform: translateX(-5px);
+  }
+  60%,
+  72% {
+    transform: translateX(5px);
+  }
+  82%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.pingu-chill-sparkle {
+  transform-origin: 50% 50%;
+  animation: pingu-chill-sparkle 2.5s ease-in-out infinite;
+}
+
+@keyframes pingu-chill-sparkle {
+  0%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .pingu-hobby-lean {
   transform-origin: 50% 100%;
   animation: pingu-hobby-lean 1.4s ease-in-out infinite;
@@ -806,9 +975,20 @@ body {
   animation: none !important;
 }
 
+/* Hearts and notes rest invisible between loops; show them when nothing moves. */
+.pingu-locked .pingu-chill-heart,
+.pingu-locked .pingu-chill-note {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pingu *,
   .pingu-bubble {
     animation: none !important;
+  }
+
+  .pingu .pingu-chill-heart,
+  .pingu .pingu-chill-note {
+    opacity: 1;
   }
 }
