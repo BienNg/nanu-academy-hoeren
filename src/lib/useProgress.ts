@@ -557,6 +557,23 @@ export function takeStreakCelebration(): StreakCelebration | null {
   return step;
 }
 
+/**
+ * Queue a flame for a screen that shows it, without recording a practice day.
+ * The admin preview uses this. A real run still queues its own step.
+ */
+export function stageStreakCelebration(step: StreakCelebration): void {
+  if (visibleCelebration) return;
+  queuedCelebration = step;
+  notifyCelebration();
+}
+
+/** Drop a queued flame that was never shown. */
+export function dropQueuedStreakCelebration(): void {
+  if (!queuedCelebration) return;
+  queuedCelebration = null;
+  notifyCelebration();
+}
+
 export function dismissStreakCelebration(): void {
   if (!visibleCelebration) return;
   visibleCelebration = null;

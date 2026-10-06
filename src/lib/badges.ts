@@ -64,12 +64,12 @@ export type BadgeFamily = {
   goal: (target: number) => string;
 };
 
-/** Tier 1 is Bronze. `ring` frames the medal, `lip` is its 3D edge. */
+/** Tier 1 is Đồng. Colors match the medal metals in the badge design. */
 export const BADGE_TIERS = [
-  { name: "Đồng", ring: "#C77B30", lip: "#8A4F1C", glow: "#F6D3AE" },
-  { name: "Bạc", ring: "#8E9AA6", lip: "#5F6B76", glow: "#E3E8EE" },
-  { name: "Vàng", ring: "#E0A100", lip: "#A87400", glow: "#FFE89A" },
-  { name: "Kim cương", ring: "#2BA8E0", lip: "#1A7BAA", glow: "#C7ECFF" },
+  { name: "Đồng", ring: "#C97B4A", lip: "#9A5630", glow: "#E8AE88" },
+  { name: "Bạc", ring: "#AEB8C6", lip: "#7C8898", glow: "#DDE4ED" },
+  { name: "Vàng", ring: "#FFC83D", lip: "#D99A00", glow: "#FFE9A6" },
+  { name: "Kim cương", ring: "#5CC8F5", lip: "#2A93D1", glow: "#C4EEFF" },
 ] as const;
 
 export const BADGE_GROUPS: readonly { id: BadgeGroup; title: string }[] = [

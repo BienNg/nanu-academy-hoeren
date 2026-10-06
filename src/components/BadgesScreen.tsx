@@ -66,7 +66,7 @@ function FamilyCard({
         className="flex h-full w-full flex-col items-center gap-2 rounded-[22px] border-2 border-[#e5e5ea] bg-white px-3 pt-4 pb-3 text-center shadow-[0_4px_0_0_#e5e5ea] transition-transform active:translate-y-[2px] active:shadow-[0_2px_0_0_#e5e5ea]"
         aria-label={`${family.title}, ${tierName ? `cấp ${tierName}` : "chưa mở khóa"}`}
       >
-        <BadgeMedal icon={family.icon} color={family.color} tier={family.tier} size={64} />
+        <BadgeMedal familyId={family.id} tier={family.tier} size={64} />
         <span className="text-[14px] leading-[18px] font-extrabold text-[#1d1d1f]">{family.title}</span>
         <TierPips tier={family.tier} />
         <span className="mt-auto flex w-full flex-col gap-1">
@@ -92,7 +92,7 @@ function FamilySheet({ family, onClose }: { family: BadgeFamilyView; onClose: ()
   return (
     <BadgeSheet title={family.title} onClose={onClose}>
       <div className="flex flex-col items-center text-center">
-        <BadgeMedal icon={family.icon} color={family.color} tier={family.tier} size={88} />
+        <BadgeMedal familyId={family.id} tier={family.tier} size={88} />
         <p className="mt-3 text-[20px] font-extrabold text-[#1d1d1f]">{family.title}</p>
         <p className="text-[13px] font-semibold text-[#6e6e73]">
           Hiện tại: <span className="tabular-nums">{formatValue(family.value)}</span>
@@ -110,7 +110,7 @@ function FamilySheet({ family, onClose }: { family: BadgeFamilyView; onClose: ()
               }`}
               style={earned ? { backgroundColor: `${style.glow}80` } : undefined}
             >
-              <BadgeMedal icon={family.icon} color={family.color} tier={earned ? tier.tier : 0} size={40} />
+              <BadgeMedal familyId={family.id} tier={tier.tier} muted={!earned} size={40} />
               <div className="min-w-0 flex-1 text-left">
                 <p className="text-[13px] font-extrabold" style={{ color: earned ? style.lip : "#86868b" }}>
                   {style.name}
@@ -242,7 +242,7 @@ export function BadgesScreen() {
 
         {state.status === "unavailable" ? (
           <section className="flex flex-col items-center gap-3 rounded-[24px] border-2 border-[#e5e5ea] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#e5e5ea]">
-            <BadgeMedal icon="workspace_premium" color="#5856D6" tier={0} size={64} />
+            <BadgeMedal familyId="" tier={0} size={64} />
             <p className="text-[15px] font-extrabold text-[#1d1d1f]">Chưa tải được huy hiệu</p>
             <p className="text-[13px] font-semibold text-[#6e6e73]">Kiểm tra kết nối mạng rồi thử lại nhé.</p>
             <button

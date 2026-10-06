@@ -947,7 +947,7 @@ function ClimbingRank({
 }
 
 /** The weekly class board, with your row climbing past the classmates this part overtook. */
-function RankClimbStepView({
+export function RankClimbStepView({
   climb,
   className,
   countdown,

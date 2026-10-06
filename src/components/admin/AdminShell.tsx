@@ -212,7 +212,10 @@ const ADMIN_NAV: AdminNavGroup[] = [
   {
     id: "system",
     label: "System",
-    items: [{ href: "/admin/health", label: "Health", icon: "monitor_heart", ready: true }],
+    items: [
+      { href: "/admin/health", label: "Health", icon: "monitor_heart", ready: true },
+      { href: "/admin/previews", label: "Previews", icon: "play_circle", ready: true },
+    ],
   },
 ];
 
