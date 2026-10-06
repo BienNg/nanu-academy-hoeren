@@ -14,16 +14,26 @@ import {
   type ClassQuestPerson,
   type ClassQuestResult,
 } from "@/lib/class-quests";
+import {
+  buildAdminClassLeague,
+  type AdminClassClaim,
+  type AdminClassLeague,
+  type AdminClassPodiumRow,
+} from "@/lib/admin-class-league";
 import { getSupabaseAdmin, getUserClassName } from "@/lib/progress-store";
 import { isQuestSchemaMissing } from "@/lib/quest-store";
-import { dayKey, leaderboardClassKey, weekEndsAt, weekKey } from "@/lib/xp";
-import { listClassLearners } from "@/lib/xp-store";
+import { classLearners, dayKey, leaderboardClassKey, weekEndsAt, weekKey } from "@/lib/xp";
+import { listClassLearners, readWeekBoardPeople } from "@/lib/xp-store";
 
 const CLAIMS_TABLE = "quest_claims";
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const RUNS_TABLE = "listening_runs";
+const CLASS_PODIUMS_TABLE = "weekly_class_podiums";
+const WEEK_MS = 7 * 86_400_000;
+/** Finished weeks of class podiums the admin page shows. */
+const ADMIN_PODIUM_WEEKS = 8;
 const PAGE_SIZE = 1000;
 /** Ids per `.in()` filter, so the request URL stays short. */
 const IN_CHUNK = 150;
@@ -307,5 +317,95 @@ export async function claimClassQuest(
     board: { ...state.board, daily: state.board.daily.map(mark), weekly: state.board.weekly.map(mark) },
     xp: paid ? xp : 0,
     denial: paid ? null : "claimed",
+  };
+}
+
+export type AdminClassLeagueData = {
+  /** False when XP or quest claims are unreadable. */
+  ready: boolean;
+  /** False when supabase/class_podiums.sql has not been run. */
+  podiumsReady: boolean;
+  league: AdminClassLeague | null;
+};
+
+async function readAdminClassClaims(supabase: SupabaseClient, week: string): Promise<AdminClassClaim[] | null> {
+  const rows = await readAll((from, to) =>
+    supabase
+      .from(CLAIMS_TABLE)
+      .select("user_id, quest_id, xp, day_key")
+      .eq("week_key", week)
+      .like("quest_id", "class%")
+      .order("user_id")
+      .order("day_key")
+      .order("quest_id")
+      .range(from, to),
+  );
+  if (!rows) return null;
+  return (rows as { user_id?: unknown; quest_id?: unknown; xp?: unknown; day_key?: unknown }[]).flatMap((row) =>
+    typeof row.user_id === "string" &&
+    typeof row.quest_id === "string" &&
+    typeof row.xp === "number" &&
+    typeof row.day_key === "string"
+      ? [{ userId: row.user_id, questId: row.quest_id, xp: row.xp, day: row.day_key }]
+      : [],
+  );
+}
+
+async function readAdminClassPodiums(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<AdminClassPodiumRow[] | "missing"> {
+  const weeks = Array.from({ length: ADMIN_PODIUM_WEEKS }, (_, index) =>
+    weekKey(new Date(now.getTime() - (index + 1) * WEEK_MS)),
+  );
+  const rows = await readAll((from, to) =>
+    supabase
+      .from(CLASS_PODIUMS_TABLE)
+      .select("week_key, user_id, class_key, rank, class_xp")
+      .in("week_key", weeks)
+      .order("week_key")
+      .order("user_id")
+      .range(from, to),
+  );
+  if (!rows) return "missing";
+  return (rows as Record<string, unknown>[]).flatMap((row) =>
+    typeof row.week_key === "string" &&
+    typeof row.user_id === "string" &&
+    typeof row.class_key === "string" &&
+    typeof row.rank === "number" &&
+    typeof row.class_xp === "number"
+      ? [{ week: row.week_key, userId: row.user_id, classKey: row.class_key, rank: row.rank, classXp: row.class_xp }]
+      : [],
+  );
+}
+
+/** This week's classes board, quests and claims, plus recent class podiums, for admins. */
+export async function readAdminClassLeague(now = new Date()): Promise<AdminClassLeagueData> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, podiumsReady: false, league: null };
+  const week = weekKey(now);
+  const people = await readWeekBoardPeople(now);
+  if (!people) return { ready: false, podiumsReady: false, league: null };
+
+  const [activity, claims, podiums] = await Promise.all([
+    readClassActivity(
+      supabase,
+      classLearners(people).map((person) => person.userId),
+      week,
+    ),
+    readAdminClassClaims(supabase, week),
+    readAdminClassPodiums(supabase, now),
+  ]);
+  if (!activity || !claims) return { ready: false, podiumsReady: podiums !== "missing", league: null };
+  return {
+    ready: true,
+    podiumsReady: podiums !== "missing",
+    league: buildAdminClassLeague({
+      people,
+      activity,
+      claims,
+      podiums: podiums === "missing" ? [] : podiums,
+      now,
+    }),
   };
 }

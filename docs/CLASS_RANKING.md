@@ -58,11 +58,16 @@ Classes compete against each other every week. A class's score is the total XP i
 - `badges.ts`: stats `classWeekTop3` and `classWeekFirst`, families "Lớp trên bục" (`classpodium`) and "Lớp vô địch" (`classchamp`) in the "compete" group, targets 1 / 3 / 10 / 25.
 - Account deletion and full progress wipes also remove `weekly_class_podiums` rows.
 
+## Admin: Class league (done)
+- `/admin/class-league` (Engagement group). Built by `buildAdminClassLeague` in `src/lib/admin-class-league.ts`, read by `readAdminClassLeague` in `class-quest-store.ts`.
+- This week's classes board with learners who practiced, week XP, XP per learner, a square per day for the daily quests, the weekly quest and claims.
+- Today's quests per class, with the names of who helped and how many claimed.
+- The stored class podiums of the last 8 finished weeks.
+
 ## Numbers
 - A learner who helps finish every class quest earns up to 2 × 25 × 7 + 80 = 430 XP a week from them.
 - Tune in `class-quests.ts`.
 
 ## Later
 - Teacher accounts and teacher badges.
-- An admin view of class quest completions.
 - Teacher-picked weekly quest.

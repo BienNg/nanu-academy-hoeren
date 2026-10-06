@@ -207,6 +207,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/xp", label: "XP", icon: "bolt", ready: true, ranged: true },
       { href: "/admin/duels", label: "Duels", icon: "swords", ready: true, ranged: true },
       { href: "/admin/blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, ready: true },
+      { href: "/admin/class-league", label: "Class league", icon: "groups", ready: true },
     ],
   },
   {

@@ -73,6 +73,8 @@
     "src/lib/badges.ts",
     "src/lib/badges.test.ts",
     "src/lib/class-quests.ts",
-    "src/lib/class-quests.test.ts"
+    "src/lib/class-quests.test.ts",
+    "src/lib/admin-class-league.ts",
+    "src/lib/admin-class-league.test.ts"
   ]
 }

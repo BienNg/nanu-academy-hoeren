@@ -660,7 +660,7 @@ export function classPodiums(people: readonly BoardPerson[], size = 3): ClassPod
 }
 
 /** Learners who take part in the classes board: real classes, no admins or staff. */
-function classLearners(people: readonly BoardPerson[]): BoardPerson[] {
+export function classLearners(people: readonly BoardPerson[]): BoardPerson[] {
   return people.filter(
     (person) =>
       !person.isAdmin &&
@@ -670,7 +670,7 @@ function classLearners(people: readonly BoardPerson[]): BoardPerson[] {
   );
 }
 
-type ClassTotal = { classKey: string; name: string; xp: number; members: number; xpPerMember: number };
+export type ClassTotal = { classKey: string; name: string; xp: number; members: number; xpPerMember: number };
 
 /** Classes with XP, best first: XP, then XP per learner, then name. */
 function rankClassTotals(learners: readonly BoardPerson[]): ClassTotal[] {
@@ -720,6 +720,11 @@ export function rankClasses(people: readonly BoardPerson[], viewerId: string): C
     yourClassXp: yours?.xp ?? 0,
     yourContribution: viewer ? Math.max(0, viewer.xp) : 0,
   };
+}
+
+/** Classes with XP this period, ranked as the classes board ranks them. */
+export function classStandings(people: readonly BoardPerson[]): ClassTotal[] {
+  return rankClassTotals(classLearners(people));
 }
 
 export type ClassBoardPodiumPlace = {

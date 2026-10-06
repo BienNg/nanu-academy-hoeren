@@ -1478,6 +1478,13 @@ export async function readWeeklyClassPodiums(inWeek: Date): Promise<ClassPodiumP
   return people ? classPodiums(people) : null;
 }
 
+/** Everyone on the XP board with this week's XP. Null when XP is unreadable. */
+export async function readWeekBoardPeople(now: Date): Promise<BoardPerson[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  return readXpBoardPeople(supabase, "week", now, "");
+}
+
 /**
  * Learners of the top three classes on the classes board for the week that
  * contains `inWeek`. Null when XP is unreadable.
