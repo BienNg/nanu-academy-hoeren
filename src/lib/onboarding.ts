@@ -89,6 +89,8 @@ export type OnboardingRecord = {
   /** False when `onboarding_completed_at` could not be read, e.g. before the SQL ran. */
   readable: boolean;
   completedAt: string | null;
+  /** An admin reset the tour. The learner sees it again whatever their XP. */
+  resetAt: string | null;
   /** All-time XP, or null when it could not be read. */
   totalXp: number | null;
 };
@@ -100,6 +102,7 @@ export type OnboardingRecord = {
  */
 export function onboardingState(record: OnboardingRecord): "pending" | "done" | "earned" {
   if (!record.readable || record.completedAt) return "done";
+  if (record.resetAt) return "pending";
   if (record.totalXp == null) return "done";
   return record.totalXp > 0 ? "earned" : "pending";
 }

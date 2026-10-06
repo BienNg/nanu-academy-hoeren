@@ -29,6 +29,11 @@ import type { StudentJumpRunsPage } from "@/lib/lesson-jump";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
 import {
+  getOnboardingStatus,
+  resetOnboarding,
+  type OnboardingStatus,
+} from "@/lib/onboarding-store";
+import {
   commitAdminProgressClear,
   type AppUseRecord,
   type SignInRecord,
@@ -178,6 +183,42 @@ export async function clearAdminStudentSignIns(
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to clear sign-in history";
+    return { ok: false, error: message };
+  }
+}
+
+export async function loadAdminStudentOnboarding(
+  userId: string,
+): Promise<({ ok: true } & OnboardingStatus) | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+  const status = await getOnboardingStatus(id);
+  if (!status) return { ok: false, error: "Could not read onboarding. Run supabase/onboarding.sql." };
+  return { ok: true, ...status };
+}
+
+/** The learner sees the map tour again on their next visit, whatever their XP. */
+export async function resetAdminStudentOnboarding(
+  userId: string,
+): Promise<({ ok: true } & OnboardingStatus) | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+  try {
+    return { ok: true, ...(await resetOnboarding(id)) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reset onboarding";
     return { ok: false, error: message };
   }
 }

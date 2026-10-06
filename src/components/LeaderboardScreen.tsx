@@ -500,7 +500,9 @@ export function LeaderboardScreen({
         }`}
       >
         <div className="flex flex-col gap-3">
-          <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
+          {boardOptions.length > 1 ? (
+            <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
+          ) : null}
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             {canPickClass && board.classOptions.length > 0 ? (
               <div className="flex min-w-0 rounded-2xl bg-[#e2e7ff] p-1">

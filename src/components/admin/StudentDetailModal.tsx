@@ -572,6 +572,7 @@ export function StudentDetailModal({
                 ) : null}
                 {tab === "account" ? (
                   <AccountTab
+                    userId={row.userId}
                     signIns={signIns}
                     appUses={appUses}
                     onRequestClear={

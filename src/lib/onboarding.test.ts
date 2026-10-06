@@ -26,6 +26,7 @@ const ALL_FOUND = { course: true, video: true, study: true, practice: true, jump
 const record = (patch: Partial<OnboardingRecord>): OnboardingRecord => ({
   readable: true,
   completedAt: null,
+  resetAt: null,
   totalXp: 0,
   ...patch,
 });
@@ -52,6 +53,20 @@ test("a stamped learner never sees the tour again", () => {
 test("a learner with XP counts as onboarded and gets stamped", () => {
   assert.equal(onboardingState(record({ totalXp: 1 })), "earned");
   assert.equal(onboardingState(record({ totalXp: 1200 })), "earned");
+});
+
+test("an admin reset shows the tour again, even with XP", () => {
+  assert.equal(onboardingState(record({ resetAt: "2026-10-06T10:00:00.000Z", totalXp: 900 })), "pending");
+  assert.equal(onboardingState(record({ resetAt: "2026-10-06T10:00:00.000Z", totalXp: null })), "pending");
+});
+
+test("finishing after a reset stamps it done again", () => {
+  assert.equal(
+    onboardingState(
+      record({ resetAt: "2026-10-06T10:00:00.000Z", completedAt: "2026-10-06T10:05:00.000Z" }),
+    ),
+    "done",
+  );
 });
 
 test("unreadable state hides the tour instead of repeating it forever", () => {

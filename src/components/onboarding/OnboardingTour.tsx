@@ -11,6 +11,11 @@ const SPOT_PAD = 8;
 const BUBBLE_GAP = 14;
 const GUTTER = 16;
 const BUBBLE_MAX_WIDTH = 340;
+/** Light enough that the map stays readable around the lit element. */
+const DIM = "rgba(15, 23, 42, 0.35)";
+const FADE_MS = 200;
+/** Frames the target must hold still (scroll settled) before a step fades in. */
+const SETTLE_FRAMES = 6;
 
 type Box = { top: number; left: number; width: number; height: number };
 
@@ -48,8 +53,12 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
   const [spot, setSpot] = useState<Box | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [bubbleHeight, setBubbleHeight] = useState(0);
+  // A step fades in once its target has settled, and out before the next one.
+  const [shown, setShown] = useState(false);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  const leaving = useRef(false);
+  const maskId = `tour-mask-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
   const titleId = useId();
   const bodyId = useId();
   const step = ONBOARDING_STEPS[stepIndex]!;
@@ -66,13 +75,16 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
   }, []);
 
   // Bring the target into view, then follow it every frame while the scroll
-  // settles, the path animates in, or the window is resized.
+  // settles, the path animates in, or the window is resized. The step fades in
+  // once the target has held still for a few frames.
   useEffect(() => {
     const element = findTarget(step.target);
     if (element && step.target !== "course") {
       element.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
     }
     let frame = 0;
+    let still = 0;
+    let previousBox: Box | null = null;
     const track = () => {
       const current = findTarget(step.target);
       if (current) {
@@ -83,7 +95,10 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
           width: rect.width + SPOT_PAD * 2,
           height: rect.height + SPOT_PAD * 2,
         };
+        still = sameBox(previousBox, next) ? still + 1 : 0;
+        previousBox = next;
         setSpot((previous) => (sameBox(previous, next) ? previous : next));
+        if (still >= SETTLE_FRAMES && !leaving.current) setShown(true);
       }
       setViewport((previous) =>
         previous.width === window.innerWidth && previous.height === window.innerHeight
@@ -106,12 +121,21 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
   }, [stepIndex, bubbleWidth]);
 
   useEffect(() => {
-    nextRef.current?.focus({ preventScroll: true });
-  }, [stepIndex]);
+    if (shown) nextRef.current?.focus({ preventScroll: true });
+  }, [shown]);
 
   const next = () => {
-    if (last) onFinish();
-    else setStepIndex((index) => index + 1);
+    if (!shown || leaving.current) return;
+    leaving.current = true;
+    setShown(false);
+    window.setTimeout(
+      () => {
+        leaving.current = false;
+        if (last) onFinish();
+        else setStepIndex((index) => index + 1);
+      },
+      reduceMotion ? 0 : FADE_MS,
+    );
   };
 
   let bubble: { top: number; left: number; arrowLeft: number; below: boolean } | null = null;
@@ -135,7 +159,7 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
   }
   // Round nodes get a circle; a video node with its caption, or the course button, a rounded box.
   const round = spot !== null && Math.abs(spot.width - spot.height) < 12;
-  const glide = reduceMotion ? "none" : "top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease";
+  const fade = reduceMotion ? "none" : `opacity ${FADE_MS}ms ease`;
 
   return (
     <div
@@ -148,6 +172,26 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
     >
       {/* Swallows taps so the map underneath cannot be used mid-tour. */}
       <div className="absolute inset-0" aria-hidden="true" />
+      {/* The dim stays put; only the cut-out around the target fades in and out. */}
+      <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+        <defs>
+          <mask id={maskId}>
+            <rect width="100%" height="100%" fill="white" />
+            {spot ? (
+              <rect
+                x={spot.left}
+                y={spot.top}
+                width={spot.width}
+                height={spot.height}
+                rx={round ? spot.height / 2 : 24}
+                fill="black"
+                style={{ opacity: shown ? 1 : 0, transition: fade }}
+              />
+            ) : null}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill={DIM} mask={`url(#${maskId})`} />
+      </svg>
       {spot ? (
         <div
           aria-hidden="true"
@@ -157,22 +201,22 @@ export function OnboardingTour({ onFinish }: { onFinish: () => void }) {
             left: spot.left,
             width: spot.width,
             height: spot.height,
-            boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.62)",
-            transition: glide,
+            opacity: shown ? 1 : 0,
+            transition: fade,
           }}
         />
-      ) : (
-        <div className="absolute inset-0 bg-[rgba(15,23,42,0.62)]" aria-hidden="true" />
-      )}
+      ) : null}
       <div
         ref={bubbleRef}
+        inert={!shown}
         className="absolute rounded-2xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.28)]"
         style={{
           width: bubbleWidth,
           top: bubble?.top ?? viewport.height / 2,
           left: bubble?.left ?? GUTTER,
           visibility: bubble ? "visible" : "hidden",
-          transition: reduceMotion ? "none" : "top 0.25s ease, left 0.25s ease",
+          opacity: shown && bubble ? 1 : 0,
+          transition: fade,
         }}
       >
         {bubble ? (

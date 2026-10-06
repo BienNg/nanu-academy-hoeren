@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { loadAdminStudentOnboarding, resetAdminStudentOnboarding } from "@/app/admin/actions";
 import { MaterialIcon } from "@/components/admin/AdminShell";
 import { Button } from "@/components/admin/AdminUi";
 import { ColumnHeader, Panel, formatAbsoluteTime } from "@/components/admin/student-detail/shared";
@@ -56,11 +58,84 @@ function DeviceList({
   );
 }
 
+type OnboardingView =
+  | { state: "loading" }
+  | { state: "error"; error: string }
+  | { state: "ready"; completedAt: string | null; resetAt: string | null };
+
+/** Whether the learner finished the first-run map tour, with a reset that shows it again. */
+function OnboardingSection({ userId }: { userId: string }) {
+  const [view, setView] = useState<OnboardingView>({ state: "loading" });
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAdminStudentOnboarding(userId).then((result) => {
+      if (cancelled) return;
+      setView(result.ok ? { state: "ready", ...result } : { state: "error", error: result.error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  async function reset() {
+    if (resetting) return;
+    setResetting(true);
+    setResetError(null);
+    const result = await resetAdminStudentOnboarding(userId);
+    setResetting(false);
+    if (!result.ok) {
+      setResetError(result.error);
+      return;
+    }
+    setView({ state: "ready", completedAt: result.completedAt, resetAt: result.resetAt });
+  }
+
+  const completed = view.state === "ready" && view.completedAt !== null;
+  let status: string;
+  if (view.state === "loading") status = "Loading…";
+  else if (view.state === "error") status = view.error;
+  else if (view.completedAt) status = `Completed ${formatAbsoluteTime(view.completedAt)}`;
+  else if (view.resetAt) {
+    status = `Reset ${formatAbsoluteTime(view.resetAt)}. The tour shows on their next course map visit.`;
+  } else status = "Not completed. The tour shows on their next course map visit.";
+
+  return (
+    <section aria-label="Onboarding" className="flex flex-col gap-space-12">
+      <ColumnHeader title="Onboarding" description="The first-run tour of the course map." />
+      <Panel>
+        <div className="flex flex-wrap items-center gap-space-12 px-space-20 py-space-16">
+          <MaterialIcon
+            name={completed ? "check_circle" : "tour"}
+            className={`text-[18px] ${completed ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
+          />
+          <p className="min-w-0 flex-1 text-admin-body-sm text-admin-ink">{status}</p>
+          <Button icon="restart_alt" disabled={!completed || resetting} onClick={reset}>
+            {resetting ? "Resetting…" : "Reset onboarding"}
+          </Button>
+        </div>
+        {resetError ? (
+          <p
+            role="alert"
+            className="border-t border-admin-hairline px-space-20 py-space-12 text-admin-body-sm text-admin-crimson-ink"
+          >
+            {resetError}
+          </p>
+        ) : null}
+      </Panel>
+    </section>
+  );
+}
+
 export function AccountTab({
+  userId,
   signIns,
   appUses,
   onRequestClear,
 }: {
+  userId: string;
   /** Newest first. */
   signIns: readonly AdminUserRow["signIns"][number][];
   /** Newest first. */
@@ -82,6 +157,7 @@ export function AccountTab({
           </Button>
         </div>
       ) : null}
+      <OnboardingSection userId={userId} />
       <div className="grid items-start gap-space-24 lg:grid-cols-2">
         <DeviceList title="Sign-ins" icon="login" empty="No sign-ins recorded yet." entries={signIns} />
         <DeviceList title="App use" icon="devices" empty="No app use recorded yet." entries={appUses} />

@@ -2,11 +2,13 @@
 -- study_xp_awards.sql, duels.sql, lesson_jump_awards.sql and quest_claims.sql.
 -- Adds the onboarding stamp and marks everyone who already earned XP as
 -- onboarded, so only learners with 0 XP see the first-run map tour.
--- Safe to re-run: stamped learners are left alone. The app also stamps a
--- learner with XP the next time it finds them unstamped.
+-- Safe to re-run: stamped learners and learners an admin reset are left
+-- alone. The app also stamps a learner with XP the next time it finds them
+-- unstamped, unless an admin reset them.
 
 alter table public.user_progress
-  add column if not exists onboarding_completed_at timestamptz;
+  add column if not exists onboarding_completed_at timestamptz,
+  add column if not exists onboarding_reset_at timestamptz;
 
 with totals as (
   select user_id, sum(xp) as xp
@@ -28,4 +30,5 @@ set onboarding_completed_at = now()
 from totals
 where totals.user_id = progress.user_id
   and totals.xp > 0
-  and progress.onboarding_completed_at is null;
+  and progress.onboarding_completed_at is null
+  and progress.onboarding_reset_at is null;

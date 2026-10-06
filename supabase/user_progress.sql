@@ -35,7 +35,10 @@ create table if not exists public.user_progress (
   staff boolean not null default false,
   -- When the learner finished the first-run map tour. Set once, never cleared.
   -- supabase/onboarding.sql backfills learners who already had XP.
-  onboarding_completed_at timestamptz
+  onboarding_completed_at timestamptz,
+  -- Set when an admin resets the tour. The learner then sees it again even
+  -- with XP, until they finish it and onboarding_completed_at is set again.
+  onboarding_reset_at timestamptz
 );
 
 alter table public.user_progress
@@ -51,7 +54,8 @@ alter table public.user_progress
   add column if not exists sign_in_log jsonb not null default '[]'::jsonb,
   add column if not exists app_uses jsonb not null default '[]'::jsonb,
   add column if not exists staff boolean not null default false,
-  add column if not exists onboarding_completed_at timestamptz;
+  add column if not exists onboarding_completed_at timestamptz,
+  add column if not exists onboarding_reset_at timestamptz;
 
 create index if not exists user_progress_email_idx
   on public.user_progress (email);
