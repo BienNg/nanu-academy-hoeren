@@ -43,7 +43,8 @@ export default async function AdminClassesPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  // Course, lesson, practice, and video totals need learn, interview, and videos.
+  const items = storeConfigured ? await listAllUserProgress("levels") : [];
   const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
