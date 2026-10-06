@@ -65,6 +65,8 @@
     "src/lib/lesson-jump.ts",
     "src/lib/lesson-jump.test.ts",
     "src/lib/rank-climb.ts",
-    "src/lib/rank-climb.test.ts"
+    "src/lib/rank-climb.test.ts",
+    "src/lib/scoring.ts",
+    "src/lib/scoring.test.ts"
   ]
 }

@@ -1,6 +1,6 @@
 /**
  * Daily quests.
- * Every learner gets three quests a day: one listening, one study, one habit.
+ * Every learner gets three quests a day: one study, one listening, one habit.
  * Which ones is a pure function of the learner and the Vietnam day, so nothing
  * is stored for the assignment. Progress is counted by the server from rows it
  * already wrote (xp_awards, study_xp_awards, duel_xp_awards, lesson_jump_awards). The browser
@@ -45,24 +45,24 @@ export const QUEST_ACCURACY_MIN = 90;
 
 /** Listening and study parts earn XP only after the server accepts the run. */
 export const QUEST_POOL: readonly QuestDefinition[] = [
-  { id: "listen-1", kind: "listening", metric: "listening-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần nghe" },
-  { id: "listen-2", kind: "listening", metric: "listening-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần nghe" },
+  { id: "listen-1", kind: "listening", metric: "listening-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần luyện tập" },
+  { id: "listen-2", kind: "listening", metric: "listening-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần luyện tập" },
   {
     id: "listen-accurate",
     kind: "listening",
     metric: "listening-accurate-parts",
     target: 1,
     xp: 20,
-    title: `Hoàn thành 1 phần nghe đúng từ ${QUEST_ACCURACY_MIN}%`,
+    title: `Hoàn thành 1 phần luyện tập đúng từ ${QUEST_ACCURACY_MIN}%`,
     minAccuracy: QUEST_ACCURACY_MIN,
   },
-  { id: "study-1", kind: "study", metric: "study-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần học" },
-  { id: "study-2", kind: "study", metric: "study-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần học" },
+  { id: "study-1", kind: "study", metric: "study-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần học từ vựng" },
+  { id: "study-2", kind: "study", metric: "study-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần học từ vựng" },
   { id: "habit-60", kind: "habit", metric: "base-xp", target: 60, xp: 15, title: "Kiếm 60 XP hôm nay" },
   { id: "habit-100", kind: "habit", metric: "base-xp", target: 100, xp: 20, title: "Kiếm 100 XP hôm nay" },
 ];
 
-export const QUEST_KINDS: readonly QuestKind[] = ["listening", "study", "habit"];
+export const QUEST_KINDS: readonly QuestKind[] = ["study", "listening", "habit"];
 
 /** Hardest pick per kind plus the bonus. */
 export const MAX_QUEST_XP =
@@ -82,7 +82,7 @@ function hash(text: string): number {
   return value;
 }
 
-/** The learner's three quests for a Vietnam day, in listening, study, habit order. */
+/** The learner's three quests for a Vietnam day, in study, listening, habit order. */
 export function pickDailyQuests(userId: string, day: string): QuestDefinition[] {
   return QUEST_KINDS.map((kind) => {
     const options = QUEST_POOL.filter((quest) => quest.kind === kind);

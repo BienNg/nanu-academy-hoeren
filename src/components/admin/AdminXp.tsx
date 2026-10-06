@@ -61,8 +61,8 @@ const QUEST_LEGEND = [
 ];
 
 const QUEST_KIND_LABEL: Record<QuestKind, string> = {
-  listening: "Listening",
-  study: "Study",
+  listening: "Practice",
+  study: "Vocabulary",
   habit: "Habit (XP goal)",
 };
 

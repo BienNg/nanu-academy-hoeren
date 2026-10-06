@@ -26,8 +26,8 @@ test("quest stats count completions, perfect days, learners and XP", () => {
   assert.deepEqual(
     board.byKind.map((row) => [row.kind, row.completions, row.xp]),
     [
-      ["listening", 2, 25],
       ["study", 1, 10],
+      ["listening", 2, 25],
       ["habit", 1, 15],
     ],
   );

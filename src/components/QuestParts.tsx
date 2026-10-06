@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { QuestKind, QuestProgress } from "@/lib/quests";
 
 export const KIND_STYLE: Record<QuestKind, { icon: string; face: string; lip: string; unit: string }> = {
-  listening: { icon: "headphones", face: "#0071E3", lip: "#0A4FA0", unit: "" },
+  listening: { icon: "fitness_center", face: "#0071E3", lip: "#0A4FA0", unit: "" },
   study: { icon: "menu_book", face: "#34C759", lip: "#248a3d", unit: "" },
   habit: { icon: "bolt", face: "#FF9500", lip: "#c26e00", unit: " XP" },
 };

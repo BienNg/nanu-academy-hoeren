@@ -13,14 +13,24 @@ export interface ScoreResult {
   words: WordScore[];
 }
 
+// Punctuation and quote marks that never change what was heard.
+const EDGE_PUNCTUATION = /^[.,?!:;"'„“”‚‘’«»‹›()\[\]…–—-]+|[.,?!:;"'„“”‚‘’«»‹›()\[\]…–—-]+$/g;
+
 /**
  * Normalizes a word for comparison by converting to lowercase and stripping
- * common punctuation (periods, commas, question marks, exclamation marks).
- * This ensures that if the script has "Mineralwasser," and the user types "mineralwasser",
- * it counts as correct.
+ * punctuation from both ends. "Hallo", ",Hallo" and "hallo," all compare equal,
+ * while inner punctuation like the comma in "3,50" is kept.
  */
 function normalizeWord(word: string): string {
-  return word.toLowerCase().replace(/[.,?!:;]+$/g, "");
+  return word.toLowerCase().replace(EDGE_PUNCTUATION, "");
+}
+
+/** Splits on whitespace and drops tokens that are only punctuation ("Vielen , Dank"). */
+function toWords(text: string): string[] {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => normalizeWord(word).length > 0);
 }
 
 type AlignOp = "match" | "sub" | "del" | "ins";
@@ -101,8 +111,8 @@ function alignWords(scriptWords: string[], typedWords: string[]): WordScore[] {
 }
 
 export function scoreAttempt(typedText: string, script: string): ScoreResult {
-  const scriptWords = script.trim().split(/\s+/).filter(Boolean);
-  const typedWords = typedText.trim().split(/\s+/).filter(Boolean);
+  const scriptWords = toWords(script);
+  const typedWords = toWords(typedText);
   const words = alignWords(scriptWords, typedWords);
   const correctCount = words.filter((w) => w.status === "correct").length;
 

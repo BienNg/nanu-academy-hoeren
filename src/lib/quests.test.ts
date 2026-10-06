@@ -37,7 +37,7 @@ test("a learner gets one listening, one study and one habit quest", () => {
   const picked = pickDailyQuests("user-1", "2026-10-04");
   assert.deepEqual(
     picked.map((q) => q.kind),
-    ["listening", "study", "habit"],
+    ["study", "listening", "habit"],
   );
 });
 
@@ -142,7 +142,7 @@ test("readQuestUpdate keeps a quest that moved without finishing", () => {
   const step = {
     id: "study-2",
     kind: "study",
-    title: "Hoàn thành 2 phần học",
+    title: "Hoàn thành 2 phần học từ vựng",
     xp: 15,
     target: 2,
     progress: 1,
