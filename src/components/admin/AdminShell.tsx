@@ -195,7 +195,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/content/clips", label: "Practice clip difficulty", icon: "graphic_eq", ready: true },
       { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
       { href: "/admin/content/grammar", label: "Grammar gaps", icon: "edit_note", ready: true },
-      { href: "/admin/runs", label: "Practice", icon: "headphones", ready: true, ranged: true },
+      { href: "/admin/runs", label: "Practice", icon: "fitness_center", ready: true, ranged: true },
     ],
   },
   {
@@ -364,7 +364,7 @@ function AdminSidebar({
           aria-label="Back to the learner app"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-card bg-admin-cobalt text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.15)] transition-colors hover:bg-admin-cobalt-strong"
         >
-          <MaterialIcon name="hearing" className="text-[20px]" filled />
+          <MaterialIcon name="school" className="text-[20px]" filled />
         </Link>
         <span
           className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}

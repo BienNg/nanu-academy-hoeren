@@ -120,7 +120,7 @@ function subtitleFor(
   if (finishRun) {
     return partCount > 1
       ? `Bạn đã xong cả ${partCount} phần.`
-      : "Bạn đã xong bài nghe này.";
+      : "Bạn đã xong bài này.";
   }
   return `Phần ${partNumber} / ${partCount}`;
 }

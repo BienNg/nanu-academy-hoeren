@@ -124,7 +124,7 @@ function RecapShareSheet({
       return;
     }
     try {
-      await navigator.share({ files: [shareFile], title: "NaNu Academy Hören" });
+      await navigator.share({ files: [shareFile], title: "NaNu Academy" });
     } catch (error) {
       if ((error as Error)?.name !== "AbortError") download();
     }

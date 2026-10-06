@@ -328,7 +328,7 @@ export function AdminListeningRuns({
         className="grid grid-cols-2 gap-space-16 lg:grid-cols-4 2xl:gap-space-20"
       >
         <KpiTile
-          icon="headphones"
+          icon="fitness_center"
           label="Parts finished"
           value={formatCount(board.runs)}
           caption={`${formatCount(board.students)} student${board.students === 1 ? "" : "s"} ${window}`}
@@ -394,7 +394,7 @@ export function AdminListeningRuns({
           meta="Newest first · open a student on Students for clip detail"
         />
         <TablePanel
-          icon="headphones"
+          icon="fitness_center"
           title="Finished parts"
           hint="Click “missed” on a row to see which clips tripped the student up."
           trailing={

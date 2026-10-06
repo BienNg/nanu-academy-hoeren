@@ -75,8 +75,8 @@ export const CLASS_DAILY_POOL: readonly ClassQuestDefinition[] = [
     period: "day",
     metric: "accurate",
     rate: 0.4,
-    icon: "hearing",
-    title: (n) => `${n} bạn đạt từ ${CLASS_QUEST_ACCURACY_MIN}% một phần luyện nghe`,
+    icon: "fitness_center",
+    title: (n) => `${n} bạn đạt từ ${CLASS_QUEST_ACCURACY_MIN}% một phần luyện tập`,
   },
   {
     id: "study-50",

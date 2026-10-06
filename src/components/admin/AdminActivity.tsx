@@ -1449,7 +1449,7 @@ export function AdminActivity({
           },
           {
             id: "practice",
-            icon: "headphones",
+            icon: "fitness_center",
             title: "Practice",
             hint: `Runs finished ${window}`,
             color: PRACTICE,

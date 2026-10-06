@@ -887,7 +887,7 @@ export function LearnSession({
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-[#1d1d1f]">
-              Chưa có bài nghe
+              Chưa có bài luyện tập
             </h2>
             <Link
               href={pathHref}

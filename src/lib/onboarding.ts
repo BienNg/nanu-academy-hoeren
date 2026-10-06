@@ -33,7 +33,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     target: "practice",
     title: "Luyện tập",
-    body: "Luyện nghe với những câu vừa học. Hoàn thành để nhận XP và mở bài tiếp theo.",
+    body: "Luyện tập với những câu vừa học. Hoàn thành để nhận XP và mở bài tiếp theo.",
   },
   {
     target: "jump",

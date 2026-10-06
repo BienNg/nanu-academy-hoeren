@@ -701,7 +701,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
           },
           {
             id: lessonNodeActivityId(lesson.id, "practice", node, nodeCount),
-            icon: "headphones",
+            icon: "fitness_center",
             label: `Practice${numbered(node)}`,
             kind: "practice" as const,
             count: lesson.nodePracticeCards?.[index] ?? null,
@@ -729,7 +729,7 @@ function levelNodeTemplates(lesson: AdminCatalogLesson): LevelNodeTemplate[] {
       : []),
     {
       id: `${lesson.id}-listening`,
-      icon: "headphones",
+      icon: "fitness_center",
       label: "Practice",
       kind: "practice" as const,
       count: lesson.practiceCards ?? null,

@@ -345,7 +345,7 @@ export function AdminClassStats({
                   color={ADMIN_COLORS.emerald}
                 />
                 <KpiTile
-                  icon="headphones"
+                  icon="fitness_center"
                   label="Practice runs"
                   value={formatCount(stats.listeningRepetitions)}
                   caption="Finished passes"

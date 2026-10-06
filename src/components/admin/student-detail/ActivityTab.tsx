@@ -50,7 +50,7 @@ type VisitCategory = AdminVisitDetailGroup["id"];
 /** Study is curriculum (emerald), practice and video are media (violet), unfinished is amber. */
 const VISIT_CATEGORY: Record<VisitCategory, { icon: string; tile: string; bar: string }> = {
   study: { icon: "menu_book", tile: "bg-admin-emerald-wash text-admin-emerald", bar: "bg-admin-emerald" },
-  listening: { icon: "headphones", tile: "bg-admin-violet-wash text-admin-violet", bar: "bg-admin-violet" },
+  listening: { icon: "fitness_center", tile: "bg-admin-violet-wash text-admin-violet", bar: "bg-admin-violet" },
   left: { icon: "pending", tile: "bg-admin-amber-wash text-admin-amber", bar: "bg-admin-amber" },
   video: { icon: "play_circle", tile: "bg-admin-violet-wash text-admin-violet-ink", bar: "bg-admin-violet-soft" },
   jump: { icon: "skip_next", tile: "bg-admin-cobalt-wash text-admin-cobalt", bar: "bg-admin-cobalt" },
@@ -445,7 +445,7 @@ function ListeningRunRow({
       icon: "segment",
       label: run.partCount > 1 ? `Part ${run.partNumber} of ${run.partCount}` : `Part ${run.partNumber}`,
     },
-    { icon: "headphones", label: `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}` },
+    { icon: "fitness_center", label: `${run.clips.length} ${run.clips.length === 1 ? "clip" : "clips"}` },
     ...(run.cardCount != null
       ? [{ icon: "style", label: `${run.cardCount} ${run.cardCount === 1 ? "card" : "cards"}` }]
       : []),

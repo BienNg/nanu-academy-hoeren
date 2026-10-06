@@ -99,11 +99,11 @@ export const BADGE_FAMILIES: readonly BadgeFamily[] = [
     id: "listening",
     group: "learning",
     stat: "listeningParts",
-    title: "Đôi tai vàng",
-    icon: "headphones",
+    title: "Chiến binh luyện tập",
+    icon: "fitness_center",
     color: "#0071E3",
     targets: [10, 50, 150, 400],
-    goal: (n) => `Hoàn thành ${n} phần luyện nghe`,
+    goal: (n) => `Hoàn thành ${n} phần luyện tập`,
   },
   {
     id: "perfect",
@@ -113,7 +113,7 @@ export const BADGE_FAMILIES: readonly BadgeFamily[] = [
     icon: "verified",
     color: "#AF52DE",
     targets: [1, 10, 30, 100],
-    goal: (n) => (n === 1 ? "Đạt 100% một phần luyện nghe" : `Đạt 100% ở ${n} phần luyện nghe`),
+    goal: (n) => (n === 1 ? "Đạt 100% một phần luyện tập" : `Đạt 100% ở ${n} phần luyện tập`),
   },
   {
     id: "study",

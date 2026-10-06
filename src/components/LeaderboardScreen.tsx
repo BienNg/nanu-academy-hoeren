@@ -724,7 +724,7 @@ export function LeaderboardScreen({
                   ? "Điểm từ các vòng Blitzrunde trên lớp. Không tính vào XP."
                   : board.board === "classes"
                     ? "Mỗi XP bạn kiếm được cũng cộng cho lớp."
-                    : "Điểm từ phần luyện nghe và đấu."}
+                    : "Điểm từ phần luyện tập và đấu."}
           </p>
           <span
             className="pointer-events-none absolute -right-3 -bottom-6 text-white/15 material-symbols-outlined text-[120px]"
@@ -747,7 +747,7 @@ export function LeaderboardScreen({
                     ? BLITZRUNDE_SCHEMA_HINT
                     : "Bảng Blitzrunde sẽ hiện sau khi giáo viên bật tính năng này."
                 : isAdmin
-                  ? "Chạy supabase/xp_awards.sql một lần trong Supabase, rồi hoàn thành một phần luyện nghe."
+                  ? "Chạy supabase/xp_awards.sql một lần trong Supabase, rồi hoàn thành một phần luyện tập."
                   : "Bảng sẽ hiện sau khi giáo viên bật lưu điểm."}
             </p>
           </section>
@@ -790,7 +790,7 @@ export function LeaderboardScreen({
                 ? "Hoàn thành một trận đấu để lên bảng."
                 : board.board === "blitzrunde"
                   ? "Chơi một vòng Blitzrunde trên lớp để lên bảng."
-                  : "Hoàn thành một phần luyện nghe hoặc một trận đấu để lên bảng."}
+                  : "Hoàn thành một phần luyện tập hoặc một trận đấu để lên bảng."}
             </p>
           </section>
         ) : (

@@ -75,7 +75,7 @@ export default async function LivingWorkplacePage({ params }: LivingWorkplacePag
         kicker: "Leben in Deutschland",
         kickerIcon: workplace.icon ?? "storefront",
         title: workplace.label,
-        description: `${place} · ${scenes.length} tình huống thực tế tại nơi làm việc. Học từng tình huống, rồi luyện nghe và phản xạ.`,
+        description: `${place} · ${scenes.length} tình huống thực tế tại nơi làm việc. Học từng tình huống, rồi luyện tập và phản xạ.`,
         watermarkIcon: workplace.icon ?? "storefront",
         currentLabel: "Tình huống hiện tại",
         courseHref: `/living/${workplace.slug}`,

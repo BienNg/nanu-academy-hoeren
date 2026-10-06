@@ -132,7 +132,7 @@ function recapHeadline(recap: Omit<WeeklyRecap, "headline">): string {
     return recap.isCurrentWeek ? "Tuần mới, khởi đầu mới!" : "Tuần nghỉ ngơi, sẵn sàng quay lại!";
   }
   if (recap.activeDays === 7) return "Học đủ 7/7 ngày. Quá kiên trì!";
-  if (recap.accuracy != null && recap.accuracy >= 90) return "Đôi tai cực kỳ tinh!";
+  if (recap.accuracy != null && recap.accuracy >= 90) return "Chính xác cực kỳ!";
   if (recap.previousXp > 0 && recap.xp > recap.previousXp) return "Tiến bộ hơn tuần trước!";
   if (recap.activeDays >= 5) return "Chăm chỉ cả tuần. Tuyệt vời!";
   return "Mỗi ngày một chút, tiến bộ mỗi tuần!";

@@ -101,7 +101,7 @@ function CircleMeter({
 }
 
 function activityIcon(activity: AdminActivityCard): string {
-  return isStudyActivityId(activity.id) ? "menu_book" : "headphones";
+  return isStudyActivityId(activity.id) ? "menu_book" : "fitness_center";
 }
 
 function ActivityMeter({

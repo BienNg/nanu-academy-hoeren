@@ -50,11 +50,11 @@ const ICONS = {
       <path d="M8 12.5l2.8 2.8L16.5 9.5" />
     </g>
   ),
-  headphones: (
+  dumbbell: (
     <g>
-      <path d="M4 15v-3a8 8 0 0 1 16 0v3" />
-      <rect x="3.5" y="14" width="4" height="6" rx="1.5" />
-      <rect x="16.5" y="14" width="4" height="6" rx="1.5" />
+      <path d="M7.5 12h9M2.5 10v4M21.5 10v4" />
+      <rect x="4.5" y="7.5" width="3" height="9" rx="1" />
+      <rect x="16.5" y="7.5" width="3" height="9" rx="1" />
     </g>
   ),
   calendar: (
@@ -309,7 +309,7 @@ export function RecapCard({
           />
           <StatTile icon={ICONS.check} color={ORANGE} label="Bài luyện đạt" value={formatNumber(recap.partsPassed)} />
           <StatTile
-            icon={ICONS.headphones}
+            icon={ICONS.dumbbell}
             color="#af52de"
             label="Câu đã luyện"
             value={formatNumber(recap.clipsPracticed)}
