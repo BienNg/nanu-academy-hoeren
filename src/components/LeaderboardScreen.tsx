@@ -7,6 +7,7 @@ import { TopBarStatus } from "@/components/TodayXpChip";
 import {
   googleProfileImage,
   type ClassBoardExtras,
+  type ClassChampions,
   type LeaderboardBoard,
   type LeaderboardClassOption,
   type LeaderboardPayload,
@@ -125,6 +126,82 @@ function ClassProgressCard({
           Biểu đồ hiện khi lớp đã chơi ít nhất 2 vòng.
         </p>
       )}
+    </section>
+  );
+}
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function weekLabel(week: string): string {
+  const [, month, day] = week.split("-");
+  return `${day}.${month}.`;
+}
+
+/** Last week's top 3 classes. Before any class has scored, it invites the first champion. */
+function ClassChampionsBanner({ champions }: { champions: ClassChampions }) {
+  const [first, ...rest] = champions.places;
+  return (
+    <section
+      aria-label="Nhà vô địch tuần trước"
+      className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#ffd54a] to-[#ffb020] p-4 text-[#5c3b00] shadow-[0_5px_0_0_#d99100] sm:p-5"
+    >
+      <p className="relative z-10 flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-[#7a4b00]">
+        <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+          emoji_events
+        </span>
+        Nhà vô địch tuần trước · từ {weekLabel(champions.week)}
+      </p>
+      {first ? (
+        <>
+          <div className="relative z-10 mt-2 flex items-center gap-2">
+            <span className="text-[28px] leading-none" aria-hidden="true">
+              {MEDALS[0]}
+            </span>
+            <div className="min-w-0">
+              <p className="flex items-center gap-2">
+                <span className="truncate text-[20px] font-extrabold leading-tight text-[#3d2700]">{first.name}</span>
+                {first.isYours ? (
+                  <span className="shrink-0 rounded-full bg-[#3d2700] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#ffd54a]">
+                    Lớp bạn
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-[13px] font-bold tabular-nums">{first.xp.toLocaleString("vi-VN")} XP</p>
+            </div>
+          </div>
+          {rest.length > 0 ? (
+            <ol className="relative z-10 mt-3 flex flex-col gap-1.5">
+              {rest.map((place) => (
+                <li
+                  key={place.rank}
+                  className="flex items-center gap-2 rounded-2xl bg-white/45 px-3 py-1.5 text-[14px] font-extrabold"
+                >
+                  <span aria-label={`Hạng ${place.rank}`}>{MEDALS[place.rank - 1]}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {place.name}
+                    {place.isYours ? <span className="ml-1.5 text-[11px] uppercase text-[#7a4b00]">· Lớp bạn</span> : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums">{place.xp.toLocaleString("vi-VN")} XP</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </>
+      ) : (
+        <div className="relative z-10 mt-2 pr-16">
+          <p className="text-[18px] font-extrabold leading-tight text-[#3d2700]">Chưa có nhà vô địch nào</p>
+          <p className="mt-1 text-[13px] font-bold">
+            Tuần trước chưa lớp nào ghi XP. Lớp nào nhiều XP nhất đến Chủ nhật sẽ là nhà vô địch!
+          </p>
+        </div>
+      )}
+      <span
+        className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-2 text-[110px] text-white/25"
+        style={{ fontVariationSettings: "'FILL' 1" }}
+        aria-hidden="true"
+      >
+        emoji_events
+      </span>
     </section>
   );
 }
@@ -675,14 +752,20 @@ export function LeaderboardScreen({
             </p>
           </section>
         ) : emptyClasses ? (
+          <>
+          {classBoard?.lastWeek ? <ClassChampionsBanner champions={classBoard.lastWeek} /> : null}
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
             <p className="text-[16px] font-extrabold text-[#131b2e]">Chưa có lớp nào có XP tuần này</p>
             <p className="mt-2 text-[14px] font-medium text-[#6e7881]">
               Hoàn thành một phần luyện tập để đưa lớp bạn lên bảng.
             </p>
           </section>
+          </>
         ) : classBoard ? (
-          <ClassBoardList classes={classBoard} />
+          <>
+            {classBoard.lastWeek ? <ClassChampionsBanner champions={classBoard.lastWeek} /> : null}
+            <ClassBoardList classes={classBoard} />
+          </>
         ) : emptyClass ? (
           <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e0f2fe] text-[#0284c7]">

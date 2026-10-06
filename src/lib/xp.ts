@@ -92,8 +92,25 @@ export type ClassBoardRow = {
   isYours: boolean;
 };
 
+export type ClassChampionPlace = {
+  rank: number;
+  name: string;
+  xp: number;
+  /** The viewer's class today. */
+  isYours: boolean;
+};
+
+export type ClassChampions = {
+  /** Monday of the finished week. */
+  week: string;
+  /** Up to three classes. Empty when no class earned XP that week. */
+  places: ClassChampionPlace[];
+};
+
 export type ClassBoardExtras = {
   rows: ClassBoardRow[];
+  /** Top 3 classes of last week. Absent when it could not be read. */
+  lastWeek?: ClassChampions;
   /** Null when the viewer's class is not ranked. */
   yourClassRank: number | null;
   yourClassXp: number;
@@ -725,6 +742,37 @@ export function rankClasses(people: readonly BoardPerson[], viewerId: string): C
 /** Classes with XP this period, ranked as the classes board ranks them. */
 export function classStandings(people: readonly BoardPerson[]): ClassTotal[] {
   return rankClassTotals(classLearners(people));
+}
+
+/** One class's place in a stored weekly class podium. */
+export type StoredClassPlace = { classKey: string; rank: number; classXp: number };
+
+/**
+ * The banner on the classes board, from the stored podium of a finished week.
+ * Stored rows are per learner, so each class is kept once. Labels come from
+ * the classes learners are in today; a class nobody is in any more shows its
+ * key.
+ */
+export function classChampions(
+  week: string,
+  places: readonly StoredClassPlace[],
+  labels: ReadonlyMap<string, string>,
+  viewerClassKey: string | null,
+): ClassChampions {
+  const byClass = new Map<string, StoredClassPlace>();
+  for (const place of places) if (!byClass.has(place.classKey)) byClass.set(place.classKey, place);
+  return {
+    week,
+    places: [...byClass.values()]
+      .sort((left, right) => left.rank - right.rank)
+      .slice(0, 3)
+      .map((place) => ({
+        rank: place.rank,
+        name: labels.get(place.classKey) ?? place.classKey,
+        xp: place.classXp,
+        isYours: viewerClassKey != null && viewerClassKey === place.classKey,
+      })),
+  };
 }
 
 export type ClassBoardPodiumPlace = {

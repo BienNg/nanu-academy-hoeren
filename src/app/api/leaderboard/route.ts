@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { readLastWeekClassPodium } from "@/lib/badge-store";
 import { emptyLeaderboard, type LeaderboardBoard, type LeaderboardRange, type LeaderboardScope } from "@/lib/xp";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import {
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
       : board === "blitzrunde"
         ? await getBlitzrundeLeaderboard(boardInput)
         : board === "classes"
-          ? await getClassLeaderboard(boardInput)
+          ? await getClassLeaderboard(boardInput, readLastWeekClassPodium)
           : await getLeaderboard(boardInput);
   return NextResponse.json(payload);
 }

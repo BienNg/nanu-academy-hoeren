@@ -21,7 +21,7 @@ function Contributors({ quest }: { quest: ClassQuestView }) {
     <div className="flex min-w-0 items-center gap-2">
       <div className="flex shrink-0 -space-x-1.5">
         {shown.map((person, index) => (
-          <span key={`${person.name}-${index}`} className="rounded-full ring-2 ring-white">
+          <span key={`${person.name}-${index}`} className="inline-flex overflow-hidden rounded-full ring-2 ring-white">
             <PersonAvatar name={person.name} image={person.image} size={28} />
           </span>
         ))}

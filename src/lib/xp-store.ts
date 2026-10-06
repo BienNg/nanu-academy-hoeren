@@ -54,6 +54,8 @@ import {
   isXpSchemaMissing,
   boardClassFor,
   classBoardPodiums,
+  classChampions,
+  classLearners,
   classPodiums,
   leaderboardClassKey,
   leaderboardClassOptions,
@@ -62,6 +64,7 @@ import {
   weekKey,
   type BoardPerson,
   type ClassBoardPodiumPlace,
+  type StoredClassPlace,
   type ClassPodiumPlace,
   type LeaderboardClassOption,
   type LeaderboardPayload,
@@ -1440,8 +1443,18 @@ export async function listClassLearners(
   });
 }
 
-/** Every class ranked by this week's XP. Always the week, whatever range was asked for. */
-export async function getClassLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+/** Last week's stored class podium. Null when it is not stored or unreadable. */
+export type LastWeekClassPodium = (now: Date) => Promise<{ week: string; places: StoredClassPlace[] } | null>;
+
+/**
+ * Every class ranked by this week's XP. Always the week, whatever range was
+ * asked for. `readLastWeek` adds last week's champions; it lives with the
+ * badge podiums, which import this file.
+ */
+export async function getClassLeaderboard(
+  input: BoardQuery,
+  readLastWeek?: LastWeekClassPodium,
+): Promise<LeaderboardPayload> {
   const ownClassName = getUserClassName(input.viewerId);
   const finish = (payload: LeaderboardPayload) =>
     markBlitzrundeTab(payload, ownClassName, input.canPickClass === true);
@@ -1450,11 +1463,19 @@ export async function getClassLeaderboard(input: BoardQuery): Promise<Leaderboar
   const supabase = getSupabaseAdmin();
   if (!supabase) return finish(blank);
 
-  const people = await readXpBoardPeople(supabase, "week", now, input.viewerId, input.viewerImage);
+  const [people, lastWeek] = await Promise.all([
+    readXpBoardPeople(supabase, "week", now, input.viewerId, input.viewerImage),
+    readLastWeek ? readLastWeek(now).catch(() => null) : Promise.resolve(null),
+  ]);
   if (!people) return finish(blank);
 
   const viewer = people.find((person) => person.userId === input.viewerId);
-  const classes = rankClasses(people, input.viewerId);
+  const viewerClass = viewer && !viewer.isAdmin && !viewer.isStaff ? viewer.classKey || null : null;
+  const labels = new Map(leaderboardClassOptions(classLearners(people)).map((option) => [option.key, option.label]));
+  const classes = {
+    ...rankClasses(people, input.viewerId),
+    ...(lastWeek ? { lastWeek: classChampions(lastWeek.week, lastWeek.places, labels, viewerClass) } : {}),
+  };
   const yours = classes.rows.find((row) => row.isYours);
   return finish({
     ...emptyLeaderboard({ scope: input.scope, range: "week", now, ready: true, board: "classes" }),

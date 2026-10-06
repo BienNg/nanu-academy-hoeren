@@ -16,6 +16,7 @@ import {
   previewLeaderboardRows,
   rankClasses,
   classBoardPodiums,
+  classChampions,
   weekEndsAt,
   weekKey,
   type BoardPerson,
@@ -561,4 +562,31 @@ test("class podiums go to the learners of the top 3 classes who earned XP that w
     { userId: "a1", classKey: "a", rank: 2, classXp: 100 },
     { userId: "c1", classKey: "c", rank: 3, classXp: 50 },
   ]);
+});
+
+test("last week's champions come from the stored podium, one row per class", () => {
+  const labels = new Map([
+    ["a", "A1 Abend"],
+    ["b", "B1"],
+  ]);
+  const champions = classChampions(
+    "2026-09-28",
+    [
+      // Stored per learner, so a class repeats.
+      { classKey: "c", rank: 3, classXp: 50 },
+      { classKey: "b", rank: 1, classXp: 300 },
+      { classKey: "b", rank: 1, classXp: 300 },
+      { classKey: "a", rank: 2, classXp: 100 },
+    ],
+    labels,
+    "a",
+  );
+  assert.equal(champions.week, "2026-09-28");
+  assert.deepEqual(champions.places, [
+    { rank: 1, name: "B1", xp: 300, isYours: false },
+    { rank: 2, name: "A1 Abend", xp: 100, isYours: true },
+    // Nobody is in class "c" today, so it shows its key.
+    { rank: 3, name: "c", xp: 50, isYours: false },
+  ]);
+  assert.deepEqual(classChampions("2026-09-28", [], labels, null).places, []);
 });

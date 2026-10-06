@@ -150,6 +150,19 @@ type PodiumSource = {
   rank: (inWeek: Date) => Promise<Record<string, string | number>[] | null>;
 };
 
+const CLASS_PODIUM_SOURCE: PodiumSource = {
+  label: "class podium",
+  placesTable: CLASS_PODIUMS_TABLE,
+  weeksTable: CLASS_PODIUM_WEEKS_TABLE,
+  rank: async (inWeek) =>
+    (await readWeeklyClassBoardPodiums(inWeek))?.map((place) => ({
+      user_id: place.userId,
+      class_key: place.classKey,
+      rank: place.rank,
+      class_xp: place.classXp,
+    })) ?? null,
+};
+
 const PODIUM_SOURCES: readonly PodiumSource[] = [
   {
     label: "podium",
@@ -163,19 +176,50 @@ const PODIUM_SOURCES: readonly PodiumSource[] = [
         xp: place.xp,
       })) ?? null,
   },
-  {
-    label: "class podium",
-    placesTable: CLASS_PODIUMS_TABLE,
-    weeksTable: CLASS_PODIUM_WEEKS_TABLE,
-    rank: async (inWeek) =>
-      (await readWeeklyClassBoardPodiums(inWeek))?.map((place) => ({
-        user_id: place.userId,
-        class_key: place.classKey,
-        rank: place.rank,
-        class_xp: place.classXp,
-      })) ?? null,
-  },
+  CLASS_PODIUM_SOURCE,
 ];
+
+/**
+ * The last finished week's class podium, for the banner on the classes board.
+ * Ranks that week first when no badge check has yet. Null when the class
+ * podium tables are missing or the week could not be ranked.
+ */
+export async function readLastWeekClassPodium(
+  now = new Date(),
+): Promise<{ week: string; places: { classKey: string; rank: number; classXp: number }[] } | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const week = weekKey(new Date(now.getTime() - WEEK_GRACE_MS - WEEK_MS));
+  const isRanked = async () => {
+    const { data, error } = await supabase
+      .from(CLASS_PODIUM_WEEKS_TABLE)
+      .select("week_key")
+      .eq("week_key", week)
+      .maybeSingle();
+    if (error && !isBadgeSchemaMissing(error.message)) console.error("Supabase class podium week", error.message);
+    return !error && data != null;
+  };
+  if (!(await isRanked())) {
+    await rankFinishedWeeks(supabase, now, CLASS_PODIUM_SOURCE);
+    if (!(await isRanked())) return null;
+  }
+  const { data, error } = await supabase
+    .from(CLASS_PODIUMS_TABLE)
+    .select("class_key, rank, class_xp")
+    .eq("week_key", week);
+  if (error) {
+    if (!isBadgeSchemaMissing(error.message)) console.error("Supabase class podium read", error.message);
+    return null;
+  }
+  return {
+    week,
+    places: ((data ?? []) as { class_key?: unknown; rank?: unknown; class_xp?: unknown }[]).flatMap((row) =>
+      typeof row.class_key === "string" && typeof row.rank === "number" && typeof row.class_xp === "number"
+        ? [{ classKey: row.class_key, rank: row.rank, classXp: row.class_xp }]
+        : [],
+    ),
+  };
+}
 
 /**
  * Stores the podiums of recently finished weeks that are not ranked yet.

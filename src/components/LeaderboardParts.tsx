@@ -37,7 +37,7 @@ export function PersonAvatar({
           width={size}
           height={size}
           referrerPolicy="no-referrer"
-          className="object-cover"
+          className="h-full w-full rounded-full object-cover"
           style={box}
           onError={() => setFailed(true)}
         />

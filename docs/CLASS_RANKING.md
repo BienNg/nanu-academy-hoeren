@@ -57,6 +57,7 @@ Classes compete against each other every week. A class's score is the total XP i
 - `badge-store.ts` ranks finished weeks for both podiums with one routine (`PODIUM_SOURCES`). The first check after setup also ranks the 8 weeks before it, using each learner's class today.
 - `badges.ts`: stats `classWeekTop3` and `classWeekFirst`, families "Lớp trên bục" (`classpodium`) and "Lớp vô địch" (`classchamp`) in the "compete" group, targets 1 / 3 / 10 / 25.
 - Account deletion and full progress wipes also remove `weekly_class_podiums` rows.
+- The "Lớp" tab shows a "Nhà vô địch tuần trước" banner from the stored podium of the last finished week (`readLastWeekClassPodium` in `badge-store.ts`, passed into `getClassLeaderboard` by the API route). If no badge check has ranked that week yet, the tab ranks it first. Without the class podium tables the banner is hidden. A ranked week where no class earned XP shows "Chưa có nhà vô địch nào".
 
 ## Admin: Class league (done)
 - `/admin/class-league` (Engagement group). Built by `buildAdminClassLeague` in `src/lib/admin-class-league.ts`, read by `readAdminClassLeague` in `class-quest-store.ts`.
