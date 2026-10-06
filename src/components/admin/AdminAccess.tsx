@@ -381,6 +381,7 @@ export function AdminAccess({
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState<string | "all">("all");
   const [lockedOnly, setLockedOnly] = useState(false);
+  const [nothingOnly, setNothingOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]>>({});
   const [interviewByUser, setInterviewByUser] = useState<Record<string, boolean>>({});
@@ -496,9 +497,20 @@ export function AdminAccess({
     const searched = filterAdminUsers(liveRows, query);
     const inClass =
       classFilter === "all" ? searched : usersInClass(searched, classFilter);
-    if (!lockedOnly) return inClass;
-    return inClass.filter((row) => !row.isAdmin && row.levelAccess.length === 0);
-  }, [liveRows, query, classFilter, lockedOnly]);
+    return inClass.filter((row) => {
+      if (lockedOnly && (row.isAdmin || row.levelAccess.length > 0)) return false;
+      if (
+        nothingOnly &&
+        (row.isAdmin ||
+          row.levelAccess.length > 0 ||
+          row.interviewAccess ||
+          row.livingAccess.length > 0)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [liveRows, query, classFilter, lockedOnly, nothingOnly]);
 
   const sorted = useMemo(
     () => sortAdminUsers(filtered, "name", "asc"),
@@ -1112,6 +1124,23 @@ export function AdminAccess({
                 }}
               />
               No CEFR level
+            </label>
+            <label
+              className={`inline-flex h-[38px] shrink-0 cursor-pointer items-center gap-space-8 rounded-admin-control border px-space-12 text-admin-label-md font-semibold transition-colors has-[:focus-visible]:shadow-admin-focus ${
+                nothingOnly
+                  ? "border-admin-amber bg-admin-amber-wash text-admin-amber-ink"
+                  : "border-admin-hairline bg-admin-card text-admin-ink-muted hover:border-admin-border"
+              }`}
+              title="No CEFR level, Luyện phỏng vấn, or Leben in Deutschland workplace"
+            >
+              <Checkbox
+                checked={nothingOnly}
+                onChange={(event) => {
+                  setNothingOnly(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              No access
             </label>
           </div>
           <ScopeChips

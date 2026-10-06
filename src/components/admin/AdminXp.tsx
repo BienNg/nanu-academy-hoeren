@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   ChartTooltip,
   KpiTile,
@@ -25,11 +27,13 @@ import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
   adminRangeLabel,
   type AdminRange,
+  type AdminUserRow,
   type AdminXpBoard,
   type AdminXpLeader,
   type AdminXpLesson,
   type AdminXpPoint,
 } from "@/lib/admin-overview";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import type { AdminQuestBoard, AdminQuestPoint } from "@/lib/admin-quests";
 import type { QuestKind } from "@/lib/quests";
 
@@ -177,7 +181,13 @@ function QuestKindTable({ board }: { board: AdminQuestBoard }) {
   );
 }
 
-function LeadersTable({ rows }: { rows: readonly AdminXpLeader[] }) {
+function LeadersTable({
+  rows,
+  onSelect,
+}: {
+  rows: readonly AdminXpLeader[];
+  onSelect: (userId: string) => void;
+}) {
   return (
     <TablePanel
       icon="leaderboard"
@@ -205,7 +215,15 @@ function LeadersTable({ rows }: { rows: readonly AdminXpLeader[] }) {
             </thead>
             <tbody className="text-admin-body-md text-admin-ink">
               {rows.map((row, index) => (
-                <tr key={row.userId} className={TR}>
+                <tr
+                  key={row.userId}
+                  tabIndex={0}
+                  onClick={() => onSelect(row.userId)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onSelect(row.userId);
+                  }}
+                  className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
+                >
                   <td className="px-space-16 text-center">
                     <span
                       className={`inline-flex h-6 w-6 items-center justify-center rounded-admin-badge text-admin-label-md font-semibold tabular-nums ${
@@ -219,7 +237,11 @@ function LeadersTable({ rows }: { rows: readonly AdminXpLeader[] }) {
                       {index + 1}
                     </span>
                   </td>
-                  <td className="px-space-16 font-semibold">{row.displayName}</td>
+                  <td className="px-space-16">
+                    <span className="font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
+                      {row.displayName}
+                    </span>
+                  </td>
                   <td className="px-space-16 text-admin-body-sm text-admin-ink-muted">{row.className ?? "—"}</td>
                   <td className="px-space-16 text-right tabular-nums">{formatCount(row.newXp)}</td>
                   <td className="px-space-16 text-right tabular-nums">{formatCount(row.reviewXp)}</td>
@@ -279,6 +301,8 @@ function LessonsTable({ rows }: { rows: readonly AdminXpLesson[] }) {
 
 export function AdminXp({
   board,
+  rows,
+  catalog,
   quests,
   questsReady,
   range,
@@ -286,12 +310,16 @@ export function AdminXp({
   xpReady,
 }: {
   board: AdminXpBoard;
+  rows: readonly AdminUserRow[];
+  catalog: readonly AdminCatalogCourse[];
   quests: AdminQuestBoard;
   questsReady: boolean;
   range: AdminRange;
   storeConfigured: boolean;
   xpReady: boolean;
 }) {
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const detailRow = rows.find((row) => row.userId === detailUserId) ?? null;
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
 
@@ -374,7 +402,7 @@ export function AdminXp({
       </ChartPanel>
 
       <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2">
-        <LeadersTable rows={board.leaders} />
+        <LeadersTable rows={board.leaders} onSelect={setDetailUserId} />
         <LessonsTable rows={board.lessons} />
       </div>
 
@@ -439,6 +467,9 @@ export function AdminXp({
           <QuestKindTable board={quests} />
         </div>
       </section>
+      {detailRow ? (
+        <StudentDetail row={detailRow} catalog={catalog} onClose={() => setDetailUserId(null)} />
+      ) : null}
     </main>
   );
 }
