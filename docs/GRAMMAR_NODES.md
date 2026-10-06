@@ -35,7 +35,8 @@ This file is separate from `verbs.json`, which keeps its Präsens-only shape for
     "id": "vergangenheit-haben-sein",   // lowercase slug, unique in the Lektion
     "titleVi": "Quá khứ của haben và sein",
     "verbs": ["haben", "sein"],          // one study part per verb, in this order
-    "tips": [{ "id": "…", "titleVi": "…", "textVi": "…", "verb": "sein" }], // verb: show only in that verb's part
+    "tips": [{ "id": "…", "titleVi": "…", "textVi": "…", "verb": "sein", "tense": "perfekt" }],
+    // verb: show only in that verb's part. tense: shown after a wrong answer about that tense
     "examples": [                        // clip-shaped, audio next to the Lektion's clips
       { "filename": "…mp3", "script": "Ich war gestern zu Hause.", "translationVi": "…",
         "verb": "sein", "tense": "praeteritum", "person": "ich" }

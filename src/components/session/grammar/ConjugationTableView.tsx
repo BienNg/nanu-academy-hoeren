@@ -44,15 +44,25 @@ export function useClipPlayer() {
   return { play, playingPath };
 }
 
-/** The cell text with its highlight (an ending or the Partizip) marked. */
+/**
+ * The cell text with its highlight (an ending or the Partizip) marked. "…"
+ * stays with the Partizip, so a narrow Perfekt cell breaks into two lines,
+ * "hast" and "… gehabt", never three.
+ */
 export function HighlightedForm({ text, highlight, markClass }: { text: string; highlight: string; markClass: string }) {
-  if (!highlight || !text.endsWith(highlight)) return <>{text}</>;
+  const kept = text.replace(" … ", " …\u00a0");
+  if (!highlight || !kept.endsWith(highlight)) return <>{kept}</>;
   return (
     <>
-      {text.slice(0, text.length - highlight.length)}
+      {kept.slice(0, kept.length - highlight.length)}
       <strong className={`font-extrabold ${markClass}`}>{highlight}</strong>
     </>
   );
+}
+
+/** Lets "wir/sie/Sie" wrap after a slash instead of pushing into the next column. */
+function wrappable(label: string): string {
+  return label.replaceAll("/", "/\u200b");
 }
 
 function CellButton({
@@ -71,7 +81,7 @@ function CellButton({
   const tone = TENSE_TONE[tense];
   const content = <HighlightedForm text={cell.text} highlight={cell.highlight} markClass={tone.mark} />;
   if (!cell.audioPath) {
-    return <span className={`block px-2 py-3 text-[16px] font-medium sm:text-[18px] ${tone.text}`}>{content}</span>;
+    return <span className={`block px-1 py-3 text-[14px] font-medium min-[380px]:text-[15px] sm:px-2 sm:text-[18px] ${tone.text}`}>{content}</span>;
   }
   const audioPath = cell.audioPath;
   return (
@@ -80,16 +90,15 @@ function CellButton({
       onClick={() => onPlay(audioPath)}
       aria-label={`Nghe: ${cell.spoken}`}
       title={`${personLabel} – ${cell.spoken}`}
-      className={`flex w-full items-center gap-1.5 rounded-xl px-2 py-3 text-left text-[16px] font-medium transition-colors hover:bg-black/[0.04] sm:text-[18px] ${
-        playing ? "bg-black/[0.06]" : ""
+      className={`flex w-full items-center gap-1.5 rounded-xl px-1 py-3 text-left text-[14px] font-medium min-[380px]:text-[15px] transition-colors hover:bg-black/[0.04] sm:px-2 sm:text-[18px] ${
+        playing ? "bg-black/[0.08]" : "bg-black/[0.02]"
       } ${tone.text} ${FOCUS_RING}`}
     >
       <span className="min-w-0 flex-1">{content}</span>
-      <span
-        className={`material-symbols-outlined shrink-0 text-[16px] ${playing ? "opacity-90" : "opacity-30"}`}
-        aria-hidden="true"
-      >
-        volume_up
+      {/* On a phone the whole cell is the button; the icon only fits from sm up.
+          The wrapper hides it, since the icon font sets its own display. */}
+      <span className="hidden shrink-0 sm:inline-flex" aria-hidden="true">
+        <span className={`material-symbols-outlined text-[16px] ${playing ? "opacity-90" : "opacity-30"}`}>volume_up</span>
       </span>
     </button>
   );
@@ -103,19 +112,25 @@ function CellButton({
 export function ConjugationTableView({ table }: { table: ConjugationTable }) {
   const { play, playingPath } = useClipPlayer();
   return (
-    <section className="rounded-[24px] border border-white/20 bg-white/80 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-5">
-      <div className="mb-3 flex items-center gap-2 px-1">
+    <section className="rounded-[24px] border border-white/20 bg-white/80 px-1.5 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl sm:p-5">
+      <div className="mb-3 flex items-center gap-2 px-2 sm:px-1">
         <span className="rounded-xl bg-gradient-to-r from-[#c9f7d4] to-[#8fb5ff] px-3 py-1 text-[18px] font-extrabold text-[#1d1d1f]">
           {table.verb}
         </span>
-        <span className="text-[13px] font-medium text-[#86868b]">Chạm vào ô để nghe</span>
+        <span className="flex items-center gap-1 text-[13px] font-medium text-[#86868b]">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+            volume_up
+          </span>
+          Chạm vào ô để nghe
+        </span>
       </div>
-      <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5">
+      <table className="w-full table-fixed border-separate border-spacing-x-0.5 border-spacing-y-0.5 sm:border-spacing-x-1">
         <colgroup>
-          <col className="w-[22%]" />
-          <col />
-          <col />
-          <col />
+          {/* Perfekt holds two words ("… gewesen"), so it gets the widest column. */}
+          <col className="w-[19%] sm:w-[22%]" />
+          <col className="w-[22%] sm:w-auto" />
+          <col className="w-[33%] sm:w-auto" />
+          <col className="w-[26%] sm:w-auto" />
         </colgroup>
         <thead>
           <tr>
@@ -126,9 +141,9 @@ export function ConjugationTableView({ table }: { table: ConjugationTable }) {
               <th
                 key={tense.id}
                 scope="col"
-                className={`rounded-xl px-1 py-2 text-center ${TENSE_TONE[tense.id].head}`}
+                className={`rounded-xl px-0.5 py-2 text-center ${TENSE_TONE[tense.id].head}`}
               >
-                <span className="block text-[13px] font-extrabold sm:text-[16px]">{tense.label}</span>
+                <span className="block text-[11px] font-extrabold min-[380px]:text-[13px] sm:text-[16px]">{tense.label}</span>
                 <span className="block text-[11px] font-medium opacity-80 sm:text-[13px]">{tense.labelVi}</span>
               </th>
             ))}
@@ -137,8 +152,8 @@ export function ConjugationTableView({ table }: { table: ConjugationTable }) {
         <tbody>
           {table.rows.map((row) => (
             <tr key={row.person.id} className="align-middle">
-              <th scope="row" className="px-1 text-left text-[15px] font-semibold text-[#1d1d1f] sm:text-[18px]">
-                {row.person.label}
+              <th scope="row" className="px-1 text-left text-[14px] leading-tight font-semibold text-[#1d1d1f] min-[380px]:text-[15px] sm:text-[18px]">
+                {wrappable(row.person.label)}
               </th>
               {table.tenses.map((tense) => {
                 const cell = row.cells[tense.id];

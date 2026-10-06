@@ -415,6 +415,7 @@ function checkLessonGrammar(grammar, jsonRel, audioDir, listedFilenames) {
         }
       }
       inTopic(tip.verb, tipWhere);
+      if (tip.tense !== undefined) tense(tip.tense, tipWhere);
     });
 
     (Array.isArray(topic.examples) ? topic.examples : []).forEach((example, index) => {

@@ -13,23 +13,27 @@
         },
         {
           "id": "satzklammer",
+          "tense": "perfekt",
           "titleVi": "Khung câu Perfekt",
           "textVi": "Trợ động từ đứng ở vị trí 2, Partizip II đứng cuối câu: Ich habe gestern keine Zeit gehabt."
         },
         {
           "id": "partizip-haben",
+          "tense": "perfekt",
           "titleVi": "Partizip II của haben",
           "textVi": "haben → gehabt. Perfekt của haben đi với haben: ich habe … gehabt.",
           "verb": "haben"
         },
         {
           "id": "partizip-sein",
+          "tense": "perfekt",
           "titleVi": "Partizip II của sein",
           "textVi": "sein → gewesen. Perfekt của sein đi với sein, không đi với haben: ich bin … gewesen.",
           "verb": "sein"
         },
         {
           "id": "endungen",
+          "tense": "praeteritum",
           "titleVi": "Đuôi Präteritum",
           "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir/sie/Sie thêm -n hoặc -en."
         },

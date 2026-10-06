@@ -48,6 +48,8 @@ export type GrammarTip = {
   textVi: string;
   /** Shown only in this verb's study part. Omitted: every part. */
   verb?: string;
+  /** The tense this tip explains. Only a tip with a tense is shown after a wrong answer about that tense. */
+  tense?: GrammarTense;
 };
 
 export type StoredGrammarExample = {

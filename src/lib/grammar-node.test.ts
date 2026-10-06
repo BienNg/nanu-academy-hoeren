@@ -19,6 +19,7 @@ import {
   grammarNodeLayout,
   grammarPracticeParts,
   grammarStudyParts,
+  ruleFor,
   sentenceBracket,
   spreadSentences,
   VERB_PART_MIX,
@@ -281,6 +282,25 @@ test("error-check: a drill without a fix is a correct sentence", () => {
   assert.equal(checkErrorCheck(null, true).accuracy, 100);
   assert.equal(checkErrorCheck("Ihr hattet Durst.", true).accuracy, 0);
   assert.equal(checkErrorCheck("Ihr hattet Durst.", false).accuracy, 100);
+});
+
+test("ruleFor shows one tip about the tense, the verb's own first", () => {
+  const tips = withAudio.tips;
+  assert.equal(ruleFor(tips, "sein", "perfekt"), tips.find((tip) => tip.id === "partizip-sein")!.textVi);
+  assert.equal(ruleFor(tips, "haben", "praeteritum"), tips.find((tip) => tip.id === "endungen")!.textVi);
+  assert.equal(ruleFor(tips, "haben", "praesens"), undefined);
+});
+
+test("a wrong answer never shows more than one tip", () => {
+  const texts = new Set(withAudio.tips.map((tip) => tip.textVi));
+  const rules = [
+    ...grammarStudyParts(LESSON, withAudio, tables).flatMap((part) =>
+      part.screens.flatMap((screen) => (screen.kind === "check" && screen.question.ruleVi ? [screen.question.ruleVi] : [])),
+    ),
+    ...allCards().flatMap((card) => (card.ruleVi && card.kind !== "error-check" ? [card.ruleVi] : [])),
+  ];
+  assert.ok(rules.length > 0);
+  for (const rule of rules) assert.ok(texts.has(rule), rule);
 });
 
 test("checkChoice scores the selected option", () => {

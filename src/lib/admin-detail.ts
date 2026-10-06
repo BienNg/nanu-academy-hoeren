@@ -1284,13 +1284,55 @@ function emptyVisitMessage(range: AdminVisitRange): string {
   return "No visits recorded yet.";
 }
 
-export function projectStudentVisits(
+/** Late visit heartbeats can land a little before the jump's own stamp. */
+const SKIPPED_JUMP_SLACK_MS = 5 * 60_000;
+
+/**
+ * Visits saved before jump tests were logged on them show the jump as an idle
+ * visit. A passed jump that skipped a Lektion still left `skippedAt`, so it is
+ * put back on the latest visit that started before it and was still open.
+ */
+function withSkippedJumps(
   courses: readonly AdminCatalogCourse[],
   progress: StoredProgress,
+): StoredProgress {
+  const visits = progress.visits ?? [];
+  if (visits.length === 0) return progress;
+  const patched = new Map<string, Visit>();
+  for (const course of courses) {
+    for (const lesson of course.lessons) {
+      if (!lesson.learnKey) continue;
+      const skippedAt = progress.learn[lesson.learnKey]?.skippedAt;
+      const time = skippedAt ? Date.parse(skippedAt) : Number.NaN;
+      if (Number.isNaN(time)) continue;
+      const lessonKey = lesson.videoKeyPrefix ?? `${course.id}/${lesson.learnKey}`;
+      let target: Visit | null = null;
+      for (const visit of visits) {
+        const current = patched.get(visit.id) ?? visit;
+        if (Date.parse(current.startedAt) > time) continue;
+        if (Date.parse(current.endedAt) + SKIPPED_JUMP_SLACK_MS < time) continue;
+        if (!target || current.startedAt > target.startedAt) target = current;
+      }
+      if (!target || (target.jumps ?? []).some((jump) => jump.lessonKey === lessonKey)) continue;
+      patched.set(target.id, {
+        ...target,
+        jumps: [...(target.jumps ?? []), { lessonKey, passed: true }],
+        lessons: target.lessons.includes(lessonKey) ? target.lessons : [...target.lessons, lessonKey],
+      });
+    }
+  }
+  if (patched.size === 0) return progress;
+  return { ...progress, visits: visits.map((visit) => patched.get(visit.id) ?? visit) };
+}
+
+export function projectStudentVisits(
+  courses: readonly AdminCatalogCourse[],
+  storedProgress: StoredProgress,
   range: AdminVisitRange,
   now = new Date(),
   xpEvents: readonly AdminXpEvent[] = [],
 ): AdminVisitLog {
+  const progress = withSkippedJumps(courses, storedProgress);
   const detail = projectStudentDetail(courses, progress);
   const all = [...(progress.visits ?? [])].sort((a, b) =>
     a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0,

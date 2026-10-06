@@ -156,13 +156,14 @@ function wrongOptions(texts: readonly string[], explanation?: string): McOption[
   }));
 }
 
-/** Tips shown after a wrong answer: the topic's tips for this verb, joined. */
-function ruleFor(tips: readonly GrammarTip[], verbId: string | null): string | undefined {
-  const text = tips
-    .filter((tip) => tip.verb === undefined || tip.verb === verbId)
-    .map((tip) => tip.textVi)
-    .join(" ");
-  return text || undefined;
+/**
+ * The one tip shown after a wrong answer: a tip about this tense, this verb's
+ * own before a general one. None when no tip names the tense, so a miss never
+ * shows every tip at once.
+ */
+export function ruleFor(tips: readonly GrammarTip[], verbId: string | null, tense: GrammarTense): string | undefined {
+  const about = tips.filter((tip) => tip.tense === tense && (tip.verb === undefined || tip.verb === verbId));
+  return (about.find((tip) => tip.verb === verbId) ?? about[0])?.textVi;
 }
 
 // ---------------------------------------------------------------- questions
@@ -325,7 +326,6 @@ export function grammarStudyParts(
   return topic.tables.map((table, index) => {
     const verbId = table.verb;
     const verb = tables.verbs[verbId]!;
-    const rule = ruleFor(topic.tips, verbId);
     const examples = topic.examples.filter((example) => example.verb === verbId);
     const screens: GrammarStudyScreen[] = [];
     const key = (name: string) => `${topic.id}:${verbId}:${name}`;
@@ -337,7 +337,7 @@ export function grammarStudyParts(
     for (const tense of TABLE_CHECK_TENSES) {
       const persons = shuffle(tables.persons, random);
       const question = persons
-        .map((person) => tableQuestion(tables, verbId, tense, person.id, random, rule))
+        .map((person) => tableQuestion(tables, verbId, tense, person.id, random, ruleFor(topic.tips, verbId, tense)))
         .find(Boolean);
       if (question) screens.push({ kind: "check", key: key(`check-${tense}`), question });
     }
@@ -353,7 +353,7 @@ export function grammarStudyParts(
     if (examples.length > 0) screens.push({ kind: "examples", key: key("examples"), examples });
 
     const finalQuestion = shuffle(examples, random)
-      .map((example) => exampleQuestion(tables, example, random, rule))
+      .map((example) => exampleQuestion(tables, example, random, ruleFor(topic.tips, verbId, example.tense)))
       .find(Boolean);
     if (finalQuestion) screens.push({ kind: "check", key: key("check-final"), question: finalQuestion });
 
@@ -435,7 +435,7 @@ function formChoiceCards(
   random: () => number,
 ): GrammarCard[] {
   return examples.flatMap((example) => {
-    const rule = ruleFor(topic.tips, example.verb);
+    const rule = ruleFor(topic.tips, example.verb, example.tense);
     const question = exampleQuestion(tables, example, random, rule);
     if (!question) return [];
     return [
@@ -486,7 +486,7 @@ function tableFillCard(
     [...answers, ...pool.slice(0, 2)].map((text, index) => ({ id: `c${index}`, text })),
     random,
   );
-  const rule = ruleFor(topic.tips, verbId);
+  const rule = ruleFor(topic.tips, verbId, tense);
   return {
     kind: "table-fill",
     key: `${topic.id}:table-fill:${verbId}:${tense}:${[...blanks].sort().join("+")}`,
@@ -542,7 +542,7 @@ function transformCard(
     ? Object.values(tables.verbs).map((verb) => verb.partizip)
     : tenseForms(tables, drill.verb, drill.tense).map((entry) => entry.form);
   const distractors = [...fromWords, ...shuffle(forms, random)];
-  const rule = ruleFor(topic.tips, drill.verb);
+  const rule = ruleFor(topic.tips, drill.verb, drill.tense);
   return {
     kind: "tense-transform",
     key: `${topic.id}:tense-transform:${index}`,
@@ -575,7 +575,7 @@ function bracketCard(
       if (aux) traps.push(aux);
     }
   }
-  const rule = ruleFor(topic.tips, source.verb);
+  const rule = ruleFor(topic.tips, source.verb, "perfekt");
   return {
     kind: "bracket-order",
     key: `${topic.id}:bracket-order:${source.id}`,
