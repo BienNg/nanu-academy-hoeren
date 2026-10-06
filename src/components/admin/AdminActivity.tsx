@@ -5,16 +5,19 @@ import { MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   Area,
   AreaChart,
+  ComposedChart,
+  Line,
   Bar,
   BarChart,
   CartesianGrid,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { loadActivityWindow } from "@/app/admin/range-data";
+import { loadActivityWindow, type ActivityWindow } from "@/app/admin/range-data";
 import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
@@ -38,6 +41,7 @@ import {
   HeaderChip,
   ChartPanel,
   IconTile,
+  Segmented,
   ShareBar,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
@@ -61,8 +65,14 @@ const STUDY = ADMIN_COLORS.emerald;
 const PRACTICE = ADMIN_COLORS.violet;
 const VIDEOS = ADMIN_COLORS.violetSoft;
 
+/** Unique students who finished a card, for the hourly/daily people chart. */
+const PEOPLE_SERIES = { key: "activeUsers", name: "Active people", label: "Active people" } as const;
+
 /** Students per page in the "Most time in the app" table. */
 const LEADER_PAGE_SIZE = 10;
+
+/** Asia/Ho_Chi_Minh is UTC+7 all year. */
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 /** Last visit within this window reads as "Active now". */
 const ACTIVE_NOW_MS = 5 * 60 * 1000;
@@ -76,6 +86,19 @@ function formatMinutes(seconds: number): string {
   if (hours <= 0) return `${minutes} min`;
   if (rest === 0) return `${hours} h`;
   return `${hours} h ${rest} min`;
+}
+
+/** A short duration: seconds under a minute, minutes and seconds under ten, then minutes. */
+function formatShortDuration(seconds: number): string {
+  const safe = Math.round(Math.max(0, seconds));
+  if (safe < 60) return `${safe} s`;
+  if (safe >= 600) return formatMinutes(safe);
+  const rest = safe % 60;
+  return rest === 0 ? `${safe / 60} min` : `${Math.floor(safe / 60)} min ${rest} s`;
+}
+
+function formatStudents(count: number): string {
+  return `${formatCount(count)} ${count === 1 ? "student" : "students"}`;
 }
 
 function formatPerActive(total: number, active: number): string {
@@ -117,7 +140,16 @@ function useNow(intervalMs = 30_000): number | null {
   return now;
 }
 
-type PointKey = "activeUsers" | "activeSeconds" | "videosWatched" | "studyRuns" | "practiceRuns" | "clips";
+type PointKey =
+  | "activeUsers"
+  | "activeSeconds"
+  | "videosWatched"
+  | "videoSeconds"
+  | "studyRuns"
+  | "studyParts"
+  | "practiceRuns"
+  | "practiceParts"
+  | "clips";
 
 /** The busiest point for one series, or null when the series is all zero. */
 function peakPoint(
@@ -131,16 +163,101 @@ function peakPoint(
   return best;
 }
 
+/** One plotted field of the activity points and how it reads. */
+type Series = {
+  key: PointKey;
+  /** Tooltip and legend name, e.g. "Time in app". */
+  name: string;
+  /** Chart caption, e.g. "Time in app by hour". */
+  label: string;
+  /** Seconds, charted and printed as minutes. */
+  minutes?: boolean;
+  /** Extra tooltip rows worked out from the same point, e.g. "Per active". */
+  extras?: (point: AdminActivityPoint) => TooltipExtra[];
+  /** A line drawn over the series in the enlarged chart, which then shows the series as fill. */
+  overlay?: { name: string; value: (point: AdminActivityPoint) => number };
+};
+
+type TooltipExtra = { name: string; value: string };
+
+type SeriesPoint = {
+  key: string;
+  label: string;
+  value: number;
+  overlay?: number;
+  extras?: TooltipExtra[];
+};
+
+function seriesPoints(
+  points: readonly AdminActivityPoint[],
+  series: Series,
+): SeriesPoint[] {
+  const unit = (value: number) => (series.minutes ? Math.round(value / 6) / 10 : value);
+  return points.map((point) => ({
+    key: point.key,
+    label: point.label,
+    value: unit(point[series.key]),
+    overlay: series.overlay ? unit(series.overlay.value(point)) : undefined,
+    extras: series.extras?.(point),
+  }));
+}
+
+/** The shared chart tooltip, with the series' extra rows under its own value. */
+function SeriesTooltip({
+  active,
+  label,
+  payload,
+  series,
+  color,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: readonly {
+    name?: string;
+    value?: number | string;
+    color?: string;
+    dataKey?: unknown;
+    payload?: unknown;
+  }[];
+  series: Series;
+  /** The series colour, for the swatch: a fill-only area reports no stroke colour. */
+  color: string;
+}) {
+  // The overlay line's value is already one of the extras, so only the main row is kept.
+  const main = payload?.find((row) => row.dataKey === "value") ?? payload?.[0];
+  const point = main?.payload as SeriesPoint | undefined;
+  const rows = main ? [{ ...main, color }, ...(point?.extras ?? [])] : payload;
+  return (
+    <ChartTooltip
+      active={active}
+      label={label}
+      payload={rows}
+      formatValue={seriesFormatter(series)}
+    />
+  );
+}
+
+function seriesFormatter(series: Series): (value: number) => string {
+  return series.minutes ? (value) => formatMinutes(value * 60) : formatCount;
+}
+
+/** The busiest point of a plotted series, or null when it is all zero. */
+function seriesPeak(data: readonly SeriesPoint[]): SeriesPoint | null {
+  let best: SeriesPoint | null = null;
+  for (const point of data) {
+    if (point.value > 0 && (!best || point.value > best.value)) best = point;
+  }
+  return best;
+}
+
 function Sparkline({
   data,
-  dataKey,
-  name,
+  series,
   color,
   compact = false,
 }: {
-  data: readonly AdminActivityPoint[];
-  dataKey: PointKey;
-  name: string;
+  data: readonly SeriesPoint[];
+  series: Series;
   color: string;
   /** Shorter, and no tooltip: a compact card is one click target. */
   compact?: boolean;
@@ -161,9 +278,10 @@ function Sparkline({
           {/* The card clips overflow, so the tooltip floats above the line instead of below. */}
           {compact ? null : (
             <Tooltip
-              content={<ChartTooltip />}
+              content={<SeriesTooltip series={series} color={color} />}
               cursor={{ stroke: GRID, strokeDasharray: "3 3" }}
-              position={{ y: -64 }}
+              // Clear the line by the tooltip's height: a label plus one row per value.
+              position={{ y: -(44 + 20 * (1 + (data[0]?.extras?.length ?? 0))) }}
               allowEscapeViewBox={{ x: false, y: true }}
               wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
               isAnimationActive={false}
@@ -171,8 +289,8 @@ function Sparkline({
           )}
           <Area
             type="monotone"
-            dataKey={dataKey}
-            name={name}
+            dataKey="value"
+            name={series.name}
             stroke={color}
             strokeWidth={1.5}
             strokeLinecap="round"
@@ -188,7 +306,6 @@ function Sparkline({
   );
 }
 
-
 type GlanceId = "people" | "videos" | "study" | "practice";
 
 /** All four cards equal, the one enlarged card, or a compact tile beside it. */
@@ -202,12 +319,19 @@ type GlanceCardData = {
   color: string;
   value: string;
   unit: string;
-  badge: string;
   /** 0–1 share drawn as a bar under the headline number. */
   progress: number;
   progressLabel: string;
+  /** What the bar is a share of, printed beside it: "all" or "active". */
+  progressBase: string;
+  /** What the counted students did, after "4 students": "watched", "studied", … */
+  progressVerb: string;
+  /** The bar's raw numbers, e.g. 4 of 8. */
+  progressCount: readonly [number, number];
   metrics: readonly [MicroMetric, MicroMetric];
-  trend: { data: readonly AdminActivityPoint[]; key: PointKey; name: string; label: string };
+  points: readonly AdminActivityPoint[];
+  /** The chart's default series, then the one the enlarged card's tab switches to. */
+  series: readonly [Series, Series];
 };
 
 /** Soft spring for the card shuffle: about 450ms with a slight settle. */
@@ -259,6 +383,9 @@ function GlanceCard({
   leaving,
   animateIn,
   grain,
+  seriesIndex,
+  averageOver,
+  onSeries,
   onSelect,
 }: {
   card: GlanceCardData;
@@ -266,39 +393,43 @@ function GlanceCard({
   leaving: boolean;
   animateIn: boolean;
   grain: AdminActivityGrain;
+  /** Which of the card's two series the enlarged chart shows. */
+  seriesIndex: 0 | 1;
+  /** Leading points the enlarged chart's average covers. */
+  averageOver?: number;
+  onSeries: (index: 0 | 1) => void;
   onSelect: () => void;
 }) {
-  const peak = peakPoint(card.trend.data, card.trend.key);
   const hero = mode === "hero";
   const compact = mode === "compact";
+  // Only the enlarged card offers the second series; the small charts keep the default.
+  const series = card.series[hero ? seriesIndex : 0];
+  const data = seriesPoints(card.points, series);
+  const peak = seriesPeak(data);
   const part = { leaving, animateIn };
   return (
     <motion.article
       layout
       transition={GLANCE_SPRING}
-      role="button"
+      // The enlarged card holds tabs, so it is a plain region that still closes on click.
+      role={hero ? "region" : "button"}
+      aria-label={hero ? card.title : undefined}
+      aria-expanded={hero ? undefined : false}
       tabIndex={0}
-      aria-expanded={hero}
       onClick={onSelect}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         onSelect();
       }}
-      className={`${CARD} flex cursor-pointer flex-col overflow-hidden border-t-2 outline-offset-2 transition-colors duration-200 hover:border-admin-border focus-visible:outline-2 ${
+      className={`${CARD} flex cursor-pointer flex-col overflow-hidden outline-offset-2 transition-colors duration-200 hover:border-admin-border focus-visible:outline-2 ${
         hero ? "lg:row-span-3" : ""
       } ${compact ? "justify-between p-space-12 2xl:p-space-16" : "justify-between p-space-16 2xl:p-space-20"}`}
-      style={{
-        borderTopColor: card.color,
-        borderRadius: 8,
-        outlineColor: card.color,
-        boxShadow: hero
-          ? `0 0 0 1px ${card.color}33, 0 16px 40px -16px ${card.color}59`
-          : undefined,
-      }}
+      style={{ borderRadius: 8, outlineColor: card.color }}
     >
       <span className="sr-only">
-        {hero ? "Click to show all cards again." : "Click to enlarge this graph."}
+        {hero ? "Click or press Enter to show all cards again." : "Click to enlarge this graph."}
       </span>
       <div className={`flex flex-col ${compact ? "h-full justify-between gap-space-8" : "gap-space-12"}`}>
         <header className="flex items-start justify-between gap-space-8">
@@ -319,16 +450,20 @@ function GlanceCard({
               )}
             </div>
           </motion.div>
-          {compact ? null : (
-            <ModePart {...part} className="shrink-0">
-              <span
-                className="inline-flex h-5 items-center whitespace-nowrap rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 tabular-nums"
-                style={{ backgroundColor: `${card.color}14`, color: card.color }}
+          {compact ? (
+            // The compact tile keeps the stat its graph plots: time in app, play time, or parts.
+            <ModePart {...part} className="min-w-0 text-right">
+              <p className="truncate text-admin-label-md text-admin-ink-subtle">
+                {card.metrics[0].label}
+              </p>
+              <p
+                className="truncate text-admin-body-md font-semibold tabular-nums"
+                style={{ color: card.color }}
               >
-                {card.badge}
-              </span>
+                {card.metrics[0].value}
+              </p>
             </ModePart>
-          )}
+          ) : null}
         </header>
 
         <div className={compact ? "flex items-end justify-between gap-space-12" : ""}>
@@ -344,20 +479,31 @@ function GlanceCard({
           </motion.p>
           {compact ? (
             <ModePart {...part} className="w-24 min-w-0 pb-1">
-              <Sparkline
-                data={card.trend.data}
-                dataKey={card.trend.key}
-                name={card.trend.name}
-                color={card.color}
-                compact
-              />
+              <Sparkline data={data} series={series} color={card.color} compact />
             </ModePart>
           ) : null}
         </div>
 
         {compact ? null : (
           <ModePart {...part} className="flex flex-col gap-space-12">
-            <ShareBar share={card.progress} color={card.color} label={card.progressLabel} />
+            <div className="flex flex-col gap-1">
+              {/* Who the bar counts, then what share that is and of whom. */}
+              <div className="flex items-baseline justify-between gap-space-8 text-admin-label-md text-admin-ink-subtle">
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold tabular-nums" style={{ color: card.color }}>
+                    {formatStudents(card.progressCount[0])}
+                  </span>{" "}
+                  {card.progressVerb}
+                </span>
+                <span className="shrink-0">
+                  <span className="font-semibold tabular-nums" style={{ color: card.color }}>
+                    {formatPercent(card.progress)}
+                  </span>{" "}
+                  of {card.progressBase}
+                </span>
+              </div>
+              <ShareBar share={card.progress} color={card.color} label={card.progressLabel} />
+            </div>
             <dl className="grid grid-cols-2 divide-x divide-admin-hairline rounded-admin-control border border-admin-hairline bg-admin-canvas py-space-8">
               {card.metrics.map((metric, index) => (
                 <div key={metric.label} className="flex min-w-0 flex-col px-space-12">
@@ -381,33 +527,67 @@ function GlanceCard({
       {compact ? null : (
         <ModePart {...part} className={`flex flex-col pt-space-12 ${hero ? "flex-1" : ""}`}>
           <div className="flex items-center justify-between gap-space-8 pb-1 text-admin-label-md text-admin-ink-subtle">
-            <span className="truncate">{card.trend.label}</span>
-            <span
-              className="shrink-0 font-semibold"
-              style={{ color: peak ? card.color : undefined }}
-            >
-              {peak ? `Peak ${peak.label}` : "No activity yet"}
+            {hero ? (
+              // Tabs sit inside the clickable card: keep their clicks from closing it.
+              <div onClick={(event) => event.stopPropagation()}>
+                <Segmented
+                  ariaLabel={`${card.title} chart`}
+                  value={String(seriesIndex)}
+                  options={card.series.map((option, index) => ({
+                    key: String(index),
+                    label: option.name,
+                  }))}
+                  onSelect={(key) => onSeries(key === "1" ? 1 : 0)}
+                />
+              </div>
+            ) : (
+              <span className="truncate">{series.label}</span>
+            )}
+            <span className="flex shrink-0 items-center gap-space-12">
+              {hero && series.overlay ? (
+                <>
+                  <span className="flex items-center gap-space-4">
+                    <span
+                      className="h-2.5 w-2.5 rounded-[2px]"
+                      style={{ backgroundColor: `${card.color}4d` }}
+                      aria-hidden="true"
+                    />
+                    Total
+                  </span>
+                  <span className="flex items-center gap-space-4">
+                    <span
+                      className="h-0.5 w-4 rounded-full"
+                      style={{ backgroundColor: card.color }}
+                      aria-hidden="true"
+                    />
+                    {series.overlay.name}
+                  </span>
+                  {seriesAverage(data, averageOver) > 0 ? (
+                    <span className="text-admin-ink-subtle">
+                      {formatSeriesAverage(seriesAverage(data, averageOver), series, grain)}
+                    </span>
+                  ) : null}
+                </>
+              ) : null}
+              <span className="font-semibold" style={{ color: peak ? card.color : undefined }}>
+                {peak ? `Peak ${peak.label}` : "No activity yet"}
+              </span>
             </span>
           </div>
           {hero ? (
             <div className="relative min-h-[200px] flex-1">
               <div className="absolute inset-0">
                 <TrendChart
-                  data={card.trend.data}
+                  data={data}
                   grain={grain}
-                  dataKey={card.trend.key}
-                  name={card.trend.name}
+                  series={series}
                   color={card.color}
+                  average={{ over: averageOver }}
                 />
               </div>
             </div>
           ) : (
-            <Sparkline
-              data={card.trend.data}
-              dataKey={card.trend.key}
-              name={card.trend.name}
-              color={card.color}
-            />
+            <Sparkline data={data} series={series} color={card.color} />
           )}
         </ModePart>
       )}
@@ -427,11 +607,19 @@ function GlanceBoard({
   grain: AdminActivityGrain;
 }) {
   const reduceMotion = useReducedMotion();
+  const now = useNow(60_000);
+  // Today's average covers the Vietnam hours so far, not the empty hours still to come.
+  const averageOver =
+    grain === "hour" && now != null
+      ? new Date(now + VIETNAM_OFFSET_MS).getUTCHours() + 1
+      : undefined;
   /** The card laid out as the hero. */
   const [focus, setFocus] = useState<GlanceId | null>(null);
   /** The card about to be the hero, while the changing parts fade out. */
   const [target, setTarget] = useState<GlanceId | null>(null);
   const [touched, setTouched] = useState(false);
+  /** The enlarged card's tab. Every new focus starts on the default series. */
+  const [seriesIndex, setSeriesIndex] = useState<0 | 1>(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -444,6 +632,7 @@ function GlanceBoard({
     const next = target === id ? null : id;
     setTarget(next);
     setTouched(true);
+    setSeriesIndex(0);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setFocus(next), reduceMotion ? 0 : GLANCE_FADE_OUT_MS);
   }
@@ -465,6 +654,9 @@ function GlanceBoard({
             leaving={glanceMode(card.id, focus) !== glanceMode(card.id, target)}
             animateIn={touched}
             grain={grain}
+            seriesIndex={seriesIndex}
+            averageOver={averageOver}
+            onSeries={setSeriesIndex}
             onSelect={() => select(card.id)}
           />
         ))}
@@ -480,29 +672,46 @@ function tickInterval(count: number, grain: AdminActivityGrain): number | "prese
   return 6;
 }
 
+/** The first `count` points' mean: the hours so far today, or every day in the range. */
+function seriesAverage(data: readonly SeriesPoint[], count = data.length): number {
+  const elapsed = data.slice(0, Math.max(1, count));
+  return elapsed.reduce((sum, point) => sum + point.value, 0) / elapsed.length;
+}
+
+/** "Avg 21 min per hour", "Avg 2.2 per day". */
+function formatSeriesAverage(mean: number, series: Series, grain: AdminActivityGrain): string {
+  const value = series.minutes ? formatShortDuration(mean * 60) : formatPerActive(mean, 1);
+  return `Avg ${value} per ${grain}`;
+}
+
 /** A full area chart for one series: axes, grid, tooltip, and the peak marked. */
 function TrendChart({
   data,
   grain,
-  dataKey,
-  name,
+  series,
   color,
+  average,
 }: {
-  data: readonly AdminActivityPoint[];
+  data: readonly SeriesPoint[];
   grain: AdminActivityGrain;
-  dataKey: PointKey;
-  name: string;
+  series: Series;
   color: string;
+  /** Draw a flat average line over this many leading points (all when not given). */
+  average?: { over?: number };
 }) {
   const gradientId = `trend-${useId().replace(/:/g, "")}`;
-  const peak = peakPoint(data, dataKey);
+  const peak = seriesPeak(data);
+  const mean = average ? seriesAverage(data, average.over) : 0;
+  // With an overlay, the total becomes a plain filled area and the overlay is the one line;
+  // the card prints the average beside the legend instead of drawing a second line.
+  const filled = Boolean(series.overlay);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+      <ComposedChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.18} />
-            <stop offset="90%" stopColor={color} stopOpacity={0} />
+            <stop offset="0%" stopColor={color} stopOpacity={filled ? 0.4 : 0.18} />
+            <stop offset="90%" stopColor={color} stopOpacity={filled ? 0.14 : 0} />
           </linearGradient>
         </defs>
         <CartesianGrid stroke={GRID} strokeOpacity={0.6} strokeDasharray="3 6" vertical={false} />
@@ -515,33 +724,62 @@ function TrendChart({
         />
         <YAxis
           allowDecimals={false}
-          width={32}
+          width={series.minutes ? 40 : 32}
           tick={{ fill: AXIS, fontSize: 11 }}
           tickLine={false}
           axisLine={false}
+          tickFormatter={series.minutes ? (value: number) => `${value}m` : undefined}
         />
-        <Tooltip content={<ChartTooltip />} cursor={{ stroke: GRID, strokeDasharray: "3 3" }} />
+        <Tooltip
+          content={<SeriesTooltip series={series} color={color} />}
+          cursor={{ stroke: GRID, strokeDasharray: "3 3" }}
+        />
         <Area
           type="monotone"
-          dataKey={dataKey}
-          name={name}
-          stroke={color}
+          dataKey="value"
+          name={series.name}
+          stroke={filled ? "none" : color}
           fill={`url(#${gradientId})`}
           strokeWidth={2}
           strokeLinecap="round"
           activeDot={{ r: 4, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }}
         />
+        {series.overlay ? (
+          <Line
+            type="monotone"
+            dataKey="overlay"
+            name={series.overlay.name}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            dot={false}
+            activeDot={{ r: 3, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }}
+          />
+        ) : null}
+        {mean > 0 && !filled ? (
+          <ReferenceLine
+            y={mean}
+            stroke={AXIS}
+            strokeDasharray="4 4"
+            label={{
+              value: formatSeriesAverage(mean, series, grain),
+              position: "insideTopRight",
+              fill: AXIS,
+              fontSize: 11,
+            }}
+          />
+        ) : null}
         {peak ? (
           <ReferenceDot
             x={peak.label}
-            y={peak[dataKey]}
+            y={peak.value}
             r={4}
             fill={ADMIN_COLORS.card}
             stroke={color}
             strokeWidth={2}
           />
         ) : null}
-      </AreaChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
@@ -938,23 +1176,19 @@ export function AdminActivity({
   catalog,
   range: serverRange,
   storeConfigured,
-  studyPartsByUser: serverStudyParts,
-  practicePartsByUser: serverPracticeParts,
+  parts: serverParts,
 }: {
   rows: readonly AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
   range: AdminRange;
   storeConfigured: boolean;
-  studyPartsByUser: Readonly<Record<string, number>>;
-  practicePartsByUser: Readonly<Record<string, number>>;
+  /** Finished study and practice parts, totalled and by chart bucket. */
+  parts: ActivityWindow;
 }) {
-  const loaded = useAdminWindow(
-    serverRange,
-    { studyPartsByUser: serverStudyParts, practicePartsByUser: serverPracticeParts },
-    loadActivityWindow,
-  );
+  const loaded = useAdminWindow(serverRange, serverParts, loadActivityWindow);
   const range = loaded.range;
-  const { studyPartsByUser, practicePartsByUser } = loaded.value;
+  const { studyPartsByUser, practicePartsByUser, studyPartBuckets, practicePartBuckets } =
+    loaded.value;
   const [classFilter, setClassFilter] = useState("all");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const detailRow = detailUserId
@@ -1002,8 +1236,12 @@ export function AdminActivity({
     return { studyParts, practiceParts };
   }, [filteredRows, studyPartsByUser, practicePartsByUser]);
   const board = useMemo(
-    () => buildAdminActivityBoard(filteredRows, range),
-    [filteredRows, range],
+    () =>
+      buildAdminActivityBoard(filteredRows, range, new Date(), {
+        study: studyPartBuckets,
+        practice: practicePartBuckets,
+      }),
+    [filteredRows, range, studyPartBuckets, practicePartBuckets],
   );
   const filterOptions = useMemo(
     () => [
@@ -1089,19 +1327,40 @@ export function AdminActivity({
             color: PRIMARY,
             value: formatCount(activity.activeUsers),
             unit: `of ${formatCount(activity.users)} students`,
-            badge: `${formatPercent(activeShare)} active`,
             progress: activeShare,
             progressLabel: "Share of students active",
+            progressBase: "all",
+            progressVerb: "active",
+            progressCount: [activity.activeUsers, activity.users],
             metrics: [
               { icon: "schedule", label: "Time in app", value: formatMinutes(timeInApp) },
               { icon: "timer", label: "Per active", value: formatMinutes(timePerActive) },
             ],
-            trend: {
-              data: board.points,
-              key: "activeUsers",
-              name: "Active people",
-              label: `Active people ${byGrain}`,
-            },
+            points: board.points,
+            series: [
+              {
+                key: "activeSeconds",
+                name: "Time in app",
+                label: `Time in app ${byGrain}`,
+                minutes: true,
+                overlay: {
+                  name: "Per active",
+                  value: (point) =>
+                    point.activeUsers > 0 ? point.activeSeconds / point.activeUsers : 0,
+                },
+                extras: (point) => [
+                  { name: "Active students", value: formatCount(point.activeUsers) },
+                  {
+                    name: "Per active",
+                    value:
+                      point.activeUsers > 0
+                        ? formatShortDuration(point.activeSeconds / point.activeUsers)
+                        : "—",
+                  },
+                ],
+              },
+              { key: "activeUsers", name: "Active students", label: `Active students ${byGrain}` },
+            ],
           },
           {
             id: "videos",
@@ -1111,9 +1370,11 @@ export function AdminActivity({
             color: VIDEOS,
             value: formatCount(activity.videosWatched),
             unit: "watched",
-            badge: `${formatCount(watchers)} watched`,
             progress: shareOfActive(watchers),
             progressLabel: "Share of active students who watched a video",
+            progressBase: "active",
+            progressVerb: "watched",
+            progressCount: [watchers, activity.activeUsers],
             metrics: [
               {
                 icon: "slow_motion_video",
@@ -1121,17 +1382,34 @@ export function AdminActivity({
                 value: formatMinutes(activity.videoSeconds),
               },
               {
-                icon: "person",
-                label: "Per active",
-                value: formatPerActive(activity.videosWatched, activity.activeUsers),
+                icon: "timer",
+                label: "Per video",
+                value:
+                  activity.videosStarted > 0
+                    ? formatShortDuration(activity.startedVideoSeconds / activity.videosStarted)
+                    : "—",
               },
             ],
-            trend: {
-              data: board.points,
-              key: "videosWatched",
-              name: "Videos watched",
-              label: `Videos ${byGrain}`,
-            },
+            points: board.points,
+            series: [
+              {
+                key: "videoSeconds",
+                name: "Play time",
+                label: `Play time ${byGrain}`,
+                minutes: true,
+                extras: (point) => [
+                  {
+                    name: "Per video",
+                    value:
+                      point.videosStarted > 0
+                        ? formatShortDuration(point.startedVideoSeconds / point.videosStarted)
+                        : "—",
+                  },
+                  { name: "Videos started", value: formatCount(point.videosStarted) },
+                ],
+              },
+              { key: "videosWatched", name: "Videos watched", label: `Videos watched ${byGrain}` },
+            ],
           },
           {
             id: "study",
@@ -1141,23 +1419,33 @@ export function AdminActivity({
             color: STUDY,
             value: formatCount(activity.studyRuns),
             unit: "full runs",
-            badge: `${formatCount(studiers)} studied`,
             progress: shareOfActive(studiers),
             progressLabel: "Share of active students who finished a study run",
+            progressBase: "active",
+            progressVerb: "studied",
+            progressCount: [studiers, activity.activeUsers],
             metrics: [
               { icon: "auto_stories", label: "Parts", value: formatCount(partTotals.studyParts) },
               {
                 icon: "person",
                 label: "Per active",
-                value: formatPerActive(activity.studyRuns, activity.activeUsers),
+                value: formatPerActive(partTotals.studyParts, activity.activeUsers),
               },
             ],
-            trend: {
-              data: board.points,
-              key: hourly ? "clips" : "studyRuns",
-              name: hourly ? "Clips studied" : "Study runs",
-              label: hourly ? "Clips studied by hour" : "Study runs by day",
-            },
+            points: board.points,
+            series: [
+              {
+                key: "studyParts",
+                name: "Parts",
+                label: `Study parts ${byGrain}`,
+                extras: (point) => [
+                  { name: "Per active", value: formatPerActive(point.studyParts, point.activeUsers) },
+                ],
+              },
+              hourly
+                ? { key: "clips", name: "Clips studied", label: "Clips studied by hour" }
+                : { key: "studyRuns", name: "Study runs", label: "Study runs by day" },
+            ],
           },
           {
             id: "practice",
@@ -1167,23 +1455,34 @@ export function AdminActivity({
             color: PRACTICE,
             value: formatCount(activity.practiceRuns),
             unit: "runs",
-            badge: `${formatCount(practicers)} practiced`,
             progress: shareOfActive(practicers),
             progressLabel: "Share of active students who finished a practice run",
+            progressBase: "active",
+            progressVerb: "practiced",
+            progressCount: [practicers, activity.activeUsers],
             metrics: [
               { icon: "task_alt", label: "Parts", value: formatCount(partTotals.practiceParts) },
               {
                 icon: "person",
                 label: "Per active",
-                value: formatPerActive(activity.practiceRuns, activity.activeUsers),
+                value: formatPerActive(partTotals.practiceParts, activity.activeUsers),
               },
             ],
-            trend: {
-              data: board.points,
-              key: "practiceRuns",
-              name: "Practice runs",
-              label: `Practice runs ${byGrain}`,
-            },
+            points: board.points,
+            series: [
+              {
+                key: "practiceParts",
+                name: "Parts",
+                label: `Practice parts ${byGrain}`,
+                extras: (point) => [
+                  {
+                    name: "Per active",
+                    value: formatPerActive(point.practiceParts, point.activeUsers),
+                  },
+                ],
+              },
+              { key: "practiceRuns", name: "Practice runs", label: `Practice runs ${byGrain}` },
+            ],
           },
         ]}
         />
@@ -1207,10 +1506,9 @@ export function AdminActivity({
             trailing={<LegendChips items={[{ name: "Active people", color: PRIMARY }]} />}
           >
             <TrendChart
-              data={board.points}
+              data={seriesPoints(board.points, PEOPLE_SERIES)}
               grain={board.grain}
-              dataKey="activeUsers"
-              name="Active people"
+              series={PEOPLE_SERIES}
               color={PRIMARY}
             />
           </ChartPanel>

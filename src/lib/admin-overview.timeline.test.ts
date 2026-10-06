@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ACTIVE_USER_TIMELINE_CAP,
+  activityBucketKey,
+  bucketPartStamps,
   buildActiveUserTimeline,
+  buildAdminActivityStats,
   formatRelativeLastSeen,
+  partsByUser,
   type AdminUserRow,
 } from "./admin-overview.js";
+import { DEFAULT_PROGRESS, type Visit } from "./progress.js";
 
 const NOW = new Date("2026-10-02T06:30:00.000Z");
 
@@ -129,4 +134,65 @@ test("last seen is hours today, yesterday, or calendar days ago", () => {
   // 00:30 on 3 Oct still calls 23:00 on 2 Oct yesterday.
   const afterMidnight = new Date("2026-10-02T17:30:00.000Z");
   assert.equal(formatRelativeLastSeen("2026-10-02T16:00:00.000Z", afterMidnight), "yesterday");
+});
+
+test("part stamps land in the Vietnam hour or day the activity board charts", () => {
+  // 17:30 UTC on 1 Oct is 00:30 on 2 Oct in Asia/Ho_Chi_Minh.
+  assert.equal(activityBucketKey("2026-10-01T17:30:00.000Z", "hour"), "2026-10-02T00");
+  assert.equal(activityBucketKey("2026-10-02T06:59:00.000Z", "hour"), "2026-10-02T13");
+  assert.equal(activityBucketKey("2026-10-01T17:30:00.000Z", "day"), "2026-10-02");
+  assert.equal(activityBucketKey("not a time", "day"), null);
+
+  const stamps = [
+    { userId: "a", at: "2026-10-02T06:10:00.000Z" },
+    { userId: "a", at: "2026-10-02T06:50:00.000Z" },
+    { userId: "b", at: "2026-10-02T07:05:00.000Z" },
+    // A study part's own day key wins on the daily board.
+    { userId: "b", at: "2026-10-01T16:59:00.000Z", dayKey: "2026-10-02" },
+  ];
+  assert.deepEqual(bucketPartStamps(stamps, "hour"), {
+    "2026-10-02T13": { a: 2 },
+    "2026-10-02T14": { b: 1 },
+    "2026-10-01T23": { b: 1 },
+  });
+  const daily = bucketPartStamps(stamps, "day");
+  assert.deepEqual(daily, { "2026-10-02": { a: 2, b: 2 } });
+  assert.deepEqual(partsByUser(daily), { a: 2, b: 2 });
+});
+
+test("videos started counts each played video once per learner, from visits in the window", () => {
+  const visit = (startedAt: string, videos: [string, number][]): Visit => ({
+    id: startedAt,
+    startedAt,
+    endedAt: startedAt,
+    activeSeconds: 60,
+    lessons: [],
+    clips: [],
+    exercisesCompleted: 0,
+    listeningRuns: 0,
+    videos: videos.map(([key, seconds]) => ({
+      key,
+      title: key,
+      seconds,
+      leftAtSeconds: seconds,
+      watched: false,
+    })),
+  });
+  const viewer = {
+    ...row("viewer", "2026-10-02T05:00:00.000Z"),
+    progress: {
+      ...DEFAULT_PROGRESS,
+      visits: [
+        // The same video across two visits today is one start; opened but never played is none.
+        visit("2026-10-02T02:00:00.000Z", [["intro", 90], ["opened", 0]]),
+        visit("2026-10-02T04:00:00.000Z", [["intro", 30], ["grammar", 120]]),
+        // Yesterday in Vietnam: outside today's window.
+        visit("2026-10-01T10:00:00.000Z", [["old", 600]]),
+      ],
+    },
+  } as AdminUserRow;
+
+  const stats = buildAdminActivityStats([viewer], "today", NOW);
+  assert.equal(stats.videosStarted, 2);
+  assert.equal(stats.startedVideoSeconds, 240);
 });

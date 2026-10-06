@@ -1985,6 +1985,43 @@ export async function countAdminPracticeParts(
   }
 }
 
+/** Every practice part in the window, with when it was finished. */
+export async function listAdminPracticePartStamps(
+  fromIso: string,
+  toIso: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; stamps: { userId: string; at: string }[] }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, stamps: [] };
+  if (learnerIds.size === 0) return { ready: true, stamps: [] };
+
+  const stamps: { userId: string; at: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select("user_id, created_at")
+      .gte("created_at", fromIso)
+      .lt("created_at", toIso)
+      .order("id")
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (!isListeningSchemaMissing(error.message)) {
+        console.error("Supabase listAdminPracticePartStamps", error.message);
+      }
+      return { ready: false, stamps: [] };
+    }
+    const page = (data ?? []) as { user_id?: unknown; created_at?: unknown }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      if (typeof row.created_at !== "string") continue;
+      stamps.push({ userId: row.user_id, at: row.created_at });
+    }
+    if (page.length < LIST_PAGE_SIZE) return { ready: true, stamps };
+    from += LIST_PAGE_SIZE;
+  }
+}
+
 export async function listAdminListeningRuns(): Promise<{
   status: ListeningReadStatus;
   rows: AdminListeningRunRecord[];

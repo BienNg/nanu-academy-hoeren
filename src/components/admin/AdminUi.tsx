@@ -974,10 +974,13 @@ export function ChartTooltip({
   active,
   label,
   payload,
+  formatValue = formatCount,
 }: {
   active?: boolean;
   label?: string | number;
   payload?: readonly TooltipRow[];
+  /** How numeric values print; counts by default. */
+  formatValue?: (value: number) => string;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -998,7 +1001,7 @@ export function ChartTooltip({
               {row.name}
             </span>
             <span className="font-semibold tabular-nums">
-              {typeof row.value === "number" ? formatCount(row.value) : row.value}
+              {typeof row.value === "number" ? formatValue(row.value) : row.value}
             </span>
           </li>
         ))}

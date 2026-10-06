@@ -1768,6 +1768,50 @@ export async function sumAdminRangeXp(
 }
 
 /** Finished study parts on Vietnam `day_key`s in `[fromDay, toDay]`, for the given students. */
+/** One finished study part, for charting parts over time on the activity tab. */
+export type AdminPartStamp = { userId: string; dayKey: string | null; at: string };
+
+/** Every study part in the Vietnam day window, with when it was finished. */
+export async function listAdminStudyPartStamps(
+  fromDay: string,
+  toDay: string,
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; stamps: AdminPartStamp[] }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, stamps: [] };
+  if (learnerIds.size === 0) return { ready: true, stamps: [] };
+
+  const stamps: AdminPartStamp[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("user_id, day_key, created_at")
+      .gte("day_key", fromDay)
+      .lte("day_key", toDay)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase listAdminStudyPartStamps", error.message);
+      }
+      return { ready: false, stamps: [] };
+    }
+    const page = (data ?? []) as { user_id?: unknown; day_key?: unknown; created_at?: unknown }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      if (typeof row.created_at !== "string") continue;
+      stamps.push({
+        userId: row.user_id,
+        dayKey: typeof row.day_key === "string" ? row.day_key : null,
+        at: row.created_at,
+      });
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, stamps };
+    from += PAGE_SIZE;
+  }
+}
+
 export async function countAdminStudyParts(
   fromDay: string,
   toDay: string,

@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminActivity } from "@/components/admin/AdminActivity";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
+import { loadActivityWindow } from "@/app/admin/range-data";
 import {
-  adminRangeVietnamDayKeys,
-  adminRangeVietnamInterval,
   OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
   shortBerufLabel,
@@ -15,12 +14,7 @@ import {
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
-import {
-  countAdminPracticeParts,
-  isProgressStoreConfigured,
-  touchUserProfile,
-} from "@/lib/progress-store";
-import { countAdminStudyParts } from "@/lib/xp-store";
+import { isProgressStoreConfigured, touchUserProfile } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
   title: "Activity · Admin · NaNu Academy",
@@ -56,19 +50,7 @@ export default async function AdminActivityPage({
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
-  const xpDays = adminRangeVietnamDayKeys(range);
-  const fromDay = xpDays[xpDays.length - 1] ?? xpDays[0];
-  const toDay = xpDays[0];
-  const partWindow = adminRangeVietnamInterval(range);
-  const learnerIds = new Set(
-    rows.filter((row) => !row.isAdmin && !row.staff).map((row) => row.userId),
-  );
-  const partCounts = storeConfigured
-    ? await Promise.all([
-        countAdminStudyParts(fromDay, toDay, learnerIds),
-        countAdminPracticeParts(partWindow.from, partWindow.to, learnerIds),
-      ])
-    : null;
+  const parts = await loadActivityWindow(range);
 
   return (
     <AdminActivity
@@ -76,8 +58,7 @@ export default async function AdminActivityPage({
       catalog={catalog}
       range={range}
       storeConfigured={storeConfigured}
-      studyPartsByUser={partCounts?.[0]?.ready ? partCounts[0].byUser : {}}
-      practicePartsByUser={partCounts?.[1]?.ready ? partCounts[1].partsByUser : {}}
+      parts={parts}
     />
   );
 }

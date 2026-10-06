@@ -2,13 +2,17 @@
 
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import {
+  adminActivityGrain,
   adminRangeVietnamDayKeys,
   adminRangeVietnamInterval,
+  bucketPartStamps,
   parseAdminRange,
+  partsByUser,
   toAdminUserRow,
   withSessionIdentity,
   DEFAULT_ADMIN_RANGE,
   OVERVIEW_ADMIN_RANGE,
+  type AdminPartBuckets,
   type AdminRange,
 } from "@/lib/admin-overview";
 import type { AdminQuestClaimRow } from "@/lib/admin-quests";
@@ -17,12 +21,14 @@ import {
   countAdminPracticeParts,
   isProgressStoreConfigured,
   listAdminMissedClipIds,
+  listAdminPracticePartStamps,
 } from "@/lib/progress-store";
 import { listAdminQuestClaims } from "@/lib/quest-store";
 import {
   countAdminStudyParts,
   listAdminDuelXp,
   listAdminListeningXp,
+  listAdminStudyPartStamps,
   sumAdminRangeXp,
   type AdminDuelXpRow,
   type AdminListeningXpRow,
@@ -41,6 +47,8 @@ export type OverviewWindow = {
 export type ActivityWindow = {
   studyPartsByUser: Record<string, number>;
   practicePartsByUser: Record<string, number>;
+  studyPartBuckets: AdminPartBuckets;
+  practicePartBuckets: AdminPartBuckets;
 };
 
 export type XpWindow = {
@@ -118,26 +126,36 @@ export async function loadOverviewWindow(range: AdminRange): Promise<OverviewWin
   };
 }
 
-/** Finished study and practice parts for the activity tab. */
+/** Finished study and practice parts for the activity tab, totalled and by chart bucket. */
 export async function loadActivityWindow(range: AdminRange): Promise<ActivityWindow> {
   const parsed = parseAdminRange(range, OVERVIEW_ADMIN_RANGE);
   const learners = await activityLearnerIds();
   if (!learners.configured) {
-    return { studyPartsByUser: {}, practicePartsByUser: {} };
+    return {
+      studyPartsByUser: {},
+      practicePartsByUser: {},
+      studyPartBuckets: {},
+      practicePartBuckets: {},
+    };
   }
 
   const days = adminRangeVietnamDayKeys(parsed);
   const fromDay = days[days.length - 1] ?? days[0];
   const toDay = days[0];
   const partWindow = adminRangeVietnamInterval(parsed);
+  const grain = adminActivityGrain(parsed);
   const [study, practice] = await Promise.all([
-    countAdminStudyParts(fromDay, toDay, learners.ids),
-    countAdminPracticeParts(partWindow.from, partWindow.to, learners.ids),
+    listAdminStudyPartStamps(fromDay, toDay, learners.ids),
+    listAdminPracticePartStamps(partWindow.from, partWindow.to, learners.ids),
   ]);
+  const studyPartBuckets = study.ready ? bucketPartStamps(study.stamps, grain) : {};
+  const practicePartBuckets = practice.ready ? bucketPartStamps(practice.stamps, grain) : {};
 
   return {
-    studyPartsByUser: study.ready ? study.byUser : {},
-    practicePartsByUser: practice.ready ? practice.partsByUser : {},
+    studyPartsByUser: partsByUser(studyPartBuckets),
+    practicePartsByUser: partsByUser(practicePartBuckets),
+    studyPartBuckets,
+    practicePartBuckets,
   };
 }
 

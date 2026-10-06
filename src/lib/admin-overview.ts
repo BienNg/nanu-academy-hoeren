@@ -327,6 +327,10 @@ export type AdminActivityStats = {
   videosWatched: number;
   /** Playback seconds while a video was actually playing, in the window. */
   videoSeconds: number;
+  /** Distinct videos each learner played at all in the window, summed over learners. */
+  videosStarted: number;
+  /** Visit-logged playback seconds on those started videos. */
+  startedVideoSeconds: number;
   studyRuns: number;
   practiceRuns: number;
 };
@@ -740,7 +744,56 @@ function emptyPoint(key: string, label: string): AdminActivityPoint {
     studyRuns: 0,
     practiceRuns: 0,
     clips: 0,
+    videoSeconds: 0,
+    videosStarted: 0,
+    startedVideoSeconds: 0,
+    studyParts: 0,
+    practiceParts: 0,
   };
+}
+
+/** Today is charted by Vietnam hour; every longer range by Vietnam day. */
+export function adminActivityGrain(range: AdminRange): AdminActivityGrain {
+  return range === "today" ? "hour" : "day";
+}
+
+/**
+ * Buckets part timestamps for the activity board. On the daily board a study
+ * part's own `dayKey` wins, so the chart agrees with the per-day XP log.
+ */
+export function bucketPartStamps(
+  stamps: readonly { userId: string; at: string; dayKey?: string | null }[],
+  grain: AdminActivityGrain,
+): AdminPartBuckets {
+  const buckets: AdminPartBuckets = {};
+  for (const stamp of stamps) {
+    const key =
+      grain === "day" && stamp.dayKey ? stamp.dayKey : activityBucketKey(stamp.at, grain);
+    if (!key) continue;
+    const byUser = (buckets[key] ??= {});
+    byUser[stamp.userId] = (byUser[stamp.userId] ?? 0) + 1;
+  }
+  return buckets;
+}
+
+/** Total parts per learner across every bucket. */
+export function partsByUser(buckets: AdminPartBuckets): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const byUser of Object.values(buckets)) {
+    for (const [userId, count] of Object.entries(byUser)) {
+      totals[userId] = (totals[userId] ?? 0) + count;
+    }
+  }
+  return totals;
+}
+
+/** The activity-board point a timestamp falls in, matching `AdminActivityPoint.key`. */
+export function activityBucketKey(at: string, grain: AdminActivityGrain): string | null {
+  const day = calendarDay(at);
+  if (!day) return null;
+  if (grain === "day") return day;
+  const hour = vietnamHour(at);
+  return hour == null ? null : `${day}T${String(hour).padStart(2, "0")}`;
 }
 
 function isRowActiveInWindow(
@@ -769,10 +822,25 @@ export function buildAdminActivityStats(
   let activeUsers = 0;
   let videosWatched = 0;
   let videoSeconds = 0;
+  let videosStarted = 0;
+  let startedVideoSeconds = 0;
   let studyRuns = 0;
   let practiceRuns = 0;
+  const daySet = new Set(days);
 
   for (const row of learners) {
+    const started = new Set<string>();
+    for (const visit of row.progress.visits ?? []) {
+      const day = calendarDay(visit.startedAt);
+      if (!day || !daySet.has(day)) continue;
+      for (const video of visit.videos) {
+        if (video.seconds <= 0) continue;
+        started.add(video.key);
+        startedVideoSeconds += video.seconds;
+      }
+    }
+    videosStarted += started.size;
+
     let rowVideos = 0;
     let rowStudy = 0;
     let rowPractice = 0;
@@ -797,6 +865,8 @@ export function buildAdminActivityStats(
     activeUsers,
     videosWatched,
     videoSeconds,
+    videosStarted,
+    startedVideoSeconds,
     studyRuns,
     practiceRuns,
   };
@@ -826,7 +896,23 @@ export type AdminActivityPoint = {
   studyRuns: number;
   practiceRuns: number;
   clips: number;
+  /** Video playback seconds. */
+  videoSeconds: number;
+  /** Distinct videos each learner played in this bucket, from visits, summed over learners. */
+  videosStarted: number;
+  /** Visit-logged playback seconds on those started videos. */
+  startedVideoSeconds: number;
+  /** Finished study parts, from the study XP log. */
+  studyParts: number;
+  /** Finished practice parts, from the listening run log. */
+  practiceParts: number;
 };
+
+/**
+ * Finished parts per learner, keyed by activity-board bucket: the point key
+ * (`YYYY-MM-DD`, or `YYYY-MM-DDTHH` on today's hourly board) → user id → count.
+ */
+export type AdminPartBuckets = Record<string, Record<string, number>>;
 
 export type AdminActivityLeader = {
   userId: string;
@@ -865,6 +951,7 @@ function buildDailyActivityPoints(
       point.studyRuns += work.study;
       point.practiceRuns += work.practice;
       point.clips += row.progress.activity?.[day]?.clips ?? 0;
+      point.videoSeconds += videoSecondsInRange(row.progress, [day]);
     }
   }
 
@@ -892,6 +979,7 @@ function buildHourlyActivityPoints(
       points[hour].activeSeconds += visit.activeSeconds;
       points[hour].clips += visit.clips.length;
       points[hour].practiceRuns += visit.listeningRuns;
+      points[hour].videoSeconds += visit.videos.reduce((sum, video) => sum + video.seconds, 0);
     }
 
     for (const entry of Object.values(row.progress.videos)) {
@@ -964,22 +1052,46 @@ export function buildAdminActivityBoard(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
+  parts: { study: AdminPartBuckets; practice: AdminPartBuckets } = { study: {}, practice: {} },
 ): AdminActivityBoard {
   const learners = learnerRows(rows);
   const days = adminRangeDayKeys(range, now);
-  if (range === "today") {
-    const day = days[0];
-    return {
-      grain: "hour",
-      points: buildHourlyActivityPoints(learners, day),
-      leaders: buildActivityLeaders(learners, days),
-    };
+  const grain = adminActivityGrain(range);
+  const points =
+    grain === "hour"
+      ? buildHourlyActivityPoints(learners, days[0])
+      : buildDailyActivityPoints(learners, days);
+  const pointByKey = new Map(points.map((point) => [point.key, point]));
+  for (const row of learners) {
+    const startedByPoint = new Map<string, Set<string>>();
+    for (const visit of row.progress.visits ?? []) {
+      const point = pointByKey.get(activityBucketKey(visit.startedAt, grain) ?? "");
+      if (!point) continue;
+      let started = startedByPoint.get(point.key);
+      if (!started) {
+        started = new Set();
+        startedByPoint.set(point.key, started);
+      }
+      for (const video of visit.videos) {
+        if (video.seconds <= 0) continue;
+        if (!started.has(video.key)) {
+          started.add(video.key);
+          point.videosStarted += 1;
+        }
+        point.startedVideoSeconds += video.seconds;
+      }
+    }
   }
-  return {
-    grain: "day",
-    points: buildDailyActivityPoints(learners, days),
-    leaders: buildActivityLeaders(learners, days),
-  };
+  for (const point of points) {
+    const study = parts.study[point.key];
+    const practice = parts.practice[point.key];
+    if (!study && !practice) continue;
+    for (const row of learners) {
+      point.studyParts += study?.[row.userId] ?? 0;
+      point.practiceParts += practice?.[row.userId] ?? 0;
+    }
+  }
+  return { grain, points, leaders: buildActivityLeaders(learners, days) };
 }
 
 function shiftUtcDay(day: string, delta: number): string {
