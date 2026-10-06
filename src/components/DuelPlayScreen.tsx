@@ -406,7 +406,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
     const currentView = viewRef.current;
     if (!currentView) return [];
     const current = currentView.clips.find((item) => item.position === livePosition);
-    if (!current || current.kind !== "order" || !current.script) return [];
+    if (!current || (current.kind !== "order" && current.kind !== "listening-order") || !current.script) return [];
     const pool = currentView.clips.flatMap((item) =>
       item.script
         ? [{ id: String(item.position), script: item.script, translationVi: item.translationVi ?? "" }]
@@ -456,6 +456,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
       phase !== "play" ||
       !clip?.script ||
       clip.kind === "order" ||
+      clip.kind === "listening-order" ||
       clip.kind === "multiple-choice" ||
       clip.kind === "vi-choice" ||
       clip.kind === "listening-choice" ||
@@ -478,7 +479,14 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   };
 
   const submitOrder = (selected: string[]) => {
-    if (phase !== "play" || !clip?.script || clip.kind !== "order" || clockStartRef.current == null) return;
+    if (
+      phase !== "play" ||
+      !clip?.script ||
+      (clip.kind !== "order" && clip.kind !== "listening-order") ||
+      clockStartRef.current == null
+    ) {
+      return;
+    }
     const result = checkOrder(selected, clip.script);
     const words = result.words.map((word) => ({
       word: word.word,
@@ -666,6 +674,17 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 translation={clip.translationVi ?? ""}
                 chips={orderBank}
                 onSubmit={submitOrder}
+              />
+            ) : clip.kind === "listening-order" && clip.audioPath ? (
+              <SentenceOrderCard
+                key={`listen-order-${clip.position}`}
+                chips={orderBank}
+                onSubmit={submitOrder}
+                afterPrompt={
+                  <div className="mt-4">
+                    <AudioPlayerCard key={`listen-order-audio-${clip.position}`} audioPath={clip.audioPath} />
+                  </div>
+                }
               />
             ) : clip.kind === "multiple-choice" || clip.kind === "vi-choice" ? (
               <McCard

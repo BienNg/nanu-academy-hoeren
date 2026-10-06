@@ -27,6 +27,7 @@ import { chunkyButton } from "@/components/chunkyButton";
 import { CheeringPingu } from "@/components/session/Pingu";
 import { PartHearts } from "@/components/session/PartHearts";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
+import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
@@ -465,6 +466,21 @@ export function JumpSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
                 locked={orderResult !== null}
+              />
+            ) : currentCard.kind === "listening-order" ? (
+              <SentenceOrderCard
+                key={`listen-order-${attemptCount}-${currentCard.key}`}
+                chips={currentCard.bank ?? []}
+                onSubmit={handleOrderSubmit}
+                locked={orderResult !== null}
+                afterPrompt={
+                  <div className="mt-4">
+                    <AudioPlayerCard
+                      key={`listen-order-audio-${attemptCount}-${currentCard.key}`}
+                      audioPath={currentClip.audioPath}
+                    />
+                  </div>
+                }
               />
             ) : (
               <McCard

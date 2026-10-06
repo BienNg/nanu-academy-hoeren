@@ -7,6 +7,7 @@
 export const CARD_KINDS = [
   "listening",
   "listening-choice",
+  "listening-order",
   "order",
   "multiple-choice",
   "vi-choice",
@@ -19,6 +20,7 @@ export type CardKind = (typeof CARD_KINDS)[number];
 export const CARD_KIND_LABEL: Record<CardKind, string> = {
   listening: "Listening",
   "listening-choice": "Listening → meaning choice",
+  "listening-order": "Listening → sentence order",
   order: "Sentence order",
   "multiple-choice": "Multiple choice",
   "vi-choice": "Vietnamese → German choice",
@@ -30,6 +32,7 @@ export const CARD_KIND_LABEL: Record<CardKind, string> = {
 export const MISSED_ATTEMPT_KINDS = [
   "listening",
   "listening-choice",
+  "listening-order",
   "number-input",
   "order",
   "multiple-choice",
@@ -44,6 +47,7 @@ export type MissedAttemptKind = (typeof MISSED_ATTEMPT_KINDS)[number];
 export const MISSED_ATTEMPT_LABEL: Record<MissedAttemptKind, string> = {
   listening: "Listening",
   "listening-choice": "Listening → meaning choice",
+  "listening-order": "Listening → sentence order",
   "number-input": "Number",
   order: "Sentence order",
   "multiple-choice": "Multiple choice",

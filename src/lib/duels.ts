@@ -51,6 +51,8 @@ export type CatalogClip = {
   multipleChoice?: boolean;
   /** True when this clip has enough same-length German distractors for a Vietnamese prompt. */
   germanChoice?: boolean;
+  /** True when this clip can be a listening sentence-order card (heard, then built from chips). */
+  listeningOrder?: boolean;
 };
 
 export type OpponentCandidate = {

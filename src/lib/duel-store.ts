@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
 import { scoreAttempt } from "@/lib/scoring";
-import { checkOrder } from "@/lib/sentence-order";
+import { checkOrder, isListeningOrderEligible } from "@/lib/sentence-order";
 import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "@/lib/multiple-choice";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
@@ -212,6 +212,7 @@ export function listCatalogClips(): CatalogClip[] {
           sentenceOrder: clip.sentenceOrder === true,
           multipleChoice: isMultipleChoiceEligible(clip, clips, levelClips),
           germanChoice: isGermanChoiceEligible(clip, clips, levelClips),
+          listeningOrder: isListeningOrderEligible(clip),
         });
       }
     }
@@ -704,7 +705,9 @@ function clipFromRow(raw: unknown): ClipRow | null {
             ? "vi-input"
             : row.kind === "listening-choice"
               ? "listening-choice"
-              : "listening";
+              : row.kind === "listening-order"
+                ? "listening-order"
+                : "listening";
   return {
     position: row.position,
     lesson_key: row.lesson_key,
@@ -1061,6 +1064,7 @@ export async function createDuel(user: {
       const extras: { clip: typeof card.clip; kind: DuelCardKind }[] = [];
       if (known?.translationVi?.trim()) extras.push({ clip: card.clip, kind: "vi-input" });
       if (known?.germanChoice) extras.push({ clip: card.clip, kind: "vi-choice" });
+      if (known?.listeningOrder && known.audioPath) extras.push({ clip: card.clip, kind: "listening-order" });
       return [card, ...extras];
     });
     const cards = sampleItems(variants, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000).map((card) => {
@@ -1500,7 +1504,7 @@ async function settleClip(
 
   const typed = text.trim().slice(0, MAX_ANSWER_CHARS);
   const result =
-    clip.kind === "order"
+    clip.kind === "order" || clip.kind === "listening-order"
       ? checkOrder(typed.split(/\s+/).filter(Boolean), known.script)
       : clip.kind === "multiple-choice" || clip.kind === "listening-choice"
         ? checkMcAnswer(typed, known.translationVi ?? "")

@@ -40,22 +40,34 @@ function lessonClips(count: number) {
 const ID = "6f1c2b8e-3a4d-4c5e-9f60-718293a4b5c6";
 
 function rightAnswer(card: PracticeCard): JumpAnswer {
-  if (card.kind === "order") return tokenizeSentence(card.clip.script);
+  if (card.kind === "order" || card.kind === "listening-order") return tokenizeSentence(card.clip.script);
   return card.options?.find((option) => option.correct)?.id ?? "";
 }
 
 function wrongAnswer(card: PracticeCard): JumpAnswer {
-  if (card.kind === "order") return ["falsch"];
+  if (card.kind === "order" || card.kind === "listening-order") return ["falsch"];
   return card.options?.find((option) => !option.correct)?.id ?? "x";
 }
 
-test("a jump deck deals at most 25 cards, one per clip, with no audio or pairing cards", () => {
+test("a jump deck deals at most 25 cards, one per clip, with no pairing cards", () => {
   const deck = buildJumpDeck(lessonClips(40), jumpSeed("a1-1/lektion-1", ID));
   assert.equal(deck.length, JUMP_CARD_COUNT);
   assert.equal(new Set(deck.map((card) => card.clip.id)).size, deck.length);
   for (const card of deck) {
-    assert.ok(["order", "multiple-choice", "vi-choice"].includes(card.kind), card.kind);
+    assert.ok(["order", "listening-order", "multiple-choice", "vi-choice"].includes(card.kind), card.kind);
   }
+  assert.ok(deck.some((card) => card.kind === "listening-order"));
+});
+
+test("a listening-order jump card holds the sentence's chips and grades like an order card", () => {
+  const deck = buildJumpDeck(lessonClips(40), jumpSeed("a1-1/lektion-1", ID));
+  const card = deck.find((entry) => entry.kind === "listening-order");
+  assert.ok(card);
+  const words = tokenizeSentence(card.clip.script);
+  const chips = (card.bank ?? []).map((chip) => chip.text);
+  for (const word of words) assert.ok(chips.includes(word), word);
+  assert.equal(checkJumpAnswer(card, words), true);
+  assert.equal(checkJumpAnswer(card, [...words].reverse()), false);
 });
 
 test("a small Lektion gets a shorter test", () => {

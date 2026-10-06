@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_PRACTICE_CARDS, practiceCardCount } from "./practice-deck.js";
-import { practiceNodeDecks, practiceNodeLayout, splitPracticeCards } from "./practice-node.js";
+import { MAX_ORDER_CARDS, MAX_PRACTICE_CARDS, practiceCardCount } from "./practice-deck.js";
+import { cutPracticeCards, practiceNodeDecks, practiceNodeLayout } from "./practice-node.js";
 import {
   commitLearnPart,
   DEFAULT_PROGRESS,
@@ -22,14 +22,56 @@ function lessonClips(count: number) {
   }));
 }
 
-test("practice cards split into even parts of at most 20", () => {
+test("practice cards split into the fewest even parts of at most 20", () => {
   const sizes = (count: number) =>
-    splitPracticeCards(Array.from({ length: count }, (_, index) => index)).map((part) => part.length);
+    cutPracticeCards(Array.from({ length: count }, (_, index) => index)).map((part) => part.length);
   assert.deepEqual(sizes(0), []);
   assert.deepEqual(sizes(20), [20]);
   assert.deepEqual(sizes(21), [11, 10]);
   assert.deepEqual(sizes(41), [14, 14, 13]);
-  assert.deepEqual(splitPracticeCards([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(cutPracticeCards([1, 2, 3, 4, 5], [], 2), [[1, 2], [3, 4], [5]]);
+});
+
+test("a block of cards is never cut, even when that costs evenness or a part", () => {
+  const cards = Array.from({ length: 24 }, (_, index) => index);
+  // Cards 10-13 stay together, so the even 12 + 12 cut moves to 10 + 14 or 14 + 10.
+  const parts = cutPracticeCards(cards, [{ start: 10, length: 4 }]);
+  assert.deepEqual(parts.map((part) => part.length).sort(), [10, 14]);
+  assert.ok(parts.some((part) => [10, 11, 12, 13].every((card) => part.includes(card))));
+  // Two blocks of 4 around the middle of 20 cards with a cap of 10: three parts are needed.
+  const tight = cutPracticeCards(cards.slice(0, 20), [{ start: 7, length: 4 }, { start: 11, length: 4 }], 10);
+  for (const part of tight) {
+    assert.ok(part.length <= 10);
+    assert.ok(!(part.includes(7) && !part.includes(10)));
+    assert.ok(!(part.includes(11) && !part.includes(14)));
+  }
+  assert.equal(tight.length, 3);
+});
+
+test("a node never splits a study part's order cards and keeps at most 4 per part", () => {
+  const SENTENCES = ["Ich trinke gern Kaffee", "Wir gehen heute schwimmen", "Er wohnt in Berlin", "Sie kommt aus Wien"];
+  const clips = Array.from({ length: 48 }, (_, index) => ({
+    id: `s${index}`,
+    script: `${SENTENCES[index % SENTENCES.length]} ${index}`,
+    translationVi: `câu số ${index} nhé`,
+    sentenceOrder: true,
+  }));
+  const decks = practiceNodeDecks("a1/lektion-9", clips);
+  assert.equal(decks.length, lessonNodeParts(clips).length);
+  for (const parts of decks) {
+    assert.ok(parts.length <= 5, `${parts.length} parts`);
+    for (const cards of parts) {
+      assert.ok(cards.length <= MAX_PRACTICE_CARDS);
+      const kinds = cards.map((card) => card.kind);
+      assert.ok(kinds.filter((kind) => kind === "order").length <= MAX_ORDER_CARDS);
+    }
+    // A study part's order cards sit together at the end of one part.
+    const flat = parts.flatMap((cards, part) => cards.map((card) => ({ card, part })));
+    flat.forEach(({ card, part }, at) => {
+      const next = flat[at + 1];
+      if (card.kind === "order" && next?.card.kind === "order") assert.equal(next.part, part);
+    });
+  }
 });
 
 test("a node deals every card of its study parts, cut evenly and the same each time", () => {
@@ -53,8 +95,6 @@ test("a node deals every card of its study parts, cut evenly and the same each t
     assert.ok(Math.max(...sizes) <= MAX_PRACTICE_CARDS);
     assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1);
   });
-  // More practice parts than study parts once cards pass the cap.
-  assert.ok((decks[0]?.length ?? 0) > (groups[0]?.length ?? 0));
 });
 
 test("each clip is completed by the last practice part holding one of its cards", () => {

@@ -1,7 +1,7 @@
 /**
  * Jump test: a learner may skip the Lektion they are on by passing a quiz
  * on its clips. The deck is dealt from a seed, so the server deals the same
- * cards to grade the answers before it pays XP. No audio and no pairing cards.
+ * cards to grade the answers before it pays XP. No pairing cards.
  *
  * Relative imports only, so the node tests can compile this file.
  */
@@ -11,6 +11,7 @@ import { buildDeMcOptions, buildMcOptions, checkMc } from "./multiple-choice";
 import {
   buildWordBank,
   checkOrder,
+  isListeningOrderEligible,
   isSentenceOrderEligible,
   type OrderSourceClip,
   type PracticeCard,
@@ -70,6 +71,14 @@ function jumpCardsFor<C extends OrderSourceClip>(
       bank: buildWordBank(clip, lessonClips, random),
     });
   }
+  if (isListeningOrderEligible(clip)) {
+    cards.push({
+      key: `${clip.id}:listen-order`,
+      kind: "listening-order",
+      clip,
+      bank: buildWordBank(clip, lessonClips, random),
+    });
+  }
   const meaning = buildMcOptions({ ...clip, translationVi }, lessonClips, [], random);
   if (meaning) cards.push({ key: `${clip.id}:mc`, kind: "multiple-choice", clip, options: meaning });
   // A number clip's script is spelled out; choosing it from Vietnamese is not the skill.
@@ -83,7 +92,8 @@ function jumpCardsFor<C extends OrderSourceClip>(
 /**
  * Up to JUMP_CARD_COUNT cards, one per clip, from randomly picked clips of
  * the Lektion. Each clip becomes a random one of the kinds it qualifies for:
- * sentence order, German → Vietnamese choice, or Vietnamese → German choice.
+ * sentence order, listening sentence order, German → Vietnamese choice, or
+ * Vietnamese → German choice.
  */
 export function buildJumpDeck<C extends OrderSourceClip>(
   lessonClips: readonly C[],
@@ -105,7 +115,7 @@ export function buildJumpDeck<C extends OrderSourceClip>(
 export type JumpAnswer = string | string[];
 
 export function checkJumpAnswer(card: PracticeCard, answer: JumpAnswer): boolean {
-  if (card.kind === "order") {
+  if (card.kind === "order" || card.kind === "listening-order") {
     return Array.isArray(answer) && checkOrder(answer, card.clip.script).accuracy === 100;
   }
   if (typeof answer !== "string" || !card.options) return false;

@@ -52,7 +52,7 @@ export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
   key: string;
   kind: PracticeCardKind;
   clip: C;
-  /** Shuffled chips. Only on order cards. */
+  /** Shuffled chips. Only on order and listening-order cards. */
   bank?: WordChip[];
   /** Four answer options on multiple-choice cards; the shuffled replies on reply-choice cards. */
   options?: { id: string; text: string; correct: boolean; explanation?: string }[];
@@ -101,6 +101,16 @@ export function isSentenceOrderEligible(clip: {
 }): boolean {
   if (clip.noSentenceOrder === true) return false;
   if (!clip.translationVi || clip.translationVi.trim().length === 0) return false;
+  return tokenizeSentence(clip.script).filter((word) => normalizeToken(word)).length >= MIN_ORDER_WORDS;
+}
+
+/**
+ * Chips built from the audio alone: three or more words and no number answer.
+ * No translation is needed, and `noSentenceOrder` does not apply, since the
+ * audio fixes the word order.
+ */
+export function isListeningOrderEligible(clip: { script: string; answer?: string }): boolean {
+  if (clip.answer) return false;
   return tokenizeSentence(clip.script).filter((word) => normalizeToken(word)).length >= MIN_ORDER_WORDS;
 }
 
@@ -195,36 +205,16 @@ export function checkOrder(selected: readonly string[], script: string): OrderRe
   return { accuracy, words };
 }
 
-/**
- * One listening card per clip in the part's order, plus an order card for each
- * eligible clip. Each order card is inserted at a random later position after
- * its own listening card (with at least one card in between when possible),
- * so the chips never give away the dictation.
- */
-export function buildPracticeDeck<C extends OrderSourceClip>(
-  partClips: readonly C[],
-  lessonClips: readonly OrderSourceClip[],
-  random: () => number = Math.random,
-): PracticeCard<C>[] {
-  const deck: PracticeCard<C>[] = partClips.map((clip) => ({
+/** One listening card per clip, in the part's order. Every other card is placed around these. */
+export function buildPracticeDeck<C extends OrderSourceClip>(partClips: readonly C[]): PracticeCard<C>[] {
+  return partClips.map((clip) => ({
     key: `${clip.id}:listen`,
     kind: "listening",
     clip,
   }));
-  for (const clip of partClips) {
-    if (!clip.sentenceOrder || clip.answer || !clip.translationVi?.trim()) continue;
-    const listenAt = deck.findIndex(
-      (card) => isAnchorKind(card.kind) && card.clip.id === clip.id,
-    );
-    const earliest = Math.min(listenAt + 2, deck.length);
-    const span = deck.length - earliest + 1;
-    const at = earliest + Math.min(span - 1, Math.floor(random() * span));
-    deck.splice(at, 0, {
-      key: `${clip.id}:order`,
-      kind: "order",
-      clip,
-      bank: buildWordBank(clip, lessonClips, random),
-    });
-  }
-  return deck;
+}
+
+/** A Vietnamese → German chips card needs sentence order, a translation, and no number answer. */
+export function hasOrderCard(clip: OrderSourceClip): boolean {
+  return Boolean(clip.sentenceOrder && !clip.answer && clip.translationVi?.trim());
 }

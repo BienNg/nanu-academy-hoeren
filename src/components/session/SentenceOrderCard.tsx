@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { WordChip } from "@/lib/sentence-order";
 import { CheckBar } from "@/components/session/FeedbackSheet";
@@ -14,11 +14,14 @@ import {
 } from "@/lib/keyboard";
 
 type SentenceOrderCardProps = {
-  translation: string;
+  /** Vietnamese line to translate. Left out on a listening card, where the audio is the prompt. */
+  translation?: string;
   chips: WordChip[];
   onSubmit: (selected: string[]) => void;
   /** Checked: the answer stays visible but can no longer change. */
   locked?: boolean;
+  /** Sits between the prompt and the chips, such as the clip player. */
+  afterPrompt?: ReactNode;
 };
 
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
@@ -45,7 +48,9 @@ export function SentenceOrderCard({
   chips,
   onSubmit,
   locked = false,
+  afterPrompt,
 }: SentenceOrderCardProps) {
+  const listening = translation === undefined;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const reduceMotion = useReducedMotion();
   const chipById = new Map(chips.map((chip) => [chip.id, chip]));
@@ -133,18 +138,26 @@ export function SentenceOrderCard({
 
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
-            <MaterialIcon name="translate" className="text-[22px]" />
+            <MaterialIcon name={listening ? "hearing" : "translate"} className="text-[22px]" />
           </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <p className="text-[13px] font-medium text-[#86868b]">
-              Dịch câu này sang tiếng Đức
+          {listening ? (
+            <p className="flex min-h-11 items-center text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+              Bạn nghe thấy gì?
             </p>
-            <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
-              {translation}
-            </p>
-          </div>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-[13px] font-medium text-[#86868b]">
+                Dịch câu này sang tiếng Đức
+              </p>
+              <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+                {translation}
+              </p>
+            </div>
+          )}
         </div>
       </section>
+
+      {afterPrompt}
 
       <LayoutGroup>
         <section ref={zonesRef} className="mt-4 flex flex-col gap-5 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">

@@ -3576,15 +3576,18 @@ export function completedStudyPartCount<T extends { id: string }>(
   return { done: Math.min(open, parts.length + 1) - 1, total: parts.length };
 }
 
-/** Most study parts one Lektion trail node holds. The practice node after it covers the same clips. */
-export const PARTS_PER_NODE = 4;
+/**
+ * Most study parts one Lektion trail node holds. The practice node after it
+ * covers the same clips. Two keeps a practice node within 5 parts of 20 cards.
+ */
+export const PARTS_PER_NODE = 2;
 
 export type LessonNodeKind = "study" | "practice";
 
 /**
  * Study parts grouped into trail nodes, in catalog order.
  * Nodes are as even as the cap allows, so the last node is at most one part
- * shorter than the others: 5 parts are 3 + 2, not 4 + 1.
+ * shorter than the others: 5 parts are 2 + 2 + 1.
  * Practice node N deals the cards of the clips in study node N.
  */
 export function lessonNodeParts<T extends { id: string }>(clips: readonly T[]): T[][][] {

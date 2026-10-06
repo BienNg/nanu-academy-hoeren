@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { animate, motion, useReducedMotion } from "framer-motion";
+import { PersonAvatar, RankBadge } from "@/components/LeaderboardParts";
 import { ChillPingu, PATH_POSES, Pingu, type PathPose } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
 import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
 import { Flame, StreakCount } from "@/components/StreakCelebration";
 import { isCardEnter } from "@/lib/keyboard";
 import { questStepMoved, type QuestStep, type QuestUpdate } from "@/lib/quests";
-import { playCelebrationSound } from "@/lib/sfx";
+import { planRankClimb, type RankClimb } from "@/lib/rank-climb";
+import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import {
   readQueuedStreakCelebration,
   subscribeStreakCelebration,
   takeStreakCelebration,
   type StreakCelebration,
 } from "@/lib/useProgress";
+import type { LeaderboardPayload } from "@/lib/xp";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -897,12 +900,289 @@ function StreakStepView({
   );
 }
 
-type Stage = "complete" | "streak" | "quests";
+const CLIMB_ROW_HEIGHT = 64;
+/** Seconds into the ranking screen when your XP starts to tick up. */
+const CLIMB_XP_AT = 0.6;
+const CLIMB_XP_DURATION = 0.8;
+/** Seconds your row stays lifted before it starts to climb. */
+const CLIMB_LIFT = 0.25;
+const CLIMB_EASE = [0.65, 0, 0.35, 1] as const;
+
+/** before → lift (your row pops out) → climb (rows trade places) → settled. */
+type ClimbPhase = "before" | "lift" | "climb" | "settled";
+
+function climbDuration(places: number): number {
+  return Math.min(1.8, 0.6 + places * 0.12);
+}
+
+/** Your rank badge counting down while your row climbs. */
+function ClimbingRank({
+  from,
+  to,
+  climbing,
+  settled,
+  duration,
+}: {
+  from: number;
+  to: number;
+  climbing: boolean;
+  settled: boolean;
+  duration: number;
+}) {
+  const [value, setValue] = useState(from);
+
+  useEffect(() => {
+    if (!climbing) return;
+    const controls = animate(from, to, {
+      duration,
+      ease: CLIMB_EASE,
+      onUpdate: (latest) => setValue(Math.round(latest)),
+    });
+    return () => controls.stop();
+  }, [climbing, from, to, duration]);
+
+  return <RankBadge rank={settled ? to : value} />;
+}
+
+/** The weekly class board, with your row climbing past the classmates this part overtook. */
+function RankClimbStepView({
+  climb,
+  className,
+  countdown,
+  continueLabel,
+  onContinue,
+  secondaryLabel,
+  onSecondary,
+}: {
+  climb: RankClimb;
+  className: string | null;
+  countdown: string;
+  continueLabel: string;
+  onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const continueRef = useContinueShortcut(onContinue);
+  const places = climb.rankBefore - climb.rankAfter;
+  const moved = places > 0;
+  const climbFor = climbDuration(places);
+  const [running, setRunning] = useState<ClimbPhase>("before");
+  const phase: ClimbPhase = reduceMotion ? "settled" : running;
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const xpDone = (CLIMB_XP_AT + CLIMB_XP_DURATION) * 1000;
+    const timers = moved
+      ? [
+          window.setTimeout(() => setRunning("lift"), xpDone + 100),
+          window.setTimeout(() => setRunning("climb"), xpDone + 100 + CLIMB_LIFT * 1000),
+          window.setTimeout(
+            () => {
+              setRunning("settled");
+              playSuccessSound();
+            },
+            xpDone + 100 + (CLIMB_LIFT + climbFor) * 1000,
+          ),
+        ]
+      : [window.setTimeout(() => setRunning("settled"), xpDone + 100)];
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [reduceMotion, moved, climbFor]);
+
+  const placed = phase === "climb" || phase === "settled";
+  const lifted = phase === "lift" || phase === "climb";
+  const windowStart = placed ? climb.windowAfter : climb.windowBefore;
+  const slide = reduceMotion ? { duration: 0 } : { duration: climbFor, ease: CLIMB_EASE };
+  const title =
+    moved && phase !== "settled"
+      ? "Bảng xếp hạng tuần"
+      : moved
+        ? `Bạn đã lên hạng ${climb.rankAfter}!`
+        : climb.rankAfter === 1
+          ? "Bạn vẫn đứng đầu lớp!"
+          : `Bạn đang giữ hạng ${climb.rankAfter}`;
+
+  return (
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+        <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+          <motion.div
+            className="flex h-[76px] w-[76px] items-center justify-center rounded-[26px] bg-[#ffc800] shadow-[0_5px_0_0_#e0a800]"
+            initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.8 }}
+            animate={
+              phase === "settled" && moved && !reduceMotion
+                ? { opacity: 1, y: 0, scale: [1, 1.2, 1], rotate: [0, -8, 8, 0] }
+                : { opacity: 1, y: 0, scale: 1, rotate: 0 }
+            }
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : phase === "settled"
+                  ? { duration: 0.5, ease: "easeOut" }
+                  : { type: "spring", stiffness: 380, damping: 22 }
+            }
+            aria-hidden="true"
+          >
+            <span
+              className="material-symbols-outlined text-[44px] text-[#7a4b00]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              trophy
+            </span>
+          </motion.div>
+
+          <motion.h2
+            key={title}
+            className="mt-5 text-[26px] font-bold tracking-tight text-[#1d1d1f]"
+            style={{ letterSpacing: "-0.03em" }}
+            initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 22 }}
+            aria-live="polite"
+          >
+            {title}
+          </motion.h2>
+          <p className="mt-1.5 text-[15px] font-extrabold text-[#f59e0b]">
+            {className ? `Lớp ${className} · ` : ""}
+            {countdown}
+          </p>
+
+          <motion.div
+            className="mt-6 w-full overflow-hidden rounded-[24px] border-2 border-[#e5e5ea] bg-white px-1.5 py-1.5 shadow-[0_4px_0_0_#e5e5ea]"
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { delay: 0.15, duration: 0.3 }}
+          >
+            <div
+              className="relative overflow-hidden"
+              style={{ height: climb.visible * CLIMB_ROW_HEIGHT }}
+            >
+              <motion.ol
+                className="absolute inset-x-0 top-0"
+                aria-label="Bảng xếp hạng tuần của lớp"
+                initial={false}
+                animate={{ y: -windowStart * CLIMB_ROW_HEIGHT }}
+                transition={slide}
+              >
+                {climb.rows.map((row) => {
+                  const place = placed ? row.after : row.before;
+                  return (
+                    <motion.li
+                      key={row.key}
+                      className="absolute inset-x-0 top-0 px-1"
+                      style={{ height: CLIMB_ROW_HEIGHT, zIndex: row.isYou ? 2 : 1 }}
+                      initial={false}
+                      animate={{ y: place * CLIMB_ROW_HEIGHT }}
+                      transition={slide}
+                    >
+                      <motion.div
+                        className={`flex h-[58px] items-center gap-3 rounded-2xl px-3 text-left ${
+                          row.isYou ? "bg-[#e0f2fe]" : ""
+                        }`}
+                        style={{ marginTop: (CLIMB_ROW_HEIGHT - 58) / 2 }}
+                        initial={false}
+                        animate={
+                          row.isYou
+                            ? {
+                                scale: lifted ? 1.04 : 1,
+                                boxShadow: lifted
+                                  ? "0 10px 22px -6px rgba(2,132,199,0.45)"
+                                  : "0 3px 0 0 #7dd3fc",
+                              }
+                            : undefined
+                        }
+                        transition={
+                          reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 24 }
+                        }
+                      >
+                        {row.isYou ? (
+                          <ClimbingRank
+                            from={climb.rankBefore}
+                            to={climb.rankAfter}
+                            climbing={phase === "climb"}
+                            settled={phase === "settled"}
+                            duration={climbFor}
+                          />
+                        ) : (
+                          <RankBadge rank={place + 1} />
+                        )}
+                        <PersonAvatar name={row.name} image={row.image} />
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="truncate text-[15px] font-extrabold text-[#131b2e]">
+                            {row.name}
+                          </span>
+                          {row.isYou ? (
+                            <span className="shrink-0 rounded-full bg-[#0284c7] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                              Bạn
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="relative flex shrink-0 items-center gap-0.5 text-[16px] font-extrabold tabular-nums text-[#f59e0b]">
+                          <span
+                            className="material-symbols-outlined text-[18px]"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                            aria-hidden="true"
+                          >
+                            bolt
+                          </span>
+                          {row.isYou ? (
+                            <>
+                              <CountUp
+                                from={row.xpBefore}
+                                to={row.xpAfter}
+                                delay={CLIMB_XP_AT}
+                                duration={CLIMB_XP_DURATION}
+                              />
+                              {reduceMotion ? null : (
+                                <motion.span
+                                  className="pointer-events-none absolute -top-3 right-0 text-[12px] font-extrabold text-[#f59e0b]"
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: [0, 1, 1, 0], y: [4, -4, -8, -14] }}
+                                  transition={{ delay: CLIMB_XP_AT, duration: CLIMB_XP_DURATION + 0.4 }}
+                                  aria-hidden="true"
+                                >
+                                  +{row.xpAfter - row.xpBefore}
+                                </motion.span>
+                              )}
+                            </>
+                          ) : (
+                            row.xpAfter
+                          )}
+                        </span>
+                      </motion.div>
+                    </motion.li>
+                  );
+                })}
+              </motion.ol>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
+        <motion.button
+          ref={continueRef}
+          type="button"
+          onClick={onContinue}
+          className={chunkyButton("primary", "w-full")}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduceMotion ? 0 : 0.4, duration: 0.25 }}
+        >
+          {continueLabel}
+        </motion.button>
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+      </div>
+    </main>
+  );
+}
+
+type Stage = "complete" | "streak" | "quests" | "ranking";
 
 /**
  * The end of a part: a loader while the server counts XP, the completed
- * screen, the streak flame when this run raised it, then the daily quests
- * when this part moved one.
+ * screen, the streak flame when this run raised it, the daily quests
+ * when this part moved one, then the weekly class board when this part
+ * earned XP.
  */
 export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const {
@@ -922,6 +1202,8 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const [gaveUp, setGaveUp] = useState(false);
   /** Undefined while loading, null when it could not be read. */
   const [totalXp, setTotalXp] = useState<number | null | undefined>(undefined);
+  /** The weekly class board with this part counted. Undefined while loading, null when unread. */
+  const [board, setBoard] = useState<LeaderboardPayload | null | undefined>(undefined);
   const [stage, setStage] = useState<Stage>("complete");
   const [streakStep, setStreakStep] = useState<StreakCelebration | null>(null);
   const queuedStreak = useSyncExternalStore(
@@ -960,17 +1242,42 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     };
   }, [loaderShown, xpPending]);
 
-  const waiting = xpPending || (loaderShown && totalXp === undefined);
-  const loading = !failed && (!minElapsed || (waiting && !gaveUp));
   const partXp = xpCaption(xp, xpKind).amount;
   const questXp = questUpdate?.xp ?? 0;
+  const earnedXp = failed ? 0 : partXp + questXp;
+
+  // Read once this part's XP is stored, so the board already counts it.
+  useEffect(() => {
+    if (xpPending || earnedXp <= 0) return;
+    let cancelled = false;
+    void fetch("/api/leaderboard?scope=class&range=week")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: LeaderboardPayload | null) => {
+        if (cancelled) return;
+        setBoard(data && data.ready && Array.isArray(data.rows) ? data : null);
+      })
+      .catch(() => {
+        if (!cancelled) setBoard(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [xpPending, earnedXp]);
+
+  const waiting =
+    xpPending ||
+    (loaderShown && (totalXp === undefined || (earnedXp > 0 && board === undefined)));
+  const loading = !failed && (!minElapsed || (waiting && !gaveUp));
+  const climb = board ? planRankClimb(board.rows, earnedXp) : null;
   const questsAhead =
     !failed && !xpPending && questUpdate != null && questUpdate.quests.some(questStepMoved);
   const streakAhead = !failed && celebrateStreak && (streakStep != null || queuedStreak != null);
+  const rankingAhead = !xpPending && climb != null;
 
   const following: Stage[] = [];
   if (streakAhead) following.push("streak");
   if (questsAhead) following.push("quests");
+  if (rankingAhead) following.push("ranking");
   const next = following[following.indexOf(stage) + 1];
   const last = next == null;
 
@@ -982,8 +1289,9 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     if (next === "streak") {
       const step = streakStep ?? takeStreakCelebration();
       if (!step) {
-        setStage(questsAhead ? "quests" : "complete");
-        if (!questsAhead) onContinue();
+        const after = following[following.indexOf("streak") + 1];
+        if (after) setStage(after);
+        else onContinue();
         return;
       }
       setStreakStep(step);
@@ -1006,6 +1314,17 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
 
   if (stage === "quests" && questUpdate) {
     return <QuestStepView update={questUpdate} totalXp={totalXp ?? null} {...shared} />;
+  }
+
+  if (stage === "ranking" && climb && board) {
+    return (
+      <RankClimbStepView
+        climb={climb}
+        className={board.className}
+        countdown={board.countdown}
+        {...shared}
+      />
+    );
   }
 
   return (

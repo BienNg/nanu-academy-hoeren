@@ -42,8 +42,8 @@ import {
   type MissedAttempt,
 } from "@/lib/listening-runs";
 import type { CardKind } from "@/lib/card-kinds";
-import { buildPracticeDeck, checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
-import { insertDiscreteCards, mixListeningChoice } from "@/lib/practice-deck";
+import { checkOrder, statsCardKind, type PracticeCard } from "@/lib/sentence-order";
+import { dealPracticePart } from "@/lib/practice-deck";
 import { practiceNodeDecks, practicePartLayout } from "@/lib/practice-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
@@ -418,12 +418,7 @@ export function LearnSession({
     setQuitOpen(false);
     const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
-    setPartCards(
-      mixListeningChoice(
-        insertDiscreteCards(buildPracticeDeck(nextPartClips, clips), nextPartClips, clips, []),
-        clips,
-      ),
-    );
+    setPartCards(dealPracticePart(nextPartClips, clips));
     setPartNumber(partNumber);
     setPartCount(listeningPartCount);
     setClipIndex(0);
@@ -956,6 +951,21 @@ export function LearnSession({
                   locked={scoreResult !== null}
                 />
               </>
+            ) : currentCard?.kind === "listening-order" ? (
+              <SentenceOrderCard
+                key={`listen-order-${cardKey}`}
+                chips={currentCard.bank ?? []}
+                onSubmit={handleOrderSubmit}
+                locked={scoreResult !== null}
+                afterPrompt={
+                  <div className="mt-4">
+                    <AudioPlayerCard
+                      key={`listening-order-audio-${cardKey}`}
+                      audioPath={currentClip.audioPath}
+                    />
+                  </div>
+                }
+              />
             ) : currentCard?.kind === "reply-choice" ? (
               <>
                 <AudioPlayerCard

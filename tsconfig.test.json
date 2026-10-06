@@ -54,6 +54,8 @@
     "src/lib/admin-quests.ts",
     "src/lib/admin-quests.test.ts",
     "src/lib/lesson-jump.ts",
-    "src/lib/lesson-jump.test.ts"
+    "src/lib/lesson-jump.test.ts",
+    "src/lib/rank-climb.ts",
+    "src/lib/rank-climb.test.ts"
   ]
 }

@@ -380,6 +380,14 @@ test("sentence order and multiple choice can start without audio, and dictation 
     clipCanStart({ kind: "listening", script: "der", audioPath: null, translationVi: "mạo từ" }),
     false,
   );
+  assert.equal(
+    clipCanStart({ kind: "listening-order", script: "Ich bin hier", audioPath: "a.mp3", translationVi: null }),
+    true,
+  );
+  assert.equal(
+    clipCanStart({ kind: "listening-order", script: "Ich bin hier", audioPath: null, translationVi: "tôi ở đây" }),
+    false,
+  );
 });
 
 test("schema hint only matches missing duel tables", () => {

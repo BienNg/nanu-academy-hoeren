@@ -800,23 +800,23 @@ function nodeState(overrides: Partial<Parameters<typeof lessonPathNodes>[1]> = {
   };
 }
 
-test("a Lektion trail groups four study parts per node and alternates study and practice", () => {
+test("a Lektion trail groups two study parts per node and alternates study and practice", () => {
   const clips = questions(60);
   assert.equal(splitStudyParts(clips).length, 5);
-  // Five parts split 3 + 2, not 4 + 1.
+  // Five parts split 2 + 2 + 1.
   assert.deepEqual(
     lessonNodeParts(clips).map((node) => node.length),
-    [3, 2],
+    [2, 2, 1],
   );
 
   const nodes = lessonPathNodes(clips, nodeState());
   assert.deepEqual(
     nodes.map((node) => `${node.kind}${node.node}`),
-    ["study1", "practice1", "study2", "practice2"],
+    ["study1", "practice1", "study2", "practice2", "study3", "practice3"],
   );
   assert.deepEqual(
     nodes.map((node) => node.firstPart),
-    [1, 1, 4, 4],
+    [1, 1, 3, 3, 5, 5],
   );
   assert.ok(nodes.every((node) => node.lessonPartCount === 5));
   // Practice part N deals exactly the clips of study part N.
@@ -844,14 +844,14 @@ test("a short Lektion is one study and one practice node with the old ids", () =
   assert.equal(lessonNodeFromActivityId("a1-1-lektion-1"), null);
 });
 
-test("trail nodes stay even and never hold more than four parts", () => {
+test("trail nodes stay even and never hold more than two parts", () => {
   const sizes = (parts: number) =>
     lessonNodeParts(questions(parts * MAX_STUDY_CLIPS)).map((node) => node.length);
   assert.deepEqual(sizes(1), [1]);
-  assert.deepEqual(sizes(4), [4]);
-  assert.deepEqual(sizes(6), [3, 3]);
-  assert.deepEqual(sizes(9), [3, 3, 3]);
-  assert.deepEqual(sizes(10), [4, 3, 3]);
+  assert.deepEqual(sizes(2), [2]);
+  assert.deepEqual(sizes(3), [2, 1]);
+  assert.deepEqual(sizes(4), [2, 2]);
+  assert.deepEqual(sizes(9), [2, 2, 2, 2, 1]);
   for (let parts = 1; parts <= 20; parts += 1) {
     const nodeSizes = sizes(parts);
     assert.ok(Math.max(...nodeSizes) <= PARTS_PER_NODE);
@@ -861,7 +861,7 @@ test("trail nodes stay even and never hold more than four parts", () => {
 
 test("a node is locked until every node before it is done", () => {
   const clips = questions(60);
-  const studied = clips.slice(0, 48).map((clip) => clip.id);
+  const studied = clips.slice(0, 24).map((clip) => clip.id);
   const nodes = lessonPathNodes(clips, nodeState({ reviewedClipIds: studied }));
   assert.equal(nodes[0]?.done, true);
   assert.equal(lessonPathNodeLocked(nodes, "practice", 1), false);
@@ -878,7 +878,7 @@ test("old progress that studied ahead keeps its ticks and fills the practice gap
   );
   assert.deepEqual(
     nodes.map((node) => node.done),
-    [true, false, true, false],
+    [true, false, true, false, true, false],
   );
   assert.equal(lessonPathNodeLocked(nodes, "practice", 1), false);
   assert.equal(lessonPathNodeLocked(nodes, "practice", 2), true);
