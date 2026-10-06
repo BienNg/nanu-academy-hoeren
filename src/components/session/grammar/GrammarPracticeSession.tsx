@@ -15,6 +15,7 @@ import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
+import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { FeedbackSheet, praiseFor, SheetLine } from "@/components/session/FeedbackSheet";
 import { McCard } from "@/components/session/McCard";
@@ -37,6 +38,7 @@ type GrammarPracticeSessionProps = {
   partNumber: number;
   /** `/learn/<level>/<lektion>/grammar`, without the page. */
   grammarHref: string;
+  lessonGrammar: LessonGrammar;
 };
 
 /** What the student got on the card in front of them. */
@@ -137,9 +139,17 @@ function FeedbackBody({
  * One practice part of a grammar topic. A wrong answer costs a heart and the
  * card comes back once at the end of the part; three wrong answers end it.
  */
-export function GrammarPracticeSession({ course, topic, tables, partNumber, grammarHref }: GrammarPracticeSessionProps) {
+export function GrammarPracticeSession({
+  course,
+  topic,
+  tables,
+  partNumber,
+  grammarHref,
+  lessonGrammar,
+}: GrammarPracticeSessionProps) {
   const router = useRouter();
-  const { streakDays, recordWrongAttempt } = useProgress();
+  const { recordWrongAttempt } = useProgress();
+  const { finishPart, streakDays } = useGrammarProgress(course, lessonGrammar);
   const parts = useMemo(
     () => grammarPracticeParts(course.lessonKey, topic, tables),
     [course.lessonKey, topic, tables],
@@ -208,8 +218,10 @@ export function GrammarPracticeSession({ course, topic, tables, partNumber, gram
     }
   };
 
+  /** Ends the part. Only a passed part is saved; a failed one is played again from the start. */
   const finish = (failed: boolean) => {
     const answered = tally.answered;
+    if (!failed && part) finishPart(topic.id, part.key, answered);
     setSummary({
       questionCount: answered,
       accuracy: answered === 0 ? 0 : Math.round((tally.right / answered) * 100),

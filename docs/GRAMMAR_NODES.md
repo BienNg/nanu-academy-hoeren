@@ -86,7 +86,20 @@ A wrong answer shows the rule (`whyVi` or the matching tip).
 1. ✅ Data and content draft (`tenses.json`, the A1.2 Lektion 1 block, loader, content check). Content awaits teacher review.
 2. ✅ Pure logic in `src/lib/grammar-node.ts` with tests: study screens, practice deck, answer checks, part keys.
 3. ✅ ElevenLabs audio: 30 table rows, 14 examples.
-4. UI: `/learn/[level]/[lektion]/grammar/study` and `/grammar/practice`, new cards `TableFillCard`, `ErrorCheckCard`; reuse `McCard`, `SentenceOrderCard`, `PairingCard`.
-5. Trail and progress: grammar nodes in `lessonPathNodes`, `LearnProgress.grammarStudyDone` / `grammarPracticePartKeys`, lesson completion, lesson jump, a Lektion with grammar but no clips shows on the trail.
+4. ✅ UI: `/learn/[level]/[lektion]/grammar/study` and `/grammar/practice` (`?topic=&part=`). New: `ConjugationTableView`, `SentenceBracketView`, `TableFillCard`; the rest reuses `McCard`, `SentenceOrderCard`, `PairingCard`.
+5. ✅ Trail and progress (see below).
 6. XP, quests, admin.
 7. Docs (`PRACTICE_CARDS.md`) and a full play-through.
+
+## Progress and the trail
+
+- A finished part is stored in `LearnProgress.grammarPartKeys` as `<topicId>:<partKey>` (study `s-<verb>`, practice the hashed `g…` key). A failed practice part is not stored.
+- The catalog lists each topic's part keys (`AdminCatalogLesson.grammarNodes`). `projectLesson` turns each topic into a study and a practice activity after the clip nodes, so the trail, its locking, Lektion status and the admin view all see them. A passed lesson jump marks unfinished grammar nodes done, as skipped.
+- A Lektion with grammar but no clips is open on the trail. The grammar part that finishes its last node stamps `completedAt`.
+- Lektion progress keys: every level has a `lektion-1`, so `cefrLearnKey` stores A1.1 under the bare slug (existing data) and every other level as `<level>/<lektion>`.
+
+### Known gaps
+
+- A Lektion with clips and grammar is still stamped completed by its last clip practice part, before grammar is done. The trail shows it in progress until grammar is done, but `learnChapterCompleted` already says done. No Lektion has both yet.
+- Grammar parts give no XP and do not count for quests yet (step 6). Start cards show no XP for them.
+- `listLessonClipCatalog` still skips slugs shared by several levels, so newly added clips are not absorbed into finished Lektionen of any level (unchanged behaviour).

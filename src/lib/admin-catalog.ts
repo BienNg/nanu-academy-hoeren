@@ -9,6 +9,7 @@ import {
   getCefrLevels,
   getChapterClipInventory,
   getChapterClips,
+  getChapterGrammarLayouts,
   getChapterVideos,
   listChapterFilesOnDisk,
 } from "@/lib/levels";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/living";
 import { livingAccessSlug } from "@/lib/living-content";
 import {
+  cefrLearnKey,
   lessonVideoProgressKey,
   lessonVideoStatus,
   type PracticeNodePart,
@@ -91,13 +93,14 @@ export function buildAdminCourseCatalog(
       return {
         id: `${level.slug}-${chapter.slug}`,
         label: chapter.label,
-        learnKey: chapter.slug,
+        learnKey: cefrLearnKey(level.slug, chapter.slug),
         videoKeyPrefix: `${level.slug}/${chapter.slug}`,
         clips: lesson.clips,
         practiceCards: lesson.practiceCards,
         pathNodes: true,
         nodePracticeCards: lesson.nodePracticeCards,
         practiceNodeParts: lesson.practiceNodeParts,
+        grammarNodes: getChapterGrammarLayouts(level.slug, chapter.slug),
         videos: getChapterVideos(level.slug, chapter.slug).flatMap((video) =>
           video.videoId ? [{ id: video.videoId, title: video.title, titleVi: video.titleVi }] : [],
         ),

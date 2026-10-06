@@ -15,6 +15,7 @@ import {
   progressStorageKey,
   shouldReplaceLocalWithCloud,
   absorbAddedLessonClips,
+  commitGrammarPart,
   commitLearnPart,
   completeLessonByJump,
   dropStreakForUnfinishedSession,
@@ -764,6 +765,24 @@ export function useProgress(
     [persist],
   );
 
+  /**
+   * Stores one finished grammar part, with the questions answered in it as
+   * exercises. `lessonComplete` also stamps the Lektion completed.
+   */
+  const commitGrammarPartDone = useCallback(
+    (chapterSlug: string, partKey: string, lessonKey: string, exercises: number, lessonComplete: boolean) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      let next = commitGrammarPart(current, chapterSlug, partKey, { now, lessonComplete });
+      const exercised = recordVisitExercise(next, now, readVisitId(), lessonKey, exercises, 1);
+      next = exercised.progress;
+      if (exercised.visitId) writeVisitId(exercised.visitId);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const recordLessonJump = useCallback(
     (lessonKey: string, passed: boolean) => {
       const now = new Date();
@@ -1035,6 +1054,7 @@ export function useProgress(
     markLearnChapterDone,
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,
+    commitGrammarPartDone,
     completeLessonJump,
     recordLessonJump,
     dropUnfinishedSessionStreak,
@@ -1051,6 +1071,8 @@ export function useProgress(
       learnRunCompletedClipIds(progress, chapterSlug),
     learnPracticePartKeysFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.practicePartKeys ?? EMPTY_PART_KEYS,
+    learnGrammarPartKeysFor: (chapterSlug: string) =>
+      progress.learn[chapterSlug]?.grammarPartKeys ?? EMPTY_PART_KEYS,
     learnRunClipOrderFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.runClipOrder ?? EMPTY_RUN_ORDER,
     learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),

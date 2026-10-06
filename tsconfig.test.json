@@ -23,6 +23,7 @@
     "src/lib/progress.parts.test.ts",
     "src/lib/progress.reset.test.ts",
     "src/lib/progress.landing.test.ts",
+    "src/lib/progress.grammar.test.ts",
     "src/lib/listening-runs.ts",
     "src/lib/listening-runs.test.ts",
     "src/lib/xp.ts",

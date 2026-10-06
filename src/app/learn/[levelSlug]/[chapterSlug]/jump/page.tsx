@@ -7,7 +7,7 @@ import {
   getChapterVideos,
   getLevelChapters,
 } from "@/lib/levels";
-import { lessonVideoProgressKey } from "@/lib/progress";
+import { cefrLearnKey, lessonVideoProgressKey } from "@/lib/progress";
 import { levelSessionCourse } from "@/lib/session-course";
 import { JumpSession } from "@/components/session/JumpSession";
 
@@ -52,7 +52,7 @@ export default async function LessonJumpPage({ params }: LessonJumpPageProps) {
       earlierChapterKeys={chapters
         .slice(0, chapterIndex)
         .filter((entry) => playable.has(entry.slug))
-        .map((entry) => entry.slug)}
+        .map((entry) => cefrLearnKey(levelSlug, entry.slug))}
       targetLabel={target.label}
       targetHref={`/learn/${levelSlug}?lektion=${encodeURIComponent(target.slug)}`}
     />

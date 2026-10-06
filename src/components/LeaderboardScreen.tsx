@@ -154,7 +154,7 @@ function BoardTabs({
   onChange: (board: LeaderboardBoard) => void;
 }) {
   return (
-    <div className="flex rounded-full bg-[#e8eef6] p-1" role="tablist" aria-label="Loại bảng">
+    <div className="flex rounded-2xl bg-[#e2e7ff] p-1" role="tablist" aria-label="Loại bảng">
       {options.map((option) => {
         const active = board === option.id;
         return (
@@ -164,10 +164,10 @@ function BoardTabs({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-colors sm:gap-1.5 sm:text-[16px] ${
+            className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-xl text-[14px] font-extrabold transition-all sm:gap-1.5 sm:text-[16px] ${
               active
-                ? "bg-white text-[#0084ff] shadow-[0_1px_3px_rgba(19,27,46,0.12)]"
-                : "text-[#3d4d66]"
+                ? "bg-white text-[#0284c7] shadow-[0_3px_0_0_#bec8f0]"
+                : "text-[#5c6b80] active:translate-y-0.5"
             }`}
           >
             <span
@@ -193,7 +193,7 @@ function ScopeTabs({
   onChange: (scope: LeaderboardScope) => void;
 }) {
   return (
-    <div className="flex shrink-0 rounded-full bg-[#e8eef6] p-1" role="tablist" aria-label="Phạm vi xếp hạng">
+    <div className="flex shrink-0 rounded-2xl bg-[#e2e7ff] p-1" role="tablist" aria-label="Phạm vi xếp hạng">
       {SCOPE_OPTIONS.map((option) => {
         const active = scope === option.id;
         return (
@@ -203,8 +203,8 @@ function ScopeTabs({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors sm:h-10 sm:px-4 sm:text-[15px] ${
-              active ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
+            className={`inline-flex h-9 items-center justify-center whitespace-nowrap rounded-xl px-3 text-[13px] font-extrabold transition-colors sm:h-10 sm:px-4 sm:text-[15px] ${
+              active ? "bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1]" : "text-[#5c6b80]"
             }`}
           >
             {option.label}
@@ -259,8 +259,8 @@ function ClassScope({
           aria-expanded={open}
           aria-label={selected ? `Lớp ${selected.label}` : "Chọn lớp"}
           onClick={() => setOpen((current) => !current)}
-          className={`inline-flex h-9 max-w-[9.5rem] items-center gap-0.5 rounded-full px-3 text-[13px] font-extrabold sm:h-10 sm:max-w-[14rem] sm:gap-1 sm:px-4 sm:text-[15px] ${
-            classActive ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
+          className={`inline-flex h-9 max-w-[9.5rem] items-center gap-0.5 rounded-xl px-3 text-[13px] font-extrabold sm:h-10 sm:max-w-[14rem] sm:gap-1 sm:px-4 sm:text-[15px] ${
+            classActive ? "bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1]" : "text-[#5c6b80]"
           }`}
         >
           <span className="truncate">{label}</span>
@@ -290,7 +290,7 @@ function ClassScope({
                     setOpen(false);
                   }}
                   className={`flex h-11 w-full items-center px-4 text-left text-[15px] font-extrabold ${
-                    selectedOption ? "text-[#0084ff]" : "text-[#131b2e]"
+                    selectedOption ? "text-[#0284c7]" : "text-[#131b2e]"
                   }`}
                 >
                   <span className="truncate">{option.label}</span>
@@ -305,8 +305,8 @@ function ClassScope({
         role="tab"
         aria-selected={scope === "global"}
         onClick={() => onScope("global")}
-        className={`inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold sm:h-10 sm:px-4 sm:text-[15px] ${
-          scope === "global" ? "bg-[#0084ff] text-white" : "text-[#5c6b80]"
+        className={`inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-3 text-[13px] font-extrabold sm:h-10 sm:px-4 sm:text-[15px] ${
+          scope === "global" ? "bg-[#0284c7] text-white shadow-[0_3px_0_0_#0369a1]" : "text-[#5c6b80]"
         }`}
       >
         Mọi người
@@ -350,9 +350,9 @@ function RangeMenu({
         aria-expanded={open}
         aria-label="Khoảng thời gian"
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#d5deea] bg-white px-2 text-[13px] font-extrabold text-[#131b2e] shadow-[0_1px_2px_rgba(19,27,46,0.06)] sm:h-12 sm:gap-2 sm:px-3.5 sm:text-[15px]"
+        className="inline-flex h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-2xl bg-white px-2 text-[13px] font-extrabold text-[#131b2e] shadow-[0_3px_0_0_#dae2fd] active:translate-y-0.5 sm:h-12 sm:gap-2 sm:px-3.5 sm:text-[15px]"
       >
-        <span className="material-symbols-outlined text-[18px] text-[#5c6b80]" aria-hidden="true">
+        <span className="material-symbols-outlined text-[18px] text-[#0284c7]" aria-hidden="true">
           calendar_today
         </span>
         {label}
@@ -382,7 +382,7 @@ function RangeMenu({
                   setOpen(false);
                 }}
                 className={`flex h-11 w-full items-center px-4 text-left text-[15px] font-extrabold ${
-                  selected ? "text-[#0084ff]" : "text-[#131b2e]"
+                  selected ? "text-[#0284c7]" : "text-[#131b2e]"
                 }`}
               >
                 {option.label}
@@ -503,7 +503,7 @@ export function LeaderboardScreen({
           <BoardTabs board={boardKind} options={boardOptions} onChange={setBoardKind} />
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             {canPickClass && board.classOptions.length > 0 ? (
-              <div className="flex min-w-0 rounded-full bg-[#e8eef6] p-1">
+              <div className="flex min-w-0 rounded-2xl bg-[#e2e7ff] p-1">
                 <ClassScope
                   scope={scope}
                   classKey={classKey}

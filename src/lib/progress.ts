@@ -4,6 +4,19 @@ import { maxClipsPerPracticePart, MAX_PRACTICE_CARDS } from "./practice-deck";
 import type { OrderSourceClip } from "./sentence-order";
 
 export const STORAGE_KEY = "nanu-horen-progress";
+
+/** The level whose Lektionen were stored under their bare slug before keys named the level. */
+const BARE_LEARN_KEY_LEVEL = "a1-1";
+
+/**
+ * Key of a CEFR Lektion in `progress.learn`. Every level has a "lektion-1",
+ * so a bare slug would share one entry across levels: finishing A1.1
+ * Lektion 1 would mark A1.2 Lektion 1 done. A1.1 keeps its bare slugs, since
+ * stored progress uses them; every other level is "<level>/<lektion>".
+ */
+export function cefrLearnKey(levelSlug: string, chapterSlug: string): string {
+  return levelSlug === BARE_LEARN_KEY_LEVEL ? chapterSlug : `${levelSlug}/${chapterSlug}`;
+}
 export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 
 /** Fallback continue target when no totals / progress are available. */
@@ -90,6 +103,11 @@ export type LearnProgress = InterviewProgress & {
    * stored. A key no longer matches once that part's cards change.
    */
   practicePartKeys?: string[];
+  /**
+   * Finished grammar study and practice parts, as "<topicId>:<partKey>".
+   * Like practice parts, a key stops matching once that part's content changes.
+   */
+  grammarPartKeys?: string[];
   /**
    * ISO timestamp of a passed jump test that completed this Lektion. Once set
    * it is kept, so admins can tell a skipped Lektion from a worked one.
@@ -287,6 +305,10 @@ export type ContinueLevelCatalogChapter = {
   label: string;
   clipCount: number;
   videoIds: string[];
+  /** The Lektion has grammar nodes, which complete it like clips do. */
+  hasGrammar?: boolean;
+  /** Key in `progress.learn` (see cefrLearnKey). Defaults to the slug. */
+  progressKey?: string;
 };
 
 export type ContinueLevelCatalogEntry = {
@@ -351,6 +373,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     studyRunCount?: unknown;
     studyCompletedAt?: unknown;
     practicePartKeys?: unknown;
+    grammarPartKeys?: unknown;
     skippedAt?: unknown;
     jumpSkip?: unknown;
   };
@@ -369,6 +392,14 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
   const practicePartKeys = Array.isArray(record.practicePartKeys)
     ? unionIds(
         record.practicePartKeys.filter(
+          (key): key is string => typeof key === "string" && key.length > 0,
+        ),
+        [],
+      )
+    : [];
+  const grammarPartKeys = Array.isArray(record.grammarPartKeys)
+    ? unionIds(
+        record.grammarPartKeys.filter(
           (key): key is string => typeof key === "string" && key.length > 0,
         ),
         [],
@@ -402,6 +433,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           : 0,
     ...(studyCompletedAt ? { studyCompletedAt } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
+    ...(grammarPartKeys.length > 0 ? { grammarPartKeys } : {}),
     ...(skippedAt ? { skippedAt } : {}),
     ...jumpSkipField(skippedAt ? normalizeJumpSkip(record.jumpSkip) : undefined),
   };
@@ -765,6 +797,7 @@ function mergeLearnEntry(
     left?.practicePartKeys ?? [],
     right?.practicePartKeys ?? [],
   );
+  const grammarPartKeys = unionIds(left?.grammarPartKeys ?? [], right?.grammarPartKeys ?? []);
   const skipStamps = [left?.skippedAt, right?.skippedAt].filter(
     (value): value is string => typeof value === "string",
   );
@@ -786,6 +819,7 @@ function mergeLearnEntry(
       : {}),
     ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
+    ...(grammarPartKeys.length > 0 ? { grammarPartKeys } : {}),
     ...(skippedAt ? { skippedAt } : {}),
     ...jumpSkipField(jumpSkip),
   };
@@ -913,6 +947,7 @@ function learnSliceIsEmpty(entry: LearnProgress): boolean {
     (entry.runClipOrder?.length ?? 0) === 0 &&
     entry.reviewedClipIds.length === 0 &&
     (entry.practicePartKeys?.length ?? 0) === 0 &&
+    (entry.grammarPartKeys?.length ?? 0) === 0 &&
     entry.runCount === 0 &&
     entry.studyRunCount === 0 &&
     !entry.completedAt &&
@@ -937,6 +972,7 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     delete nextEntry.jumpSkip;
     // Part keys do not name their clips, so erased practice drops every finished part.
     delete nextEntry.practicePartKeys;
+    delete nextEntry.grammarPartKeys;
     nextEntry.runCount = 0;
     nextEntry.currentClipIndex = nextEntry.runCompletedClipIds.length;
   }
@@ -2835,6 +2871,7 @@ function withoutRunCursor(entry: LearnProgress): LearnProgress {
   if (entry.completedAt) next.completedAt = entry.completedAt;
   if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
   if (entry.practicePartKeys?.length) next.practicePartKeys = entry.practicePartKeys;
+  if (entry.grammarPartKeys?.length) next.grammarPartKeys = entry.grammarPartKeys;
   if (entry.skippedAt) next.skippedAt = entry.skippedAt;
   if (entry.jumpSkip) next.jumpSkip = entry.jumpSkip;
   return next;
@@ -2900,6 +2937,30 @@ export function commitLearnPart(
   next = incrementLearnRunCount(next, chapterSlug, now);
   const finished = next.learn[chapterSlug] ?? emptyLearnProgress();
   return withLearnEntry(next, chapterSlug, withoutRunCursor(finished));
+}
+
+/**
+ * Store one finished grammar study or practice part. `lessonComplete` (the
+ * caller knows the Lektion's other nodes) stamps the Lektion completed, the
+ * way the last practice part of a clip lesson does.
+ */
+export function commitGrammarPart(
+  progress: StoredProgress,
+  chapterSlug: string,
+  partKey: string,
+  options?: { now?: Date; lessonComplete?: boolean },
+): StoredProgress {
+  const now = options?.now ?? new Date();
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  let next = bumpStreak(
+    withLearnEntry(progress, chapterSlug, {
+      ...entry,
+      grammarPartKeys: unionIds(entry.grammarPartKeys ?? [], [partKey]),
+    }),
+    now,
+  );
+  if (options?.lessonComplete) next = markLearnChapterCompleted(next, chapterSlug, now.toISOString());
+  return next;
 }
 
 /**
@@ -3189,6 +3250,9 @@ export function resetLearnProgress(
         ...(existing?.practicePartKeys?.length
           ? { practicePartKeys: existing.practicePartKeys }
           : {}),
+        ...(existing?.grammarPartKeys?.length
+          ? { grammarPartKeys: existing.grammarPartKeys }
+          : {}),
         ...(completedAt ? { completedAt } : {}),
         ...(existing?.studyCompletedAt
           ? { studyCompletedAt: existing.studyCompletedAt }
@@ -3228,6 +3292,8 @@ export function isStudyChapterCompleted(
 export type StudyUnlockChapter = {
   slug: string;
   clipCount: number;
+  /** Key in `progress.learn` (see cefrLearnKey). Defaults to the slug. */
+  progressKey?: string;
 };
 
 export type StudyUnlockLevel = {
@@ -3257,11 +3323,12 @@ export function firstUnlockedStudyHref(
         .slice(0, index)
         .some(
           (previous) =>
-            previous.clipCount > 0 && !isLearnChapterCompleted(progress, previous.slug),
+            previous.clipCount > 0 &&
+            !isLearnChapterCompleted(progress, previous.progressKey ?? previous.slug),
         );
       if (blocked) continue;
       const href = `/learn/${level.slug}/${chapter.slug}/study` as const;
-      if (!isStudyChapterCompleted(progress, chapter.slug)) return href;
+      if (!isStudyChapterCompleted(progress, chapter.progressKey ?? chapter.slug)) return href;
       if (!firstOpen) firstOpen = href;
     }
   }
@@ -4147,7 +4214,7 @@ export function toContinueLearning(
 }
 
 function hasChapterContent(chapter: ContinueLevelCatalogChapter): boolean {
-  return chapter.clipCount > 0 || chapter.videoIds.length > 0;
+  return chapter.clipCount > 0 || chapter.videoIds.length > 0 || Boolean(chapter.hasGrammar);
 }
 
 function hasLearnActivity(entry: LearnProgress | undefined): boolean {
@@ -4162,6 +4229,7 @@ function hasLearnActivity(entry: LearnProgress | undefined): boolean {
       (entry.runClipOrder?.length ?? 0) > 0 ||
       entry.reviewedClipIds.length > 0 ||
       (entry.practicePartKeys?.length ?? 0) > 0 ||
+      (entry.grammarPartKeys?.length ?? 0) > 0 ||
       entry.currentClipIndex > 0,
   );
 }
@@ -4171,8 +4239,8 @@ function isChapterComplete(
   levelSlug: string,
   chapter: ContinueLevelCatalogChapter,
 ): boolean {
-  if (chapter.clipCount > 0) {
-    return isLearnChapterCompleted(progress, chapter.slug);
+  if (chapter.clipCount > 0 || chapter.hasGrammar) {
+    return isLearnChapterCompleted(progress, chapter.progressKey ?? chapter.slug);
   }
   if (chapter.videoIds.length === 0) return false;
   return chapter.videoIds.every((videoId) => {
@@ -4192,7 +4260,10 @@ function isChapterStarted(
     return lessonVideoStatus(progress.videos[key]) !== "not-started";
   });
   if (videoStarted) return true;
-  return chapter.clipCount > 0 && hasLearnActivity(progress.learn[chapter.slug]);
+  return (
+    (chapter.clipCount > 0 || Boolean(chapter.hasGrammar)) &&
+    hasLearnActivity(progress.learn[chapter.progressKey ?? chapter.slug])
+  );
 }
 
 function isLevelStarted(

@@ -7,7 +7,6 @@ import type { GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
 import { grammarStudyParts, type GrammarStudyScreen } from "@/lib/grammar-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { playSuccessSound } from "@/lib/sfx";
-import { useProgress } from "@/lib/useProgress";
 import { FeedbackSheet, praiseFor, SpeakButton } from "@/components/session/FeedbackSheet";
 import { McCard } from "@/components/session/McCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
@@ -15,6 +14,7 @@ import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { ConjugationTableView, TENSE_TONE } from "@/components/session/grammar/ConjugationTableView";
 import { ContinueBar, GrammarHeader, GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
 import { SentenceBracketView } from "@/components/session/grammar/SentenceBracketView";
+import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 
 type GrammarStudySessionProps = {
   course: SessionCourse;
@@ -24,6 +24,7 @@ type GrammarStudySessionProps = {
   partNumber: number;
   /** `/learn/<level>/<lektion>/grammar`, without the page. */
   grammarHref: string;
+  lessonGrammar: LessonGrammar;
 };
 
 const TENSE_INTRO_VI: Record<string, string> = {
@@ -122,9 +123,16 @@ function ReadScreen({ screen, tables }: { screen: Exclude<GrammarStudyScreen, { 
  * One study part of a grammar topic: screens to read with quick checks in
  * between. Checks have no hearts; a wrong answer shows the rule and moves on.
  */
-export function GrammarStudySession({ course, topic, tables, partNumber, grammarHref }: GrammarStudySessionProps) {
+export function GrammarStudySession({
+  course,
+  topic,
+  tables,
+  partNumber,
+  grammarHref,
+  lessonGrammar,
+}: GrammarStudySessionProps) {
   const router = useRouter();
-  const { streakDays } = useProgress();
+  const { finishPart, streakDays } = useGrammarProgress(course, lessonGrammar);
   const parts = useMemo(() => grammarStudyParts(course.lessonKey, topic, tables), [course.lessonKey, topic, tables]);
   const part = parts[partNumber - 1];
   const [index, setIndex] = useState(0);
@@ -160,6 +168,7 @@ export function GrammarStudySession({ course, topic, tables, partNumber, grammar
   const next = () => {
     setMcResult(null);
     if (index + 1 >= screens.length) {
+      finishPart(topic.id, part.key, checks.asked);
       setElapsedMs(Date.now() - startedAtRef.current);
       setPhase("complete");
       return;

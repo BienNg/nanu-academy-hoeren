@@ -34,6 +34,12 @@ import {
 import type { LiveRound } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
 import type { GrammarGap } from "@/lib/grammar-gaps";
+import {
+  grammarNodeFromActivityId,
+  grammarNodeKeys,
+  type GrammarNodeKind,
+  type GrammarNodeLayout,
+} from "@/lib/grammar-node";
 import { useProgress } from "@/lib/useProgress";
 import { jumpTarget } from "@/lib/lesson-jump";
 
@@ -231,7 +237,8 @@ type StartOffer = {
   title: string;
   exercise: string;
   detail: string;
-  xp: number;
+  /** Null for nodes that give no XP yet; the button then just says start. */
+  xp: number | null;
   href: string;
 };
 
@@ -321,6 +328,29 @@ function nodeStartOffer(
   };
 }
 
+/**
+ * Start card for a grammar node: the first unfinished part, or a replay of
+ * part 1 once every part is done.
+ */
+function grammarStartOffer(
+  layout: GrammarNodeLayout,
+  kind: GrammarNodeKind,
+  doneKeys: readonly string[],
+  lessonHref: string,
+): StartOffer {
+  const keys = grammarNodeKeys(layout, kind);
+  const done = new Set(doneKeys);
+  const open = keys.findIndex((key) => !done.has(key));
+  const part = open < 0 ? 1 : open + 1;
+  return {
+    title: kind === "study" ? "Học ngữ pháp" : "Luyện ngữ pháp",
+    exercise: `Phần ${part} / ${keys.length}`,
+    detail: open < 0 ? `Ôn: ${layout.titleVi}` : layout.titleVi,
+    xp: null,
+    href: `${lessonHref}/grammar/${kind}?topic=${encodeURIComponent(layout.topicId)}&part=${part}`,
+  };
+}
+
 function lessonTrailNodes(
   lesson: AdminLessonDetail | undefined,
   lessonHref: string,
@@ -351,11 +381,29 @@ function lessonTrailNodes(
   }));
 
   const activities = lesson.activities.map((activity) => {
+    const partProgress =
+      activity.partCount > 1 ? `${activity.partsDone}/${activity.partCount}` : null;
+    const grammarNode = grammarNodeFromActivityId(activity.id);
+    if (grammarNode) {
+      const study = grammarNode.kind === "study";
+      return {
+        key: activity.id,
+        icon: study ? "grammar_study" : "grammar_practice",
+        href: `${lessonHref}/grammar/${grammarNode.kind}?topic=${encodeURIComponent(grammarNode.topicId)}`,
+        percent: activity.percent,
+        partCount: activity.partCount,
+        partsDone: activity.partsDone,
+        complete: activity.status === "completed",
+        struggling: false,
+        primary: null,
+        secondary: null,
+        start: startFor(activity.id),
+        label: [study ? "Ngữ pháp" : "Luyện ngữ pháp", partProgress].filter(Boolean).join(", "),
+      };
+    }
     const trailNode = lessonNodeFromActivityId(activity.id);
     const isStudy = trailNode?.kind === "study";
     const numbered = /-\d+$/.test(activity.id) && trailNode ? ` ${trailNode.node}` : "";
-    const partProgress =
-      activity.partCount > 1 ? `${activity.partsDone}/${activity.partCount}` : null;
     const label = isStudy
       ? [`Study${numbered}`, partProgress].filter(Boolean).join(", ")
       : [`Luyện tập${numbered}`, partProgress].filter(Boolean).join(", ");
@@ -642,6 +690,44 @@ export function LessonPathIcon({
     );
   }
 
+  if (name === "grammar_study" || name === "grammar_practice") {
+    // A small conjugation table with the class slide's column colors:
+    // Präsens cyan, Perfekt orange, Präteritum purple. Practice adds a check.
+    const practice = name === "grammar_practice";
+    const rows = "M14 32 H22 M28 32 H36 M42 32 H50 M14 39 H22 M28 39 H36 M42 39 H50 M14 46 H22 M28 46 H34 M42 46 H48";
+    return onWhite ? (
+      <svg {...svg}>
+        <rect x="6" y="16" width="52" height="40" rx="9" fill="#0A4FA0" />
+        <rect x="6" y="11" width="52" height="40" rx="9" fill="#0071E3" />
+        <rect x="12" y="17" width="12" height="8" rx="3" fill="#8FDBE8" />
+        <rect x="26" y="17" width="12" height="8" rx="3" fill="#FF8A4C" />
+        <rect x="40" y="17" width="12" height="8" rx="3" fill="#C364E0" />
+        <path d={rows} stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+        {practice ? (
+          <>
+            <circle cx="50" cy="50" r="10" fill="#FF9500" />
+            <path d="M45 50 L48.5 53.5 L55 46.5" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : null}
+      </svg>
+    ) : (
+      <svg {...svg}>
+        <rect x="6" y="16" width="52" height="40" rx="9" fill="#B9D2EE" />
+        <rect x="6" y="11" width="52" height="40" rx="9" fill="#FFFFFF" />
+        <rect x="12" y="17" width="12" height="8" rx="3" fill="#8FDBE8" />
+        <rect x="26" y="17" width="12" height="8" rx="3" fill="#FF8A4C" />
+        <rect x="40" y="17" width="12" height="8" rx="3" fill="#C364E0" />
+        <path d={rows} stroke="#6DB2F7" strokeWidth="3" strokeLinecap="round" />
+        {practice ? (
+          <>
+            <circle cx="50" cy="50" r="10" fill="#FFC83D" />
+            <path d="M45 50 L48.5 53.5 L55 46.5" stroke="#232F4B" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : null}
+      </svg>
+    );
+  }
+
   if (name === "fitness_center") {
     return onWhite ? (
       <svg {...svg}>
@@ -820,7 +906,7 @@ function StartNodeBubble({
           href={offer.href}
           className="mt-3 flex h-12 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[var(--path-accent)] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5"
         >
-          {`BẮT ĐẦU  +${offer.xp} XP`}
+          {offer.xp === null ? "BẮT ĐẦU" : `BẮT ĐẦU  +${offer.xp} XP`}
         </Link>
       </div>
     </motion.div>
@@ -1326,6 +1412,7 @@ export default function LevelViewClient({
     learnChapterCompleted,
     learnStudyCompleted,
     learnPracticePartKeysFor,
+    learnGrammarPartKeysFor,
     reviewedLearnClipIdsFor,
     streakDays,
     settleStudyReviews,
@@ -1338,6 +1425,16 @@ export default function LevelViewClient({
           .find((entry) => entry.id === level.slug)
           ?.lessons.filter((lesson) => lesson.pathNodes)
           .map((lesson) => [lesson.id, lesson.practiceNodeParts] as const) ?? [],
+      ),
+    [cefrCatalog, level.slug],
+  );
+  /** Grammar topics of every Lektion of this level, by lesson id. */
+  const grammarLayouts = useMemo(
+    () =>
+      new Map(
+        cefrCatalog
+          .find((entry) => entry.id === level.slug)
+          ?.lessons.map((lesson) => [lesson.id, lesson.grammarNodes ?? []] as const) ?? [],
       ),
     [cefrCatalog, level.slug],
   );
@@ -1714,6 +1811,20 @@ export default function LevelViewClient({
               (videoId) =>
                 `${lessonHref}/video?video=${encodeURIComponent(videoId)}`,
               (activityId) => {
+                const grammarNode = grammarNodeFromActivityId(activityId);
+                if (grammarNode) {
+                  const layout = grammarLayouts
+                    .get(lessonId)
+                    ?.find((entry) => entry.topicId === grammarNode.topicId);
+                  return layout
+                    ? grammarStartOffer(
+                        layout,
+                        grammarNode.kind,
+                        learnGrammarPartKeysFor(progressKeyOf(chapter)),
+                        lessonHref,
+                      )
+                    : null;
+                }
                 const trailNode = lessonNodeFromActivityId(activityId);
                 if (!trailNode) return null;
                 if (!pathNodes) return trailNode.kind === "study" ? studyStart : practiceStart;

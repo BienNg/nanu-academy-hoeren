@@ -25,6 +25,12 @@ import {
   type VisitRange,
 } from "@/lib/progress";
 import { dayKey, weekKey } from "@/lib/xp";
+import {
+  grammarActivityId,
+  grammarNodeProgress,
+  type GrammarNodeKind,
+  type GrammarNodeLayout,
+} from "@/lib/grammar-node";
 
 export type AdminCatalogCard = {
   id: string;
@@ -59,6 +65,8 @@ export type AdminCatalogLesson = {
   nodePracticeCards?: number[];
   /** Practice parts per practice node, cut from that node's cards. */
   practiceNodeParts?: PracticeNodePart[][];
+  /** Grammar topics of this Lektion. Each is a study node and a practice node after the clip nodes. */
+  grammarNodes?: GrammarNodeLayout[];
 };
 
 export type AdminCatalogCourse = {
@@ -169,7 +177,38 @@ function learnTouched(entry: LearnProgress | undefined): boolean {
     entry.runCount > 0 ||
     entry.studyRunCount > 0 ||
     Boolean(entry.completedAt) ||
-    Boolean(entry.studyCompletedAt)
+    Boolean(entry.studyCompletedAt) ||
+    (entry.grammarPartKeys?.length ?? 0) > 0
+  );
+}
+
+/**
+ * The Lektion's grammar nodes: study then practice per topic. A passed jump
+ * marks unfinished ones done, as skipped.
+ */
+function grammarActivities(lesson: AdminCatalogLesson, learn: LearnProgress | undefined): AdminActivityCard[] {
+  const layouts = lesson.grammarNodes ?? [];
+  const doneKeys = learn?.grammarPartKeys ?? [];
+  return layouts.flatMap((layout) =>
+    (["study", "practice"] as const satisfies readonly GrammarNodeKind[]).map((kind) => {
+      const node = grammarNodeProgress(layout, kind, doneKeys);
+      const partCount = node.partDone.length;
+      const skipped = !node.done && Boolean(learn?.skippedAt);
+      const done = node.done || skipped;
+      const topic = layouts.length > 1 ? ` · ${layout.titleVi}` : "";
+      return {
+        id: grammarActivityId(lesson.id, kind, layout.topicId),
+        label: `${kind === "study" ? "Grammar study" : "Grammar practice"}${topic}`,
+        status: done ? "completed" : node.partsDone > 0 ? "in-progress" : "not-started",
+        percent: done ? 100 : percentOf(node.partsDone, partCount),
+        progressLabel: done ? "" : `${node.partsDone}/${partCount}`,
+        partsDone: done ? partCount : node.partsDone,
+        partCount,
+        note: null,
+        struggling: false,
+        skipped,
+      } satisfies AdminActivityCard;
+    }),
   );
 }
 
@@ -332,7 +371,9 @@ function projectLesson(
   const videosComplete =
     videos.length === 0 || videos.every((video) => video.status === "watched");
   const touched = listeningTouched || videoTouched || completedCount > 0 || reviewedCount > 0;
-  const hasItems = clipTotal > 0 || videos.length > 0;
+  const grammar = grammarActivities(lesson, learn);
+  const grammarComplete = grammar.every((activity) => activity.status === "completed");
+  const hasItems = clipTotal > 0 || videos.length > 0 || grammar.length > 0;
 
   const runCount = learn?.runCount ?? 0;
   const studyRunCount = learn?.studyRunCount ?? 0;
@@ -380,7 +421,7 @@ function projectLesson(
           practicePartKeys: learn?.practicePartKeys,
         })
       : null;
-  const activities: AdminActivityCard[] = pathNodes
+  const clipActivities: AdminActivityCard[] = pathNodes
     ? pathNodes.map((node) => {
         const study = node.kind === "study";
         const lastOfKind = node.node === node.nodeCount;
@@ -440,6 +481,8 @@ function projectLesson(
           },
         ];
 
+  const activities = [...clipActivities, ...grammar];
+
   // Calculate if everything inside this lesson is completed
   const allVideosCompleted = videos.length === 0 || videos.every((v) => v.status === "watched");
   const allActivitiesCompleted = activities.length === 0 || activities.every((a) => a.status === "completed");
@@ -449,7 +492,8 @@ function projectLesson(
     ? learn?.completedAt
       ? "completed"
       : "not-started"
-    : isFullyCompleted || (cardsComplete && videosComplete && (touched || Boolean(learn?.completedAt)))
+    : isFullyCompleted ||
+        (cardsComplete && videosComplete && grammarComplete && (touched || Boolean(learn?.completedAt)))
       ? "completed"
       : touched
         ? "in-progress"

@@ -6,7 +6,7 @@ import grammarVerbsFile from "@/data/grammar/verbs.json";
 import grammarTensesFile from "@/data/grammar/tenses.json";
 import { getAvailableBerufe, type SessionClip } from "@/lib/content";
 import { isAdminUser } from "@/lib/admins";
-import type { ContinueLevelCatalogEntry } from "@/lib/progress";
+import { cefrLearnKey, type ContinueLevelCatalogEntry } from "@/lib/progress";
 import {
   getUserLevelAccess,
   hasInterviewAccess,
@@ -27,6 +27,7 @@ import {
   type StoredGrammarTopic,
   type TenseTables,
 } from "@/lib/grammar-lessons";
+import { grammarNodeLayout, type GrammarNodeLayout } from "@/lib/grammar-node";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -292,6 +293,13 @@ export function getChapterGrammar(
   );
 }
 
+/** Part keys of each grammar topic's nodes, as progress and the trail use them. */
+export function getChapterGrammarLayouts(levelSlug: string, chapterSlug: string): GrammarNodeLayout[] {
+  return getChapterGrammar(levelSlug, chapterSlug).map((topic) =>
+    grammarNodeLayout(`${levelSlug}/${chapterSlug}`, topic, grammarTenses),
+  );
+}
+
 export type ChapterClipInventory = {
   listed: number;
   playable: number;
@@ -441,9 +449,12 @@ export function buildLevelPathChapters(levelSlug: string) {
     const clips = availableSlugs.has(chapter.slug)
       ? getChapterClips(levelSlug, chapter.slug)
       : [];
+    // A Lektion with only grammar nodes is open on the trail too.
+    const hasGrammar = getChapterGrammar(levelSlug, chapter.slug).length > 0;
     return {
       ...chapter,
-      hasAudio: availableSlugs.has(chapter.slug),
+      progressKey: cefrLearnKey(levelSlug, chapter.slug),
+      hasAudio: availableSlugs.has(chapter.slug) || hasGrammar,
       clipCount: clips.length,
       practiceClips: clips.map((clip) => ({
         id: clip.id,
@@ -477,6 +488,8 @@ export function getContinueLevelCatalog(): ContinueLevelCatalogEntry[] {
         label: chapter.label,
         clipCount,
         videoIds,
+        progressKey: cefrLearnKey(level.slug, chapter.slug),
+        ...(getChapterGrammar(level.slug, chapter.slug).length > 0 ? { hasGrammar: true } : {}),
       };
     }),
   }));

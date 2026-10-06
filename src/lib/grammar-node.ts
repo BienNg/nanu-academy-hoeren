@@ -802,6 +802,7 @@ export function checkErrorCheck(fix: string | null, saidCorrect: boolean): { acc
 /** What progress and XP need from a topic's nodes: part keys and sizes. */
 export type GrammarNodeLayout = {
   topicId: string;
+  titleVi: string;
   studyParts: { key: string; verb: string; screenCount: number }[];
   practiceParts: { key: string; verb: string | null; cardCount: number }[];
 };
@@ -813,6 +814,7 @@ export function grammarNodeLayout(
 ): GrammarNodeLayout {
   return {
     topicId: topic.id,
+    titleVi: topic.titleVi,
     studyParts: grammarStudyParts(lessonKey, topic, tables).map((part) => ({
       key: part.key,
       verb: part.verb,
@@ -824,4 +826,58 @@ export function grammarNodeLayout(
       cardCount: part.cards.length,
     })),
   };
+}
+
+// ---------------------------------------------------------------- progress
+
+export type GrammarNodeKind = "study" | "practice";
+
+/** How a finished part is stored in `LearnProgress.grammarPartKeys`. */
+export function grammarPartStorageKey(topicId: string, partKey: string): string {
+  return `${topicId}:${partKey}`;
+}
+
+/** Stored keys of one node's parts, in order. */
+export function grammarNodeKeys(layout: GrammarNodeLayout, kind: GrammarNodeKind): string[] {
+  const parts = kind === "study" ? layout.studyParts : layout.practiceParts;
+  return parts.map((part) => grammarPartStorageKey(layout.topicId, part.key));
+}
+
+/** Done state of each part of one grammar node. */
+export function grammarNodeProgress(
+  layout: GrammarNodeLayout,
+  kind: GrammarNodeKind,
+  doneKeys: readonly string[],
+): { partDone: boolean[]; partsDone: number; done: boolean } {
+  const done = new Set(doneKeys);
+  const partDone = grammarNodeKeys(layout, kind).map((key) => done.has(key));
+  const partsDone = partDone.filter(Boolean).length;
+  return { partDone, partsDone, done: partDone.length > 0 && partsDone === partDone.length };
+}
+
+/** Every grammar part of a Lektion is finished, counting `justDone` as finished too. */
+export function grammarLessonDone(
+  layouts: readonly GrammarNodeLayout[],
+  doneKeys: readonly string[],
+  justDone?: string,
+): boolean {
+  const keys = justDone ? [...doneKeys, justDone] : doneKeys;
+  return layouts.every(
+    (layout) =>
+      grammarNodeProgress(layout, "study", keys).done && grammarNodeProgress(layout, "practice", keys).done,
+  );
+}
+
+/**
+ * Trail id of a grammar node: `<lessonId>-grammar-study-<topicId>`. Never
+ * matches the Study/Practice ids, which end in "-study" or "-listening".
+ */
+export function grammarActivityId(lessonId: string, kind: GrammarNodeKind, topicId: string): string {
+  return `${lessonId}-grammar-${kind}-${topicId}`;
+}
+
+export function grammarNodeFromActivityId(id: string): { kind: GrammarNodeKind; topicId: string } | null {
+  const match = /-grammar-(study|practice)-([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(id);
+  if (!match) return null;
+  return { kind: match[1] === "study" ? "study" : "practice", topicId: match[2]! };
 }

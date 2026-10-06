@@ -1,6 +1,13 @@
 import { notFound } from "next/navigation";
 import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
-import { getCefrLevel, getChapterGrammar, getGrammarTenses, getLevelChapters } from "@/lib/levels";
+import {
+  getCefrLevel,
+  getChapterClips,
+  getChapterGrammar,
+  getChapterGrammarLayouts,
+  getGrammarTenses,
+  getLevelChapters,
+} from "@/lib/levels";
 import { levelSessionCourse } from "@/lib/session-course";
 
 export type GrammarPageProps = {
@@ -39,5 +46,9 @@ export async function loadGrammarPage({ params, searchParams }: GrammarPageProps
     tables: getGrammarTenses(),
     partNumber: Number.isInteger(part) && part >= 1 ? part : 1,
     grammarHref: `/learn/${levelSlug}/${chapterSlug}/grammar`,
+    lessonGrammar: {
+      layouts: getChapterGrammarLayouts(levelSlug, chapterSlug),
+      hasClips: getChapterClips(levelSlug, chapterSlug).length > 0,
+    },
   };
 }

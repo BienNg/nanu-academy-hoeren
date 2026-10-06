@@ -6,6 +6,7 @@ import { checkOrder, isListeningOrderEligible } from "@/lib/sentence-order";
 import { buildDeMcOptions, buildMcOptions, isGermanChoiceEligible, isMultipleChoiceEligible } from "@/lib/multiple-choice";
 import { getCefrLevels, getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
+  cefrLearnKey,
   firstUnlockedStudyHref,
   normalizeProgress,
   type StoredProgress,
@@ -499,6 +500,7 @@ function studyUnlockLevels(): StudyUnlockLevel[] {
     chapters: getLevelChapters(level.slug).map((chapter) => ({
       slug: chapter.slug,
       clipCount: counts.get(`${level.slug}/${chapter.slug}`) ?? 0,
+      progressKey: cefrLearnKey(level.slug, chapter.slug),
     })),
   }));
 }

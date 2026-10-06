@@ -1,4 +1,5 @@
 import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import { cefrLearnKey } from "@/lib/progress";
 
 /**
  * What Study and Practice sessions need to know about the lesson they run,
@@ -24,7 +25,7 @@ export type SessionCourse = {
 
 export function levelSessionCourse(level: CefrLevel, chapter: LevelChapterMeta): SessionCourse {
   return {
-    progressKey: chapter.slug,
+    progressKey: cefrLearnKey(level.slug, chapter.slug),
     lessonKey: `${level.slug}/${chapter.slug}`,
     pathHref: `/learn/${level.slug}?lektion=${encodeURIComponent(chapter.slug)}`,
     title: `${level.level} - ${chapter.label}`,
