@@ -13,7 +13,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { loadActivityWindow } from "@/app/admin/range-data";
+import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -645,10 +646,10 @@ function learnersWith(
 export function AdminActivity({
   rows,
   catalog,
-  range,
+  range: serverRange,
   storeConfigured,
-  studyPartsByUser,
-  practicePartsByUser,
+  studyPartsByUser: serverStudyParts,
+  practicePartsByUser: serverPracticeParts,
 }: {
   rows: readonly AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
@@ -657,6 +658,13 @@ export function AdminActivity({
   studyPartsByUser: Readonly<Record<string, number>>;
   practicePartsByUser: Readonly<Record<string, number>>;
 }) {
+  const loaded = useAdminWindow(
+    serverRange,
+    { studyPartsByUser: serverStudyParts, practicePartsByUser: serverPracticeParts },
+    loadActivityWindow,
+  );
+  const range = loaded.range;
+  const { studyPartsByUser, practicePartsByUser } = loaded.value;
   const [classFilter, setClassFilter] = useState("all");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const detailRow = detailUserId

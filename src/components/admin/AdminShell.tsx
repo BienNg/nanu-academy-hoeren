@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Suspense,
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -27,6 +28,64 @@ import {
 const RAIL_EXPANDED = "16.25rem";
 const RAIL_COLLAPSED = "4.5rem";
 const RAIL_STORAGE_KEY = "nanu-admin-rail-collapsed";
+
+type PickedAdminRange = { pathname: string; range: AdminRange };
+
+const AdminRangeContext = createContext<{
+  picked: PickedAdminRange | null;
+  pick: (pathname: string, range: AdminRange) => void;
+}>({
+  picked: null,
+  pick: () => {},
+});
+
+/** The date tab the admin picked on this page, or the range the server rendered. */
+export function useAdminRange(serverRange: AdminRange): AdminRange {
+  const pathname = usePathname();
+  const { picked } = useContext(AdminRangeContext);
+  if (picked && picked.pathname === pathname) return picked.range;
+  return serverRange;
+}
+
+/**
+ * Keeps `value` paired with the range it belongs to. A new tab keeps the
+ * previous numbers until `load` returns, so the lists already on the page
+ * are not fetched again.
+ */
+export function useAdminWindow<T>(
+  serverRange: AdminRange,
+  serverValue: T,
+  load: (range: AdminRange) => Promise<T>,
+): { range: AdminRange; value: T; pending: boolean } {
+  const selected = useAdminRange(serverRange);
+  const [loaded, setLoaded] = useState<{ range: AdminRange; value: T } | null>(null);
+
+  useEffect(() => {
+    if (selected === serverRange) return;
+    let cancelled = false;
+    void load(selected)
+      .then((value) => {
+        if (!cancelled) setLoaded({ range: selected, value });
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, serverRange, load]);
+
+  if (selected === serverRange) {
+    return { range: serverRange, value: serverValue, pending: false };
+  }
+  if (loaded?.range === selected) {
+    return { range: selected, value: loaded.value, pending: false };
+  }
+  if (loaded) {
+    return { range: loaded.range, value: loaded.value, pending: true };
+  }
+  return { range: serverRange, value: serverValue, pending: true };
+}
 
 /**
  * The rail preference lives in localStorage, which the server cannot read, so it
@@ -366,10 +425,16 @@ function AdminSidebar({
 function AdminSidebarWithRange(
   props: Omit<Parameters<typeof AdminSidebar>[0], "rangeQuery">,
 ) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  return (
-    <AdminSidebar {...props} rangeQuery={searchParams.get("range")} />
-  );
+  const { picked } = useContext(AdminRangeContext);
+  const rangeQuery =
+    picked && picked.pathname === pathname
+      ? picked.range === defaultAdminRangeForPath(pathname)
+        ? null
+        : picked.range
+      : searchParams.get("range");
+  return <AdminSidebar {...props} rangeQuery={rangeQuery} />;
 }
 
 function RangeOption({
@@ -397,16 +462,17 @@ function RangeOption({
   );
 }
 
-/** Writes `?range=` so range-aware pages can read it from their searchParams prop. */
+/** Updates the date tab in place. The lists already on the page stay put. */
 function RangePill() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { pick } = useContext(AdminRangeContext);
   const fallback = defaultAdminRangeForPath(pathname);
-  const current = parseAdminRange(searchParams.get("range") ?? undefined, fallback);
+  const current = useAdminRange(parseAdminRange(searchParams.get("range") ?? undefined, fallback));
 
   const select = useCallback(
     (range: AdminRange) => {
+      pick(pathname, range);
       const params = new URLSearchParams(searchParams.toString());
       if (range === fallback) {
         params.delete("range");
@@ -414,9 +480,10 @@ function RangePill() {
         params.set("range", range);
       }
       const query = params.toString();
-      router.push(query ? `${pathname}?${query}` : pathname);
+      const url = query ? `${pathname}?${query}` : pathname;
+      window.history.replaceState(window.history.state, "", url);
     },
-    [router, pathname, searchParams, fallback],
+    [pick, pathname, searchParams, fallback],
   );
 
   return (
@@ -538,6 +605,13 @@ export function AdminShell({
   /** next/font variable classes for Inter and JetBrains Mono, set by the layout. */
   fontClassName?: string;
 }) {
+  const pathname = usePathname();
+  const [picked, setPicked] = useState<PickedAdminRange | null>(null);
+  const pick = useCallback((path: string, range: AdminRange) => {
+    setPicked({ pathname: path, range });
+  }, []);
+  const activePick = picked && picked.pathname === pathname ? picked : null;
+  const rangeContext = useMemo(() => ({ picked: activePick, pick }), [activePick, pick]);
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     readCollapsed,
@@ -568,6 +642,7 @@ export function AdminShell({
 
   return (
     <AdminRoleContext.Provider value={role}>
+    <AdminRangeContext.Provider value={rangeContext}>
     <div
       data-layout="wide"
       className={`admin-root flex min-h-dvh w-full flex-1 ${fontClassName ?? ""}`}
@@ -610,6 +685,7 @@ export function AdminShell({
         {children}
       </div>
     </div>
+    </AdminRangeContext.Provider>
     </AdminRoleContext.Provider>
   );
 }

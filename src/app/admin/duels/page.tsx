@@ -2,16 +2,14 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminDuels } from "@/components/admin/AdminDuels";
 import {
-  buildAdminDuelBoard,
   parseAdminRange,
   toAdminUserRow,
   withSessionIdentity,
 } from "@/lib/admin-overview";
+import { listCachedAdminDuels, listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
-import { listAdminDuels } from "@/lib/duel-store";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -37,18 +35,19 @@ export default async function AdminDuelsPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const items = storeConfigured ? await listCachedUserProgress("account") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
 
   const duels = storeConfigured
-    ? await listAdminDuels()
+    ? await listCachedAdminDuels()
     : { ready: false, rows: [] };
 
   return (
     <AdminDuels
-      board={buildAdminDuelBoard(rows, duels.rows, range)}
+      people={rows}
+      duels={duels.rows}
       range={range}
       storeConfigured={storeConfigured}
       duelsReady={duels.ready}

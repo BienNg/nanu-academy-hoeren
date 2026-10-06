@@ -8,12 +8,12 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -42,7 +42,7 @@ export default async function AdminLevelsPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("levels") : [];
+  const items = storeConfigured ? await listCachedUserProgress("levels") : [];
 
   return (
     <AdminLevels

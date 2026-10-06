@@ -12,12 +12,12 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   countAdminPracticeParts,
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 import { countAdminStudyParts } from "@/lib/xp-store";
@@ -52,7 +52,7 @@ export default async function AdminActivityPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("activity") : [];
+  const items = storeConfigured ? await listCachedUserProgress("activity") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

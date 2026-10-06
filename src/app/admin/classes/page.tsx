@@ -8,11 +8,11 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   listPendingLevelGrants,
   touchUserProfile,
 } from "@/lib/progress-store";
@@ -44,7 +44,7 @@ export default async function AdminClassesPage() {
   }
 
   // Course, lesson, practice, and video totals need learn, interview, and videos.
-  const items = storeConfigured ? await listAllUserProgress("levels") : [];
+  const items = storeConfigured ? await listCachedUserProgress("levels") : [];
   const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),

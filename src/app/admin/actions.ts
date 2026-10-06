@@ -1,6 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import {
+  ADMIN_DUELS_TAG,
+  ADMIN_LISTENING_RUNS_TAG,
+  ADMIN_USER_PROGRESS_TAG,
+} from "@/lib/admin-list-cache";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/admins";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
@@ -61,6 +66,9 @@ import { listUserXpEvents } from "@/lib/xp-store";
  */
 function revalidateAdmin(): void {
   revalidatePath("/admin", "layout");
+  updateTag(ADMIN_USER_PROGRESS_TAG);
+  updateTag(ADMIN_DUELS_TAG);
+  updateTag(ADMIN_LISTENING_RUNS_TAG);
 }
 
 /** Full admins and staff. Deletes stay on `isAdminUser` alone. */

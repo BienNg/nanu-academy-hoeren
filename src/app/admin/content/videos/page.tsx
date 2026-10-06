@@ -3,10 +3,10 @@ import { connection } from "next/server";
 import { AdminVideos } from "@/components/admin/AdminVideos";
 import { buildAdminVideoBoard } from "@/lib/admin-catalog";
 import { toAdminUserRow, withSessionIdentity } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -26,7 +26,7 @@ export default async function AdminVideosPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("videos") : [];
+  const items = storeConfigured ? await listCachedUserProgress("videos") : [];
   const people = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

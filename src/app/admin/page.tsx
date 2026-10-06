@@ -5,7 +5,6 @@ import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   adminRangeVietnamDayKeys,
   adminRangeVietnamInterval,
-  buildAdminActivityStats,
   OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
   shortBerufLabel,
@@ -13,12 +12,12 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
   countAdminPracticeParts,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 import { countAdminStudyParts, sumAdminRangeXp } from "@/lib/xp-store";
@@ -54,7 +53,7 @@ export default async function AdminPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("activity") : [];
+  const items = storeConfigured ? await listCachedUserProgress("activity") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
@@ -83,11 +82,9 @@ export default async function AdminPage({
       if (count > 0) cardUserIds.add(userId);
     }
   }
-  const activity = buildAdminActivityStats(rows, range, new Date(), cardUserIds);
 
   return (
     <AdminOverview
-      activity={activity}
       range={range}
       courseCatalog={courseCatalog}
       rows={rows}

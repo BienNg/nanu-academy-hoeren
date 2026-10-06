@@ -2,21 +2,19 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminXp } from "@/components/admin/AdminXp";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
-import { buildAdminQuestBoard } from "@/lib/admin-quests";
 import {
   adminRangeVietnamDayKeys,
-  buildAdminXpBoard,
   parseAdminRange,
   shortBerufLabel,
   toAdminUserRow,
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 import { listAdminQuestClaims } from "@/lib/quest-store";
@@ -55,7 +53,7 @@ export default async function AdminXpPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const items = storeConfigured ? await listCachedUserProgress("account") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
@@ -73,10 +71,11 @@ export default async function AdminXpPage({
 
   return (
     <AdminXp
-      board={buildAdminXpBoard(rows, listening.rows, duels.rows, range)}
       rows={rows}
       catalog={catalog}
-      quests={buildAdminQuestBoard(quests.rows, days)}
+      listening={listening.rows}
+      duelXp={duels.rows}
+      questClaims={quests.rows}
       questsReady={quests.ready}
       range={range}
       storeConfigured={storeConfigured}

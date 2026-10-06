@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminRetention } from "@/components/admin/AdminRetention";
 import {
-  buildAdminRetentionBoard,
   parseAdminRange,
   toAdminUserRow,
   withSessionIdentity,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -36,14 +35,14 @@ export default async function AdminRetentionPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("activity") : [];
+  const items = storeConfigured ? await listCachedUserProgress("activity") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
 
   return (
     <AdminRetention
-      board={buildAdminRetentionBoard(rows, range)}
+      rows={rows}
       range={range}
       storeConfigured={storeConfigured}
     />

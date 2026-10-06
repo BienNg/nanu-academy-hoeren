@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10,7 +10,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { loadXpWindow } from "@/app/admin/range-data";
+import { AdminPageHeader, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   ChartTooltip,
@@ -26,15 +27,18 @@ import {
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
   adminRangeLabel,
+  adminRangeVietnamDayKeys,
+  buildAdminXpBoard,
   type AdminRange,
   type AdminUserRow,
-  type AdminXpBoard,
   type AdminXpLeader,
   type AdminXpLesson,
   type AdminXpPoint,
+  type AdminDuelXpRow,
+  type AdminListeningXpRow,
 } from "@/lib/admin-overview";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
-import type { AdminQuestBoard, AdminQuestPoint } from "@/lib/admin-quests";
+import { buildAdminQuestBoard, type AdminQuestBoard, type AdminQuestClaimRow, type AdminQuestPoint } from "@/lib/admin-quests";
 import type { QuestKind } from "@/lib/quests";
 
 const AXIS = ADMIN_COLORS.axis;
@@ -300,24 +304,48 @@ function LessonsTable({ rows }: { rows: readonly AdminXpLesson[] }) {
 }
 
 export function AdminXp({
-  board,
   rows,
   catalog,
-  quests,
-  questsReady,
-  range,
+  listening,
+  duelXp,
+  questClaims,
+  questsReady: serverQuestsReady,
+  range: serverRange,
   storeConfigured,
-  xpReady,
+  xpReady: serverXpReady,
 }: {
-  board: AdminXpBoard;
   rows: readonly AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
-  quests: AdminQuestBoard;
+  listening: readonly AdminListeningXpRow[];
+  duelXp: readonly AdminDuelXpRow[];
+  questClaims: readonly AdminQuestClaimRow[];
   questsReady: boolean;
   range: AdminRange;
   storeConfigured: boolean;
   xpReady: boolean;
 }) {
+  const loaded = useAdminWindow(
+    serverRange,
+    {
+      listening,
+      duelXp,
+      questClaims,
+      xpReady: serverXpReady,
+      questsReady: serverQuestsReady,
+    },
+    loadXpWindow,
+  );
+  const range = loaded.range;
+  const xpReady = loaded.value.xpReady;
+  const questsReady = loaded.value.questsReady;
+  const board = useMemo(
+    () => buildAdminXpBoard(rows, loaded.value.listening, loaded.value.duelXp, range),
+    [rows, loaded.value.listening, loaded.value.duelXp, range],
+  );
+  const quests = useMemo(
+    () => buildAdminQuestBoard(loaded.value.questClaims, adminRangeVietnamDayKeys(range)),
+    [loaded.value.questClaims, range],
+  );
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const detailRow = rows.find((row) => row.userId === detailUserId) ?? null;
   const window =

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -9,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { AdminPageHeader, useAdminRange } from "@/components/admin/AdminShell";
 import {
   Badge,
   ChartPanel,
@@ -23,12 +24,14 @@ import {
 } from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
+  buildAdminDuelBoard,
   formatAdminTimestamp,
-  type AdminDuelBoard,
   type AdminDuelLeader,
   type AdminDuelMatch,
   type AdminDuelPoint,
   type AdminRange,
+  type AdminUserRow,
+  type AdminDuelRecord,
 } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
@@ -197,16 +200,23 @@ function MatchTable({
 }
 
 export function AdminDuels({
-  board,
-  range,
+  people,
+  duels,
+  range: serverRange,
   storeConfigured,
   duelsReady,
 }: {
-  board: AdminDuelBoard;
+  people: readonly AdminUserRow[];
+  duels: readonly AdminDuelRecord[];
   range: AdminRange;
   storeConfigured: boolean;
   duelsReady: boolean;
 }) {
+  const range = useAdminRange(serverRange);
+  const board = useMemo(
+    () => buildAdminDuelBoard(people, duels, range),
+    [people, duels, range],
+  );
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
 

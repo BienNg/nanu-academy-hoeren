@@ -15,6 +15,8 @@ import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
 import type { AdminDuelRecord } from "@/lib/duel-store";
 import type { AdminListeningRunRecord } from "@/lib/listening-runs";
 
+export type { AdminDuelXpRow, AdminListeningXpRow, AdminDuelRecord, AdminListeningRunRecord };
+
 export const ADMIN_PAGE_SIZE = 25;
 
 export const CLASS_NAME_MAX_LENGTH = 64;

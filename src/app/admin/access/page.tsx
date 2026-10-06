@@ -8,13 +8,13 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
 import { getLivingWorkplaces } from "@/lib/living";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   listPendingLevelGrants,
   touchUserProfile,
 } from "@/lib/progress-store";
@@ -46,7 +46,7 @@ export default async function AdminAccessPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const items = storeConfigured ? await listCachedUserProgress("account") : [];
   const pending = storeConfigured ? await listPendingLevelGrants() : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),

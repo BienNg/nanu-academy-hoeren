@@ -8,12 +8,12 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -44,7 +44,7 @@ export default async function AdminStudentsPage() {
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const items = storeConfigured ? await listCachedUserProgress("account") : [];
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );

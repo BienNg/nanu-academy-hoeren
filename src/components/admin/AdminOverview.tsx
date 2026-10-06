@@ -4,8 +4,9 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
+import { loadOverviewWindow } from "@/app/admin/range-data";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   CARD,
@@ -28,6 +29,7 @@ import {
   adminRangeLabel,
   adminTimelineClockKey,
   buildActiveUserTimeline,
+  buildAdminActivityStats,
   classKey,
   formatAdminTimestamp,
   adminRangeVietnamDayKeys,
@@ -38,7 +40,6 @@ import {
   timelineDateFromClockKey,
   videoMinutesInRange,
   type ActiveTimelineStudent,
-  type AdminActivityStats,
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
@@ -717,7 +718,6 @@ function ActiveUsersTable({
 }
 
 type AdminOverviewProps = {
-  activity: AdminActivityStats;
   range: AdminRange;
   courseCatalog: readonly AdminCatalogCourse[];
   rows: readonly AdminUserRow[];
@@ -733,8 +733,7 @@ type AdminOverviewProps = {
 };
 
 export function AdminOverview({
-  activity,
-  range,
+  range: serverRange,
   courseCatalog,
   rows,
   storeConfigured,
@@ -746,6 +745,29 @@ export function AdminOverview({
   practicePartsByUser,
   cardUserIds,
 }: AdminOverviewProps) {
+  const windowData = useAdminWindow(
+    serverRange,
+    {
+      rangeXp,
+      rangeXpReady,
+      studyParts,
+      studyPartsByUser,
+      practiceParts,
+      practicePartsByUser,
+      cardUserIds,
+    },
+    loadOverviewWindow,
+  );
+  const range = windowData.range;
+  const {
+    rangeXp: earnedXp,
+    rangeXpReady: earnedReady,
+    studyParts: studyPartCount,
+    studyPartsByUser: studyByUser,
+    practiceParts: practicePartCount,
+    practicePartsByUser: practiceByUser,
+    cardUserIds: activeCardIds,
+  } = windowData.value;
   const router = useRouter();
   const [, startTransition] = useTransition();
   const window =
@@ -764,9 +786,13 @@ export function AdminOverview({
     [rows, classByUser],
   );
   const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
-  const cardUsers = useMemo(() => new Set(cardUserIds), [cardUserIds]);
+  const cardUsers = useMemo(() => new Set(activeCardIds), [activeCardIds]);
   const activeUsers = useMemo(
     () => listActiveAdminUsers(liveRows, range, new Date(), cardUsers),
+    [liveRows, range, cardUsers],
+  );
+  const activity = useMemo(
+    () => buildAdminActivityStats(liveRows, range, new Date(), cardUsers),
     [liveRows, range, cardUsers],
   );
   const displayClass = useCallback(
@@ -864,12 +890,12 @@ export function AdminOverview({
               stats={[
                 {
                   label: "Study parts",
-                  value: studyParts == null ? "—" : formatCount(studyParts),
+                  value: studyPartCount == null ? "—" : formatCount(studyPartCount),
                   hint: "Parts finished",
                 },
                 {
                   label: "Practice parts",
-                  value: practiceParts == null ? "—" : formatCount(practiceParts),
+                  value: practicePartCount == null ? "—" : formatCount(practicePartCount),
                   hint: "Parts finished",
                 },
               ]}
@@ -898,8 +924,8 @@ export function AdminOverview({
                   <HighlightsPanel
                     users={activeUsers}
                     range={range}
-                    rangeXp={rangeXp}
-                    rangeXpReady={rangeXpReady}
+                    rangeXp={earnedXp}
+                    rangeXpReady={earnedReady}
                     onSelect={setDetailUserId}
                   />
                 </div>
@@ -922,10 +948,10 @@ export function AdminOverview({
                 users={activeUsers}
                 window={window}
                 range={range}
-                rangeXp={rangeXp}
-                rangeXpReady={rangeXpReady}
-                studyPartsByUser={studyPartsByUser}
-                practicePartsByUser={practicePartsByUser}
+                rangeXp={earnedXp}
+                rangeXpReady={earnedReady}
+                studyPartsByUser={studyByUser}
+                practicePartsByUser={practiceByUser}
                 classSuggestions={classOptions.map((option) => option.label)}
                 savingClassIds={savingClassIds}
                 displayClass={displayClass}

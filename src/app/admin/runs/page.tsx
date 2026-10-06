@@ -10,13 +10,12 @@ import {
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
+import { listCachedAdminListeningRuns, listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
-  listAdminListeningRuns,
   listAdminMissedClipIds,
-  listAllUserProgress,
   touchUserProfile,
 } from "@/lib/progress-store";
 
@@ -51,13 +50,13 @@ export default async function AdminListeningRunsPage({
     });
   }
 
-  const items = storeConfigured ? await listAllUserProgress("account") : [];
+  const items = storeConfigured ? await listCachedUserProgress("account") : [];
   const people = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
 
   const runs = storeConfigured
-    ? await listAdminListeningRuns()
+    ? await listCachedAdminListeningRuns()
     : { status: "error" as const, rows: [] };
   const board = buildAdminListeningRunBoard(runs.rows, range);
   const missedClipIds =
@@ -69,7 +68,7 @@ export default async function AdminListeningRunsPage({
 
   return (
     <AdminListeningRuns
-      board={board}
+      runs={runs.rows}
       people={people}
       catalog={catalog}
       range={range}

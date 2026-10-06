@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -9,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { AdminPageHeader, useAdminRange } from "@/components/admin/AdminShell";
 import {
   HeaderChip,
   KpiTile,
@@ -22,11 +23,12 @@ import {
 } from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
+  buildAdminRetentionBoard,
   type AdminRange,
-  type AdminRetentionBoard,
   type AdminRetentionPerson,
   type AdminRetentionPoint,
   type AdminStreakBucket,
+  type AdminUserRow,
 } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 
@@ -248,14 +250,16 @@ function PeopleTable({
 }
 
 export function AdminRetention({
-  board,
-  range,
+  rows,
+  range: serverRange,
   storeConfigured,
 }: {
-  board: AdminRetentionBoard;
+  rows: readonly AdminUserRow[];
   range: AdminRange;
   storeConfigured: boolean;
 }) {
+  const range = useAdminRange(serverRange);
+  const board = useMemo(() => buildAdminRetentionBoard(rows, range), [rows, range]);
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
   const d1Hint =

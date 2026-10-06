@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -10,7 +10,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { loadPracticeMissedClips } from "@/app/admin/range-data";
+import { AdminPageHeader, MaterialIcon, useAdminRange } from "@/components/admin/AdminShell";
 import {
   ChartTooltip,
   CountPill,
@@ -40,14 +41,14 @@ import {
 import {
   ADMIN_PAGE_SIZE,
   adminRangeLabel,
+  buildAdminListeningRunBoard,
   formatAdminTimestamp,
   type AdminListeningLessonStat,
   type AdminListeningRunPoint,
-  type AdminListeningRunBoard,
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
-import { LISTENING_SCHEMA_HINT, type ListeningReadStatus } from "@/lib/listening-runs";
+import { LISTENING_SCHEMA_HINT, type AdminListeningRunRecord, type ListeningReadStatus } from "@/lib/listening-runs";
 
 const PASSED = ADMIN_COLORS.emerald;
 const FAILED = ADMIN_COLORS.crimson;
@@ -231,15 +232,15 @@ function FailedLessons({
 }
 
 export function AdminListeningRuns({
-  board,
+  runs,
   people,
   catalog,
-  range,
+  range: serverRange,
   status,
   storeConfigured,
-  missedClipIds,
+  missedClipIds: serverMissedClipIds,
 }: {
-  board: AdminListeningRunBoard;
+  runs: readonly AdminListeningRunRecord[];
   people: readonly AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
   range: AdminRange;
@@ -247,6 +248,35 @@ export function AdminListeningRuns({
   storeConfigured: boolean;
   missedClipIds: Record<string, readonly string[]>;
 }) {
+  const range = useAdminRange(serverRange);
+  const board = useMemo(() => buildAdminListeningRunBoard(runs, range), [runs, range]);
+  const imperfectIds = useMemo(
+    () => board.recent.filter((run) => run.accuracy < 100).map((run) => run.id),
+    [board],
+  );
+  const [fetchedMisses, setFetchedMisses] = useState<{
+    key: string;
+    clips: Record<string, readonly string[]>;
+  } | null>(null);
+  const imperfectKey = imperfectIds.join("\n");
+
+  useEffect(() => {
+    if (range === serverRange) return;
+    let cancelled = false;
+    void loadPracticeMissedClips(imperfectKey ? imperfectKey.split("\n") : []).then((next) => {
+      if (!cancelled) setFetchedMisses({ key: imperfectKey, clips: next });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [range, serverRange, imperfectKey]);
+
+  const missedClipIds =
+    range === serverRange
+      ? serverMissedClipIds
+      : fetchedMisses?.key === imperfectKey
+        ? fetchedMisses.clips
+        : (fetchedMisses?.clips ?? serverMissedClipIds);
   const names = useMemo(
     () => new Map(people.map((row) => [row.userId, row.displayName])),
     [people],
