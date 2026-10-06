@@ -11,6 +11,7 @@ import {
   GRAMMAR_CLIPS_PER_CARD,
   MAX_ORDER_CARDS,
   MAX_PRACTICE_CARDS,
+  VI_INPUT_SHARE,
 } from "./practice-deck.js";
 
 function seeded(seed: number): () => number {
@@ -58,7 +59,7 @@ function indexOfAnchor(deck: readonly PracticeCard[], clipId: string): number {
   );
 }
 
-const MEANING_KINDS = new Set(["multiple-choice", "vi-choice", "listening-order"]);
+const MEANING_KINDS = new Set(["multiple-choice", "vi-choice", "listening-order", "vi-input"]);
 
 test("a part is listening and meaning cards, then pairing, then the order cards", () => {
   const clips = [...partClips, ...sentenceClips.slice(0, 3)];
@@ -144,7 +145,7 @@ test("every clip gets one meaning drill, placed after its own listening card", (
   }
 });
 
-test("the meaning drill kind varies across deals, including listening-order", () => {
+test("the meaning drill kind varies across deals, including listening-order and vi-input", () => {
   const short = new Set<string>();
   const long = new Set<string>();
   for (let seed = 1; seed <= 30; seed += 1) {
@@ -155,8 +156,8 @@ test("the meaning drill kind varies across deals, including listening-order", ()
       if (MEANING_KINDS.has(card.kind)) long.add(card.kind);
     }
   }
-  assert.deepEqual([...short].sort(), ["multiple-choice", "vi-choice"]);
-  assert.deepEqual([...long].sort(), ["listening-order", "multiple-choice", "vi-choice"]);
+  assert.deepEqual([...short].sort(), ["multiple-choice", "vi-choice", "vi-input"]);
+  assert.deepEqual([...long].sort(), ["listening-order", "multiple-choice", "vi-choice", "vi-input"]);
 });
 
 test("a listening-order meaning card holds the sentence's chips plus distractors", () => {
@@ -374,4 +375,22 @@ test("grammar gap cards always include the lesson's fresh topic and mix topics",
 test("a part without gaps deals no grammar gap card", () => {
   const deck = dealPracticePart(partClips, partClips, [], seeded(3));
   assert.equal(deck.filter((card) => card.kind === "grammar-gap").length, 0);
+});
+
+test("about VI_INPUT_SHARE of meaning drills become vi-input cards, and the card count stays", () => {
+  let viInput = 0;
+  let meaning = 0;
+  for (let seed = 1; seed <= 400; seed += 1) {
+    const deck = dealPracticePart(sentenceClips, sentenceClips, [], seeded(seed));
+    assert.equal(deck.length, practiceCardCount(sentenceClips, sentenceClips));
+    for (const card of deck) {
+      if (card.kind === "vi-input") {
+        viInput += 1;
+        assert.ok(deck.indexOf(card) > indexOfAnchor(deck, card.clip.id));
+      }
+      if (MEANING_KINDS.has(card.kind)) meaning += 1;
+    }
+  }
+  const share = viInput / meaning;
+  assert.ok(share > VI_INPUT_SHARE / 2 && share < VI_INPUT_SHARE * 2, `share ${share}`);
 });

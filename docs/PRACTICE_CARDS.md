@@ -12,7 +12,7 @@ Source of the kind list: `src/lib/card-kinds.ts`, plus `reply-choice` and `numbe
 | `order` | vn text → de chips | Reads the Vietnamese and taps shuffled German word chips into order, plus 1–3 distractor words. | Regular practice (at most 4 per practice part, at the end), lesson jump, duels, Blitzrunde. Needs sentence order, a translation, at least 3 words, and no numeric answer (`hasOrderCard`). |
 | `multiple-choice` | de text → vn mc | Reads the German and picks the Vietnamese meaning. | Regular practice (as one of the meaning cards), lesson jump, duels, Blitzrunde. |
 | `vi-choice` | vn text → de mc | Reads the Vietnamese and picks the German sentence. | Same places as multiple choice. Practice and lesson jump skip it for number clips and picture words; Blitzrunde does not. |
-| `vi-input` | vn text → de typing | Reads the Vietnamese and types the German. | Duels and Blitzrunde only. Regular practice does not deal this. |
+| `vi-input` | vn text → de typing | Reads the Vietnamese and types the German. | Regular practice: 10% of meaning cards (`VI_INPUT_SHARE`) are swapped for this, so it adds no cards. Skipped for number clips and picture words. Duels and Blitzrunde. Not in lesson jump. |
 | `pairing` | vn text → de text | Matches five Vietnamese lines to their five German lines. At most one per study part. | Regular practice, Blitzrunde. Not in duels or lesson jump. |
 | `reply-choice` | de listening → de mc | Hears the other person's German line and picks a German reply ("Was sagst du?"). Same pattern string as practice `listening-choice`; the options are replies. | Regular practice, for Leben-in-Deutschland clips with `replies` (for example `src/data/living/nagelstudio.json`). Replaces that clip's meaning card. |
 | `number-input` | de listening → de number | Would hear the clip and type the price or time. | **Unused.** Number clips are ordinary `listening` cards. |
@@ -24,7 +24,7 @@ In regular practice there is no **de listening → vn mc** card. After hearing t
 ## Words used here
 
 - **Listening card:** the one card per clip that plays its audio first: `listening` or `listening-choice` (`isAnchorKind`). Every other card for that clip comes after it.
-- **Meaning card:** the clip's one follow-up card, picked at random with equal chance from the kinds it qualifies for: `multiple-choice`, `vi-choice`, `listening-order`.
+- **Meaning card:** the clip's one follow-up card, picked at random with equal chance from the kinds it qualifies for: `multiple-choice`, `vi-choice`, `listening-order`. 10% of the time it is then swapped for `vi-input`.
 - **Order card:** an `order` card (vn text → de chips).
 - **Study part:** up to 12 clips, studied together (`MAX_STUDY_CLIPS`).
 - **Practice part:** up to 20 cards, played in one round (`MAX_PRACTICE_CARDS`).
@@ -51,6 +51,7 @@ flowchart LR
       vi["vi-choice<br/>vn text → de mc"]
       lorder["listening-order<br/>de listening → de chips"]
     end
+    viin["vi-input<br/>vn text → de typing<br/>(replaces 10% of meaning cards)"]
     gap["grammar-gap<br/>de text → de mc<br/>(replaces 1 meaning card<br/>per 3 clips with gaps)"]
   end
 
@@ -62,7 +63,6 @@ flowchart LR
 
   subgraph X["Not in regular practice"]
     direction TB
-    viinput["vi-input<br/>vn text → de typing<br/>(duels, Blitzrunde)"]
     num["number-input<br/>(unused)"]
   end
 
@@ -70,9 +70,9 @@ flowchart LR
   clip --> M
   clip -.-> S
   MD -.-> gap
+  MD -.-> viin
 
   style X stroke-dasharray: 5 5
-  style viinput stroke-dasharray: 5 5
   style num stroke-dasharray: 5 5
 ```
 
@@ -84,7 +84,7 @@ flowchart LR
 flowchart TD
   clips[/"partClips (≤ 12 clips)"/]
   clips --> b["buildPracticeDeck<br/>1 listening card (typing) per clip, in part order"]
-  b --> d["insertDiscreteCards<br/>per clip: reply-choice or a meaning card,<br/>at a random slot with ≥ 1 card between it and its listening card"]
+  b --> d["insertDiscreteCards<br/>per clip: reply-choice or a meaning card<br/>(10% of meaning cards → vi-input),<br/>at a random slot with ≥ 1 card between it and its listening card"]
   d --> g["insertGrammarCards<br/>per run of 3 clips with gaps: 1 meaning card<br/>→ grammar-gap (≤ 6 cards after the listening card)"]
   g --> m["mixListeningChoice<br/>~75% of listening cards → listening-choice<br/>(only with 3 German distractors, same word count)"]
   m --> front["Block 1: front"]
@@ -109,7 +109,10 @@ flowchart TD
   pick --> mc["multiple-choice<br/>needs translation"]
   pick --> vi["vi-choice<br/>needs translation,<br/>not number / picture"]
   pick --> lo["listening-order<br/>≥ 3 words, no numeric answer"]
-  mc & vi & lo --> gq{"chosen as its run's<br/>grammar-gap clip?"}
+  mc & vi & lo --> vq{"10%: clip has translation,<br/>not number / picture?"}
+  vq -- yes --> viin["vi-input<br/>(replaces the meaning card)"]
+  vq -- "no / other 90%" --> gq{"chosen as its run's<br/>grammar-gap clip?"}
+  viin --> gq
   gq -- yes --> gap["grammar-gap<br/>(replaces the meaning card)"]
   gq -- no --> keep["keep meaning card"]
 ```
@@ -130,11 +133,12 @@ The same three blocks in detail:
    - **Zero or one** follow-up card per clip, at a random slot after its listening card:
      - If the clip has replies (Leben in Deutschland), a `reply-choice` card.
      - Otherwise a meaning card, picked at random from the ones the clip qualifies for: de text → vn mc, vn text → de mc, de listening → de chips. The two choice cards need a translation; vn text → de mc is skipped for number clips and picture words. Listening chips need at least 3 words and no numeric answer. If the clip qualifies for none, nothing is dealt.
+     - 10% of the time (`VI_INPUT_SHARE`) the picked meaning card is swapped for vn text → de typing (`vi-input`), when the clip has a translation and is not a number clip or picture word. It takes the meaning card's place, so the count does not change.
      - Then, among clips with grammar gaps that got a meaning card, one meaning card per run of 3 such clips becomes a `grammar-gap` card (`insertGrammarCards`), placed within 6 cards after its listening card (`GRAMMAR_CARD_WINDOW`). The deck does not grow.
 2. **Zero or one** pairing card (vn text → de text). Dealt when the part has five short clips (at most 3 German words each) with a translation and distinct German text. One card covers those five clips.
 3. **Zero to four** order cards (vn text → de chips), shuffled, at the very end. When more than 4 clips qualify (`MAX_ORDER_CARDS`), 4 are kept at random. Clips whose meaning card is listening chips are cut first, so a student rarely builds the same sentence twice. Without a pairing card in between, the first order card is never the clip of the card just before it. A cut clip gets nothing in its place.
 
-A clip is therefore one listening card, plus up to one meaning or reply card, plus maybe one order card. Pairing is shared. `number-input` and `vi-input` (vn text → de typing) are not part of this flow. `vi-input` is still dealt in duels and Blitzrunde.
+A clip is therefore one listening card, plus up to one meaning or reply card, plus maybe one order card. Pairing is shared. `number-input` is not part of this flow.
 
 Outside trail nodes, one practice part is one `dealPracticePart` call, and `maxClipsPerPracticePart` picks a clip count that stays within 20 cards.
 

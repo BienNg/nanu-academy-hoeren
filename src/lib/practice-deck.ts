@@ -50,6 +50,12 @@ export const GRAMMAR_CLIPS_PER_CARD = 3;
  */
 export const GRAMMAR_CARD_WINDOW = 6;
 
+/**
+ * Chance that a clip's meaning drill is dealt as a Vietnamese → typed German
+ * card instead. It takes the drill's place, so the card count stays.
+ */
+export const VI_INPUT_SHARE = 0.1;
+
 function zeroRandom(): number {
   return 0;
 }
@@ -201,7 +207,12 @@ function insertAfterAnchor<C extends OrderSourceClip>(
 }
 
 /** Kinds insertDiscreteCards deals as a clip's meaning drill. */
-const MEANING_DRILL_KINDS: ReadonlySet<PracticeCardKind> = new Set(["multiple-choice", "vi-choice", "listening-order"]);
+const MEANING_DRILL_KINDS: ReadonlySet<PracticeCardKind> = new Set([
+  "multiple-choice",
+  "vi-choice",
+  "listening-order",
+  "vi-input",
+]);
 
 /**
  * Turns one meaning drill in each run of GRAMMAR_CLIPS_PER_CARD clips with
@@ -393,6 +404,7 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
 
   // One meaning drill per clip, picked from the kinds the clip qualifies for.
   // A clip that already got a reply-choice card skips it, so a clip never deals both.
+  // VI_INPUT_SHARE of the drills become vi-input cards in place of the pick.
   for (const clip of partClips) {
     if (hasReplyChoice(clip)) continue;
     const anchorIndex = listeningIndexOf(clip.id);
@@ -400,10 +412,25 @@ export function insertDiscreteCards<C extends OrderSourceClip>(
     const drills = meaningDrills(clip, lessonClips, levelClips, random);
     if (drills.length === 0) continue;
     const pick = drills[Math.min(drills.length - 1, Math.floor(random() * drills.length))];
-    if (pick) insertAfter(anchorIndex, pick);
+    if (!pick) continue;
+    insertAfter(
+      anchorIndex,
+      isViInputEligible(clip) && random() < VI_INPUT_SHARE
+        ? { key: `${clip.id}:vi-input`, kind: "vi-input", clip }
+        : pick,
+    );
   }
 
   return next;
+}
+
+/**
+ * A meaning drill may become a vi-input card: same rules as vi-choice, since
+ * a number clip's script is spelled out and a picture word is drilled by
+ * picture pairing.
+ */
+function isViInputEligible(clip: OrderSourceClip): boolean {
+  return Boolean(clip.translationVi?.trim()) && !clip.answer && !clip.imageUrl && Boolean(clip.script.trim());
 }
 
 /**
