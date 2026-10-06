@@ -599,6 +599,71 @@ test("a video playhead does not count as a practice day", () => {
   assert.equal(merged.lastPracticeDate, undefined);
 });
 
+test("a study visit that crosses local midnight still counts the next morning", () => {
+  const now = new Date("2026-10-06T06:00:00.000Z");
+  const progress = normalizeProgress({
+    streakTimeZone: "Europe/Zurich",
+    practiceDates: ["2026-10-04", "2026-10-06"],
+    lastPracticeDate: "2026-10-06",
+    streakDays: 1,
+    videos: {
+      alphabet: { positionSeconds: 1, updatedAt: "2026-10-05T06:30:00.000Z" },
+    },
+    visits: [
+      {
+        id: "night",
+        startedAt: "2026-10-04T20:28:46.630Z",
+        endedAt: "2026-10-04T22:11:32.692Z",
+        activeSeconds: 1000,
+        lessons: ["a1-1/lektion-4"],
+        clips: [{ lessonKey: "a1-1/lektion-4", clipId: "a" }],
+        exercisesCompleted: 10,
+        listeningRuns: 1,
+        videos: [],
+      },
+      {
+        id: "morning-video",
+        startedAt: "2026-10-05T06:30:04.455Z",
+        endedAt: "2026-10-05T06:40:54.771Z",
+        activeSeconds: 0,
+        lessons: [],
+        clips: [],
+        exercisesCompleted: 0,
+        listeningRuns: 0,
+        videos: [
+          { key: "alphabet", title: "Alphabet", seconds: 12, leftAtSeconds: 12, watched: false },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(activeStreakDays(progress, now), 3);
+});
+
+test("a tab left open into the morning does not add a practice day", () => {
+  const now = new Date("2026-10-06T06:00:00.000Z");
+  const progress = normalizeProgress({
+    streakTimeZone: "Europe/Zurich",
+    practiceDates: ["2026-10-04", "2026-10-06"],
+    lastPracticeDate: "2026-10-06",
+    visits: [
+      {
+        id: "left-open",
+        startedAt: "2026-10-04T18:00:00.000Z",
+        endedAt: "2026-10-05T08:00:00.000Z",
+        activeSeconds: 1000,
+        lessons: ["a1-1/lektion-4"],
+        clips: [{ lessonKey: "a1-1/lektion-4", clipId: "a" }],
+        exercisesCompleted: 0,
+        listeningRuns: 0,
+        videos: [],
+      },
+    ],
+  });
+
+  assert.equal(activeStreakDays(progress, now), 1);
+});
+
 test("a finished part still counts on a day the video was opened", () => {
   const today = new Date("2026-10-05T08:26:47.013Z");
   const practiced = commitLearnPart(normalizeProgress({}), "lektion-1", ["clip-a"], {

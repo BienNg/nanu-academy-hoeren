@@ -1192,6 +1192,24 @@ function practiceDayKey(value: string | undefined, timeZone: string | undefined)
   return localCalendarDay(date, timeZone);
 }
 
+/** Minutes after local midnight, or null when `value` is not a timestamp. */
+function localMinutesOfDay(value: string, timeZone: string | undefined): number | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const zone = validTimeZone(timeZone);
+  if (!zone) return date.getHours() * 60 + date.getMinutes();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return (hour % 24) * 60 + minute;
+}
+
 const ACTIVITY_KEEP_DAYS = 120;
 
 function countField(value: unknown): number {
@@ -2383,6 +2401,10 @@ export function collectPracticeDates(progress: StoredProgress): string[] {
   for (const entry of Object.values(progress.interview)) {
     add(entry.completedAt);
   }
+  for (const visit of progress.visits ?? []) {
+    const overnight = overnightPracticeDay(visit, zone);
+    if (overnight) dates.add(overnight);
+  }
 
   for (const day of [...dates]) {
     if (videoOnlyPracticeDay(progress, day, zone)) dates.delete(day);
@@ -2431,9 +2453,31 @@ function dayHasPracticeWork(
   ) {
     return true;
   }
-  return (progress.visits ?? []).some(
-    (visit) => practiceDayKey(visit.startedAt, zone) === day && visitFinishedWork(visit),
-  );
+  return (progress.visits ?? []).some((visit) => visitCountsForDay(visit, day, zone));
+}
+
+/**
+ * A study visit that runs past local midnight still counts on the next day,
+ * until 06:00. Later than that is a tab left open, not another practice day.
+ * The weekly card was marking that next day from XP while the streak dropped
+ * it once a video visit landed on the same morning.
+ */
+const OVERNIGHT_PRACTICE_MINUTES = 6 * 60;
+
+function overnightPracticeDay(visit: Visit, zone: string | undefined): string | null {
+  if (!visitFinishedWork(visit)) return null;
+  const start = practiceDayKey(visit.startedAt, zone);
+  const end = practiceDayKey(visit.endedAt, zone);
+  if (!start || !end || previousIsoDate(end) !== start) return null;
+  const minutes = localMinutesOfDay(visit.endedAt, zone);
+  if (minutes == null || minutes >= OVERNIGHT_PRACTICE_MINUTES) return null;
+  return end;
+}
+
+function visitCountsForDay(visit: Visit, day: string, zone: string | undefined): boolean {
+  if (!visitFinishedWork(visit)) return false;
+  if (practiceDayKey(visit.startedAt, zone) === day) return true;
+  return overnightPracticeDay(visit, zone) === day;
 }
 
 /**

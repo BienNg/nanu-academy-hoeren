@@ -1319,12 +1319,16 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
 
   if (stage === "ranking") {
     if (!climb || !board) return <XpLoader label="Đang tải bảng xếp hạng" />;
+    // The board always ends the part on the lesson. "Phần tiếp theo" stays
+    // on the earlier steps; this one only offers the blue return button.
+    const backToLesson = secondaryLabel === "Về bài học" && onSecondary;
     return (
       <RankClimbStepView
         climb={climb}
         className={board.className}
         countdown={board.countdown}
-        {...shared}
+        continueLabel={backToLesson ? "Về bài học" : shared.continueLabel}
+        onContinue={backToLesson ? onSecondary : shared.onContinue}
       />
     );
   }
