@@ -16,6 +16,7 @@ import {
   shouldReplaceLocalWithCloud,
   absorbAddedLessonClips,
   commitLearnPart,
+  completeLessonByJump,
   dropStreakForUnfinishedSession,
   incrementLearnRunCount,
   incrementStudyRunCount,
@@ -762,6 +763,14 @@ export function useProgress(
     [persist],
   );
 
+  const completeLessonJump = useCallback(
+    (chapterSlug: string, clipIds: readonly string[], videoKeys: readonly string[]) => {
+      const next = completeLessonByJump(readProgressSnapshot(), chapterSlug, { clipIds, videoKeys });
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const dropUnfinishedSessionStreak = useCallback(
     (chapterSlug: string) => {
       const current = readProgressSnapshot();
@@ -1006,6 +1015,7 @@ export function useProgress(
     markLearnChapterDone,
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,
+    completeLessonJump,
     dropUnfinishedSessionStreak,
     resetProgress,
     resetLearnProgress: resetLearnProgressFn,

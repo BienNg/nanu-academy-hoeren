@@ -38,7 +38,7 @@ export function Pingu({ mood }: { mood: PinguMood }) {
       transition={reduceMotion ? { duration: 0 } : POP}
     >
       <div className="absolute bottom-0 left-1/2 flex w-[156px] -translate-x-1/2 justify-center">
-        {cheering ? <Cheering /> : <Oops />}
+        {cheering ? <CheeringPingu /> : <Oops />}
       </div>
       <motion.div
         className="pingu-bubble absolute top-6 left-[calc(50%+82px)]"
@@ -513,7 +513,8 @@ function PuzzleCube() {
   );
 }
 
-function Cheering() {
+/** Pingu mid-hop, arms up. The jump test intro also stands him on the jump pad. */
+export function CheeringPingu() {
   return (
     <svg
       className="pingu"

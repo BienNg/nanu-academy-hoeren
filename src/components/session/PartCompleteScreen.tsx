@@ -38,6 +38,12 @@ type PartCompleteScreenProps = {
   onContinue: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Replaces the heading, e.g. for a jump test. */
+  title?: string;
+  /** Replaces the line under the heading. */
+  subtitle?: string;
+  /** Replaces the note under a +0 XP result. */
+  xpNote?: string;
 };
 
 const CONFETTI = [
@@ -208,12 +214,19 @@ function CompleteView({
   onContinue,
   secondaryLabel,
   onSecondary,
+  title,
+  subtitle,
+  xpNote,
 }: CompleteViewProps) {
   const reduceMotion = useReducedMotion();
   const continueRef = useContinueShortcut(onContinue);
   const soundPlayedRef = useRef(false);
   const perfect = accuracy != null && accuracy >= 100;
-  const earned = !failed && (xpPending || xpKind) ? xpCaption(xp, xpKind) : null;
+  const caption = xpCaption(xp, xpKind);
+  const earned =
+    !failed && (xpPending || xpKind)
+      ? { ...caption, note: xpNote && caption.amount === 0 ? xpNote : caption.note }
+      : null;
   const stats = [
     { label: "Câu", value: String(questionCount), color: "#0066cc" },
     { label: "Chính xác", value: accuracy == null ? "—" : `${accuracy}%`, color: perfect ? "#34C759" : "#ff9f0a" },
@@ -288,7 +301,7 @@ function CompleteView({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: at(beats.title), duration: 0.3 }}
         >
-          {failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!"}
+          {title ?? (failed ? "Hết tim" : finishRun ? "Bài học hoàn thành!" : "Phần hoàn thành!")}
         </motion.h2>
         <motion.p
           className="mt-2 text-[17px] font-medium text-[#86868b]"
@@ -296,7 +309,7 @@ function CompleteView({
           animate={{ opacity: 1 }}
           transition={{ delay: at(beats.subtitle), duration: 0.25 }}
         >
-          {subtitleFor(failed, finishRun, partNumber, partCount)}
+          {subtitle ?? subtitleFor(failed, finishRun, partNumber, partCount)}
         </motion.p>
 
         {earned ? (

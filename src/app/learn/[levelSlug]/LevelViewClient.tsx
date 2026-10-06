@@ -34,6 +34,7 @@ import {
 import type { LiveRound } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
 import { useProgress } from "@/lib/useProgress";
+import { jumpTarget } from "@/lib/lesson-jump";
 
 type Chapter = {
   id: string;
@@ -389,7 +390,7 @@ function ContinueGuideBubble({
   label,
   reduceMotion,
 }: {
-  label: "Bắt đầu" | "Học tiếp";
+  label: string;
   reduceMotion: boolean;
 }) {
   return (
@@ -416,6 +417,32 @@ function ContinueGuideBubble({
         </svg>
       </motion.div>
     </div>
+  );
+}
+
+/**
+ * First stop on the next locked Lektion: a fast-forward node that opens the
+ * jump test for the Lektion before it.
+ */
+function JumpNode({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="flex flex-col items-center rounded-full transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+    >
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
+        <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
+          <path
+            d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
+            fill="#FFFFFF"
+            stroke="#FFFFFF"
+            strokeWidth="5"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    </Link>
   );
 }
 
@@ -1599,6 +1626,20 @@ export default function LevelViewClient({
         >
           {(() => {
             let continueGuideClaimed = false;
+            // Only the next locked CEFR Lektion offers a jump, and only once progress is known.
+            const jump =
+              progressReady && !accessLocked && (path.theme ?? "level") === "level"
+                ? jumpTarget(
+                    chapters.map((chapter) => ({
+                      playable: chapter.hasAudio !== false,
+                      done:
+                        chapter.hasAudio !== false &&
+                        learnChapterCompleted(progressKeyOf(chapter)),
+                      clipCount: chapter.practiceClips?.length ?? chapter.clipCount ?? 0,
+                    })),
+                  )
+                : null;
+            const jumpFrom = jump ? chapters[jump.skipIndex] : undefined;
             // One wave runs through every Lektion, so each trail picks up where the last left off.
             let pathStep = 0;
             const poses = pathPoses(level.slug, chapters.length);
@@ -1791,6 +1832,21 @@ export default function LevelViewClient({
                         >
                           <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
                         </button>
+                      </li>
+                    ) : null}
+                    {jumpFrom && jump?.targetIndex === index ? (
+                      <li
+                        className="relative pt-14"
+                        style={{ transform: `translateX(${pathShiftPx(pathStart)}px)` }}
+                      >
+                        <ContinueGuideBubble
+                          label="Nhảy tới đây?"
+                          reduceMotion={shouldReduceMotion === true}
+                        />
+                        <JumpNode
+                          href={`/learn/${level.slug}/${jumpFrom.slug}/jump`}
+                          label={`Nhảy tới ${chapter.label}: làm bài kiểm tra ${jumpFrom.label}`}
+                        />
                       </li>
                     ) : null}
                     {nodes.map((node, nodeIndex) => {

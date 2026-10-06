@@ -15,6 +15,7 @@ import {
   type StudentRunsPage,
 } from "@/lib/listening-runs";
 import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing } from "@/lib/xp";
+import { isJumpXpSchemaMissing } from "@/lib/lesson-jump";
 import { workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   DEFAULT_PROGRESS,
@@ -36,6 +37,7 @@ import {
 
 const TABLE = "user_progress";
 const PENDING_ACCESS_TABLE = "pending_level_access";
+const JUMP_XP_TABLE = "lesson_jump_awards";
 const RUNS_TABLE = "listening_runs";
 const CLIPS_TABLE = "clip_results";
 const XP_TABLE = "xp_awards";
@@ -1518,6 +1520,7 @@ export async function deleteListeningRunsForLessons(
   if (xpResult.error && !isXpSchemaMissing(xpResult.error.message)) {
     throw new Error(`Could not delete XP (${xpResult.error.message}).`);
   }
+  await deleteUserJumpXp(supabase, userId, lessonKeys);
 
   const runs = supabase.from(RUNS_TABLE).delete().eq("user_id", userId);
   const runsQuery = lessonKeys === "all" ? runs : runs.in("lesson_key", [...lessonKeys]);
@@ -1534,6 +1537,7 @@ async function deleteUserXpAwards(
   const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
   if (!error || isXpSchemaMissing(error.message)) {
     await deleteUserStudyXp(supabase, userId, "all");
+    await deleteUserJumpXp(supabase, userId, "all");
     return;
   }
   throw new Error(`Could not delete XP (${error.message}).`);
@@ -1550,6 +1554,20 @@ async function deleteUserStudyXp(
   const { error } = await scoped;
   if (!error || isStudyXpSchemaMissing(error.message)) return;
   throw new Error(`Could not delete study XP (${error.message}).`);
+}
+
+/** Jump XP goes with practice: a Lektion cleared of practice can be skipped, and paid, again. */
+async function deleteUserJumpXp(
+  supabase: SupabaseClient,
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  if (lessonKeys !== "all" && lessonKeys.length === 0) return;
+  const query = supabase.from(JUMP_XP_TABLE).delete().eq("user_id", userId);
+  const scoped = lessonKeys === "all" ? query : query.in("lesson_key", [...lessonKeys]);
+  const { error } = await scoped;
+  if (!error || isJumpXpSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete jump XP (${error.message}).`);
 }
 
 /** Remove study XP for the lessons an admin just cleared. */
@@ -2011,6 +2029,15 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     severity: "warn",
     kind: "table",
     table: "study_xp_awards",
+    column: "id",
+  },
+  {
+    id: "lesson_jump_awards",
+    label: "lesson_jump_awards",
+    sqlFile: "supabase/lesson_jump_awards.sql",
+    severity: "warn",
+    kind: "table",
+    table: "lesson_jump_awards",
     column: "id",
   },
   {

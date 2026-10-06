@@ -109,6 +109,8 @@ export type AdminLessonDetail = {
   lastActivityAt: string | null;
   /** Several full runs without finishing the lesson. */
   struggling: boolean;
+  /** When a passed jump test completed this Lektion. Null when it was worked through. */
+  skippedAt?: string | null;
   /** Hub cards on this Lektion. Individual exercises are not listed. */
   activities: AdminActivityCard[];
   videos: AdminVideoDetail[];
@@ -387,6 +389,7 @@ function projectLesson(
     runCount,
     lastActivityAt,
     struggling: listeningStruggling,
+    skippedAt: learn?.skippedAt ?? null,
     activities,
     videos,
   };

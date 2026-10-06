@@ -3,7 +3,7 @@
  * Every learner gets three quests a day: one listening, one study, one habit.
  * Which ones is a pure function of the learner and the Vietnam day, so nothing
  * is stored for the assignment. Progress is counted by the server from rows it
- * already wrote (xp_awards, study_xp_awards, duel_xp_awards). The browser
+ * already wrote (xp_awards, study_xp_awards, duel_xp_awards, lesson_jump_awards). The browser
  * never reports progress or XP.
  *
  * A quest day is the learner's local calendar day, so it resets at midnight
@@ -175,7 +175,9 @@ export function claimsToCreate(
 /** What one finished part added to today's events. */
 export type QuestEventDelta =
   | { kind: "listening"; accuracy: number; xp: number }
-  | { kind: "study"; xp: number };
+  | { kind: "study"; xp: number }
+  /** A passed jump test. It only adds to the day's XP. */
+  | { kind: "jump"; xp: number };
 
 /** Today's events as they were before `delta` was stored. */
 export function eventsBefore(events: QuestEvents, delta: QuestEventDelta | null): QuestEvents {
@@ -184,6 +186,7 @@ export function eventsBefore(events: QuestEvents, delta: QuestEventDelta | null)
   if (delta.kind === "study") {
     return { ...events, studyParts: Math.max(0, events.studyParts - 1), baseXp };
   }
+  if (delta.kind === "jump") return { ...events, baseXp };
   const index = events.listeningAccuracies.lastIndexOf(delta.accuracy);
   const listeningAccuracies =
     index < 0

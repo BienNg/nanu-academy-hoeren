@@ -24,6 +24,7 @@ const CLAIMS_TABLE = "quest_claims";
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
+const JUMP_XP_TABLE = "lesson_jump_awards";
 const RUNS_TABLE = "listening_runs";
 const PAGE_SIZE = 1000;
 
@@ -69,10 +70,11 @@ async function readEvents(
   const inDay = <T extends { gte: (c: string, v: string) => T; lt: (c: string, v: string) => T }>(
     query: T,
   ) => query.gte("created_at", range.start).lt("created_at", range.end);
-  const [listening, study, duels] = await Promise.all([
+  const [listening, study, duels, jumps] = await Promise.all([
     inDay(supabase.from(XP_TABLE).select("run_id, xp").eq("user_id", userId)),
     inDay(supabase.from(STUDY_XP_TABLE).select("xp").eq("user_id", userId)),
     inDay(supabase.from(DUEL_XP_TABLE).select("xp").eq("user_id", userId)),
+    inDay(supabase.from(JUMP_XP_TABLE).select("xp").eq("user_id", userId)),
   ]);
   if (listening.error || study.error) {
     const message = (listening.error ?? study.error)!.message;
@@ -81,6 +83,8 @@ async function readEvents(
   }
   // Duels are optional. A project without them still has quests.
   const duelRows = duels.error ? [] : ((duels.data ?? []) as { xp?: unknown }[]);
+  // Jump tests are optional too.
+  const jumpRows = jumps.error ? [] : ((jumps.data ?? []) as { xp?: unknown }[]);
 
   const awards = ((listening.data ?? []) as { run_id?: unknown; xp?: unknown }[]).filter(
     (row): row is { run_id: string; xp: number } =>
@@ -117,7 +121,7 @@ async function readEvents(
   return {
     listeningAccuracies: paying.map((award) => accuracyByRun.get(award.run_id) ?? 0),
     studyParts: studyRows.filter((row) => row.xp > 0).length,
-    baseXp: sum(awards) + sum(studyRows) + sum(duelRows),
+    baseXp: sum(awards) + sum(studyRows) + sum(duelRows) + sum(jumpRows),
   };
 }
 

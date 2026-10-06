@@ -10,6 +10,14 @@ import {
 import { anyClassHasStartedBlitzrunde, classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import { getChapterClips } from "@/lib/levels";
+import {
+  buildJumpDeck,
+  decideJumpXp,
+  gradeJumpAnswers,
+  isJumpXpSchemaMissing,
+  jumpSeed,
+  type LessonJumpInput,
+} from "@/lib/lesson-jump";
 import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { practiceNodeLayout } from "@/lib/practice-node";
@@ -59,6 +67,7 @@ import {
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
+const JUMP_XP_TABLE = "lesson_jump_awards";
 const RUNS_TABLE = "listening_runs";
 const PROFILES_TABLE = "user_progress";
 const PAGE_SIZE = 1000;
@@ -472,6 +481,148 @@ export async function grantStudyPartXp(
   return { ready: false, xp: null, kind: null };
 }
 
+/**
+ * Grade one jump test and store its 35 XP. The server deals the same seeded
+ * deck, so only answers that pass it are paid. A missing lesson_jump_awards
+ * table leaves progress saved and reports ready: false.
+ */
+export async function grantLessonJumpXp(
+  userId: string,
+  input: LessonJumpInput,
+  now = new Date(),
+): Promise<XpGrant> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, xp: null, kind: null };
+
+  const existing = await supabase
+    .from(JUMP_XP_TABLE)
+    .select("id, xp")
+    .eq("user_id", userId)
+    .eq("lesson_key", input.lessonKey)
+    .maybeSingle();
+  if (existing.error) {
+    if (!isJumpXpSchemaMissing(existing.error.message)) {
+      console.error("Supabase grantJumpXp lookup", existing.error.message);
+    }
+    return { ready: false, xp: null, kind: null };
+  }
+  const award = existing.data as { id?: unknown; xp?: unknown } | null;
+  // A retried submit of the same attempt reports the award it already got.
+  if (award && award.id === input.id) {
+    return { ready: true, xp: typeof award.xp === "number" ? award.xp : 0, kind: "new" };
+  }
+
+  const clips = chapterClipsForLayout(input.lessonKey);
+  if (clips.length === 0) return { ready: true, xp: 0, kind: "rejected" };
+  const deck = buildJumpDeck(clips, jumpSeed(input.lessonKey, input.id));
+  const grade = gradeJumpAnswers(deck, input.answers);
+  const slash = input.lessonKey.indexOf("/");
+  const stored = await getCloudProgress(userId);
+  const entry = stored.learn[input.lessonKey.slice(slash + 1)];
+  const decision = decideJumpXp({
+    grade,
+    cardCount: deck.length,
+    elapsedMs: input.elapsedMs,
+    alreadyAwarded: Boolean(award),
+    completedWithoutJump: Boolean(entry?.completedAt && !entry.skippedAt),
+    now,
+  });
+  if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };
+
+  const { error } = await supabase.from(JUMP_XP_TABLE).insert({
+    id: input.id,
+    user_id: userId,
+    lesson_key: input.lessonKey,
+    xp: decision.xp,
+    week_key: decision.weekKey,
+    day_key: decision.dayKey,
+  });
+  if (!error) return { ready: true, xp: decision.xp, kind: decision.kind };
+  // Another attempt of this Lektion was paid first.
+  if (error.code === "23505") return { ready: true, xp: 0, kind: "repeat" };
+  if (!isJumpXpSchemaMissing(error.message)) {
+    console.error("Supabase grantJumpXp insert", error.message);
+  }
+  return { ready: false, xp: null, kind: null };
+}
+
+/** One learner's jump XP. A missing table counts as none. */
+async function listUserJumpXp(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ xp: number; day_key: string; week_key: string }[]> {
+  const { data, error } = await supabase
+    .from(JUMP_XP_TABLE)
+    .select("xp, day_key, week_key")
+    .eq("user_id", userId);
+  if (error) {
+    if (!isJumpXpSchemaMissing(error.message)) {
+      console.error("Supabase listUserJumpXp", error.message);
+    }
+    return [];
+  }
+  return ((data ?? []) as { xp?: unknown; day_key?: unknown; week_key?: unknown }[]).flatMap(
+    (row) =>
+      typeof row.xp === "number" &&
+      typeof row.day_key === "string" &&
+      typeof row.week_key === "string"
+        ? [{ xp: row.xp, day_key: row.day_key, week_key: row.week_key }]
+        : [],
+  );
+}
+
+/** Jump awards for the leaderboard range, shaped like study awards. */
+async function listJumpAwardRows(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<StudyAwardRow[]> {
+  const rows: StudyAwardRow[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from(JUMP_XP_TABLE)
+      .select("user_id, xp, created_at, day_key, week_key")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (range === "week") query = query.eq("week_key", weekKey(now));
+    const { data, error } = await query;
+    if (error) {
+      if (!isJumpXpSchemaMissing(error.message)) {
+        console.error("Supabase listJumpAwardRows", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      xp?: unknown;
+      created_at?: unknown;
+      day_key?: unknown;
+      week_key?: unknown;
+    }[];
+    for (const row of page) {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.created_at !== "string" ||
+        typeof row.day_key !== "string" ||
+        typeof row.week_key !== "string"
+      ) {
+        continue;
+      }
+      rows.push({
+        user_id: row.user_id,
+        xp: row.xp,
+        created_at: row.created_at,
+        day_key: row.day_key,
+        week_key: row.week_key,
+      });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
 async function listUserStudyXp(
   supabase: SupabaseClient,
   userId: string,
@@ -607,6 +758,7 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
   const duelRows = await listUserDuelXp(supabase, userId);
   const studyRows = [
     ...(await listUserStudyXp(supabase, userId)),
+    ...(await listUserJumpXp(supabase, userId)),
     ...(await listQuestClaimRows(supabase, null, userId)),
   ];
   const todayKey = dayKey(now);
@@ -887,6 +1039,7 @@ async function readXpTotals(
       totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
     }
     await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+    mergeStudyAwards(totals, await listJumpAwardRows(supabase, range, now));
     mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
     return totals;
   }
@@ -903,6 +1056,7 @@ async function readXpTotals(
     totals.set(award.user_id, current);
   }
   await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
+  mergeStudyAwards(totals, await listJumpAwardRows(supabase, range, now));
   mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
   return totals;
 }

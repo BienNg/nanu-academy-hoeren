@@ -12,7 +12,7 @@ import {
 import { googleProfileImage, leaderboardDisplayName } from "@/lib/xp";
 
 const PROFILE_TABLE = "user_progress";
-const XP_TABLES = ["xp_awards", "study_xp_awards", "duel_xp_awards"] as const;
+const XP_TABLES = ["xp_awards", "study_xp_awards", "duel_xp_awards", "lesson_jump_awards"] as const;
 const RUNS_TABLE = "listening_runs";
 
 export type RecapProfile = {

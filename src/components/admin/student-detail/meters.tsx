@@ -248,6 +248,14 @@ export function LessonBlock({
               Struggling
             </span>
           ) : null}
+          {lesson.skippedAt ? (
+            <span
+              className="shrink-0 rounded-admin-badge bg-admin-cobalt-wash px-1.5 text-[11px] font-semibold leading-5 text-admin-cobalt"
+              title={`Skipped with a jump test · ${formatAbsoluteTime(lesson.skippedAt) ?? ""}`}
+            >
+              Skipped
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-[12px] leading-4 tabular-nums text-admin-ink-subtle">{when ?? "No date"}</span>

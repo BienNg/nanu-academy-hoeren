@@ -90,6 +90,11 @@ export type LearnProgress = InterviewProgress & {
    * stored. A key no longer matches once that part's cards change.
    */
   practicePartKeys?: string[];
+  /**
+   * ISO timestamp of a passed jump test that completed this Lektion. Once set
+   * it is kept, so admins can tell a skipped Lektion from a worked one.
+   */
+  skippedAt?: string;
 };
 
 function emptyLearnProgress(): LearnProgress {
@@ -326,10 +331,15 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     studyRunCount?: unknown;
     studyCompletedAt?: unknown;
     practicePartKeys?: unknown;
+    skippedAt?: unknown;
   };
 
   const studyCompletedAt =
     typeof record.studyCompletedAt === "string" ? record.studyCompletedAt : undefined;
+  const skippedAt =
+    typeof record.skippedAt === "string" && record.skippedAt.length > 0
+      ? record.skippedAt
+      : undefined;
   const runClipOrder = Array.isArray(record.runClipOrder)
     ? record.runClipOrder.filter(
         (id): id is string => typeof id === "string" && id.length > 0,
@@ -371,6 +381,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
           : 0,
     ...(studyCompletedAt ? { studyCompletedAt } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
+    ...(skippedAt ? { skippedAt } : {}),
   };
 }
 
@@ -710,6 +721,9 @@ function mergeLearnEntry(
     left?.practicePartKeys ?? [],
     right?.practicePartKeys ?? [],
   );
+  const skipStamps = [left?.skippedAt, right?.skippedAt].filter(
+    (value): value is string => typeof value === "string",
+  );
 
   return {
     ...mergedBase,
@@ -723,6 +737,7 @@ function mergeLearnEntry(
       : {}),
     ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
+    ...(skipStamps.length > 0 ? { skippedAt: skipStamps.sort()[0] } : {}),
   };
 }
 
@@ -851,7 +866,8 @@ function learnSliceIsEmpty(entry: LearnProgress): boolean {
     entry.runCount === 0 &&
     entry.studyRunCount === 0 &&
     !entry.completedAt &&
-    !entry.studyCompletedAt
+    !entry.studyCompletedAt &&
+    !entry.skippedAt
   );
 }
 
@@ -867,6 +883,7 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     if (order.length > 0) nextEntry.runClipOrder = order;
     else delete nextEntry.runClipOrder;
     delete nextEntry.completedAt;
+    delete nextEntry.skippedAt;
     // Part keys do not name their clips, so erased practice drops every finished part.
     delete nextEntry.practicePartKeys;
     nextEntry.runCount = 0;
@@ -2644,6 +2661,7 @@ function withoutRunCursor(entry: LearnProgress): LearnProgress {
   if (entry.completedAt) next.completedAt = entry.completedAt;
   if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
   if (entry.practicePartKeys?.length) next.practicePartKeys = entry.practicePartKeys;
+  if (entry.skippedAt) next.skippedAt = entry.skippedAt;
   return next;
 }
 
@@ -2733,6 +2751,41 @@ export function markLearnChapterCompleted(
       },
     },
   };
+}
+
+/**
+ * A passed jump test: every clip counts as studied and practised, every video
+ * as watched, and the Lektion as completed once, so the next Lektion opens and
+ * later replays pay rerun XP. Stamps already set keep their dates.
+ */
+export function completeLessonByJump(
+  progress: StoredProgress,
+  chapterSlug: string,
+  input: { clipIds: readonly string[]; videoKeys: readonly string[]; now?: Date },
+): StoredProgress {
+  const now = input.now ?? new Date();
+  const stamp = now.toISOString();
+  const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
+  const completedClipIds = unionIds(entry.completedClipIds, input.clipIds);
+  let next = withLearnEntry(
+    progress,
+    chapterSlug,
+    withoutRunCursor({
+      ...entry,
+      completedClipIds,
+      reviewedClipIds: unionIds(entry.reviewedClipIds, input.clipIds),
+      runCount: Math.max(1, entry.runCount),
+      studyRunCount: Math.max(1, entry.studyRunCount),
+      completedAt: entry.completedAt ?? stamp,
+      studyCompletedAt: entry.studyCompletedAt ?? stamp,
+      skippedAt: entry.skippedAt ?? stamp,
+    }),
+  );
+  for (const key of input.videoKeys) {
+    if (next.videos[key]?.watchedAt) continue;
+    next = setLessonVideoWatched(next, key, true, stamp);
+  }
+  return bumpStreak(recordDayRun(next, "practiceRuns", now), now);
 }
 
 export function incrementLearnRunCount(
