@@ -164,8 +164,10 @@ export function BadgeSheet({
 }
 
 /**
- * "Huy hiệu mới!" celebration, one badge at a time. `onDone` gets every id
- * that was shown, so the caller can mark them seen.
+ * Full-screen "Huy hiệu mới!" celebration, one badge at a time, laid out like
+ * the streak fire: the medal fills the middle and the button sits full width
+ * along the bottom. `onDone` gets every id that was shown, so the caller can
+ * mark them seen.
  */
 export function BadgeUnlockSheet({
   badges,
@@ -178,67 +180,143 @@ export function BadgeUnlockSheet({
 }) {
   const [index, setIndex] = useState(0);
   const reduceMotion = useReducedMotion() ?? false;
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const badge = badges[Math.min(index, badges.length - 1)];
+  const finish = useEffectEvent(() => {
+    onDone(badges.map((entry) => entry.id));
+  });
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        finish();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]") ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      const inside = dialogRef.current?.contains(document.activeElement) ?? false;
+      if (event.shiftKey && (!inside || document.activeElement === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", handleKeyDown, true);
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    dialogRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();
+  }, [badge?.id]);
+
   if (!badge) return null;
   const last = index >= badges.length - 1;
-  const ids = badges.map((entry) => entry.id);
-  const tierName = BADGE_TIERS[badge.tier - 1]?.name ?? "";
+  const tier = BADGE_TIERS[badge.tier - 1];
+  const tierName = tier?.name ?? "";
 
   return (
-    <BadgeSheet title="Huy hiệu mới" onClose={() => onDone(ids)}>
-      <div className="flex flex-col items-center text-center">
-        <span className="text-[12px] font-extrabold tracking-wider text-[#0071E3] uppercase">
+    <motion.div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 z-[100] flex flex-col items-center bg-[#fbfbfd] px-6 pt-safe pb-safe"
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <span className="text-[13px] font-extrabold tracking-wider text-[#0071E3] uppercase">
           Huy hiệu mới{badges.length > 1 ? ` · ${index + 1} / ${badges.length}` : ""}
         </span>
-        <div className="relative my-4 flex h-[150px] w-full items-center justify-center">
+        <div className="relative my-6 flex h-44 w-44 items-center justify-center">
           <motion.span
             key={`glow-${badge.id}`}
-            className="absolute h-[150px] w-[150px] rounded-full"
-            style={{ backgroundColor: BADGE_TIERS[badge.tier - 1]?.glow ?? "#f2f2f7" }}
+            className="absolute h-40 w-40 rounded-full blur-2xl"
+            style={{ backgroundColor: tier?.glow ?? "#f2f2f7" }}
             initial={reduceMotion ? false : { scale: 0.4, opacity: 0 }}
-            animate={{ scale: 1, opacity: 0.7 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            animate={
+              reduceMotion
+                ? { scale: 1, opacity: 0.85 }
+                : { scale: [0.92, 1.06, 0.96], opacity: [0.55, 0.9, 0.65] }
+            }
+            transition={
+              reduceMotion ? { duration: 0.2 } : { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
+            }
+            aria-hidden="true"
           />
           <AnimatePresence mode="wait">
             <motion.span
               key={badge.id}
               className="relative"
-              initial={reduceMotion ? false : { scale: 0.3, rotate: -20, opacity: 0 }}
+              initial={reduceMotion ? false : { scale: 0.15, rotate: -12, opacity: 0 }}
               animate={{ scale: 1, rotate: 0, opacity: 1 }}
               exit={reduceMotion ? undefined : { scale: 0.6, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 380, damping: 14 }}
+              transition={{ type: "spring", stiffness: 280, damping: 14 }}
             >
-              <BadgeMedal icon={badge.icon} color={badge.color} tier={badge.tier} size={112} />
+              <BadgeMedal icon={badge.icon} color={badge.color} tier={badge.tier} size={128} />
             </motion.span>
           </AnimatePresence>
         </div>
-        <p className="text-[22px] leading-7 font-extrabold text-[#1d1d1f]">{badge.title}</p>
-        <p className="mt-0.5 text-[14px] font-extrabold" style={{ color: BADGE_TIERS[badge.tier - 1]?.lip }}>
+        <h2 id={titleId} className="text-[28px] leading-8 font-extrabold tracking-tight text-[#1d1d1f]">
+          {badge.title}
+        </h2>
+        <p className="mt-1 text-[17px] font-extrabold" style={{ color: tier?.lip ?? "#6e6e73" }}>
           Cấp {tierName}
         </p>
-        <p className="mt-2 text-[15px] leading-snug font-semibold text-[#6e6e73]">{badge.goal}</p>
-        <div className="mt-6 flex w-full flex-col gap-3">
-          {last ? (
-            <button type="button" className={chunkyButton("success", "w-full")} onClick={() => onDone(ids)}>
-              Tuyệt vời!
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={chunkyButton("primary", "w-full")}
-              onClick={() => setIndex((current) => current + 1)}
-            >
-              Tiếp theo
-            </button>
-          )}
-          {showCollectionLink ? (
-            <Link href="/badges" className={chunkyButton("secondary", "w-full")} onClick={() => onDone(ids)}>
-              Xem bộ sưu tập
-            </Link>
-          ) : null}
-        </div>
+        <p className="mt-2 max-w-xs text-[17px] leading-snug font-semibold text-[#6e6e73]">{badge.goal}</p>
       </div>
-    </BadgeSheet>
+      <div className="flex w-full max-w-md flex-col gap-3 pb-6">
+        {last ? (
+          <motion.button
+            type="button"
+            autoFocus
+            className={chunkyButton("success", "w-full")}
+            onClick={finish}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: reduceMotion ? 0 : 0.45, duration: 0.25 }}
+          >
+            Tuyệt vời!
+          </motion.button>
+        ) : (
+          <motion.button
+            type="button"
+            autoFocus
+            className={chunkyButton("primary", "w-full")}
+            onClick={() => setIndex((current) => current + 1)}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: reduceMotion ? 0 : 0.45, duration: 0.25 }}
+          >
+            Tiếp theo
+          </motion.button>
+        )}
+        {showCollectionLink ? (
+          <Link href="/badges" className={chunkyButton("secondary", "w-full")} onClick={finish}>
+            Xem bộ sưu tập
+          </Link>
+        ) : null}
+      </div>
+    </motion.div>
   );
 }
 

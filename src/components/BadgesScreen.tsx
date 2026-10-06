@@ -207,7 +207,10 @@ export function BadgesScreen() {
   const open = board?.families.find((family) => family.id === openId) ?? null;
 
   return (
-    <div className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff] text-[#131b2e]">
+    <div
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff] text-[#131b2e]"
+    >
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pt-3 pb-2.5">
           <div className="flex min-w-0 items-center gap-1">

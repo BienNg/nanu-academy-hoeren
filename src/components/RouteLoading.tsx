@@ -165,7 +165,8 @@ export function QuestsScreenSkeleton() {
       aria-live="polite"
       aria-busy="true"
       aria-label="Đang tải nội dung"
-      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-md items-center justify-between px-4 pt-3 pb-2.5">
@@ -190,7 +191,8 @@ export function DuelScreenSkeleton() {
       aria-live="polite"
       aria-busy="true"
       aria-label="Đang tải nội dung"
-      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-4xl px-4 py-4 sm:px-6">
@@ -213,7 +215,8 @@ export function LeaderboardScreenSkeleton() {
       aria-live="polite"
       aria-busy="true"
       aria-label="Đang tải nội dung"
-      className="relative flex min-h-dvh w-full flex-1 flex-col bg-[#faf8ff]"
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:px-6">
