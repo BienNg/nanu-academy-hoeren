@@ -102,8 +102,6 @@ function stableRunOrder(chapterSlug: string, clips: readonly SessionClip[]): str
 export function LearnSession({
   course,
   clips,
-  nextChapterHref,
-  hasNextChapter,
   node,
 }: LearnSessionProps) {
   const router = useRouter();
@@ -444,16 +442,7 @@ export function LearnSession({
   const isPerfect =
     scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
   const isLastPart = nodeMode ? partFinishesLesson : partCount > 0 && partNumber >= partCount;
-  const nodeHasNextPart = nodeRange != null && partNumber < nodeRange.last && !isLastPart;
   const failedRun = summary?.failed === true;
-  const exitLabel =
-    nodeHasNextPart && !failedRun
-      ? "Phần tiếp theo"
-      : failedRun || !isLastPart
-        ? "Về bài học"
-        : hasNextChapter
-          ? course.nextLessonLabel
-          : course.finishLabel;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase === "practice");
   const losesStreakOnQuit =
     dropStreakForUnfinishedSession(progress, chapterProgressKey).streakDays < streakDays;
@@ -746,19 +735,8 @@ export function LearnSession({
   };
 
   const continueAfterPart = () => {
-    const finishRun = !failedRef.current && isLastPart;
-    if (nodeHasNextPart && !failedRef.current) {
-      // The next part loads from progress on a first pass, or from the replay cursor.
-      if (replayPart != null) setReplayPart(replayPart + 1);
-      initializedSourceRef.current = "";
-      setPartCards(null);
-      resetCardResults();
-      setClipIndex(0);
-      setPhase("practice");
-      return;
-    }
     setPhase("leaving");
-    router.push(finishRun ? nextChapterHref : pathHref);
+    router.push(pathHref);
   };
 
   const resetCardResults = () => {
@@ -902,17 +880,8 @@ export function LearnSession({
           celebrateStreak={!failedRun}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}
-          continueLabel={exitLabel}
+          continueLabel="Về bài học"
           onContinue={continueAfterPart}
-          secondaryLabel={nodeHasNextPart && !failedRun ? "Về bài học" : undefined}
-          onSecondary={
-            nodeHasNextPart && !failedRun
-              ? () => {
-                  setPhase("leaving");
-                  router.push(pathHref);
-                }
-              : undefined
-          }
         />
       ) : !currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">

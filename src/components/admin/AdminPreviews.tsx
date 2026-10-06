@@ -11,6 +11,45 @@ import type { QuestUpdate } from "@/lib/quests";
 import { dropQueuedStreakCelebration, stageStreakCelebration } from "@/lib/useProgress";
 import type { LeaderboardRow } from "@/lib/xp";
 
+type SequenceFlags = {
+  streak: boolean;
+  quests: boolean;
+  board: boolean;
+  badge: boolean;
+};
+
+/** Every mix of the four celebrations after a finished part, except streak-only and quests-only, which already have their own cards. */
+const SEQUENCES: readonly {
+  id: string;
+  flags: SequenceFlags;
+  title: string;
+  detail: string;
+  steps: number;
+}[] = Array.from({ length: 15 }, (_, index) => {
+    const mask = index + 1;
+    const flags: SequenceFlags = {
+      streak: (mask & 1) !== 0,
+      quests: (mask & 2) !== 0,
+      board: (mask & 4) !== 0,
+      badge: (mask & 8) !== 0,
+    };
+    const steps = [
+      flags.streak ? "streak" : null,
+      flags.quests ? "quests" : null,
+      flags.board ? "leaderboard" : null,
+      flags.badge ? "badge" : null,
+    ].filter((step): step is string => step != null);
+    return {
+      id: `seq-${mask}`,
+      flags,
+      title: `Part complete, then ${steps.join(", ")}`,
+      detail: "In the order a learner would see them. Nothing is stored.",
+      steps: steps.length,
+    };
+  })
+    .filter((entry) => entry.steps > 1 || entry.flags.board || entry.flags.badge)
+    .sort((a, b) => a.steps - b.steps || a.id.localeCompare(b.id));
+
 type SceneId =
   | "badge"
   | "badges"
@@ -225,25 +264,27 @@ const SAMPLE_CLIMB = planRankClimb(
 
 export function AdminPreviews() {
   const [scene, setScene] = useState<SceneId | null>(null);
+  const [sequence, setSequence] = useState<SequenceFlags | null>(null);
   const close = useCallback(() => {
     dropQueuedStreakCelebration();
     setScene(null);
+    setSequence(null);
   }, []);
 
   useEffect(() => {
-    if (scene !== "streak") return;
+    if (scene !== "streak" && !sequence?.streak) return;
     stageStreakCelebration({ from: 6, to: 7 });
     return () => dropQueuedStreakCelebration();
-  }, [scene]);
+  }, [scene, sequence]);
 
   useEffect(() => {
-    if (!scene) return;
+    if (!scene && !sequence) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [scene, close]);
+  }, [scene, sequence, close]);
 
   const groups = [...new Set(SCENES.map((entry) => entry.group))];
 
@@ -262,7 +303,10 @@ export function AdminPreviews() {
               <li key={entry.id}>
                 <button
                   type="button"
-                  onClick={() => setScene(entry.id)}
+                  onClick={() => {
+                    setSequence(null);
+                    setScene(entry.id);
+                  }}
                   className={`${CARD} flex h-full w-full flex-col items-start gap-1 px-space-16 py-space-12 text-left transition-colors hover:border-admin-border`}
                 >
                   <span className="text-admin-body-md font-semibold text-admin-ink">{entry.title}</span>
@@ -273,7 +317,28 @@ export function AdminPreviews() {
           </ul>
         </section>
       ))}
+      <section className="flex flex-col gap-space-12">
+        <h2 className="text-admin-label-sm uppercase text-admin-ink-subtle">Sequences</h2>
+        <ul className="grid gap-space-12 sm:grid-cols-2">
+          {SEQUENCES.map((entry) => (
+            <li key={entry.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setScene(null);
+                  setSequence(entry.flags);
+                }}
+                className={`${CARD} flex h-full w-full flex-col items-start gap-1 px-space-16 py-space-12 text-left transition-colors hover:border-admin-border`}
+              >
+                <span className="text-admin-body-md font-semibold text-admin-ink">{entry.title}</span>
+                <span className="text-admin-body-sm text-admin-ink-subtle">{entry.detail}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
       {scene ? <PreviewStage scene={scene} onClose={close} /> : null}
+      {sequence ? <SequencePreview flags={sequence} onClose={close} /> : null}
     </main>
   );
 }
@@ -307,6 +372,49 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
   );
 }
 
+function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: () => void }) {
+  const [step, setStep] = useState<"part" | "board" | "badge">("part");
+  const afterPart = () => {
+    if (flags.board) setStep("board");
+    else if (flags.badge) setStep("badge");
+    else onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80]">
+      <button
+        type="button"
+        onClick={onClose}
+        className="fixed top-[max(0.75rem,env(safe-area-inset-top))] right-4 z-[120] rounded-full border border-[#e5e5ea] bg-white px-3 py-1.5 text-[13px] font-extrabold text-[#1d1d1f] shadow-[0_2px_0_0_#e5e5ea]"
+      >
+        Close
+      </button>
+      {step === "part" ? (
+        <PartCompleteScreen
+          {...partProps("part", afterPart)}
+          celebrateStreak={flags.streak}
+          questUpdate={flags.quests ? MOVED_QUEST : null}
+          streakDays={flags.streak ? 7 : 4}
+          skipBoard
+        />
+      ) : null}
+      {step === "board" && SAMPLE_CLIMB ? (
+        <RankClimbStepView
+          climb={SAMPLE_CLIMB}
+          className="A1 Sáng"
+          countdown="Còn 3 ngày"
+          continueLabel={flags.badge ? "Tiếp tục" : "Về bài học"}
+          onContinue={() => {
+            if (flags.badge) setStep("badge");
+            else onClose();
+          }}
+        />
+      ) : null}
+      {step === "badge" ? <BadgeUnlockSheet badges={badgesFor("badge")} onDone={onClose} /> : null}
+    </div>
+  );
+}
+
 function partProps(scene: SceneId, onClose: () => void) {
   const failed = scene === "fail" || scene === "jump-fail";
   const finishRun = scene === "lesson" || scene === "jump";
@@ -336,10 +444,7 @@ function partProps(scene: SceneId, onClose: () => void) {
         : scene === "jump-fail"
           ? "Thử lại ngay với bộ câu hỏi mới."
           : undefined,
-    continueLabel:
-      scene === "fail" ? "Về bài học" : scene === "jump" ? "Tới Lektion 6" : scene === "jump-fail" ? "Thử lại" : "Tiếp tục",
+    continueLabel: "Về bài học",
     onContinue: onClose,
-    secondaryLabel: failed ? "Làm lại" : finishRun ? undefined : "Về bài học",
-    onSecondary: failed || !finishRun ? onClose : undefined,
   };
 }

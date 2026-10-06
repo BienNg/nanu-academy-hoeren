@@ -144,7 +144,6 @@ export function GrammarPracticeSession({
   topic,
   tables,
   partNumber,
-  grammarHref,
   lessonGrammar,
 }: GrammarPracticeSessionProps) {
   const router = useRouter();
@@ -165,8 +164,6 @@ export function GrammarPracticeSession({
   const [summary, setSummary] = useState<Summary | null>(null);
   const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const [quitOpen, setQuitOpen] = useState(false);
-  /** Bumped per attempt so a retry remounts every card. */
-  const [attempt, setAttempt] = useState(0);
   const startedAtRef = useRef(0);
   /** Cards already put back once, and pairing cards that already cost a heart. */
   const requeuedRef = useRef(new Set<string>());
@@ -174,7 +171,7 @@ export function GrammarPracticeSession({
 
   useEffect(() => {
     startedAtRef.current = Date.now();
-  }, [attempt]);
+  }, []);
 
   useEffect(() => {
     if (breakingIndex === null) return;
@@ -186,7 +183,6 @@ export function GrammarPracticeSession({
   const tenseLabel = (tense: GrammarTense) => tables.tenses.find((entry) => entry.id === tense)?.label ?? tense;
   const progress = queue.length === 0 ? 0 : (index + (outcome ? 1 : 0)) / queue.length;
   const isLastPart = partNumber >= parts.length;
-  const topicQuery = `topic=${encodeURIComponent(topic.id)}`;
 
   const leave = (href: string) => {
     setPhase("leaving");
@@ -244,20 +240,6 @@ export function GrammarPracticeSession({
     setIndex(index + 1);
   };
 
-  const retry = () => {
-    requeuedRef.current = new Set();
-    pairingMissRef.current = new Set();
-    setQueue(part?.cards ?? []);
-    setIndex(0);
-    setOutcome(null);
-    setHeartsLeft(GRAMMAR_HEARTS);
-    setBreakingIndex(null);
-    setTally({ answered: 0, right: 0 });
-    setSummary(null);
-    setPhase("cards");
-    setAttempt((value) => value + 1);
-  };
-
   if (phase === "leaving" || !part) {
     return (
       <GrammarPage>
@@ -270,7 +252,7 @@ export function GrammarPracticeSession({
     return (
       <GrammarPage>
         <PartCompleteScreen
-          key={`complete-${attempt}`}
+          key="complete"
           partNumber={partNumber}
           partCount={parts.length}
           levelLabel={course.groupLabel}
@@ -284,21 +266,14 @@ export function GrammarPracticeSession({
           streakDays={streakDays}
           finishRun={!summary.failed && isLastPart}
           failed={summary.failed}
-          continueLabel={summary.failed ? "Thử lại" : isLastPart ? "Về bài học" : "Phần tiếp theo"}
-          onContinue={
-            summary.failed
-              ? retry
-              : () =>
-                  leave(isLastPart ? course.pathHref : `${grammarHref}/practice?${topicQuery}&part=${partNumber + 1}`)
-          }
-          secondaryLabel={summary.failed || !isLastPart ? "Về bài học" : undefined}
-          onSecondary={summary.failed || !isLastPart ? () => leave(course.pathHref) : undefined}
+          continueLabel="Về bài học"
+          onContinue={() => leave(course.pathHref)}
         />
       </GrammarPage>
     );
   }
 
-  const cardKey = `${attempt}-${index}-${card?.key ?? ""}`;
+  const cardKey = `${index}-${card?.key ?? ""}`;
   const mcResult = outcome?.mc ?? null;
 
   return (

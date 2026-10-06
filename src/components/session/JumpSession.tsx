@@ -143,7 +143,6 @@ export function JumpSession({
   videoKeys,
   earlierChapterKeys,
   targetLabel,
-  targetHref,
 }: JumpSessionProps) {
   const router = useRouter();
   const { data: authSession, status } = useSession();
@@ -522,13 +521,11 @@ export function JumpSession({
           title={summary.failed ? undefined : "Nhảy thành công!"}
           subtitle={
             summary.failed
-              ? "Thử lại ngay với bộ câu hỏi mới."
+              ? undefined
               : `${course.lessonLabel} đã hoàn thành. ${targetLabel} đã mở khóa.`
           }
-          continueLabel={summary.failed ? "Thử lại" : `Tới ${targetLabel}`}
-          onContinue={summary.failed ? start : () => leave(targetHref)}
-          secondaryLabel={summary.failed ? "Về bài học" : undefined}
-          onSecondary={summary.failed ? () => leave(course.pathHref) : undefined}
+          continueLabel="Về bài học"
+          onContinue={() => leave(course.pathHref)}
         />
       ) : currentCard && currentClip ? (
         <main className="relative flex w-full flex-1 flex-col items-center">

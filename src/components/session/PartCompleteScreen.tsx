@@ -49,6 +49,11 @@ type PartCompleteScreenProps = {
   subtitle?: string;
   /** Replaces the note under a +0 XP result. */
   xpNote?: string;
+  /**
+   * Skip the live class board. The admin sequence previews do this so they
+   * can show a sample climb instead of the viewer's real rank.
+   */
+  skipBoard?: boolean;
 };
 
 const CONFETTI = [
@@ -477,21 +482,7 @@ function CompleteView({
           >
             {continueLabel}
           </motion.button>
-          {secondaryLabel && onSecondary ? (
-            <button
-              type="button"
-              onClick={onSecondary}
-              className={chunkyButton("secondary", "mt-3 w-full")}
-            >
-              <span
-                className="material-symbols-outlined text-[20px]"
-                aria-hidden="true"
-              >
-                replay
-              </span>
-              {secondaryLabel}
-            </button>
-          ) : null}
+          <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={at(beats.button)} />
       </div>
     </main>
   );
@@ -840,21 +831,38 @@ function QuestStepView({
         >
           {continueLabel}
         </motion.button>
-        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={reduceMotion ? 0 : 0.4} />
       </div>
     </main>
   );
 }
 
-function SecondaryButton({ label, onClick }: { label?: string; onClick?: () => void }) {
+/** The second action on an end card. It rises with the primary button. */
+function SecondaryButton({
+  label,
+  onClick,
+  delay,
+}: {
+  label?: string;
+  onClick?: () => void;
+  delay: number;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
   if (!label || !onClick) return null;
   return (
-    <button type="button" onClick={onClick} className={chunkyButton("secondary", "mt-3 w-full")}>
+    <motion.button
+      type="button"
+      onClick={onClick}
+      className={chunkyButton("secondary", "mt-3 w-full")}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: reduceMotion ? 0 : delay, duration: 0.25 }}
+    >
       <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
         replay
       </span>
       {label}
-    </button>
+    </motion.button>
   );
 }
 
@@ -896,7 +904,7 @@ function StreakStepView({
         >
           {continueLabel}
         </motion.button>
-        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={reduceMotion ? 0 : 0.85} />
       </div>
     </main>
   );
@@ -1172,7 +1180,7 @@ export function RankClimbStepView({
         >
           {continueLabel}
         </motion.button>
-        <SecondaryButton label={secondaryLabel} onClick={onSecondary} />
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={reduceMotion ? 0 : 0.4} />
       </div>
     </main>
   );
@@ -1199,6 +1207,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     onContinue,
     secondaryLabel,
     onSecondary,
+    skipBoard = false,
   } = props;
   const [loaderShown] = useState(() => xpPending && !failed);
   const [minElapsed, setMinElapsed] = useState(!loaderShown);
@@ -1234,7 +1243,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   // Read once this part's XP is stored, so the board already counts it. It
   // loads behind the completed screen; the loader does not wait for it.
   useEffect(() => {
-    if (xpPending || earnedXp <= 0) return;
+    if (skipBoard || xpPending || earnedXp <= 0) return;
     let cancelled = false;
     void fetch("/api/leaderboard?scope=class&range=week")
       .then((response) => (response.ok ? response.json() : null))
@@ -1248,13 +1257,13 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [xpPending, earnedXp]);
+  }, [skipBoard, xpPending, earnedXp]);
 
   useEffect(() => {
-    if (xpPending || earnedXp <= 0 || board !== undefined) return;
+    if (skipBoard || xpPending || earnedXp <= 0 || board !== undefined) return;
     const timer = window.setTimeout(() => setBoardGaveUp(true), LOADER_MAX_MS);
     return () => window.clearTimeout(timer);
-  }, [xpPending, earnedXp, board]);
+  }, [skipBoard, xpPending, earnedXp, board]);
 
   const loading = !failed && (!minElapsed || (xpPending && !gaveUp));
   const boardPending = board === undefined && !boardGaveUp;
@@ -1264,7 +1273,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const streakAhead = !failed && celebrateStreak && (streakStep != null || queuedStreak != null);
   // Any part that earned XP ends on the board. While it is still loading the
   // step stays ahead, so the learner waits for it instead of skipping it.
-  const rankingAhead = !xpPending && earnedXp > 0 && (boardPending || climb != null);
+  const rankingAhead = !skipBoard && !xpPending && earnedXp > 0 && (boardPending || climb != null);
   const rankingGone = stage === "ranking" && !boardPending && climb == null;
 
   // The board failed or does not rank this learner. Ranking is always the

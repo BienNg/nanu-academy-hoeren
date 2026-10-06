@@ -35,7 +35,6 @@ export function GrammarStudySession({
   topic,
   tables,
   partNumber,
-  grammarHref,
   lessonGrammar,
 }: GrammarStudySessionProps) {
   const router = useRouter();
@@ -69,7 +68,6 @@ export function GrammarStudySession({
   const screens = part.screens;
   const screen = screens[index];
   const isLastPart = partNumber >= parts.length;
-  const topicQuery = `topic=${encodeURIComponent(topic.id)}`;
   const progress = screens.length === 0 ? 0 : (index + (mcResult ? 1 : 0)) / screens.length;
 
   const next = () => {
@@ -120,16 +118,8 @@ export function GrammarStudySession({
           failed={false}
           title={`Xong: ${part.verb}`}
           subtitle={isLastPart ? "Giờ luyện tập nhé!" : `Phần ${partNumber} / ${parts.length}`}
-          continueLabel={isLastPart ? "Luyện ngữ pháp" : "Phần tiếp theo"}
-          onContinue={() =>
-            leave(
-              isLastPart
-                ? `${grammarHref}/practice?${topicQuery}`
-                : `${grammarHref}/study?${topicQuery}&part=${partNumber + 1}`,
-            )
-          }
-          secondaryLabel="Về bài học"
-          onSecondary={() => leave(course.pathHref)}
+          continueLabel="Về bài học"
+          onContinue={() => leave(course.pathHref)}
         />
       </GrammarPage>
     );

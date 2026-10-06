@@ -332,7 +332,6 @@ export function StudySession({
         (id) => storedReviewedIds.includes(id) || partClipIds.includes(id),
       )
     : lastPart;
-  const nodeHasNextPart = nodeMode && activePart < nodeLastPart;
   const isReviewed = furthest > clipIndex;
   const progressFill = clips.length === 0 ? 0 : Math.min(1, furthest / clips.length);
   const leaveStateRef = useRef({
@@ -472,23 +471,6 @@ export function StudySession({
     setPhase("study");
     setClipIndex((index) => index - 1);
   }, [phase, clipIndex, clearAttempt]);
-
-  /** Next part of the same trail node, without leaving the session. */
-  const startNextNodePart = () => {
-    committedRef.current = false;
-    leftRecordedRef.current = false;
-    xpRequestedRef.current = false;
-    partStartedAtRef.current = Date.now();
-    setXpGrant(null);
-    clearAttempt();
-    setPhase("study");
-    setShownPhase("study");
-    setFurthest(0);
-    setClipIndex(0);
-    setSummary(null);
-    scoresRef.current = [];
-    setVisitPart(activePart + 1);
-  };
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
@@ -811,18 +793,10 @@ export function StudySession({
           celebrateStreak={!openedFinishedLesson && summary != null}
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
-          continueLabel={nodeHasNextPart ? "Phần tiếp theo" : "Về bài học"}
-          onContinue={nodeHasNextPart ? startNextNodePart : () => router.push(pathHref)}
-          secondaryLabel={
-            nodeHasNextPart ? "Về bài học" : openedFinishedLesson ? "Xem lại" : undefined
-          }
-          onSecondary={
-            nodeHasNextPart
-              ? () => router.push(pathHref)
-              : openedFinishedLesson
-                ? beginReview
-                : undefined
-          }
+          continueLabel="Về bài học"
+          onContinue={() => router.push(pathHref)}
+          secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
+          onSecondary={openedFinishedLesson ? beginReview : undefined}
         />
       ) : clips.length === 0 ? (
         <main className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-32">
