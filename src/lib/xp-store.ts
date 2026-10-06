@@ -9,6 +9,7 @@ import {
 } from "@/lib/blitzrunde";
 import { anyClassHasStartedBlitzrunde, classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
+import type { GrammarGap } from "@/lib/grammar-gaps";
 import { getChapterClips } from "@/lib/levels";
 import {
   buildJumpDeck,
@@ -87,6 +88,7 @@ type XpLessonClip = {
   answer?: string;
   replies?: { text: string; correct: boolean; whyVi?: string }[];
   imageUrl?: string;
+  gaps?: GrammarGap[];
 };
 
 /**
@@ -115,6 +117,7 @@ function lessonClipsForXp(lessonKey: string): XpLessonClip[] {
         script: clip.script,
         translationVi: clip.translationVi,
         sentenceOrder: clip.sentenceOrder,
+        ...(clip.gaps ? { gaps: clip.gaps } : {}),
       }),
     );
   } catch {

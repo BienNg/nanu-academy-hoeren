@@ -33,6 +33,7 @@ import {
 } from "@/lib/xp";
 import type { LiveRound } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
+import type { GrammarGap } from "@/lib/grammar-gaps";
 import { useProgress } from "@/lib/useProgress";
 import { jumpTarget } from "@/lib/lesson-jump";
 
@@ -59,6 +60,7 @@ type Chapter = {
     answer?: string;
     replies?: { text: string; correct: boolean; whyVi?: string }[];
     imageUrl?: string;
+    gaps?: GrammarGap[];
   }[];
 };
 

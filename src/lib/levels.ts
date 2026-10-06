@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
+import grammarTopicsFile from "@/data/grammar/topics.json";
+import grammarVerbsFile from "@/data/grammar/verbs.json";
 import { getAvailableBerufe, type SessionClip } from "@/lib/content";
 import { isAdminUser } from "@/lib/admins";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
@@ -11,6 +13,13 @@ import {
   withoutReservedAccess,
 } from "@/lib/progress-store";
 import { getAvailableWorkplaces } from "@/lib/living";
+import {
+  findClipGaps,
+  topicsForLesson,
+  type ClipGapRequest,
+  type GrammarTopic,
+  type VerbTable,
+} from "@/lib/grammar-gaps";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -32,6 +41,10 @@ type StoredClip = {
   translationVi?: string;
   /** Set to true to keep this clip out of sentence-order cards. */
   noSentenceOrder?: boolean;
+  /** Grammar gaps to add beyond the automatic ones. See grammar-gaps.ts. */
+  gaps?: ClipGapRequest[];
+  /** True keeps the clip off grammar gap cards; a list skips just those words. */
+  noGaps?: boolean | string[];
 };
 
 type StoredVideo = {
@@ -61,6 +74,8 @@ type CatalogLevel = {
 };
 
 const catalogLevels = chaptersFile as CatalogLevel[];
+const grammarTopics = (grammarTopicsFile as { topics: GrammarTopic[] }).topics;
+const grammarVerbs = grammarVerbsFile as VerbTable;
 const levelsDir = join(process.cwd(), "src/data/levels");
 const levelsAudioDir = join(process.cwd(), "public/audio");
 
@@ -82,11 +97,29 @@ export function countScriptWords(script: string): number {
   return script.trim().split(/\s+/).filter(Boolean).length;
 }
 
+/** Every Lektion in catalog order, as "levelSlug/chapterSlug". Grammar topics unlock in this order. */
+function lessonOrder(): string[] {
+  return catalogLevels.flatMap((level) =>
+    (level.chapters ?? []).map((chapter) => `${level.slug}/${chapter.slug}`),
+  );
+}
+
+/** Grammar topics taught by this Lektion or an earlier one. */
+export function grammarTopicsForLesson(levelSlug: string, chapterSlug: string): GrammarTopic[] {
+  return topicsForLesson(grammarTopics, `${levelSlug}/${chapterSlug}`, lessonOrder());
+}
+
+export function getGrammarVerbs(): VerbTable {
+  return grammarVerbs;
+}
+
 function toSessionClip(
   clip: StoredClip,
   levelSlug: string,
   chapterSlug: string,
+  topics: readonly GrammarTopic[],
 ): SessionClip {
+  const gaps = findClipGaps(clip, topics, grammarVerbs, `${levelSlug}/${chapterSlug}`);
   return {
     id: stripExtension(clip.filename),
     filename: clip.filename,
@@ -94,6 +127,7 @@ function toSessionClip(
     translationVi: clip.translationVi ?? "",
     audioPath: `${levelSlug}/${chapterSlug}/${clip.filename}`,
     sentenceOrder: isSentenceOrderEligible(clip),
+    ...(gaps.length > 0 ? { gaps } : {}),
   };
 }
 
@@ -219,11 +253,12 @@ export function getChapterClips(
     );
   }
 
+  const topics = grammarTopicsForLesson(levelSlug, chapterSlug);
   return file.clips
     .filter((clip) =>
       audioFileExists(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
     )
-    .map((clip) => toSessionClip(clip, levelSlug, chapterSlug));
+    .map((clip) => toSessionClip(clip, levelSlug, chapterSlug, topics));
 }
 
 export type ChapterClipInventory = {
@@ -384,6 +419,7 @@ export function buildLevelPathChapters(levelSlug: string) {
         script: clip.script,
         translationVi: clip.translationVi,
         sentenceOrder: clip.sentenceOrder,
+        ...(clip.gaps ? { gaps: clip.gaps } : {}),
       })),
       wordCount: clips.reduce((total, clip) => total + countScriptWords(clip.script), 0),
     };

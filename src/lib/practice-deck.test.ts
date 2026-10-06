@@ -8,6 +8,7 @@ import {
   maxClipsPerPracticePart,
   mixListeningChoice,
   practiceCardCount,
+  GRAMMAR_CLIPS_PER_CARD,
   MAX_ORDER_CARDS,
   MAX_PRACTICE_CARDS,
 } from "./practice-deck.js";
@@ -312,4 +313,65 @@ test("listening cards without German distractors stay typing cards", () => {
     mixed.map((card) => card.kind),
     deck.map((card) => card.kind),
   );
+});
+
+const gapClips = [
+  ["g1", "Wo ist deine Tasche?", "Túi của bạn ở đâu?", "possessiv"],
+  ["g2", "Das ist kein Apfel.", "Đây không phải quả táo.", "negation"],
+  ["g3", "Ich komme aus Vietnam.", "Tôi đến từ Việt Nam.", "konjugation"],
+  ["g4", "Wohin fahren wir?", "Chúng ta đi đâu?", "w-ort"],
+  ["g5", "Die Mutter ist schön.", "Người mẹ đẹp.", "artikel"],
+].map(([id, script, translationVi, topicId]) => ({
+  id: id!,
+  script: script!,
+  translationVi: translationVi!,
+  sentenceOrder: true,
+  gaps: [{ index: 0, word: script!.split(" ")[0]!, topicId: topicId!, labelVi: topicId!, distractors: ["x", "y"] }],
+}));
+
+test("each grammar gap card replaces its clip's meaning drill, so the deck keeps its size", () => {
+  const withoutGaps = gapClips.map(({ gaps: _gaps, ...clip }) => clip);
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const deck = dealPracticePart(gapClips, gapClips, [], seeded(seed));
+    const plain = dealPracticePart(withoutGaps, withoutGaps, [], seeded(seed));
+    assert.equal(deck.length, plain.length);
+    assert.equal(practiceCardCount(gapClips, gapClips), deck.length);
+
+    const gaps = deck.filter((card) => card.kind === "grammar-gap");
+    assert.equal(gaps.length, Math.ceil(gapClips.length / GRAMMAR_CLIPS_PER_CARD));
+    assert.equal(new Set(gaps.map((card) => card.clip.id)).size, gaps.length);
+    for (const card of gaps) {
+      const at = deck.indexOf(card);
+      const anchor = deck.findIndex(
+        (entry) => (entry.kind === "listening" || entry.kind === "listening-choice") && entry.clip.id === card.clip.id,
+      );
+      // A card behind the last listening card can only go right after it, as meaning drills do.
+      const lastListening = deck.reduce(
+        (last, entry, index) => (entry.kind === "listening" || entry.kind === "listening-choice" ? index : last),
+        -1,
+      );
+      assert.ok(anchor >= 0 && (at > anchor + 1 || (anchor === lastListening && at === anchor + 1)));
+      assert.ok(!deck.some((entry) => MEANING_KINDS.has(entry.kind) && entry.clip.id === card.clip.id));
+      assert.match(card.gap?.prompt ?? "", /^____ /);
+      assert.equal(card.options?.find((option) => option.correct)?.text, card.clip.script.split(" ")[0]);
+    }
+    const firstOrder = deck.findIndex((card) => card.kind === "order");
+    if (firstOrder >= 0) assert.ok(deck.slice(firstOrder).every((card) => card.kind === "order"));
+  }
+});
+
+test("grammar gap cards always include the lesson's fresh topic and mix topics", () => {
+  const fresh = gapClips.map((clip) =>
+    clip.id === "g2" ? { ...clip, gaps: clip.gaps.map((gap) => ({ ...gap, fresh: true as const })) } : clip,
+  );
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const gaps = dealPracticePart(fresh, fresh, [], seeded(seed)).filter((card) => card.kind === "grammar-gap");
+    assert.ok(gaps.some((card) => card.clip.id === "g2"));
+    assert.equal(new Set(gaps.map((card) => card.clip.gaps?.[0]?.topicId)).size, gaps.length);
+  }
+});
+
+test("a part without gaps deals no grammar gap card", () => {
+  const deck = dealPracticePart(partClips, partClips, [], seeded(3));
+  assert.equal(deck.filter((card) => card.kind === "grammar-gap").length, 0);
 });

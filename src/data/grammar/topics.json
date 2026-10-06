@@ -1,0 +1,61 @@
+{
+  "topics": [
+    {
+      "id": "konjugation",
+      "labelVi": "Chia động từ",
+      "from": "a1-1/lektion-3",
+      "auto": true,
+      "ruleVi": "ich -e · du -st · er/sie/es -t · wir -en · ihr -t · sie/Sie -en. Nhìn chủ ngữ để chọn đuôi.",
+      "verbs": true
+    },
+    {
+      "id": "artikel",
+      "labelVi": "Mạo từ",
+      "from": "a1-1/lektion-4",
+      "auto": true,
+      "onlyBeforeNoun": true,
+      "ruleVi": "der = giống đực, die = giống cái và số nhiều, das = giống trung. ein đi với der/das, eine đi với die.",
+      "sets": [["der", "die", "das"], ["ein", "eine"]]
+    },
+    {
+      "id": "w-ort",
+      "labelVi": "Wo / Woher / Wohin",
+      "from": "a1-1/lektion-4",
+      "auto": true,
+      "ruleVi": "Wo = ở đâu · Woher = từ đâu · Wohin = đi đâu.",
+      "sets": [["wo", "woher", "wohin"]]
+    },
+    {
+      "id": "w-frage",
+      "labelVi": "Từ để hỏi",
+      "from": "a1-1/lektion-4",
+      "auto": true,
+      "ruleVi": "Wer = ai · Was = cái gì · Wie = thế nào · Wann = khi nào · Warum = tại sao.",
+      "sets": [["wer", "was", "wie", "wann", "warum"]]
+    },
+    {
+      "id": "possessiv",
+      "labelVi": "Mạo từ sở hữu",
+      "from": "a1-1/lektion-5",
+      "auto": true,
+      "onlyBeforeNoun": true,
+      "ruleVi": "mein, dein, sein… đi với der/das. meine, deine, seine… đi với die và số nhiều.",
+      "sets": [
+        ["mein", "meine"],
+        ["dein", "deine"],
+        ["sein", "seine"],
+        ["ihr", "ihre"],
+        ["unser", "unsere"],
+        ["euer", "eure"]
+      ]
+    },
+    {
+      "id": "negation",
+      "labelVi": "nicht / kein",
+      "from": "a1-1/lektion-6",
+      "auto": true,
+      "ruleVi": "kein/keine phủ định danh từ (thay cho ein/eine hoặc không có mạo từ). nicht phủ định động từ, tính từ, tên riêng.",
+      "sets": [["nicht", "kein", "keine"]]
+    }
+  ]
+}

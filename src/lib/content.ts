@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import ausbildungsberufeFile from "@/data/ausbildungsberufe.json";
 import commonFile from "@/data/ausbildung/common.json";
+import type { GrammarGap } from "@/lib/grammar-gaps";
 import type { LivingReply } from "@/lib/living-content";
 
 type StoredClip = {
@@ -28,6 +29,8 @@ export type SessionClip = {
   answer?: string;
   /** Public image URL for pairing cards. Only on Leben-in-Deutschland clips. */
   imageUrl?: string;
+  /** Words a grammar gap card can blank. Only on level lessons. */
+  gaps?: GrammarGap[];
 };
 
 export type Ausbildungsberuf = {

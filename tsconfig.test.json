@@ -32,6 +32,8 @@
     "src/lib/duels.test.ts",
     "src/lib/sentence-order.ts",
     "src/lib/sentence-order.test.ts",
+    "src/lib/grammar-gaps.ts",
+    "src/lib/grammar-gaps.test.ts",
     "src/lib/multiple-choice.ts",
     "src/lib/multiple-choice.test.ts",
     "src/lib/pairing.ts",

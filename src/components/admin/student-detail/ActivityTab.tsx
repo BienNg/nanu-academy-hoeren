@@ -389,7 +389,9 @@ function clipStatus(clip: StoredListeningRun["clips"][number]): string {
 function attemptCoversKind(kind: CardKind, answers: StoredListeningRun["clips"][number]["missedAnswers"]): boolean {
   if (!answers) return false;
   if (kind === "listening") return Boolean(answers.listening || answers["number-input"]);
-  if (kind === "multiple-choice") return Boolean(answers["multiple-choice"] || answers["reply-choice"]);
+  if (kind === "multiple-choice") {
+    return Boolean(answers["multiple-choice"] || answers["reply-choice"] || answers["grammar-gap"]);
+  }
   return Boolean(answers[kind]);
 }
 

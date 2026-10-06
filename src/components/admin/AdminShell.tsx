@@ -135,6 +135,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/content", label: "Catalog", icon: "library_books", ready: true },
       { href: "/admin/content/clips", label: "Practice clip difficulty", icon: "graphic_eq", ready: true },
       { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
+      { href: "/admin/content/grammar", label: "Grammar gaps", icon: "edit_note", ready: true },
       { href: "/admin/runs", label: "Practice", icon: "headphones", ready: true, ranged: true },
     ],
   },

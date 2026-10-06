@@ -16,6 +16,10 @@ type McCardProps = {
   result?: McResult | null;
   /** Sits between the prompt and the options, such as the clip player. */
   afterPrompt?: ReactNode;
+  /** Small label above the prompt, such as the grammar topic. */
+  eyebrow?: string;
+  /** Muted line under the prompt, such as the translation. */
+  hint?: string;
 };
 
 function optionTone(isSelected: boolean, isCorrect: boolean, checked: boolean): string {
@@ -47,6 +51,8 @@ export function McCard({
   icon = "translate",
   result = null,
   afterPrompt,
+  eyebrow,
+  hint,
 }: McCardProps) {
   const checked = result !== null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -83,9 +89,15 @@ export function McCard({
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
             <MaterialIcon name={icon} className="text-[22px]" />
           </div>
-          <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
-            {prompt}
-          </p>
+          <div className="min-w-0">
+            {eyebrow ? (
+              <p className="text-[12px] font-bold uppercase tracking-wide text-[#0066cc]">{eyebrow}</p>
+            ) : null}
+            <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+              {prompt}
+            </p>
+            {hint ? <p className="mt-1 text-[15px] italic leading-snug text-[#6e6e73]">“{hint}”</p> : null}
+          </div>
         </div>
       </section>
 

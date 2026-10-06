@@ -3178,6 +3178,7 @@ function asOrderClip(clip: {
   answer?: string;
   replies?: OrderSourceClip["replies"];
   imageUrl?: string;
+  gaps?: OrderSourceClip["gaps"];
 }): OrderSourceClip {
   return {
     id: clip.id,
@@ -3187,6 +3188,7 @@ function asOrderClip(clip: {
     ...(clip.answer !== undefined ? { answer: clip.answer } : {}),
     ...(clip.replies !== undefined ? { replies: clip.replies } : {}),
     ...(clip.imageUrl !== undefined ? { imageUrl: clip.imageUrl } : {}),
+    ...(clip.gaps !== undefined ? { gaps: clip.gaps } : {}),
   };
 }
 

@@ -974,6 +974,17 @@ export function LearnSession({
                   />
                 </div>
               </>
+            ) : currentCard?.kind === "grammar-gap" ? (
+              <McCard
+                key={`gap-${cardKey}`}
+                prompt={currentCard.gap?.prompt ?? currentClip.script}
+                eyebrow={currentCard.gap?.labelVi}
+                hint={currentClip.translationVi}
+                options={currentCard.options ?? []}
+                onSubmit={handleMcSubmit}
+                result={mcResult}
+                icon="edit_note"
+              />
             ) : currentCard?.kind === "listening-choice" ? (
               <McCard
                 key={`listen-choice-${cardKey}`}
@@ -1057,6 +1068,7 @@ export function LearnSession({
                 clip={currentClip}
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
+                revealSentence={currentCard?.kind === "grammar-gap"}
               />
             ) : null}
             {scoreResult ? (

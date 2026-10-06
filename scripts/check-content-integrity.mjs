@@ -10,6 +10,8 @@ const levelsAudioRoot = join(repoRoot, "public/audio");
 const livingDataDir = join(repoRoot, "src/data/living");
 const livingAudioRoot = join(repoRoot, "public/audio/living");
 const livingImageRoot = join(repoRoot, "public/images/living");
+const grammarDataDir = join(repoRoot, "src/data/grammar");
+const chaptersPath = join(repoRoot, "src/data/chapters.json");
 
 const errors = [];
 const skippedMissingAudio = [];
@@ -100,6 +102,8 @@ function checkContentFile(jsonPath, audioDir) {
       );
     }
 
+    checkClipGaps(clip, `${jsonRel} clips[${index}]`);
+
     listedFilenames.add(nfc(clip.filename));
     const audioPath = join(audioDir, clip.filename);
     if (!existsSync(audioPath)) {
@@ -180,6 +184,149 @@ function checkAusbildung() {
   }
 
   return jsonFiles.length;
+}
+
+/** Words of a script as grammar-gaps.ts sees them: edge punctuation off, lowercased. */
+function scriptWords(script) {
+  return script
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.replace(/^[.,?!:;"'„“”‚‘’«»…()]+|[.,?!:;"'„“”‚‘’«»…()]+$/g, "").toLowerCase())
+    .filter(Boolean);
+}
+
+/** Topic ids from src/data/grammar/topics.json, filled by checkGrammar. */
+const grammarTopicIds = new Set();
+
+/**
+ * src/data/grammar: every topic needs an id, a label, a "from" Lektion that
+ * exists in chapters.json, and sets of 2+ forms or "verbs": true. The verb
+ * table maps each infinitive to person → form strings.
+ */
+function checkGrammar() {
+  const topicsPath = join(grammarDataDir, "topics.json");
+  const verbsPath = join(grammarDataDir, "verbs.json");
+  let lessonKeys = new Set();
+  try {
+    const chapters = JSON.parse(readFileSync(chaptersPath, "utf8"));
+    lessonKeys = new Set(
+      chapters.flatMap((level) => (level.chapters ?? []).map((chapter) => `${level.slug}/${chapter.slug}`)),
+    );
+  } catch {
+    errors.push(`Could not read ${rel(chaptersPath)} to check grammar topics`);
+  }
+
+  let topicsFile;
+  try {
+    topicsFile = JSON.parse(readFileSync(topicsPath, "utf8"));
+  } catch (error) {
+    errors.push(`Could not parse ${rel(topicsPath)}: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+  if (!isRecord(topicsFile) || !Array.isArray(topicsFile.topics)) {
+    errors.push(`${rel(topicsPath)} must be an object with a "topics" array`);
+    return;
+  }
+  topicsFile.topics.forEach((topic, index) => {
+    const where = `${rel(topicsPath)} topics[${index}]`;
+    if (!isRecord(topic) || typeof topic.id !== "string" || !SLUG.test(topic.id)) {
+      errors.push(`${where} needs a lowercase "id" like "possessiv"`);
+      return;
+    }
+    if (grammarTopicIds.has(topic.id)) errors.push(`${where} repeats topic id "${topic.id}"`);
+    grammarTopicIds.add(topic.id);
+    if (typeof topic.labelVi !== "string" || topic.labelVi.trim() === "") {
+      errors.push(`${where} is missing a non-empty "labelVi"`);
+    }
+    if (typeof topic.from !== "string" || !lessonKeys.has(topic.from)) {
+      errors.push(`${where} "from" must be a Lektion from chapters.json, like "a1-1/lektion-5"`);
+    }
+    for (const flag of ["auto", "onlyBeforeNoun", "verbs"]) {
+      if (topic[flag] !== undefined && typeof topic[flag] !== "boolean") {
+        errors.push(`${where} "${flag}" must be true or false`);
+      }
+    }
+    if (topic.ruleVi !== undefined && typeof topic.ruleVi !== "string") {
+      errors.push(`${where} "ruleVi" must be a string`);
+    }
+    if (topic.sets !== undefined) {
+      const valid =
+        Array.isArray(topic.sets) &&
+        topic.sets.every(
+          (set) =>
+            Array.isArray(set) &&
+            set.length >= 2 &&
+            set.every((form) => typeof form === "string" && form.trim() !== "" && !/\s/.test(form.trim())),
+        );
+      if (!valid) errors.push(`${where} "sets" must be a list of sets, each with 2+ single words`);
+    }
+    if (topic.sets === undefined && topic.verbs !== true) {
+      errors.push(`${where} needs "sets" or "verbs": true`);
+    }
+  });
+
+  let verbs;
+  try {
+    verbs = JSON.parse(readFileSync(verbsPath, "utf8"));
+  } catch (error) {
+    errors.push(`Could not parse ${rel(verbsPath)}: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+  if (!isRecord(verbs)) {
+    errors.push(`${rel(verbsPath)} must be an object of infinitive → { person: form }`);
+    return;
+  }
+  for (const [infinitive, forms] of Object.entries(verbs)) {
+    const valid =
+      isRecord(forms) &&
+      Object.values(forms).length >= 2 &&
+      Object.values(forms).every((form) => typeof form === "string" && form.trim() !== "" && !/\s/.test(form.trim()));
+    if (!valid) errors.push(`${rel(verbsPath)} "${infinitive}" must map persons to single-word forms`);
+  }
+}
+
+/** A clip's "gaps" must name words in its script and known topics; "noGaps" is true or a word list. */
+function checkClipGaps(clip, where) {
+  if (clip.noGaps !== undefined) {
+    const valid =
+      typeof clip.noGaps === "boolean" ||
+      (Array.isArray(clip.noGaps) && clip.noGaps.every((word) => typeof word === "string" && word.trim() !== ""));
+    if (!valid) errors.push(`${where} "noGaps" must be true, false, or a list of words`);
+  }
+  if (clip.gaps === undefined) return;
+  if (!Array.isArray(clip.gaps)) {
+    errors.push(`${where} "gaps" must be a list like [{ "word": "deine" }]`);
+    return;
+  }
+  const words = typeof clip.script === "string" ? scriptWords(clip.script) : [];
+  clip.gaps.forEach((gap, gapIndex) => {
+    const gapWhere = `${where} gaps[${gapIndex}]`;
+    if (!isRecord(gap) || typeof gap.word !== "string" || gap.word.trim() === "") {
+      errors.push(`${gapWhere} needs a "word" from the script`);
+      return;
+    }
+    const occurrence = gap.occurrence ?? 1;
+    if (!Number.isInteger(occurrence) || occurrence < 1) {
+      errors.push(`${gapWhere} "occurrence" must be a whole number from 1`);
+    } else {
+      const key = scriptWords(gap.word)[0] ?? "";
+      if (words.filter((word) => word === key).length < occurrence) {
+        errors.push(`${gapWhere} "${gap.word}" is not in the script${occurrence > 1 ? ` ${occurrence} times` : ""}`);
+      }
+    }
+    if (gap.topic !== undefined && !grammarTopicIds.has(gap.topic)) {
+      errors.push(`${gapWhere} "topic" "${gap.topic}" is not in src/data/grammar/topics.json`);
+    }
+    if (
+      gap.options !== undefined &&
+      !(Array.isArray(gap.options) && gap.options.length >= 1 && gap.options.every((option) => typeof option === "string"))
+    ) {
+      errors.push(`${gapWhere} "options" must be a list of words`);
+    }
+    if (gap.whyVi !== undefined && typeof gap.whyVi !== "string") {
+      errors.push(`${gapWhere} "whyVi" must be a string`);
+    }
+  });
 }
 
 function checkLevels() {
@@ -375,6 +522,7 @@ function checkLiving() {
   return fileCount;
 }
 
+checkGrammar();
 const ausbildungCount = checkAusbildung();
 const levelCount = checkLevels();
 const livingCount = checkLiving();
