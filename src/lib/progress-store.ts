@@ -15,7 +15,15 @@ import {
   type StudentRunsPage,
 } from "@/lib/listening-runs";
 import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing } from "@/lib/xp";
-import { isJumpXpSchemaMissing } from "@/lib/lesson-jump";
+import {
+  isJumpRunsSchemaMissing,
+  isJumpXpSchemaMissing,
+  storedJumpRunFromRow,
+  type JumpRun,
+  type JumpRunOutcome,
+  type StoredJumpRun,
+  type StudentJumpRunsPage,
+} from "@/lib/lesson-jump";
 import { workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   DEFAULT_PROGRESS,
@@ -38,6 +46,7 @@ import {
 const TABLE = "user_progress";
 const PENDING_ACCESS_TABLE = "pending_level_access";
 const JUMP_XP_TABLE = "lesson_jump_awards";
+const JUMP_RUNS_TABLE = "lesson_jump_runs";
 const RUNS_TABLE = "listening_runs";
 const CLIPS_TABLE = "clip_results";
 const XP_TABLE = "xp_awards";
@@ -995,6 +1004,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
 
   await deleteUserXpAwards(supabase, userId);
   await deleteUserListeningRuns(supabase, userId);
+  await deleteUserJumpRuns(supabase, userId, "all");
 
   const now = new Date().toISOString();
   const { error } = await supabase.from(TABLE).upsert(
@@ -1521,6 +1531,7 @@ export async function deleteListeningRunsForLessons(
     throw new Error(`Could not delete XP (${xpResult.error.message}).`);
   }
   await deleteUserJumpXp(supabase, userId, lessonKeys);
+  await deleteUserJumpRuns(supabase, userId, lessonKeys);
 
   const runs = supabase.from(RUNS_TABLE).delete().eq("user_id", userId);
   const runsQuery = lessonKeys === "all" ? runs : runs.in("lesson_key", [...lessonKeys]);
@@ -1568,6 +1579,19 @@ async function deleteUserJumpXp(
   const { error } = await scoped;
   if (!error || isJumpXpSchemaMissing(error.message)) return;
   throw new Error(`Could not delete jump XP (${error.message}).`);
+}
+
+async function deleteUserJumpRuns(
+  supabase: SupabaseClient,
+  userId: string,
+  lessonKeys: "all" | readonly string[],
+): Promise<void> {
+  if (lessonKeys !== "all" && lessonKeys.length === 0) return;
+  const query = supabase.from(JUMP_RUNS_TABLE).delete().eq("user_id", userId);
+  const scoped = lessonKeys === "all" ? query : query.in("lesson_key", [...lessonKeys]);
+  const { error } = await scoped;
+  if (!error || isJumpRunsSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete jump tests (${error.message}).`);
 }
 
 /** Remove study XP for the lessons an admin just cleared. */
@@ -1747,6 +1771,107 @@ export async function listStudentListeningRuns(
     if (isListeningSchemaMissing(message)) return emptyStudentRuns("missing");
     console.error("Supabase listStudentListeningRuns", message);
     return emptyStudentRuns("error");
+  }
+}
+
+/**
+ * Log one jump test attempt. A finished attempt replaces the quit row a
+ * closing tab may have sent first; a quit never replaces a finished one.
+ * A missing table is ignored so the jump itself still works.
+ */
+export async function insertJumpRun(userId: string, run: JumpRun): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+
+  const row = {
+    id: run.id,
+    user_id: userId,
+    lesson_key: run.lessonKey,
+    outcome: run.outcome,
+    card_count: run.cardCount,
+    answered_count: run.answeredCount,
+    mistakes: run.mistakes,
+    accuracy: run.accuracy,
+    elapsed_ms: run.elapsedMs,
+    cards: run.cards,
+  };
+  const inserted = await supabase
+    .from(JUMP_RUNS_TABLE)
+    .upsert(row, { onConflict: "id", ignoreDuplicates: true })
+    .select("id");
+  let error = inserted.error;
+  if (!error && (inserted.data ?? []).length === 0 && run.outcome !== "quit") {
+    ({ error } = await supabase
+      .from(JUMP_RUNS_TABLE)
+      .update({ ...row, created_at: new Date().toISOString() })
+      .eq("id", run.id)
+      .eq("user_id", userId)
+      .eq("outcome", "quit"));
+  }
+  if (error && !isJumpRunsSchemaMissing(error.message)) {
+    console.error("Supabase insertJumpRun", error.message);
+  }
+}
+
+async function countJumpRuns(
+  supabase: SupabaseClient,
+  userId: string,
+  outcome: JumpRunOutcome | undefined,
+  window: ListeningRunWindow | null,
+): Promise<number> {
+  let query = supabase
+    .from(JUMP_RUNS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  query = applyRunWindow(query, window);
+  if (outcome) query = query.eq("outcome", outcome);
+  const { count, error } = await query;
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+function emptyJumpRuns(status: StudentJumpRunsPage["status"]): StudentJumpRunsPage {
+  return { status, runs: [], total: 0, passed: 0, failed: 0, quit: 0 };
+}
+
+export async function listStudentJumpRuns(
+  userId: string,
+  offset = 0,
+  window: ListeningRunWindow | null = null,
+): Promise<StudentJumpRunsPage> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return emptyJumpRuns("error");
+
+  const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
+  try {
+    const list = await applyRunWindow(
+      supabase
+        .from(JUMP_RUNS_TABLE)
+        .select(
+          "id, lesson_key, outcome, card_count, answered_count, mistakes, accuracy, elapsed_ms, cards, created_at",
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false }),
+      window,
+    ).range(start, start + STUDENT_RUN_PAGE - 1);
+    if (list.error) throw new Error(list.error.message);
+
+    const [total, passed, failed, quit] = await Promise.all([
+      countJumpRuns(supabase, userId, undefined, window),
+      countJumpRuns(supabase, userId, "success", window),
+      countJumpRuns(supabase, userId, "fail", window),
+      countJumpRuns(supabase, userId, "quit", window),
+    ]);
+    const runs = (list.data ?? [])
+      .map((row) => storedJumpRunFromRow(row))
+      .filter((run): run is StoredJumpRun => run != null);
+    return { status: "ready", runs, total, passed, failed, quit };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "read failed";
+    if (isJumpRunsSchemaMissing(message)) return emptyJumpRuns("missing");
+    console.error("Supabase listStudentJumpRuns", message);
+    return emptyJumpRuns("error");
   }
 }
 

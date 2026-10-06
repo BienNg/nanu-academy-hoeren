@@ -433,7 +433,7 @@ function vietnamHour(value: string | null | undefined): number | null {
 }
 
 /** Avatars drawn in one timeline column before the rest collapse into +N. */
-export const ACTIVE_USER_TIMELINE_CAP = 8;
+export const ACTIVE_USER_TIMELINE_CAP = 20;
 
 export type ActiveTimelineStudent = {
   userId: string;

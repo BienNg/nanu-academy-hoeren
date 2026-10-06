@@ -25,6 +25,7 @@ import {
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { forgetStudiedClips, syncStudiedClips } from "@/lib/duel-store";
+import type { StudentJumpRunsPage } from "@/lib/lesson-jump";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
 import {
@@ -47,6 +48,7 @@ import {
   getUserStaff,
   hasInterviewAccess,
   isProgressStoreConfigured,
+  listStudentJumpRuns,
   listStudentListeningRuns,
   livingAccessFrom,
   normalizeGrantEmail,
@@ -236,6 +238,27 @@ export async function listAdminStudentRuns(
   if (window && !bounds) return { ok: false, error: "Invalid time range" };
   const page = await listStudentListeningRuns(id, start, bounds);
   return { ok: true, ...page, runs: page.runs.map(withPartCardCount) };
+}
+
+export async function listAdminStudentJumpRuns(
+  userId: string,
+  offset = 0,
+  window: { fromIso: string; toIso: string } | null = null,
+): Promise<({ ok: true } & StudentJumpRunsPage) | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const start = Number.isInteger(offset) && offset > 0 ? Math.min(offset, 10_000) : 0;
+  const bounds = parseRunWindow(window);
+  if (window && !bounds) return { ok: false, error: "Invalid time range" };
+  return { ok: true, ...(await listStudentJumpRuns(id, start, bounds)) };
 }
 
 export async function deleteAdminUser(

@@ -95,6 +95,18 @@ export type LearnProgress = InterviewProgress & {
    * it is kept, so admins can tell a skipped Lektion from a worked one.
    */
   skippedAt?: string;
+  /**
+   * Clips and videos the jump marked done. Empty lists mean that side was
+   * already finished. Absent on skips saved before this was stored.
+   */
+  jumpSkip?: JumpSkip;
+};
+
+/** What a passed jump filled in. Nodes built from these clips are the ones it skipped. */
+export type JumpSkip = {
+  studyClipIds: string[];
+  practiceClipIds: string[];
+  videoKeys: string[];
 };
 
 function emptyLearnProgress(): LearnProgress {
@@ -158,6 +170,12 @@ export type VisitExerciseLesson = {
   parts?: number;
 };
 
+/** A jump test finished in this visit. A later pass replaces an earlier miss. */
+export type VisitJump = {
+  lessonKey: string;
+  passed: boolean;
+};
+
 /**
  * A study or practice part the learner opened and left before it finished.
  * Finished parts stay on clips and exercise lessons; this is only the stop.
@@ -191,6 +209,8 @@ export type Visit = {
   exerciseLessons?: VisitExerciseLesson[];
   /** Study or practice parts opened and left before the part finished. */
   leftSessions?: VisitLeftSession[];
+  /** Jump tests finished in this visit, one per Lektion. */
+  jumps?: VisitJump[];
   wrongAttempts?: number;
 };
 
@@ -332,6 +352,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     studyCompletedAt?: unknown;
     practicePartKeys?: unknown;
     skippedAt?: unknown;
+    jumpSkip?: unknown;
   };
 
   const studyCompletedAt =
@@ -382,7 +403,30 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     ...(studyCompletedAt ? { studyCompletedAt } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
     ...(skippedAt ? { skippedAt } : {}),
+    ...jumpSkipField(skippedAt ? normalizeJumpSkip(record.jumpSkip) : undefined),
   };
+}
+
+function jumpSkipField(jumpSkip: JumpSkip | undefined): { jumpSkip: JumpSkip } | Record<string, never> {
+  return jumpSkip ? { jumpSkip } : {};
+}
+
+function normalizeJumpSkip(value: unknown): JumpSkip | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const ids = (field: unknown): string[] =>
+    Array.isArray(field)
+      ? unionIds(
+          field.filter((id): id is string => typeof id === "string" && id.length > 0),
+          [],
+        )
+      : [];
+  const jumpSkip: JumpSkip = {
+    studyClipIds: ids(record.studyClipIds),
+    practiceClipIds: ids(record.practiceClipIds),
+    videoKeys: ids(record.videoKeys),
+  };
+  return jumpSkip;
 }
 
 function normalizeTrack(
@@ -724,6 +768,11 @@ function mergeLearnEntry(
   const skipStamps = [left?.skippedAt, right?.skippedAt].filter(
     (value): value is string => typeof value === "string",
   );
+  const skippedAt = skipStamps.sort()[0];
+  const jumpSkip = [left, right]
+    .filter((entry) => entry?.skippedAt === skippedAt)
+    .map((entry) => entry?.jumpSkip)
+    .find((skip): skip is JumpSkip => Boolean(skip));
 
   return {
     ...mergedBase,
@@ -737,7 +786,8 @@ function mergeLearnEntry(
       : {}),
     ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
-    ...(skipStamps.length > 0 ? { skippedAt: skipStamps.sort()[0] } : {}),
+    ...(skippedAt ? { skippedAt } : {}),
+    ...jumpSkipField(jumpSkip),
   };
 }
 
@@ -884,6 +934,7 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     else delete nextEntry.runClipOrder;
     delete nextEntry.completedAt;
     delete nextEntry.skippedAt;
+    delete nextEntry.jumpSkip;
     // Part keys do not name their clips, so erased practice drops every finished part.
     delete nextEntry.practicePartKeys;
     nextEntry.runCount = 0;
@@ -1348,6 +1399,7 @@ const VISIT_LIST_CAP = {
   videos: 40,
   exerciseLessons: 24,
   leftSessions: 40,
+  jumps: 24,
 };
 
 export type VisitRange = "today" | "7d" | "all";
@@ -1459,6 +1511,14 @@ function exerciseLessonHasWork(lesson: VisitExerciseLesson): boolean {
   return lesson.completed > 0 || lesson.fullRuns > 0 || (lesson.parts ?? 0) > 0;
 }
 
+function normalizeVisitJump(value: unknown): VisitJump | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const lessonKey = textId(record.lessonKey);
+  if (!lessonKey || typeof record.passed !== "boolean") return null;
+  return { lessonKey, passed: record.passed };
+}
+
 function normalizeExerciseLesson(value: unknown): VisitExerciseLesson | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -1482,11 +1542,12 @@ function leftSessionKey(session: VisitLeftSession): string {
   return `${session.lessonKey}\n${session.kind}\n${session.partNumber}\n${session.startedAt}`;
 }
 
-/** Study, practice, a watched video, or a click. Sitting on an open page is none of these. */
+/** Study, practice, a jump test, a watched video, or a click. Sitting on an open page is none of these. */
 function visitHasStudy(visit: Visit): boolean {
   if (visit.clips.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) {
     return true;
   }
+  if ((visit.jumps ?? []).length > 0) return true;
   if ((visit.leftSessions ?? []).length > 0 || (visit.wrongAttempts ?? 0) > 0) return true;
   if ((visit.exerciseLessons ?? []).some((lesson) => exerciseLessonHasWork(lesson))) {
     return true;
@@ -1503,6 +1564,7 @@ function withoutIdleActiveTime(visit: Visit): Visit {
 function withVisitTotals(visit: Visit): Visit {
   const exerciseLessons = visit.exerciseLessons ?? [];
   const leftSessions = visit.leftSessions ?? [];
+  const jumps = visit.jumps ?? [];
   const fromLessons = exerciseLessons.reduce((sum, lesson) => sum + lesson.completed, 0);
   const fromRuns = exerciseLessons.reduce((sum, lesson) => sum + lesson.fullRuns, 0);
   const lessonKeys = uniqueTexts(
@@ -1511,6 +1573,7 @@ function withVisitTotals(visit: Visit): Visit {
       ...visit.clips.map((clip) => clip.lessonKey),
       ...exerciseLessons.map((lesson) => lesson.lessonKey),
       ...leftSessions.map((session) => session.lessonKey),
+      ...jumps.map((jump) => jump.lessonKey),
       ...visit.videos
         .map((video) => lessonKeyFromVideo(video.key))
         .filter((key): key is string => Boolean(key)),
@@ -1527,6 +1590,8 @@ function withVisitTotals(visit: Visit): Visit {
   else delete next.exerciseLessons;
   if (leftSessions.length > 0) next.leftSessions = leftSessions;
   else delete next.leftSessions;
+  if (jumps.length > 0) next.jumps = jumps;
+  else delete next.jumps;
   if (!next.wrongAttempts) delete next.wrongAttempts;
   return withoutIdleActiveTime(next);
 }
@@ -1587,6 +1652,17 @@ function normalizeVisit(value: unknown): Visit | null {
       if (leftSessions.length >= VISIT_LIST_CAP.leftSessions) break;
     }
   }
+  const jumps: VisitJump[] = [];
+  const seenJumps = new Set<string>();
+  if (Array.isArray(record.jumps)) {
+    for (const entry of record.jumps) {
+      const jump = normalizeVisitJump(entry);
+      if (!jump || seenJumps.has(jump.lessonKey)) continue;
+      seenJumps.add(jump.lessonKey);
+      jumps.push(jump);
+      if (jumps.length >= VISIT_LIST_CAP.jumps) break;
+    }
+  }
   const wrongAttempts = countField(record.wrongAttempts);
   return withVisitTotals({
     id,
@@ -1605,6 +1681,7 @@ function normalizeVisit(value: unknown): Visit | null {
     videos,
     ...(exerciseLessons.length > 0 ? { exerciseLessons } : {}),
     ...(leftSessions.length > 0 ? { leftSessions } : {}),
+    ...(jumps.length > 0 ? { jumps } : {}),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -1639,6 +1716,22 @@ function mergeExerciseLessons(
     if (parts > 0) existing.parts = parts;
   }
   return [...byKey.values()].slice(0, VISIT_LIST_CAP.exerciseLessons);
+}
+
+function mergeJumps(
+  left: readonly VisitJump[] | undefined,
+  right: readonly VisitJump[] | undefined,
+): VisitJump[] {
+  const byKey = new Map<string, VisitJump>();
+  for (const jump of [...(left ?? []), ...(right ?? [])]) {
+    const existing = byKey.get(jump.lessonKey);
+    if (!existing) {
+      byKey.set(jump.lessonKey, { ...jump });
+      continue;
+    }
+    if (jump.passed) existing.passed = true;
+  }
+  return [...byKey.values()].slice(0, VISIT_LIST_CAP.jumps);
 }
 
 function mergeLeftSessions(
@@ -1714,6 +1807,7 @@ function mergeVisit(left: Visit, right: Visit): Visit {
     videos: mergeVisitVideos(left.videos, right.videos, newerIsLeft),
     exerciseLessons: mergeExerciseLessons(left.exerciseLessons, right.exerciseLessons),
     leftSessions: mergeLeftSessions(left.leftSessions, right.leftSessions),
+    jumps: mergeJumps(left.jumps, right.jumps),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
   });
 }
@@ -1984,6 +2078,42 @@ export function recordVisitExercise(
     if (partAmount > 0) lesson.parts = (lesson.parts ?? 0) + partAmount;
   });
   return { visitId: opened.visitId, progress: commitVisit(opened.progress, visit, now) };
+}
+
+/** Remember a finished jump test. One Lektion is stored once; a pass replaces a miss. */
+export function recordVisitJump(
+  progress: StoredProgress,
+  now: Date,
+  preferredId: string | null,
+  lessonKey: string,
+  passed: boolean,
+): { progress: StoredProgress; visitId: string } {
+  const key = textId(lessonKey);
+  if (!key) return { progress, visitId: preferredId || "" };
+  const opened = openVisit(progress, now, preferredId);
+  const jumps = (opened.visit.jumps ?? []).slice();
+  const index = jumps.findIndex((jump) => jump.lessonKey === key);
+  if (index >= 0) {
+    const current = jumps[index];
+    if (!current || current.passed || !passed) {
+      return { progress: opened.progress, visitId: opened.visitId };
+    }
+    jumps[index] = { lessonKey: key, passed: true };
+  } else {
+    jumps.push({ lessonKey: key, passed });
+  }
+  return {
+    visitId: opened.visitId,
+    progress: commitVisit(
+      opened.progress,
+      {
+        ...opened.visit,
+        jumps: jumps.slice(0, VISIT_LIST_CAP.jumps),
+        lessons: [...opened.visit.lessons, key],
+      },
+      now,
+    ),
+  };
 }
 
 export function recordVisitListeningRun(
@@ -2706,6 +2836,7 @@ function withoutRunCursor(entry: LearnProgress): LearnProgress {
   if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
   if (entry.practicePartKeys?.length) next.practicePartKeys = entry.practicePartKeys;
   if (entry.skippedAt) next.skippedAt = entry.skippedAt;
+  if (entry.jumpSkip) next.jumpSkip = entry.jumpSkip;
   return next;
 }
 
@@ -2811,18 +2942,31 @@ export function completeLessonByJump(
   const stamp = now.toISOString();
   const entry = progress.learn[chapterSlug] ?? emptyLearnProgress();
   const completedClipIds = unionIds(entry.completedClipIds, input.clipIds);
+  const reviewedClipIds = unionIds(entry.reviewedClipIds, input.clipIds);
+  const studyAlready = Boolean(entry.studyCompletedAt) || entry.studyRunCount >= 1;
+  const practiceAlready = Boolean(entry.completedAt) || entry.runCount >= 1;
+  const missing = (have: readonly string[], all: readonly string[]) => {
+    const owned = new Set(have);
+    return all.filter((id) => id.length > 0 && !owned.has(id));
+  };
+  const jumpSkip: JumpSkip = entry.jumpSkip ?? {
+    studyClipIds: studyAlready ? [] : missing(entry.reviewedClipIds, input.clipIds),
+    practiceClipIds: practiceAlready ? [] : missing(entry.completedClipIds, input.clipIds),
+    videoKeys: input.videoKeys.filter((key) => key.length > 0 && !progress.videos[key]?.watchedAt),
+  };
   let next = withLearnEntry(
     progress,
     chapterSlug,
     withoutRunCursor({
       ...entry,
       completedClipIds,
-      reviewedClipIds: unionIds(entry.reviewedClipIds, input.clipIds),
+      reviewedClipIds,
       runCount: Math.max(1, entry.runCount),
       studyRunCount: Math.max(1, entry.studyRunCount),
       completedAt: entry.completedAt ?? stamp,
       studyCompletedAt: entry.studyCompletedAt ?? stamp,
       skippedAt: entry.skippedAt ?? stamp,
+      jumpSkip,
     }),
   );
   for (const key of input.videoKeys) {
@@ -3049,6 +3193,8 @@ export function resetLearnProgress(
         ...(existing?.studyCompletedAt
           ? { studyCompletedAt: existing.studyCompletedAt }
           : {}),
+        ...(existing?.skippedAt ? { skippedAt: existing.skippedAt } : {}),
+        ...jumpSkipField(existing?.jumpSkip),
       },
     },
   };

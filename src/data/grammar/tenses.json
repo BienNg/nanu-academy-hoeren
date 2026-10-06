@@ -1,0 +1,28 @@
+{
+  "persons": [
+    { "id": "ich", "label": "ich", "say": "ich" },
+    { "id": "du", "label": "du", "say": "du" },
+    { "id": "er", "label": "er/sie/es", "say": "er" },
+    { "id": "ihr", "label": "ihr", "say": "ihr" },
+    { "id": "wir", "label": "wir/sie/Sie", "say": "wir" }
+  ],
+  "tenses": [
+    { "id": "praesens", "label": "Präsens", "labelVi": "Hiện tại" },
+    { "id": "perfekt", "label": "Perfekt", "labelVi": "Quá khứ" },
+    { "id": "praeteritum", "label": "Präteritum", "labelVi": "Quá khứ" }
+  ],
+  "verbs": {
+    "haben": {
+      "praesens": { "ich": "habe", "du": "hast", "er": "hat", "ihr": "habt", "wir": "haben" },
+      "praeteritum": { "ich": "hatte", "du": "hattest", "er": "hatte", "ihr": "hattet", "wir": "hatten" },
+      "partizip": "gehabt",
+      "aux": "haben"
+    },
+    "sein": {
+      "praesens": { "ich": "bin", "du": "bist", "er": "ist", "ihr": "seid", "wir": "sind" },
+      "praeteritum": { "ich": "war", "du": "warst", "er": "war", "ihr": "wart", "wir": "waren" },
+      "partizip": "gewesen",
+      "aux": "sein"
+    }
+  }
+}

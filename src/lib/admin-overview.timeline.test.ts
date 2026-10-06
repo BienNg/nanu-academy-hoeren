@@ -65,8 +65,8 @@ test("students who share an hour stack newest first", () => {
   );
 });
 
-test("a busy column keeps every student and the avatar cap stays at 8", () => {
-  const rows = Array.from({ length: 10 }, (_, index) =>
+test("a busy column keeps every student and the avatar cap stays at 20", () => {
+  const rows = Array.from({ length: 22 }, (_, index) =>
     row(
       `user-${index}`,
       new Date(Date.parse("2026-10-02T06:00:00.000Z") + index * 60_000).toISOString(),
@@ -75,11 +75,11 @@ test("a busy column keeps every student and the avatar cap stays at 8", () => {
   );
   const timeline = buildActiveUserTimeline(rows, "today", NOW);
   const hour = timeline.columns.find((column) => column.label === "13");
-  assert.equal(ACTIVE_USER_TIMELINE_CAP, 8);
-  assert.equal(hour?.students.length, 10);
+  assert.equal(ACTIVE_USER_TIMELINE_CAP, 20);
+  assert.equal(hour?.students.length, 22);
   assert.deepEqual(
     hour?.students.slice(0, ACTIVE_USER_TIMELINE_CAP).map((student) => student.userId),
-    ["user-9", "user-8", "user-7", "user-6", "user-5", "user-4", "user-3", "user-2"],
+    Array.from({ length: 20 }, (_, index) => `user-${21 - index}`),
   );
   assert.equal(timeline.unplaced, 0);
 });

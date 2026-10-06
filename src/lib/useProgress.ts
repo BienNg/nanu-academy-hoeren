@@ -42,6 +42,7 @@ import {
   parseProgress,
   recordVisitClip,
   recordVisitExercise,
+  recordVisitJump,
   recordVisitLeftSession,
   recordVisitListeningRun,
   recordVisitVideo,
@@ -763,10 +764,29 @@ export function useProgress(
     [persist],
   );
 
+  const recordLessonJump = useCallback(
+    (lessonKey: string, passed: boolean) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      const recorded = recordVisitJump(current, now, readVisitId(), lessonKey, passed);
+      if (recorded.visitId) writeVisitId(recorded.visitId);
+      if (recorded.progress === current) return;
+      persist(recorded.progress, true);
+    },
+    [persist],
+  );
+
   const completeLessonJump = useCallback(
-    (chapterSlug: string, clipIds: readonly string[], videoKeys: readonly string[]) => {
-      const next = completeLessonByJump(readProgressSnapshot(), chapterSlug, { clipIds, videoKeys });
-      persist(next, true);
+    (chapterSlug: string, lessonKey: string, clipIds: readonly string[], videoKeys: readonly string[]) => {
+      const now = new Date();
+      const completed = completeLessonByJump(readProgressSnapshot(), chapterSlug, {
+        clipIds,
+        videoKeys,
+        now,
+      });
+      const recorded = recordVisitJump(completed, now, readVisitId(), lessonKey, true);
+      if (recorded.visitId) writeVisitId(recorded.visitId);
+      persist(recorded.progress, true);
     },
     [persist],
   );
@@ -1016,6 +1036,7 @@ export function useProgress(
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,
     completeLessonJump,
+    recordLessonJump,
     dropUnfinishedSessionStreak,
     resetProgress,
     resetLearnProgress: resetLearnProgressFn,

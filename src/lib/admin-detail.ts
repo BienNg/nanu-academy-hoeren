@@ -24,6 +24,7 @@ import {
   type PracticeNodePart,
   type VisitRange,
 } from "@/lib/progress";
+import { dayKey, weekKey } from "@/lib/xp";
 
 export type AdminCatalogCard = {
   id: string;
@@ -85,6 +86,8 @@ export type AdminActivityCard = {
   /** Extra stored context, such as how many full listening or study runs. */
   note: string | null;
   struggling: boolean;
+  /** This node was unfinished until a jump test marked it done. */
+  skipped?: boolean;
 };
 
 export type AdminVideoDetail = {
@@ -95,6 +98,8 @@ export type AdminVideoDetail = {
   positionSeconds: number;
   updatedAt: string | null;
   watchedAt: string | null;
+  /** The jump test marked this video watched. */
+  skipped?: boolean;
 };
 
 export type AdminLessonDetail = {
@@ -209,6 +214,87 @@ function learnOwnerByKey(
   return owners;
 }
 
+/** True when this side was already finished before the jump stamped the Lektion. */
+function finishedBeforeJump(
+  learn: LearnProgress | undefined,
+  kind: "study" | "practice",
+): boolean {
+  if (!learn?.skippedAt) return false;
+  if (kind === "study") {
+    if (learn.studyCompletedAt && learn.studyCompletedAt !== learn.skippedAt) return true;
+    return learn.studyRunCount > 1;
+  }
+  if (learn.completedAt && learn.completedAt !== learn.skippedAt) return true;
+  return learn.runCount > 1;
+}
+
+/** The jump wrote the only run, so the meter should not call it a study or practice run. */
+function jumpCreatedRun(
+  learn: LearnProgress | undefined,
+  kind: "study" | "practice",
+  runCount: number,
+): boolean {
+  return Boolean(learn?.skippedAt) && !finishedBeforeJump(learn, kind) && runCount <= 1;
+}
+
+function runNote(count: number, kind: "study" | "practice", show: boolean): string | null {
+  if (!show || count <= 0) return null;
+  const noun = kind === "study" ? "study" : "practice";
+  return `${count} ${noun} ${count === 1 ? "run" : "runs"}`;
+}
+
+/**
+ * Nodes that were still open when the jump passed. Null when the skip was
+ * saved before those clips were stored; then the whole unfinished side counts.
+ */
+function nodesSkippedByJump(
+  lesson: AdminCatalogLesson,
+  learn: LearnProgress | undefined,
+  reviewedIds: ReadonlySet<string>,
+  passedIds: ReadonlySet<string>,
+): { study: Set<number>; practice: Set<number> } | null {
+  if (!learn?.skippedAt || !learn.jumpSkip || !lesson.pathNodes) return null;
+  const studySkipped = new Set(learn.jumpSkip.studyClipIds);
+  const practiceSkipped = new Set(learn.jumpSkip.practiceClipIds);
+  const nodes = lessonPathNodes(lesson.clips, {
+    reviewedClipIds: [...reviewedIds].filter((id) => !studySkipped.has(id)),
+    completedClipIds: [...passedIds].filter((id) => !practiceSkipped.has(id)),
+    studyFinished: finishedBeforeJump(learn, "study"),
+    practiceFinished: finishedBeforeJump(learn, "practice"),
+    practiceParts: lesson.practiceNodeParts,
+    practicePartKeys: learn.practicePartKeys,
+  });
+  return {
+    study: new Set(
+      nodes.filter((node) => node.kind === "study" && !node.done).map((node) => node.node),
+    ),
+    practice: new Set(
+      nodes.filter((node) => node.kind === "practice" && !node.done).map((node) => node.node),
+    ),
+  };
+}
+
+function nodeSkippedByJump(
+  learn: LearnProgress | undefined,
+  kind: "study" | "practice",
+  node: number,
+  precise: { study: Set<number>; practice: Set<number> } | null,
+): boolean {
+  if (!learn?.skippedAt) return false;
+  if (precise) return precise[kind].has(node);
+  return !finishedBeforeJump(learn, kind);
+}
+
+function videoSkippedByJump(
+  learn: LearnProgress | undefined,
+  key: string,
+  watchedAt: string | null,
+): boolean {
+  if (!learn?.skippedAt || !key || !watchedAt) return false;
+  if (learn.jumpSkip) return learn.jumpSkip.videoKeys.includes(key);
+  return watchedAt === learn.skippedAt;
+}
+
 function projectLesson(
   lesson: AdminCatalogLesson,
   progress: StoredProgress,
@@ -228,6 +314,7 @@ function projectLesson(
   const videos: AdminVideoDetail[] = lesson.videos.map((video) => {
     const key = lesson.videoKeyPrefix ? `${lesson.videoKeyPrefix}/${video.id}` : "";
     const entry = key ? progress.videos[key] : undefined;
+    const watchedAt = entry?.watchedAt ?? null;
     return {
       id: video.id,
       title: video.title,
@@ -235,7 +322,8 @@ function projectLesson(
       status: lessonVideoStatus(entry),
       positionSeconds: entry?.positionSeconds ?? 0,
       updatedAt: entry?.updatedAt || null,
-      watchedAt: entry?.watchedAt ?? null,
+      watchedAt,
+      skipped: videoSkippedByJump(learn, key, watchedAt),
     };
   });
   const videoTouched = videos.some((video) => video.status !== "not-started");
@@ -278,12 +366,9 @@ function projectLesson(
         : studyParts.done > 0
           ? "in-progress"
           : "not-started";
-  const studyNote =
-    studyRunCount > 0
-      ? `${studyRunCount} study ${studyRunCount === 1 ? "run" : "runs"}`
-      : null;
-  const practiceNote =
-    runCount > 0 ? `${runCount} practice ${runCount === 1 ? "run" : "runs"}` : null;
+  const studyNote = runNote(studyRunCount, "study", !jumpCreatedRun(learn, "study", studyRunCount));
+  const practiceNote = runNote(runCount, "practice", !jumpCreatedRun(learn, "practice", runCount));
+  const skippedNodes = nodesSkippedByJump(lesson, learn, reviewedIds, passedIds);
   const pathNodes =
     lesson.pathNodes && lesson.learnKey && clipTotal > 0
       ? lessonPathNodes(lesson.clips, {
@@ -319,6 +404,7 @@ function projectLesson(
           partCount: node.parts.length,
           note: lastOfKind ? (study ? studyNote : practiceNote) : null,
           struggling: !study && !node.done && listeningStruggling,
+          skipped: nodeSkippedByJump(learn, study ? "study" : "practice", node.node, skippedNodes),
         } satisfies AdminActivityCard;
       })
     : clipTotal === 0
@@ -336,6 +422,7 @@ function projectLesson(
                   partCount: studyParts.total,
                   note: studyNote,
                   struggling: false,
+                  skipped: nodeSkippedByJump(learn, "study", 1, skippedNodes),
                 } satisfies AdminActivityCard,
               ]
             : []),
@@ -349,6 +436,7 @@ function projectLesson(
             partCount: 0,
             note: practiceNote,
             struggling: listeningStruggling,
+            skipped: nodeSkippedByJump(learn, "practice", 1, skippedNodes),
           },
         ];
 
@@ -715,7 +803,7 @@ export type AdminVisitDetailItem = {
 };
 
 export type AdminVisitDetailGroup = {
-  id: "study" | "listening" | "left" | "video";
+  id: "study" | "listening" | "left" | "video" | "jump";
   label: string;
   items: AdminVisitDetailItem[];
   extraCount: number;
@@ -732,6 +820,9 @@ export type AdminVisitStats = {
   leftUnfinished: number;
   videoSeconds: number;
   videosWatched: number;
+  /** Jump tests finished in this visit. */
+  jumps: number;
+  jumpsPassed: number;
 };
 
 export type AdminVisitSignalKind = "returning" | "stuck" | "video";
@@ -769,8 +860,83 @@ export type AdminVisitChartPoint = {
   xp: number;
 };
 
-/** One XP award from any source, with when it was given. */
-export type AdminXpEvent = { xp: number; at: string };
+export type AdminXpSource = "practice" | "review" | "study" | "jump" | "duel" | "quest";
+
+/** One XP award from any source, with when it was given. Keys are Vietnam day and week. */
+export type AdminXpEvent = {
+  xp: number;
+  at: string;
+  source: AdminXpSource;
+  dayKey: string | null;
+  weekKey: string | null;
+  lessonKey: string | null;
+};
+
+export const ADMIN_XP_SOURCE_LABEL: Record<AdminXpSource, string> = {
+  practice: "Listening practice",
+  review: "Practice review",
+  study: "Study parts",
+  jump: "Lesson jump",
+  duel: "Duels",
+  quest: "Daily quests",
+};
+
+export type AdminXpSourceTotal = { source: AdminXpSource; label: string; xp: number; awards: number };
+
+export type AdminStudentXpSummary = {
+  total: number;
+  week: number;
+  today: number;
+  awards: number;
+  /** Sources that paid anything, most XP first. */
+  sources: AdminXpSourceTotal[];
+  /** Lessons that paid the most XP, all time. */
+  lessons: { lessonKey: string; label: string; xp: number }[];
+};
+
+const XP_SUMMARY_LESSON_LIMIT = 5;
+
+/** All-time, this-week and today XP for one learner, split by where it came from. */
+export function summarizeStudentXp(
+  courses: readonly AdminCatalogCourse[],
+  events: readonly AdminXpEvent[],
+  now = new Date(),
+): AdminStudentXpSummary {
+  const todayKey = dayKey(now);
+  const currentWeek = weekKey(now);
+  const bySource = new Map<AdminXpSource, AdminXpSourceTotal>();
+  const byLesson = new Map<string, number>();
+  let total = 0;
+  let week = 0;
+  let today = 0;
+  for (const event of events) {
+    total += event.xp;
+    const at = new Date(event.at);
+    if ((event.weekKey ?? weekKey(at)) === currentWeek) week += event.xp;
+    if ((event.dayKey ?? dayKey(at)) === todayKey) today += event.xp;
+    const entry = bySource.get(event.source) ?? {
+      source: event.source,
+      label: ADMIN_XP_SOURCE_LABEL[event.source],
+      xp: 0,
+      awards: 0,
+    };
+    entry.xp += event.xp;
+    entry.awards += 1;
+    bySource.set(event.source, entry);
+    if (event.lessonKey) byLesson.set(event.lessonKey, (byLesson.get(event.lessonKey) ?? 0) + event.xp);
+  }
+  return {
+    total,
+    week,
+    today,
+    awards: events.length,
+    sources: [...bySource.values()].sort((a, b) => b.xp - a.xp),
+    lessons: [...byLesson.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, XP_SUMMARY_LESSON_LIMIT)
+      .map(([lessonKey, xp]) => ({ lessonKey, label: catalogLesson(courses, lessonKey).lessonLabel, xp })),
+  };
+}
 
 export type AdminVisitLog = {
   summary: VisitSummary;
@@ -939,6 +1105,18 @@ function visitDetails(
     groups.push({ id: "left", label: "Left unfinished", ...capItems(items) });
   }
 
+  const jumps = visit.jumps ?? [];
+  if (jumps.length > 0) {
+    const items = jumps.map((jump): AdminVisitDetailItem => ({
+      title: catalogLesson(courses, jump.lessonKey).lessonLabel,
+      context: null,
+      facts: [jump.passed ? "Passed the jump test" : "Failed the jump test"],
+      tone: jump.passed ? "success" : "warning",
+      percent: null,
+    }));
+    groups.push({ id: "jump", label: "Jump", ...capItems(items) });
+  }
+
   if (visit.videos.length > 0) {
     const items = visit.videos.map((video): AdminVisitDetailItem => {
       const played = formatActiveDuration(video.seconds);
@@ -1037,6 +1215,8 @@ function visitStats(
     leftUnfinished: (visit.leftSessions ?? []).length,
     videoSeconds: visit.videos.reduce((sum, video) => sum + video.seconds, 0),
     videosWatched: visit.videos.filter((video) => video.watched).length,
+    jumps: (visit.jumps ?? []).length,
+    jumpsPassed: (visit.jumps ?? []).filter((jump) => jump.passed).length,
   };
 }
 
@@ -1047,7 +1227,8 @@ function visitIsIdle(stats: AdminVisitStats): boolean {
     stats.practiceRuns === 0 &&
     stats.videoSeconds < 1 &&
     stats.videosWatched === 0 &&
-    stats.leftUnfinished === 0
+    stats.leftUnfinished === 0 &&
+    stats.jumps === 0
   );
 }
 
@@ -1268,13 +1449,15 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
   const videoSeconds = visit.videos.reduce((sum, video) => sum + video.seconds, 0);
   const watched = visit.videos.filter((video) => video.watched);
   const left = visit.leftSessions ?? [];
+  const jumps = visit.jumps ?? [];
   const studied =
     clipCount > 0 ||
     exercises > 0 ||
     runs > 0 ||
     videoSeconds >= 1 ||
     watched.length > 0 ||
-    left.length > 0;
+    left.length > 0 ||
+    jumps.length > 0;
   if (!studied) return ["Opened the app, no study"];
 
   const lines: string[] = [];
@@ -1299,6 +1482,18 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
         ? "Left 1 session unfinished"
         : `Left ${left.length} sessions unfinished`,
     );
+  }
+  if (jumps.length > 0) {
+    const passed = jumps.filter((jump) => jump.passed).length;
+    const failed = jumps.length - passed;
+    const parts: string[] = [];
+    if (passed > 0) {
+      parts.push(passed === 1 ? "Passed a jump test" : `Passed ${passed} jump tests`);
+    }
+    if (failed > 0) {
+      parts.push(failed === 1 ? "Failed a jump test" : `Failed ${failed} jump tests`);
+    }
+    lines.push(parts.join(" · "));
   }
   if (videoSeconds >= 1 || watched.length > 0) {
     let line = `${formatActiveDuration(videoSeconds)} video`;

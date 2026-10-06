@@ -1,3 +1,262 @@
 {
-  "clips": []
+  "clips": [],
+  "grammar": [
+    {
+      "id": "vergangenheit-haben-sein",
+      "titleVi": "Quá khứ của haben và sein",
+      "verbs": ["haben", "sein"],
+      "tips": [
+        {
+          "id": "zwei-wege",
+          "titleVi": "2 cách nói về quá khứ",
+          "textVi": "Perfekt = haben/sein (vị trí 2) + Partizip II (cuối câu). Präteritum = chỉ 1 động từ."
+        },
+        {
+          "id": "satzklammer",
+          "titleVi": "Khung câu Perfekt",
+          "textVi": "Trợ động từ đứng ở vị trí 2, Partizip II đứng cuối câu: Ich habe gestern keine Zeit gehabt."
+        },
+        {
+          "id": "partizip-haben",
+          "titleVi": "Partizip II của haben",
+          "textVi": "haben → gehabt. Perfekt của haben đi với haben: ich habe … gehabt.",
+          "verb": "haben"
+        },
+        {
+          "id": "partizip-sein",
+          "titleVi": "Partizip II của sein",
+          "textVi": "sein → gewesen. Perfekt của sein đi với sein, không đi với haben: ich bin … gewesen.",
+          "verb": "sein"
+        },
+        {
+          "id": "endungen",
+          "titleVi": "Đuôi Präteritum",
+          "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir/sie/Sie thêm -n hoặc -en."
+        },
+        {
+          "id": "alltag",
+          "titleVi": "Khi nói hằng ngày",
+          "textVi": "Với haben và sein, người Đức thường dùng Präteritum: Ich war müde. Ich hatte keine Zeit. Perfekt (ich bin müde gewesen) cũng đúng nhưng ít dùng hơn."
+        }
+      ],
+      "examples": [
+        {
+          "filename": "a12-l1-gram-01-ich-hatte-gestern-keine-zeit.mp3",
+          "script": "Ich hatte gestern keine Zeit.",
+          "translationVi": "Hôm qua tôi không có thời gian.",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "person": "ich"
+        },
+        {
+          "filename": "a12-l1-gram-02-hattest-du-am-wochenende-besuch.mp3",
+          "script": "Hattest du am Wochenende Besuch?",
+          "translationVi": "Cuối tuần bạn có khách đến chơi không?",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "person": "du"
+        },
+        {
+          "filename": "a12-l1-gram-03-er-hatte-kopfschmerzen.mp3",
+          "script": "Er hatte Kopfschmerzen.",
+          "translationVi": "Anh ấy đã bị đau đầu.",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "person": "er"
+        },
+        {
+          "filename": "a12-l1-gram-04-ihr-hattet-glueck.mp3",
+          "script": "Ihr hattet Glück.",
+          "translationVi": "Các bạn đã gặp may.",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "person": "ihr"
+        },
+        {
+          "filename": "a12-l1-gram-05-wir-hatten-viel-spass.mp3",
+          "script": "Wir hatten viel Spaß.",
+          "translationVi": "Chúng tôi đã rất vui.",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "person": "wir"
+        },
+        {
+          "filename": "a12-l1-gram-06-ich-habe-gestern-fieber-gehabt.mp3",
+          "script": "Ich habe gestern Fieber gehabt.",
+          "translationVi": "Hôm qua tôi đã bị sốt.",
+          "verb": "haben",
+          "tense": "perfekt",
+          "person": "ich"
+        },
+        {
+          "filename": "a12-l1-gram-07-hast-du-gestern-unterricht-gehabt.mp3",
+          "script": "Hast du gestern Unterricht gehabt?",
+          "translationVi": "Hôm qua bạn có tiết học không?",
+          "verb": "haben",
+          "tense": "perfekt",
+          "person": "du"
+        },
+        {
+          "filename": "a12-l1-gram-08-ich-war-gestern-zu-hause.mp3",
+          "script": "Ich war gestern zu Hause.",
+          "translationVi": "Hôm qua tôi ở nhà.",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "person": "ich"
+        },
+        {
+          "filename": "a12-l1-gram-09-wo-warst-du-am-montag.mp3",
+          "script": "Wo warst du am Montag?",
+          "translationVi": "Thứ Hai bạn đã ở đâu?",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "person": "du"
+        },
+        {
+          "filename": "a12-l1-gram-10-das-wetter-war-schoen.mp3",
+          "script": "Das Wetter war schön.",
+          "translationVi": "Thời tiết đã rất đẹp.",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "person": "er"
+        },
+        {
+          "filename": "a12-l1-gram-11-wart-ihr-schon-in-deutschland.mp3",
+          "script": "Wart ihr schon in Deutschland?",
+          "translationVi": "Các bạn đã từng đến Đức chưa?",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "person": "ihr"
+        },
+        {
+          "filename": "a12-l1-gram-12-wir-waren-in-berlin.mp3",
+          "script": "Wir waren in Berlin.",
+          "translationVi": "Chúng tôi đã ở Berlin.",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "person": "wir"
+        },
+        {
+          "filename": "a12-l1-gram-13-ich-bin-krank-gewesen.mp3",
+          "script": "Ich bin krank gewesen.",
+          "translationVi": "Tôi đã bị ốm.",
+          "verb": "sein",
+          "tense": "perfekt",
+          "person": "ich"
+        },
+        {
+          "filename": "a12-l1-gram-14-sie-ist-im-urlaub-gewesen.mp3",
+          "script": "Sie ist im Urlaub gewesen.",
+          "translationVi": "Cô ấy đã đi nghỉ.",
+          "verb": "sein",
+          "tense": "perfekt",
+          "person": "er"
+        }
+      ],
+      "drills": [
+        {
+          "type": "transform",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "from": "Du hast Zeit.",
+          "to": "Du hattest Zeit.",
+          "translationVi": "Bạn đã có thời gian."
+        },
+        {
+          "type": "transform",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "from": "Er hat Hunger.",
+          "to": "Er hatte Hunger.",
+          "translationVi": "Anh ấy đã đói."
+        },
+        {
+          "type": "transform",
+          "verb": "haben",
+          "tense": "praeteritum",
+          "from": "Wir haben keine Zeit.",
+          "to": "Wir hatten keine Zeit.",
+          "translationVi": "Chúng tôi đã không có thời gian."
+        },
+        {
+          "type": "transform",
+          "verb": "haben",
+          "tense": "perfekt",
+          "from": "Ich habe Fieber.",
+          "to": "Ich habe Fieber gehabt.",
+          "translationVi": "Tôi đã bị sốt."
+        },
+        {
+          "type": "transform",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "from": "Ich bin müde.",
+          "to": "Ich war müde.",
+          "translationVi": "Tôi đã mệt."
+        },
+        {
+          "type": "transform",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "from": "Ihr seid im Kurs.",
+          "to": "Ihr wart im Kurs.",
+          "translationVi": "Các bạn đã ở trong lớp học."
+        },
+        {
+          "type": "transform",
+          "verb": "sein",
+          "tense": "praeteritum",
+          "from": "Das ist gut.",
+          "to": "Das war gut.",
+          "translationVi": "Cái đó đã tốt."
+        },
+        {
+          "type": "transform",
+          "verb": "sein",
+          "tense": "perfekt",
+          "from": "Er ist krank.",
+          "to": "Er ist krank gewesen.",
+          "translationVi": "Anh ấy đã bị ốm."
+        },
+        {
+          "type": "error",
+          "verb": "haben",
+          "script": "Ihr hattest Durst.",
+          "fix": "Ihr hattet Durst.",
+          "whyVi": "ihr đi với đuôi -t: ihr hattet."
+        },
+        {
+          "type": "error",
+          "verb": "haben",
+          "script": "Wir hatte keine Zeit.",
+          "fix": "Wir hatten keine Zeit.",
+          "whyVi": "wir đi với đuôi -n: wir hatten."
+        },
+        {
+          "type": "error",
+          "verb": "haben",
+          "script": "Ich habe Hunger gehabt."
+        },
+        {
+          "type": "error",
+          "verb": "sein",
+          "script": "Er ist krank gehabt.",
+          "fix": "Er ist krank gewesen.",
+          "whyVi": "Partizip II của sein là gewesen, không phải gehabt."
+        },
+        {
+          "type": "error",
+          "verb": "sein",
+          "script": "Du warst müde."
+        },
+        {
+          "type": "error",
+          "verb": "sein",
+          "script": "Ich habe in Berlin gewesen.",
+          "fix": "Ich bin in Berlin gewesen.",
+          "whyVi": "Perfekt của sein đi với sein: ich bin … gewesen."
+        }
+      ]
+    }
+  ]
 }

@@ -39,7 +39,7 @@ import {
   readLevelAccess,
 } from "@/lib/progress-store";
 import { isDuelSchemaMissing } from "@/lib/duels";
-import type { AdminXpEvent } from "@/lib/admin-detail";
+import type { AdminXpEvent, AdminXpSource } from "@/lib/admin-detail";
 import { isQuestSchemaMissing, listQuestClaimRows } from "@/lib/quest-store";
 import {
   assembleLeaderboard,
@@ -807,14 +807,46 @@ export async function readTotalXp(userId: string): Promise<number | null> {
 /** Every award table a learner earns XP in, with key columns for stable paging. */
 const USER_XP_SOURCES: readonly {
   table: string;
+  columns: string;
   order: readonly string[];
   missing: (message: string) => boolean;
+  source: (row: Record<string, unknown>) => AdminXpSource;
 }[] = [
-  { table: XP_TABLE, order: ["run_id"], missing: isXpSchemaMissing },
-  { table: STUDY_XP_TABLE, order: ["id"], missing: isStudyXpSchemaMissing },
-  { table: DUEL_XP_TABLE, order: ["duel_id"], missing: isDuelSchemaMissing },
-  { table: JUMP_XP_TABLE, order: ["id"], missing: isJumpXpSchemaMissing },
-  { table: QUEST_CLAIMS_TABLE, order: ["day_key", "quest_id"], missing: isQuestSchemaMissing },
+  {
+    table: XP_TABLE,
+    columns: "xp, created_at, day_key, week_key, lesson_key, kind",
+    order: ["run_id"],
+    missing: isXpSchemaMissing,
+    source: (row) => (row.kind === "review" ? "review" : "practice"),
+  },
+  {
+    table: STUDY_XP_TABLE,
+    columns: "xp, created_at, day_key, week_key, lesson_key",
+    order: ["id"],
+    missing: isStudyXpSchemaMissing,
+    source: () => "study",
+  },
+  {
+    table: DUEL_XP_TABLE,
+    columns: "xp, created_at, day_key, week_key",
+    order: ["duel_id"],
+    missing: isDuelSchemaMissing,
+    source: () => "duel",
+  },
+  {
+    table: JUMP_XP_TABLE,
+    columns: "xp, created_at, day_key, week_key, lesson_key",
+    order: ["id"],
+    missing: isJumpXpSchemaMissing,
+    source: () => "jump",
+  },
+  {
+    table: QUEST_CLAIMS_TABLE,
+    columns: "xp, created_at, day_key, week_key",
+    order: ["day_key", "quest_id"],
+    missing: isQuestSchemaMissing,
+    source: () => "quest",
+  },
 ];
 
 async function listUserXpEventsFrom(
@@ -825,7 +857,7 @@ async function listUserXpEventsFrom(
   const rows: AdminXpEvent[] = [];
   let from = 0;
   for (;;) {
-    let query = supabase.from(source.table).select("xp, created_at").eq("user_id", userId);
+    let query = supabase.from(source.table).select(source.columns).eq("user_id", userId);
     for (const column of source.order) query = query.order(column);
     const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
     if (error) {
@@ -834,10 +866,17 @@ async function listUserXpEventsFrom(
       }
       return rows;
     }
-    const page = (data ?? []) as { xp?: unknown; created_at?: unknown }[];
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
     for (const row of page) {
       if (typeof row.xp !== "number" || row.xp <= 0 || typeof row.created_at !== "string") continue;
-      rows.push({ xp: row.xp, at: row.created_at });
+      rows.push({
+        xp: row.xp,
+        at: row.created_at,
+        source: source.source(row),
+        dayKey: typeof row.day_key === "string" ? row.day_key : null,
+        weekKey: typeof row.week_key === "string" ? row.week_key : null,
+        lessonKey: typeof row.lesson_key === "string" ? row.lesson_key : null,
+      });
     }
     if (page.length < PAGE_SIZE) return rows;
     from += PAGE_SIZE;

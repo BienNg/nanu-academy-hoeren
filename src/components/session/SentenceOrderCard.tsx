@@ -22,6 +22,10 @@ type SentenceOrderCardProps = {
   locked?: boolean;
   /** Sits between the prompt and the chips, such as the clip player. */
   afterPrompt?: ReactNode;
+  /** Small label above the card. Defaults to sentence order. */
+  eyebrow?: string;
+  /** Line above `translation`. Defaults to asking for a translation into German. */
+  instruction?: string;
 };
 
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
@@ -49,6 +53,8 @@ export function SentenceOrderCard({
   onSubmit,
   locked = false,
   afterPrompt,
+  eyebrow = "Sắp xếp câu · Satzbau",
+  instruction = "Dịch câu này sang tiếng Đức",
 }: SentenceOrderCardProps) {
   const listening = translation === undefined;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -133,7 +139,7 @@ export function SentenceOrderCard({
     <>
       <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-          Sắp xếp câu · Satzbau
+          {eyebrow}
         </span>
 
         <div className="flex items-start gap-3">
@@ -147,7 +153,7 @@ export function SentenceOrderCard({
           ) : (
             <div className="flex min-w-0 flex-col gap-1">
               <p className="text-[13px] font-medium text-[#86868b]">
-                Dịch câu này sang tiếng Đức
+                {instruction}
               </p>
               <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
                 {translation}

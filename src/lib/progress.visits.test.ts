@@ -8,6 +8,7 @@ import {
   normalizeProgress,
   recordVisitClip,
   recordVisitExercise,
+  recordVisitJump,
   recordVisitLeftSession,
   recordVisitListeningRun,
   recordVisitVideo,
@@ -356,4 +357,30 @@ test("leaving a part records the lesson and how far they got", () => {
   const mergedVisit = merged.visits?.find((entry) => entry.id === "visit-a");
   assert.equal(mergedVisit?.leftSessions?.length, 1);
   assert.equal(mergedVisit?.leftSessions?.[0]?.clipsDone, 5);
+});
+
+test("a jump test is stored once per Lektion, and a pass replaces a miss", () => {
+  const start = new Date("2026-09-24T10:00:00.000Z");
+  const opened = touchVisit(blank(), start, { preferredId: "visit-a", visibleSeconds: 0 });
+  const failed = recordVisitJump(opened.progress, start, opened.visitId, "a1-1/lektion-2", false);
+  const again = recordVisitJump(failed.progress, start, failed.visitId, "a1-1/lektion-2", false);
+  assert.equal(again.progress.visits?.[0]?.jumps?.length, 1);
+  assert.equal(again.progress.visits?.[0]?.jumps?.[0]?.passed, false);
+
+  const passed = recordVisitJump(again.progress, start, again.visitId, "a1-1/lektion-2", true);
+  const visit = passed.progress.visits?.[0];
+  assert.equal(visit?.jumps?.length, 1);
+  assert.equal(visit?.jumps?.[0]?.passed, true);
+  assert.ok(visit?.lessons.includes("a1-1/lektion-2"));
+
+  const kept = recordVisitJump(passed.progress, start, passed.visitId, "a1-1/lektion-2", false);
+  assert.equal(kept.progress.visits?.[0]?.jumps?.[0]?.passed, true);
+
+  const other = recordVisitJump(blank(), start, "visit-a", "a1-1/lektion-2", false);
+  const merged = mergeProgress(passed.progress, other.progress);
+  assert.equal(merged.visits?.[0]?.jumps?.length, 1);
+  assert.equal(merged.visits?.[0]?.jumps?.[0]?.passed, true);
+
+  const reloaded = normalizeProgress(passed.progress);
+  assert.equal(reloaded.visits?.[0]?.jumps?.[0]?.passed, true);
 });

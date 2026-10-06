@@ -3,6 +3,7 @@ import { join } from "node:path";
 import chaptersFile from "@/data/chapters.json";
 import grammarTopicsFile from "@/data/grammar/topics.json";
 import grammarVerbsFile from "@/data/grammar/verbs.json";
+import grammarTensesFile from "@/data/grammar/tenses.json";
 import { getAvailableBerufe, type SessionClip } from "@/lib/content";
 import { isAdminUser } from "@/lib/admins";
 import type { ContinueLevelCatalogEntry } from "@/lib/progress";
@@ -20,6 +21,12 @@ import {
   type GrammarTopic,
   type VerbTable,
 } from "@/lib/grammar-gaps";
+import {
+  grammarTopicContent,
+  type GrammarTopicContent,
+  type StoredGrammarTopic,
+  type TenseTables,
+} from "@/lib/grammar-lessons";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -56,6 +63,8 @@ type StoredVideo = {
 type StoredChapterFile = {
   clips: StoredClip[];
   videos?: StoredVideo[];
+  /** Topics of the Lektion's grammar nodes. See docs/GRAMMAR_NODES.md. */
+  grammar?: StoredGrammarTopic[];
 };
 
 /** A lesson video entered as a title plus a YouTube URL. `videoId` is null when the URL is not playable. */
@@ -76,6 +85,7 @@ type CatalogLevel = {
 const catalogLevels = chaptersFile as CatalogLevel[];
 const grammarTopics = (grammarTopicsFile as { topics: GrammarTopic[] }).topics;
 const grammarVerbs = grammarVerbsFile as VerbTable;
+const grammarTenses = grammarTensesFile as TenseTables;
 const levelsDir = join(process.cwd(), "src/data/levels");
 const levelsAudioDir = join(process.cwd(), "public/audio");
 
@@ -111,6 +121,11 @@ export function grammarTopicsForLesson(levelSlug: string, chapterSlug: string): 
 
 export function getGrammarVerbs(): VerbTable {
   return grammarVerbs;
+}
+
+/** Verb tables of the grammar nodes. Small enough to send to the browser, which deals the cards. */
+export function getGrammarTenses(): TenseTables {
+  return grammarTenses;
 }
 
 function toSessionClip(
@@ -259,6 +274,22 @@ export function getChapterClips(
       audioFileExists(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
     )
     .map((clip) => toSessionClip(clip, levelSlug, chapterSlug, topics));
+}
+
+/**
+ * Grammar topics of a Lektion's grammar nodes, with their tables built.
+ * Examples and table rows whose MP3 is missing play nothing.
+ */
+export function getChapterGrammar(
+  levelSlug: string,
+  chapterSlug: string,
+): GrammarTopicContent[] {
+  const file = loadChapterFile(levelSlug, chapterSlug);
+  if (!file?.grammar) return [];
+  const hasAudio = (audioPath: string) => audioFileExists(join(levelsAudioDir, audioPath));
+  return file.grammar.map((topic) =>
+    grammarTopicContent(topic, grammarTenses, `${levelSlug}/${chapterSlug}`, hasAudio),
+  );
 }
 
 export type ChapterClipInventory = {

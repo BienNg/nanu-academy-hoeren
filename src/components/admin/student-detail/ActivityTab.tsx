@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listAdminStudentRuns } from "@/app/admin/actions";
+import { listAdminStudentJumpRuns, listAdminStudentRuns } from "@/app/admin/actions";
 import { MaterialIcon } from "@/components/admin/AdminShell";
 import { Badge, Button } from "@/components/admin/AdminUi";
 import {
@@ -33,6 +33,12 @@ import {
   type projectStudentVisits,
 } from "@/lib/admin-detail";
 import {
+  JUMP_RUNS_SCHEMA_HINT,
+  type JumpRunOutcome,
+  type StoredJumpRun,
+  type StudentJumpRunsPage,
+} from "@/lib/lesson-jump";
+import {
   LISTENING_SCHEMA_HINT,
   type StoredListeningRun,
   type StudentRunsPage,
@@ -47,6 +53,7 @@ const VISIT_CATEGORY: Record<VisitCategory, { icon: string; tile: string; bar: s
   listening: { icon: "headphones", tile: "bg-admin-violet-wash text-admin-violet", bar: "bg-admin-violet" },
   left: { icon: "pending", tile: "bg-admin-amber-wash text-admin-amber", bar: "bg-admin-amber" },
   video: { icon: "play_circle", tile: "bg-admin-violet-wash text-admin-violet-ink", bar: "bg-admin-violet-soft" },
+  jump: { icon: "skip_next", tile: "bg-admin-cobalt-wash text-admin-cobalt", bar: "bg-admin-cobalt" },
 };
 
 const VISIT_SIGNAL: Record<AdminVisitSignalKind, { icon: string; className: string }> = {
@@ -114,6 +121,17 @@ function visitMetrics(stats: AdminVisitStats): {
       category: "left",
       value: String(stats.leftUnfinished),
       label: "Left unfinished",
+    });
+  }
+  if (stats.jumps > 0) {
+    const failed = stats.jumps - stats.jumpsPassed;
+    let label = stats.jumps === 1 ? "Jump" : "Jumps";
+    if (failed === 0) label = stats.jumps === 1 ? "Jump passed" : "Jumps passed";
+    else if (stats.jumpsPassed === 0) label = stats.jumps === 1 ? "Jump failed" : "Jumps failed";
+    metrics.push({
+      category: "jump",
+      value: String(stats.jumps),
+      label,
     });
   }
   return metrics;
@@ -660,6 +678,233 @@ function ListeningRunsSection({
   );
 }
 
+const JUMP_OUTCOME: Record<
+  JumpRunOutcome,
+  { label: string; icon: string; tile: string; tone: "emerald" | "crimson" | "amber" }
+> = {
+  success: { label: "Passed", icon: "check_circle", tile: "bg-admin-emerald-wash text-admin-emerald", tone: "emerald" },
+  fail: { label: "Out of hearts", icon: "heart_broken", tile: "bg-admin-crimson-wash text-admin-crimson", tone: "crimson" },
+  quit: { label: "Left before the end", icon: "logout", tile: "bg-admin-amber-wash text-admin-amber", tone: "amber" },
+};
+
+function JumpRunRow({
+  run,
+  catalog,
+  open,
+  onToggle,
+}: {
+  run: StoredJumpRun;
+  catalog: readonly AdminCatalogCourse[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const place = describeCatalogLesson(catalog, run.lessonKey);
+  const title = place ? `${place.course} · ${place.lesson}` : run.lessonKey;
+  const when = formatAbsoluteTime(run.createdAt);
+  const outcome = JUMP_OUTCOME[run.outcome];
+  const facts = [
+    { icon: "style", label: `${run.answeredCount} of ${run.cardCount} cards` },
+    { icon: "timer", label: shortDuration(Math.round(run.elapsedMs / 1000)) },
+    run.mistakes > 0
+      ? { icon: "close", label: `${run.mistakes} wrong`, warn: true }
+      : { icon: "done_all", label: "No mistakes" },
+  ];
+
+  return (
+    <li>
+      <Panel className={open ? "border-admin-cobalt/40 ring-1 ring-admin-cobalt/20" : ""}>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onToggle}
+          className="flex w-full items-start gap-space-12 px-space-16 py-space-12 text-left outline-none transition-colors hover:bg-admin-canvas focus-visible:bg-admin-cobalt-wash/40"
+        >
+          <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-control ${outcome.tile}`}>
+            <MaterialIcon name={outcome.icon} className="text-[20px]" filled />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline justify-between gap-space-12">
+              <span className="text-admin-body-md font-semibold text-admin-ink">{outcome.label}</span>
+              {run.answeredCount > 0 ? (
+                <Badge tone={outcome.tone}>
+                  <span title="Accuracy">{run.accuracy}%</span>
+                </Badge>
+              ) : null}
+            </span>
+            <span className="mt-0.5 block text-admin-body-sm text-admin-ink">{title}</span>
+            {when ? (
+              <span className="mt-0.5 block text-admin-body-sm tabular-nums text-admin-ink-subtle">{when}</span>
+            ) : null}
+            <span className="mt-space-8 flex flex-wrap gap-space-4">
+              {facts.map((fact) => (
+                <Badge key={fact.label} tone={"warn" in fact && fact.warn ? "crimson" : "neutral"}>
+                  <MaterialIcon name={fact.icon} className="-mx-0.5 text-[13px]" />
+                  {fact.label}
+                </Badge>
+              ))}
+            </span>
+          </span>
+          <MaterialIcon
+            name="expand_more"
+            className={`mt-0.5 text-[22px] text-admin-ink-faint transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+        {open ? (
+          <div className="border-t border-admin-hairline bg-admin-canvas px-space-16 py-space-16">
+            {run.cards.length === 0 ? (
+              <p className="text-admin-body-sm text-admin-ink-muted">No card was answered.</p>
+            ) : (
+              <ol className="flex flex-col gap-space-8">
+                {run.cards.map((card, at) => {
+                  const kindLabel =
+                    card.kind in CARD_KIND_LABEL ? CARD_KIND_LABEL[card.kind as CardKind] : card.kind;
+                  return (
+                    <li
+                      key={`${card.clipId}-${at}`}
+                      className="min-w-0 rounded-admin-control border border-admin-hairline bg-admin-card px-space-12 py-space-8"
+                    >
+                      <p className="flex items-center gap-1.5 text-admin-label-sm uppercase text-admin-ink-subtle">
+                        <MaterialIcon
+                          name={card.right ? "check_circle" : "cancel"}
+                          className={`text-[14px] ${card.right ? "text-admin-emerald" : "text-admin-crimson"}`}
+                          filled
+                        />
+                        {at + 1}. {kindLabel}
+                      </p>
+                      <p className="mt-0.5 text-admin-body-sm text-admin-ink">
+                        {describeCatalogClip(catalog, run.lessonKey, card.clipId).prompt}
+                      </p>
+                      {card.right ? (
+                        <p className="mt-0.5 text-admin-body-sm text-admin-emerald-ink">{card.entered}</p>
+                      ) : (
+                        <>
+                          <p className="mt-0.5 text-admin-body-sm text-admin-crimson-ink">Entered: {card.entered || "—"}</p>
+                          <p className="text-admin-body-sm text-admin-emerald-ink">Correct: {card.correct}</p>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        ) : null}
+      </Panel>
+    </li>
+  );
+}
+
+function jumpEmptyMessage(range: AdminVisitRange): string {
+  if (range === "today") return "No jump tests today.";
+  if (range === "7d") return "No jump tests in the last 7 days.";
+  return "No jump tests yet.";
+}
+
+function JumpRunsSection({
+  userId,
+  catalog,
+  revision,
+  range,
+  timeZone,
+}: {
+  userId: string;
+  catalog: readonly AdminCatalogCourse[];
+  revision: number;
+  range: AdminVisitRange;
+  timeZone: string | undefined;
+}) {
+  const [page, setPage] = useState<StudentJumpRunsPage | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+  const window = useMemo(() => visitRangeIso(range, new Date(), timeZone), [range, timeZone]);
+  const requestKey = `${userId}:${revision}:${range}:${window?.fromIso ?? "all"}`;
+  const visible = loadedFor === requestKey ? page : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAdminStudentJumpRuns(userId, 0, window).then((result) => {
+      if (cancelled) return;
+      setLoadedFor(requestKey);
+      if (!result.ok) {
+        setPage({ status: "error", runs: [], total: 0, passed: 0, failed: 0, quit: 0 });
+        return;
+      }
+      const { ok: _ok, ...loaded } = result;
+      setPage(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, window]);
+
+  async function loadMore() {
+    if (!visible || loadingMore || visible.runs.length >= visible.total) return;
+    const requestUser = userId;
+    setLoadingMore(true);
+    const result = await listAdminStudentJumpRuns(requestUser, visible.runs.length, window);
+    setLoadingMore(false);
+    if (userIdRef.current !== requestUser || !result.ok || result.status !== "ready") return;
+    setPage((current) => {
+      if (!current) return current;
+      const seen = new Set(current.runs.map((run) => run.id));
+      const { ok: _ok, runs, ...counts } = result;
+      return { ...current, ...counts, runs: [...current.runs, ...runs.filter((run) => !seen.has(run.id))] };
+    });
+  }
+
+  const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
+
+  return (
+    <section aria-label="Jump tests" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
+      <ColumnHeader
+        title="Jump tests"
+        description="Every jump test attempt: passed, out of hearts, or left before the end."
+      />
+      {visible == null ? (
+        <EmptyPanel>Loading jump tests…</EmptyPanel>
+      ) : visible.status === "missing" ? (
+        <EmptyPanel>{JUMP_RUNS_SCHEMA_HINT}</EmptyPanel>
+      ) : visible.status === "error" ? (
+        <EmptyPanel>Jump tests could not be loaded.</EmptyPanel>
+      ) : visible.total === 0 ? (
+        <EmptyPanel>{jumpEmptyMessage(range)}</EmptyPanel>
+      ) : (
+        <div className="flex flex-col gap-space-12">
+          <StatStrip
+            items={[
+              { label: "Attempts", value: String(visible.total) },
+              { label: "Passed", value: String(visible.passed) },
+              { label: "Failed", value: String(visible.failed) },
+              { label: "Left", value: String(visible.quit) },
+            ]}
+          />
+          <ul className="flex flex-col gap-space-8">
+            {visible.runs.map((run) => (
+              <JumpRunRow
+                key={run.id}
+                run={run}
+                catalog={catalog}
+                open={openRunId === run.id}
+                onToggle={() => setOpenRunId((current) => (current === run.id ? null : run.id))}
+              />
+            ))}
+          </ul>
+          {earlier > 0 ? (
+            <Button className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
+              {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "attempt" : "attempts"}`}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function visitStripStats(visits: readonly AdminVisitRow[]) {
   const study = visits.filter((visit) => !visit.idle);
   const studySeconds = study.reduce((sum, visit) => sum + visit.activeSeconds, 0);
@@ -746,13 +991,22 @@ export function ActivityTab({
           </>
         )}
       </section>
-      <ListeningRunsSection
-        userId={userId}
-        catalog={catalog}
-        revision={runsRevision}
-        range={range}
-        timeZone={timeZone}
-      />
+      <div className="flex min-w-0 flex-col gap-space-40">
+        <ListeningRunsSection
+          userId={userId}
+          catalog={catalog}
+          revision={runsRevision}
+          range={range}
+          timeZone={timeZone}
+        />
+        <JumpRunsSection
+          userId={userId}
+          catalog={catalog}
+          revision={runsRevision}
+          range={range}
+          timeZone={timeZone}
+        />
+      </div>
     </div>
   );
 }

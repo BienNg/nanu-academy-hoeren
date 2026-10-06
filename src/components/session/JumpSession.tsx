@@ -16,6 +16,7 @@ import {
   JUMP_XP,
   jumpSeed,
   type JumpAnswer,
+  type JumpEnding,
 } from "@/lib/lesson-jump";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { checkOrder, type PracticeCard } from "@/lib/sentence-order";
@@ -72,6 +73,7 @@ async function submitLessonJump(input: {
   lessonKey: string;
   elapsedMs: number;
   answers: JumpAnswer[];
+  ending: JumpEnding;
 }): Promise<JumpGrant | null> {
   try {
     const response = await fetch("/api/lesson-jump", {
@@ -101,6 +103,9 @@ async function submitLessonJump(input: {
     return null;
   }
 }
+
+/** The server refuses a longer run; a tab left open for days still logs. */
+const MAX_JUMP_ELAPSED_MS = 24 * 60 * 60 * 1000;
 
 function jumpXpNote(kind: string | null): string | undefined {
   if (kind === "repeat") return "Lektion này đã được tính XP.";
@@ -146,6 +151,7 @@ export function JumpSession({
     progressReady,
     learnChapterCompleted,
     completeLessonJump,
+    recordLessonJump,
     recordWrongAttempt,
     streakDays,
   } = useProgress();
@@ -180,6 +186,19 @@ export function JumpSession({
     router.replace(course.pathHref);
   }, [status, progressReady, phase, blocked, router, course.pathHref]);
 
+  // Leaving mid-test any other way than the quit dialog (back, a link, closing the tab) still logs the run.
+  const lessonKey = course.lessonKey;
+  useEffect(() => {
+    const quit = () => reportQuit(lessonKey);
+    window.addEventListener("pagehide", quit);
+    return () => {
+      window.removeEventListener("pagehide", quit);
+      quit();
+    };
+    // reportQuit reads only refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonKey]);
+
   useEffect(() => {
     if (breakingIndex === null) return;
     const timeout = window.setTimeout(() => setBreakingIndex(null), 560);
@@ -208,6 +227,22 @@ export function JumpSession({
     setAttemptCount((count) => count + 1);
     setPhase("quiz");
   };
+
+  const elapsedSinceStart = () =>
+    startedAtRef.current > 0 ? Math.min(MAX_JUMP_ELAPSED_MS, Date.now() - startedAtRef.current) : 0;
+
+  /** Logs the attempt in progress as left unfinished, with the answers so far. Once per attempt. */
+  function reportQuit(key: string) {
+    if (!attemptIdRef.current || finishingRef.current) return;
+    finishingRef.current = true;
+    void submitLessonJump({
+      id: attemptIdRef.current,
+      lessonKey: key,
+      elapsedMs: elapsedSinceStart(),
+      answers: [...answersRef.current],
+      ending: "quit",
+    });
+  }
 
   const leave = (href: string) => {
     setPhase("leaving");
@@ -256,7 +291,7 @@ export function JumpSession({
       const card = deck[at];
       return card ? !checkJumpAnswer(card, answer) : false;
     }).length;
-    const elapsedMs = startedAtRef.current > 0 ? Date.now() - startedAtRef.current : 0;
+    const elapsedMs = elapsedSinceStart();
     const accuracy =
       answers.length === 0 ? 0 : Math.round(((answers.length - mistakes) / answers.length) * 100);
     setSummary({
@@ -271,21 +306,35 @@ export function JumpSession({
       totalXp: null,
     });
     setPhase("complete");
-    if (failed) return;
+    if (failed) {
+      recordLessonJump(course.lessonKey, false);
+      void submitLessonJump({
+        id: attemptIdRef.current,
+        lessonKey: course.lessonKey,
+        elapsedMs,
+        answers,
+        ending: "finished",
+      });
+      return;
+    }
 
     // A Lektion already finished keeps its own stamps; only a real skip is recorded.
     if (!learnChapterCompleted(course.progressKey)) {
       completeLessonJump(
         course.progressKey,
+        course.lessonKey,
         clips.map((clip) => clip.id),
         videoKeys,
       );
+    } else {
+      recordLessonJump(course.lessonKey, true);
     }
     void submitLessonJump({
       id: attemptIdRef.current,
       lessonKey: course.lessonKey,
       elapsedMs,
       answers,
+      ending: "finished",
     }).then((grant) => {
       setSummary((current) =>
         current
@@ -372,7 +421,10 @@ export function JumpSession({
         <QuitDialog
           message="Bạn sẽ mất tiến độ của bài kiểm tra này nếu dừng bây giờ."
           onStay={() => setQuitOpen(false)}
-          onQuit={() => leave(course.pathHref)}
+          onQuit={() => {
+            reportQuit(course.lessonKey);
+            leave(course.pathHref);
+          }}
         />
       ) : null}
 

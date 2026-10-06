@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { loadAdminStudentDetail } from "@/app/admin/actions";
+import { loadAdminStudentDetail, loadAdminStudentXp } from "@/app/admin/actions";
 import { MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
 import { Badge, Button, Drawer, buttonClass, formatCount } from "@/components/admin/AdminUi";
 import {
@@ -13,10 +13,27 @@ import {
 import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
 import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
-import { projectStudentVisits, type AdminCatalogCourse } from "@/lib/admin-detail";
+import {
+  projectStudentVisits,
+  summarizeStudentXp,
+  type AdminCatalogCourse,
+  type AdminXpEvent,
+  type AdminXpSource,
+} from "@/lib/admin-detail";
 import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { activeStreakDays, formatActiveDuration } from "@/lib/progress";
+
+type XpLoadState = { userId: string; events: AdminXpEvent[] | null };
+
+const XP_SOURCE_COLOR: Record<AdminXpSource, string> = {
+  practice: ADMIN_COLORS.amber,
+  review: ADMIN_COLORS.amberSoft,
+  study: ADMIN_COLORS.emerald,
+  jump: ADMIN_COLORS.violet,
+  duel: ADMIN_COLORS.cobalt,
+  quest: ADMIN_COLORS.ember,
+};
 
 type LoadState =
   | { userId: string; ok: true; payload: StudentDetailPayload }
@@ -78,6 +95,113 @@ function StatGrid({
         </div>
       ))}
     </dl>
+  );
+}
+
+function SubHeading({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-space-8 pb-space-8 pt-space-16">
+      <h4 className="text-admin-body-sm font-semibold text-admin-ink">{title}</h4>
+      {meta ? <span className="text-[12px] leading-4 text-admin-ink-subtle">{meta}</span> : null}
+    </div>
+  );
+}
+
+const LIST = "divide-y divide-admin-hairline overflow-hidden rounded-admin-control border border-admin-hairline";
+const ROW = "flex items-center gap-space-8 bg-admin-card px-space-12 py-space-8 text-admin-body-sm";
+
+function XpSummary({
+  catalog,
+  events,
+}: {
+  catalog: readonly AdminCatalogCourse[];
+  events: readonly AdminXpEvent[];
+}) {
+  const xp = useMemo(() => summarizeStudentXp(catalog, events), [catalog, events]);
+
+  return (
+    <Section title="XP">
+      <StatGrid
+        items={[
+          {
+            label: "Total XP",
+            value: formatCount(xp.total),
+            hint: `${formatCount(xp.awards)} ${xp.awards === 1 ? "award" : "awards"}`,
+            color: xp.total > 0 ? ADMIN_COLORS.amber : undefined,
+          },
+          {
+            label: "This week",
+            value: formatCount(xp.week),
+            hint: `${formatCount(xp.today)} today · Vietnam time`,
+          },
+        ]}
+      />
+      {xp.sources.length === 0 ? (
+        <p className="pt-space-12 text-admin-body-sm text-admin-ink-subtle">No XP earned yet.</p>
+      ) : (
+        <>
+          <SubHeading title="By source" meta="Share of total" />
+          <div
+            className="mb-space-8 flex h-2 gap-px overflow-hidden rounded-full bg-admin-subtle"
+            role="img"
+            aria-label={xp.sources
+              .map((entry) => `${entry.label} ${Math.round((entry.xp / xp.total) * 100)}%`)
+              .join(", ")}
+          >
+            {xp.sources.map((entry) => (
+              <div
+                key={entry.source}
+                className="h-full"
+                style={{
+                  width: `${(entry.xp / xp.total) * 100}%`,
+                  backgroundColor: XP_SOURCE_COLOR[entry.source],
+                }}
+              />
+            ))}
+          </div>
+          <ul className={LIST}>
+            {xp.sources.map((entry) => (
+              <li key={entry.source} className={ROW}>
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: XP_SOURCE_COLOR[entry.source] }}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate text-admin-ink">{entry.label}</span>
+                <span className="shrink-0 text-[12px] tabular-nums text-admin-ink-subtle">
+                  {formatCount(entry.awards)}×
+                </span>
+                <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-admin-ink">
+                  {formatCount(entry.xp)}
+                </span>
+                <span className="w-10 shrink-0 text-right tabular-nums text-admin-ink-muted">
+                  {Math.round((entry.xp / xp.total) * 100)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+          {xp.lessons.length > 0 ? (
+            <>
+              <SubHeading title="Top lessons" meta="Practice, study and jump XP" />
+              <ol className={LIST}>
+                {xp.lessons.map((lesson, index) => (
+                  <li key={lesson.lessonKey} className={ROW}>
+                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-admin-badge bg-admin-subtle text-[11px] font-semibold tabular-nums text-admin-ink-subtle">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-admin-ink">{lesson.label}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-admin-ink">
+                      {formatCount(lesson.xp)}
+                      <span className="ml-0.5 text-[11px] font-normal text-admin-ink-subtle">XP</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : null}
+        </>
+      )}
+    </Section>
   );
 }
 
@@ -160,6 +284,7 @@ export function StudentDetail({
   onAccessChange?: (patch: StudentAccessPatch) => void;
 }) {
   const [load, setLoad] = useState<LoadState | null>(null);
+  const [xpLoad, setXpLoad] = useState<XpLoadState | null>(null);
   const [fullUserId, setFullUserId] = useState<string | null>(null);
   const current = load?.userId === row.userId ? load : null;
   const full = fullUserId === row.userId;
@@ -187,6 +312,18 @@ export function StudentDetail({
     };
   }, [row.userId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void loadAdminStudentXp(row.userId).then((result) => {
+      if (cancelled) return;
+      setXpLoad({ userId: row.userId, events: result.ok ? result.events : null });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.userId]);
+
+  const xpCurrent = xpLoad?.userId === row.userId ? xpLoad : null;
   const now = useNow();
 
   if (full) {
@@ -270,6 +407,14 @@ export function StudentDetail({
           </div>
         </dl>
       </div>
+
+      {xpCurrent == null ? null : xpCurrent.events ? (
+        <XpSummary catalog={catalog} events={xpCurrent.events} />
+      ) : (
+        <Section title="XP">
+          <p className="text-admin-body-sm text-admin-ink-subtle">Could not load XP.</p>
+        </Section>
+      )}
 
       {current == null ? (
         <DrawerSkeleton />

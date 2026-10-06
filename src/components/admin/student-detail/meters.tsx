@@ -24,6 +24,7 @@ function CircleMeter({
   accessibleLabel,
   detail,
   struggling = false,
+  skipped = false,
   itemClassName = "w-24",
   action,
 }: {
@@ -33,6 +34,8 @@ function CircleMeter({
   accessibleLabel: string;
   detail?: string | null;
   struggling?: boolean;
+  /** The jump test marked this node done. */
+  skipped?: boolean;
   itemClassName?: string;
   action?: ReactNode;
 }) {
@@ -40,8 +43,13 @@ function CircleMeter({
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(100, Math.max(0, percent));
   const offset = circumference * (1 - clamped / 100);
-  const progressColor =
-    clamped >= 100 ? ADMIN_COLORS.emerald : struggling ? ADMIN_COLORS.amber : ADMIN_COLORS.cobalt;
+  const progressColor = skipped
+    ? ADMIN_COLORS.cobalt
+    : clamped >= 100
+      ? ADMIN_COLORS.emerald
+      : struggling
+        ? ADMIN_COLORS.amber
+        : ADMIN_COLORS.cobalt;
 
   return (
     <li className={`flex flex-col items-center gap-1 text-center ${itemClassName}`} aria-label={accessibleLabel}>
@@ -62,7 +70,10 @@ function CircleMeter({
             />
           ) : null}
         </svg>
-        <span className="flex" style={{ color: clamped >= 100 ? ADMIN_COLORS.emerald : ADMIN_COLORS.cobalt }}>
+        <span
+          className="flex"
+          style={{ color: skipped || clamped < 100 ? ADMIN_COLORS.cobalt : ADMIN_COLORS.emerald }}
+        >
           <MaterialIcon name={icon} className="text-[20px]" filled />
         </span>
       </div>
@@ -74,7 +85,11 @@ function CircleMeter({
       {detail ? (
         <span
           className={`text-[11px] leading-[14px] ${
-            struggling ? "font-semibold text-admin-amber-ink" : "text-admin-ink-subtle"
+            skipped
+              ? "font-semibold text-admin-cobalt"
+              : struggling
+                ? "font-semibold text-admin-amber-ink"
+                : "text-admin-ink-subtle"
           }`}
         >
           {detail}
@@ -103,9 +118,10 @@ function ActivityMeter({
       percent={activity.percent}
       center={activity.progressLabel}
       icon={activityIcon(activity)}
-      accessibleLabel={`${activity.label}${activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"}${activity.note ? `, ${activity.note}` : ""}`}
-      detail={activity.note}
+      accessibleLabel={`${activity.label}${activity.skipped ? ", skipped by a jump test" : activity.progressLabel ? ` ${activity.progressLabel}` : ", completed"}${!activity.skipped && activity.note ? `, ${activity.note}` : ""}`}
+      detail={activity.skipped ? "Skipped" : activity.note}
       struggling={activity.struggling}
+      skipped={activity.skipped}
       itemClassName={itemClassName}
       action={action}
     />
@@ -128,7 +144,14 @@ function VideoMeter({
   action?: ReactNode;
 }) {
   const completed = video.status === "watched";
-  const statusLabel = completed ? null : video.status === "in-progress" ? "In progress" : "Not started";
+  const skipped = Boolean(video.skipped);
+  const statusLabel = skipped
+    ? "Skipped"
+    : completed
+      ? null
+      : video.status === "in-progress"
+        ? "In progress"
+        : "Not started";
   const showTitle = caption === "title";
 
   return (
@@ -137,11 +160,14 @@ function VideoMeter({
       center={showTitle ? video.title : videoCenter(video)}
       icon="smart_display"
       accessibleLabel={
-        completed
-          ? `${video.title}, watched`
-          : `${video.title}, ${statusLabel}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
+        skipped
+          ? `${video.title}, skipped by a jump test`
+          : completed
+            ? `${video.title}, watched`
+            : `${video.title}, ${statusLabel}${video.status === "in-progress" ? ` ${formatClock(video.positionSeconds)}` : ""}`
       }
-      detail={showTitle ? null : statusLabel}
+      detail={showTitle && !skipped ? null : statusLabel}
+      skipped={skipped}
       itemClassName={showTitle ? "w-full min-w-0" : "w-24"}
       action={action}
     />

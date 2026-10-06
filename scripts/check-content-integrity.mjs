@@ -11,6 +11,7 @@ const livingDataDir = join(repoRoot, "src/data/living");
 const livingAudioRoot = join(repoRoot, "public/audio/living");
 const livingImageRoot = join(repoRoot, "public/images/living");
 const grammarDataDir = join(repoRoot, "src/data/grammar");
+const grammarAudioRoot = join(repoRoot, "public/audio/grammar");
 const chaptersPath = join(repoRoot, "src/data/chapters.json");
 
 const errors = [];
@@ -149,6 +150,10 @@ function checkContentFile(jsonPath, audioDir) {
     }
   }
 
+  if (parsed.grammar !== undefined) {
+    checkLessonGrammar(parsed.grammar, jsonRel, audioDir, listedFilenames);
+  }
+
   if (!existsSync(audioDir)) {
     return;
   }
@@ -285,6 +290,216 @@ function checkGrammar() {
   }
 }
 
+const GRAMMAR_TENSES = ["praesens", "perfekt", "praeteritum"];
+const STORED_TENSES = ["praesens", "praeteritum"];
+
+/** src/data/grammar/tenses.json, filled by checkTenses. Null when it is missing or broken. */
+let tenseTables = null;
+/** Verbs some Lektion teaches, so their table audio is not orphaned. */
+const taughtVerbs = new Set();
+
+/**
+ * tenses.json: persons with id/label/say, the three tenses, and per verb a
+ * Präsens and Präteritum form for every person, a one-word Partizip and an
+ * aux that is itself in the table.
+ */
+function checkTenses() {
+  const tensesPath = join(grammarDataDir, "tenses.json");
+  const where = rel(tensesPath);
+  if (!existsSync(tensesPath)) return;
+  let file;
+  try {
+    file = JSON.parse(readFileSync(tensesPath, "utf8"));
+  } catch (error) {
+    errors.push(`Could not parse ${where}: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+  if (!isRecord(file) || !Array.isArray(file.persons) || !Array.isArray(file.tenses) || !isRecord(file.verbs)) {
+    errors.push(`${where} must have "persons", "tenses" and "verbs"`);
+    return;
+  }
+  const personIds = [];
+  file.persons.forEach((person, index) => {
+    if (!isRecord(person) || typeof person.id !== "string" || !SLUG.test(person.id)) {
+      errors.push(`${where} persons[${index}] needs a lowercase "id"`);
+      return;
+    }
+    for (const key of ["label", "say"]) {
+      if (typeof person[key] !== "string" || person[key].trim() === "") {
+        errors.push(`${where} persons[${index}] is missing a non-empty "${key}"`);
+      }
+    }
+    personIds.push(person.id);
+  });
+  const tenseIds = file.tenses.map((tense) => (isRecord(tense) ? tense.id : null));
+  for (const id of GRAMMAR_TENSES) {
+    if (!tenseIds.includes(id)) errors.push(`${where} "tenses" is missing "${id}"`);
+  }
+  for (const [infinitive, verb] of Object.entries(file.verbs)) {
+    const verbWhere = `${where} verbs.${infinitive}`;
+    if (!isRecord(verb)) {
+      errors.push(`${verbWhere} must be an object`);
+      continue;
+    }
+    for (const tense of STORED_TENSES) {
+      for (const personId of personIds) {
+        const form = isRecord(verb[tense]) ? verb[tense][personId] : undefined;
+        if (typeof form !== "string" || form.trim() === "" || /\s/.test(form.trim())) {
+          errors.push(`${verbWhere}.${tense} needs a one-word form for "${personId}"`);
+        }
+      }
+    }
+    if (typeof verb.partizip !== "string" || verb.partizip.trim() === "" || /\s/.test(verb.partizip.trim())) {
+      errors.push(`${verbWhere} needs a one-word "partizip"`);
+    }
+    if (typeof verb.aux !== "string" || !isRecord(file.verbs[verb.aux])) {
+      errors.push(`${verbWhere} "aux" must be a verb in ${where}, like "haben"`);
+    }
+  }
+  tenseTables = { personIds, verbs: file.verbs };
+}
+
+/**
+ * A Lektion's "grammar" block: topics with known verbs, tips, examples with
+ * audio next to the Lektion's clips, and transform/error drills.
+ */
+function checkLessonGrammar(grammar, jsonRel, audioDir, listedFilenames) {
+  if (!Array.isArray(grammar)) {
+    errors.push(`${jsonRel} "grammar" must be a list of topics`);
+    return;
+  }
+  const topicIds = new Set();
+  grammar.forEach((topic, topicIndex) => {
+    const where = `${jsonRel} grammar[${topicIndex}]`;
+    if (!isRecord(topic) || typeof topic.id !== "string" || !SLUG.test(topic.id)) {
+      errors.push(`${where} needs a lowercase "id" like "vergangenheit-haben-sein"`);
+      return;
+    }
+    if (topicIds.has(topic.id)) errors.push(`${where} repeats topic id "${topic.id}"`);
+    topicIds.add(topic.id);
+    if (typeof topic.titleVi !== "string" || topic.titleVi.trim() === "") {
+      errors.push(`${where} is missing a non-empty "titleVi"`);
+    }
+    const verbs = Array.isArray(topic.verbs) ? topic.verbs : [];
+    if (verbs.length === 0) errors.push(`${where} "verbs" must list at least one verb`);
+    for (const verb of verbs) {
+      if (!tenseTables || !isRecord(tenseTables.verbs[verb])) {
+        errors.push(`${where} verb "${verb}" is not in src/data/grammar/tenses.json`);
+      } else {
+        taughtVerbs.add(verb);
+      }
+    }
+    const inTopic = (verb, itemWhere) => {
+      if (verb !== undefined && !verbs.includes(verb)) {
+        errors.push(`${itemWhere} "verb" "${verb}" is not in the topic's "verbs"`);
+      }
+    };
+    const tense = (value, itemWhere) => {
+      if (!GRAMMAR_TENSES.includes(value)) {
+        errors.push(`${itemWhere} "tense" must be one of ${GRAMMAR_TENSES.join(", ")}`);
+      }
+    };
+
+    const tipIds = new Set();
+    (Array.isArray(topic.tips) ? topic.tips : []).forEach((tip, index) => {
+      const tipWhere = `${where} tips[${index}]`;
+      if (!isRecord(tip) || typeof tip.id !== "string" || !SLUG.test(tip.id)) {
+        errors.push(`${tipWhere} needs a lowercase "id"`);
+        return;
+      }
+      if (tipIds.has(tip.id)) errors.push(`${tipWhere} repeats tip id "${tip.id}"`);
+      tipIds.add(tip.id);
+      for (const key of ["titleVi", "textVi"]) {
+        if (typeof tip[key] !== "string" || tip[key].trim() === "") {
+          errors.push(`${tipWhere} is missing a non-empty "${key}"`);
+        }
+      }
+      inTopic(tip.verb, tipWhere);
+    });
+
+    (Array.isArray(topic.examples) ? topic.examples : []).forEach((example, index) => {
+      const exampleWhere = `${where} examples[${index}]`;
+      if (!isRecord(example) || typeof example.filename !== "string" || example.filename.length === 0) {
+        errors.push(`${exampleWhere} is missing a non-empty "filename" string`);
+        return;
+      }
+      for (const key of ["script", "translationVi"]) {
+        if (typeof example[key] !== "string" || example[key].trim() === "") {
+          errors.push(`${exampleWhere} is missing a non-empty "${key}"`);
+        }
+      }
+      inTopic(example.verb, exampleWhere);
+      tense(example.tense, exampleWhere);
+      if (tenseTables && !tenseTables.personIds.includes(example.person)) {
+        errors.push(`${exampleWhere} "person" must be one of ${tenseTables.personIds.join(", ")}`);
+      }
+      if (listedFilenames.has(nfc(example.filename))) {
+        errors.push(`${exampleWhere} repeats filename "${example.filename}"`);
+      }
+      listedFilenames.add(nfc(example.filename));
+      if (!existsSync(join(audioDir, example.filename))) {
+        skippedMissingAudio.push(`${rel(join(audioDir, example.filename))} (listed in ${exampleWhere})`);
+      }
+    });
+
+    (Array.isArray(topic.drills) ? topic.drills : []).forEach((drill, index) => {
+      const drillWhere = `${where} drills[${index}]`;
+      if (!isRecord(drill)) {
+        errors.push(`${drillWhere} must be an object`);
+        return;
+      }
+      inTopic(drill.verb, drillWhere);
+      const text = (key) => typeof drill[key] === "string" && drill[key].trim() !== "";
+      if (drill.type === "transform") {
+        tense(drill.tense, drillWhere);
+        for (const key of ["from", "to", "translationVi"]) {
+          if (!text(key)) errors.push(`${drillWhere} is missing a non-empty "${key}"`);
+        }
+        if (text("from") && text("to") && drill.from.trim() === drill.to.trim()) {
+          errors.push(`${drillWhere} "from" and "to" are the same sentence`);
+        }
+      } else if (drill.type === "error") {
+        if (!text("script")) errors.push(`${drillWhere} is missing a non-empty "script"`);
+        if (drill.fix !== undefined) {
+          if (!text("fix")) errors.push(`${drillWhere} "fix" must be a non-empty sentence`);
+          else if (text("script") && drill.fix.trim() === drill.script.trim()) {
+            errors.push(`${drillWhere} "fix" equals "script"; leave "fix" out for a correct sentence`);
+          }
+          if (!text("whyVi")) errors.push(`${drillWhere} needs a "whyVi" when it has a "fix"`);
+        }
+      } else {
+        errors.push(`${drillWhere} "type" must be "transform" or "error"`);
+      }
+    });
+  });
+}
+
+/**
+ * public/audio/grammar/<verb>/<tense>-<person>.mp3: table rows of verbs a
+ * Lektion teaches. Missing rows are skipped; files no row needs are orphans.
+ */
+function checkGrammarAudio() {
+  if (!tenseTables) return;
+  const expected = new Set();
+  for (const verb of taughtVerbs) {
+    for (const tense of GRAMMAR_TENSES) {
+      for (const personId of tenseTables.personIds) {
+        const path = join(grammarAudioRoot, verb, `${tense}-${personId}.mp3`);
+        expected.add(path);
+        if (!existsSync(path)) skippedMissingAudio.push(`${rel(path)} (table row)`);
+      }
+    }
+  }
+  for (const verb of listDirs(grammarAudioRoot)) {
+    const dir = join(grammarAudioRoot, verb);
+    for (const name of readdirSync(dir).filter((file) => file.endsWith(".mp3"))) {
+      if (!expected.has(join(dir, name))) {
+        errors.push(`Orphaned audio file: ${rel(join(dir, name))} (no taught verb, tense and person)`);
+      }
+    }
+  }
+}
+
 /** A clip's "gaps" must name words in its script and known topics; "noGaps" is true or a word list. */
 function checkClipGaps(clip, where) {
   if (clip.noGaps !== undefined) {
@@ -363,7 +578,7 @@ function checkLevels() {
 
   // Audio sitting under a level with no matching Lektion JSON.
   for (const levelSlug of listDirs(levelsAudioRoot).filter(
-    (name) => name !== "ausbildung" && name !== "living",
+    (name) => name !== "ausbildung" && name !== "living" && name !== "grammar",
   )) {
     const levelAudioDir = join(levelsAudioRoot, levelSlug);
     for (const chapterSlug of listDirs(levelAudioDir)) {
@@ -523,9 +738,11 @@ function checkLiving() {
 }
 
 checkGrammar();
+checkTenses();
 const ausbildungCount = checkAusbildung();
 const levelCount = checkLevels();
 const livingCount = checkLiving();
+checkGrammarAudio();
 
 if (errors.length > 0) {
   console.error("Content integrity check failed:\n");

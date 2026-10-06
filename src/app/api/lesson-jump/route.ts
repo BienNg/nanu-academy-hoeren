@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { parseLessonJumpInput } from "@/lib/lesson-jump";
-import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
+import { buildJumpDeck, jumpRunFor, jumpSeed, parseLessonJumpInput } from "@/lib/lesson-jump";
+import { getChapterClips } from "@/lib/levels";
+import { insertJumpRun, isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import { syncQuestsQuietly } from "@/lib/quest-store";
 import { QUEST_TIME_ZONE_HEADER, resolveQuestZone } from "@/lib/quests";
 import { grantLessonJumpXp, readTotalXp } from "@/lib/xp-store";
@@ -39,6 +40,20 @@ export async function POST(request: Request) {
   const jump = parseLessonJumpInput(body);
   if (!jump) {
     return NextResponse.json({ error: "Invalid jump test" }, { status: 400 });
+  }
+
+  // Every attempt is logged, graded against the same seeded deck the browser dealt.
+  const slash = jump.lessonKey.indexOf("/");
+  let clips: ReturnType<typeof getChapterClips> = [];
+  try {
+    clips = getChapterClips(jump.lessonKey.slice(0, slash), jump.lessonKey.slice(slash + 1));
+  } catch {
+    clips = [];
+  }
+  const run = jumpRunFor(buildJumpDeck(clips, jumpSeed(jump.lessonKey, jump.id)), jump);
+  if (clips.length > 0) await insertJumpRun(session.user.id, run);
+  if (run.outcome !== "success") {
+    return NextResponse.json({ ok: true, outcome: run.outcome, xp: 0, kind: "rejected", ready: true });
   }
 
   const grant = await grantLessonJumpXp(session.user.id, jump);

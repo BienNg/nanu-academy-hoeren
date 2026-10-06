@@ -17,7 +17,7 @@ export function praiseFor(seed: string): string {
 }
 
 /** Tap-to-hear control for a sheet line that has no player of its own. */
-function SpeakButton({ audioPath }: { audioPath: string }) {
+export function SpeakButton({ audioPath }: { audioPath: string }) {
   const howlRef = useRef<Howl | null>(null);
   const [playing, setPlaying] = useState(false);
 

@@ -16,6 +16,7 @@ import {
   isSentenceOrderEligible,
   type OrderSourceClip,
   type PracticeCard,
+  type PracticeCardKind,
 } from "./sentence-order";
 import { dayKey, weekKey } from "./xp";
 
@@ -164,12 +165,17 @@ export function gradeJumpAnswers(
   };
 }
 
+/** How the attempt ended on the device: the deck or the hearts ran out, or the learner left. */
+export type JumpEnding = "finished" | "quit";
+
 export type LessonJumpInput = {
   /** Attempt id. Also the seed of the deck and the award's primary key. */
   id: string;
   lessonKey: string;
   elapsedMs: number;
   answers: JumpAnswer[];
+  /** Absent on clients that only sent passed tests; those count as finished. */
+  ending: JumpEnding;
 };
 
 function readAnswer(value: unknown): JumpAnswer | null {
@@ -206,7 +212,169 @@ export function parseLessonJumpInput(value: unknown): LessonJumpInput | null {
     if (answer == null) return null;
     answers.push(answer);
   }
-  return { id: record.id.toLowerCase(), lessonKey: record.lessonKey, elapsedMs, answers };
+  let ending: JumpEnding = "finished";
+  if (record.ending === "quit") ending = "quit";
+  else if (record.ending !== undefined && record.ending !== "finished") return null;
+  return { id: record.id.toLowerCase(), lessonKey: record.lessonKey, elapsedMs, answers, ending };
+}
+
+export const JUMP_RUNS_SCHEMA_HINT =
+  "Jump tests are not being logged yet. Run supabase/lesson_jump_runs.sql once in the Supabase SQL editor.";
+
+export function isJumpRunsSchemaMissing(message: string): boolean {
+  return (
+    /lesson_jump_runs/i.test(message) &&
+    /does not exist|schema cache|could not find the table/i.test(message)
+  );
+}
+
+export type JumpRunOutcome = "success" | "fail" | "quit";
+
+/** One answered card, rebuilt on the server from the seeded deck. */
+export type JumpRunCard = {
+  clipId: string;
+  kind: PracticeCardKind;
+  right: boolean;
+  entered: string;
+  correct: string;
+};
+
+export type JumpRun = {
+  id: string;
+  lessonKey: string;
+  outcome: JumpRunOutcome;
+  cardCount: number;
+  answeredCount: number;
+  mistakes: number;
+  accuracy: number;
+  elapsedMs: number;
+  cards: JumpRunCard[];
+};
+
+export type StoredJumpRun = JumpRun & { createdAt: string };
+
+export type StudentJumpRunsPage = {
+  status: "ready" | "missing" | "error";
+  runs: StoredJumpRun[];
+  total: number;
+  passed: number;
+  failed: number;
+  quit: number;
+};
+
+function cleanRunText(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, MAX_ANSWER_CHARS);
+}
+
+function describeJumpAnswer(card: PracticeCard, answer: JumpAnswer): JumpRunCard {
+  let entered: string;
+  let correct: string;
+  if (card.options) {
+    const picked = typeof answer === "string" ? card.options.find((option) => option.id === answer) : undefined;
+    entered = picked?.text ?? (typeof answer === "string" ? answer : answer.join(" "));
+    correct = card.options.find((option) => option.correct)?.text ?? "";
+  } else {
+    entered = typeof answer === "string" ? answer : answer.join(" ");
+    correct = card.clip.script;
+  }
+  return {
+    clipId: card.clip.id,
+    kind: card.kind,
+    right: checkJumpAnswer(card, answer),
+    entered: cleanRunText(entered),
+    correct: cleanRunText(correct),
+  };
+}
+
+/**
+ * The log row for one attempt. Only answers the test accepted are kept: a
+ * run stops at the last heart. A finished run that did not pass is a fail.
+ */
+export function jumpRunFor(deck: readonly PracticeCard[], input: LessonJumpInput): JumpRun {
+  const grade = gradeJumpAnswers(deck, input.answers);
+  const cards = input.answers
+    .slice(0, grade.answered)
+    .map((answer, at) => describeJumpAnswer(deck[at] as PracticeCard, answer));
+  let outcome: JumpRunOutcome = "fail";
+  if (input.ending === "quit") outcome = "quit";
+  else if (grade.passed) outcome = "success";
+  return {
+    id: input.id,
+    lessonKey: input.lessonKey,
+    outcome,
+    cardCount: deck.length,
+    answeredCount: grade.answered,
+    mistakes: grade.mistakes,
+    accuracy:
+      grade.answered === 0 ? 0 : Math.round(((grade.answered - grade.mistakes) / grade.answered) * 100),
+    elapsedMs: input.elapsedMs,
+    cards,
+  };
+}
+
+function readRunCard(value: unknown): JumpRunCard | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.clipId !== "string" ||
+    typeof record.kind !== "string" ||
+    typeof record.right !== "boolean" ||
+    typeof record.entered !== "string" ||
+    typeof record.correct !== "string"
+  ) {
+    return null;
+  }
+  return {
+    clipId: record.clipId,
+    kind: record.kind as PracticeCardKind,
+    right: record.right,
+    entered: record.entered,
+    correct: record.correct,
+  };
+}
+
+function rowInt(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** A lesson_jump_runs row. Null when a column is unreadable. */
+export function storedJumpRunFromRow(row: unknown): StoredJumpRun | null {
+  if (!row || typeof row !== "object") return null;
+  const record = row as Record<string, unknown>;
+  const outcome = record.outcome;
+  if (outcome !== "success" && outcome !== "fail" && outcome !== "quit") return null;
+  const cardCount = rowInt(record.card_count);
+  const answeredCount = rowInt(record.answered_count);
+  const mistakes = rowInt(record.mistakes);
+  const accuracy = rowInt(record.accuracy);
+  const elapsedMs = rowInt(record.elapsed_ms);
+  if (
+    typeof record.id !== "string" ||
+    typeof record.lesson_key !== "string" ||
+    typeof record.created_at !== "string" ||
+    cardCount == null ||
+    answeredCount == null ||
+    mistakes == null ||
+    accuracy == null ||
+    elapsedMs == null
+  ) {
+    return null;
+  }
+  const cards = Array.isArray(record.cards)
+    ? record.cards.map(readRunCard).filter((card): card is JumpRunCard => card != null)
+    : [];
+  return {
+    id: record.id,
+    lessonKey: record.lesson_key,
+    outcome,
+    cardCount,
+    answeredCount,
+    mistakes,
+    accuracy,
+    elapsedMs,
+    cards,
+    createdAt: record.created_at,
+  };
 }
 
 export type JumpXpKind = "new" | "repeat" | "rejected";

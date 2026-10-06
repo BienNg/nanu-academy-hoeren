@@ -11,6 +11,7 @@ import {
   jumpSeed,
   jumpTarget,
   MIN_MS_PER_JUMP_CARD,
+  jumpRunFor,
   parseLessonJumpInput,
   type JumpAnswer,
 } from "./lesson-jump.js";
@@ -177,7 +178,16 @@ test("jump input keeps option ids and chip lists, and rejects anything else", ()
     lessonKey: "a1-1/lektion-3",
     elapsedMs: 40_000,
     answers: ["correct", ["Ich", "sage"]],
+    ending: "finished",
   });
+  assert.equal(
+    parseLessonJumpInput({ id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 1, answers: [], ending: "quit" })?.ending,
+    "quit",
+  );
+  assert.equal(
+    parseLessonJumpInput({ id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 1, answers: [], ending: "later" }),
+    null,
+  );
   assert.equal(parseLessonJumpInput({ id: "nope", lessonKey: "a1-1/lektion-3", elapsedMs: 1, answers: [] }), null);
   assert.equal(
     parseLessonJumpInput({ id: ID, lessonKey: "../x", elapsedMs: 1, answers: [] }),
@@ -244,6 +254,11 @@ test("a passed jump completes study, practice, and videos, and keeps earlier sta
   assert.ok(isLearnChapterCompleted(next, "lektion-2"));
   assert.ok(isStudyChapterCompleted(next, "lektion-2"));
   assert.equal(entry.skippedAt, now.toISOString());
+  assert.deepEqual(entry.jumpSkip, {
+    studyClipIds: ["k0", "k1", "k2"],
+    practiceClipIds: ["k1", "k2"],
+    videoKeys: ["a1-1/lektion-2/new"],
+  });
   assert.equal(entry.runCount, 1);
   assert.equal(entry.studyRunCount, 1);
   assert.deepEqual(entry.completedClipIds, ["k0", "k1", "k2"]);
@@ -255,7 +270,40 @@ test("a passed jump completes study, practice, and videos, and keeps earlier sta
   // The skip stamp survives a reload and a merge with an older snapshot.
   const reloaded = normalizeProgress(JSON.parse(JSON.stringify(next)));
   assert.equal(reloaded.learn["lektion-2"]?.skippedAt, now.toISOString());
+  assert.deepEqual(reloaded.learn["lektion-2"]?.jumpSkip?.videoKeys, ["a1-1/lektion-2/new"]);
   const merged = mergeProgress(start, reloaded);
   assert.equal(merged.learn["lektion-2"]?.skippedAt, now.toISOString());
+  assert.deepEqual(merged.learn["lektion-2"]?.jumpSkip?.practiceClipIds, ["k1", "k2"]);
   assert.ok(isLearnChapterCompleted(merged, "lektion-2"));
+});
+
+test("a jump run logs the answered cards with what was entered and what was right", () => {
+  const clips = lessonClips(6);
+  const deck = buildJumpDeck(clips, jumpSeed("a1-1/lektion-3", ID));
+  const right = deck.map((card) => rightAnswer(card));
+  const wrong = (card: PracticeCard): JumpAnswer =>
+    card.options ? (card.options.find((option) => !option.correct)?.id ?? "x") : card.kind === "vi-input" ? "falsch" : ["falsch"];
+
+  const quit = jumpRunFor(deck, { id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 9000, answers: [right[0]!, wrong(deck[1]!)], ending: "quit" });
+  assert.equal(quit.outcome, "quit");
+  assert.equal(quit.cardCount, deck.length);
+  assert.equal(quit.answeredCount, 2);
+  assert.equal(quit.mistakes, 1);
+  assert.equal(quit.accuracy, 50);
+  assert.deepEqual(quit.cards.map((card) => card.right), [true, false]);
+  assert.equal(quit.cards[1]?.clipId, deck[1]?.clip.id);
+  assert.notEqual(quit.cards[1]?.entered, quit.cards[1]?.correct);
+
+  const empty = jumpRunFor(deck, { id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 0, answers: [], ending: "quit" });
+  assert.equal(empty.answeredCount, 0);
+  assert.equal(empty.accuracy, 0);
+
+  const misses = deck.map((card) => wrong(card));
+  const fail = jumpRunFor(deck, { id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 9000, answers: misses, ending: "finished" });
+  assert.equal(fail.outcome, "fail");
+  assert.equal(fail.answeredCount, JUMP_HEARTS);
+
+  const pass = jumpRunFor(deck, { id: ID, lessonKey: "a1-1/lektion-3", elapsedMs: 90_000, answers: right, ending: "finished" });
+  assert.equal(pass.outcome, "success");
+  assert.equal(pass.accuracy, 100);
 });
