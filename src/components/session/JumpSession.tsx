@@ -56,9 +56,15 @@ type JumpSummary = {
   xpKind: string | null;
   xpPending: boolean;
   quests: QuestUpdate | null;
+  totalXp: number | null;
 };
 
-type JumpGrant = { xp: number | null; kind: string | null; quests: QuestUpdate | null };
+type JumpGrant = {
+  xp: number | null;
+  kind: string | null;
+  quests: QuestUpdate | null;
+  total: number | null;
+};
 
 async function submitLessonJump(input: {
   id: string;
@@ -77,11 +83,17 @@ async function submitLessonJump(input: {
       console.error("Jump test was not saved", response.status);
       return null;
     }
-    const data = (await response.json()) as { xp?: unknown; kind?: unknown; quests?: unknown };
+    const data = (await response.json()) as {
+      xp?: unknown;
+      kind?: unknown;
+      quests?: unknown;
+      total?: unknown;
+    };
     return {
       xp: typeof data.xp === "number" ? data.xp : null,
       kind: typeof data.kind === "string" ? data.kind : null,
       quests: readQuestUpdate(data.quests),
+      total: typeof data.total === "number" ? data.total : null,
     };
   } catch (error) {
     console.error("Jump test was not saved", error);
@@ -249,6 +261,7 @@ export function JumpSession({
       xpKind: null,
       xpPending: !failed,
       quests: null,
+      totalXp: null,
     });
     setPhase("complete");
     if (failed) return;
@@ -275,6 +288,7 @@ export function JumpSession({
               xpKind: grant?.kind ?? null,
               xpPending: false,
               quests: grant?.quests ?? null,
+              totalXp: grant?.total ?? null,
             }
           : current,
       );
@@ -439,6 +453,7 @@ export function JumpSession({
           xp={summary.xp}
           xpKind={summary.xpKind}
           xpPending={summary.xpPending}
+          totalXp={summary.totalXp}
           xpNote={jumpXpNote(summary.xpKind)}
           questUpdate={summary.quests}
           streakDays={streakDays}

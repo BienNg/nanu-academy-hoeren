@@ -27,7 +27,6 @@ import {
   splitStudyParts,
   studyPartCount,
   studyPartSize,
-  type StoredProgress,
 } from "@/lib/progress";
 import {
   getCloudProgress,
@@ -238,15 +237,12 @@ async function lessonPassForRun(
   userId: string,
   input: ListeningRunInput,
   lessonClips: readonly XpLessonClip[],
-  stored: StoredProgress,
   chapterSlug: string,
 ): Promise<RunPass | null> {
-  const recordedFinishes = await finishedListeningPasses(
-    supabase,
-    userId,
-    input.lessonKey,
-    input.id,
-  );
+  const [recordedFinishes, stored] = await Promise.all([
+    finishedListeningPasses(supabase, userId, input.lessonKey, input.id),
+    getCloudProgress(userId),
+  ]);
   if (recordedFinishes == null) return null;
   return {
     expectedCount: listeningPartSize(
@@ -302,11 +298,16 @@ export async function grantXpForListeningRun(
   const supabase = getSupabaseAdmin();
   if (!supabase) return { ready: false, xp: null, kind: null };
 
-  const existing = await supabase
-    .from(XP_TABLE)
-    .select("xp, kind")
-    .eq("run_id", input.id)
-    .maybeSingle();
+  const slash = input.lessonKey.indexOf("/");
+  const chapterSlug = slash > 0 ? input.lessonKey.slice(slash + 1) : "";
+  const lessonClips = lessonClipsForXp(input.lessonKey);
+  // The pass reads exclude this run, so they start beside the lookup instead of after it.
+  const [existing, pass] = await Promise.all([
+    supabase.from(XP_TABLE).select("xp, kind").eq("run_id", input.id).maybeSingle(),
+    getLivingClipsForLessonKey(input.lessonKey)
+      ? lessonPassForRun(supabase, userId, input, lessonClips, chapterSlug)
+      : nodePassForRun(supabase, userId, input),
+  ]);
   if (existing.error) {
     if (!isXpSchemaMissing(existing.error.message)) {
       console.error("Supabase grantXp lookup", existing.error.message);
@@ -322,13 +323,6 @@ export async function grantXpForListeningRun(
     };
   }
 
-  const stored = await getCloudProgress(userId);
-  const slash = input.lessonKey.indexOf("/");
-  const chapterSlug = slash > 0 ? input.lessonKey.slice(slash + 1) : "";
-  const lessonClips = lessonClipsForXp(input.lessonKey);
-  const pass = getLivingClipsForLessonKey(input.lessonKey)
-    ? await lessonPassForRun(supabase, userId, input, lessonClips, stored, chapterSlug)
-    : await nodePassForRun(supabase, userId, input);
   if (!pass) return { ready: false, xp: null, kind: null };
 
   const decision = decidePartXp({
@@ -404,11 +398,22 @@ export async function grantStudyPartXp(
   const supabase = getSupabaseAdmin();
   if (!supabase) return { ready: false, xp: null, kind: null };
 
-  const existing = await supabase
-    .from(STUDY_XP_TABLE)
-    .select("xp")
-    .eq("id", input.id)
-    .maybeSingle();
+  const lessonClips = lessonClipsForXp(input.lessonKey);
+  const partCount = studyPartCount(lessonClips.length);
+  const part = splitStudyParts(lessonClips)[input.partNumber - 1] ?? [];
+  const matches =
+    input.partCount === partCount &&
+    sameClipSet(
+      input.clipIds,
+      part.map((clip) => clip.id),
+    );
+  // This part is not stored yet, so its passes are counted beside the lookup.
+  const [existing, finishedPasses] = await Promise.all([
+    supabase.from(STUDY_XP_TABLE).select("xp").eq("id", input.id).maybeSingle(),
+    matches
+      ? finishedStudyPasses(supabase, userId, input.lessonKey, input.partNumber)
+      : Promise.resolve(0),
+  ]);
   if (existing.error) {
     if (!isStudyXpSchemaMissing(existing.error.message)) {
       console.error("Supabase grantStudyXp lookup", existing.error.message);
@@ -424,18 +429,6 @@ export async function grantStudyPartXp(
     };
   }
 
-  const lessonClips = lessonClipsForXp(input.lessonKey);
-  const partCount = studyPartCount(lessonClips.length);
-  const part = splitStudyParts(lessonClips)[input.partNumber - 1] ?? [];
-  const matches =
-    input.partCount === partCount &&
-    sameClipSet(
-      input.clipIds,
-      part.map((clip) => clip.id),
-    );
-  const finishedPasses = matches
-    ? await finishedStudyPasses(supabase, userId, input.lessonKey, input.partNumber)
-    : 0;
   if (finishedPasses == null) return { ready: false, xp: null, kind: null };
   const decision = decideStudyPartXp({
     elapsedMs: input.elapsedMs,
@@ -494,12 +487,15 @@ export async function grantLessonJumpXp(
   const supabase = getSupabaseAdmin();
   if (!supabase) return { ready: false, xp: null, kind: null };
 
-  const existing = await supabase
-    .from(JUMP_XP_TABLE)
-    .select("id, xp")
-    .eq("user_id", userId)
-    .eq("lesson_key", input.lessonKey)
-    .maybeSingle();
+  const [existing, stored] = await Promise.all([
+    supabase
+      .from(JUMP_XP_TABLE)
+      .select("id, xp")
+      .eq("user_id", userId)
+      .eq("lesson_key", input.lessonKey)
+      .maybeSingle(),
+    getCloudProgress(userId),
+  ]);
   if (existing.error) {
     if (!isJumpXpSchemaMissing(existing.error.message)) {
       console.error("Supabase grantJumpXp lookup", existing.error.message);
@@ -517,7 +513,6 @@ export async function grantLessonJumpXp(
   const deck = buildJumpDeck(clips, jumpSeed(input.lessonKey, input.id));
   const grade = gradeJumpAnswers(deck, input.answers);
   const slash = input.lessonKey.indexOf("/");
-  const stored = await getCloudProgress(userId);
   const entry = stored.learn[input.lessonKey.slice(slash + 1)];
   const decision = decideJumpXp({
     grade,
@@ -724,11 +719,11 @@ export type UserXpTotals = {
   total: number;
 };
 
-export async function getUserXpTotals(userId: string, now = new Date()): Promise<UserXpTotals> {
-  const empty: UserXpTotals = { ready: false, today: 0, week: 0, total: 0 };
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return empty;
-
+/** One learner's listening XP rows. Null when the table is unreadable. */
+async function listUserListeningXp(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ xp: number; day_key: string; week_key: string }[] | null> {
   const rows: { xp: number; day_key: string; week_key: string }[] = [];
   let from = 0;
   for (;;) {
@@ -742,7 +737,7 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
       if (!isXpSchemaMissing(error.message)) {
         console.error("Supabase getUserXpTotals", error.message);
       }
-      return empty;
+      return null;
     }
     const page = (data ?? []) as { xp?: unknown; day_key?: unknown; week_key?: unknown }[];
     for (const row of page) {
@@ -751,37 +746,57 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
       }
       rows.push({ xp: row.xp, day_key: row.day_key, week_key: row.week_key });
     }
-    if (page.length < PAGE_SIZE) break;
+    if (page.length < PAGE_SIZE) return rows;
     from += PAGE_SIZE;
   }
+}
 
-  const duelRows = await listUserDuelXp(supabase, userId);
-  const studyRows = [
-    ...(await listUserStudyXp(supabase, userId)),
-    ...(await listUserJumpXp(supabase, userId)),
-    ...(await listQuestClaimRows(supabase, null, userId)),
-  ];
+const USER_TOTALS_RPC = "user_xp_totals";
+
+export async function getUserXpTotals(userId: string, now = new Date()): Promise<UserXpTotals> {
+  const empty: UserXpTotals = { ready: false, today: 0, week: 0, total: 0 };
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return empty;
+
   const todayKey = dayKey(now);
   const currentWeek = weekKey(now);
+  const summed = await supabase
+    .rpc(USER_TOTALS_RPC, { p_user_id: userId, p_day_key: todayKey, p_week_key: currentWeek })
+    .maybeSingle();
+  if (!summed.error && summed.data) {
+    const row = summed.data as Record<string, unknown>;
+    return {
+      ready: true,
+      today: readCount(row.today),
+      week: readCount(row.week),
+      total: readCount(row.total),
+    };
+  }
+  if (summed.error) noteRpcFallback(USER_TOTALS_RPC, summed.error.message);
+
+  const [rows, duelRows, studyRows, jumpRows, claimRows] = await Promise.all([
+    listUserListeningXp(supabase, userId),
+    listUserDuelXp(supabase, userId),
+    listUserStudyXp(supabase, userId),
+    listUserJumpXp(supabase, userId),
+    listQuestClaimRows(supabase, null, userId),
+  ]);
+  if (!rows) return empty;
   let today = 0;
   let week = 0;
   let total = 0;
-  for (const row of rows) {
-    total += row.xp;
-    if (row.day_key === todayKey) today += row.xp;
-    if (row.week_key === currentWeek) week += row.xp;
-  }
-  for (const row of duelRows) {
-    total += row.xp;
-    if (row.day_key === todayKey) today += row.xp;
-    if (row.week_key === currentWeek) week += row.xp;
-  }
-  for (const row of studyRows) {
+  for (const row of [...rows, ...duelRows, ...studyRows, ...jumpRows, ...claimRows]) {
     total += row.xp;
     if (row.day_key === todayKey) today += row.xp;
     if (row.week_key === currentWeek) week += row.xp;
   }
   return { ready: true, today, week, total };
+}
+
+/** The learner's all-time XP, for the completed screen. Null when unreadable. */
+export async function readTotalXp(userId: string): Promise<number | null> {
+  const totals = await getUserXpTotals(userId);
+  return totals.ready ? totals.total : null;
 }
 
 type XpAwardSumRow = {
@@ -977,6 +992,7 @@ type DuelTotal = XpTotal & {
 };
 
 const XP_TOTALS_RPC = "xp_leaderboard_totals";
+const BOARD_TOTALS_RPC = "xp_board_totals";
 const DUEL_TOTALS_RPC = "duel_xp_leaderboard_totals";
 const loggedMissingRpc = new Set<string>();
 
@@ -1019,8 +1035,8 @@ function readStamp(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-/** Positive XP per learner for the range. Null means the XP table is unreadable. */
-async function readXpTotals(
+/** Positive listening XP per learner for the range. Null means the XP table is unreadable. */
+async function readListeningTotals(
   supabase: SupabaseClient,
   range: LeaderboardRange,
   now: Date,
@@ -1038,9 +1054,6 @@ async function readXpTotals(
       if (xp <= 0) continue;
       totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
     }
-    await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
-    mergeStudyAwards(totals, await listJumpAwardRows(supabase, range, now));
-    mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
     return totals;
   }
 
@@ -1055,9 +1068,38 @@ async function readXpTotals(
     }
     totals.set(award.user_id, current);
   }
-  await mergeStudyAwards(totals, await listStudyAwardRows(supabase, range, now));
-  mergeStudyAwards(totals, await listJumpAwardRows(supabase, range, now));
-  mergeStudyAwards(totals, await listQuestClaimRows(supabase, range === "week" ? weekKey(now) : null));
+  return totals;
+}
+
+/** Positive XP per learner for the range. Null means the XP table is unreadable. */
+async function readXpTotals(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<Map<string, XpTotal> | null> {
+  const week = range === "week" ? weekKey(now) : null;
+  const combined = await readTotalsRpc(supabase, BOARD_TOTALS_RPC, week);
+  if (combined) {
+    const totals = new Map<string, XpTotal>();
+    for (const row of combined) {
+      if (typeof row.user_id !== "string") continue;
+      const xp = readCount(row.xp);
+      if (xp <= 0) continue;
+      totals.set(row.user_id, { xp, reachedAt: readStamp(row.reached_at) });
+    }
+    return totals;
+  }
+
+  const [totals, study, jumps, claims] = await Promise.all([
+    readListeningTotals(supabase, range, now),
+    listStudyAwardRows(supabase, range, now),
+    listJumpAwardRows(supabase, range, now),
+    listQuestClaimRows(supabase, week),
+  ]);
+  if (!totals) return null;
+  mergeStudyAwards(totals, study);
+  mergeStudyAwards(totals, jumps);
+  mergeStudyAwards(totals, claims);
   return totals;
 }
 
@@ -1159,23 +1201,22 @@ function classChoice(
 
 async function markBlitzrundeTab(
   payload: LeaderboardPayload,
-  viewerId: string,
+  ownClassName: Promise<string | null>,
   canPickClass: boolean,
 ): Promise<LeaderboardPayload> {
-  const classKey =
-    payload.scope === "class" && payload.classKey
-      ? payload.classKey
-      : leaderboardClassKey(await getUserClassName(viewerId));
+  const ownClass = leaderboardClassKey(await ownClassName);
+  const classKey = payload.scope === "class" && payload.classKey ? payload.classKey : ownClass;
   let available = await classHasStartedBlitzrunde(classKey);
   if (!available && canPickClass) available = await anyClassHasStartedBlitzrunde();
   // Duels match within the viewer's own real class, never a picked or workplace board.
-  const ownClass = leaderboardClassKey(await getUserClassName(viewerId));
   return { ...payload, blitzrundeAvailable: available, duelAvailable: ownClass.length > 0 };
 }
 
 export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  // Read beside the board, so the tab check does not add a round trip.
+  const ownClassName = getUserClassName(input.viewerId);
   const finish = (payload: LeaderboardPayload) =>
-    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
+    markBlitzrundeTab(payload, ownClassName, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -1186,13 +1227,16 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
   const supabase = getSupabaseAdmin();
   if (!supabase) return finish(blank);
 
-  const xpTotals = await readXpTotals(supabase, input.range, now);
+  const [xpTotals, duelTotals, profiles] = await Promise.all([
+    readXpTotals(supabase, input.range, now),
+    readDuelTotals(supabase, input.range, now),
+    listBoardProfiles(supabase),
+  ]);
   if (!xpTotals) return finish(blank);
 
   const totals = new Map<string, { xp: number; reachedAt: string | null }>();
   for (const [userId, total] of xpTotals) totals.set(userId, { ...total });
 
-  const duelTotals = await readDuelTotals(supabase, input.range, now);
   if (duelTotals !== "missing") {
     for (const [userId, duel] of duelTotals) {
       // Zero-XP duel losses do not place anyone on the XP board.
@@ -1206,7 +1250,6 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
     }
   }
 
-  const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
     const total = totals.get(row.user_id);
     const boardClass = boardClassFor(readClassName(row.class_name), boardWorkplaces(row));
@@ -1254,8 +1297,10 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
 }
 
 export async function getDuelLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  // Read beside the board, so the tab check does not add a round trip.
+  const ownClassName = getUserClassName(input.viewerId);
   const finish = (payload: LeaderboardPayload) =>
-    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
+    markBlitzrundeTab(payload, ownClassName, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -1267,10 +1312,12 @@ export async function getDuelLeaderboard(input: BoardQuery): Promise<Leaderboard
   const supabase = getSupabaseAdmin();
   if (!supabase) return finish(blank);
 
-  const totals = await readDuelTotals(supabase, input.range, now);
+  const [totals, profiles] = await Promise.all([
+    readDuelTotals(supabase, input.range, now),
+    listBoardProfiles(supabase),
+  ]);
   if (totals === "missing") return finish(blank);
 
-  const profiles = await listBoardProfiles(supabase);
   const people: BoardPerson[] = profiles.map((row) => {
     const total = totals.get(row.user_id);
     const className = readClassName(row.class_name);
@@ -1335,8 +1382,10 @@ export async function getDuelLeaderboard(input: BoardQuery): Promise<Leaderboard
  * with the points they earned here. The global board adds everything up.
  */
 export async function getBlitzrundeLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {
+  // Read beside the board, so the tab check does not add a round trip.
+  const ownClassName = getUserClassName(input.viewerId);
   const finish = (payload: LeaderboardPayload) =>
-    markBlitzrundeTab(payload, input.viewerId, input.canPickClass === true);
+    markBlitzrundeTab(payload, ownClassName, input.canPickClass === true);
   const now = input.now ?? new Date();
   const blank = emptyLeaderboard({
     scope: input.scope,
@@ -1348,12 +1397,14 @@ export async function getBlitzrundeLeaderboard(input: BoardQuery): Promise<Leade
   const supabase = getSupabaseAdmin();
   if (!supabase) return finish(blank);
 
-  const all = await listRankedResults({ now });
+  const [all, profiles] = await Promise.all([
+    listRankedResults({ now }),
+    listBoardProfiles(supabase),
+  ]);
   if (!all) return finish(blank);
   const currentWeek = weekKey(now);
   const inRange = input.range === "week" ? all.filter((row) => row.weekKey === currentWeek) : all;
 
-  const profiles = await listBoardProfiles(supabase);
   const classOf = new Map(
     profiles.map((row) => [row.user_id, leaderboardClassKey(readClassName(row.class_name))]),
   );

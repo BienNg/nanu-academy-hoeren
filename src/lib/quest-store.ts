@@ -182,11 +182,13 @@ export async function syncQuests(
   const supabase = getSupabaseAdmin();
   if (!supabase) return { board: emptyBoard(day, false), update: NO_QUEST_UPDATE };
 
-  const claims = await readClaims(supabase, userId, day);
+  const [claims, events] = await Promise.all([
+    readClaims(supabase, userId, day),
+    readEvents(supabase, userId, zonedDayRange(day, zone)),
+  ]);
   if (claims === "missing" || claims === null) {
     return { board: emptyBoard(day, false), update: NO_QUEST_UPDATE };
   }
-  const events = await readEvents(supabase, userId, zonedDayRange(day, zone));
   if (!events) return { board: emptyBoard(day, false), update: NO_QUEST_UPDATE };
 
   const picked = pickDailyQuests(userId, day);
@@ -204,25 +206,35 @@ export async function syncQuests(
     };
   }
 
-  // Insert one by one. A row that already exists means another request paid
-  // it first, and the primary key keeps the quest from paying twice.
+  // One insert for every new claim. A row that already exists means another
+  // request paid it first: the primary key skips it, and only rows this
+  // request inserted come back, so a quest never pays twice.
   const week = weekKey(now);
   const stored: { questId: string; xp: number }[] = [];
-  for (const claim of toCreate) {
-    const { error } = await supabase.from(CLAIMS_TABLE).insert({
-      user_id: userId,
-      day_key: day,
-      quest_id: claim.questId,
-      xp: claim.xp,
-      week_key: week,
-    });
-    if (!error) {
-      stored.push(claim);
-      claims.set(claim.questId, claim.xp);
-    } else if (error.code === "23505") {
-      claims.set(claim.questId, claim.xp);
-    } else if (!isQuestSchemaMissing(error.message)) {
+  const { data: inserted, error } = await supabase
+    .from(CLAIMS_TABLE)
+    .upsert(
+      toCreate.map((claim) => ({
+        user_id: userId,
+        day_key: day,
+        quest_id: claim.questId,
+        xp: claim.xp,
+        week_key: week,
+      })),
+      { onConflict: "user_id,day_key,quest_id", ignoreDuplicates: true },
+    )
+    .select("quest_id");
+  if (error) {
+    if (!isQuestSchemaMissing(error.message)) {
       console.error("Supabase quest claim insert", error.message);
+    }
+  } else {
+    const paid = new Set(
+      ((inserted ?? []) as { quest_id?: unknown }[]).map((row) => row.quest_id),
+    );
+    for (const claim of toCreate) {
+      if (paid.has(claim.questId)) stored.push(claim);
+      claims.set(claim.questId, claim.xp);
     }
   }
 

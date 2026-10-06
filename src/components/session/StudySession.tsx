@@ -228,6 +228,7 @@ export function StudySession({
     kind: string | null;
     pending: boolean;
     quests?: QuestUpdate | null;
+    total?: number | null;
   } | null>(null);
   const [summary, setSummary] = useState<{
     questionCount: number;
@@ -531,12 +532,13 @@ export function StudySession({
       }),
     })
       .then((response) => (response.ok ? response.json() : null))
-      .then((data: { xp?: unknown; kind?: unknown; quests?: unknown } | null) => {
+      .then((data: { xp?: unknown; kind?: unknown; quests?: unknown; total?: unknown } | null) => {
         setXpGrant({
           xp: data && typeof data.xp === "number" ? data.xp : null,
           kind: data && typeof data.kind === "string" ? data.kind : null,
           pending: false,
           quests: data ? readQuestUpdate(data.quests) : null,
+          total: data && typeof data.total === "number" ? data.total : null,
         });
       })
       .catch(() => {
@@ -803,6 +805,7 @@ export function StudySession({
                 : // The XP request starts in an effect after this render.
                   visitPart !== "done" && partClipIds.length > 0
           }
+          totalXp={openedFinishedLesson ? null : (xpGrant?.total ?? null)}
           questUpdate={openedFinishedLesson ? null : (xpGrant?.quests ?? null)}
           streakDays={streakDays}
           celebrateStreak={!openedFinishedLesson && summary != null}

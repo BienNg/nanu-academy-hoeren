@@ -30,6 +30,8 @@ type PartCompleteScreenProps = {
   xp: number | null;
   xpKind: string | null;
   xpPending: boolean;
+  /** All-time XP with this part counted, from the same request as `xp`. */
+  totalXp?: number | null;
   /** Quests this part moved or finished, when the server reports any. */
   questUpdate?: QuestUpdate | null;
   streakDays: number;
@@ -142,7 +144,7 @@ function xpCaption(
   };
 }
 
-type CompleteViewProps = Omit<PartCompleteScreenProps, "questUpdate" | "celebrateStreak"> & {
+type CompleteViewProps = Omit<PartCompleteScreenProps, "questUpdate" | "celebrateStreak" | "totalXp"> & {
   /** Shown only when no quest screen follows. */
   questUpdate: QuestUpdate | null;
   /** The learner's total XP before and after this part. Null when unknown. */
@@ -496,7 +498,7 @@ function CompleteView({
 }
 
 /** Shown the moment a part ends, while the server works out the XP. */
-function XpLoader() {
+function XpLoader({ label = "Đang tính XP" }: { label?: string }) {
   const reduceMotion = useReducedMotion();
   const [pose] = useState<PathPose>(
     () => PATH_POSES[Math.floor(Math.random() * PATH_POSES.length)] ?? "tea",
@@ -518,7 +520,7 @@ function XpLoader() {
           <ChillPingu pose={pose} />
         </div>
       </motion.div>
-      <p className="mt-6 text-[17px] font-bold text-[#1d1d1f]">Đang tính XP</p>
+      <p className="mt-6 text-[17px] font-bold text-[#1d1d1f]">{label}</p>
       <div className="mt-3 flex gap-1.5" aria-hidden="true">
         {[0, 1, 2].map((dot) => (
           <motion.span
@@ -1189,6 +1191,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     xp,
     xpKind,
     xpPending,
+    totalXp = null,
     questUpdate,
     failed,
     celebrateStreak = false,
@@ -1200,10 +1203,10 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const [loaderShown] = useState(() => xpPending && !failed);
   const [minElapsed, setMinElapsed] = useState(!loaderShown);
   const [gaveUp, setGaveUp] = useState(false);
-  /** Undefined while loading, null when it could not be read. */
-  const [totalXp, setTotalXp] = useState<number | null | undefined>(undefined);
   /** The weekly class board with this part counted. Undefined while loading, null when unread. */
   const [board, setBoard] = useState<LeaderboardPayload | null | undefined>(undefined);
+  const [boardGaveUp, setBoardGaveUp] = useState(false);
+  const leftRef = useRef(false);
   const [stage, setStage] = useState<Stage>("complete");
   const [streakStep, setStreakStep] = useState<StreakCelebration | null>(null);
   const queuedStreak = useSyncExternalStore(
@@ -1224,29 +1227,12 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     return () => window.clearTimeout(timer);
   }, [xpPending, failed]);
 
-  // The total is read once the part's XP is stored, so it already counts it.
-  useEffect(() => {
-    if (!loaderShown || xpPending) return;
-    let cancelled = false;
-    void fetch("/api/xp")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { ready?: unknown; total?: unknown } | null) => {
-        if (cancelled) return;
-        setTotalXp(data && data.ready !== false && typeof data.total === "number" ? data.total : null);
-      })
-      .catch(() => {
-        if (!cancelled) setTotalXp(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [loaderShown, xpPending]);
-
   const partXp = xpCaption(xp, xpKind).amount;
   const questXp = questUpdate?.xp ?? 0;
   const earnedXp = failed ? 0 : partXp + questXp;
 
-  // Read once this part's XP is stored, so the board already counts it.
+  // Read once this part's XP is stored, so the board already counts it. It
+  // loads behind the completed screen; the loader does not wait for it.
   useEffect(() => {
     if (xpPending || earnedXp <= 0) return;
     let cancelled = false;
@@ -1264,15 +1250,30 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     };
   }, [xpPending, earnedXp]);
 
-  const waiting =
-    xpPending ||
-    (loaderShown && (totalXp === undefined || (earnedXp > 0 && board === undefined)));
-  const loading = !failed && (!minElapsed || (waiting && !gaveUp));
+  useEffect(() => {
+    if (xpPending || earnedXp <= 0 || board !== undefined) return;
+    const timer = window.setTimeout(() => setBoardGaveUp(true), LOADER_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, [xpPending, earnedXp, board]);
+
+  const loading = !failed && (!minElapsed || (xpPending && !gaveUp));
+  const boardPending = board === undefined && !boardGaveUp;
   const climb = board ? planRankClimb(board.rows, earnedXp) : null;
   const questsAhead =
     !failed && !xpPending && questUpdate != null && questUpdate.quests.some(questStepMoved);
   const streakAhead = !failed && celebrateStreak && (streakStep != null || queuedStreak != null);
-  const rankingAhead = !xpPending && climb != null;
+  // Any part that earned XP ends on the board. While it is still loading the
+  // step stays ahead, so the learner waits for it instead of skipping it.
+  const rankingAhead = !xpPending && earnedXp > 0 && (boardPending || climb != null);
+  const rankingGone = stage === "ranking" && !boardPending && climb == null;
+
+  // The board failed or does not rank this learner. Ranking is always the
+  // last step, so leave the screen.
+  useEffect(() => {
+    if (!rankingGone || leftRef.current) return;
+    leftRef.current = true;
+    onContinue();
+  }, [rankingGone, onContinue]);
 
   const following: Stage[] = [];
   if (streakAhead) following.push("streak");
@@ -1316,7 +1317,8 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     return <QuestStepView update={questUpdate} totalXp={totalXp ?? null} {...shared} />;
   }
 
-  if (stage === "ranking" && climb && board) {
+  if (stage === "ranking") {
+    if (!climb || !board) return <XpLoader label="Đang tải bảng xếp hạng" />;
     return (
       <RankClimbStepView
         climb={climb}

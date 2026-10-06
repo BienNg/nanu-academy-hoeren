@@ -395,6 +395,8 @@ export type ListeningRunXp = {
   xp: number | null;
   kind: string | null;
   quests: QuestUpdate | null;
+  /** All-time XP with this run counted. */
+  total: number | null;
 };
 
 /** Saves the run and returns the XP the server awarded. Null when the save failed. */
@@ -412,11 +414,17 @@ export async function submitListeningRun(
       console.error("Listening run was not saved", response.status);
       return null;
     }
-    const data = (await response.json()) as { xp?: unknown; kind?: unknown; quests?: unknown };
+    const data = (await response.json()) as {
+      xp?: unknown;
+      kind?: unknown;
+      quests?: unknown;
+      total?: unknown;
+    };
     return {
       xp: typeof data.xp === "number" ? data.xp : null,
       kind: typeof data.kind === "string" ? data.kind : null,
       quests: readQuestUpdate(data.quests),
+      total: typeof data.total === "number" ? data.total : null,
     };
   } catch (error) {
     console.error("Listening run was not saved", error);

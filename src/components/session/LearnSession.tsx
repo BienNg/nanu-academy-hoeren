@@ -84,6 +84,7 @@ type PartSummary = {
   xpKind: string | null;
   xpPending: boolean;
   quests: QuestUpdate | null;
+  totalXp: number | null;
 };
 
 function freshRunOrder(chapterSlug: string, clips: readonly SessionClip[]): string[] {
@@ -720,6 +721,7 @@ export function LearnSession({
       xpKind: null,
       xpPending: Boolean(run) && !failed,
       quests: null,
+      totalXp: null,
     });
     if (!failed) {
       commitPart();
@@ -736,6 +738,7 @@ export function LearnSession({
               xpKind: grant?.kind ?? null,
               xpPending: false,
               quests: grant?.quests ?? null,
+              totalXp: grant?.total ?? null,
             }
           : current,
       );
@@ -893,6 +896,7 @@ export function LearnSession({
           xp={summary.xp}
           xpKind={summary.xpKind}
           xpPending={summary.xpPending}
+          totalXp={summary.totalXp}
           questUpdate={summary.quests}
           streakDays={streakDays}
           celebrateStreak={!failedRun}

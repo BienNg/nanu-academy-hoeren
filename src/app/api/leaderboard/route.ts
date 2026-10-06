@@ -39,10 +39,12 @@ export async function GET(request: Request) {
     return NextResponse.json(emptyLeaderboard({ scope, range, now, ready: false, board }));
   }
 
-  const access = await resolveAccountAccess(session.user.id, session.user.authAt);
+  const [access, canPickClass] = await Promise.all([
+    resolveAccountAccess(session.user.id, session.user.authAt),
+    canPickLeaderboardClass(session.user),
+  ]);
   if (access === "revoked") return revokedResponse();
 
-  const canPickClass = await canPickLeaderboardClass(session.user);
   const boardInput = {
     viewerId: session.user.id,
     viewerImage: session.user.image,

@@ -4,7 +4,7 @@ import { ListeningSchemaError, parseListeningRunInput } from "@/lib/listening-ru
 import { insertListeningRun, isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 import { syncQuestsQuietly } from "@/lib/quest-store";
 import { QUEST_TIME_ZONE_HEADER, resolveQuestZone } from "@/lib/quests";
-import { grantXpForListeningRun } from "@/lib/xp-store";
+import { grantXpForListeningRun, readTotalXp } from "@/lib/xp-store";
 
 function revokedResponse() {
   return NextResponse.json(
@@ -57,5 +57,14 @@ export async function POST(request: Request) {
     resolveQuestZone(request.headers.get(QUEST_TIME_ZONE_HEADER)),
     { kind: "listening", accuracy: run.accuracy, xp: grant.xp ?? 0 },
   );
-  return NextResponse.json({ ok: true, xp: grant.xp, kind: grant.kind, ready: grant.ready, quests });
+  // Read after the quests are paid, so the total counts them too.
+  const total = grant.ready ? await readTotalXp(session.user.id) : null;
+  return NextResponse.json({
+    ok: true,
+    xp: grant.xp,
+    kind: grant.kind,
+    ready: grant.ready,
+    quests,
+    total,
+  });
 }
