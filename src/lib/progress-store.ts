@@ -885,7 +885,7 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
  * How much of each progress document an admin screen needs.
  * `account` is identity plus the small streak fields.
  * `activity` adds visits, daily activity, and video watch state.
- * `videos` is the watch map used by the videos board.
+ * `videos` is the watch map plus visits (per-video playback seconds) for the videos board.
  * `levels` adds lesson and interview progress for the level paths.
  */
 export type AdminListSlice = "account" | "activity" | "levels" | "videos";
@@ -922,7 +922,7 @@ function sliceProgressColumns(slice: AdminListSlice): string {
   if (slice === "activity" || slice === "videos" || slice === "levels") {
     keys.push("videos:data->videos");
   }
-  if (slice === "activity") keys.push("visits:data->visits");
+  if (slice === "activity" || slice === "videos") keys.push("visits:data->visits");
   if (slice === "levels") {
     keys.push("learn:data->learn", "interview:data->interview");
   }

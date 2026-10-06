@@ -419,6 +419,10 @@ export function listPublishedLessonVideos(): AdminPublishedVideo[] {
 export type AdminVideoWatchRow = AdminPublishedVideo & {
   watched: number;
   started: number;
+  /** Playback seconds summed over every synced student's retained visits. */
+  watchSeconds: number;
+  /** Students with any playback seconds on this video in retained visits. */
+  viewers: number;
 };
 
 export type AdminVideoBoard = {
@@ -427,17 +431,34 @@ export type AdminVideoBoard = {
   broken: number;
   watchedOnce: number;
   untouched: number;
+  watchSeconds: number;
   rows: AdminVideoWatchRow[];
 };
 
 /**
  * Lesson videos plus how many synced students marked them watched.
- * Counts are all-time from progress, not the admin date pill.
+ * Watched/started are all-time from progress, not the admin date pill.
+ * Watch time comes from visits, so it only covers each student's retained
+ * visits (60 visits or 90 days); older playback survives only as a daily total.
  */
 export function buildAdminVideoBoard(
   people: readonly AdminUserRow[],
 ): AdminVideoBoard {
   const published = listPublishedLessonVideos();
+  const secondsByKey = new Map<string, number>();
+  const viewersByKey = new Map<string, number>();
+  for (const person of people) {
+    const mine = new Map<string, number>();
+    for (const visit of person.progress.visits ?? []) {
+      for (const video of visit.videos) {
+        if (video.seconds > 0) mine.set(video.key, (mine.get(video.key) ?? 0) + video.seconds);
+      }
+    }
+    for (const [key, seconds] of mine) {
+      secondsByKey.set(key, (secondsByKey.get(key) ?? 0) + seconds);
+      viewersByKey.set(key, (viewersByKey.get(key) ?? 0) + 1);
+    }
+  }
   const rows: AdminVideoWatchRow[] = published.map((video) => {
     let watched = 0;
     let started = 0;
@@ -448,7 +469,9 @@ export function buildAdminVideoBoard(
         else if (status === "in-progress") started += 1;
       }
     }
-    return { ...video, watched, started };
+    const watchSeconds = video.videoId ? (secondsByKey.get(video.key) ?? 0) : 0;
+    const viewers = video.videoId ? (viewersByKey.get(video.key) ?? 0) : 0;
+    return { ...video, watched, started, watchSeconds, viewers };
   });
   const playable = rows.filter((row) => row.videoId);
   return {
@@ -457,6 +480,7 @@ export function buildAdminVideoBoard(
     broken: rows.length - playable.length,
     watchedOnce: playable.filter((row) => row.watched > 0).length,
     untouched: playable.filter((row) => row.watched === 0 && row.started === 0).length,
+    watchSeconds: playable.reduce((sum, row) => sum + row.watchSeconds, 0),
     rows,
   };
 }

@@ -21,8 +21,9 @@ import {
 } from "@/lib/admin-catalog";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
+import { formatActiveDuration } from "@/lib/progress";
 
-type SortKey = "title" | "watched" | "started" | "lesson";
+type SortKey = "title" | "watched" | "started" | "lesson" | "minutes";
 type SortDir = "asc" | "desc";
 
 export function AdminVideos({
@@ -65,6 +66,7 @@ export function AdminVideos({
       let delta = 0;
       if (sort === "watched") delta = a.watched - b.watched;
       else if (sort === "started") delta = a.started - b.started;
+      else if (sort === "minutes") delta = a.watchSeconds - b.watchSeconds;
       else if (sort === "lesson") {
         delta = a.levelLabel.localeCompare(b.levelLabel, "en", { sensitivity: "base" });
         if (delta === 0) delta = a.lesson.localeCompare(b.lesson, "en", { sensitivity: "base" });
@@ -106,7 +108,7 @@ export function AdminVideos({
       <AdminPageHeader
         kicker="Learning"
         title="Videos"
-        subtitle="Each YouTube on a Lektion, and how many synced students marked it watched. Totals are all-time, not the date pill."
+        subtitle="Each YouTube on a Lektion, how many synced students marked it watched, and how long they played it. Totals ignore the date pill; watch time covers each student's last 60 visits or 90 days."
       />
 
       {!storeConfigured ? (
@@ -117,7 +119,7 @@ export function AdminVideos({
 
       <section
         aria-label="Video totals"
-        className="grid grid-cols-2 gap-space-16 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-space-16 md:grid-cols-3 xl:grid-cols-6"
       >
         <KpiTile
           icon="smart_display"
@@ -158,12 +160,19 @@ export function AdminVideos({
           caption="Playable, nobody started or watched"
           color={board.untouched > 0 ? ADMIN_COLORS.amber : ADMIN_COLORS.inkSubtle}
         />
+        <KpiTile
+          icon="schedule"
+          label="Watch time"
+          value={formatActiveDuration(board.watchSeconds)}
+          caption="Playback across retained visits"
+          color={ADMIN_COLORS.violet}
+        />
       </section>
 
       <TablePanel
         icon="smart_display"
         title="Lesson videos"
-        hint="Started means they have a playback position but have not marked watched."
+        hint="Started means they have a playback position but have not marked watched. Watch time counts seconds the player was actually playing, seeks excluded."
         color={ADMIN_COLORS.violet}
         footer={
           <Pager
@@ -237,12 +246,13 @@ export function AdminVideos({
                 <SortHeader label="Lesson" column="lesson" sort={sort} dir={dir} onSort={handleSort} />
                 <SortHeader label="Watched" column="watched" sort={sort} dir={dir} align="right" onSort={handleSort} />
                 <SortHeader label="Started" column="started" sort={sort} dir={dir} align="right" onSort={handleSort} />
+                <SortHeader label="Watch time" column="minutes" sort={sort} dir={dir} align="right" onSort={handleSort} />
               </tr>
             </thead>
             <tbody className="text-admin-body-md text-admin-ink">
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
+                  <td colSpan={5} className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
                     {board.rows.length === 0 ? "No lesson videos are listed yet." : "No videos match this filter."}
                   </td>
                 </tr>
@@ -292,6 +302,22 @@ function VideoRow({ row }: { row: AdminVideoWatchRow }) {
       </td>
       <td className="px-space-16 py-space-8 text-right tabular-nums text-admin-ink-muted">
         {playable ? formatCount(row.started) : "—"}
+      </td>
+      <td className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums">
+        {playable ? (
+          <>
+            <p className={row.watchSeconds > 0 ? "font-semibold text-admin-ink" : "text-admin-ink-faint"}>
+              {formatActiveDuration(row.watchSeconds)}
+            </p>
+            {row.viewers > 0 ? (
+              <p className="text-[12px] leading-4 text-admin-ink-muted">
+                {formatCount(row.viewers)} {row.viewers === 1 ? "student" : "students"}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <span className="text-admin-ink-faint">—</span>
+        )}
       </td>
     </tr>
   );
