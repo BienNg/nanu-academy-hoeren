@@ -11,10 +11,11 @@ import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/qu
 import { questZoneHeaders } from "@/lib/quests";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-4" },
-  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-2.5" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-4" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-2.5" },
+  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-3 sm:px-4" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-1.5 sm:px-2.5" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-3 sm:px-4" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-1.5 sm:px-2.5" },
+  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", pad: "px-1.5 sm:px-2.5" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -185,7 +186,7 @@ export function BottomNav() {
         aria-label="Điều hướng chính"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
       >
-        <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
+        <div className="mx-auto flex w-full max-w-md items-center justify-around px-1 py-1.5 sm:px-3">
           {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
             const active = isCurrent(pathname, item.href);
             const badge =
@@ -219,7 +220,7 @@ export function BottomNav() {
                   ) : null}
                 </span>
                 <span
-                  className={`font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
+                  className={`whitespace-nowrap font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
                     active ? "text-[#0059B5]" : "text-[#6E6E73]"
                   }`}
                 >
