@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   Area,
   AreaChart,
@@ -18,7 +19,7 @@ import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admi
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
-  CategoryCard,
+  CARD,
   ChartTooltip,
   Badge,
   CountPill,
@@ -36,6 +37,8 @@ import {
   type MicroMetric,
   HeaderChip,
   ChartPanel,
+  IconTile,
+  ShareBar,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import {
@@ -133,15 +136,18 @@ function Sparkline({
   dataKey,
   name,
   color,
+  compact = false,
 }: {
   data: readonly AdminActivityPoint[];
   dataKey: PointKey;
   name: string;
   color: string;
+  /** Shorter, and no tooltip: a compact card is one click target. */
+  compact?: boolean;
 }) {
   const gradientId = `spark-${useId().replace(/:/g, "")}`;
   return (
-    <div className="h-12 w-full" aria-hidden="true">
+    <div className={`${compact ? "h-8" : "h-12"} w-full`} aria-hidden="true">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={[...data]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <defs>
@@ -153,14 +159,16 @@ function Sparkline({
           <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, (max: number) => Math.max(1, max)]} />
           {/* The card clips overflow, so the tooltip floats above the line instead of below. */}
-          <Tooltip
-            content={<ChartTooltip />}
-            cursor={{ stroke: GRID, strokeDasharray: "3 3" }}
-            position={{ y: -64 }}
-            allowEscapeViewBox={{ x: false, y: true }}
-            wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
-            isAnimationActive={false}
-          />
+          {compact ? null : (
+            <Tooltip
+              content={<ChartTooltip />}
+              cursor={{ stroke: GRID, strokeDasharray: "3 3" }}
+              position={{ y: -64 }}
+              allowEscapeViewBox={{ x: false, y: true }}
+              wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+              isAnimationActive={false}
+            />
+          )}
           <Area
             type="monotone"
             dataKey={dataKey}
@@ -169,7 +177,9 @@ function Sparkline({
             strokeWidth={1.5}
             strokeLinecap="round"
             fill={`url(#${gradientId})`}
-            activeDot={{ r: 3, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }}
+            activeDot={
+              compact ? false : { r: 3, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }
+            }
             isAnimationActive={false}
           />
         </AreaChart>
@@ -179,28 +189,287 @@ function Sparkline({
 }
 
 
-/** One activity category: headline number, a share bar, two micro metrics, and its trend. */
-/** A CategoryCard whose bottom visual is the series' sparkline and its peak. */
-function TrendCard({
-  trend,
-  ...card
-}: Omit<Parameters<typeof CategoryCard>[0], "footerLabel" | "footerAside" | "children"> & {
+type GlanceId = "people" | "videos" | "study" | "practice";
+
+/** All four cards equal, the one enlarged card, or a compact tile beside it. */
+type GlanceMode = "grid" | "hero" | "compact";
+
+type GlanceCardData = {
+  id: GlanceId;
+  icon: string;
+  title: string;
+  hint: string;
+  color: string;
+  value: string;
+  unit: string;
+  badge: string;
+  /** 0–1 share drawn as a bar under the headline number. */
+  progress: number;
+  progressLabel: string;
   metrics: readonly [MicroMetric, MicroMetric];
   trend: { data: readonly AdminActivityPoint[]; key: PointKey; name: string; label: string };
+};
+
+/** Soft spring for the card shuffle: about 450ms with a slight settle. */
+const GLANCE_SPRING = { type: "spring", duration: 0.45, bounce: 0.15 } as const;
+
+/** Parts that are about to change fade out this long before the cards move. */
+const GLANCE_FADE_OUT_MS = 120;
+
+function glanceMode(id: GlanceId, focus: GlanceId | null): GlanceMode {
+  if (!focus) return "grid";
+  return id === focus ? "hero" : "compact";
+}
+
+/**
+ * Content tied to a card's mode. It fades out before the cards move and back in
+ * once they settle, so it is never seen stretched mid-animation.
+ */
+function ModePart({
+  leaving,
+  animateIn,
+  className,
+  children,
+}: {
+  leaving: boolean;
+  /** False on first paint, so the page loads without a fade. */
+  animateIn: boolean;
+  className?: string;
+  children: ReactNode;
 }) {
-  const peak = peakPoint(trend.data, trend.key);
   return (
-    <CategoryCard
-      {...card}
-      footerLabel={trend.label}
-      footerAside={
-        <span style={{ color: peak ? card.color : undefined }}>
-          {peak ? `Peak ${peak.label}` : "No activity yet"}
-        </span>
+    <motion.div
+      className={className}
+      initial={animateIn ? { opacity: 0 } : false}
+      animate={
+        leaving
+          ? { opacity: 0, transition: { duration: GLANCE_FADE_OUT_MS / 1000 } }
+          : { opacity: 1, transition: { delay: 0.3, duration: 0.2 } }
       }
     >
-      <Sparkline data={trend.data} dataKey={trend.key} name={trend.name} color={card.color} />
-    </CategoryCard>
+      {children}
+    </motion.div>
+  );
+}
+
+/** One activity category. Clicking it enlarges its graph; the others shrink beside it. */
+function GlanceCard({
+  card,
+  mode,
+  leaving,
+  animateIn,
+  grain,
+  onSelect,
+}: {
+  card: GlanceCardData;
+  mode: GlanceMode;
+  leaving: boolean;
+  animateIn: boolean;
+  grain: AdminActivityGrain;
+  onSelect: () => void;
+}) {
+  const peak = peakPoint(card.trend.data, card.trend.key);
+  const hero = mode === "hero";
+  const compact = mode === "compact";
+  const part = { leaving, animateIn };
+  return (
+    <motion.article
+      layout
+      transition={GLANCE_SPRING}
+      role="button"
+      tabIndex={0}
+      aria-expanded={hero}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect();
+      }}
+      className={`${CARD} flex cursor-pointer flex-col overflow-hidden border-t-2 outline-offset-2 transition-colors duration-200 hover:border-admin-border focus-visible:outline-2 ${
+        hero ? "lg:row-span-3" : ""
+      } ${compact ? "justify-between p-space-12 2xl:p-space-16" : "justify-between p-space-16 2xl:p-space-20"}`}
+      style={{
+        borderTopColor: card.color,
+        borderRadius: 8,
+        outlineColor: card.color,
+        boxShadow: hero
+          ? `0 0 0 1px ${card.color}33, 0 16px 40px -16px ${card.color}59`
+          : undefined,
+      }}
+    >
+      <span className="sr-only">
+        {hero ? "Click to show all cards again." : "Click to enlarge this graph."}
+      </span>
+      <div className={`flex flex-col ${compact ? "h-full justify-between gap-space-8" : "gap-space-12"}`}>
+        <header className="flex items-start justify-between gap-space-8">
+          <motion.div
+            layout="position"
+            transition={GLANCE_SPRING}
+            className="flex min-w-0 items-center gap-space-8"
+          >
+            <IconTile icon={card.icon} color={card.color} size="lg" />
+            <div className="min-w-0">
+              <h3 className="font-admin-display text-admin-headline-sm text-admin-ink">
+                {card.title}
+              </h3>
+              {compact ? null : (
+                <ModePart {...part}>
+                  <p className="text-admin-body-sm text-admin-ink-subtle">{card.hint}</p>
+                </ModePart>
+              )}
+            </div>
+          </motion.div>
+          {compact ? null : (
+            <ModePart {...part} className="shrink-0">
+              <span
+                className="inline-flex h-5 items-center whitespace-nowrap rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 tabular-nums"
+                style={{ backgroundColor: `${card.color}14`, color: card.color }}
+              >
+                {card.badge}
+              </span>
+            </ModePart>
+          )}
+        </header>
+
+        <div className={compact ? "flex items-end justify-between gap-space-12" : ""}>
+          <motion.p
+            layout="position"
+            transition={GLANCE_SPRING}
+            className={`flex shrink-0 items-baseline gap-space-4 ${compact ? "" : "pt-space-4"}`}
+          >
+            <span className="font-admin-display text-admin-metric tabular-nums text-admin-ink">
+              {card.value}
+            </span>
+            <span className="text-admin-body-md text-admin-ink-subtle">{card.unit}</span>
+          </motion.p>
+          {compact ? (
+            <ModePart {...part} className="w-24 min-w-0 pb-1">
+              <Sparkline
+                data={card.trend.data}
+                dataKey={card.trend.key}
+                name={card.trend.name}
+                color={card.color}
+                compact
+              />
+            </ModePart>
+          ) : null}
+        </div>
+
+        {compact ? null : (
+          <ModePart {...part} className="flex flex-col gap-space-12">
+            <ShareBar share={card.progress} color={card.color} label={card.progressLabel} />
+            <dl className="grid grid-cols-2 divide-x divide-admin-hairline rounded-admin-control border border-admin-hairline bg-admin-canvas py-space-8">
+              {card.metrics.map((metric, index) => (
+                <div key={metric.label} className="flex min-w-0 flex-col px-space-12">
+                  <dt className="flex items-center gap-space-4 text-admin-label-md text-admin-ink-subtle">
+                    <MaterialIcon name={metric.icon} className="text-[14px]" />
+                    <span className="truncate">{metric.label}</span>
+                  </dt>
+                  <dd
+                    className="truncate text-admin-body-md font-semibold tabular-nums text-admin-ink"
+                    style={{ color: index === 0 ? card.color : undefined }}
+                  >
+                    {metric.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </ModePart>
+        )}
+      </div>
+
+      {compact ? null : (
+        <ModePart {...part} className={`flex flex-col pt-space-12 ${hero ? "flex-1" : ""}`}>
+          <div className="flex items-center justify-between gap-space-8 pb-1 text-admin-label-md text-admin-ink-subtle">
+            <span className="truncate">{card.trend.label}</span>
+            <span
+              className="shrink-0 font-semibold"
+              style={{ color: peak ? card.color : undefined }}
+            >
+              {peak ? `Peak ${peak.label}` : "No activity yet"}
+            </span>
+          </div>
+          {hero ? (
+            <div className="relative min-h-[200px] flex-1">
+              <div className="absolute inset-0">
+                <TrendChart
+                  data={card.trend.data}
+                  grain={grain}
+                  dataKey={card.trend.key}
+                  name={card.trend.name}
+                  color={card.color}
+                />
+              </div>
+            </div>
+          ) : (
+            <Sparkline
+              data={card.trend.data}
+              dataKey={card.trend.key}
+              name={card.trend.name}
+              color={card.color}
+            />
+          )}
+        </ModePart>
+      )}
+    </motion.article>
+  );
+}
+
+/**
+ * The four glance cards. Clicking one moves it to the left and enlarges it to a full
+ * chart, and the rest stack beside it as compact tiles. Clicking it again restores the row.
+ */
+function GlanceBoard({
+  cards,
+  grain,
+}: {
+  cards: readonly GlanceCardData[];
+  grain: AdminActivityGrain;
+}) {
+  const reduceMotion = useReducedMotion();
+  /** The card laid out as the hero. */
+  const [focus, setFocus] = useState<GlanceId | null>(null);
+  /** The card about to be the hero, while the changing parts fade out. */
+  const [target, setTarget] = useState<GlanceId | null>(null);
+  const [touched, setTouched] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  function select(id: GlanceId) {
+    const next = target === id ? null : id;
+    setTarget(next);
+    setTouched(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setFocus(next), reduceMotion ? 0 : GLANCE_FADE_OUT_MS);
+  }
+
+  const hero = focus ? cards.find((card) => card.id === focus) : undefined;
+  const ordered = hero ? [hero, ...cards.filter((card) => card !== hero)] : cards;
+  return (
+    <MotionConfig reducedMotion="user">
+      <div
+        className={`grid grid-cols-1 gap-space-16 2xl:gap-space-20 ${
+          hero ? "lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]" : "sm:grid-cols-2 lg:grid-cols-4"
+        }`}
+      >
+        {ordered.map((card) => (
+          <GlanceCard
+            key={card.id}
+            card={card}
+            mode={glanceMode(card.id, focus)}
+            leaving={glanceMode(card.id, focus) !== glanceMode(card.id, target)}
+            animateIn={touched}
+            grain={grain}
+            onSelect={() => select(card.id)}
+          />
+        ))}
+      </div>
+    </MotionConfig>
   );
 }
 
@@ -211,22 +480,29 @@ function tickInterval(count: number, grain: AdminActivityGrain): number | "prese
   return 6;
 }
 
-function PeopleChart({
+/** A full area chart for one series: axes, grid, tooltip, and the peak marked. */
+function TrendChart({
   data,
   grain,
+  dataKey,
+  name,
+  color,
 }: {
   data: readonly AdminActivityPoint[];
   grain: AdminActivityGrain;
+  dataKey: PointKey;
+  name: string;
+  color: string;
 }) {
-  const gradientId = `people-${useId().replace(/:/g, "")}`;
-  const peak = peakPoint(data, "activeUsers");
+  const gradientId = `trend-${useId().replace(/:/g, "")}`;
+  const peak = peakPoint(data, dataKey);
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={[...data]} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.18} />
-            <stop offset="90%" stopColor={PRIMARY} stopOpacity={0} />
+            <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+            <stop offset="90%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid stroke={GRID} strokeOpacity={0.6} strokeDasharray="3 6" vertical={false} />
@@ -247,21 +523,21 @@ function PeopleChart({
         <Tooltip content={<ChartTooltip />} cursor={{ stroke: GRID, strokeDasharray: "3 3" }} />
         <Area
           type="monotone"
-          dataKey="activeUsers"
-          name="Active people"
-          stroke={PRIMARY}
+          dataKey={dataKey}
+          name={name}
+          stroke={color}
           fill={`url(#${gradientId})`}
           strokeWidth={2}
           strokeLinecap="round"
-          activeDot={{ r: 4, stroke: PRIMARY, strokeWidth: 2, fill: ADMIN_COLORS.card }}
+          activeDot={{ r: 4, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }}
         />
         {peak ? (
           <ReferenceDot
             x={peak.label}
-            y={peak.activeUsers}
+            y={peak[dataKey]}
             r={4}
             fill={ADMIN_COLORS.card}
-            stroke={PRIMARY}
+            stroke={color}
             strokeWidth={2}
           />
         ) : null}
@@ -802,34 +1078,43 @@ export function AdminActivity({
           title="At a glance"
           meta={`${adminRangeLabel(range)}${classHint}`}
         />
-        <div className="grid grid-cols-1 gap-space-16 sm:grid-cols-2 lg:grid-cols-4 2xl:gap-space-20">
-          <TrendCard
-            icon="groups"
-            title="People"
-            hint={`Finished a card ${window}`}
-            color={PRIMARY}
-            value={formatCount(activity.activeUsers)}
-            unit={`of ${formatCount(activity.users)} students`}
-            badge={`${formatPercent(activeShare)} active`}
-            progress={activeShare}
-            progressLabel="Share of students active"
-            metrics={[
+        <GlanceBoard
+          grain={board.grain}
+          cards={[
+          {
+            id: "people",
+            icon: "groups",
+            title: "People",
+            hint: `Finished a card ${window}`,
+            color: PRIMARY,
+            value: formatCount(activity.activeUsers),
+            unit: `of ${formatCount(activity.users)} students`,
+            badge: `${formatPercent(activeShare)} active`,
+            progress: activeShare,
+            progressLabel: "Share of students active",
+            metrics: [
               { icon: "schedule", label: "Time in app", value: formatMinutes(timeInApp) },
               { icon: "timer", label: "Per active", value: formatMinutes(timePerActive) },
-            ]}
-            trend={{ data: board.points, key: "activeUsers", name: "Active people", label: `Active people ${byGrain}` }}
-          />
-          <TrendCard
-            icon="play_circle"
-            title="Videos"
-            hint={`Marked watched ${window}`}
-            color={VIDEOS}
-            value={formatCount(activity.videosWatched)}
-            unit="watched"
-            badge={`${formatCount(watchers)} watched`}
-            progress={shareOfActive(watchers)}
-            progressLabel="Share of active students who watched a video"
-            metrics={[
+            ],
+            trend: {
+              data: board.points,
+              key: "activeUsers",
+              name: "Active people",
+              label: `Active people ${byGrain}`,
+            },
+          },
+          {
+            id: "videos",
+            icon: "play_circle",
+            title: "Videos",
+            hint: `Marked watched ${window}`,
+            color: VIDEOS,
+            value: formatCount(activity.videosWatched),
+            unit: "watched",
+            badge: `${formatCount(watchers)} watched`,
+            progress: shareOfActive(watchers),
+            progressLabel: "Share of active students who watched a video",
+            metrics: [
               {
                 icon: "slow_motion_video",
                 label: "Play time",
@@ -840,55 +1125,68 @@ export function AdminActivity({
                 label: "Per active",
                 value: formatPerActive(activity.videosWatched, activity.activeUsers),
               },
-            ]}
-            trend={{ data: board.points, key: "videosWatched", name: "Videos watched", label: `Videos ${byGrain}` }}
-          />
-          <TrendCard
-            icon="menu_book"
-            title="Study"
-            hint={`Runs finished ${window}`}
-            color={STUDY}
-            value={formatCount(activity.studyRuns)}
-            unit="full runs"
-            badge={`${formatCount(studiers)} studied`}
-            progress={shareOfActive(studiers)}
-            progressLabel="Share of active students who finished a study run"
-            metrics={[
+            ],
+            trend: {
+              data: board.points,
+              key: "videosWatched",
+              name: "Videos watched",
+              label: `Videos ${byGrain}`,
+            },
+          },
+          {
+            id: "study",
+            icon: "menu_book",
+            title: "Study",
+            hint: `Runs finished ${window}`,
+            color: STUDY,
+            value: formatCount(activity.studyRuns),
+            unit: "full runs",
+            badge: `${formatCount(studiers)} studied`,
+            progress: shareOfActive(studiers),
+            progressLabel: "Share of active students who finished a study run",
+            metrics: [
               { icon: "auto_stories", label: "Parts", value: formatCount(partTotals.studyParts) },
               {
                 icon: "person",
                 label: "Per active",
                 value: formatPerActive(activity.studyRuns, activity.activeUsers),
               },
-            ]}
-            trend={{
+            ],
+            trend: {
               data: board.points,
               key: hourly ? "clips" : "studyRuns",
               name: hourly ? "Clips studied" : "Study runs",
               label: hourly ? "Clips studied by hour" : "Study runs by day",
-            }}
-          />
-          <TrendCard
-            icon="headphones"
-            title="Practice"
-            hint={`Runs finished ${window}`}
-            color={PRACTICE}
-            value={formatCount(activity.practiceRuns)}
-            unit="runs"
-            badge={`${formatCount(practicers)} practiced`}
-            progress={shareOfActive(practicers)}
-            progressLabel="Share of active students who finished a practice run"
-            metrics={[
+            },
+          },
+          {
+            id: "practice",
+            icon: "headphones",
+            title: "Practice",
+            hint: `Runs finished ${window}`,
+            color: PRACTICE,
+            value: formatCount(activity.practiceRuns),
+            unit: "runs",
+            badge: `${formatCount(practicers)} practiced`,
+            progress: shareOfActive(practicers),
+            progressLabel: "Share of active students who finished a practice run",
+            metrics: [
               { icon: "task_alt", label: "Parts", value: formatCount(partTotals.practiceParts) },
               {
                 icon: "person",
                 label: "Per active",
                 value: formatPerActive(activity.practiceRuns, activity.activeUsers),
               },
-            ]}
-            trend={{ data: board.points, key: "practiceRuns", name: "Practice runs", label: `Practice runs ${byGrain}` }}
-          />
-        </div>
+            ],
+            trend: {
+              data: board.points,
+              key: "practiceRuns",
+              name: "Practice runs",
+              label: `Practice runs ${byGrain}`,
+            },
+          },
+        ]}
+        />
       </section>
 
       <section aria-labelledby="activity-trends" className="flex flex-col gap-space-12">
@@ -908,7 +1206,13 @@ export function AdminActivity({
             }
             trailing={<LegendChips items={[{ name: "Active people", color: PRIMARY }]} />}
           >
-            <PeopleChart data={board.points} grain={board.grain} />
+            <TrendChart
+              data={board.points}
+              grain={board.grain}
+              dataKey="activeUsers"
+              name="Active people"
+              color={PRIMARY}
+            />
           </ChartPanel>
           <ChartPanel
             icon="stacked_bar_chart"

@@ -454,7 +454,7 @@ export function Sparkline({
   );
 }
 
-function ShareBar({ share, color, label }: { share: number; color: string; label: string }) {
+export function ShareBar({ share, color, label }: { share: number; color: string; label: string }) {
   return (
     <div
       className="h-1 w-full overflow-hidden rounded-full bg-admin-subtle"
