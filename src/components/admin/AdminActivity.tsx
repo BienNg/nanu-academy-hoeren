@@ -131,10 +131,12 @@ function peakPoint(
 function Sparkline({
   data,
   dataKey,
+  name,
   color,
 }: {
   data: readonly AdminActivityPoint[];
   dataKey: PointKey;
+  name: string;
   color: string;
 }) {
   const gradientId = `spark-${useId().replace(/:/g, "")}`;
@@ -148,14 +150,26 @@ function Sparkline({
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
+          <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, (max: number) => Math.max(1, max)]} />
+          {/* The card clips overflow, so the tooltip floats above the line instead of below. */}
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ stroke: GRID, strokeDasharray: "3 3" }}
+            position={{ y: -64 }}
+            allowEscapeViewBox={{ x: false, y: true }}
+            wrapperStyle={{ zIndex: 10, pointerEvents: "none" }}
+            isAnimationActive={false}
+          />
           <Area
             type="monotone"
             dataKey={dataKey}
+            name={name}
             stroke={color}
             strokeWidth={1.5}
             strokeLinecap="round"
             fill={`url(#${gradientId})`}
+            activeDot={{ r: 3, stroke: color, strokeWidth: 2, fill: ADMIN_COLORS.card }}
             isAnimationActive={false}
           />
         </AreaChart>
@@ -172,7 +186,7 @@ function TrendCard({
   ...card
 }: Omit<Parameters<typeof CategoryCard>[0], "footerLabel" | "footerAside" | "children"> & {
   metrics: readonly [MicroMetric, MicroMetric];
-  trend: { data: readonly AdminActivityPoint[]; key: PointKey; label: string };
+  trend: { data: readonly AdminActivityPoint[]; key: PointKey; name: string; label: string };
 }) {
   const peak = peakPoint(trend.data, trend.key);
   return (
@@ -185,7 +199,7 @@ function TrendCard({
         </span>
       }
     >
-      <Sparkline data={trend.data} dataKey={trend.key} color={card.color} />
+      <Sparkline data={trend.data} dataKey={trend.key} name={trend.name} color={card.color} />
     </CategoryCard>
   );
 }
@@ -803,7 +817,7 @@ export function AdminActivity({
               { icon: "schedule", label: "Time in app", value: formatMinutes(timeInApp) },
               { icon: "timer", label: "Per active", value: formatMinutes(timePerActive) },
             ]}
-            trend={{ data: board.points, key: "activeUsers", label: `Active people ${byGrain}` }}
+            trend={{ data: board.points, key: "activeUsers", name: "Active people", label: `Active people ${byGrain}` }}
           />
           <TrendCard
             icon="play_circle"
@@ -827,7 +841,7 @@ export function AdminActivity({
                 value: formatPerActive(activity.videosWatched, activity.activeUsers),
               },
             ]}
-            trend={{ data: board.points, key: "videosWatched", label: `Videos ${byGrain}` }}
+            trend={{ data: board.points, key: "videosWatched", name: "Videos watched", label: `Videos ${byGrain}` }}
           />
           <TrendCard
             icon="menu_book"
@@ -850,6 +864,7 @@ export function AdminActivity({
             trend={{
               data: board.points,
               key: hourly ? "clips" : "studyRuns",
+              name: hourly ? "Clips studied" : "Study runs",
               label: hourly ? "Clips studied by hour" : "Study runs by day",
             }}
           />
@@ -871,7 +886,7 @@ export function AdminActivity({
                 value: formatPerActive(activity.practiceRuns, activity.activeUsers),
               },
             ]}
-            trend={{ data: board.points, key: "practiceRuns", label: `Practice runs ${byGrain}` }}
+            trend={{ data: board.points, key: "practiceRuns", name: "Practice runs", label: `Practice runs ${byGrain}` }}
           />
         </div>
       </section>

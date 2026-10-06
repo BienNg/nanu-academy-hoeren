@@ -29,6 +29,14 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Recharts marks the chart SVG as focusable, so a click draws the browser focus ring. */
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible {
+  outline: none;
+}
+
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
