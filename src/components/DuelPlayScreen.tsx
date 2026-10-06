@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
@@ -164,7 +164,9 @@ function OpeningCountdown({
 }) {
   const reduceMotion = useReducedMotion();
   const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  useLayoutEffect(() => {
+    onDoneRef.current = onDone;
+  });
   const [left, setLeft] = useState(3);
 
   useEffect(() => {
@@ -240,7 +242,10 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   const playingPositionRef = useRef<number | null>(null);
   const clockStartRef = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  phaseRef.current = phase;
+  useLayoutEffect(() => {
+    phaseRef.current = phase;
+  });
+  // Read during render by the word-bank memo below, so it stays in sync here.
   viewRef.current = view;
 
   const post = async (

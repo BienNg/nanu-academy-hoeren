@@ -444,15 +444,14 @@ function YouTubePane({
     };
   }, []);
 
-  useEffect(() => {
-    if (!fullscreen) {
-      setControlsVisible(true);
-      setControlsHeld(false);
-      return;
-    }
+  // Entering or leaving fullscreen shows the controls again.
+  const [prevFullscreen, setPrevFullscreen] = useState(fullscreen);
+  if (prevFullscreen !== fullscreen) {
+    setPrevFullscreen(fullscreen);
     setControlsVisible(true);
-    setControlsEpoch((epoch) => epoch + 1);
-  }, [fullscreen]);
+    if (fullscreen) setControlsEpoch((epoch) => epoch + 1);
+    else setControlsHeld(false);
+  }
 
   useEffect(() => {
     if (!controlsHeld) return;

@@ -455,10 +455,13 @@ export function LeaderboardScreen({
       (option.id !== "duel" || duelTab),
   );
 
-  useEffect(() => {
-    if (!board.blitzrundeAvailable && boardKind === "blitzrunde") setBoardKind("xp");
-    if (!duelTab && boardKind === "duel") setBoardKind("xp");
-  }, [board.blitzrundeAvailable, duelTab, boardKind]);
+  // Fall back to XP as soon as the picked board is no longer offered.
+  if (
+    (!board.blitzrundeAvailable && boardKind === "blitzrunde") ||
+    (!duelTab && boardKind === "duel")
+  ) {
+    setBoardKind("xp");
+  }
 
   const emptyClass = board.ready && scope === "class" && !board.className;
   const emptyGlobal =

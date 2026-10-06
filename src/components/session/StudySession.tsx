@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -245,7 +246,9 @@ export function StudySession({
   const phaseRef = useRef<StudyCardPhase>("study");
   const shownPhaseRef = useRef<StudyCardPhase>("study");
   const flipRunRef = useRef(0);
-  phaseRef.current = phase;
+  useLayoutEffect(() => {
+    phaseRef.current = phase;
+  });
   shownPhaseRef.current = shownPhase;
 
   const activePart = typeof visitPart === "number" ? visitPart : openPart;
@@ -340,24 +343,28 @@ export function StudySession({
     clipCount: clips.length,
     startedAt: 0,
   });
-  leaveStateRef.current = {
-    record:
-      ready &&
-      visitPart !== "done" &&
-      !complete &&
-      !committedRef.current &&
-      partStartedAtRef.current > 0 &&
-      clips.length > 0 &&
-      partCount > 0,
-    lessonKey,
-    partNumber: activePart,
-    partCount,
-    clipsDone: furthest,
-    clipCount: clips.length,
-    startedAt: partStartedAtRef.current,
-  };
+  useLayoutEffect(() => {
+    leaveStateRef.current = {
+      record:
+        ready &&
+        visitPart !== "done" &&
+        !complete &&
+        !committedRef.current &&
+        partStartedAtRef.current > 0 &&
+        clips.length > 0 &&
+        partCount > 0,
+      lessonKey,
+      partNumber: activePart,
+      partCount,
+      clipsDone: furthest,
+      clipCount: clips.length,
+      startedAt: partStartedAtRef.current,
+    };
+  });
   const recordLeftSessionRef = useRef(recordLeftSession);
-  recordLeftSessionRef.current = recordLeftSession;
+  useLayoutEffect(() => {
+    recordLeftSessionRef.current = recordLeftSession;
+  });
   const noteLeftSession = () => {
     const state = leaveStateRef.current;
     if (!state.record || leftRecordedRef.current) return;
@@ -373,7 +380,9 @@ export function StudySession({
     });
   };
   const noteLeftSessionRef = useRef(noteLeftSession);
-  noteLeftSessionRef.current = noteLeftSession;
+  useLayoutEffect(() => {
+    noteLeftSessionRef.current = noteLeftSession;
+  });
 
   useEffect(() => {
     let armed = false;

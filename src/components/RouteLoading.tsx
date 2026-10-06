@@ -133,7 +133,8 @@ function LearnerHeader({
   kicker?: string;
   showBack?: boolean;
 }) {
-  const backHref = showBack ? backHrefFor(useResolvedPath(path)) : null;
+  const resolvedPath = useResolvedPath(path);
+  const backHref = showBack ? backHrefFor(resolvedPath) : null;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">

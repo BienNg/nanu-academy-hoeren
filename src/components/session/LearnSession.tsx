@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -85,26 +85,6 @@ type PartSummary = {
   xpPending: boolean;
   quests: QuestUpdate | null;
 };
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={filled ? { fontVariationSettings: "'FILL' 1" } : undefined}
-      aria-hidden="true"
-    >
-      {name}
-    </span>
-  );
-}
 
 function freshRunOrder(chapterSlug: string, clips: readonly SessionClip[]): string[] {
   const order = learnQueue(clips, [], true).map((clip) => clip.id);
@@ -489,23 +469,27 @@ export function LearnSession({
     clipCount: 0,
     startedAt: 0,
   });
-  leaveStateRef.current = {
-    record:
-      ready &&
-      phase === "practice" &&
-      !committedRef.current &&
-      partStartedAtRef.current > 0 &&
-      progressTotal > 0 &&
-      partCount > 0,
-    lessonKey,
-    partNumber,
-    partCount,
-    clipsDone,
-    clipCount: progressTotal,
-    startedAt: partStartedAtRef.current,
-  };
+  useLayoutEffect(() => {
+    leaveStateRef.current = {
+      record:
+        ready &&
+        phase === "practice" &&
+        !committedRef.current &&
+        partStartedAtRef.current > 0 &&
+        progressTotal > 0 &&
+        partCount > 0,
+      lessonKey,
+      partNumber,
+      partCount,
+      clipsDone,
+      clipCount: progressTotal,
+      startedAt: partStartedAtRef.current,
+    };
+  });
   const recordLeftSessionRef = useRef(recordLeftSession);
-  recordLeftSessionRef.current = recordLeftSession;
+  useLayoutEffect(() => {
+    recordLeftSessionRef.current = recordLeftSession;
+  });
   const noteLeftSession = () => {
     const state = leaveStateRef.current;
     if (!state.record || leftRecordedRef.current) return;
@@ -521,7 +505,9 @@ export function LearnSession({
     });
   };
   const noteLeftSessionRef = useRef(noteLeftSession);
-  noteLeftSessionRef.current = noteLeftSession;
+  useLayoutEffect(() => {
+    noteLeftSessionRef.current = noteLeftSession;
+  });
 
   useEffect(() => {
     let armed = false;
