@@ -58,6 +58,8 @@
     "src/lib/weekly-recap.test.ts",
     "src/lib/quests.ts",
     "src/lib/quests.test.ts",
+    "src/lib/quest-intro.ts",
+    "src/lib/quest-intro.test.ts",
     "src/lib/admin-quests.ts",
     "src/lib/admin-quests.test.ts",
     "src/lib/lesson-jump.ts",

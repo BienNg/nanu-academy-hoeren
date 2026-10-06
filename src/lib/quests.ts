@@ -261,6 +261,52 @@ export function readQuestUpdate(value: unknown): QuestUpdate | null {
   return { xp, completed, bonus, quests };
 }
 
+/** What GET /api/quests returns once the board is ready, as the browser reads it. */
+export type QuestBoardView = {
+  quests: QuestProgress[];
+  bonus: { xp: number; claimed: boolean };
+  earnedXp: number;
+  maxXp: number;
+  update: QuestUpdate | null;
+};
+
+/** Reads a GET /api/quests body. Null when the board is not ready or has no valid quest. */
+export function readQuestBoard(value: unknown): QuestBoardView | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as {
+    ready?: unknown;
+    quests?: unknown;
+    bonus?: { xp?: unknown; claimed?: unknown };
+    earnedXp?: unknown;
+    maxXp?: unknown;
+    update?: unknown;
+  };
+  if (raw.ready !== true || !Array.isArray(raw.quests)) return null;
+  const quests = raw.quests.filter(
+    (quest): quest is QuestProgress =>
+      Boolean(quest) &&
+      typeof quest.id === "string" &&
+      typeof quest.title === "string" &&
+      typeof quest.xp === "number" &&
+      typeof quest.target === "number" &&
+      quest.target > 0 &&
+      typeof quest.progress === "number" &&
+      typeof quest.done === "boolean" &&
+      QUEST_KINDS.includes(quest.kind as QuestKind),
+  );
+  if (quests.length === 0) return null;
+  return {
+    quests,
+    bonus: {
+      xp: typeof raw.bonus?.xp === "number" ? raw.bonus.xp : 0,
+      claimed: raw.bonus?.claimed === true,
+    },
+    earnedXp: typeof raw.earnedXp === "number" ? raw.earnedXp : 0,
+    maxXp: typeof raw.maxXp === "number" ? raw.maxXp : 0,
+    update: readQuestUpdate(raw.update),
+  };
+}
+
 export const QUEST_TIME_ZONE_HEADER = "x-time-zone";
 /** Used when a request carries no valid zone. */
 export const QUEST_DEFAULT_TIME_ZONE = "Asia/Ho_Chi_Minh";

@@ -4,16 +4,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import type { GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
-import { grammarStudyParts, type GrammarStudyScreen } from "@/lib/grammar-node";
+import { grammarStudyParts } from "@/lib/grammar-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { playSuccessSound } from "@/lib/sfx";
-import { FeedbackSheet, praiseFor, SpeakButton } from "@/components/session/FeedbackSheet";
+import { FeedbackSheet, praiseFor } from "@/components/session/FeedbackSheet";
 import { McCard } from "@/components/session/McCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
-import { ConjugationTableView, TENSE_TONE } from "@/components/session/grammar/ConjugationTableView";
 import { ContinueBar, GrammarHeader, GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
-import { SentenceBracketView } from "@/components/session/grammar/SentenceBracketView";
+import { GrammarReadScreen } from "@/components/session/grammar/GrammarStudyScreens";
 import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 
 type GrammarStudySessionProps = {
@@ -26,98 +25,6 @@ type GrammarStudySessionProps = {
   grammarHref: string;
   lessonGrammar: LessonGrammar;
 };
-
-const TENSE_INTRO_VI: Record<string, string> = {
-  praesens: "Hiện tại: ich habe, ich bin",
-  perfekt: "Quá khứ (nói): haben/sein + Partizip II",
-  praeteritum: "Quá khứ (1 từ): ich hatte, ich war",
-};
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4 rounded-[24px] border border-white/20 bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:p-6">
-      {children}
-    </section>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">{children}</span>;
-}
-
-/** Every screen except quick checks: read, then continue. */
-function ReadScreen({ screen, tables }: { screen: Exclude<GrammarStudyScreen, { kind: "check" }>; tables: TenseTables }) {
-  switch (screen.kind) {
-    case "intro":
-      return (
-        <Card>
-          <Eyebrow>Ngữ pháp · Grammatik</Eyebrow>
-          <h1 className="text-[26px] font-extrabold leading-8 tracking-tight text-[#1d1d1f]">{screen.titleVi}</h1>
-          <p className="text-[16px] leading-snug text-[#3a3a3c]">Tiếng Đức có 2 cách nói về quá khứ. Bạn sẽ học cả hai, cùng với hiện tại:</p>
-          <ul className="flex flex-col gap-2">
-            {screen.tenses.map((tense) => {
-              const meta = tables.tenses.find((entry) => entry.id === tense);
-              return (
-                <li key={tense} className="flex items-center gap-3">
-                  <span className={`w-[112px] shrink-0 rounded-xl px-2 py-1.5 text-center text-[14px] font-extrabold ${TENSE_TONE[tense].head}`}>
-                    {meta?.label ?? tense}
-                  </span>
-                  <span className="text-[15px] text-[#3a3a3c]">{TENSE_INTRO_VI[tense] ?? meta?.labelVi}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      );
-    case "table":
-      return <ConjugationTableView table={screen.table} />;
-    case "bracket":
-      return (
-        <SentenceBracketView
-          bracket={screen.bracket}
-          script={screen.example.script}
-          translationVi={screen.example.translationVi}
-          audioPath={screen.example.audioPath}
-        />
-      );
-    case "tips":
-      return (
-        <Card>
-          <Eyebrow>Ghi nhớ · Merken</Eyebrow>
-          <ul className="flex flex-col gap-3">
-            {screen.tips.map((tip) => (
-              <li key={tip.id} className="rounded-2xl bg-[#f5f5f7] px-4 py-3">
-                <p className="text-[16px] font-bold text-[#1d1d1f]">{tip.titleVi}</p>
-                <p className="mt-1 text-[15px] leading-snug text-[#3a3a3c]">{tip.textVi}</p>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      );
-    case "examples":
-      return (
-        <Card>
-          <Eyebrow>Ví dụ · Beispiele</Eyebrow>
-          <ul className="flex flex-col gap-2">
-            {screen.examples.map((example) => (
-              <li key={example.id} className="flex items-start gap-3 rounded-2xl bg-[#f5f5f7] px-4 py-3">
-                {example.audioPath ? <SpeakButton audioPath={example.audioPath} /> : null}
-                <div className="min-w-0">
-                  <p className="text-[17px] font-semibold text-[#1d1d1f]">{example.script}</p>
-                  <p className="text-[14px] italic text-[#6e6e73]">“{example.translationVi}”</p>
-                </div>
-                <span
-                  className={`ml-auto shrink-0 rounded-lg px-2 py-0.5 text-[11px] font-bold ${TENSE_TONE[example.tense].head}`}
-                >
-                  {tables.tenses.find((tense) => tense.id === example.tense)?.label}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      );
-  }
-}
 
 /**
  * One study part of a grammar topic: screens to read with quick checks in
@@ -231,7 +138,7 @@ export function GrammarStudySession({
   return (
     <GrammarPage header={<GrammarHeader progress={progress} onClose={() => leave(course.pathHref)} />}>
       <main className="relative flex w-full flex-1 flex-col items-center">
-        <div className="flex w-full max-w-2xl flex-col px-4 pt-6 pb-24 sm:px-6">
+        <div className="flex w-full max-w-2xl flex-col px-4 pt-6 pb-24 sm:px-6 [@media(max-height:700px)]:pt-3">
           {screen?.kind === "check" ? (
             <>
               <McCard
@@ -265,7 +172,7 @@ export function GrammarStudySession({
             </>
           ) : screen ? (
             <>
-              <ReadScreen key={screen.key} screen={screen} tables={tables} />
+              <GrammarReadScreen key={screen.key} screen={screen} tables={tables} />
               <ContinueBar onContinue={next} />
             </>
           ) : null}

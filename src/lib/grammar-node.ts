@@ -295,13 +295,43 @@ export function sentenceBracket(script: string, aux: string, partizip: string): 
   };
 }
 
+/** One person's form on a tense screen, e.g. "du" · "hattest" with "st" marked. */
+export type GrammarTenseRow = {
+  personLabel: string;
+  form: string;
+  highlight: string;
+  audioPath: string | null;
+  spoken: string;
+};
+
 export type GrammarStudyScreen =
   | { kind: "intro"; key: string; titleVi: string; tenses: GrammarTense[] }
-  | { kind: "table"; key: string; table: ConjugationTable }
+  | {
+      kind: "tense";
+      key: string;
+      verb: string;
+      tense: GrammarTense;
+      rows: GrammarTenseRow[];
+      /** Pingu explains these on the screen. */
+      tips: GrammarTip[];
+    }
   | { kind: "check"; key: string; question: GrammarChoiceQuestion }
-  | { kind: "bracket"; key: string; example: GrammarExample; bracket: SentenceBracket }
+  | { kind: "bracket"; key: string; example: GrammarExample; bracket: SentenceBracket; tips: GrammarTip[] }
   | { kind: "tips"; key: string; tips: GrammarTip[] }
   | { kind: "examples"; key: string; examples: GrammarExample[] };
+
+/** Tenses in teaching order: the known Präsens first, then the one-word past, then Perfekt. */
+export const STUDY_TENSE_ORDER: readonly GrammarTense[] = ["praesens", "praeteritum", "perfekt"];
+
+function tenseRows(table: ConjugationTable, tense: GrammarTense): GrammarTenseRow[] {
+  return table.rows.map((row) => ({
+    personLabel: row.person.label,
+    form: row.cells[tense].text,
+    highlight: row.cells[tense].highlight,
+    audioPath: row.cells[tense].audioPath,
+    spoken: row.cells[tense].spoken,
+  }));
+}
 
 export type GrammarStudyPart = {
   /** Stored once the part is finished. Stays the same while the verb list does. */
@@ -310,12 +340,17 @@ export type GrammarStudyPart = {
   screens: GrammarStudyScreen[];
 };
 
-/** Quick checks after the table: one Präteritum and one Perfekt cell. */
-const TABLE_CHECK_TENSES: readonly GrammarTense[] = ["praeteritum", "perfekt"];
+/** A quick check follows the screen of each new past tense. */
+const CHECKED_TENSES: ReadonlySet<GrammarTense> = new Set(["praeteritum", "perfekt"]);
 
 /**
- * One study part per verb: intro (first part only), table, two table checks,
- * the Perfekt bracket, tips, examples, and a final check from an example.
+ * One study part per verb, one idea per screen so it fits a phone:
+ * intro (first part only), then a screen per tense in STUDY_TENSE_ORDER, each
+ * new past tense followed by a quick check (Perfekt after its sentence
+ * bracket), then the remaining tips, the examples and a final check.
+ *
+ * Tips land where they explain something: a tip tagged with a tense is on that
+ * tense's screen, except a general Perfekt tip, which explains the bracket.
  */
 export function grammarStudyParts(
   lessonKey: string,
@@ -333,23 +368,28 @@ export function grammarStudyParts(
     if (index === 0) {
       screens.push({ kind: "intro", key: key("intro"), titleVi: topic.titleVi, tenses: [...GRAMMAR_TENSES] });
     }
-    screens.push({ kind: "table", key: key("table"), table });
-    for (const tense of TABLE_CHECK_TENSES) {
-      const persons = shuffle(tables.persons, random);
-      const question = persons
+    const forVerb = topic.tips.filter((tip) => tip.verb === undefined || tip.verb === verbId);
+    const perfekt = examples.filter((example) => example.tense === "perfekt");
+    const statement = perfekt.find((example) => !example.script.trim().endsWith("?")) ?? perfekt[0];
+    const auxForm = statement ? verbForm(tables, verbId, "perfekt", statement.person)?.words[0] : undefined;
+    const bracket = statement && auxForm ? sentenceBracket(statement.script, auxForm, verb.partizip) : null;
+    const bracketTips = bracket ? forVerb.filter((tip) => tip.tense === "perfekt" && tip.verb === undefined) : [];
+
+    for (const tense of STUDY_TENSE_ORDER) {
+      const tips = forVerb.filter((tip) => tip.tense === tense && !bracketTips.includes(tip));
+      screens.push({ kind: "tense", key: key(`tense-${tense}`), verb: verbId, tense, rows: tenseRows(table, tense), tips });
+      if (tense === "perfekt" && statement && bracket) {
+        screens.push({ kind: "bracket", key: key("bracket"), example: statement, bracket, tips: bracketTips });
+      }
+      if (!CHECKED_TENSES.has(tense)) continue;
+      const question = shuffle(tables.persons, random)
         .map((person) => tableQuestion(tables, verbId, tense, person.id, random, ruleFor(topic.tips, verbId, tense)))
         .find(Boolean);
       if (question) screens.push({ kind: "check", key: key(`check-${tense}`), question });
     }
 
-    const perfekt = examples.filter((example) => example.tense === "perfekt");
-    const statement = perfekt.find((example) => !example.script.trim().endsWith("?")) ?? perfekt[0];
-    const auxForm = statement ? verbForm(tables, verbId, "perfekt", statement.person)?.words[0] : undefined;
-    const bracket = statement && auxForm ? sentenceBracket(statement.script, auxForm, verb.partizip) : null;
-    if (statement && bracket) screens.push({ kind: "bracket", key: key("bracket"), example: statement, bracket });
-
-    const tips = topic.tips.filter((tip) => tip.verb === undefined || tip.verb === verbId);
-    if (tips.length > 0) screens.push({ kind: "tips", key: key("tips"), tips });
+    const general = forVerb.filter((tip) => tip.tense === undefined);
+    if (general.length > 0) screens.push({ kind: "tips", key: key("tips"), tips: general });
     if (examples.length > 0) screens.push({ kind: "examples", key: key("examples"), examples });
 
     const finalQuestion = shuffle(examples, random)

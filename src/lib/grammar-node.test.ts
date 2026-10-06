@@ -63,7 +63,6 @@ test("study: one part per verb, the intro only in the first", () => {
   assert.ok(!parts[1]!.screens.some((screen) => screen.kind === "intro"));
   for (const part of parts) {
     const kinds = part.screens.map((screen) => screen.kind);
-    assert.ok(kinds.includes("table"), part.key);
     assert.ok(kinds.includes("bracket"), part.key);
     assert.ok(kinds.includes("examples"), part.key);
     assert.equal(kinds.filter((kind) => kind === "check").length, 3, part.key);
@@ -71,10 +70,50 @@ test("study: one part per verb, the intro only in the first", () => {
   }
 });
 
+test("study: one screen per tense in teaching order, checks after each past tense", () => {
+  const [haben] = grammarStudyParts(LESSON, withAudio, tables);
+  const flow = haben!.screens.map((screen) => (screen.kind === "tense" ? `tense-${screen.tense}` : screen.kind));
+  assert.deepEqual(flow, [
+    "intro",
+    "tense-praesens",
+    "tense-praeteritum",
+    "check",
+    "tense-perfekt",
+    "bracket",
+    "check",
+    "tips",
+    "examples",
+    "check",
+  ]);
+  const praeteritum = haben!.screens.find((screen) => screen.kind === "tense" && screen.tense === "praeteritum");
+  assert.ok(praeteritum && praeteritum.kind === "tense");
+  assert.deepEqual(
+    praeteritum.rows.map((row) => `${row.personLabel}:${row.form}:${row.highlight}`),
+    ["ich:hatte:", "du:hattest:st", "er/sie/es:hatte:", "ihr:hattet:t", "wir/sie/Sie:hatten:n"],
+  );
+});
+
+test("study: each tip sits on the screen it explains, and no tip is shown twice", () => {
+  for (const part of grammarStudyParts(LESSON, withAudio, tables)) {
+    const where = new Map<string, string>();
+    for (const screen of part.screens) {
+      if (!("tips" in screen)) continue;
+      for (const tip of screen.tips) {
+        assert.ok(!where.has(tip.id), `${part.key}: ${tip.id} twice`);
+        where.set(tip.id, screen.kind === "tense" ? `tense-${screen.tense}` : screen.kind);
+      }
+    }
+    assert.equal(where.get("endungen"), "tense-praeteritum");
+    assert.equal(where.get("satzklammer"), "bracket");
+    assert.equal(where.get(`partizip-${part.verb}`), "tense-perfekt");
+    assert.equal(where.get("alltag"), "tips");
+  }
+});
+
 test("study: each part shows its own verb's tips and examples", () => {
   const [haben, sein] = grammarStudyParts(LESSON, withAudio, tables);
   const tipIds = (part: typeof haben) =>
-    part!.screens.flatMap((screen) => (screen.kind === "tips" ? screen.tips.map((tip) => tip.id) : []));
+    part!.screens.flatMap((screen) => ("tips" in screen ? screen.tips.map((tip) => tip.id) : []));
   assert.ok(tipIds(haben).includes("partizip-haben"));
   assert.ok(!tipIds(haben).includes("partizip-sein"));
   assert.ok(tipIds(sein).includes("partizip-sein"));

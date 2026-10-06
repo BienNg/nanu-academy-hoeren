@@ -6,7 +6,7 @@ import { cardShortcutsBlocked, FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 import type { GrammarTense } from "@/lib/grammar-lessons";
 import type { TableFillRow } from "@/lib/grammar-node";
 import type { WordChip } from "@/lib/sentence-order";
-import { TENSE_TONE } from "@/components/session/grammar/ConjugationTableView";
+import { TENSE_TONE } from "@/components/session/grammar/grammar-ui";
 
 type TableFillCardProps = {
   verb: string;

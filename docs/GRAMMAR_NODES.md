@@ -55,15 +55,14 @@ This file is separate from `verbs.json`, which keeps its Präsens-only shape for
 
 ## Grammar study node
 
-One part per verb, about 7 screens each:
+One part per verb, one idea per screen, laid out for a phone (checked at 375×667 and 390×844), in a Duolingo-like style: Pingu explains in a speech bubble, forms are big tappable key-phrase rows.
 
-1. Idea: two ways to talk about the past.
-2. Conjugation table (Präsens · Perfekt · Präteritum), tap a row to hear it, Präteritum endings highlighted.
-3. Quick check (generated from the table).
-4. Sentence bracket: `Ich | habe | gestern keine Zeit | gehabt.`
-5. Tips.
-6. Example sentences with audio and translation.
-7. Final quick check.
+1. Intro (first part only): the topic and the three tenses as numbered cards.
+2. A screen per tense in teaching order Präsens → Präteritum → Perfekt, with a stepper on top. Each row plays its audio; Präteritum endings are blue and underlined, the Partizip is orange. Pingu's bubble shows the tips tagged with that tense.
+3. A quick check after Präteritum, and after Perfekt's sentence bracket (`Ich | habe | … | gehabt.`), which carries the general Perfekt tips.
+4. Untagged tips as Pingu chat bubbles.
+5. Example sentences with audio; the verb form is colored by its tense.
+6. A final check.
 
 ## Grammar practice node
 

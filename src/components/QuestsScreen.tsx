@@ -10,9 +10,8 @@ import { ChillPingu } from "@/components/session/Pingu";
 import { TopBarStatus } from "@/components/TodayXpChip";
 import {
   questZoneHeaders,
-  readQuestUpdate,
-  QUEST_KINDS,
-  type QuestKind,
+  readQuestBoard,
+  type QuestBoardView,
   type QuestProgress,
   type QuestUpdate,
 } from "@/lib/quests";
@@ -21,56 +20,12 @@ import { formatWeekCountdown } from "@/lib/xp";
 
 type QuestRow = QuestProgress;
 
-type QuestBoardPayload = {
-  quests: QuestRow[];
-  bonus: { xp: number; claimed: boolean };
-  earnedXp: number;
-  maxXp: number;
-  update: QuestUpdate | null;
-};
-
 type LoadState =
   | { status: "loading" }
-  | { status: "ready"; board: QuestBoardPayload }
+  | { status: "ready"; board: QuestBoardView }
   | { status: "unavailable" };
 
 const SPRING = { type: "spring" as const, stiffness: 420, damping: 18 };
-
-function readBoard(value: unknown): QuestBoardPayload | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as {
-    ready?: unknown;
-    quests?: unknown;
-    bonus?: { xp?: unknown; claimed?: unknown };
-    earnedXp?: unknown;
-    maxXp?: unknown;
-    update?: unknown;
-  };
-  if (raw.ready !== true || !Array.isArray(raw.quests)) return null;
-  const quests = raw.quests.filter(
-    (quest): quest is QuestRow =>
-      Boolean(quest) &&
-      typeof quest.id === "string" &&
-      typeof quest.title === "string" &&
-      typeof quest.xp === "number" &&
-      typeof quest.target === "number" &&
-      quest.target > 0 &&
-      typeof quest.progress === "number" &&
-      typeof quest.done === "boolean" &&
-      QUEST_KINDS.includes(quest.kind as QuestKind),
-  );
-  if (quests.length === 0) return null;
-  return {
-    quests,
-    bonus: {
-      xp: typeof raw.bonus?.xp === "number" ? raw.bonus.xp : 0,
-      claimed: raw.bonus?.claimed === true,
-    },
-    earnedXp: typeof raw.earnedXp === "number" ? raw.earnedXp : 0,
-    maxXp: typeof raw.maxXp === "number" ? raw.maxXp : 0,
-    update: readQuestUpdate(raw.update),
-  };
-}
 
 function nextLocalMidnight(from: number): number {
   const date = new Date(from);
@@ -121,7 +76,7 @@ function QuestList({ quests }: { quests: readonly QuestRow[] }) {
   );
 }
 
-function BonusChest({ board }: { board: QuestBoardPayload }) {
+function BonusChest({ board }: { board: QuestBoardView }) {
   const reduceMotion = useReducedMotion() ?? false;
   const done = board.quests.filter((quest) => quest.done).length;
   const total = board.quests.length;
@@ -165,7 +120,7 @@ function BonusChest({ board }: { board: QuestBoardPayload }) {
   );
 }
 
-function Hero({ board, countdown }: { board: QuestBoardPayload | null; countdown: string | null }) {
+function Hero({ board, countdown }: { board: QuestBoardView | null; countdown: string | null }) {
   const done = board?.quests.filter((quest) => quest.done).length ?? 0;
   const total = board?.quests.length ?? 3;
   const headline = !board
@@ -240,7 +195,7 @@ export function QuestsScreen() {
     void fetch("/api/quests", { headers: questZoneHeaders() })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
-        const board = readBoard(data);
+        const board = readQuestBoard(data);
         setState(board ? { status: "ready", board } : { status: "unavailable" });
         publishQuestBadge(board ? board.quests.filter((quest) => !quest.done).length : 0);
         if (board?.update && board.update.xp > 0) setToast(board.update);
