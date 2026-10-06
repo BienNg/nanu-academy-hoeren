@@ -20,6 +20,7 @@ import {
 } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   Badge,
   Button,
@@ -38,6 +39,7 @@ import {
   TablePanel,
   formatCount,
 } from "@/components/admin/AdminUi";
+import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
   buildAdminAccessBoard,
@@ -361,6 +363,7 @@ function FieldLabel({ children }: { children: ReactNode }) {
 
 export function AdminAccess({
   rows,
+  catalog,
   levels,
   workplaces,
   storeConfigured,
@@ -368,6 +371,7 @@ export function AdminAccess({
   pendingReady,
 }: {
   rows: AdminUserRow[];
+  catalog: readonly AdminCatalogCourse[];
   levels: readonly AdminLevelOption[];
   workplaces: readonly AdminWorkplaceOption[];
   storeConfigured: boolean;
@@ -380,6 +384,7 @@ export function AdminAccess({
   const [classFilter, setClassFilter] = useState<string | "all">("all");
   const [lockedOnly, setLockedOnly] = useState(false);
   const [nothingOnly, setNothingOnly] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [accessByUser, setAccessByUser] = useState<Record<string, string[]>>({});
   const [interviewByUser, setInterviewByUser] = useState<Record<string, boolean>>({});
@@ -755,6 +760,9 @@ export function AdminAccess({
       : []),
   ];
 
+  const detailRow = detailUserId
+    ? (liveRows.find((row) => row.userId === detailUserId) ?? null)
+    : null;
   const learnerShare = (count: number) => (board.learners > 0 ? count / board.learners : 0);
   const pendingDisabled = !storeConfigured || !pendingReady || savingGrant;
   const classSuggestions = classOptions.map((option) => option.label);
@@ -1092,16 +1100,22 @@ export function AdminAccess({
                     row.className;
                   return (
                     <tr key={row.userId} className={TR}>
-                      <td className="sticky left-0 z-10 bg-admin-card px-space-16 py-space-8 group-hover:bg-admin-canvas">
-                        <div className="flex min-w-[12rem] flex-col">
+                      <td className="sticky left-0 z-10 h-px bg-admin-card p-0 group-hover:bg-admin-canvas">
+                        <button
+                          type="button"
+                          onClick={() => setDetailUserId(row.userId)}
+                          className="flex h-full min-h-[52px] w-full min-w-[12rem] cursor-pointer flex-col items-start justify-center px-space-16 py-space-8 text-left outline-none focus-visible:shadow-admin-focus"
+                        >
                           <span className="flex flex-wrap items-center gap-space-8">
-                            <span className="font-semibold text-admin-ink">{row.displayName}</span>
+                            <span className="font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
+                              {row.displayName}
+                            </span>
                             {row.staff && !row.isAdmin ? <StaffBadge /> : null}
                           </span>
                           {row.email && row.email !== row.displayName ? (
                             <span className="truncate text-admin-body-sm text-admin-ink-subtle">{row.email}</span>
                           ) : null}
-                        </div>
+                        </button>
                       </td>
                       <td className="whitespace-nowrap px-space-16 py-space-8">
                         {classLabel ? (
@@ -1166,6 +1180,9 @@ export function AdminAccess({
           </table>
         </div>
       </TablePanel>
+      {detailRow ? (
+        <StudentDetail row={detailRow} catalog={catalog} onClose={() => setDetailUserId(null)} />
+      ) : null}
     </main>
   );
 }

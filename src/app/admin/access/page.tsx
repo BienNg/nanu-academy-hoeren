@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminAccess } from "@/components/admin/AdminAccess";
-import { toAdminUserRow, withSessionIdentity } from "@/lib/admin-overview";
+import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
+import {
+  shortBerufLabel,
+  toAdminUserRow,
+  withSessionIdentity,
+  type AdminTrackColumn,
+} from "@/lib/admin-overview";
 import { requireAdmin } from "@/lib/auth-guard";
+import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
 import { getLivingWorkplaces } from "@/lib/living";
 import {
@@ -23,6 +30,14 @@ export default async function AdminAccessPage() {
   const levels = getCefrLevels().map(({ level, slug }) => ({ level, slug }));
   const workplaces = getLivingWorkplaces().map(({ slug, label }) => ({ slug, label }));
 
+  const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
+    slug: beruf.slug,
+    label: beruf.label,
+    shortLabel: shortBerufLabel(beruf.label),
+    totalClips: getSessionClips(beruf.slug).length,
+  }));
+  const catalog = buildAdminCourseCatalog(tracks);
+
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
     await touchUserProfile(session.user.id, {
@@ -40,6 +55,7 @@ export default async function AdminAccessPage() {
   return (
     <AdminAccess
       rows={rows}
+      catalog={catalog}
       levels={levels}
       workplaces={workplaces}
       storeConfigured={storeConfigured}
