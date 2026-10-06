@@ -909,7 +909,7 @@ export function LearnSession({
           xpPending={summary.xpPending}
           questUpdate={summary.quests}
           streakDays={streakDays}
-          celebrateStreak={isLastPart && !failedRun}
+          celebrateStreak={!failedRun}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}
           continueLabel={exitLabel}

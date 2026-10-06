@@ -796,7 +796,7 @@ export function StudySession({
           }
           questUpdate={openedFinishedLesson ? null : (xpGrant?.quests ?? null)}
           streakDays={streakDays}
-          celebrateStreak={!openedFinishedLesson && Boolean(summary?.finishRun)}
+          celebrateStreak={!openedFinishedLesson && summary != null}
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
           continueLabel={nodeHasNextPart ? "Phần tiếp theo" : "Về bài học"}
