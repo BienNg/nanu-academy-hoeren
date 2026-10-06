@@ -69,6 +69,8 @@
     "src/lib/scoring.ts",
     "src/lib/scoring.test.ts",
     "src/lib/onboarding.ts",
-    "src/lib/onboarding.test.ts"
+    "src/lib/onboarding.test.ts",
+    "src/lib/badges.ts",
+    "src/lib/badges.test.ts"
   ]
 }

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { BadgeUnlockSheet, markBadgesSeenRemote } from "@/components/BadgeParts";
+import { badgeCheckDue, markBadgeCheck } from "@/lib/badge-unseen";
+import { readFreshBadges, type FreshBadge } from "@/lib/badges";
 import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/quest-badge";
 import { questZoneHeaders } from "@/lib/quests";
 
@@ -66,6 +70,29 @@ function subscribeDuelTab(onChange: () => void): () => void {
   return () => window.removeEventListener(DUEL_TAB_EVENT, onChange);
 }
 
+let freshBadgesRequest: Promise<FreshBadge[]> | null = null;
+
+/**
+ * Unseen badges, or null when the last check is recent. A check already on
+ * its way is shared, so a remounted nav still gets its answer.
+ */
+function requestFreshBadges(): Promise<FreshBadge[]> | null {
+  if (freshBadgesRequest) return freshBadgesRequest;
+  if (!badgeCheckDue()) return null;
+  freshBadgesRequest = fetch("/api/badges?unseen=1")
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data: unknown) => {
+      markBadgeCheck();
+      return readFreshBadges(data);
+    })
+    // No popup this time. The next check finds the same unlocks.
+    .catch(() => [])
+    .finally(() => {
+      freshBadgesRequest = null;
+    });
+  return freshBadgesRequest;
+}
+
 export function BottomNav() {
   const livePath = usePathname() ?? "/";
   const pendingPath = useSyncExternalStore(subscribePendingNav, readPendingNav, () => null);
@@ -73,6 +100,26 @@ export function BottomNav() {
   const [challenges, setChallenges] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
   const questsLeft = useSyncExternalStore(subscribeQuestBadge, readQuestBadge, () => 0);
+  const [freshBadges, setFreshBadges] = useState<FreshBadge[]>([]);
+
+  useEffect(() => {
+    // The badges screen shows its own unlocks.
+    if (pathname.startsWith("/badges")) return;
+    const request = requestFreshBadges();
+    if (!request) return;
+    let cancelled = false;
+    void request.then((badges) => {
+      if (!cancelled) setFreshBadges(badges);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const finishBadges = useCallback((ids: string[]) => {
+    setFreshBadges([]);
+    markBadgesSeenRemote(ids);
+  }, []);
 
   useEffect(() => {
     // The quests screen publishes its own count, so it needs no second request.
@@ -128,54 +175,61 @@ export function BottomNav() {
   }, [pathname]);
 
   return (
-    <nav
-      aria-label="Điều hướng chính"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
-    >
-      <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
-        {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
-          const active = isCurrent(pathname, item.href);
-          const badge =
-            item.href === "/duel" ? challenges : item.href === "/quests" ? questsLeft : 0;
-          const badgeNote =
-            item.href === "/quests" ? "nhiệm vụ chưa xong" : "lời thách đấu chưa chơi";
-          const label = badge > 0 ? `${item.label}, ${badge} ${badgeNote}` : item.label;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              aria-label={label}
-              className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
-                active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
-              }`}
-            >
-              <span className="relative flex h-7 w-7 items-center justify-center">
-                <img
-                  src={item.icon}
-                  alt=""
-                  width={28}
-                  height={28}
-                  className={`h-7 w-7 ${active ? "nav-tab-pop" : ""}`}
-                  aria-hidden="true"
-                />
-                {badge > 0 ? (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
-                    {badge > 9 ? "9+" : badge}
-                  </span>
-                ) : null}
-              </span>
-              <span
-                className={`font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
-                  active ? "text-[#0059B5]" : "text-[#6E6E73]"
+    <>
+      <AnimatePresence>
+        {freshBadges.length > 0 && !pathname.startsWith("/badges") ? (
+          <BadgeUnlockSheet key="badge-unlock" badges={freshBadges} onDone={finishBadges} />
+        ) : null}
+      </AnimatePresence>
+      <nav
+        aria-label="Điều hướng chính"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
+      >
+        <div className="mx-auto flex w-full max-w-md items-center justify-around px-3 py-1.5">
+          {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
+            const active = isCurrent(pathname, item.href);
+            const badge =
+              item.href === "/duel" ? challenges : item.href === "/quests" ? questsLeft : 0;
+            const badgeNote =
+              item.href === "/quests" ? "nhiệm vụ chưa xong" : "lời thách đấu chưa chơi";
+            const label = badge > 0 ? `${item.label}, ${badge} ${badgeNote}` : item.label;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                aria-label={label}
+                className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
+                  active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
                 }`}
               >
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+                <span className="relative flex h-7 w-7 items-center justify-center">
+                  <img
+                    src={item.icon}
+                    alt=""
+                    width={28}
+                    height={28}
+                    className={`h-7 w-7 ${active ? "nav-tab-pop" : ""}`}
+                    aria-hidden="true"
+                  />
+                  {badge > 0 ? (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  ) : null}
+                </span>
+                <span
+                  className={`font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
+                    active ? "text-[#0059B5]" : "text-[#6E6E73]"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

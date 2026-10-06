@@ -235,6 +235,29 @@ export function AccountScreen({
 
           <section className="flex flex-col gap-4 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
             <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
+                <MaterialIcon name="workspace_premium" className="text-[26px]" filled />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="font-headline-sm text-[17px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
+                  Huy hiệu
+                </h2>
+                <p className="text-[14px] font-medium text-[#86868b]">
+                  Sưu tầm huy hiệu Đồng, Bạc, Vàng và Kim cương khi học đều và leo bảng xếp hạng.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/badges"
+              className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#5856d6] font-label-lg text-[15px] font-semibold text-white transition-all hover:bg-[#4b49c4] active:scale-[0.98]"
+            >
+              <MaterialIcon name="military_tech" className="text-[20px]" />
+              Xem bộ sưu tập
+            </Link>
+          </section>
+
+          <section className="flex flex-col gap-4 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
+            <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#0071e3]/10 text-[#0071e3]">
                 <MaterialIcon name="celebration" className="text-[26px]" filled />
               </div>

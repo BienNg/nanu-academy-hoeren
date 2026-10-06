@@ -53,11 +53,13 @@ import {
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
   boardClassFor,
+  classPodiums,
   leaderboardClassKey,
   leaderboardClassOptions,
   leaderboardDisplayName,
   weekKey,
   type BoardPerson,
+  type ClassPodiumPlace,
   type LeaderboardClassOption,
   type LeaderboardPayload,
   type LeaderboardRange,
@@ -1321,12 +1323,38 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
   const supabase = getSupabaseAdmin();
   if (!supabase) return finish(blank);
 
+  const people = await readXpBoardPeople(supabase, input.range, now, input.viewerId, input.viewerImage);
+  if (!people) return finish(blank);
+
+  const choice = classChoice(people, input);
+  return finish(
+    assembleLeaderboard({
+      people,
+      viewerId: input.viewerId,
+      scope: input.scope,
+      range: input.range,
+      now,
+      classKey: choice.classKey || undefined,
+      classLabel: choice.classLabel,
+      classOptions: choice.options,
+    }),
+  );
+}
+
+/** Everyone on the XP board for the range, with board classes. Null when XP is unreadable. */
+async function readXpBoardPeople(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+  viewerId: string,
+  viewerImage?: string | null,
+): Promise<BoardPerson[] | null> {
   const [xpTotals, duelTotals, profiles] = await Promise.all([
-    readXpTotals(supabase, input.range, now),
-    readDuelTotals(supabase, input.range, now),
+    readXpTotals(supabase, range, now),
+    readDuelTotals(supabase, range, now),
     listBoardProfiles(supabase),
   ]);
-  if (!xpTotals) return finish(blank);
+  if (!xpTotals) return null;
 
   const totals = new Map<string, { xp: number; reachedAt: string | null }>();
   for (const [userId, total] of xpTotals) totals.set(userId, { ...total });
@@ -1358,36 +1386,35 @@ export async function getLeaderboard(input: BoardQuery): Promise<LeaderboardPayl
       }),
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
-      image: boardImage(row, input.viewerId, input.viewerImage),
+      image: boardImage(row, viewerId, viewerImage),
     };
   });
-  if (!people.some((person) => person.userId === input.viewerId)) {
-    const total = totals.get(input.viewerId);
+  if (!people.some((person) => person.userId === viewerId)) {
+    const total = totals.get(viewerId);
     people.push({
-      userId: input.viewerId,
+      userId: viewerId,
       name: "Học viên",
       classKey: "",
       className: null,
       isAdmin: false,
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
-      image: googleProfileImage(input.viewerImage),
+      image: googleProfileImage(viewerImage),
     });
   }
+  return people;
+}
 
-  const choice = classChoice(people, input);
-  return finish(
-    assembleLeaderboard({
-      people,
-      viewerId: input.viewerId,
-      scope: input.scope,
-      range: input.range,
-      now,
-      classKey: choice.classKey || undefined,
-      classLabel: choice.classLabel,
-      classOptions: choice.options,
-    }),
-  );
+/**
+ * Top three of every class on the XP board for the week that contains
+ * `inWeek`. Null when XP is unreadable.
+ */
+export async function readWeeklyClassPodiums(inWeek: Date): Promise<ClassPodiumPlace[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  // No viewer: an empty id never matches a profile and joins no class.
+  const people = await readXpBoardPeople(supabase, "week", inWeek, "");
+  return people ? classPodiums(people) : null;
 }
 
 export async function getDuelLeaderboard(input: BoardQuery): Promise<LeaderboardPayload> {

@@ -530,7 +530,7 @@ export function ScreenForPath({ path }: { path: string }) {
     return <LevelScreenSkeleton path={path} />;
   }
   if (parts[0] === "learn") return <ChapterScreenSkeleton path={path} />;
-  if (parts[0] === "quests") return <QuestsScreenSkeleton />;
+  if (parts[0] === "quests" || parts[0] === "badges") return <QuestsScreenSkeleton />;
   if (parts[0] === "duel") return <DuelScreenSkeleton />;
   if (parts[0] === "leaderboard") return <LeaderboardScreenSkeleton />;
   return <LevelScreenSkeleton path={path} />;

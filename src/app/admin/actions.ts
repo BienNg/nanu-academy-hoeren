@@ -67,6 +67,7 @@ import {
   type PendingLevelGrant,
 } from "@/lib/progress-store";
 import { deleteUserQuestClaims } from "@/lib/quest-store";
+import { deleteUserBadges } from "@/lib/badge-store";
 import { listUserXpEvents } from "@/lib/xp-store";
 
 /**
@@ -150,9 +151,10 @@ export async function deleteAdminStudentProgress(
     await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
     if (parsed.scope === "all") {
-      // Duel and quest XP are not tied to a Lektion, so only a full wipe removes them.
+      // Duel XP, quest XP and badges are not tied to a Lektion, so only a full wipe removes them.
       await deleteUserDuelXp(id);
       await deleteUserQuestClaims(id);
+      await deleteUserBadges(id);
     }
     await syncStudiedClips(id, progress);
     revalidateAdmin();
@@ -352,6 +354,7 @@ export async function deleteAdminUser(
 
   try {
     await deleteUserAccount(id);
+    await deleteUserBadges(id);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to delete account";

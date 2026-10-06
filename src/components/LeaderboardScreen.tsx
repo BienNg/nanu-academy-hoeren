@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
@@ -480,6 +481,20 @@ export function LeaderboardScreen({
               Bảng xếp hạng
             </h1>
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <Link
+                href="/badges"
+                aria-label="Huy hiệu"
+                className="inline-flex items-center gap-1 rounded-full bg-[#ecebff] px-2.5 py-1 text-[12px] font-extrabold text-[#3634a3] shadow-[0_2px_0_0_#c9c7f5]"
+              >
+                <span
+                  className="material-symbols-outlined text-[16px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                  aria-hidden="true"
+                >
+                  workspace_premium
+                </span>
+                <span className="hidden sm:inline">Huy hiệu</span>
+              </Link>
               {range === "week" && board.countdown ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-1 text-[12px] font-extrabold text-[#855300] shadow-[0_2px_0_0_#f4d48a]">
                   <span className="material-symbols-outlined text-[16px]" aria-hidden="true">

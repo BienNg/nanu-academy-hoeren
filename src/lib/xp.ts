@@ -601,6 +601,36 @@ export function assembleLeaderboard(input: {
   };
 }
 
+export type ClassPodiumPlace = {
+  userId: string;
+  classKey: string;
+  rank: number;
+  xp: number;
+};
+
+/**
+ * The top `size` of every class on the XP board, ranked as the class board
+ * ranks them. Admins, learners without a class and learners without XP never
+ * take a place.
+ */
+export function classPodiums(people: readonly BoardPerson[], size = 3): ClassPodiumPlace[] {
+  const byClass = new Map<string, BoardPerson[]>();
+  for (const person of people) {
+    if (person.isAdmin || !person.classKey || person.xp <= 0) continue;
+    const list = byClass.get(person.classKey) ?? [];
+    list.push(person);
+    byClass.set(person.classKey, list);
+  }
+  const places: ClassPodiumPlace[] = [];
+  for (const [classKey, members] of byClass) {
+    const ranked = [...members].sort((left, right) => comparePeople(left, right, "xp"));
+    ranked.slice(0, size).forEach((person, index) => {
+      places.push({ userId: person.userId, classKey, rank: index + 1, xp: person.xp });
+    });
+  }
+  return places;
+}
+
 const HOME_RANK_PREVIEW = 3;
 
 /** Short home-screen slice: top of the board, or the window around you when you sit lower. */

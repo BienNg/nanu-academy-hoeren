@@ -916,14 +916,40 @@ export async function listAdminRounds(
  * a running round only counts once it is over, because its winner can still
  * change. Callers filter by week or class in memory.
  */
-export async function listRankedResults(input: { now?: Date } = {}): Promise<BoardResult[] | null> {
+export async function listRankedResults(
+  input: { now?: Date; userId?: string } = {},
+): Promise<BoardResult[] | null> {
   const now = input.now ?? new Date();
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
-  const { data, error } = await supabase
+  // With a learner, only the rounds they played. Everyone in those rounds is
+  // still read, because placement depends on the whole round.
+  let mine: string[] | null = null;
+  if (input.userId) {
+    const own = await supabase
+      .from(PARTICIPANTS_TABLE)
+      .select("session_id")
+      .eq("user_id", input.userId)
+      .not("submitted_at", "is", null);
+    if (own.error) {
+      logBlitz(own.error.message);
+      return null;
+    }
+    mine = [
+      ...new Set(
+        ((own.data ?? []) as { session_id?: unknown }[]).flatMap((row) =>
+          typeof row.session_id === "string" ? [row.session_id] : [],
+        ),
+      ),
+    ];
+    if (mine.length === 0) return [];
+  }
+  let query = supabase
     .from(PARTICIPANTS_TABLE)
     .select(`${PARTICIPANT_COLUMNS}, week_key`)
     .not("submitted_at", "is", null);
+  if (mine) query = query.in("session_id", mine);
+  const { data, error } = await query;
   if (error) {
     logBlitz(error.message);
     return null;
@@ -991,6 +1017,7 @@ export async function listRankedResults(input: { now?: Date } = {}): Promise<Boa
       })),
     );
     for (const entry of ranked) {
+      if (input.userId && entry.userId !== input.userId) continue;
       results.push({
         sessionId,
         userId: entry.userId,
