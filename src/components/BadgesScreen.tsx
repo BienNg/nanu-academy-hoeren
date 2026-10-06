@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { BadgeMedal, BadgeSheet, BadgeUnlockSheet, markBadgesSeenRemote, TierPips } from "@/components/BadgeParts";
@@ -213,18 +212,9 @@ export function BadgesScreen() {
     >
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pt-3 pb-2.5">
-          <div className="flex min-w-0 items-center gap-1">
-            <Link
-              href="/leaderboard"
-              aria-label="Về bảng xếp hạng"
-              className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#131b2e] hover:bg-black/[0.04]"
-            >
-              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
-                arrow_back_ios_new
-              </span>
-            </Link>
-            <h1 className="truncate font-headline-md text-headline-md font-extrabold tracking-tight">Huy hiệu</h1>
-          </div>
+          <h1 className="min-w-0 truncate font-headline-md text-headline-md font-extrabold tracking-tight">
+            Huy hiệu
+          </h1>
           <TopBarStatus />
         </div>
       </header>
