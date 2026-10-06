@@ -317,7 +317,7 @@ function LessonTrail({
         </div>
       </div>
       {empty ? null : (
-        <ul className="flex w-full flex-col items-start gap-space-12 py-space-12 pl-space-8">
+        <ul className="flex w-full flex-col items-start gap-space-12 py-space-12">
           {lesson.nodes.map((node) => (
             <li
               key={node.id}
@@ -511,7 +511,7 @@ export function AdminLevels({
               </p>
             ) : null}
 
-            <ol className="mx-auto flex w-full max-w-lg flex-col gap-space-24">
+            <ol className="flex w-full flex-col gap-space-24 lg:max-w-2xl">
               {path.lessons.map((lesson) => (
                 <LessonTrail
                   key={lesson.id}
@@ -528,7 +528,7 @@ export function AdminLevels({
 
             {path.finished.length > 0 ? (
               <div
-                className={`${CARD} mx-auto flex w-full max-w-lg flex-col gap-space-12 border-t-2 p-space-16`}
+                className={`${CARD} flex w-full flex-col gap-space-12 border-t-2 p-space-16 lg:max-w-2xl`}
                 style={{ borderTopColor: ADMIN_COLORS.emerald }}
               >
                 <div className="flex items-center gap-space-8">
