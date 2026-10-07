@@ -1,50 +1,16 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { AdminRetention } from "@/components/admin/AdminRetention";
-import {
-  parseAdminRange,
-  toAdminUserRow,
-  withSessionIdentity,
-} from "@/lib/admin-overview";
-import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
-import {
-  isProgressStoreConfigured,
-  touchUserProfile,
-} from "@/lib/progress-store";
+import { ADMIN_RANGES } from "@/lib/admin-overview";
 
-export const metadata: Metadata = {
-  title: "Retention · Admin · NaNu Academy",
-  robots: { index: false, follow: false },
-};
-
+/** Retention now lives on Activity. Old links keep their date window. */
 export default async function AdminRetentionPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await connection();
-  const session = await requireAdmin();
-  const range = parseAdminRange((await searchParams).range);
-
-  const storeConfigured = isProgressStoreConfigured();
-  if (storeConfigured && session.user.id) {
-    await touchUserProfile(session.user.id, {
-      email: session.user.email,
-      name: session.user.name,
-    });
-  }
-
-  const items = storeConfigured ? await listCachedUserProgress("activity") : [];
-  const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user)),
-  );
-
-  return (
-    <AdminRetention
-      rows={rows}
-      range={range}
-      storeConfigured={storeConfigured}
-    />
-  );
+  const raw = (await searchParams).range;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const range = value && (ADMIN_RANGES as readonly string[]).includes(value) ? value : null;
+  redirect(range ? `/admin/activity?range=${range}` : "/admin/activity");
 }

@@ -1,6 +1,7 @@
 import { isAdminUser } from "./admins";
 import {
   activeStreakDays,
+  normalizeGrantEmail,
   normalizeProgress,
   type AppUseRecord,
   type SignInRecord,
@@ -2262,4 +2263,164 @@ export function buildAdminHealthBoard(
     content,
     issues: catalog.issues,
   };
+}
+
+/** 1.5 hours. At or above this, a learner who finished a part counts as heavy use. */
+export const OUTREACH_HEAVY_SECONDS = 90 * 60;
+
+export const OUTREACH_CATEGORIES = ["preaccess", "never", "light", "heavy"] as const;
+
+export type OutreachCategory = (typeof OUTREACH_CATEGORIES)[number];
+
+export type OutreachFilter = OutreachCategory | "all";
+
+export type OutreachPending = {
+  email: string;
+  className: string | null;
+  updatedAt: string | null;
+};
+
+export type OutreachPerson = {
+  id: string;
+  category: OutreachCategory;
+  name: string | null;
+  email: string | null;
+  className: string | null;
+  /** Active seconds still stored on the account. Null for someone who has not signed up. */
+  activeSeconds: number | null;
+  /** Finished parts still stored on the account. Null for someone who has not signed up. */
+  parts: number | null;
+  lastSeenAt: string | null;
+  user: AdminUserRow | null;
+};
+
+const OUTREACH_ORDER: Record<OutreachCategory, number> = {
+  preaccess: 0,
+  never: 1,
+  light: 2,
+  heavy: 3,
+};
+
+/** Active seconds kept on daily activity. Older days are dropped after 120 days. */
+export function lifetimeActiveSeconds(progress: StoredProgress): number {
+  let seconds = 0;
+  for (const day of Object.values(progress.activity ?? {})) {
+    seconds += day.activeSeconds ?? 0;
+  }
+  return seconds;
+}
+
+/**
+ * Finished lesson parts still on the account.
+ * Practice and grammar parts are counted from their keys. A committed study
+ * pass, a listening pass saved before part keys, and any finished interview
+ * clip each add one, so a learner is not filed as "never" when those keys
+ * were not stored.
+ */
+export function finishedLessonParts(progress: StoredProgress): number {
+  let parts = 0;
+  let legacyListening = false;
+  for (const entry of Object.values(progress.learn)) {
+    const practice = entry.practicePartKeys?.length ?? 0;
+    parts += practice;
+    parts += entry.grammarPartKeys?.length ?? 0;
+    if (entry.reviewedClipIds.length > 0 || entry.studyRunCount > 0) parts += 1;
+    if (practice === 0 && (entry.runCount > 0 || entry.completedClipIds.length > 0)) {
+      legacyListening = true;
+    }
+  }
+  if (parts === 0 && legacyListening) parts = 1;
+  for (const entry of Object.values(progress.interview)) {
+    if (entry.completedClipIds.length > 0) parts += 1;
+  }
+  return parts;
+}
+
+export function outreachCategoryForUser(progress: StoredProgress): Exclude<OutreachCategory, "preaccess"> {
+  if (finishedLessonParts(progress) === 0) return "never";
+  return lifetimeActiveSeconds(progress) >= OUTREACH_HEAVY_SECONDS ? "heavy" : "light";
+}
+
+function outreachLabel(person: Pick<OutreachPerson, "name" | "email">): string {
+  return person.name?.trim() || person.email?.trim() || "";
+}
+
+/** Signed-up learners plus pre-unlock emails that have not created an account. */
+export function buildOutreachPeople(
+  rows: readonly AdminUserRow[],
+  pending: readonly OutreachPending[],
+): OutreachPerson[] {
+  const signedEmails = new Set<string>();
+  const people: OutreachPerson[] = [];
+
+  for (const row of rows) {
+    const email = normalizeGrantEmail(row.email ?? "");
+    if (email) signedEmails.add(email);
+    const parts = finishedLessonParts(row.progress);
+    const activeSeconds = lifetimeActiveSeconds(row.progress);
+    people.push({
+      id: row.userId,
+      category: parts === 0 ? "never" : activeSeconds >= OUTREACH_HEAVY_SECONDS ? "heavy" : "light",
+      name: row.name,
+      email: row.email,
+      className: row.className,
+      activeSeconds,
+      parts,
+      lastSeenAt: row.lastLoginAt,
+      user: row,
+    });
+  }
+
+  for (const grant of pending) {
+    const email = normalizeGrantEmail(grant.email);
+    if (!email || signedEmails.has(email)) continue;
+    people.push({
+      id: `pending:${email}`,
+      category: "preaccess",
+      name: null,
+      email,
+      className: grant.className,
+      activeSeconds: null,
+      parts: null,
+      lastSeenAt: grant.updatedAt,
+      user: null,
+    });
+  }
+
+  people.sort((a, b) => {
+    const byCategory = OUTREACH_ORDER[a.category] - OUTREACH_ORDER[b.category];
+    if (byCategory !== 0) return byCategory;
+    return outreachLabel(a).localeCompare(outreachLabel(b), "vi", { sensitivity: "base" });
+  });
+  return people;
+}
+
+export function filterOutreachPeople(
+  people: readonly OutreachPerson[],
+  category: OutreachFilter,
+  query: string,
+): OutreachPerson[] {
+  const needle = query.trim().toLowerCase();
+  return people.filter((person) => {
+    if (category !== "all" && person.category !== category) return false;
+    if (!needle) return true;
+    const haystack = [person.name, person.email, person.className]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+
+export function countOutreachCategories(
+  people: readonly OutreachPerson[],
+): Record<OutreachCategory, number> {
+  const counts: Record<OutreachCategory, number> = {
+    preaccess: 0,
+    never: 0,
+    light: 0,
+    heavy: 0,
+  };
+  for (const person of people) counts[person.category] += 1;
+  return counts;
 }

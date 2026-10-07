@@ -2,17 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ACTIVE_USER_TIMELINE_CAP,
+  OUTREACH_HEAVY_SECONDS,
   activeSecondsInRange,
   activityBucketKey,
   bucketPartStamps,
   buildActiveUserTimeline,
   buildAdminActivityStats,
+  buildOutreachPeople,
+  filterOutreachPeople,
   formatRelativeLastSeen,
   listAdminClasses,
   partsByUser,
   type AdminUserRow,
 } from "./admin-overview.js";
-import { DEFAULT_PROGRESS, type Visit } from "./progress.js";
+import { DEFAULT_PROGRESS, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
 
 const NOW = new Date("2026-10-02T06:30:00.000Z");
 
@@ -256,6 +259,95 @@ test("active time in the window takes the larger of the daily total and visit ti
   };
   assert.equal(activeSecondsInRange(progress, ["2026-10-02"]), 400);
   assert.equal(activeSecondsInRange(progress, ["2026-10-02", "2026-10-01"]), 430);
+});
+
+function learn(partial: Partial<LearnProgress> = {}): LearnProgress {
+  return {
+    currentClipIndex: 0,
+    completedClipIds: [],
+    runCount: 0,
+    runCompletedClipIds: [],
+    reviewedClipIds: [],
+    studyRunCount: 0,
+    ...partial,
+  };
+}
+
+function account(
+  userId: string,
+  email: string,
+  progress: StoredProgress,
+  name = userId,
+): AdminUserRow {
+  return {
+    ...row(userId, "2026-10-01T00:00:00.000Z", name),
+    name,
+    email,
+    streakDays: 0,
+    levelAccess: [],
+    interviewAccess: false,
+    livingAccess: [],
+    className: "G01",
+    signIns: [],
+    appUses: [],
+    lastSignInAt: null,
+    progress,
+  };
+}
+
+function withActivity(seconds: number, learnEntry?: LearnProgress): StoredProgress {
+  return {
+    ...DEFAULT_PROGRESS,
+    learn: learnEntry ? { "lektion-1": learnEntry } : {},
+    activity: seconds > 0 ? { "2026-10-01": { studyRuns: 0, practiceRuns: 0, activeSeconds: seconds } } : {},
+  };
+}
+
+test("outreach splits pre-access, no part, light use, and heavy use", () => {
+  const people = buildOutreachPeople(
+    [
+      account("idle", "idle@school.com", withActivity(3 * 60 * 60)),
+      account(
+        "light",
+        "light@school.com",
+        withActivity(20 * 60, learn({ practicePartKeys: ["p1"] })),
+      ),
+      account(
+        "heavy",
+        "heavy@school.com",
+        withActivity(OUTREACH_HEAVY_SECONDS, learn({ grammarPartKeys: ["t:p"] })),
+      ),
+      account(
+        "study",
+        "study@school.com",
+        withActivity(10 * 60, learn({ reviewedClipIds: ["c1", "c2"] })),
+      ),
+    ],
+    [
+      { email: "waiting@school.com", className: "G02", updatedAt: "2026-10-01T00:00:00.000Z" },
+      { email: "Light@School.com", className: "G02", updatedAt: null },
+    ],
+  );
+
+  assert.deepEqual(
+    people.map((person) => [person.email, person.category]),
+    [
+      ["waiting@school.com", "preaccess"],
+      ["idle@school.com", "never"],
+      ["light@school.com", "light"],
+      ["study@school.com", "light"],
+      ["heavy@school.com", "heavy"],
+    ],
+  );
+  assert.equal(people.find((person) => person.email === "idle@school.com")?.parts, 0);
+  assert.equal(people.find((person) => person.email === "light@school.com")?.parts, 1);
+  assert.equal(people.find((person) => person.email === "waiting@school.com")?.activeSeconds, null);
+
+  const lightOnly = filterOutreachPeople(people, "light", "study");
+  assert.deepEqual(
+    lightOnly.map((person) => person.email),
+    ["study@school.com"],
+  );
 });
 
 test("class tabs list newest created class first", () => {

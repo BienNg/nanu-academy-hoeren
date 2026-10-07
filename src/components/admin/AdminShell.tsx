@@ -184,6 +184,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/students", label: "Students", icon: "group", ready: true },
       { href: "/admin/classes", label: "Classes", icon: "school", ready: true },
       { href: "/admin/access", label: "Access", icon: "lock", ready: true },
+      { href: "/admin/outreach", label: "Outreach", icon: "support_agent", ready: true },
     ],
   },
   {
@@ -203,7 +204,6 @@ const ADMIN_NAV: AdminNavGroup[] = [
     label: "Engagement",
     items: [
       { href: "/admin/activity", label: "Activity", icon: "timeline", ready: true, ranged: true },
-      { href: "/admin/retention", label: "Retention", icon: "event_repeat", ready: true, ranged: true },
       { href: "/admin/xp", label: "XP", icon: "bolt", ready: true, ranged: true },
       { href: "/admin/duels", label: "Duels", icon: "swords", ready: true, ranged: true },
       { href: "/admin/blitzrunde", label: "Blitzrunde", icon: BLITZRUNDE_ICON, ready: true },

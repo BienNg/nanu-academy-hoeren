@@ -929,8 +929,9 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
  * `activity` adds visits, daily activity, and video watch state.
  * `videos` is the watch map plus visits (per-video playback seconds) for the videos board.
  * `levels` adds lesson and interview progress for the level paths.
+ * `outreach` adds lesson and interview progress on top of daily activity, for the support list.
  */
-export type AdminListSlice = "account" | "activity" | "levels" | "videos";
+export type AdminListSlice = "account" | "activity" | "levels" | "videos" | "outreach";
 
 const ADMIN_PROFILE_COLUMNS = [
   "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, staff",
@@ -965,7 +966,7 @@ function sliceProgressColumns(slice: AdminListSlice): string {
     keys.push("videos:data->videos");
   }
   if (slice === "activity" || slice === "videos") keys.push("visits:data->visits");
-  if (slice === "levels") {
+  if (slice === "levels" || slice === "outreach") {
     keys.push("learn:data->learn", "interview:data->interview");
   }
   return keys.join(", ");

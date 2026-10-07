@@ -10,16 +10,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdminPageHeader, useAdminRange } from "@/components/admin/AdminShell";
 import {
-  HeaderChip,
+  ChartPanel,
   KpiTile,
-  THEAD,
+  SectionHeading,
   TH,
+  THEAD,
   TR,
   TablePanel,
   formatCount,
-  ChartPanel,
 } from "@/components/admin/AdminUi";
 import {
   adminRangeLabel,
@@ -251,15 +250,18 @@ function PeopleTable({
 
 export function AdminRetention({
   rows,
-  range: serverRange,
-  storeConfigured,
+  range,
 }: {
   rows: readonly AdminUserRow[];
   range: AdminRange;
-  storeConfigured: boolean;
 }) {
-  const range = useAdminRange(serverRange);
-  const board = useMemo(() => buildAdminRetentionBoard(rows, range), [rows, range]);
+  const board = useMemo(
+    () => buildAdminRetentionBoard(
+      rows.filter((row) => !row.isAdmin && !row.staff),
+      range,
+    ),
+    [rows, range],
+  );
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
   const d1Hint =
@@ -268,29 +270,27 @@ export function AdminRetention({
       : "Of people active on a Vietnam day, share who also came the next day.";
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
-      <AdminPageHeader
-        kicker="Engagement"
+    <section aria-labelledby="activity-retention" className="flex flex-col gap-space-12">
+      <SectionHeading
+        id="activity-retention"
+        icon="event_repeat"
         title="Retention"
-        subtitle={`Who came back ${window}, who is on a streak, and who went quiet. Times are Vietnam.`}
-        trailing={
+        color={ADMIN_COLORS.ember}
+        meta={
           board.stickiness != null ? (
-            <HeaderChip icon="push_pin">
+            <>
               Last-day stickiness{" "}
-              <span className="font-semibold tabular-nums text-admin-ink">{formatPercent(board.stickiness)}</span>
-            </HeaderChip>
-          ) : null
+              <span className="font-semibold tabular-nums text-admin-ink">
+                {formatPercent(board.stickiness)}
+              </span>
+            </>
+          ) : (
+            `Who came back ${window}`
+          )
         }
       />
 
-      {!storeConfigured ? (
-        <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-20 py-space-16 text-admin-body-sm text-admin-crimson-ink">
-          Cloud progress is not configured. This page only counts learners who have
-          synced progress to Supabase.
-        </div>
-      ) : null}
-
-      <section
+      <div
         aria-label="Retention totals"
         className="grid grid-cols-2 gap-space-16 md:grid-cols-3 xl:grid-cols-5"
       >
@@ -335,7 +335,7 @@ export function AdminRetention({
           caption={range === "today" ? "Last seen before yesterday" : `Seen before this window, not ${window}`}
           color={board.lapsed > 0 ? ADMIN_COLORS.crimson : ADMIN_COLORS.inkSubtle}
         />
-      </section>
+      </div>
 
       <div className="grid grid-cols-1 gap-space-16 xl:grid-cols-2 2xl:gap-space-20">
         <ChartPanel color={ADMIN_COLORS.ember} icon="redo" title="Came back the next day" hint={d1Hint}>
@@ -376,6 +376,6 @@ export function AdminRetention({
           value={(row) => formatDaysAgo(row.daysAgo)}
         />
       </div>
-    </main>
+    </section>
   );
 }

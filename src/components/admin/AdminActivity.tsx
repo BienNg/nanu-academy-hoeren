@@ -18,6 +18,7 @@ import {
   YAxis,
 } from "recharts";
 import { loadActivityWindow, type ActivityWindow } from "@/app/admin/range-data";
+import { AdminRetention } from "@/components/admin/AdminRetention";
 import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
@@ -1283,8 +1284,8 @@ export function AdminActivity({
         title="Activity"
         subtitle={
           hourly
-            ? `Who opened the app today${classScope}, by Vietnam hour.`
-            : `Who opened the app ${window}${classScope}. Each point is a Vietnam day.`
+            ? `Who opened the app today${classScope}, by Vietnam hour, and who came back.`
+            : `Who opened the app ${window}${classScope}, and who came back. Each point is a Vietnam day.`
         }
         trailing={
           <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
@@ -1487,6 +1488,8 @@ export function AdminActivity({
         ]}
         />
       </section>
+
+      <AdminRetention rows={filteredRows} range={range} />
 
       <section aria-labelledby="activity-trends" className="flex flex-col gap-space-12">
         <SectionHeading
