@@ -6,6 +6,11 @@ If a change would create a new top-level "helper" file or folder, stop and ask w
 
 Do not add Firebase, paid services, or anything outside Vercel's free Hobby tier.
 
+## Server bundle size
+
+- Generate images (share cards, certificates, previews) with `ImageResponse` from `next/og`, as `src/app/api/recap-card/route.tsx` does. Do not import `sharp` or add another native image library: `next.config.ts` excludes `sharp` from every server function on purpose, and `next/og` falls back to its bundled resvg. Read fonts and logos from disk and list them in `outputFileTracingIncludes` for that route.
+- Server code must not read `public/audio` or `public/images` from disk; they are excluded from the functions too. Check files with `publicMediaExists()` in `src/lib/content.ts`, which uses the list `scripts/check-content-integrity.mjs` writes to `src/data/media-files.json` at build.
+
 ## Design fidelity
 
 - `design-reference/` files are the exact visual target — match spacing, colors, typography, icons, and component states pixel-for-pixel, not "inspired by."
