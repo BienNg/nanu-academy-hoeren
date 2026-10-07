@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ACTIVE_USER_TIMELINE_CAP,
+  activeSecondsInRange,
   activityBucketKey,
   bucketPartStamps,
   buildActiveUserTimeline,
@@ -230,6 +231,31 @@ test("videos started counts each played video once per learner, from visits in t
   const stats = buildAdminActivityStats([viewer], "today", NOW);
   assert.equal(stats.videosStarted, 2);
   assert.equal(stats.startedVideoSeconds, 240);
+});
+
+test("active time in the window takes the larger of the daily total and visit time", () => {
+  const progress = {
+    ...DEFAULT_PROGRESS,
+    activity: {
+      "2026-10-02": { studyRuns: 0, practiceRuns: 0, activeSeconds: 90 },
+      "2026-10-01": { studyRuns: 0, practiceRuns: 0, activeSeconds: 30 },
+    },
+    visits: [
+      {
+        id: "visit",
+        startedAt: "2026-10-02T02:00:00.000Z",
+        endedAt: "2026-10-02T02:10:00.000Z",
+        activeSeconds: 400,
+        lessons: [],
+        clips: [],
+        exercisesCompleted: 0,
+        listeningRuns: 0,
+        videos: [],
+      },
+    ],
+  };
+  assert.equal(activeSecondsInRange(progress, ["2026-10-02"]), 400);
+  assert.equal(activeSecondsInRange(progress, ["2026-10-02", "2026-10-01"]), 430);
 });
 
 test("class tabs list newest created class first", () => {

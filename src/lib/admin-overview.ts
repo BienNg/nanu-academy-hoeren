@@ -776,6 +776,16 @@ function activeSecondsOnDay(progress: StoredProgress, day: string): number {
   return Math.max(recorded, fromVisits);
 }
 
+/** Active seconds in the Vietnam window, from daily totals and visit time. */
+export function activeSecondsInRange(
+  progress: StoredProgress,
+  days: readonly string[],
+): number {
+  let seconds = 0;
+  for (const day of days) seconds += activeSecondsOnDay(progress, day);
+  return seconds;
+}
+
 function dayWork(progress: StoredProgress, day: string): {
   videos: number;
   study: number;
@@ -1083,18 +1093,17 @@ function buildActivityLeaders(
   const leaders: AdminActivityLeader[] = [];
 
   for (const row of rows) {
-    let activeSeconds = 0;
     let videosWatched = 0;
     let studyRuns = 0;
     let practiceRuns = 0;
 
     for (const day of days) {
       const work = dayWork(row.progress, day);
-      activeSeconds += activeSecondsOnDay(row.progress, day);
       videosWatched += work.videos;
       studyRuns += work.study;
       practiceRuns += work.practice;
     }
+    const activeSeconds = activeSecondsInRange(row.progress, days);
 
     leaders.push({
       userId: row.userId,

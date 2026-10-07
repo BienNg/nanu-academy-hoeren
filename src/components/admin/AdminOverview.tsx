@@ -39,6 +39,7 @@ import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ACTIVE_USER_TIMELINE_CAP,
   ADMIN_PAGE_SIZE,
+  activeSecondsInRange,
   adminRangeLabel,
   adminTimelineClockKey,
   buildActiveUserTimeline,
@@ -56,6 +57,7 @@ import {
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
+import { formatActiveDuration } from "@/lib/progress";
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
@@ -915,6 +917,7 @@ function ActiveUsersTable({
               <th className={`${TH} text-right`}>Streak</th>
               <th className={`${TH} text-right`}>Study parts</th>
               <th className={`${TH} text-right`}>Practice parts</th>
+              <th className={`${TH} text-right`}>Active time</th>
               <th className={`${TH} text-right`}>Video</th>
             </tr>
           </thead>
@@ -922,7 +925,7 @@ function ActiveUsersTable({
             {paged.pageRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                 >
                   No one has been active {window}.
@@ -938,6 +941,10 @@ function ActiveUsersTable({
                 const earned = rangeXp[row.userId] ?? 0;
                 const studyParts = studyPartsByUser?.[row.userId] ?? 0;
                 const practiceParts = practicePartsByUser?.[row.userId] ?? 0;
+                const activeSeconds = activeSecondsInRange(
+                  row.progress,
+                  vietnamDays,
+                );
                 const videoMinutes = videoMinutesInRange(
                   row.progress,
                   vietnamDays,
@@ -1045,6 +1052,12 @@ function ActiveUsersTable({
                       {practicePartsByUser == null
                         ? "—"
                         : formatCount(practiceParts)}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
+                      title={`Active time ${window}`}
+                    >
+                      {formatActiveDuration(activeSeconds)}
                     </td>
                     <td
                       className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
