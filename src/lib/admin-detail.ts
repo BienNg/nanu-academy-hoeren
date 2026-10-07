@@ -875,6 +875,8 @@ export type AdminVisitSignalKind = "returning" | "stuck" | "video";
 export type AdminVisitRow = {
   id: string;
   headline: string;
+  /** ISO start time, used to place the visit among other logged events. */
+  startedAt: string;
   /** Local calendar day the visit started, e.g. "Mon 5 Oct". */
   day: string;
   /** Local clock range, e.g. "09:12–09:40". */
@@ -1003,6 +1005,13 @@ function formatClock(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
+/** Local calendar day label shared by the visit list, e.g. "Wed 7 Oct". */
+export function formatVisitDay(iso: string): string {
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return "Visit";
+  return `${WEEKDAYS[start.getDay()]} ${start.getDate()} ${MONTHS[start.getMonth()]}`;
+}
+
 function visitWhen(visit: Visit): { day: string; timeRange: string } {
   const start = new Date(visit.startedAt);
   const end = new Date(visit.endedAt);
@@ -1011,7 +1020,7 @@ function visitWhen(visit: Visit): { day: string; timeRange: string } {
   }
   const clock = (date: Date) =>
     `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-  const day = `${WEEKDAYS[start.getDay()]} ${start.getDate()} ${MONTHS[start.getMonth()]}`;
+  const day = formatVisitDay(visit.startedAt);
   const endLabel =
     start.toDateString() === end.toDateString()
       ? clock(end)
@@ -1407,6 +1416,7 @@ export function projectStudentVisits(
     return {
       id: visit.id,
       headline: formatVisitHeadline(visit),
+      startedAt: visit.startedAt,
       ...visitWhen(visit),
       activeSeconds: visit.activeSeconds,
       idle,

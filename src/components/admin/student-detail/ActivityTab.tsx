@@ -30,6 +30,7 @@ import {
   type AdminVisitDetailGroup,
   type AdminVisitDetailItem,
   type AdminVisitDetailTone,
+  formatVisitDay,
   type AdminVisitRange,
   type AdminVisitRow,
   type AdminVisitSignalKind,
@@ -369,25 +370,107 @@ function VisitCard({
   );
 }
 
+function clockLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
+
+function DuelMatchTimelineRow({ failure }: { failure: DuelMatchFailure }) {
+  const when = clockLabel(failure.createdAt);
+  return (
+    <li className="flex items-start gap-space-12 rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12">
+      <MaterialIcon name="swords" className="mt-0.5 text-[18px] text-admin-crimson" filled />
+      {when ? (
+        <span className="shrink-0 text-admin-label-md font-semibold tabular-nums text-admin-ink">{when}</span>
+      ) : null}
+      <span className="min-w-0 flex-1">
+        <span className="block text-admin-body-sm font-semibold text-admin-ink">Could not find an opponent</span>
+        <span className="mt-0.5 block text-admin-body-sm leading-relaxed text-admin-ink-muted">{failure.reason}</span>
+      </span>
+    </li>
+  );
+}
+
+type DayTimeline = {
+  day: string;
+  at: number;
+  visits: AdminVisitRow[];
+  duels: DuelMatchFailure[];
+  activeSeconds: number;
+};
+
+function visitDayTimeline(visits: readonly AdminVisitRow[], duels: readonly DuelMatchFailure[]): DayTimeline[] {
+  const days: DayTimeline[] = [];
+  const byDay = new Map<string, DayTimeline>();
+  const ensure = (day: string, at: number) => {
+    const existing = byDay.get(day);
+    if (existing) {
+      if (at > existing.at) existing.at = at;
+      return existing;
+    }
+    const created: DayTimeline = { day, at, visits: [], duels: [], activeSeconds: 0 };
+    byDay.set(day, created);
+    days.push(created);
+    return created;
+  };
+  for (const visit of visits) {
+    const group = ensure(visit.day, Date.parse(visit.startedAt) || 0);
+    group.visits.push(visit);
+    group.activeSeconds += visit.activeSeconds;
+  }
+  for (const failure of duels) {
+    const at = Date.parse(failure.createdAt);
+    const group = ensure(formatVisitDay(failure.createdAt), Number.isNaN(at) ? 0 : at);
+    group.duels.push(failure);
+  }
+  for (const group of days) {
+    group.duels.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  }
+  days.sort((a, b) => b.at - a.at);
+  return days;
+}
+
+function useDuelFailures(
+  userId: string | undefined,
+  range: AdminVisitRange | undefined,
+  timeZone: string | undefined,
+): DuelMatchFailure[] {
+  const [failures, setFailures] = useState<DuelMatchFailure[]>([]);
+  const window = useMemo(
+    () => (range ? visitRangeIso(range, new Date(), timeZone) : null),
+    [range, timeZone],
+  );
+  const requestKey = userId && range ? `${userId}:${range}:${window?.fromIso ?? "all"}` : null;
+
+  useEffect(() => {
+    if (!requestKey || !userId) return;
+    let cancelled = false;
+    setFailures([]);
+    void listAdminStudentDuelMatchFailures(userId, 0, window).then((result) => {
+      if (cancelled) return;
+      setFailures(result.ok && result.status === "ready" ? result.failures : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, window]);
+
+  return requestKey ? failures : [];
+}
+
 function VisitFeed({
   visits,
+  duelFailures = [],
   openVisitId,
   onToggle,
 }: {
   visits: AdminVisitRow[];
+  duelFailures?: readonly DuelMatchFailure[];
   openVisitId: string | null;
   onToggle: (id: string) => void;
 }) {
-  const days: { day: string; visits: AdminVisitRow[]; activeSeconds: number }[] = [];
-  for (const visit of visits) {
-    const last = days[days.length - 1];
-    if (last && last.day === visit.day) {
-      last.visits.push(visit);
-      last.activeSeconds += visit.activeSeconds;
-    } else {
-      days.push({ day: visit.day, visits: [visit], activeSeconds: visit.activeSeconds });
-    }
-  }
+  const days = visitDayTimeline(visits, duelFailures);
 
   return (
     <div className="flex flex-col gap-space-20">
@@ -397,11 +480,18 @@ function VisitFeed({
           <div className="sticky -top-5 z-[1] -mx-1 flex items-baseline justify-between gap-space-12 bg-admin-canvas/95 px-1 py-space-8 backdrop-blur sm:-top-6">
             <h4 className="text-admin-body-md font-semibold text-admin-ink">{group.day}</h4>
             <span className="text-[12px] font-medium tabular-nums text-admin-ink-subtle">
-              {group.visits.length} {group.visits.length === 1 ? "visit" : "visits"} ·{" "}
+              {group.visits.length} {group.visits.length === 1 ? "visit" : "visits"}
+              {group.duels.length > 0
+                ? ` · ${group.duels.length} ${group.duels.length === 1 ? "duel" : "duels"}`
+                : ""}
+              {" · "}
               {shortDuration(group.activeSeconds)}
             </span>
           </div>
           <ul className="mt-1 flex flex-col gap-space-8">
+            {group.duels.map((failure) => (
+              <DuelMatchTimelineRow key={failure.id} failure={failure} />
+            ))}
             {group.visits.map((visit) => (
               <VisitCard
                 key={visit.id}
@@ -572,18 +662,30 @@ function practiceEmptyMessage(range: AdminVisitRange): string {
   return "No finished practice parts yet.";
 }
 
+function hideQuietSection(
+  hideWhenEmpty: boolean,
+  visible: { status: string; total: number } | null,
+): boolean {
+  if (!hideWhenEmpty || visible == null) return hideWhenEmpty;
+  if (visible.status === "missing") return true;
+  return visible.status !== "error" && visible.total === 0;
+}
+
 function ListeningRunsSection({
   userId,
   catalog,
   revision,
   range,
   timeZone,
+  hideWhenEmpty = false,
 }: {
   userId: string;
   catalog: readonly AdminCatalogCourse[];
   revision: number;
   range: AdminVisitRange;
   timeZone: string | undefined;
+  /** Skip the section when nothing is logged, so a compact view stays quiet. */
+  hideWhenEmpty?: boolean;
 }) {
   const [page, setPage] = useState<StudentRunsPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -651,6 +753,7 @@ function ListeningRunsSection({
   }
 
   const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
+  if (hideQuietSection(hideWhenEmpty, visible)) return null;
 
   return (
     <section aria-label="Practice" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
@@ -825,12 +928,14 @@ function JumpRunsSection({
   revision,
   range,
   timeZone,
+  hideWhenEmpty = false,
 }: {
   userId: string;
   catalog: readonly AdminCatalogCourse[];
   revision: number;
   range: AdminVisitRange;
   timeZone: string | undefined;
+  hideWhenEmpty?: boolean;
 }) {
   const [page, setPage] = useState<StudentJumpRunsPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -877,6 +982,7 @@ function JumpRunsSection({
   }
 
   const earlier = visible ? Math.max(0, visible.total - visible.runs.length) : 0;
+  if (hideQuietSection(hideWhenEmpty, visible)) return null;
 
   return (
     <section aria-label="Jump tests" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
@@ -935,11 +1041,13 @@ function DuelMatchFailuresSection({
   revision,
   range,
   timeZone,
+  hideWhenEmpty = false,
 }: {
   userId: string;
   revision: number;
   range: AdminVisitRange;
   timeZone: string | undefined;
+  hideWhenEmpty?: boolean;
 }) {
   const [page, setPage] = useState<StudentDuelMatchFailuresPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -989,6 +1097,7 @@ function DuelMatchFailuresSection({
   }
 
   const earlier = visible ? Math.max(0, visible.total - visible.failures.length) : 0;
+  if (hideQuietSection(hideWhenEmpty, visible)) return null;
 
   return (
     <section aria-label="Duel match failures" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
@@ -1056,12 +1165,60 @@ function visitStripStats(visits: readonly AdminVisitRow[]) {
   };
 }
 
-export function VisitDayList({ visits }: { visits: AdminVisitRow[] }) {
+/** Activity-tab logs that are stored apart from the visit record. */
+export function StudentActivityLogs({
+  userId,
+  catalog,
+  range,
+  timeZone,
+  hideWhenEmpty = false,
+}: {
+  userId: string;
+  catalog: readonly AdminCatalogCourse[];
+  range: AdminVisitRange;
+  timeZone: string | undefined;
+  hideWhenEmpty?: boolean;
+}) {
+  return (
+    <>
+      <ListeningRunsSection
+        userId={userId}
+        catalog={catalog}
+        revision={0}
+        range={range}
+        timeZone={timeZone}
+        hideWhenEmpty={hideWhenEmpty}
+      />
+      <JumpRunsSection
+        userId={userId}
+        catalog={catalog}
+        revision={0}
+        range={range}
+        timeZone={timeZone}
+        hideWhenEmpty={hideWhenEmpty}
+      />
+    </>
+  );
+}
+
+export function VisitDayList({
+  visits,
+  userId,
+  range,
+  timeZone,
+}: {
+  visits: AdminVisitRow[];
+  userId?: string;
+  range?: AdminVisitRange;
+  timeZone?: string;
+}) {
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
-  if (visits.length === 0) return null;
+  const duelFailures = useDuelFailures(userId, range, timeZone);
+  if (visits.length === 0 && duelFailures.length === 0) return null;
   return (
     <VisitFeed
       visits={visits}
+      duelFailures={duelFailures}
       openVisitId={openVisitId}
       onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
     />
@@ -1087,6 +1244,7 @@ export function ActivityTab({
 }) {
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const visitStats = visitStripStats(visitLog.visits);
+  const duelFailures = useDuelFailures(userId, range, timeZone);
 
   return (
     <div className="grid items-start gap-x-space-32 gap-y-space-40 lg:grid-cols-2">
@@ -1096,7 +1254,7 @@ export function ActivityTab({
           description="Each time the app was open, newest first."
           action={<VisitRangeSwitch range={range} onChange={onRange} />}
         />
-        {visitLog.visits.length === 0 ? (
+        {visitLog.visits.length === 0 && duelFailures.length === 0 ? (
           <EmptyPanel>{visitLog.emptyMessage}</EmptyPanel>
         ) : (
           <>
@@ -1125,6 +1283,7 @@ export function ActivityTab({
             />
             <VisitFeed
               visits={visitLog.visits}
+              duelFailures={duelFailures}
               openVisitId={openVisitId}
               onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
             />

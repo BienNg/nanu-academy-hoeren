@@ -10,7 +10,7 @@ import {
   type StudentAccessPatch,
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
-import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
+import { StudentActivityLogs, VisitDayList } from "@/components/admin/student-detail/ActivityTab";
 import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import {
@@ -219,9 +219,11 @@ function DrawerSkeleton() {
 }
 
 function StudentSummary({
+  userId,
   catalog,
   payload,
 }: {
+  userId: string;
   catalog: readonly AdminCatalogCourse[];
   payload: StudentDetailPayload;
 }) {
@@ -257,12 +259,24 @@ function StudentSummary({
         />
       </Section>
 
-      <section className="px-space-12 py-space-16">
+      <section className="flex flex-col gap-space-24 px-space-12 py-space-16">
         {weekLog.visits.length === 0 ? (
           <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{weekLog.emptyMessage}</p>
         ) : (
-          <VisitDayList visits={weekLog.visits} />
+          <VisitDayList
+            visits={weekLog.visits}
+            userId={userId}
+            range="7d"
+            timeZone={payload.progress.streakTimeZone}
+          />
         )}
+        <StudentActivityLogs
+          userId={userId}
+          catalog={catalog}
+          range="7d"
+          timeZone={payload.progress.streakTimeZone}
+          hideWhenEmpty
+        />
       </section>
     </>
   );
@@ -419,7 +433,7 @@ export function StudentDetail({
       {current == null ? (
         <DrawerSkeleton />
       ) : current.ok ? (
-        <StudentSummary catalog={catalog} payload={current.payload} />
+        <StudentSummary userId={row.userId} catalog={catalog} payload={current.payload} />
       ) : (
         <p
           role="alert"
