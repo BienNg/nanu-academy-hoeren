@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Howl } from "howler";
-import { ReadingPingu } from "@/components/session/Pingu";
 import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
 import { FOCUS_RING } from "@/lib/keyboard";
 import type { GrammarTense } from "@/lib/grammar-lessons";
@@ -32,7 +31,7 @@ export const TENSE_TONE: Record<
     head: "bg-[#c364e0] text-white",
     label: "text-[#8a2fb0]",
     text: "text-[#5b1a73]",
-    mark: "text-[#1d6ff2] underline decoration-[3px] underline-offset-[5px]",
+    mark: "font-extrabold",
     soft: "bg-[#f7ebfb]",
     ring: "border-[#c364e0]",
   },
@@ -114,80 +113,6 @@ export function Emphasize({
         ),
       )}
     </>
-  );
-}
-
-/** Pingu teaching: the mascot on the left, a speech bubble pointing at him. */
-export function PinguSays({ children, size = 64 }: { children: ReactNode; size?: number }) {
-  return (
-    <div className="flex items-end gap-2">
-      <div className="shrink-0 translate-y-1" aria-hidden="true">
-        <ReadingPingu size={size} />
-      </div>
-      <div className="relative mb-3 min-w-0 flex-1 rounded-2xl border-2 border-[#e5e5ea] bg-white px-3.5 py-2.5 text-[14px] leading-snug text-[#3a3a3c] min-[380px]:px-4 min-[380px]:py-3 min-[380px]:text-[15px]">
-        <span
-          aria-hidden="true"
-          className="absolute bottom-4 -left-[9px] h-4 w-4 rotate-45 border-b-2 border-l-2 border-[#e5e5ea] bg-white"
-        />
-        <div className="relative flex flex-col gap-2">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-/** Pingu saying several things: one bubble each, like a chat, Pingu beside the last. */
-export function PinguChat({ bubbles, size = 64 }: { bubbles: readonly ReactNode[]; size?: number }) {
-  if (bubbles.length <= 1) return <PinguSays size={size}>{bubbles[0]}</PinguSays>;
-  return (
-    <div className="flex flex-col gap-2">
-      {bubbles.slice(0, -1).map((bubble, index) => (
-        <div
-          key={index}
-          className="ml-[calc(var(--pingu)+0.5rem)] rounded-2xl border-2 border-[#e5e5ea] bg-white px-3.5 py-2.5 text-[14px] leading-snug text-[#3a3a3c] min-[380px]:px-4 min-[380px]:py-3 min-[380px]:text-[15px]"
-          style={{ "--pingu": `${size}px` } as React.CSSProperties}
-        >
-          {bubble}
-        </div>
-      ))}
-      <PinguSays size={size}>{bubbles[bubbles.length - 1]}</PinguSays>
-    </div>
-  );
-}
-
-/** Where the student is in Präsens → Präteritum → Perfekt. */
-export function TenseStepper({
-  order,
-  current,
-  labels,
-}: {
-  order: readonly GrammarTense[];
-  current: GrammarTense;
-  labels: Record<GrammarTense, string>;
-}) {
-  const at = order.indexOf(current);
-  return (
-    <ol className="flex items-center gap-1.5" aria-label="Các thì">
-      {order.map((tense, index) => {
-        const state = index < at ? "done" : index === at ? "current" : "next";
-        const tone = TENSE_TONE[tense];
-        return (
-          <li key={tense} className="flex min-w-0 flex-1 items-center gap-1.5" aria-current={state === "current" ? "step" : undefined}>
-            <span
-              className={`flex h-8 min-w-0 flex-1 items-center justify-center gap-1 truncate rounded-full px-2 text-[12px] font-extrabold ${
-                state === "next" ? "bg-[#f0f0f3] text-[#aeaeb2]" : tone.head
-              } ${state === "current" ? "ring-2 ring-offset-2 ring-[#1d1d1f]/15" : ""}`}
-            >
-              {state === "done" ? (
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-                  check
-                </span>
-              ) : null}
-              <span className="truncate">{labels[tense]}</span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 

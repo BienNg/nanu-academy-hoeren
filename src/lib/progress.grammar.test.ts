@@ -27,8 +27,8 @@ const layout: GrammarNodeLayout = {
   topicId: "vergangenheit-haben-sein",
   titleVi: "Quá khứ của haben và sein",
   studyParts: [
-    { key: "s-haben", verb: "haben", screenCount: 8 },
-    { key: "s-sein", verb: "sein", screenCount: 7 },
+    { key: "s-haben", titleVi: "haben", screenCount: 8 },
+    { key: "s-sein", titleVi: "sein", screenCount: 7 },
   ],
   practiceParts: [
     { key: "gaaa", verb: "haben", cardCount: 17 },

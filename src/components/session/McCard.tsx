@@ -6,7 +6,8 @@ import { CheckBar } from "@/components/session/FeedbackSheet";
 import { digitLabel, digitShortcut, FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 
 type McCardProps = {
-  prompt: string;
+  /** Inline content only: it sits in a paragraph. */
+  prompt: ReactNode;
   options: McOption[];
   onSubmit: (selectedId: string) => void;
   /** "list" stacks full-width options for sentence-length replies. */

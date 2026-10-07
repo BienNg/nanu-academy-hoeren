@@ -46,7 +46,7 @@ export type GrammarTip = {
   id: string;
   titleVi: string;
   textVi: string;
-  /** Shown only in this verb's study part. Omitted: every part. */
+  /** Only after a wrong answer about this verb. Omitted: any verb. */
   verb?: string;
   /** The tense this tip explains. Only a tip with a tense is shown after a wrong answer about that tense. */
   tense?: GrammarTense;
@@ -81,14 +81,75 @@ export type GrammarErrorDrill = {
 
 export type GrammarDrill = GrammarTransformDrill | GrammarErrorDrill;
 
+/** A Vietnamese line whose tense word (đang, đã) is colored like the German tense. */
+type VietnameseCue = {
+  vi: string;
+  /** The word in `vi` that says the tense, e.g. "đã". */
+  markerVi?: string;
+  tense: GrammarTense;
+};
+
+/** One line of a Beispiele screen: Vietnamese, then the German in one tense. */
+export type StoredStudyExample = VietnameseCue & {
+  de: string;
+  /** Words of `de` colored as the verb, e.g. ["bin", "gewesen"]. */
+  verbWords: string[];
+  filename: string;
+  /** What the audio says when it differs from `de`, e.g. "zehn Euro" for "10€". */
+  say?: string;
+};
+
+export type StoredStudyScreen =
+  /** The three tenses, and which past tense is spoken and which written. */
+  | { kind: "overview" }
+  /** Verbs whose Präsens and Perfekt the class knows. `today`: its Präteritum is taught now. */
+  | { kind: "known"; rows: { praesens: string; perfekt: string; today: boolean }[] }
+  /** The verb's table, filled in a column per step. */
+  | { kind: "table"; verb: string }
+  /** `reveal: "step"` shows one more line per Continue. */
+  | { kind: "beispiele"; reveal: "all" | "step"; rows: StoredStudyExample[] }
+  /** Pick the form or sentence. `prompt` is German with GAP_BLANK; without it the options are whole sentences. */
+  | (VietnameseCue & {
+      kind: "choice";
+      prompt?: string;
+      options: string[];
+      answer: string;
+      /** The whole right sentence, read out after the answer. */
+      script: string;
+      filename: string;
+      whyVi: string;
+    })
+  /** Build the German from word chips. Every entry in `answers` is right. */
+  | (VietnameseCue & {
+      kind: "translate";
+      answers: string[];
+      /** Extra chips that do not belong in the answer. */
+      distractors?: string[];
+      hints?: { de: string; vi: string }[];
+      /** Audio of `answers[0]`. */
+      filename: string;
+      /** Audio of the answers after the first, in the same order. */
+      moreFilenames?: string[];
+      whyVi: string;
+    });
+
+/** A study part as taught on the class slides. Its key is stored once it is finished. */
+export type StoredStudyPart = {
+  key: string;
+  titleVi: string;
+  screens: StoredStudyScreen[];
+};
+
 export type StoredGrammarTopic = {
   id: string;
   titleVi: string;
-  /** One study part per verb, in this order. */
+  /** Verbs with a practice part each, in this order. */
   verbs: string[];
   tips: GrammarTip[];
   examples: StoredGrammarExample[];
   drills: GrammarDrill[];
+  /** The study node, screen by screen. */
+  study: StoredStudyPart[];
 };
 
 export type GrammarExample = StoredGrammarExample & {
@@ -128,7 +189,23 @@ export type GrammarTopicContent = {
   tips: GrammarTip[];
   examples: GrammarExample[];
   drills: GrammarDrill[];
+  study: StudyPartContent[];
 };
+
+/** A stored line with its file resolved: `audioPath` is null until the MP3 exists. */
+type WithAudio<T extends { filename: string }> = Omit<T, "filename"> & { audioPath: string | null };
+
+export type StudyExample = WithAudio<StoredStudyExample>;
+type StoredChoice = Extract<StoredStudyScreen, { kind: "choice" }>;
+type StoredTranslate = Extract<StoredStudyScreen, { kind: "translate" }>;
+
+export type StudyScreenContent =
+  | Exclude<StoredStudyScreen, { kind: "beispiele" | "choice" | "translate" }>
+  | { kind: "beispiele"; reveal: "all" | "step"; rows: StudyExample[] }
+  | WithAudio<StoredChoice>
+  | (Omit<StoredTranslate, "filename" | "moreFilenames"> & { audioPaths: (string | null)[] });
+
+export type StudyPartContent = { key: string; titleVi: string; screens: StudyScreenContent[] };
 
 /** Shown between the aux and the Partizip in a Perfekt cell. */
 export const PERFEKT_GAP = "…";
@@ -238,14 +315,37 @@ export function grammarTopicContent(
   lessonAudioDir: string,
   hasAudio: (audioPath: string) => boolean = () => true,
 ): GrammarTopicContent {
-  const examples = topic.examples.map((example) => {
-    const audioPath = `${lessonAudioDir}/${example.filename}`;
-    return {
-      ...example,
-      id: stripExtension(example.filename),
-      audioPath: hasAudio(audioPath) ? audioPath : null,
-    };
+  const resolve = (filename: string): string | null => {
+    const audioPath = `${lessonAudioDir}/${filename}`;
+    return hasAudio(audioPath) ? audioPath : null;
+  };
+  const withAudio = <T extends { filename: string }>({ filename, ...rest }: T): WithAudio<T> => ({
+    ...rest,
+    audioPath: resolve(filename),
   });
+  const examples = topic.examples.map((example) => ({
+    ...example,
+    id: stripExtension(example.filename),
+    audioPath: resolve(example.filename),
+  }));
+  const study = topic.study.map((part) => ({
+    key: part.key,
+    titleVi: part.titleVi,
+    screens: part.screens.map((screen): StudyScreenContent => {
+      switch (screen.kind) {
+        case "beispiele":
+          return { ...screen, rows: screen.rows.map(withAudio) };
+        case "choice":
+          return withAudio(screen);
+        case "translate": {
+          const { filename, moreFilenames, ...rest } = screen;
+          return { ...rest, audioPaths: [filename, ...(moreFilenames ?? [])].map(resolve) };
+        }
+        default:
+          return screen;
+      }
+    }),
+  }));
   return {
     id: topic.id,
     titleVi: topic.titleVi,
@@ -254,5 +354,6 @@ export function grammarTopicContent(
     tips: topic.tips,
     examples,
     drills: topic.drills,
+    study,
   };
 }

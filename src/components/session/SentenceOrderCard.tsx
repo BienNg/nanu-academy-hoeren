@@ -15,7 +15,7 @@ import {
 
 type SentenceOrderCardProps = {
   /** Vietnamese line to translate. Left out on a listening card, where the audio is the prompt. */
-  translation?: string;
+  translation?: ReactNode;
   chips: WordChip[];
   onSubmit: (selected: string[]) => void;
   /** Checked: the answer stays visible but can no longer change. */

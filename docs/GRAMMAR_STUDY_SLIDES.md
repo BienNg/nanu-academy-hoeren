@@ -1,6 +1,6 @@
 # Grammar study from the class slides
 
-Status: plan. Rework of the A1.2 Lektion 1 grammar **study** node (past tense of haben and sein) so it teaches exactly like the class slides "A1.2 – Lektion 1 Präteritum". The practice node is reworked later and stays as it is.
+Status: study node implemented. The practice node is unchanged. The 12 new example clips (`a12-l1-gram-15` … `26`) are listed and play once the MP3s exist; they are not generated yet.
 
 ## Decisions
 
