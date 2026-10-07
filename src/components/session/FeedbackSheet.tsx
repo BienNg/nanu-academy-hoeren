@@ -183,7 +183,7 @@ export function CheckBar({
   useEffect(() => setDocked(true), []);
   // Portaled so a sliding card (a transformed parent) cannot pull the bar off the screen edge.
   const bar = (
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-[#fbfbfd]/95 backdrop-blur-xl">
+      <div data-session-dock="" className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-[#fbfbfd]/95 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-2xl gap-3 px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {onBack ? <BackButton onBack={onBack} disabled={backDisabled} label={backLabel} /> : null}
           <ChunkyButton
@@ -266,6 +266,7 @@ export function FeedbackSheet({
         ref={sheetRef}
         role="status"
         aria-live="polite"
+        data-session-dock=""
         className={`fixed inset-x-0 bottom-0 z-40 ${style.band}`}
         initial={reduceMotion ? false : { y: "100%" }}
         animate={{ y: 0 }}

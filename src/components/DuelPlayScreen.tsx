@@ -123,7 +123,7 @@ function ScoreSide({ name, points, winner }: { name: string; points: number; win
 }
 
 /** One beat after your last clip, laid out like the lesson end card. */
-function DuelEndCard({
+export function DuelEndCard({
   step,
   view,
   primaryLabel,
@@ -276,7 +276,7 @@ function Hint({ feedback }: { feedback: DuelFeedback }) {
 
 const countdownStarts = new Map<string, number>();
 
-function OpeningCountdown({
+export function OpeningCountdown({
   duelId,
   opponentName,
   onDone,

@@ -58,6 +58,7 @@ export function QuitDialog({ message, onStay, onQuit }: QuitDialogProps) {
 
   return createPortal(
     <div
+      data-session-dock=""
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
       role="presentation"
       onClick={onStay}

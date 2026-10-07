@@ -29,6 +29,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Check bars, feedback, and the quit sheet portal to document.body. Lift them over the preview stage. */
+body[data-admin-preview] [data-session-dock] {
+  z-index: 100;
+}
+
 /* Recharts marks the chart SVG as focusable, so a click draws the browser focus ring. */
 .recharts-surface:focus,
 .recharts-surface:focus-visible,
