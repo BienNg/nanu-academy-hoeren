@@ -1505,3 +1505,53 @@ body {
     transform: none !important;
   }
 }
+
+/* A new grammar slide moves in from the side. A later step of that slide only moves the piece it adds. */
+@keyframes study-scene-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes study-scene-back {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes study-piece-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.study-scene-in {
+  animation: study-scene-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.study-scene-back {
+  animation: study-scene-back 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.study-piece-in {
+  animation: study-piece-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-scene-in,
+  .study-scene-back,
+  .study-piece-in {
+    animation: none;
+  }
+}

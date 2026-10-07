@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Howl } from "howler";
 import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
 import { FOCUS_RING } from "@/lib/keyboard";
-import type { GrammarTense } from "@/lib/grammar-lessons";
+import type { GrammarTense, PrepTone } from "@/lib/grammar-lessons";
 
 /** Colors of the class slide: Präsens cyan, Perfekt orange, Präteritum purple. */
 export const TENSE_TONE: Record<
@@ -37,35 +37,79 @@ export const TENSE_TONE: Record<
   },
 };
 
+/** Colors of the temporal-preposition slides. */
+export const PREP_TONE: Record<PrepTone, { text: string; ring: string; soft: string }> = {
+  vor: { text: "text-[#e0232a]", ring: "ring-[#e0232a]", soft: "bg-[#fde8e8]" },
+  seit: { text: "text-[#7a33e0]", ring: "ring-[#7a33e0]", soft: "bg-[#f4e9fc]" },
+  in: { text: "text-[#0e8ea8]", ring: "ring-[#0e8ea8]", soft: "bg-[#e5f6fa]" },
+  "in-spaeter": { text: "text-[#2f6bff]", ring: "ring-[#2f6bff]", soft: "bg-[#e8efff]" },
+  fuer: { text: "text-[#ef6a12]", ring: "ring-[#ef6a12]", soft: "bg-[#fff0e6]" },
+};
+
 /**
  * One shared player for many short clips, so a screen of rows does not hold
  * an audio element per row. Playing a new clip stops the one before.
  */
 export function useClipPlayer() {
   const howlRef = useRef<Howl | null>(null);
+  const generation = useRef(0);
   const [playingPath, setPlayingPath] = useState<string | null>(null);
 
   useEffect(
     () => () => {
+      generation.current += 1;
       howlRef.current?.unload();
       howlRef.current = null;
     },
     [],
   );
 
-  const play = (audioPath: string) => {
+  const start = useCallback((audioPath: string, token: number, onDone: (() => void) | null) => {
     howlRef.current?.unload();
     const howl = createClipHowl(resolveAudioUrl(audioPath), 1, {
       onPlay: () => setPlayingPath(audioPath),
-      onEnd: () => setPlayingPath(null),
-      onStop: () => setPlayingPath(null),
-      onLoadError: () => setPlayingPath(null),
+      onEnd: () => {
+        if (generation.current !== token) return;
+        setPlayingPath(null);
+        onDone?.();
+      },
+      onStop: () => {
+        if (generation.current === token) setPlayingPath(null);
+      },
+      onLoadError: () => {
+        if (generation.current !== token) return;
+        setPlayingPath(null);
+        onDone?.();
+      },
     });
     howlRef.current = howl;
     howl.play();
-  };
+  }, []);
 
-  return { play, playingPath };
+  const play = useCallback(
+    (audioPath: string) => {
+      start(audioPath, ++generation.current, null);
+    },
+    [start],
+  );
+
+  /** Plays each clip after the one before it. A later `play` stops the queue. */
+  const playAll = useCallback(
+    (audioPaths: readonly string[]) => {
+      const token = ++generation.current;
+      const queue = audioPaths.filter((path) => path.length > 0);
+      const step = (index: number) => {
+        if (generation.current !== token) return;
+        const path = queue[index];
+        if (!path) return;
+        start(path, token, () => step(index + 1));
+      };
+      step(0);
+    },
+    [start],
+  );
+
+  return { play, playAll, playingPath };
 }
 
 /**

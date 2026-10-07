@@ -4,7 +4,8 @@
     { "id": "du", "label": "du", "say": "du" },
     { "id": "er", "label": "er/sie/es", "say": "er" },
     { "id": "ihr", "label": "ihr", "say": "ihr" },
-    { "id": "wir", "label": "wir/sie/Sie", "say": "wir" }
+    { "id": "wir", "label": "wir", "say": "wir" },
+    { "id": "sie", "label": "sie/Sie", "say": "sie" }
   ],
   "tenses": [
     { "id": "praesens", "label": "Präsens", "labelVi": "Hiện tại" },
@@ -13,14 +14,14 @@
   ],
   "verbs": {
     "haben": {
-      "praesens": { "ich": "habe", "du": "hast", "er": "hat", "ihr": "habt", "wir": "haben" },
-      "praeteritum": { "ich": "hatte", "du": "hattest", "er": "hatte", "ihr": "hattet", "wir": "hatten" },
+      "praesens": { "ich": "habe", "du": "hast", "er": "hat", "ihr": "habt", "wir": "haben", "sie": "haben" },
+      "praeteritum": { "ich": "hatte", "du": "hattest", "er": "hatte", "ihr": "hattet", "wir": "hatten", "sie": "hatten" },
       "partizip": "gehabt",
       "aux": "haben"
     },
     "sein": {
-      "praesens": { "ich": "bin", "du": "bist", "er": "ist", "ihr": "seid", "wir": "sind" },
-      "praeteritum": { "ich": "war", "du": "warst", "er": "war", "ihr": "wart", "wir": "waren" },
+      "praesens": { "ich": "bin", "du": "bist", "er": "ist", "ihr": "seid", "wir": "sind", "sie": "sind" },
+      "praeteritum": { "ich": "war", "du": "warst", "er": "war", "ihr": "wart", "wir": "waren", "sie": "waren" },
       "partizip": "gewesen",
       "aux": "sein"
     }

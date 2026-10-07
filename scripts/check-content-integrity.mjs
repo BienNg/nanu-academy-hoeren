@@ -383,7 +383,10 @@ function checkLessonGrammar(grammar, jsonRel, audioDir, listedFilenames) {
       errors.push(`${where} is missing a non-empty "titleVi"`);
     }
     const verbs = Array.isArray(topic.verbs) ? topic.verbs : [];
-    if (verbs.length === 0) errors.push(`${where} "verbs" must list at least one verb`);
+    const scriptedPractice = Array.isArray(topic.practice) && topic.practice.length > 0;
+    if (verbs.length === 0 && !scriptedPractice) {
+      errors.push(`${where} "verbs" must list at least one verb`);
+    }
     for (const verb of verbs) {
       if (!tenseTables || !isRecord(tenseTables.verbs[verb])) {
         errors.push(`${where} verb "${verb}" is not in src/data/grammar/tenses.json`);
@@ -476,6 +479,9 @@ function checkLessonGrammar(grammar, jsonRel, audioDir, listedFilenames) {
     });
 
     checkLessonStudy(topic.study, where, verbs, audioDir, listedFilenames);
+    if (topic.practice !== undefined) {
+      checkLessonStudy(topic.practice, `${where} practice`, verbs, audioDir, listedFilenames);
+    }
   });
 }
 
@@ -501,15 +507,27 @@ function checkLessonStudy(study, topicWhere, verbs, audioDir, listedFilenames) {
       skippedMissingAudio.push(`${rel(join(audioDir, filename))} (listed in ${itemWhere})`);
     }
   };
-  /** A Vietnamese line with a known tense, and its marker word in it. */
+  const PREP_TONES = ["vor", "seit", "in", "in-spaeter", "fuer"];
+  /** A Vietnamese line colored by a tense or a preposition, and its marker word in it. */
   const cue = (item, itemWhere) => {
     if (!text(item.vi)) errors.push(`${itemWhere} is missing a non-empty "vi"`);
-    if (!GRAMMAR_TENSES.includes(item.tense)) {
+    const hasTense = GRAMMAR_TENSES.includes(item.tense);
+    const hasTone = PREP_TONES.includes(item.tone);
+    if (item.tense !== undefined && !hasTense) {
       errors.push(`${itemWhere} "tense" must be one of ${GRAMMAR_TENSES.join(", ")}`);
+    }
+    if (item.tone !== undefined && !hasTone) {
+      errors.push(`${itemWhere} "tone" must be one of ${PREP_TONES.join(", ")}`);
+    }
+    if (!hasTense && !hasTone) {
+      errors.push(`${itemWhere} needs a "tense" or a "tone"`);
     }
     if (item.markerVi !== undefined && !(text(item.markerVi) && text(item.vi) && item.vi.includes(item.markerVi))) {
       errors.push(`${itemWhere} "markerVi" must be a word of "vi"`);
     }
+  };
+  const prepTone = (value, itemWhere) => {
+    if (!PREP_TONES.includes(value)) errors.push(`${itemWhere} "tone" must be one of ${PREP_TONES.join(", ")}`);
   };
   const sortedWords = (script) => scriptWords(script).sort().join(" ");
 
@@ -621,9 +639,68 @@ function checkLessonStudy(study, topicWhere, verbs, audioDir, listedFilenames) {
           }
           break;
         }
+        case "hook":
+          if (!text(screen.title)) errors.push(`${screenWhere} is missing a non-empty "title"`);
+          if (!Array.isArray(screen.lines) || screen.lines.length === 0) {
+            errors.push(`${screenWhere} "lines" must list at least one line`);
+            break;
+          }
+          screen.lines.forEach((line, lineIndex) => {
+            const lineWhere = `${screenWhere} lines[${lineIndex}]`;
+            if (!isRecord(line) || !text(line.text)) {
+              errors.push(`${lineWhere} needs a non-empty "text"`);
+              return;
+            }
+            if (line.tone !== undefined) prepTone(line.tone, lineWhere);
+            if (line.mark !== undefined && !(text(line.mark) && line.text.toLowerCase().includes(String(line.mark).toLowerCase()))) {
+              errors.push(`${lineWhere} "mark" must be part of "text"`);
+            }
+          });
+          break;
+        case "timeline":
+          if (!text(screen.title)) errors.push(`${screenWhere} is missing a non-empty "title"`);
+          if (!Array.isArray(screen.marks) || screen.marks.length === 0) {
+            errors.push(`${screenWhere} "marks" must list at least one preposition`);
+            break;
+          }
+          screen.marks.forEach((mark, markIndex) => {
+            const markWhere = `${screenWhere} marks[${markIndex}]`;
+            if (!isRecord(mark) || !text(mark.label) || !text(mark.note)) {
+              errors.push(`${markWhere} needs a "label" and a "note"`);
+              return;
+            }
+            prepTone(mark.id, markWhere);
+          });
+          break;
+        case "gloss": {
+          prepTone(screen.tone, screenWhere);
+          if (!text(screen.label)) errors.push(`${screenWhere} is missing a non-empty "label"`);
+          if (!Array.isArray(screen.pairs) || screen.pairs.length === 0) {
+            errors.push(`${screenWhere} "pairs" must list at least one phrase`);
+          } else {
+            screen.pairs.forEach((pair, pairIndex) => {
+              const pairWhere = `${screenWhere} pairs[${pairIndex}]`;
+              if (!isRecord(pair) || !text(pair.de) || !text(pair.vi)) {
+                errors.push(`${pairWhere} needs "de" and "vi"`);
+              }
+            });
+          }
+          if (screen.sentence !== undefined) {
+            const sentence = screen.sentence;
+            if (!isRecord(sentence) || !text(sentence.vi) || !text(sentence.de) || !text(sentence.mark)) {
+              errors.push(`${screenWhere} "sentence" needs "vi", "de" and "mark"`);
+            } else if (!sentence.de.toLowerCase().includes(String(sentence.mark).toLowerCase())) {
+              errors.push(`${screenWhere} "sentence.mark" must be part of "de"`);
+            }
+          }
+          if (screen.aside !== undefined && !text(screen.aside)) {
+            errors.push(`${screenWhere} "aside" must be a non-empty note`);
+          }
+          break;
+        }
         default:
           errors.push(
-            `${screenWhere} "kind" must be one of overview, known, table, beispiele, choice, translate`,
+            `${screenWhere} "kind" must be one of overview, known, table, beispiele, choice, translate, hook, timeline, gloss`,
           );
       }
     });

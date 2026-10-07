@@ -1,0 +1,30 @@
+---
+description: How a Lektion grammar Study and Practice trail is authored. Practice is always a script, never a generated deck.
+globs: src/data/levels/**/*.json,src/data/grammar/**,src/lib/grammar-*.ts,src/components/session/grammar/**,docs/GRAMMAR*.md
+alwaysApply: false
+---
+
+# Grammar study and practice trails
+
+Each grammar topic is two trail nodes after the vocab nodes: Study, then Practice. Both are authored scripts in the Lektion's `grammar` block. Practice is never dealt from a seed, a card mix, or the verb tables.
+
+Model: A1.2 Lektion 1, Präteritum of haben and sein (`src/data/levels/a1-2/lektion-1.json`). Same order, wording, and sentences as the class slides. Do not add tips or sentences the slides do not have.
+
+## Study — teach
+
+1. **Intro.** `overview`: name the point. For this topic, Vergangenheit, with Perfekt as spoken German and Präteritum as written German.
+2. **Explanation.** `known` shows what the class already has and circles what today teaches (haben and sein). Then one `table` per verb, filled a column at a time: pronouns, Präsens, Perfekt, a question mark, then Präteritum. Präteritum endings are bold.
+3. **A few examples.** `beispiele`, one situation at a time (Berlin, then 10€), Präsens then Perfekt then Präteritum. The marker word and the verb use the tense color.
+
+Study stops after those examples. No graded cards.
+
+## Practice — scripted exercises
+
+A second authored script, longer than Study, of examples and checks written one by one. The close of the Präteritum slides is the pattern:
+
+- Cue choices: đang → ist, đã → war, then "Wo warst du?".
+- Translates: "Gestern war ich zu Hause.", then the Arbeit sentence, which has two correct orders.
+
+Add further examples and checks only as written items in that script. A wrong answer shows that item's `whyVi`. Each line has its own audio.
+
+Do not generate practice with `VERB_PART_MIX`, `grammarPracticeParts`, or a hash part key. Part keys are stable authored ids.

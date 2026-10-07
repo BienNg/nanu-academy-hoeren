@@ -30,7 +30,7 @@
           "id": "endungen",
           "tense": "praeteritum",
           "titleVi": "Đuôi Präteritum",
-          "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir/sie/Sie thêm -n hoặc -en."
+          "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir và sie/Sie thêm -n hoặc -en."
         }
       ],
       "examples": [
@@ -253,8 +253,8 @@
       ],
       "study": [
         {
-          "key": "s-sein",
-          "titleVi": "sein",
+          "key": "study",
+          "titleVi": "Quá khứ của haben và sein",
           "screens": [
             { "kind": "overview" },
             {
@@ -265,21 +265,11 @@
                 { "praesens": "sind", "perfekt": "sind … gewesen", "today": true }
               ]
             },
-            { "kind": "table", "verb": "sein" }
-          ]
-        },
-        {
-          "key": "s-haben",
-          "titleVi": "haben",
-          "screens": [{ "kind": "table", "verb": "haben" }]
-        },
-        {
-          "key": "s-uebung",
-          "titleVi": "Beispiele & Übung",
-          "screens": [
+            { "kind": "table", "verb": "sein" },
+            { "kind": "table", "verb": "haben" },
             {
               "kind": "beispiele",
-              "reveal": "all",
+              "reveal": "step",
               "rows": [
                 {
                   "tense": "praesens",
@@ -402,6 +392,238 @@
               "filename": "a12-l1-gram-25-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
               "moreFilenames": ["a12-l1-gram-26-ich-hatte-letzten-monat-in-berlin-eine-arbeit.mp3"],
               "whyVi": "đã có → Präteritum của haben: ich hatte. Động từ đứng ở vị trí 2."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "temporale-praepositionen",
+      "titleVi": "Giới từ chỉ thời gian",
+      "verbs": [],
+      "tips": [],
+      "examples": [],
+      "drills": [],
+      "study": [
+        {
+          "key": "study",
+          "titleVi": "Giới từ chỉ thời gian",
+          "screens": [
+            {
+              "kind": "hook",
+              "title": "Nếu chúng ta muốn nói:",
+              "lines": [
+                {
+                  "text": "Một năm trước bạn đã ở Heidelberg à?",
+                  "mark": "Một năm trước",
+                  "tone": "vor"
+                },
+                {
+                  "text": "Một năm nữa tôi đến Heidelberg.",
+                  "mark": "Một năm nữa",
+                  "tone": "in-spaeter"
+                },
+                {
+                  "text": "Một năm nữa tôi đến Heidelberg một năm.",
+                  "mark": "một năm",
+                  "tone": "fuer",
+                  "markAt": "end"
+                }
+              ]
+            },
+            {
+              "kind": "timeline",
+              "title": "Temporale Präpositionen – Giới từ chỉ thời gian",
+              "marks": [
+                {
+                  "id": "seit",
+                  "label": "seit: kể từ... đến nay",
+                  "note": "bắt đầu ở quá khứ,\nchưa kết thúc ở hiện tại"
+                },
+                {
+                  "id": "vor",
+                  "label": "vor: (1 năm) trước",
+                  "note": "bắt đầu và kết thúc\ntrong quá khứ"
+                },
+                {
+                  "id": "in",
+                  "label": "in: trong / trong vòng",
+                  "note": "bắt đầu ở hiện tại, kết thúc ở\ntương lai"
+                },
+                {
+                  "id": "in-spaeter",
+                  "label": "in: nữa",
+                  "note": "bắt đầu ở tương lai, kết thúc chưa rõ"
+                },
+                {
+                  "id": "fuer",
+                  "label": "für: cho",
+                  "note": "bắt đầu và kết thúc\ntrong tương lai"
+                }
+              ]
+            },
+            {
+              "kind": "gloss",
+              "tone": "seit",
+              "label": "seit: kể từ... đến nay",
+              "aside": "Tại sao lại 'einem', 'einer': lớp chúng ta sẽ có 1 bài riêng! Hôm nay chỉ học thuộc lòng thôi.",
+              "pairs": [
+                { "de": "Seit einem Monat/ Jahr", "vi": "Kể từ một tháng nay", "markDe": "Monat", "markVi": "nay" },
+                { "de": "Seit einer Woche", "vi": "Kể từ một tuần nay", "markDe": "Woche", "markVi": "nay" },
+                { "de": "Seit zwei Jahren", "vi": "Kể từ 2 năm nay", "markDe": "Jahren", "markVi": "nay" }
+              ],
+              "sentence": {
+                "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
+                "de": "Ich lebe/wohne seit einem Monat in Deutschland.",
+                "mark": "seit einem Monat",
+                "note": "Động từ chia ở thì hiện tại. Das Verb wird im Präsens konjugiert."
+              }
+            },
+            {
+              "kind": "gloss",
+              "tone": "vor",
+              "label": "vor: (1 năm) trước",
+              "pairs": [
+                { "de": "Vor einem Monat/ Jahr", "vi": "Một năm trước", "markDe": "Monat", "markVi": "trước" },
+                { "de": "Vor einer Woche", "vi": "Một tuần trước", "markDe": "Woche", "markVi": "trước" },
+                { "de": "Vor zwei Jahren", "vi": "Hai năm trước", "markDe": "Jahren", "markVi": "trước" }
+              ],
+              "sentence": {
+                "vi": "Một tháng trước tôi đã sống ở Đức.",
+                "de": "Vor einem Monat habe ich in Deutschland gelebt.",
+                "mark": "Vor einem Monat"
+              }
+            },
+            {
+              "kind": "gloss",
+              "tone": "in",
+              "label": "in: trong / trong vòng",
+              "pairs": [
+                { "de": "In einem Monat/ Jahr", "vi": "Trong vòng 1 tháng nữa", "markDe": "Monat", "markVi": "nữa" },
+                { "de": "In einer Woche", "vi": "Trong vòng 1 tuần nữa", "markDe": "Woche", "markVi": "nữa" },
+                { "de": "In zwei Jahren", "vi": "Trong vòng 2 năm nữa", "markDe": "Jahren", "markVi": "nữa" }
+              ],
+              "sentence": {
+                "vi": "Trong vòng 10 Phút là tôi xong.",
+                "de": "In 10 Minuten bin ich fertig.",
+                "mark": "In 10 Minuten"
+              }
+            },
+            {
+              "kind": "gloss",
+              "tone": "in-spaeter",
+              "label": "in: nữa",
+              "pairs": [
+                { "de": "In einem Monat/ Jahr", "vi": "Trong vòng 1 tháng nữa", "markDe": "Monat", "markVi": "nữa" },
+                { "de": "In einer Woche", "vi": "Trong vòng 1 tuần nữa", "markDe": "Woche", "markVi": "nữa" },
+                { "de": "In zwei Jahren", "vi": "Trong vòng 2 năm nữa", "markDe": "Jahren", "markVi": "nữa" }
+              ],
+              "sentence": {
+                "vi": "Một tháng nữa tôi bay qua Đức.",
+                "de": "In einem Monat fliege ich nach Deutschland.",
+                "mark": "In einem Monat"
+              }
+            },
+            {
+              "kind": "gloss",
+              "tone": "fuer",
+              "label": "für: cho",
+              "aside": "Cái này hơi khó hiểu hơn vì không dịch được từ phù hợp trong tiếng Việt. Các bạn cố gắng hiểu nha! Für + Akkusativ: der (ein) → den (einen). Tiếng Việt không cần chữ 'cho'. Nhưng tiếng Đức thì cần.",
+              "pairs": [
+                { "de": "Für einen Monat", "vi": "cho 1 tháng", "markDe": "einen", "markVi": "cho" },
+                { "de": "Für ein Jahr", "vi": "cho 1 năm", "markDe": "ein", "markVi": "cho" },
+                { "de": "Für eine Woche", "vi": "cho 1 tuần", "markDe": "eine", "markVi": "cho" },
+                { "de": "Für zwei Jahre", "vi": "cho 2 năm", "markDe": "zwei", "markVi": "cho" }
+              ],
+              "sentence": {
+                "vi": "Trong vòng 1 tháng nữa tôi bay về Vietnam (cho) 1 tháng.",
+                "de": "In einem Monat fliege ich für einen Monat nach Vietnam.",
+                "mark": "für einen Monat"
+              }
+            }
+          ]
+        }
+      ],
+      "practice": [
+        {
+          "key": "practice",
+          "titleVi": "Luyện giới từ chỉ thời gian",
+          "screens": [
+            {
+              "kind": "choice",
+              "tone": "seit",
+              "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
+              "markerVi": "nay",
+              "options": ["quá khứ", "hiện tại"],
+              "answer": "hiện tại",
+              "script": "Ich lebe seit einem Monat in Deutschland.",
+              "filename": "a12-l1-gram-27-ich-lebe-seit-einem-monat.mp3",
+              "whyVi": "Động từ chia ở thì hiện tại. Das Verb wird im Präsens konjugiert."
+            },
+            {
+              "kind": "translate",
+              "tone": "seit",
+              "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
+              "markerVi": "nay",
+              "answers": ["Ich lebe seit einem Monat in Deutschland."],
+              "distractors": ["vor", "wohne"],
+              "filename": "a12-l1-gram-28-ich-lebe-seit-einem-monat.mp3",
+              "whyVi": "kể từ... đến nay → seit. Động từ ở hiện tại: Ich lebe. Ich wohne cũng đúng."
+            },
+            {
+              "kind": "translate",
+              "tone": "vor",
+              "vi": "Một tháng trước tôi đã sống ở Đức.",
+              "markerVi": "trước",
+              "answers": ["Vor einem Monat habe ich in Deutschland gelebt."],
+              "distractors": ["seit"],
+              "filename": "a12-l1-gram-29-vor-einem-monat-habe-ich-gelebt.mp3",
+              "whyVi": "vor: bắt đầu và kết thúc trong quá khứ. Vor einem Monat habe ich in Deutschland gelebt."
+            },
+            {
+              "kind": "translate",
+              "tone": "in",
+              "vi": "Trong vòng 10 Phút là tôi xong.",
+              "markerVi": "Trong vòng",
+              "answers": ["In 10 Minuten bin ich fertig."],
+              "distractors": ["seit"],
+              "filename": "a12-l1-gram-30-in-10-minuten-bin-ich-fertig.mp3",
+              "whyVi": "in: trong / trong vòng. In 10 Minuten bin ich fertig."
+            },
+            {
+              "kind": "translate",
+              "tone": "in-spaeter",
+              "vi": "Một tháng nữa tôi bay qua Đức.",
+              "markerVi": "nữa",
+              "answers": ["In einem Monat fliege ich nach Deutschland."],
+              "distractors": ["seit"],
+              "filename": "a12-l1-gram-31-in-einem-monat-fliege-ich.mp3",
+              "whyVi": "in: nữa. Một tháng nữa → In einem Monat fliege ich nach Deutschland."
+            },
+            {
+              "kind": "choice",
+              "tone": "fuer",
+              "vi": "Trong vòng 1 tháng nữa tôi bay về Vietnam (cho) 1 tháng.",
+              "markerVi": "cho",
+              "prompt": "In einem Monat fliege ich ____ nach Vietnam.",
+              "options": ["für einen Monat", "für einem Monat"],
+              "answer": "für einen Monat",
+              "script": "In einem Monat fliege ich für einen Monat nach Vietnam.",
+              "filename": "a12-l1-gram-32-fuer-einen-monat-nach-vietnam.mp3",
+              "whyVi": "Für + Akkusativ: der (ein) → den (einen). Tiếng Việt không cần chữ 'cho', nhưng tiếng Đức thì cần."
+            },
+            {
+              "kind": "choice",
+              "tone": "seit",
+              "vi": "Seit wann lebst du in Deutschland?",
+              "options": [
+                "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
+                "Vor einem Monat habe ich in Deutschland gelebt."
+              ],
+              "answer": "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
+              "script": "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
+              "filename": "a12-l1-gram-33-ich-lebe-seit-jahren.mp3",
+              "whyVi": "Seit wann → kể từ... đến nay, động từ ở hiện tại: Ich lebe seit ... Jahren/ Monaten/ Tagen."
             }
           ]
         }

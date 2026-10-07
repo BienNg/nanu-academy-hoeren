@@ -22,6 +22,7 @@ import {
   type GrammarTip,
   type GrammarTopicContent,
   type GrammarTransformDrill,
+  type PrepTone,
   type StudyExample,
   type TenseTables,
 } from "./grammar-lessons";
@@ -258,8 +259,8 @@ export type StudyTableCell = {
 
 export type StudyTableRow = { personLabel: string; cells: Record<GrammarTense, StudyTableCell> };
 
-/** A Vietnamese line with the word that says its tense. */
-export type StudyCue = { vi: string; markerVi?: string; tense: GrammarTense };
+/** A Vietnamese line with the word that says its tense or its preposition. */
+export type StudyCue = { vi: string; markerVi?: string; tense?: GrammarTense; tone?: PrepTone };
 
 export type GrammarStudyScreen =
   | { kind: "overview"; key: string }
@@ -271,6 +272,34 @@ export type GrammarStudyScreen =
       callout: boolean;
     }
   | { kind: "table"; key: string; verb: string; step: number; rows: StudyTableRow[] }
+  /** The first `shown` lines are visible. The last step adds the closing line. */
+  | {
+      kind: "hook";
+      key: string;
+      title: string;
+      lines: { text: string; mark?: string; tone?: PrepTone; markAt?: "start" | "end" }[];
+      shown: number;
+      newest: number | null;
+      callout: boolean;
+    }
+  /** `shown` are the prepositions revealed so far. `newest` is the one this step added. */
+  | {
+      kind: "timeline";
+      key: string;
+      title: string;
+      marks: { id: PrepTone; label: string; note: string }[];
+      shown: PrepTone[];
+      newest: PrepTone | null;
+    }
+  | {
+      kind: "gloss";
+      key: string;
+      tone: PrepTone;
+      label: string;
+      aside?: string;
+      pairs: { de: string; vi: string; markDe?: string; markVi?: string }[];
+      sentence?: { vi: string; de: string; mark: string; note?: string };
+    }
   /** The first `shown` rows are visible; `newest` is the row this step added, null when shown whole. */
   | { kind: "beispiele"; key: string; rows: StudyExample[]; shown: number; newest: number | null }
   | {
@@ -332,23 +361,88 @@ function studyTableRows(table: ConjugationTable): StudyTableRow[] {
   });
 }
 
-function cueOf(screen: { vi: string; markerVi?: string; tense: GrammarTense }): StudyCue {
-  return { vi: screen.vi, tense: screen.tense, ...(screen.markerVi ? { markerVi: screen.markerVi } : {}) };
+function cueOf(screen: { vi: string; markerVi?: string; tense?: GrammarTense; tone?: PrepTone }): StudyCue {
+  return {
+    vi: screen.vi,
+    ...(screen.tense ? { tense: screen.tense } : {}),
+    ...(screen.tone ? { tone: screen.tone } : {}),
+    ...(screen.markerVi ? { markerVi: screen.markerVi } : {}),
+  };
 }
 
 /**
- * The study node as taught on the class slides: the topic's authored parts,
- * with a table expanded into TABLE_STEPS screens and a step-by-step Beispiele
- * into one screen per line.
+ * One node's authored parts. A table becomes TABLE_STEPS screens, a timeline
+ * reveals one preposition per step, and a step-by-step Beispiele becomes one
+ * screen per line. `node` picks the study script or the practice script.
  */
-export function grammarStudyParts(lessonKey: string, topic: GrammarTopicContent): GrammarStudyPart[] {
-  return topic.study.map((part) => {
+export function grammarStudyParts(
+  lessonKey: string,
+  topic: GrammarTopicContent,
+  node: "study" | "practice" = "study",
+): GrammarStudyPart[] {
+  const source = node === "study" ? topic.study : topic.practice;
+  return source.map((part) => {
     const screens: GrammarStudyScreen[] = [];
     part.screens.forEach((screen, index) => {
       const key = `${topic.id}:${part.key}:${index}`;
       switch (screen.kind) {
         case "overview":
           screens.push({ kind: "overview", key });
+          break;
+        case "hook":
+          screens.push({
+            kind: "hook",
+            key: `${key}:0`,
+            title: screen.title,
+            lines: screen.lines,
+            shown: 0,
+            newest: null,
+            callout: false,
+          });
+          screen.lines.forEach((_, step) => {
+            screens.push({
+              kind: "hook",
+              key: `${key}:${step + 1}`,
+              title: screen.title,
+              lines: screen.lines,
+              shown: step + 1,
+              newest: step,
+              callout: false,
+            });
+          });
+          screens.push({
+            kind: "hook",
+            key: `${key}:${screen.lines.length + 1}`,
+            title: screen.title,
+            lines: screen.lines,
+            shown: screen.lines.length,
+            newest: null,
+            callout: true,
+          });
+          break;
+        case "timeline":
+          screens.push({ kind: "timeline", key: `${key}:0`, title: screen.title, marks: screen.marks, shown: [], newest: null });
+          screen.marks.forEach((mark, step) => {
+            screens.push({
+              kind: "timeline",
+              key: `${key}:${step + 1}`,
+              title: screen.title,
+              marks: screen.marks,
+              shown: screen.marks.slice(0, step + 1).map((entry) => entry.id),
+              newest: mark.id,
+            });
+          });
+          break;
+        case "gloss":
+          screens.push({
+            kind: "gloss",
+            key,
+            tone: screen.tone,
+            label: screen.label,
+            pairs: screen.pairs,
+            ...(screen.aside ? { aside: screen.aside } : {}),
+            ...(screen.sentence ? { sentence: screen.sentence } : {}),
+          });
           break;
         case "known":
           screens.push({ kind: "known", key: `${key}:1`, rows: screen.rows, callout: false });
@@ -573,6 +667,7 @@ function pairingCard(
     }
     if (items.length < GRAMMAR_PAIRING_MIN) continue;
     const picked = shuffle(items, random).slice(0, GRAMMAR_PAIRING_MAX);
+    const rule = ruleFor(topic.tips, verbId, tense);
     return {
       kind: "pronoun-pairing",
       key: `${topic.id}:pronoun-pairing:${verbId}:${tense}`,
@@ -580,6 +675,7 @@ function pairingCard(
       sentence: null,
       tense,
       items: picked,
+      ...(rule ? { ruleVi: rule } : {}),
     };
   }
   return null;
@@ -878,11 +974,18 @@ export function grammarNodeLayout(
       titleVi: part.titleVi,
       screenCount: part.screens.length,
     })),
-    practiceParts: grammarPracticeParts(lessonKey, topic, tables).map((part) => ({
-      key: part.key,
-      verb: part.verb,
-      cardCount: part.cards.length,
-    })),
+    practiceParts:
+      topic.practice.length > 0
+        ? grammarStudyParts(lessonKey, topic, "practice").map((part) => ({
+            key: part.key,
+            verb: null,
+            cardCount: part.screens.filter(isStudyTask).length,
+          }))
+        : grammarPracticeParts(lessonKey, topic, tables).map((part) => ({
+            key: part.key,
+            verb: part.verb,
+            cardCount: part.cards.length,
+          })),
   };
 }
 

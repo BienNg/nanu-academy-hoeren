@@ -22,6 +22,8 @@ type PairingCardProps = {
   onSolved: () => void;
   onNext: () => void;
   nextLabel?: string;
+  /** A checked miss: chips stay, and no further pair can be made until retry. */
+  locked?: boolean;
 };
 
 const MISS_MS = 720;
@@ -71,6 +73,7 @@ export function PairingCard({
   onSolved,
   onNext,
   nextLabel = "Tiếp theo",
+  locked = false,
 }: PairingCardProps) {
   const [viIds] = useState(() => shuffleOnce(items.map((item) => item.id)));
   const [deIds] = useState(() => shuffleOnce(items.map((item) => item.id)));
@@ -131,7 +134,7 @@ export function PairingCard({
   };
 
   const tapVi = (id: string) => {
-    if (wrong || solved || matchedIds.has(id)) return;
+    if (locked || wrong || solved || matchedIds.has(id)) return;
     if (pendingDe) {
       if (pendingDe === id) accept(id);
       else reject(id, pendingDe);
@@ -141,7 +144,7 @@ export function PairingCard({
   };
 
   const tapDe = (id: string) => {
-    if (wrong || solved || matchedIds.has(id)) return;
+    if (locked || wrong || solved || matchedIds.has(id)) return;
     if (pendingVi) {
       if (pendingVi === id) accept(id);
       else reject(pendingVi, id);
@@ -158,6 +161,7 @@ export function PairingCard({
       onNext();
       return;
     }
+    if (locked) return;
     const index = keyed ? digitShortcut(event) : null;
     if (index === null || index >= viIds.length * 2) return;
     event.preventDefault();

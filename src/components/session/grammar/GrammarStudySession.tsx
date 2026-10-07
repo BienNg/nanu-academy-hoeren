@@ -2,10 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import type { SessionCourse } from "@/lib/session-course";
 import type { GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
-import { checkStudyTranslate, grammarStudyParts, isStudyTask, type GrammarStudyTask } from "@/lib/grammar-node";
+import {
+  checkStudyTranslate,
+  grammarStudyParts,
+  isStudyTask,
+  type GrammarStudyScreen,
+  type GrammarStudyTask,
+} from "@/lib/grammar-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { playSuccessSound } from "@/lib/sfx";
 import { FeedbackSheet, praiseFor, SheetLine } from "@/components/session/FeedbackSheet";
@@ -26,7 +31,26 @@ type GrammarStudySessionProps = {
   /** `/learn/<level>/<lektion>/grammar`, without the page. */
   grammarHref: string;
   lessonGrammar: LessonGrammar;
+  /** Which authored script this page plays. Practice uses the same screens. */
+  node?: "study" | "practice";
 };
+
+/**
+ * Steps of one authored screen share a scene: the card stays, and only the new
+ * piece slides. A different screen is a new slide.
+ */
+function studyScene(screen: GrammarStudyScreen): string {
+  if (
+    screen.kind === "known" ||
+    screen.kind === "table" ||
+    screen.kind === "beispiele" ||
+    screen.kind === "timeline" ||
+    screen.kind === "hook"
+  ) {
+    return screen.key.replace(/:\d+$/, "");
+  }
+  return screen.key;
+}
 
 /** A checked task: whether it was right, and the sentence to show. */
 type Answered = { correct: boolean; answer: string; mc?: McResult };
@@ -37,7 +61,7 @@ function TaskFeedback({ screen, answered }: { screen: GrammarStudyTask; answered
   if (screen.kind === "choice") {
     return (
       <>
-        <SheetLine script={screen.script} translation={screen.cue.vi} audioPath={screen.audioPath} />
+        <SheetLine script={screen.script} translation={screen.cue.vi} audioPath={screen.audioPath} autoPlay />
         {rule}
       </>
     );
@@ -50,6 +74,7 @@ function TaskFeedback({ screen, answered }: { screen: GrammarStudyTask; answered
         script={answered.answer}
         translation={screen.cue.vi}
         audioPath={screen.audioPaths[screen.answers.indexOf(answered.answer)] ?? null}
+        autoPlay
       />
       {others.length > 0 ? <p className="opacity-90">Cũng đúng: {others.join(" · ")}</p> : null}
       {rule}
@@ -59,7 +84,7 @@ function TaskFeedback({ screen, answered }: { screen: GrammarStudyTask; answered
 
 /**
  * One study part of a grammar topic, screen by screen as on the class slides.
- * Tasks have no hearts; a wrong answer shows the rule and moves on.
+ * Tasks have no hearts. A wrong answer stays until the right one is given.
  */
 export function GrammarStudySession({
   course,
@@ -68,16 +93,22 @@ export function GrammarStudySession({
   partNumber,
   grammarHref,
   lessonGrammar,
+  node = "study",
 }: GrammarStudySessionProps) {
   const router = useRouter();
   const { finishPart, streakDays } = useGrammarProgress(course, lessonGrammar);
-  const parts = useMemo(() => grammarStudyParts(course.lessonKey, topic), [course.lessonKey, topic]);
-  const part = parts[partNumber - 1];
+  const parts = useMemo(() => grammarStudyParts(course.lessonKey, topic, node), [course.lessonKey, topic, node]);
+  const partIndex = Math.min(Math.max(partNumber, 1), Math.max(parts.length, 1)) - 1;
+  const part = parts[partIndex];
+  const shownPart = partIndex + 1;
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
+  /** True when this step opens a different slide. A later step of the same slide does not. */
+  const [slideScene, setSlideScene] = useState(false);
   const [answered, setAnswered] = useState<Answered | null>(null);
-  const reduceMotion = useReducedMotion();
-  /** The opening screen stays put; later screens slide in from the direction of travel. */
+  /** Bumps so a missed task remounts empty and has to be answered again. */
+  const [attempt, setAttempt] = useState(0);
+  /** The opening screen stays put; a new slide then enters from the direction of travel. */
   const hasMoved = useRef(false);
   const [phase, setPhase] = useState<"screens" | "complete" | "leaving">("screens");
   const startedAtRef = useRef(0);
@@ -103,7 +134,7 @@ export function GrammarStudySession({
 
   const screens = part.screens;
   const screen = screens[index];
-  const isLastPart = partNumber >= parts.length;
+  const isLastPart = shownPart >= parts.length;
   const progress = screens.length === 0 ? 0 : (index + (answered ? 1 : 0)) / screens.length;
 
   const next = () => {
@@ -116,6 +147,9 @@ export function GrammarStudySession({
     }
     hasMoved.current = true;
     setDirection(1);
+    setAttempt(0);
+    const upcoming = screens[index + 1];
+    setSlideScene(screen != null && upcoming != null && studyScene(screen) !== studyScene(upcoming));
     setIndex(index + 1);
   };
 
@@ -123,8 +157,16 @@ export function GrammarStudySession({
     if (index === 0) return;
     hasMoved.current = true;
     setDirection(-1);
+    setAttempt(0);
+    const previous = screens[index - 1];
+    setSlideScene(screen != null && previous != null && studyScene(screen) !== studyScene(previous));
     setAnswered(null);
     setIndex(index - 1);
+  };
+
+  const retry = () => {
+    setAnswered(null);
+    setAttempt((current) => current + 1);
   };
 
   const settle = (result: Answered) => {
@@ -158,7 +200,7 @@ export function GrammarStudySession({
     return (
       <GrammarPage>
         <PartCompleteScreen
-          partNumber={partNumber}
+          partNumber={shownPart}
           partCount={parts.length}
           levelLabel={course.groupLabel}
           chapterLabel={course.lessonLabel}
@@ -172,13 +214,13 @@ export function GrammarStudySession({
           finishRun={isLastPart}
           failed={false}
           title={`Xong: ${part.titleVi}`}
-          subtitle={isLastPart ? "Giờ luyện tập nhé!" : `Phần ${partNumber} / ${parts.length}`}
+          subtitle={isLastPart ? (node === "study" ? "Giờ luyện tập nhé!" : "Xong bài ngữ pháp.") : `Phần ${shownPart} / ${parts.length}`}
           // A replay starts at part 1 too, so the next part is always one tap away.
           {...(!isLastPart
             ? {
                 continueLabel: "Phần tiếp theo",
                 onContinue: () =>
-                  leave(`${grammarHref}/study?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
+                  leave(`${grammarHref}/${node}?topic=${encodeURIComponent(topic.id)}&part=${shownPart + 1}`),
                 secondaryLabel: "Về bài học",
                 onSecondary: () => leave(course.pathHref),
               }
@@ -188,25 +230,24 @@ export function GrammarStudySession({
     );
   }
 
+  const scene = screen ? studyScene(screen) : "empty";
+  // A new slide moves as a whole. A step of the same slide only reveals what it adds.
+  const revealStep = !slideScene && direction === 1 && hasMoved.current;
+
   return (
     <GrammarPage header={<GrammarHeader progress={progress} onClose={() => leave(course.pathHref)} />}>
       <main className="relative flex w-full flex-1 flex-col items-center">
-        <div className="flex w-full max-w-2xl flex-col overflow-x-hidden px-4 pt-6 pb-24 sm:px-6 [@media(max-height:700px)]:pt-3">
+        <div className="flex w-full max-w-lg flex-1 flex-col overflow-x-clip px-4 pt-4 sm:px-6">
           {screen ? (
-            <motion.div
-              key={screen.key}
-              initial={reduceMotion || !hasMoved.current ? false : { opacity: 0, x: direction * 56 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-            >
+            <div key={scene} className={["flex w-full flex-1 flex-col", slideScene ? (direction < 0 ? "study-scene-back" : "study-scene-in") : ""].filter(Boolean).join(" ")}>
           {isStudyTask(screen) ? (
             <>
               {screen.kind === "choice" ? (
                 <McCard
-                  key={screen.key}
+                  key={`${screen.key}:${attempt}`}
                   onBack={back}
                   backDisabled={index === 0}
-                  eyebrow="Übung · Präteritum"
+                  eyebrow={screen.cue.tense ? "Übung · Präteritum" : topic.titleVi}
                   icon="edit_note"
                   prompt={
                     <>
@@ -223,10 +264,10 @@ export function GrammarStudySession({
                 />
               ) : (
                 <SentenceOrderCard
-                  key={screen.key}
+                  key={`${screen.key}:${attempt}`}
                   onBack={back}
                   backDisabled={index === 0}
-                  eyebrow="Übung · Präteritum"
+                  eyebrow={screen.cue.tense ? "Übung · Präteritum" : topic.titleVi}
                   translation={<CueText cue={screen.cue} />}
                   chips={screen.bank}
                   locked={answered !== null}
@@ -251,8 +292,8 @@ export function GrammarStudySession({
                 <FeedbackSheet
                   tone={answered.correct ? "correct" : "wrong"}
                   title={answered.correct ? praiseFor(screen.key) : "Chưa đúng"}
-                  actionLabel="Tiếp tục"
-                  onAction={next}
+                  actionLabel={answered.correct ? "Tiếp tục" : "Thử lại"}
+                  onAction={answered.correct ? next : retry}
                   onBack={back}
                   backDisabled={index === 0}
                 >
@@ -260,13 +301,13 @@ export function GrammarStudySession({
                 </FeedbackSheet>
               ) : null}
             </>
-          ) : screen ? (
-            <>
-              <GrammarReadScreen key={screen.key} screen={screen} tables={tables} />
-              <ContinueBar onContinue={next} onBack={back} backDisabled={index === 0} />
-            </>
+          ) : (
+            <GrammarReadScreen screen={screen} tables={tables} reveal={revealStep} />
+          )}
+            </div>
           ) : null}
-            </motion.div>
+          {screen && !isStudyTask(screen) ? (
+            <ContinueBar onContinue={next} onBack={back} backDisabled={index === 0} />
           ) : null}
         </div>
       </main>

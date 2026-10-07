@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Pingu } from "@/components/session/Pingu";
 import { FOCUS_RING } from "@/lib/keyboard";
 
@@ -55,7 +56,7 @@ export function QuitDialog({ message, onStay, onQuit }: QuitDialogProps) {
     };
   }, []);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
       role="presentation"
@@ -66,9 +67,10 @@ export function QuitDialog({ message, onStay, onQuit }: QuitDialogProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md rounded-t-[28px] bg-white px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
+        className="w-full rounded-t-[28px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
         onClick={(event) => event.stopPropagation()}
       >
+        <div className="mx-auto w-full max-w-md px-6 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center">
         <div className="relative mx-auto h-[128px] w-full overflow-hidden">
           <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.78]">
             <Pingu mood="oops" />
@@ -93,7 +95,9 @@ export function QuitDialog({ message, onStay, onQuit }: QuitDialogProps) {
         >
           Kết thúc
         </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

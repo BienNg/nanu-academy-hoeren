@@ -47,19 +47,19 @@ test("the haben table matches the class slide", () => {
   assert.ok(table);
   assert.deepEqual(
     table.rows.map((row) => row.person.label),
-    ["ich", "du", "er/sie/es", "ihr", "wir/sie/Sie"],
+    ["ich", "du", "er/sie/es", "ihr", "wir", "sie/Sie"],
   );
   assert.deepEqual(
     table.rows.map((row) => row.cells.praesens.text),
-    ["habe", "hast", "hat", "habt", "haben"],
+    ["habe", "hast", "hat", "habt", "haben", "haben"],
   );
   assert.deepEqual(
     table.rows.map((row) => row.cells.praeteritum.text),
-    ["hatte", "hattest", "hatte", "hattet", "hatten"],
+    ["hatte", "hattest", "hatte", "hattet", "hatten", "hatten"],
   );
   assert.deepEqual(
     table.rows.map((row) => row.cells.praeteritum.highlight),
-    ["", "st", "", "t", "n"],
+    ["", "st", "", "t", "n", "n"],
   );
   assert.equal(table.rows[2]!.cells.perfekt.spoken, "er hat gehabt");
   assert.deepEqual(
@@ -77,7 +77,7 @@ test("a row without audio plays nothing", () => {
 
 test("every table cell has one audio file", () => {
   const list = conjugationAudioList(tables, ["haben", "sein"]);
-  assert.equal(list.length, 2 * 5 * 3);
+  assert.equal(list.length, 2 * 6 * 3);
   assert.equal(new Set(list.map((entry) => entry.audioPath)).size, list.length);
   assert.ok(list.some((entry) => entry.spoken === "du warst"));
 });

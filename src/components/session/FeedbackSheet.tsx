@@ -18,7 +18,7 @@ export function praiseFor(seed: string): string {
 }
 
 /** Tap-to-hear control for a sheet line that has no player of its own. */
-export function SpeakButton({ audioPath }: { audioPath: string }) {
+export function SpeakButton({ audioPath, autoPlay = false }: { audioPath: string; autoPlay?: boolean }) {
   const howlRef = useRef<Howl | null>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -30,11 +30,12 @@ export function SpeakButton({ audioPath }: { audioPath: string }) {
       onStop: () => setPlaying(false),
     });
     howlRef.current = howl;
+    if (autoPlay) howl.play();
     return () => {
       howl.unload();
       howlRef.current = null;
     };
-  }, [audioPath]);
+  }, [audioPath, autoPlay]);
 
   return (
     <button
@@ -60,15 +61,18 @@ export function SheetLine({
   script,
   translation,
   audioPath,
+  autoPlay = false,
 }: {
   script: string;
   translation?: string | null;
   audioPath?: string | null;
+  /** Play as soon as the sentence is on screen. */
+  autoPlay?: boolean;
 }) {
   return (
     <>
       <p className="flex items-center gap-2 font-bold">
-        {audioPath ? <SpeakButton audioPath={audioPath} /> : null}
+        {audioPath ? <SpeakButton audioPath={audioPath} autoPlay={autoPlay} /> : null}
         <span>{script}</span>
       </p>
       {translation ? <p className="italic opacity-80">“{translation}”</p> : null}

@@ -58,16 +58,18 @@ function example(script: string) {
   return found;
 }
 
-test("study: the slides' parts in order, sein before haben", () => {
+test("study: one part, sein before haben, then the exercises", () => {
   const parts = grammarStudyParts(LESSON, withAudio);
-  assert.deepEqual(parts.map((part) => part.key), ["s-sein", "s-haben", "s-uebung"]);
-  const flow = (index: number) => parts[index]!.screens.map((screen) => screen.kind);
-  assert.deepEqual(flow(0), ["overview", "known", "known", ...Array(TABLE_STEPS).fill("table")]);
-  const known = parts[0]!.screens.filter((screen) => screen.kind === "known");
-  assert.equal(known[0]!.kind === "known" && known[0].callout, false);
-  assert.equal(known[1]!.kind === "known" && known[1].callout, true);
-  assert.deepEqual(flow(1), Array(TABLE_STEPS).fill("table"));
-  assert.deepEqual(flow(2), [
+  assert.deepEqual(parts.map((part) => part.key), ["study"]);
+  const flow = parts[0]!.screens.map((screen) => screen.kind);
+  assert.deepEqual(flow, [
+    "overview",
+    "known",
+    "known",
+    ...Array(TABLE_STEPS).fill("table"),
+    ...Array(TABLE_STEPS).fill("table"),
+    "beispiele",
+    "beispiele",
     "beispiele",
     "beispiele",
     "beispiele",
@@ -78,45 +80,48 @@ test("study: the slides' parts in order, sein before haben", () => {
     "translate",
     "translate",
   ]);
+  const known = parts[0]!.screens.filter((screen) => screen.kind === "known");
+  assert.equal(known[0]!.kind === "known" && known[0].callout, false);
+  assert.equal(known[1]!.kind === "known" && known[1].callout, true);
   const keys = parts.flatMap((part) => part.screens.map((screen) => screen.key));
   assert.equal(new Set(keys).size, keys.length);
 });
 
 test("study: a table fills in one column per step, endings as on the slides", () => {
-  const [sein, haben] = grammarStudyParts(LESSON, withAudio);
-  const steps = sein!.screens.filter((screen) => screen.kind === "table");
+  const screens = grammarStudyParts(LESSON, withAudio)[0]!.screens;
+  const steps = screens.filter((screen) => screen.kind === "table" && screen.verb === "sein");
   assert.deepEqual(
     steps.map((screen) => (screen.kind === "table" ? screen.step : 0)),
     [1, 2, 3, 4, 5],
   );
-  const table = haben!.screens[0]!;
-  assert.ok(table.kind === "table");
+  const table = screens.find((screen) => screen.kind === "table" && screen.verb === "haben");
+  assert.ok(table && table.kind === "table");
   assert.deepEqual(
     table.rows.map((row) => `${row.personLabel}:${row.cells.praeteritum.text}:${row.cells.praeteritum.highlight}`),
-    ["ich:hatte:", "du:hattest:st", "er/sie/es:hatte:", "ihr:hattet:t", "wir/sie/Sie:hatten:en"],
+    ["ich:hatte:", "du:hattest:st", "er/sie/es:hatte:", "ihr:hattet:t", "wir:hatten:en", "sie/Sie:hatten:en"],
   );
   assert.equal(table.rows[0]!.cells.perfekt.text, "habe … gehabt");
   const seinTable = steps[0]!;
   assert.ok(seinTable.kind === "table");
   assert.deepEqual(
     seinTable.rows.map((row) => row.cells.praeteritum.highlight),
-    ["", "st", "", "t", "en"],
+    ["", "st", "", "t", "en", "en"],
   );
 });
 
-test("study: a step-by-step Beispiele adds a line per screen, a whole one is a single screen", () => {
-  const uebung = grammarStudyParts(LESSON, withAudio)[2]!;
+test("study: each Beispiele line is its own Continue", () => {
+  const uebung = grammarStudyParts(LESSON, withAudio)[0]!;
   const beispiele = uebung.screens.flatMap((screen) => (screen.kind === "beispiele" ? [screen] : []));
   assert.deepEqual(
     beispiele.map((screen) => `${screen.shown}/${screen.rows.length}:${screen.newest}`),
-    ["3/3:null", "1/3:0", "2/3:1", "3/3:2"],
+    ["1/3:0", "2/3:1", "3/3:2", "1/3:0", "2/3:1", "3/3:2"],
   );
-  assert.equal(beispiele[0]!.rows[2]!.de, "Ich war in Berlin.");
-  assert.equal(beispiele[1]!.rows[0]!.audioPath, `${LESSON}/a12-l1-gram-18-ich-habe-10-euro.mp3`);
+  assert.equal(beispiele[2]!.rows[2]!.de, "Ich war in Berlin.");
+  assert.equal(beispiele[3]!.rows[0]!.audioPath, `${LESSON}/a12-l1-gram-18-ich-habe-10-euro.mp3`);
 });
 
 test("study: choices keep the slides' A/B order with one right answer", () => {
-  const uebung = grammarStudyParts(LESSON, withAudio)[2]!;
+  const uebung = grammarStudyParts(LESSON, withAudio)[0]!;
   const choices = uebung.screens.flatMap((screen) => (screen.kind === "choice" ? [screen] : []));
   assert.deepEqual(
     choices.map((screen) => screen.options.map((option) => `${option.text}${option.correct ? "*" : ""}`).join(" ")),
@@ -127,7 +132,7 @@ test("study: choices keep the slides' A/B order with one right answer", () => {
 });
 
 test("study: a translate's chips build every accepted word order", () => {
-  const uebung = grammarStudyParts(LESSON, withAudio)[2]!;
+  const uebung = grammarStudyParts(LESSON, withAudio)[0]!;
   const [, arbeit] = uebung.screens.flatMap((screen) => (screen.kind === "translate" ? [screen] : []));
   assert.ok(arbeit);
   assert.equal(arbeit.answers.length, 2);
@@ -138,7 +143,7 @@ test("study: a translate's chips build every accepted word order", () => {
     const words = tokenizeSentence(answer).map((word) => chipText(word).toLowerCase());
     for (const word of words) assert.ok(chips.includes(word), `${answer}: ${word}`);
   }
-  assert.deepEqual(grammarStudyParts(LESSON, withAudio)[2]!.screens.at(-1), uebung.screens.at(-1), "same deal");
+  assert.deepEqual(grammarStudyParts(LESSON, withAudio)[0]!.screens.at(-1), uebung.screens.at(-1), "same deal");
 });
 
 test("checkStudyTranslate accepts any answer and names the one given", () => {
@@ -356,10 +361,60 @@ test("spreadSentences keeps every card", () => {
   assert.deepEqual(spread.map((card) => card.key).sort(), cards.map((card) => card.key).sort());
 });
 
+test("temporale Präpositionen is a scripted study then a scripted practice", () => {
+  const file = JSON.parse(readFileSync(join(process.cwd(), "src/data/levels/a1-2/lektion-1.json"), "utf8")) as {
+    grammar: StoredGrammarTopic[];
+  };
+  const topic = grammarTopicContent(file.grammar[1]!, tables, LESSON, () => false);
+  const study = grammarStudyParts(LESSON, topic);
+  assert.deepEqual(study.map((part) => part.key), ["study"]);
+  assert.deepEqual(
+    study[0]!.screens.map((screen) => screen.kind),
+    [
+      "hook",
+      "hook",
+      "hook",
+      "hook",
+      "hook",
+      "timeline",
+      "timeline",
+      "timeline",
+      "timeline",
+      "timeline",
+      "timeline",
+      "gloss",
+      "gloss",
+      "gloss",
+      "gloss",
+      "gloss",
+    ],
+  );
+  const hook = study[0]!.screens.filter((screen) => screen.kind === "hook");
+  assert.deepEqual(
+    hook.map((screen) => (screen.kind === "hook" ? screen.shown : null)),
+    [0, 1, 2, 3, 3],
+  );
+  assert.equal(hook.at(-1)?.kind === "hook" && hook.at(-1)?.callout, true);
+  const timeline = study[0]!.screens.filter((screen) => screen.kind === "timeline");
+  assert.deepEqual(
+    timeline.map((screen) => (screen.kind === "timeline" ? screen.newest : null)),
+    [null, "seit", "vor", "in", "in-spaeter", "fuer"],
+  );
+  const practice = grammarStudyParts(LESSON, topic, "practice");
+  assert.deepEqual(practice.map((part) => part.key), ["practice"]);
+  assert.deepEqual(
+    practice[0]!.screens.map((screen) => screen.kind),
+    ["choice", "translate", "translate", "translate", "translate", "choice", "choice"],
+  );
+  const layout = grammarNodeLayout(LESSON, topic, tables);
+  assert.deepEqual(layout.practiceParts.map((part) => part.key), ["practice"]);
+  assert.equal(layout.practiceParts[0]!.cardCount, 7);
+});
+
 test("layout lists part keys and sizes", () => {
   const layout = grammarNodeLayout(LESSON, withAudio as GrammarTopicContent, tables);
   assert.equal(layout.topicId, "vergangenheit-haben-sein");
-  assert.deepEqual(layout.studyParts.map((part) => part.key), ["s-sein", "s-haben", "s-uebung"]);
+  assert.deepEqual(layout.studyParts.map((part) => part.key), ["study"]);
   assert.deepEqual(
     layout.practiceParts.map((part) => part.key),
     grammarPracticeParts(LESSON, withAudio, tables).map((part) => part.key),

@@ -12,6 +12,10 @@
 export const GRAMMAR_TENSES = ["praesens", "perfekt", "praeteritum"] as const;
 export type GrammarTense = (typeof GRAMMAR_TENSES)[number];
 
+/** Colors of the temporal-preposition timeline, in slide order. */
+export const PREP_TONES = ["vor", "seit", "in", "in-spaeter", "fuer"] as const;
+export type PrepTone = (typeof PREP_TONES)[number];
+
 /** Tenses stored per person. Perfekt is built from the aux and the Partizip. */
 type StoredTense = Exclude<GrammarTense, "perfekt">;
 
@@ -81,12 +85,39 @@ export type GrammarErrorDrill = {
 
 export type GrammarDrill = GrammarTransformDrill | GrammarErrorDrill;
 
-/** A Vietnamese line whose tense word (đang, đã) is colored like the German tense. */
+/** A Vietnamese line whose marked word is colored: a tense word, or a preposition. */
 type VietnameseCue = {
   vi: string;
-  /** The word in `vi` that says the tense, e.g. "đã". */
+  /** The word in `vi` that says the point, e.g. "đã" or "nay". */
   markerVi?: string;
-  tense: GrammarTense;
+  /** Set on a tense lesson. A preposition lesson sets `tone` instead. */
+  tense?: GrammarTense;
+  tone?: PrepTone;
+};
+
+/** One line of the opening "nếu chúng ta muốn nói" screen. */
+export type StoredHookLine = {
+  text: string;
+  /** The phrase circled on the slide. */
+  mark?: string;
+  tone?: PrepTone;
+  /** Which copy of `mark` is circled when the line says it twice. */
+  markAt?: "start" | "end";
+};
+
+/** One preposition on the timeline. The screen reveals them in this order. */
+export type StoredTimelineMark = {
+  id: PrepTone;
+  label: string;
+  note: string;
+};
+
+/** A German phrase beside its Vietnamese line. */
+export type StoredGlossPair = {
+  de: string;
+  vi: string;
+  markDe?: string;
+  markVi?: string;
 };
 
 /** One line of a Beispiele screen: Vietnamese, then the German in one tense. */
@@ -131,7 +162,22 @@ export type StoredStudyScreen =
       /** Audio of the answers after the first, in the same order. */
       moreFilenames?: string[];
       whyVi: string;
-    });
+    })
+  /** The sentences a lesson opens with, each with the phrase it is about. */
+  | { kind: "hook"; title: string; lines: StoredHookLine[] }
+  /** The time line. Each Continue reveals the next preposition. */
+  | { kind: "timeline"; title: string; marks: StoredTimelineMark[] }
+  /** Phrase pairs for one preposition, then the example sentence. */
+  | {
+      kind: "gloss";
+      tone: PrepTone;
+      label: string;
+      /** A note beside the pairs, e.g. the accusative or "learn by heart". */
+      aside?: string;
+      pairs: StoredGlossPair[];
+      /** Shown under the sentence, e.g. which tense the verb takes. */
+      sentence?: { vi: string; de: string; mark: string; note?: string };
+    };
 
 /** A study part as taught on the class slides. Its key is stored once it is finished. */
 export type StoredStudyPart = {
@@ -150,6 +196,11 @@ export type StoredGrammarTopic = {
   drills: GrammarDrill[];
   /** The study node, screen by screen. */
   study: StoredStudyPart[];
+  /**
+   * The practice node, screen by screen. When set, practice is this script.
+   * When omitted, practice is still dealt from the tables.
+   */
+  practice?: StoredStudyPart[];
 };
 
 export type GrammarExample = StoredGrammarExample & {
@@ -190,6 +241,7 @@ export type GrammarTopicContent = {
   examples: GrammarExample[];
   drills: GrammarDrill[];
   study: StudyPartContent[];
+  practice: StudyPartContent[];
 };
 
 /** A stored line with its file resolved: `audioPath` is null until the MP3 exists. */
@@ -328,7 +380,7 @@ export function grammarTopicContent(
     id: stripExtension(example.filename),
     audioPath: resolve(example.filename),
   }));
-  const study = topic.study.map((part) => ({
+  const mapPart = (part: StoredStudyPart): StudyPartContent => ({
     key: part.key,
     titleVi: part.titleVi,
     screens: part.screens.map((screen): StudyScreenContent => {
@@ -345,7 +397,7 @@ export function grammarTopicContent(
           return screen;
       }
     }),
-  }));
+  });
   return {
     id: topic.id,
     titleVi: topic.titleVi,
@@ -354,6 +406,7 @@ export function grammarTopicContent(
     tips: topic.tips,
     examples,
     drills: topic.drills,
-    study,
+    study: topic.study.map(mapPart),
+    practice: (topic.practice ?? []).map(mapPart),
   };
 }

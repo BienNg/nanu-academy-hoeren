@@ -1,8 +1,8 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import type { CSSProperties, ReactNode } from "react";
-import type { GrammarTense, StudyExample, TenseTables } from "@/lib/grammar-lessons";
+import { useReducedMotion } from "framer-motion";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import type { GrammarTense, PrepTone, StudyExample, TenseTables } from "@/lib/grammar-lessons";
 import {
   STUDY_TABLE_TENSES,
   type GrammarStudyScreen,
@@ -10,7 +10,7 @@ import {
   type StudyTableCell,
 } from "@/lib/grammar-node";
 import { FOCUS_RING } from "@/lib/keyboard";
-import { Emphasize, HighlightedForm, PhraseRow, TENSE_TONE, useClipPlayer } from "@/components/session/grammar/grammar-ui";
+import { Emphasize, HighlightedForm, PhraseRow, PREP_TONE, TENSE_TONE, useClipPlayer } from "@/components/session/grammar/grammar-ui";
 
 type ReadScreen = Exclude<GrammarStudyScreen, { kind: "choice" | "translate" }>;
 
@@ -63,47 +63,40 @@ function TensePill({ tables, tense, compact = false }: { tables: TenseTables; te
   );
 }
 
-/** A Vietnamese line with its tense word in the tense's color. */
+/** A Vietnamese line with its marked word in the tense or preposition color. */
 export function CueText({ cue }: { cue: StudyCue }) {
-  return (
-    <Emphasize
-      text={cue.vi}
-      terms={cue.markerVi ? [cue.markerVi] : []}
-      markClass={`font-extrabold ${TENSE_TONE[cue.tense].label}`}
-    />
-  );
+  const markClass = cue.tone
+    ? `font-extrabold ${PREP_TONE[cue.tone].text}`
+    : cue.tense
+      ? `font-extrabold ${TENSE_TONE[cue.tense].label}`
+      : "font-extrabold text-[#1d1d1f]";
+  return <Emphasize text={cue.vi} terms={cue.markerVi ? [cue.markerVi] : []} markClass={markClass} />;
 }
 
-/** Fades in the part a step adds; the rest of the screen stays still. */
+/**
+ * Slides in the piece a step adds. The card around it stays put.
+ * `fresh` is only the forward step that introduces this piece.
+ */
 function Reveal({
   fresh,
   children,
   className,
   style,
+  as = "div",
 }: {
   fresh: boolean;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  as?: "div" | "li";
 }) {
   const reduceMotion = useReducedMotion();
-  if (!fresh || reduceMotion) {
-    return (
-      <div className={className} style={style}>
-        {children}
-      </div>
-    );
-  }
+  const Tag = as;
+  const piece = fresh && !reduceMotion ? "study-piece-in" : "";
   return (
-    <motion.div
-      className={className}
-      style={style}
-      initial={{ opacity: 0, y: 12, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 420, damping: 28, mass: 0.7 }}
-    >
+    <Tag className={[className, piece].filter(Boolean).join(" ") || undefined} style={style}>
       {children}
-    </motion.div>
+    </Tag>
   );
 }
 
@@ -140,7 +133,15 @@ function OverviewScreen({ tables }: { tables: TenseTables }) {
   );
 }
 
-function KnownScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "known" }>; tables: TenseTables }) {
+function KnownScreen({
+  screen,
+  tables,
+  reveal,
+}: {
+  screen: Extract<ReadScreen, { kind: "known" }>;
+  tables: TenseTables;
+  reveal: boolean;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <PromptCard icon="lightbulb" eyebrow="Bạn đã biết" title="Vergangenheit – Quá khứ" />
@@ -156,16 +157,18 @@ function KnownScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
               <span className={`text-[15px] font-semibold ${TENSE_TONE.perfekt.text}`}>{row.perfekt}</span>
               {row.today ? (
                 <span className="flex justify-center">
-                  <span
-                    className={
-                      screen.callout
-                        ? "flex h-11 w-11 items-center justify-center rounded-full border-2 border-b-4 border-[#9a3ec0] bg-[#f7ebfb] text-[22px] font-black text-[#8a2fb0]"
-                        : "text-[28px] font-black leading-none text-[#8a2fb0]"
-                    }
-                    aria-label="Hôm nay học"
-                  >
-                    ?
-                  </span>
+                  <Reveal key={screen.callout ? "circled" : "plain"} fresh={reveal && screen.callout}>
+                      <span
+                        className={
+                          screen.callout
+                            ? "flex h-11 w-11 items-center justify-center rounded-full border-2 border-b-4 border-[#9a3ec0] bg-[#f7ebfb] text-[22px] font-black text-[#8a2fb0]"
+                            : "text-[28px] font-black leading-none text-[#8a2fb0]"
+                        }
+                        aria-label="Hôm nay học"
+                      >
+                        ?
+                      </span>
+                    </Reveal>
                 </span>
               ) : (
                 <span className="rounded-xl bg-[#f5f5f7] px-1.5 py-1 text-center text-[12px] font-medium leading-snug text-[#86868b]">
@@ -177,9 +180,13 @@ function KnownScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
         </div>
       </section>
       {screen.callout ? (
-        <p className="rounded-2xl border-2 border-b-4 border-[#84d8ff] bg-[#ddf4ff] px-4 py-3 text-center text-[16px] font-bold text-[#0066cc]">
+        <Reveal
+          key="callout"
+          fresh={reveal}
+          className="rounded-2xl border-2 border-b-4 border-[#84d8ff] bg-[#ddf4ff] px-4 py-3 text-center text-[16px] font-bold text-[#0066cc]"
+        >
           Das lernen wir heute. – Hôm nay học <span aria-hidden="true">🤙</span>
-        </p>
+        </Reveal>
       ) : null}
     </div>
   );
@@ -227,12 +234,20 @@ const SLIDE_PERSON: Record<string, string> = {
   du: "Du",
   "er/sie/es": "Er/Sie/Es",
   ihr: "Ihr",
-  // Spaced as on the slide, so it wraps on a narrow phone.
-  "wir/sie/Sie": "Wir/ sie/ Sie",
+  wir: "Wir",
+  "sie/Sie": "sie/Sie",
 };
 
 /** Step 1 pronouns, 2 Präsens, 3 Perfekt, 4 a question mark, 5 Präteritum. */
-function TableScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "table" }>; tables: TenseTables }) {
+function TableScreen({
+  screen,
+  tables,
+  reveal,
+}: {
+  screen: Extract<ReadScreen, { kind: "table" }>;
+  tables: TenseTables;
+  reveal: boolean;
+}) {
   const { play, playingPath } = useClipPlayer();
   const { step } = screen;
   const shown: Record<GrammarTense, boolean> = { praesens: step >= 2, perfekt: step >= 3, praeteritum: step >= 5 };
@@ -257,40 +272,73 @@ function TableScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
               {SLIDE_PERSON[row.personLabel] ?? row.personLabel}
             </span>
             {STUDY_TABLE_TENSES.filter((tense) => shown[tense]).map((tense) => (
-              <Reveal
-                key={tense}
-                fresh={tense === freshTense}
-                className="min-w-0"
-                style={{ gridRow: index + 2, gridColumn: column(tense) }}
-              >
-                <TableCell
-                  cell={row.cells[tense]}
-                  tense={tense}
-                  playing={row.cells[tense].audioPath !== null && playingPath === row.cells[tense].audioPath}
-                  onPlay={play}
-                />
-              </Reveal>
-            ))}
+                <Reveal
+                  key={tense}
+                  fresh={reveal && tense === freshTense}
+                  className="min-w-0"
+                  style={{ gridRow: index + 2, gridColumn: column(tense) }}
+                >
+                  <TableCell
+                    cell={row.cells[tense]}
+                    tense={tense}
+                    playing={row.cells[tense].audioPath !== null && playingPath === row.cells[tense].audioPath}
+                    onPlay={play}
+                  />
+                </Reveal>
+              ))}
           </div>
         ))}
         {step === 4 ? (
-          <Reveal
-            fresh
-            className="flex items-center justify-center text-[72px] font-black leading-none text-[#c364e0] sm:text-[96px]"
-            style={{ gridRow: `2 / span ${screen.rows.length}`, gridColumn: column("praeteritum") }}
-          >
-            <span aria-label="Präteritum: ?">?</span>
-          </Reveal>
-        ) : null}
+            <Reveal
+              key="question"
+              fresh={reveal}
+              className="flex items-center justify-center text-[72px] font-black leading-none text-[#c364e0] sm:text-[96px]"
+              style={{ gridRow: `2 / span ${screen.rows.length}`, gridColumn: column("praeteritum") }}
+            >
+              <span aria-label="Präteritum: ?">?</span>
+            </Reveal>
+          ) : null}
       </div>
       </section>
-      {step >= 2 ? <p className="text-center text-[13px] font-medium text-[#86868b]">Chạm vào từng từ để nghe.</p> : null}
+      {step >= 2 ? (
+          <Reveal key="listen" fresh={reveal && step === 2} className="text-center text-[13px] font-medium text-[#86868b]">
+            Chạm vào từng từ để nghe.
+          </Reveal>
+      ) : null}
     </div>
   );
 }
 
-function BeispieleScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "beispiele" }>; tables: TenseTables }) {
-  const { play, playingPath } = useClipPlayer();
+function BeispieleScreen({
+  screen,
+  tables,
+  reveal,
+}: {
+  screen: Extract<ReadScreen, { kind: "beispiele" }>;
+  tables: TenseTables;
+  reveal: boolean;
+}) {
+  const { play, playAll, playingPath } = useClipPlayer();
+  const heard = useRef(0);
+  useEffect(() => {
+    let committed = false;
+    const frame = requestAnimationFrame(() => {
+      committed = true;
+    });
+    const previous = heard.current;
+    if (screen.shown <= previous) {
+      heard.current = screen.shown;
+      return () => cancelAnimationFrame(frame);
+    }
+    const added = screen.rows.slice(previous, screen.shown);
+    heard.current = screen.shown;
+    const paths = added.flatMap((row) => (row.audioPath ? [row.audioPath] : []));
+    if (paths.length > 0) playAll(paths);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (!committed) heard.current = previous;
+    };
+  }, [playAll, screen.rows, screen.shown]);
   return (
     <div className="flex flex-col gap-4">
       <PromptCard icon="forum" eyebrow="Beispiele" title="Ví dụ" />
@@ -298,8 +346,12 @@ function BeispieleScreen({ screen, tables }: { screen: Extract<ReadScreen, { kin
         {screen.rows.slice(0, screen.shown).map((row: StudyExample, index) => {
           const tone = TENSE_TONE[row.tense];
           return (
-            <li key={`${row.tense}-${row.de}`}>
-              <Reveal fresh={index === screen.newest && index > 0} className="flex flex-col gap-2">
+              <Reveal
+                key={`${row.tense}-${row.de}`}
+                as="li"
+                fresh={reveal && index === screen.newest && index > 0}
+                className="flex flex-col gap-2"
+              >
                 <div className="flex items-center gap-2">
                   <span className={`rounded-lg px-2.5 py-1 text-[13px] font-extrabold ${tone.head}`}>
                     {tenseMeta(tables, row.tense).label}
@@ -330,7 +382,6 @@ function BeispieleScreen({ screen, tables }: { screen: Extract<ReadScreen, { kin
                   </span>
                 </PhraseRow>
               </Reveal>
-            </li>
           );
         })}
       </ul>
@@ -338,16 +389,190 @@ function BeispieleScreen({ screen, tables }: { screen: Extract<ReadScreen, { kin
   );
 }
 
-/** Every study screen that is read, then continued. */
-export function GrammarReadScreen({ screen, tables }: { screen: ReadScreen; tables: TenseTables }) {
+/** A chunky white tile, the same shape as the practice phrase rows. */
+const TILE = "rounded-2xl border-2 border-b-4 border-[#e5e5ea] bg-white";
+
+/** Highlights one copy of `mark`. `end` picks the last copy, for "một năm" at the end of a line. */
+function MarkedLine({
+  text,
+  mark,
+  tone,
+  at = "start",
+}: {
+  text: string;
+  mark?: string;
+  tone?: PrepTone;
+  at?: "start" | "end";
+}) {
+  if (!mark || !tone) return <>{text}</>;
+  const haystack = text.toLowerCase();
+  const needle = mark.toLowerCase();
+  const index = at === "end" ? haystack.lastIndexOf(needle) : haystack.indexOf(needle);
+  if (index < 0) return <>{text}</>;
+  const markClass = ["font-extrabold underline decoration-[3px] underline-offset-[5px]", PREP_TONE[tone].text].join(" ");
+  return (
+    <>
+      {text.slice(0, index)}
+      <strong className={markClass}>{text.slice(index, index + mark.length)}</strong>
+      {text.slice(index + mark.length)}
+    </>
+  );
+}
+
+/** A short prompt bubble, only as wide as its words, so a phone does not show an empty card. */
+function SpeechPrompt({ icon, eyebrow, title }: { icon: string; eyebrow: string; title: string }) {
+  return (
+    <div className="flex items-end gap-3">
+      <div className={`${TILE} flex h-12 w-12 shrink-0 items-center justify-center text-[#1cb0f6]`}>
+        <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+          {icon}
+        </span>
+      </div>
+      <div className={`${TILE} min-w-0 px-4 py-3`}>
+        <p className="text-[12px] font-extrabold tracking-wide text-[#1cb0f6] uppercase">{eyebrow}</p>
+        <h1 className="text-[18px] leading-snug font-extrabold text-balance text-[#3c3c3c]">{title}</h1>
+      </div>
+    </div>
+  );
+}
+
+function HookScreen({ screen, reveal }: { screen: Extract<ReadScreen, { kind: "hook" }>; reveal: boolean }) {
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <SpeechPrompt icon="chat" eyebrow="Ngữ pháp mới" title={screen.title} />
+      <ul className="flex flex-col gap-3">
+        {screen.lines.slice(0, screen.shown).map((line, index) => (
+          <Reveal key={line.text} as="li" fresh={reveal && index === screen.newest}>
+            <div className={`${TILE} px-4 py-3 text-[16px] leading-snug font-bold text-[#3c3c3c]`}>
+              <MarkedLine text={line.text} mark={line.mark} tone={line.tone} at={line.markAt} />
+            </div>
+          </Reveal>
+        ))}
+      </ul>
+      {screen.callout ? (
+        <Reveal fresh={reveal} className={`${TILE} px-4 py-3 text-[16px] leading-snug font-extrabold text-[#3c3c3c]`}>
+          Bây giờ chúng ta học.
+        </Reveal>
+      ) : null}
+    </div>
+  );
+}
+
+/** Past sits above "jetzt", future below, so the line reads on a phone without sideways scrolling. */
+const TIMELINE_BEFORE: readonly PrepTone[] = ["vor", "seit"];
+const TIMELINE_AFTER: readonly PrepTone[] = ["in", "in-spaeter", "fuer"];
+
+function TimelineMarkRow({
+  mark,
+  fresh,
+}: {
+  mark: { id: PrepTone; label: string; note: string };
+  fresh: boolean;
+}) {
+  const tone = PREP_TONE[mark.id];
+  return (
+    <Reveal fresh={fresh} className={`${TILE} px-4 py-2.5`}>
+      <p className={["text-[16px] leading-snug font-extrabold", tone.text].join(" ")}>{mark.label}</p>
+      <p className="mt-1 text-[14px] leading-snug font-medium whitespace-pre-line text-[#3c3c3c]">{mark.note}</p>
+    </Reveal>
+  );
+}
+
+function TimelineScreen({
+  screen,
+  reveal,
+}: {
+  screen: Extract<ReadScreen, { kind: "timeline" }>;
+  reveal: boolean;
+}) {
+  const byId = new Map(screen.marks.map((mark) => [mark.id, mark]));
+  const row = (id: PrepTone) => {
+    if (!screen.shown.includes(id)) return null;
+    const mark = byId.get(id);
+    if (!mark) return null;
+    return <TimelineMarkRow key={id} mark={mark} fresh={reveal && screen.newest === id} />;
+  };
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <SpeechPrompt icon="schedule" eyebrow="Ngữ pháp mới" title={screen.title} />
+      <div className="flex flex-col gap-2 pb-2">
+        {TIMELINE_BEFORE.map(row)}
+        <p className={`${TILE} px-4 py-3 text-center text-[16px] leading-snug font-extrabold text-[#3c3c3c]`}>
+          jetzt · heute · 10Uhr
+        </p>
+        {TIMELINE_AFTER.map(row)}
+      </div>
+    </div>
+  );
+}
+
+function GlossScreen({ screen }: { screen: Extract<ReadScreen, { kind: "gloss" }> }) {
+  const tone = PREP_TONE[screen.tone];
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <SpeechPrompt icon="menu_book" eyebrow="Beispiele" title={screen.label} />
+      <ul className="flex flex-col gap-2">
+        {screen.pairs.map((pair) => (
+          <li key={pair.de} className={`${TILE} px-4 py-3`}>
+            <p className={["text-[17px] leading-snug font-extrabold", tone.text].join(" ")}>
+              <Emphasize
+                text={pair.de}
+                terms={pair.markDe ? [pair.markDe] : []}
+                markClass="underline decoration-[3px] underline-offset-[5px]"
+              />
+            </p>
+            <p className="mt-1 text-[16px] leading-snug font-semibold text-[#3c3c3c]">
+              <Emphasize text={pair.vi} terms={pair.markVi ? [pair.markVi] : []} markClass={["font-extrabold", tone.text].join(" ")} />
+            </p>
+          </li>
+        ))}
+      </ul>
+      {screen.aside ? (
+        <p className="rounded-2xl border-2 border-b-4 border-[#ffd900] bg-[#fff4cc] px-4 py-3 text-[15px] leading-snug font-bold text-[#3c3c3c]">
+          {screen.aside}
+        </p>
+      ) : null}
+      {screen.sentence ? (
+        <section className={`${TILE} px-4 py-3`}>
+          <p className="text-[16px] leading-snug font-semibold text-[#3c3c3c]">{screen.sentence.vi}</p>
+          <p className={["mt-1 text-[18px] leading-snug font-extrabold", tone.text].join(" ")}>
+            <Emphasize
+              text={screen.sentence.de}
+              terms={[screen.sentence.mark]}
+              markClass="underline decoration-[3px] underline-offset-[5px]"
+            />
+          </p>
+          {screen.sentence.note ? <p className="mt-2 text-[14px] leading-snug font-medium text-[#3c3c3c]">{screen.sentence.note}</p> : null}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+/** Every study screen that is read, then continued. `reveal` slides in only a step's new piece. */
+export function GrammarReadScreen({
+  screen,
+  tables,
+  reveal,
+}: {
+  screen: ReadScreen;
+  tables: TenseTables;
+  reveal: boolean;
+}) {
   switch (screen.kind) {
     case "overview":
       return <OverviewScreen tables={tables} />;
     case "known":
-      return <KnownScreen screen={screen} tables={tables} />;
+      return <KnownScreen screen={screen} tables={tables} reveal={reveal} />;
     case "table":
-      return <TableScreen screen={screen} tables={tables} />;
+      return <TableScreen screen={screen} tables={tables} reveal={reveal} />;
     case "beispiele":
-      return <BeispieleScreen screen={screen} tables={tables} />;
+      return <BeispieleScreen screen={screen} tables={tables} reveal={reveal} />;
+    case "hook":
+      return <HookScreen screen={screen} reveal={reveal} />;
+    case "timeline":
+      return <TimelineScreen screen={screen} reveal={reveal} />;
+    case "gloss":
+      return <GlossScreen screen={screen} />;
   }
 }

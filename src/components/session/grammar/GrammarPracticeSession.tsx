@@ -13,7 +13,7 @@ import {
 } from "@/lib/grammar-node";
 import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
-import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
+import { playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -26,9 +26,6 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { GrammarHeader, GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
 import { TableFillCard } from "@/components/session/grammar/TableFillCard";
-
-/** Same as regular practice: three wrong answers end the part. */
-export const GRAMMAR_HEARTS = 3;
 
 type GrammarPracticeSessionProps = {
   course: SessionCourse;
@@ -52,7 +49,6 @@ type Summary = {
   questionCount: number;
   accuracy: number;
   elapsedMs: number;
-  failed: boolean;
 };
 
 const ERROR_OK = "ok";
@@ -131,13 +127,13 @@ function FeedbackBody({
         </>
       );
     case "pronoun-pairing":
-      return null;
+      return rule;
   }
 }
 
 /**
- * One practice part of a grammar topic. A wrong answer costs a heart and the
- * card comes back once at the end of the part; three wrong answers end it.
+ * One practice part of a grammar topic. A wrong answer stays on the card
+ * until the student gives the right one. There are no hearts.
  */
 export function GrammarPracticeSession({
   course,
@@ -156,33 +152,23 @@ export function GrammarPracticeSession({
   );
   const part = parts[partNumber - 1];
 
-  const [queue, setQueue] = useState<GrammarCard[]>(() => part?.cards ?? []);
+  const [queue] = useState<GrammarCard[]>(() => part?.cards ?? []);
   const [index, setIndex] = useState(0);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [heartsLeft, setHeartsLeft] = useState(GRAMMAR_HEARTS);
-  const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [tally, setTally] = useState({ answered: 0, right: 0 });
   const [summary, setSummary] = useState<Summary | null>(null);
   const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const [quitOpen, setQuitOpen] = useState(false);
   const startedAtRef = useRef(0);
-  /** Cards already put back once, and pairing cards that already cost a heart. */
-  const requeuedRef = useRef(new Set<string>());
-  const pairingMissRef = useRef(new Set<string>());
 
   useEffect(() => {
     startedAtRef.current = Date.now();
   }, []);
 
-  useEffect(() => {
-    if (breakingIndex === null) return;
-    const timeout = window.setTimeout(() => setBreakingIndex(null), 560);
-    return () => window.clearTimeout(timeout);
-  }, [breakingIndex]);
-
   const card = queue[index];
   const tenseLabel = (tense: GrammarTense) => tables.tenses.find((entry) => entry.id === tense)?.label ?? tense;
-  const progress = queue.length === 0 ? 0 : (index + (outcome ? 1 : 0)) / queue.length;
+  const progress = queue.length === 0 ? 0 : (index + (outcome?.correct ? 1 : 0)) / queue.length;
   const isLastPart = partNumber >= parts.length;
 
   const leave = (href: string) => {
@@ -190,54 +176,39 @@ export function GrammarPracticeSession({
     router.push(href);
   };
 
-  const loseHeart = () => {
-    recordWrongAttempt();
-    const nextHearts = heartsLeft - 1;
-    setHeartsLeft(Math.max(0, nextHearts));
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!reduceMotion) setBreakingIndex(nextHearts);
-    playHeartLostSound();
-  };
-
-  /** Scores the card in front of the student once. */
+  /** Scores this try. A miss stays on the card until the answer is right. */
   const answer = (result: Outcome) => {
     if (!card || outcome) return;
     setOutcome(result);
     setTally((current) => ({ answered: current.answered + 1, right: current.right + (result.correct ? 1 : 0) }));
-    if (result.correct) {
-      playSuccessSound();
-      return;
-    }
-    loseHeart();
-    if (!requeuedRef.current.has(card.key)) {
-      requeuedRef.current.add(card.key);
-      setQueue((current) => [...current, card]);
-    }
+    if (result.correct) playSuccessSound();
+    else recordWrongAttempt();
   };
 
-  /** Ends the part. Only a passed part is saved; a failed one is played again from the start. */
-  const finish = (failed: boolean) => {
+  const retry = () => {
+    setOutcome(null);
+    setAttempt((current) => current + 1);
+  };
+
+  const finish = () => {
     const answered = tally.answered;
-    if (!failed && part) finishPart(topic.id, part.key, answered);
+    if (part) finishPart(topic.id, part.key, answered);
     setSummary({
       questionCount: answered,
       accuracy: answered === 0 ? 0 : Math.round((tally.right / answered) * 100),
       elapsedMs: Date.now() - startedAtRef.current,
-      failed,
     });
     setPhase("complete");
   };
 
   const next = () => {
-    if (heartsLeft <= 0) {
-      finish(true);
-      return;
-    }
+    if (!outcome?.correct) return;
     if (index + 1 >= queue.length) {
-      finish(false);
+      finish();
       return;
     }
     setOutcome(null);
+    setAttempt(0);
     setIndex(index + 1);
   };
 
@@ -265,10 +236,10 @@ export function GrammarPracticeSession({
           xpKind={null}
           xpPending={false}
           streakDays={streakDays}
-          finishRun={!summary.failed && isLastPart}
-          failed={summary.failed}
+          finishRun={isLastPart}
+          failed={false}
           // A replay starts at part 1 too, so the next part is always one tap away.
-          {...(!summary.failed && !isLastPart
+          {...(!isLastPart
             ? {
                 continueLabel: "Phần tiếp theo",
                 onContinue: () =>
@@ -282,7 +253,7 @@ export function GrammarPracticeSession({
     );
   }
 
-  const cardKey = `${index}-${card?.key ?? ""}`;
+  const cardKey = `${index}-${card?.key ?? ""}-${attempt}`;
   const mcResult = outcome?.mc ?? null;
 
   return (
@@ -291,7 +262,6 @@ export function GrammarPracticeSession({
         <GrammarHeader
           progress={progress}
           onClose={() => (tally.answered === 0 ? leave(course.pathHref) : setQuitOpen(true))}
-          hearts={{ remaining: heartsLeft, total: GRAMMAR_HEARTS, breakingIndex }}
         />
       }
     >
@@ -388,31 +358,20 @@ export function GrammarPracticeSession({
             <PairingCard
               key={cardKey}
               items={card.items.map((item) => ({ id: item.id, vi: item.person, de: item.form }))}
-              onMistake={() => {
-                if (pairingMissRef.current.has(card.key)) return;
-                pairingMissRef.current.add(card.key);
-                loseHeart();
-              }}
-              onSolved={() => {
-                if (outcome) return;
-                const correct = !pairingMissRef.current.has(card.key);
-                setOutcome({ correct });
-                setTally((current) => ({
-                  answered: current.answered + 1,
-                  right: current.right + (correct ? 1 : 0),
-                }));
-              }}
+              locked={outcome !== null}
+              onMistake={() => answer({ correct: false })}
+              onSolved={() => answer({ correct: true })}
               onNext={next}
               nextLabel="Tiếp theo"
             />
           )}
 
-          {card && outcome && card.kind !== "pronoun-pairing" ? (
+          {card && outcome && (card.kind !== "pronoun-pairing" || !outcome.correct) ? (
             <FeedbackSheet
               tone={outcome.correct ? "correct" : "wrong"}
               title={outcome.correct ? praiseFor(cardKey) : "Chưa đúng"}
-              actionLabel="Tiếp theo"
-              onAction={next}
+              actionLabel={outcome.correct ? "Tiếp theo" : "Thử lại"}
+              onAction={outcome.correct ? next : retry}
             >
               <FeedbackBody card={card} outcome={outcome} tenseLabel={tenseLabel} />
             </FeedbackSheet>

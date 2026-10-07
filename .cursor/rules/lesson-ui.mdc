@@ -1,0 +1,14 @@
+---
+description: Lesson screen design. Duolingo-style cards, top-aligned, one new piece per Weiter, thick underlines.
+globs: src/components/**/*.tsx,src/app/**/*.tsx
+alwaysApply: false
+---
+
+# Lesson UI
+
+Lesson screens use the Duolingo tile: white, `rounded-2xl`, `border-2 border-b-4 border-[#e5e5ea]`, bold text, one column on a phone. No sideways scrolling.
+
+- Align the lesson to the top. Do not center it in the leftover viewport.
+- Weiter reveals one new piece of the same slide. Earlier pieces stay. A new slide is a new scene.
+- Words a student reads are Vietnamese. German is the sentence being taught. Do not style a teaching line like an error or a system alert.
+- A highlighted word is a thick underscore in its own color (`underline decoration-[3px]`), not a filled chip.
