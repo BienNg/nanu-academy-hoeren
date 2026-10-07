@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import ausbildungsberufeFile from "@/data/ausbildungsberufe.json";
 import commonFile from "@/data/ausbildung/common.json";
+import mediaFilesFile from "@/data/media-files.json";
 import type { GrammarGap } from "@/lib/grammar-gaps";
 import type { LivingReply } from "@/lib/living-content";
 
@@ -47,6 +48,19 @@ type CatalogBeruf = {
 
 const catalogBerufe = ausbildungsberufeFile as CatalogBeruf[];
 const ausbildungDir = join(process.cwd(), "src/data/ausbildung");
+
+/**
+ * next.config.ts keeps public/audio and public/images out of the server
+ * functions, so production checks the list the content check wrote at build.
+ * Development reads disk so a newly added file shows up without a rebuild.
+ */
+const mediaFiles = new Set(mediaFilesFile as string[]);
+
+/** Whether public/<path> exists, e.g. "audio/a1-1/lektion-2/a11-tag2-01-ich.mp3". */
+export function publicMediaExists(path: string): boolean {
+  if (process.env.NODE_ENV === "production") return mediaFiles.has(path.normalize("NFC"));
+  return existsSync(join(process.cwd(), "public", path));
+}
 
 function isStoredAusbildungFile(value: unknown): value is StoredAusbildungFile {
   return (
@@ -114,7 +128,7 @@ export type AusbildungClipInventory = {
 };
 
 function ausbildungAudioExists(folder: string, filename: string): boolean {
-  return existsSync(join(process.cwd(), "public/audio/ausbildung", folder, filename));
+  return publicMediaExists(`audio/ausbildung/${folder}/${filename}`);
 }
 
 /** Shared + profession clips listed in JSON vs MP3s on disk. */

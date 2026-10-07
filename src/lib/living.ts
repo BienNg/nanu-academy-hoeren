@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SessionClip } from "@/lib/content";
+import { publicMediaExists, type SessionClip } from "@/lib/content";
 import {
   livingLessonKey,
   livingProgressKey,
@@ -25,13 +25,10 @@ export type LivingScene = {
 };
 
 const livingDir = join(process.cwd(), "src/data/living");
-const audioDir = join(process.cwd(), "public/audio/living");
-const imageDir = join(process.cwd(), "public/images/living");
 
 /** Same caching rule as levels.ts: production keeps content in memory, dev re-reads. */
 const cacheContent = process.env.NODE_ENV === "production";
 const fileCache = new Map<string, StoredLivingFile | null>();
-const existsCache = new Map<string, boolean>();
 let workplacesCache: LivingWorkplace[] | null = null;
 
 function readJson(path: string): unknown {
@@ -44,13 +41,12 @@ function readJson(path: string): unknown {
   }
 }
 
-function fileExists(path: string): boolean {
-  if (!cacheContent) return existsSync(path);
-  const cached = existsCache.get(path);
-  if (cached !== undefined) return cached;
-  const exists = existsSync(path);
-  existsCache.set(path, exists);
-  return exists;
+function audioExists(workplaceSlug: string, filename: string): boolean {
+  return publicMediaExists(`audio/living/${workplaceSlug}/${filename}`);
+}
+
+function imageExists(workplaceSlug: string, image: string): boolean {
+  return publicMediaExists(`images/living/${workplaceSlug}/${image}`);
 }
 
 function loadWorkplaceFile(workplaceSlug: string): StoredLivingFile | null {
@@ -69,7 +65,7 @@ function stripExtension(filename: string): string {
 
 function toSessionClip(clip: StoredLivingClip, workplaceSlug: string): SessionClip {
   const imageUrl =
-    clip.image && fileExists(join(imageDir, workplaceSlug, clip.image))
+    clip.image && imageExists(workplaceSlug, clip.image)
       ? `/images/living/${workplaceSlug}/${clip.image}`
       : undefined;
   return {
@@ -113,7 +109,7 @@ export function getLivingSceneClips(workplaceSlug: string, sceneId: string): Ses
   const scene = loadWorkplaceFile(workplaceSlug)?.scenes.find((entry) => entry.id === sceneId);
   if (!scene) return [];
   return scene.clips
-    .filter((clip) => fileExists(join(audioDir, workplaceSlug, clip.filename)))
+    .filter((clip) => audioExists(workplaceSlug, clip.filename))
     .map((clip) => toSessionClip(clip, workplaceSlug));
 }
 
@@ -160,11 +156,9 @@ export function getLivingInventory(workplaceSlug: string): LivingClipInventory[]
     sceneId: scene.id,
     label: scene.label,
     listed: scene.clips.length,
-    playable: scene.clips.filter((clip) =>
-      fileExists(join(audioDir, workplaceSlug, clip.filename)),
-    ).length,
+    playable: scene.clips.filter((clip) => audioExists(workplaceSlug, clip.filename)).length,
     missingImages: scene.clips.filter(
-      (clip) => clip.image && !fileExists(join(imageDir, workplaceSlug, clip.image)),
+      (clip) => clip.image && !imageExists(workplaceSlug, clip.image),
     ).length,
   }));
 }

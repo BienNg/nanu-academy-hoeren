@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/recap-card": ["./src/assets/fonts/*.ttf", "./public/logo192.png"],
   },
+  // Served from the CDN; server code checks src/data/media-files.json instead.
+  outputFileTracingExcludes: {
+    "/*": ["./public/audio/**", "./public/images/**"],
+  },
   images: {
     remotePatterns: [
       {

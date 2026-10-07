@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,8 @@ const livingImageRoot = join(repoRoot, "public/images/living");
 const grammarDataDir = join(repoRoot, "src/data/grammar");
 const grammarAudioRoot = join(repoRoot, "public/audio/grammar");
 const chaptersPath = join(repoRoot, "src/data/chapters.json");
+const publicDir = join(repoRoot, "public");
+const mediaListPath = join(repoRoot, "src/data/media-files.json");
 
 const errors = [];
 const skippedMissingAudio = [];
@@ -891,6 +893,30 @@ function checkLiving() {
   return fileCount;
 }
 
+/**
+ * src/data/media-files.json: every file under public/audio and public/images,
+ * relative to public/ and in NFC. Production checks this list instead of disk
+ * because next.config.ts keeps those folders out of the server functions.
+ */
+function writeMediaList() {
+  const files = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      if (name.startsWith(".")) continue;
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else files.push(nfc(path.slice(publicDir.length + 1)));
+    }
+  };
+  for (const folder of ["audio", "images"]) {
+    const dir = join(publicDir, folder);
+    if (existsSync(dir)) walk(dir);
+  }
+  files.sort();
+  writeFileSync(mediaListPath, `${JSON.stringify(files, null, 2)}\n`);
+  return files.length;
+}
+
 checkGrammar();
 checkTenses();
 const ausbildungCount = checkAusbildung();
@@ -906,9 +932,12 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
+const mediaCount = writeMediaList();
+
 console.log(
   `Content integrity OK: ${ausbildungCount} Ausbildung file(s), ${levelCount} Lektion file(s), ${livingCount} Leben-in-Deutschland file(s).`,
 );
+console.log(`Listed ${mediaCount} media file(s) in ${rel(mediaListPath)}.`);
 if (skippedMissingImages.length > 0) {
   console.log(`Missing ${skippedMissingImages.length} image(s); those pairing cards show text instead.`);
 }

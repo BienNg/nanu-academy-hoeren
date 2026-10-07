@@ -4,7 +4,7 @@ import chaptersFile from "@/data/chapters.json";
 import grammarTopicsFile from "@/data/grammar/topics.json";
 import grammarVerbsFile from "@/data/grammar/verbs.json";
 import grammarTensesFile from "@/data/grammar/tenses.json";
-import { getAvailableBerufe, type SessionClip } from "@/lib/content";
+import { getAvailableBerufe, publicMediaExists, type SessionClip } from "@/lib/content";
 import { isAdminUser } from "@/lib/admins";
 import { cefrLearnKey, type ContinueLevelCatalogEntry } from "@/lib/progress";
 import {
@@ -88,7 +88,6 @@ const grammarTopics = (grammarTopicsFile as { topics: GrammarTopic[] }).topics;
 const grammarVerbs = grammarVerbsFile as VerbTable;
 const grammarTenses = grammarTensesFile as TenseTables;
 const levelsDir = join(process.cwd(), "src/data/levels");
-const levelsAudioDir = join(process.cwd(), "public/audio");
 
 function isStoredChapterFile(value: unknown): value is StoredChapterFile {
   return (
@@ -154,7 +153,6 @@ function toSessionClip(
  */
 const cacheContent = process.env.NODE_ENV === "production";
 const chapterFileCache = new Map<string, StoredChapterFile | null>();
-const audioExistsCache = new Map<string, boolean>();
 
 function loadChapterFile(
   levelSlug: string,
@@ -171,15 +169,6 @@ function loadChapterFile(
   }
   if (cacheContent) chapterFileCache.set(path, file);
   return file;
-}
-
-function audioFileExists(path: string): boolean {
-  if (!cacheContent) return existsSync(path);
-  const cached = audioExistsCache.get(path);
-  if (cached !== undefined) return cached;
-  const exists = existsSync(path);
-  audioExistsCache.set(path, exists);
-  return exists;
 }
 
 /** All CEFR levels from the catalog (including ones with no Lektionen yet). */
@@ -272,7 +261,7 @@ export function getChapterClips(
   const topics = grammarTopicsForLesson(levelSlug, chapterSlug);
   return file.clips
     .filter((clip) =>
-      audioFileExists(join(levelsAudioDir, levelSlug, chapterSlug, clip.filename)),
+      publicMediaExists(`audio/${levelSlug}/${chapterSlug}/${clip.filename}`),
     )
     .map((clip) => toSessionClip(clip, levelSlug, chapterSlug, topics));
 }
@@ -287,7 +276,7 @@ export function getChapterGrammar(
 ): GrammarTopicContent[] {
   const file = loadChapterFile(levelSlug, chapterSlug);
   if (!file?.grammar) return [];
-  const hasAudio = (audioPath: string) => audioFileExists(join(levelsAudioDir, audioPath));
+  const hasAudio = (audioPath: string) => publicMediaExists(`audio/${audioPath}`);
   return file.grammar.map((topic) =>
     grammarTopicContent(topic, grammarTenses, `${levelSlug}/${chapterSlug}`, hasAudio),
   );
