@@ -10,6 +10,7 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
+import { listOutreachCases } from "@/lib/outreach-store";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
@@ -17,6 +18,7 @@ import {
   listPendingLevelGrants,
   touchUserProfile,
 } from "@/lib/progress-store";
+import { dayKey } from "@/lib/xp";
 
 export const metadata: Metadata = {
   title: "Outreach · Admin · NaNu Academy",
@@ -43,8 +45,13 @@ export default async function AdminOutreachPage() {
     });
   }
 
-  const items = storeConfigured ? await listCachedUserProgress("outreach") : [];
-  const pending = storeConfigured ? await listPendingLevelGrants() : [];
+  const [items, pending, cases] = storeConfigured
+    ? await Promise.all([
+        listCachedUserProgress("outreach"),
+        listPendingLevelGrants(),
+        listOutreachCases(),
+      ])
+    : [[], [], []];
   const rows = items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user)));
   const people = buildOutreachPeople(
     rows,
@@ -58,6 +65,10 @@ export default async function AdminOutreachPage() {
   return (
     <AdminOutreach
       people={people}
+      cases={cases ?? []}
+      casesReady={cases !== null}
+      today={dayKey(new Date())}
+      viewerId={session.user.id ?? ""}
       catalog={catalog}
       storeConfigured={storeConfigured}
       pendingReady={pending !== null}

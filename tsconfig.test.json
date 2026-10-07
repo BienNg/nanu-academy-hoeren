@@ -77,6 +77,8 @@
     "src/lib/admin-class-league.ts",
     "src/lib/admin-class-league.test.ts",
     "src/lib/ui-clicks.ts",
-    "src/lib/ui-clicks.test.ts"
+    "src/lib/ui-clicks.test.ts",
+    "src/lib/outreach.ts",
+    "src/lib/outreach.test.ts"
   ]
 }

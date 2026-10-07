@@ -1049,6 +1049,7 @@ export function Drawer({
   subtitle,
   header,
   footer,
+  panelClassName,
   children,
 }: {
   open: boolean;
@@ -1058,6 +1059,8 @@ export function Drawer({
   /** Replaces the default title block, e.g. with an avatar and badges. */
   header?: ReactNode;
   footer?: ReactNode;
+  /** Replaces the default `sm:w-[420px]` panel width. */
+  panelClassName?: string;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -1078,7 +1081,7 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="admin-drawer-in fixed inset-y-0 right-0 z-[71] flex w-full flex-col border-l border-admin-border bg-admin-card shadow-admin-drawer outline-none sm:w-[420px]"
+        className={`admin-drawer-in fixed inset-y-0 right-0 z-[71] flex w-full flex-col border-l border-admin-border bg-admin-card shadow-admin-drawer outline-none ${panelClassName ?? "sm:w-[420px]"}`}
       >
         <div className="flex shrink-0 items-start gap-space-12 border-b border-admin-hairline px-space-20 py-space-16 pt-safe">
           <div className="min-w-0 flex-1">

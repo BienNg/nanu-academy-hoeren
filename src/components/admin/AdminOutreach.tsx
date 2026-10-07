@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import { AdminOutreachCase } from "@/components/admin/AdminOutreachCase";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   Badge,
   Button,
+  CARD,
   INPUT,
   Pager,
   ScopeChips,
@@ -14,29 +16,48 @@ import {
   TR,
   TablePanel,
   formatCount,
+  formatPercent,
   type BadgeTone,
 } from "@/components/admin/AdminUi";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
   ADMIN_PAGE_SIZE,
-  countOutreachCategories,
-  filterOutreachPeople,
   formatAdminTimestamp,
   formatRelativeLastSeen,
-  type OutreachCategory,
-  type OutreachFilter,
   type OutreachPerson,
 } from "@/lib/admin-overview";
 import { formatActiveDuration } from "@/lib/progress";
+import {
+  OUTREACH_GROUPS,
+  OUTREACH_GROUP_LABEL,
+  OUTREACH_QUEUES,
+  OUTREACH_QUEUE_LABEL,
+  OUTREACH_REASON_LABEL,
+  OUTREACH_CHANNEL_LABEL,
+  OUTREACH_STATUS_LABEL,
+  filterOutreachRows,
+  joinOutreach,
+  summarizeOutreach,
+  type OutreachCase,
+  type OutreachGroup,
+  type OutreachQueue,
+  type OutreachStatus,
+} from "@/lib/outreach";
 
-const CATEGORY_META: Record<
-  OutreachCategory,
-  { label: string; short: string; tone: BadgeTone }
-> = {
-  preaccess: { label: "Not signed up", short: "Not signed up", tone: "violet" },
-  never: { label: "No part yet", short: "No part yet", tone: "crimson" },
-  light: { label: "Under 1.5 hours", short: "Under 1.5 h", tone: "amber" },
-  heavy: { label: "1.5 hours or more", short: "1.5 h or more", tone: "emerald" },
+const GROUP_TONE: Record<OutreachGroup, BadgeTone> = {
+  preaccess: "violet",
+  never: "crimson",
+  light: "amber",
+  heavy: "emerald",
+};
+
+const STATUS_TONE: Record<OutreachStatus, BadgeTone> = {
+  chua_gui: "neutral",
+  da_gui_tin_1: "cobalt",
+  da_gui_tin_2: "violet",
+  da_tra_loi: "emerald",
+  khong_tra_loi: "crimson",
+  da_dung: "amber",
 };
 
 function Notice({ children }: { children: string }) {
@@ -47,42 +68,76 @@ function Notice({ children }: { children: string }) {
   );
 }
 
-function personName(person: OutreachPerson): string {
-  if (person.category === "preaccess") return "Not signed up";
-  return person.name?.trim() || person.email?.trim() || person.id;
+function displayName(name: string | null, email: string | null): string {
+  return name?.trim() || email?.trim() || "Chưa đăng ký";
 }
 
 export function AdminOutreach({
   people,
+  cases,
+  casesReady,
+  today,
+  viewerId,
   catalog,
   storeConfigured,
   pendingReady,
 }: {
   people: readonly OutreachPerson[];
+  cases: readonly OutreachCase[];
+  casesReady: boolean;
+  today: string;
+  viewerId: string;
   catalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   pendingReady: boolean;
 }) {
-  const [category, setCategory] = useState<OutreachFilter>("all");
+  const [savedCases, setSavedCases] = useState<readonly OutreachCase[]>(cases);
+  const [category, setCategory] = useState<OutreachGroup | "all">("all");
+  const [queue, setQueue] = useState<OutreachQueue>("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [caseId, setCaseId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const counts = useMemo(() => countOutreachCategories(people), [people]);
+  const rows = useMemo(() => {
+    return joinOutreach(
+      people.map((person) => ({
+        id: person.id,
+        email: person.email,
+        name: person.name,
+        className: person.className,
+        computedCategory: person.category,
+        parts: person.parts,
+        hasAccount: person.user != null,
+        activeSeconds: person.activeSeconds,
+        lastSeenAt: person.lastSeenAt,
+        staff: person.user?.staff === true,
+      })),
+      savedCases,
+    );
+  }, [people, savedCases]);
+
   const filtered = useMemo(
-    () => filterOutreachPeople(people, category, query),
-    [people, category, query],
+    () => filterOutreachRows(rows, { category, queue, query, viewerId, today }),
+    [rows, category, queue, query, viewerId, today],
   );
+  const summary = useMemo(() => summarizeOutreach(rows), [rows]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / ADMIN_PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const startIndex = (safePage - 1) * ADMIN_PAGE_SIZE;
   const pageRows = filtered.slice(startIndex, startIndex + ADMIN_PAGE_SIZE);
-  const emails = filtered.flatMap((person) => (person.email ? [person.email] : []));
+  const emails = filtered.flatMap((row) => (row.email ? [row.email] : []));
+  const openRow = caseId ? (rows.find((row) => row.id === caseId) ?? null) : null;
   const detail = detailId ? (people.find((person) => person.user?.userId === detailId)?.user ?? null) : null;
 
   function selectCategory(next: string) {
-    setCategory(next as OutreachFilter);
+    setCategory(next as OutreachGroup | "all");
+    setPage(1);
+  }
+
+  function selectQueue(next: string) {
+    setQueue(next as OutreachQueue);
     setPage(1);
   }
 
@@ -93,12 +148,20 @@ export function AdminOutreach({
     window.setTimeout(() => setCopied(false), 2000);
   }
 
+  function queueCount(key: OutreachQueue): number {
+    return filterOutreachRows(rows, { category, queue: key, query: "", viewerId, today }).length;
+  }
+
+  function groupCount(key: OutreachGroup | "all"): number {
+    return filterOutreachRows(rows, { category: key, queue, query: "", viewerId, today }).length;
+  }
+
   return (
     <main className="flex w-full flex-1 flex-col gap-space-20 px-space-16 py-space-24 sm:px-space-24 min-[1440px]:px-space-32">
       <AdminPageHeader
         kicker="People"
         title="Outreach"
-        subtitle="Four groups to hand to support. Someone who has not signed up stays on their pre-unlock email. A signed-up learner with no finished lesson part stays in that group even if they spent time in the app. Everyone else is split at 1.5 hours of active time stored over the last 120 days."
+        subtitle="Support copies a message and sends it by hand. The group comes from the app. Open a row to copy the text, mark it sent, and record the reply."
       />
 
       {!storeConfigured ? (
@@ -107,11 +170,14 @@ export function AdminOutreach({
       {storeConfigured && !pendingReady ? (
         <Notice>Pre-unlock emails are not ready yet. Run supabase/pending_level_access.sql once, then reload this page.</Notice>
       ) : null}
+      {storeConfigured && !casesReady ? (
+        <Notice>Outreach notes are not ready yet. Run supabase/outreach_cases.sql once, then reload this page. Messages can still be copied.</Notice>
+      ) : null}
 
       <TablePanel
         icon="support_agent"
         title="People to contact"
-        hint="Copy the emails in the current filter. Open a signed-up row for the full student record."
+        hint="Open a row for the message, the reply, and the follow-up. Copy emails for the current filter."
         trailing={
           <Button
             variant="secondary"
@@ -125,21 +191,33 @@ export function AdminOutreach({
       >
         <div className="flex flex-col gap-space-12 border-b border-admin-hairline px-space-16 py-space-12 sm:px-space-20">
           <ScopeChips
-            label="Group"
-            ariaLabel="Filter by outreach group"
+            label="Nhóm"
+            ariaLabel="Lọc theo nhóm"
             value={category}
             onSelect={selectCategory}
             options={[
-              { key: "all", label: "All", count: formatCount(people.length) },
-              ...(["preaccess", "never", "light", "heavy"] as const).map((key) => ({
+              { key: "all", label: "Tất cả", count: formatCount(groupCount("all")) },
+              ...OUTREACH_GROUPS.map((key) => ({
                 key,
-                label: CATEGORY_META[key].short,
-                count: formatCount(counts[key]),
+                label: OUTREACH_GROUP_LABEL[key],
+                count: formatCount(groupCount(key)),
               })),
             ]}
           />
+          <ScopeChips
+            label="Việc"
+            icon="inbox"
+            ariaLabel="Lọc theo việc cần làm"
+            value={queue}
+            onSelect={selectQueue}
+            options={OUTREACH_QUEUES.map((key) => ({
+              key,
+              label: OUTREACH_QUEUE_LABEL[key],
+              count: formatCount(queueCount(key)),
+            }))}
+          />
           <label className="relative flex w-full max-w-md items-center">
-            <span className="sr-only">Search by name, email, or class</span>
+            <span className="sr-only">Tìm theo tên, email, lớp, hoặc phản hồi</span>
             <MaterialIcon
               name="search"
               className="pointer-events-none absolute left-space-12 text-[18px] text-admin-ink-faint"
@@ -151,7 +229,7 @@ export function AdminOutreach({
                 setQuery(event.target.value);
                 setPage(1);
               }}
-              placeholder="Search by name, email, or class"
+              placeholder="Tên, email, lớp, phản hồi"
               className={`${INPUT} pl-10`}
             />
           </label>
@@ -161,58 +239,61 @@ export function AdminOutreach({
           <table className="min-w-full border-collapse text-left">
             <thead className={THEAD}>
               <tr>
-                <th className={TH}>Name</th>
+                <th className={TH}>Tên</th>
                 <th className={TH}>Email</th>
-                <th className={TH}>Class</th>
-                <th className={TH}>Parts</th>
-                <th className={TH}>Time</th>
-                <th className={TH}>Last seen</th>
-                <th className={TH}>Group</th>
+                <th className={TH}>Lớp</th>
+                <th className={TH}>Phần</th>
+                <th className={TH}>Thời gian</th>
+                <th className={TH}>Lần cuối</th>
+                <th className={TH}>Nhóm</th>
+                <th className={TH}>Trạng thái</th>
+                <th className={TH}>Follow-up</th>
               </tr>
             </thead>
             <tbody className="text-admin-body-md text-admin-ink">
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
-                    {people.length === 0 ? "No one to contact yet." : "No one matches this filter."}
+                  <td colSpan={9} className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted">
+                    {rows.length === 0 ? "Chưa có ai để nhắn." : "Không có ai khớp bộ lọc."}
                   </td>
                 </tr>
               ) : (
-                pageRows.map((person) => {
-                  const openable = person.user != null;
-                  const seen = formatRelativeLastSeen(person.lastSeenAt);
-                  const absolute = formatAdminTimestamp(person.lastSeenAt);
+                pageRows.map((row) => {
+                  const seen = formatRelativeLastSeen(row.lastSeenAt);
+                  const absolute = formatAdminTimestamp(row.lastSeenAt);
+                  const followUp = row.outreachCase?.followUp ? row.outreachCase.followUpOn : null;
                   return (
                     <tr
-                      key={person.id}
-                      tabIndex={openable ? 0 : undefined}
-                      onClick={() => {
-                        if (person.user) setDetailId(person.user.userId);
-                      }}
+                      key={row.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Mở ${displayName(row.name, row.email)}`}
+                      onClick={() => setCaseId(row.id)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter" && person.user) setDetailId(person.user.userId);
+                        if (event.key === "Enter") setCaseId(row.id);
                       }}
-                      className={`${TR} ${openable ? "cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50" : ""}`}
+                      className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
                     >
                       <td className="px-space-16 py-space-8">
                         <span className="flex min-w-[12rem] items-center gap-space-8">
-                          <span className="font-semibold">{personName(person)}</span>
-                          {person.user?.staff ? <StaffBadge /> : null}
+                          <span className="font-semibold">{displayName(row.name, row.email)}</span>
+                          {row.staff ? <StaffBadge /> : null}
+                          {row.conversionHint ? <Badge tone="emerald">Đã dùng?</Badge> : null}
                         </span>
                       </td>
                       <td className="px-space-16 py-space-8 text-admin-body-sm text-admin-ink-muted">
-                        {person.email ?? "—"}
+                        {row.email ?? "—"}
                       </td>
-                      <td className="px-space-16 py-space-8">{person.className?.trim() || "—"}</td>
+                      <td className="px-space-16 py-space-8">{row.className?.trim() || "—"}</td>
                       <td className="px-space-16 py-space-8 tabular-nums">
-                        {person.parts == null ? "—" : formatCount(person.parts)}
+                        {row.parts == null ? "—" : formatCount(row.parts)}
                       </td>
                       <td className="whitespace-nowrap px-space-16 py-space-8 tabular-nums">
-                        {person.activeSeconds == null ? "—" : formatActiveDuration(person.activeSeconds)}
+                        {row.activeSeconds == null ? "—" : formatActiveDuration(row.activeSeconds)}
                       </td>
                       <td className="px-space-16 py-space-8 text-admin-body-sm">
                         {seen ? (
-                          <time dateTime={person.lastSeenAt ?? undefined} title={absolute ?? undefined}>
+                          <time dateTime={row.lastSeenAt ?? undefined} title={absolute ?? undefined}>
                             {seen}
                           </time>
                         ) : (
@@ -220,9 +301,19 @@ export function AdminOutreach({
                         )}
                       </td>
                       <td className="px-space-16 py-space-8">
-                        <Badge tone={CATEGORY_META[person.category].tone}>
-                          {CATEGORY_META[person.category].label}
-                        </Badge>
+                        <Badge tone={GROUP_TONE[row.category]}>{OUTREACH_GROUP_LABEL[row.category]}</Badge>
+                      </td>
+                      <td className="px-space-16 py-space-8">
+                        <Badge tone={STATUS_TONE[row.status]}>{OUTREACH_STATUS_LABEL[row.status]}</Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-space-16 py-space-8 text-admin-body-sm">
+                        {followUp ? (
+                          <time dateTime={followUp} className={followUp <= today ? "font-semibold text-admin-amber-ink" : ""}>
+                            {followUp}
+                          </time>
+                        ) : (
+                          <span className="text-admin-ink-subtle">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -243,6 +334,108 @@ export function AdminOutreach({
           />
         </div>
       </TablePanel>
+
+      <section className="grid gap-space-16 lg:grid-cols-2">
+        <div className={`${CARD} p-space-16 sm:p-space-20`}>
+          <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Lý do từ chối</h2>
+          <p className="mt-space-4 text-admin-body-sm text-admin-ink-muted">Cả chiến dịch, kể cả người đang bị lọc khỏi bảng.</p>
+          <ul className="mt-space-16 flex flex-col gap-space-8">
+            {summary.reasons.map((item) => (
+              <li key={item.reason} className="flex items-center justify-between gap-space-12 text-admin-body-md">
+                <span>{OUTREACH_REASON_LABEL[item.reason]}</span>
+                <span className="tabular-nums font-semibold">{formatCount(item.count)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={`${CARD} p-space-16 sm:p-space-20`}>
+          <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Kênh gửi</h2>
+          <p className="mt-space-4 text-admin-body-sm text-admin-ink-muted">
+            Đã trả lời gồm trạng thái đã trả lời và đã dùng sau khi nhắn.
+          </p>
+          <ul className="mt-space-16 flex flex-col gap-space-8">
+            {summary.channels.map((item) => (
+              <li key={item.channel} className="flex items-center justify-between gap-space-12 text-admin-body-md">
+                <span>{OUTREACH_CHANNEL_LABEL[item.channel]}</span>
+                <span className="tabular-nums text-admin-ink-muted">
+                  {formatCount(item.replied)}/{formatCount(item.sent)}
+                  {item.sent > 0 ? ` · ${formatPercent(item.replied / item.sent)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <TablePanel
+        icon="lightbulb"
+        title="Yêu cầu tính năng"
+        hint="Chỉ phần học viên muốn app có thêm. Đọc nguyên văn để gom ý giống nhau."
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-left">
+            <thead className={THEAD}>
+              <tr>
+                <th className={TH}>Học viên</th>
+                <th className={TH}>Nhóm</th>
+                <th className={TH}>Yêu cầu</th>
+              </tr>
+            </thead>
+            <tbody className="text-admin-body-md text-admin-ink">
+              {summary.wishes.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-space-16 py-space-32 text-center text-admin-body-md text-admin-ink-muted">
+                    Chưa có yêu cầu nào.
+                  </td>
+                </tr>
+              ) : (
+                summary.wishes.map((wish) => (
+                  <tr
+                    key={wish.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Mở ${wish.name}`}
+                    onClick={() => setCaseId(wish.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") setCaseId(wish.id);
+                    }}
+                    className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
+                  >
+                    <td className="px-space-16 py-space-8 font-semibold">{wish.name}</td>
+                    <td className="px-space-16 py-space-8">
+                      <Badge tone={GROUP_TONE[wish.category]}>{OUTREACH_GROUP_LABEL[wish.category]}</Badge>
+                    </td>
+                    <td className="max-w-xl px-space-16 py-space-8 text-admin-body-sm">{wish.text}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </TablePanel>
+
+      {openRow ? (
+        <AdminOutreachCase
+          key={`${openRow.id}:${openRow.outreachCase?.updatedAt ?? ""}`}
+          row={openRow}
+          casesReady={casesReady && storeConfigured}
+          onClose={() => setCaseId(null)}
+          onSaved={(outreachCase) => {
+            setSavedCases((current) => {
+              const without = current.filter((item) => item.email !== outreachCase.email);
+              return [...without, outreachCase];
+            });
+          }}
+          onOpenStudent={
+            openRow.hasAccount
+              ? () => {
+                  setCaseId(null);
+                  setDetailId(openRow.id);
+                }
+              : null
+          }
+        />
+      ) : null}
 
       {detail ? (
         <StudentDetail row={detail} catalog={catalog} onClose={() => setDetailId(null)} />
