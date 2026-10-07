@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminClassStats } from "@/components/admin/AdminClassStats";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
+import { readAdminClassLeague } from "@/lib/class-quest-store";
 import {
   shortBerufLabel,
   toAdminUserRow,
@@ -46,6 +47,9 @@ export default async function AdminClassesPage() {
   // Course, lesson, practice, and video totals need learn, interview, and videos.
   const items = storeConfigured ? await listCachedUserProgress("levels") : [];
   const pending = storeConfigured ? await listPendingLevelGrants() : [];
+  const classLeague = storeConfigured
+    ? await readAdminClassLeague()
+    : { ready: false, podiumsReady: false, league: null };
   const rows = items.map((item) =>
     toAdminUserRow(withSessionIdentity(item, session.user)),
   );
@@ -55,6 +59,7 @@ export default async function AdminClassesPage() {
       rows={rows}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
+      classLeague={classLeague}
       pending={(pending ?? []).map((grant) => ({
         email: grant.email,
         className: grant.className,

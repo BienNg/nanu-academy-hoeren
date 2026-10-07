@@ -9,6 +9,7 @@ import {
   CARD,
   HeaderChip,
   KpiTile,
+  Badge,
   Mono,
   ScopeChips,
   SearchField,
@@ -22,9 +23,12 @@ import {
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildClassStats,
+  type AdminClassQuestStatus,
   type AdminCatalogCourse,
   type ClassMemberStat,
 } from "@/lib/admin-detail";
+import type { AdminClassLeagueRow } from "@/lib/admin-class-league";
+import type { AdminClassLeagueData } from "@/lib/class-quest-store";
 import {
   classKey,
   formatAdminTimestamp,
@@ -104,13 +108,69 @@ type AdminClassStatsProps = {
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   pending?: readonly WaitingClassMember[];
+  classLeague?: AdminClassLeagueData;
 };
+
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function weekdayOf(day: string): string {
+  return WEEKDAY[new Date(`${day}T00:00:00Z`).getUTCDay()] ?? day;
+}
+
+function shortDate(day: string): string {
+  const [, month, date] = day.split("-");
+  return `${date}.${month}.`;
+}
+
+function DayDots({ days }: { days: AdminClassLeagueRow["days"] }) {
+  return (
+    <span className="flex items-center gap-1">
+      {days.map((day) => {
+        const color =
+          day.done >= day.total && day.total > 0
+            ? ADMIN_COLORS.emerald
+            : day.done > 0
+              ? ADMIN_COLORS.amber
+              : ADMIN_COLORS.hairline;
+        return (
+          <span
+            key={day.day}
+            className="h-3.5 w-3.5 rounded-[3px]"
+            style={{ backgroundColor: color }}
+            title={`${weekdayOf(day.day)} ${shortDate(day.day)}: ${day.done}/${day.total} daily quests`}
+            aria-label={`${weekdayOf(day.day)}: ${day.done} of ${day.total} daily quests`}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+function QuestLine({ quest }: { quest: AdminClassQuestStatus }) {
+  return (
+    <li className="flex flex-col gap-1 py-space-8">
+      <div className="flex items-start justify-between gap-space-8">
+        <p className="text-admin-body-sm font-semibold text-admin-ink">{quest.title}</p>
+        <span className="flex shrink-0 items-center gap-1">
+          <Badge tone={quest.done ? "emerald" : "neutral"} dot>
+            {quest.progress}/{quest.target}
+          </Badge>
+          {quest.claimed > 0 ? <Badge tone="amber">{quest.claimed} claimed</Badge> : null}
+        </span>
+      </div>
+      <p className="text-admin-body-sm text-admin-ink-subtle">
+        {quest.contributors.length > 0 ? quest.contributors.join(", ") : "No one yet"}
+      </p>
+    </li>
+  );
+}
 
 export function AdminClassStats({
   rows,
   courseCatalog,
   storeConfigured,
   pending = [],
+  classLeague,
 }: AdminClassStatsProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -159,6 +219,12 @@ export function AdminClassStats({
     () => pending.filter((row) => row.className && classKey(row.className) === activeKey),
     [pending, activeKey],
   );
+  const league = classLeague?.league ?? null;
+  const leagueByClass = useMemo(
+    () => new Map((league?.classes ?? []).map((row) => [row.classKey, row])),
+    [league],
+  );
+  const activeLeague = useMemo(() => leagueByClass.get(activeKey) ?? null, [leagueByClass, activeKey]);
   const stats = useMemo(
     () => buildClassStats(classRows, courseCatalog),
     [classRows, courseCatalog],
@@ -313,6 +379,52 @@ export function AdminClassStats({
                 </p>
               </div>
 
+              {storeConfigured ? (
+                !classLeague?.ready ? (
+                  <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
+                    Class league data could not be read. Check that `supabase/xp_awards.sql` and
+                    `supabase/quest_claims.sql` are installed.
+                  </div>
+                ) : classLeague.podiumsReady === false ? (
+                  <div className="rounded-admin-card border border-admin-amber bg-admin-amber-wash px-space-16 py-space-12 text-admin-body-sm text-admin-amber-ink">
+                    Class podiums are missing. Run `supabase/class_podiums.sql` once in Supabase.
+                  </div>
+                ) : null
+              ) : null}
+
+              {activeLeague ? (
+                <div className="grid grid-cols-2 gap-space-16 md:grid-cols-4">
+                  <KpiTile
+                    icon="leaderboard"
+                    label="League rank"
+                    value={activeLeague.rank ? `#${activeLeague.rank}` : "—"}
+                    caption={`${formatCount(activeLeague.weekXp)} week XP`}
+                    color={ADMIN_COLORS.cobalt}
+                  />
+                  <KpiTile
+                    icon="bolt"
+                    label="XP / learner"
+                    value={formatCount(activeLeague.xpPerLearner)}
+                    caption={`${formatCount(activeLeague.activeLearners)} active of ${formatCount(activeLeague.learners)}`}
+                    color={ADMIN_COLORS.amber}
+                  />
+                  <KpiTile
+                    icon="flag"
+                    label="Daily quests"
+                    value={`${activeLeague.days.reduce((sum, day) => sum + day.done, 0)}/${activeLeague.days.reduce((sum, day) => sum + day.total, 0)}`}
+                    caption="Done this week (Mon to today)"
+                    color={ADMIN_COLORS.emerald}
+                  />
+                  <KpiTile
+                    icon="redeem"
+                    label="Claim XP"
+                    value={formatCount(activeLeague.claimXp)}
+                    caption={`${formatCount(activeLeague.claims)} class quest claims`}
+                    color={ADMIN_COLORS.violet}
+                  />
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-space-16 md:grid-cols-3 2xl:grid-cols-6">
                 <KpiTile
                   icon="group"
@@ -359,6 +471,167 @@ export function AdminClassStats({
                   color={ADMIN_COLORS.violet}
                 />
               </div>
+
+              {league ? (
+                <TablePanel
+                  icon="emoji_events"
+                  title="Class league ranking"
+                  hint="Same ranking learners see in the class tab: ordered by this week's XP. Squares are daily quest completion by day (green both, amber one, grey none)."
+                  color={ADMIN_COLORS.cobalt}
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[52rem] border-collapse text-left">
+                      <thead className={THEAD}>
+                        <tr>
+                          <th className={`${TH} w-14`}>Rank</th>
+                          <th className={TH}>Class</th>
+                          <th className={`${TH} text-right`}>Week XP</th>
+                          <th className={`${TH} text-right`}>XP / learner</th>
+                          <th className={TH}>Daily quests</th>
+                          <th className={TH}>Weekly quest</th>
+                          <th className={`${TH} text-right`}>Claims</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {league.classes.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-space-16 py-space-24 text-center text-admin-body-sm text-admin-ink-muted"
+                            >
+                              No learner has a class yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          league.classes.map((entry) => (
+                            <tr key={entry.classKey} className={TR}>
+                              <td className="px-space-16 py-space-12 text-admin-body-md font-semibold tabular-nums text-admin-ink">
+                                {entry.rank ?? "—"}
+                              </td>
+                              <td className="px-space-16 py-space-12">
+                                <p className="text-admin-body-md font-semibold text-admin-ink">
+                                  {entry.name}
+                                </p>
+                                <p className="text-admin-body-sm text-admin-ink-subtle">
+                                  {entry.activeLearners} / {entry.learners} active
+                                </p>
+                              </td>
+                              <td className="px-space-16 py-space-12 text-right text-admin-body-md font-semibold tabular-nums text-admin-ink">
+                                {formatCount(entry.weekXp)}
+                              </td>
+                              <td className="px-space-16 py-space-12 text-right text-admin-body-md tabular-nums text-admin-ink-muted">
+                                {formatCount(entry.xpPerLearner)}
+                              </td>
+                              <td className="px-space-16 py-space-12">
+                                <DayDots days={entry.days} />
+                              </td>
+                              <td className="px-space-16 py-space-12">
+                                <p className="text-admin-body-sm text-admin-ink">
+                                  {entry.weekly.title}
+                                </p>
+                                <Badge tone={entry.weekly.done ? "emerald" : "neutral"} dot>
+                                  {entry.weekly.progress}/{entry.weekly.target}
+                                </Badge>
+                              </td>
+                              <td className="px-space-16 py-space-12 text-right text-admin-body-sm tabular-nums text-admin-ink-muted">
+                                {entry.claims} · {formatCount(entry.claimXp)} XP
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </TablePanel>
+              ) : null}
+
+              {activeLeague ? (
+                <TablePanel
+                  icon="flag"
+                  title="Quest progress in this class"
+                  hint={`Today (${weekdayOf(league?.today ?? "")} ${league ? shortDate(league.today) : ""}) and this week's quest, including contributors and claims.`}
+                  color={ADMIN_COLORS.emerald}
+                >
+                  <div className="grid grid-cols-1 gap-space-16 p-space-16 lg:grid-cols-2">
+                    <article className={`${CARD} flex flex-col p-space-16`}>
+                      <h3 className="text-admin-body-md font-semibold text-admin-ink">Daily quests</h3>
+                      <ul className="divide-y divide-admin-hairline">
+                        {activeLeague.today.map((quest) => (
+                          <QuestLine key={quest.id} quest={quest} />
+                        ))}
+                      </ul>
+                    </article>
+                    <article className={`${CARD} flex flex-col p-space-16`}>
+                      <h3 className="text-admin-body-md font-semibold text-admin-ink">Weekly quest</h3>
+                      <ul className="divide-y divide-admin-hairline">
+                        <QuestLine quest={activeLeague.weekly} />
+                      </ul>
+                    </article>
+                  </div>
+                </TablePanel>
+              ) : null}
+
+              {league ? (
+                <TablePanel
+                  icon="emoji_events"
+                  title="Class podium history"
+                  hint="Top 3 classes of each finished week, as stored for class badges."
+                  color={ADMIN_COLORS.amber}
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[40rem] border-collapse text-left">
+                      <thead className={THEAD}>
+                        <tr>
+                          <th className={TH}>Week of</th>
+                          <th className={TH}>1st</th>
+                          <th className={TH}>2nd</th>
+                          <th className={TH}>3rd</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {league.podiums.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-space-16 py-space-24 text-center text-admin-body-sm text-admin-ink-muted"
+                            >
+                              No finished week is ranked yet. Weeks are ranked the first time a learner opens badges after Monday.
+                            </td>
+                          </tr>
+                        ) : (
+                          league.podiums.map((week) => (
+                            <tr key={week.week} className={TR}>
+                              <td className="px-space-16 py-space-12 text-admin-body-md tabular-nums text-admin-ink">
+                                {shortDate(week.week)}
+                              </td>
+                              {[1, 2, 3].map((rank) => {
+                                const place = week.places.find((entry) => entry.rank === rank);
+                                return (
+                                  <td key={rank} className="px-space-16 py-space-12">
+                                    {place ? (
+                                      <>
+                                        <p className="text-admin-body-md font-semibold text-admin-ink">
+                                          {place.name}
+                                        </p>
+                                        <p className="text-admin-body-sm text-admin-ink-subtle">
+                                          {formatCount(place.classXp)} XP · {place.learners} badge{" "}
+                                          {place.learners === 1 ? "holder" : "holders"}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <span className="text-admin-body-sm text-admin-ink-faint">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </TablePanel>
+              ) : null}
 
               {waitingHere.length > 0 ? (
                 <TablePanel
