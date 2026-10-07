@@ -489,8 +489,10 @@ export type ActiveTimelineColumn = {
    * Vietnam hour. Longer day ranges show the month on the first column and on the 1st.
    */
   marker: string | null;
-  /** Newest last-seen first. */
+  /** Active in the window, newest last-seen first. */
   students: ActiveTimelineStudent[];
+  /** Last seen in this column, but not active in the window. Newest first. */
+  seen: ActiveTimelineStudent[];
 };
 
 export type ActiveUserTimeline = {
@@ -564,14 +566,40 @@ function timelineDayParts(day: string): { label: string; month: string; dayNum: 
 }
 
 /**
+ * Puts `row` on the active or seen stack. Returns true when an active row
+ * could not be placed. Seen-only rows outside the axis are omitted.
+ */
+function placeTimelineStudent(
+  column: ActiveTimelineColumn | undefined,
+  row: AdminUserRow,
+  activeUserIds?: ReadonlySet<string>,
+): boolean {
+  const student = timelineStudent(row);
+  const active = activeUserIds == null || activeUserIds.has(row.userId);
+  if (!student || !column) return active;
+  (active ? column.students : column.seen).push(student);
+  return false;
+}
+
+function sortTimelineColumns(columns: readonly ActiveTimelineColumn[]): void {
+  for (const column of columns) {
+    column.students.sort(byNewestSeen);
+    column.seen.sort(byNewestSeen);
+  }
+}
+
+/**
  * One column per hour from midnight through the current Vietnam hour, or one
  * column per day in the window. Each student is placed once, at `lastLoginAt`.
- * Rows whose last-seen time falls outside the axis are counted in `unplaced`.
+ * Active rows whose last-seen time falls outside the axis are counted in
+ * `unplaced`. When `activeUserIds` is set, everyone else with a last-seen time
+ * on the axis goes on that column's `seen` stack.
  */
 export function buildActiveUserTimeline(
   rows: readonly AdminUserRow[],
   range: AdminRange,
   now = new Date(),
+  activeUserIds?: ReadonlySet<string>,
 ): ActiveUserTimeline {
   const today = dayKey(now);
   const currentHour = new Date(now.getTime() + VIETNAM_OFFSET_MS).getUTCHours();
@@ -582,6 +610,7 @@ export function buildActiveUserTimeline(
       label: String(hour),
       marker: berlinHourLabel(today, hour),
       students: [],
+      seen: [],
     }));
     const byHour = new Map(columns.map((column) => [column.key, column]));
     let unplaced = 0;
@@ -593,14 +622,10 @@ export function buildActiveUserTimeline(
         student && calendarDay(student.lastLoginAt) === today && hour != null && hour <= currentHour
           ? byHour.get(`${today}T${String(hour).padStart(2, "0")}`)
           : undefined;
-      if (!student || !column) {
-        unplaced += 1;
-        continue;
-      }
-      column.students.push(student);
+      if (placeTimelineStudent(column, row, activeUserIds)) unplaced += 1;
     }
 
-    for (const column of columns) column.students.sort(byNewestSeen);
+    sortTimelineColumns(columns);
     return { grain: "hour", columns, unplaced };
   }
 
@@ -613,6 +638,7 @@ export function buildActiveUserTimeline(
       label: parts ? (compact ? String(parts.dayNum) : parts.label) : day,
       marker: parts && compact && (index === 0 || parts.dayNum === 1) ? parts.month : null,
       students: [],
+      seen: [],
     };
   });
   const byDay = new Map(columns.map((column) => [column.key, column]));
@@ -622,14 +648,10 @@ export function buildActiveUserTimeline(
     const student = timelineStudent(row);
     const day = student ? calendarDay(student.lastLoginAt) : null;
     const column = day ? byDay.get(day) : undefined;
-    if (!student || !column) {
-      unplaced += 1;
-      continue;
-    }
-    column.students.push(student);
+    if (placeTimelineStudent(column, row, activeUserIds)) unplaced += 1;
   }
 
-  for (const column of columns) column.students.sort(byNewestSeen);
+  sortTimelineColumns(columns);
   return { grain: "day", columns, unplaced };
 }
 

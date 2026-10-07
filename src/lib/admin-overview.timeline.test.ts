@@ -57,6 +57,37 @@ test("today places each student once, from midnight through the current hour", (
   assert.equal(timeline.columns[13]?.marker, "8");
 });
 
+test("seen students who were not active stack beside the active ones", () => {
+  const timeline = buildActiveUserTimeline(
+    [
+      row("active", "2026-10-02T06:10:00.000Z", "Active"),
+      row("seen", "2026-10-02T06:40:00.000Z", "Seen"),
+      row("older-seen", "2026-10-02T06:05:00.000Z", "Older seen"),
+      row("missing-active", null, "Missing active"),
+      row("old-seen", "2026-09-01T06:00:00.000Z", "Old seen"),
+    ],
+    "today",
+    NOW,
+    new Set(["active", "missing-active"]),
+  );
+
+  const hour = timeline.columns.find((column) => column.label === "13");
+  assert.deepEqual(
+    hour?.students.map((student) => student.userId),
+    ["active"],
+  );
+  assert.deepEqual(
+    hour?.seen.map((student) => student.userId),
+    ["seen", "older-seen"],
+  );
+  assert.equal(
+    timeline.columns.reduce((sum, column) => sum + column.seen.length, 0),
+    2,
+  );
+  // Only active rows outside the axis count as unplaced.
+  assert.equal(timeline.unplaced, 1);
+});
+
 test("students who share an hour stack newest first", () => {
   const timeline = buildActiveUserTimeline(
     [

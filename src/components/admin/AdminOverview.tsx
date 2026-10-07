@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -207,17 +208,21 @@ function StudentAvatar({
   name,
   image,
   size = 20,
+  muted = false,
 }: {
   name: string;
   image: string | null;
   size?: 20 | 24;
+  /** Gray treatment for students who were seen but did not finish a card. */
+  muted?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const box = size === 20 ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-[11px]";
+  const wash = muted ? "grayscale" : "";
   if (image && !failed) {
     return (
       <span
-        className={`relative inline-flex shrink-0 overflow-hidden rounded-full ${box}`}
+        className={`relative inline-flex shrink-0 overflow-hidden rounded-full ${box} ${wash}`}
       >
         <Image
           src={image}
@@ -233,8 +238,10 @@ function StudentAvatar({
   }
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${box}`}
-      style={{ backgroundColor: avatarColor(name) }}
+      className={`flex shrink-0 items-center justify-center rounded-full font-semibold ${muted ? "text-admin-ink-muted" : "text-white"} ${box}`}
+      style={{
+        backgroundColor: muted ? ADMIN_COLORS.hairline : avatarColor(name),
+      }}
       aria-hidden="true"
     >
       {initialFor(name)}
@@ -274,53 +281,131 @@ function timelineStep(
 function TimelineStudentButton({
   student,
   spacing,
+  seen = false,
   onSelect,
 }: {
   student: ActiveTimelineStudent;
   /** Margin to the avatar drawn above this one; negative overlaps it. */
   spacing: number;
+  /** Seen in this column without finishing a card in the window. */
+  seen?: boolean;
   onSelect: (userId: string) => void;
 }) {
   const when = formatAbsoluteTime(student.lastLoginAt);
   const label = when
-    ? `${student.displayName}, last seen ${when}`
+    ? seen
+      ? `${student.displayName}, seen ${when}, no card finished`
+      : `${student.displayName}, last seen ${when}`
     : student.displayName;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+  const [nudge, setNudge] = useState(0);
+
+  const placeTip = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+    setTip((current) =>
+      current && current.x === x && current.y === y ? current : { x, y },
+    );
+  }, []);
+
+  const hideTip = useCallback(() => {
+    setTip(null);
+    setNudge(0);
+  }, []);
+
+  useEffect(() => {
+    if (!tip) return;
+    const follow = () => placeTip();
+    window.addEventListener("scroll", follow, true);
+    window.addEventListener("resize", follow);
+    return () => {
+      window.removeEventListener("scroll", follow, true);
+      window.removeEventListener("resize", follow);
+    };
+  }, [tip, placeTip]);
+
+  useLayoutEffect(() => {
+    const node = tipRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const margin = 8;
+    let delta = 0;
+    if (rect.left < margin) delta = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) {
+      delta = window.innerWidth - margin - rect.right;
+    }
+    if (delta !== 0) setNudge((current) => current + delta);
+  }, [tip]);
+
   return (
     <span
-      className="group/avatar relative inline-flex hover:z-10 focus-within:z-10"
+      className="relative inline-flex hover:z-10 focus-within:z-10"
       style={{ marginTop: spacing }}
     >
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
         onClick={() => onSelect(student.userId)}
-        className="inline-flex rounded-full ring-2 ring-admin-card outline-none transition-transform hover:scale-110 hover:ring-admin-cobalt focus-visible:ring-admin-cobalt"
+        onMouseEnter={placeTip}
+        onMouseLeave={hideTip}
+        onFocus={placeTip}
+        onBlur={hideTip}
+        className={`inline-flex rounded-full ring-2 outline-none transition-transform hover:scale-110 hover:ring-admin-cobalt focus-visible:ring-admin-cobalt ${
+          seen
+            ? "opacity-80 ring-admin-border hover:opacity-100"
+            : "ring-admin-card"
+        }`}
       >
-        <StudentAvatar name={student.displayName} image={student.image} />
+        <StudentAvatar
+          name={student.displayName}
+          image={student.image}
+          muted={seen}
+        />
       </button>
-      <span
-        role="presentation"
-        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-space-8 hidden w-max max-w-[14rem] -translate-x-1/2 rounded-admin-control bg-admin-ink px-space-8 py-space-4 text-left shadow-admin-pop group-hover/avatar:block group-focus-within/avatar:block"
-      >
-        <span className="block truncate text-admin-label-md font-semibold text-white">
-          {student.displayName}
-        </span>
-        {when ? (
-          <span className="block text-[11px] leading-[14px] text-white/70">
-            Last seen {when}
+      {tip ? (
+        <span
+          ref={tipRef}
+          role="presentation"
+          className="pointer-events-none fixed z-30 w-max max-w-[14rem] rounded-admin-control bg-admin-ink px-space-8 py-space-4 text-left shadow-admin-pop"
+          style={{
+            left: tip.x,
+            top: tip.y - 8,
+            transform: `translate(calc(-50% + ${nudge}px), -100%)`,
+          }}
+        >
+          <span className="block truncate text-admin-label-md font-semibold text-white">
+            {student.displayName}
           </span>
-        ) : null}
-      </span>
+          {when ? (
+            <span className="block text-[11px] leading-[14px] text-white/70">
+              {seen ? `Seen ${when}` : `Last seen ${when}`}
+            </span>
+          ) : null}
+          {seen ? (
+            <span className="block text-[11px] leading-[14px] text-white/70">
+              No card finished
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   );
 }
 
 function ActiveUsersTimeline({
   users,
+  activeUserIds,
   range,
   onSelect,
 }: {
   users: readonly AdminUserRow[];
+  /** Learners who finished a card in the window. Everyone else on the axis is seen-only. */
+  activeUserIds: ReadonlySet<string>;
   range: AdminRange;
   onSelect: (userId: string) => void;
 }) {
@@ -332,8 +417,9 @@ function ActiveUsersTimeline({
       users,
       range,
       timelineDateFromClockKey(clockKey),
+      activeUserIds,
     );
-  }, [users, range, clockKey]);
+  }, [users, range, clockKey, activeUserIds]);
   // The open overflow list belongs to one timeline; a new clock tick, range, or
   // user list makes it stale, so it is dropped by comparison instead of an effect.
   const [open, setOpen] = useState<{
@@ -341,12 +427,14 @@ function ActiveUsersTimeline({
     clockKey: string | null;
     range: AdminRange;
     users: readonly AdminUserRow[];
+    activeUserIds: ReadonlySet<string>;
   } | null>(null);
   const openKey =
     open &&
     open.clockKey === clockKey &&
     open.range === range &&
-    open.users === users
+    open.users === users &&
+    open.activeUserIds === activeUserIds
       ? open.key
       : null;
   const [plotHeight, setPlotHeight] = useState<number | null>(null);
@@ -375,11 +463,14 @@ function ActiveUsersTimeline({
 
   const openColumn =
     timeline.columns.find((column) => column.key === openKey) ?? null;
-  const hidden = openColumn
+  const hiddenActive = openColumn
     ? openColumn.students.slice(ACTIVE_USER_TIMELINE_CAP)
     : [];
+  const hiddenSeen = openColumn
+    ? openColumn.seen.slice(ACTIVE_USER_TIMELINE_CAP)
+    : [];
   const fillsWidth = range === "today" || range === "7d";
-  const columnWidth = fillsWidth ? "min-w-0 flex-1" : "w-7 shrink-0";
+  const columnWidth = fillsWidth ? "min-w-11 flex-1" : "w-14 shrink-0";
   const columnLabel = (column: { label: string; marker: string | null }) =>
     timeline.grain === "hour"
       ? `${column.label}:00`
@@ -397,16 +488,35 @@ function ActiveUsersTimeline({
         color={ADMIN_COLORS.ember}
         hint={
           timeline.grain === "hour"
-            ? "Each avatar sits on the Vietnam hour of that student's latest visit. The smaller number is the same hour in Germany. Hover for details."
-            : "Each avatar sits on the Vietnam day of that student's latest visit. Hover for details."
+            ? "Each pair of stacks sits on the Vietnam hour of that student's latest visit. Color finished a card in this window; gray was seen and did not. The smaller number is the same hour in Germany."
+            : "Each pair of stacks sits on the Vietnam day of that student's latest visit. Color finished a card in this window; gray was seen and did not."
+        }
+        trailing={
+          <ul className="flex flex-wrap items-center gap-space-12 text-admin-label-md text-admin-ink-muted">
+            <li className="flex items-center gap-space-4">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: ADMIN_COLORS.ember }}
+                aria-hidden="true"
+              />
+              Active
+            </li>
+            <li className="flex items-center gap-space-4">
+              <span
+                className="h-2.5 w-2.5 rounded-full bg-admin-hairline ring-1 ring-admin-border"
+                aria-hidden="true"
+              />
+              Seen only
+            </li>
+          </ul>
         }
       />
       {/* The plot is absolutely placed so avatar stacks never stretch the card;
-          stacks adapt to its height instead. Top padding leaves room for the
-          hover card inside the scroll box. */}
+          stacks adapt to its height instead. Tooltips are fixed so a card that
+          spills past the plot cannot grow this scroller and resize the stacks. */}
       <div className="relative min-h-72 flex-1">
         <div
-          className={`absolute inset-0 flex flex-col pt-space-48 ${fillsWidth ? "" : "overflow-x-auto"}`}
+          className="absolute inset-0 flex flex-col overflow-x-auto overflow-y-hidden pt-space-48"
         >
           <div
             ref={plotRef}
@@ -415,19 +525,49 @@ function ActiveUsersTimeline({
             aria-label="Last seen timeline"
           >
             {timeline.columns.map((column) => {
-              const visible = column.students.slice(
+              const visibleActive = column.students.slice(
                 0,
                 ACTIVE_USER_TIMELINE_CAP,
               );
-              const extra = column.students.length - visible.length;
+              const visibleSeen = column.seen.slice(
+                0,
+                ACTIVE_USER_TIMELINE_CAP,
+              );
+              const extra =
+                column.students.length -
+                visibleActive.length +
+                (column.seen.length - visibleSeen.length);
               const axis = columnLabel(column);
-              const busy = column.students.length > 0;
-              const step = timelineStep(visible.length, plotHeight, extra > 0);
+              const busy =
+                column.students.length > 0 || column.seen.length > 0;
+              const hasMore = extra > 0;
+              const activeStep = timelineStep(
+                visibleActive.length,
+                plotHeight,
+                hasMore,
+              );
+              const seenStep = timelineStep(
+                visibleSeen.length,
+                plotHeight,
+                hasMore,
+              );
+              const counts = [
+                column.students.length > 0
+                  ? `${column.students.length} active`
+                  : null,
+                column.seen.length > 0
+                  ? `${column.seen.length} seen`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
               return (
                 <div
                   key={column.key}
                   role="listitem"
-                  aria-label={`${axis}, ${column.students.length} ${column.students.length === 1 ? "student" : "students"}`}
+                  aria-label={
+                    counts ? `${axis}, ${counts}` : `${axis}, no students`
+                  }
                   className={`flex ${columnWidth} flex-col items-center justify-end pb-space-8`}
                 >
                   {extra > 0 ? (
@@ -439,7 +579,13 @@ function ActiveUsersTimeline({
                         setOpen((current) =>
                           current?.key === column.key && openKey === column.key
                             ? null
-                            : { key: column.key, clockKey, range, users },
+                            : {
+                                key: column.key,
+                                clockKey,
+                                range,
+                                users,
+                                activeUserIds,
+                              },
                         )
                       }
                       className="mb-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-admin-subtle px-1 text-[10px] font-semibold tabular-nums text-admin-ink-muted ring-2 ring-admin-card outline-none hover:bg-admin-hairline focus-visible:shadow-admin-focus"
@@ -447,19 +593,40 @@ function ActiveUsersTimeline({
                       +{extra}
                     </button>
                   ) : null}
-                  <div className="flex flex-col-reverse items-center">
-                    {visible.map((student, index) => (
-                      <TimelineStudentButton
-                        key={student.userId}
-                        student={student}
-                        spacing={
-                          index === visible.length - 1
-                            ? 0
-                            : step - TIMELINE_AVATAR
-                        }
-                        onSelect={onSelect}
-                      />
-                    ))}
+                  <div className="flex w-full items-end justify-center gap-2">
+                    {visibleActive.length > 0 ? (
+                      <div className="flex flex-col-reverse items-center">
+                        {visibleActive.map((student, index) => (
+                          <TimelineStudentButton
+                            key={student.userId}
+                            student={student}
+                            spacing={
+                              index === visibleActive.length - 1
+                                ? 0
+                                : activeStep - TIMELINE_AVATAR
+                            }
+                            onSelect={onSelect}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {visibleSeen.length > 0 ? (
+                      <div className="flex flex-col-reverse items-center">
+                        {visibleSeen.map((student, index) => (
+                          <TimelineStudentButton
+                            key={student.userId}
+                            student={student}
+                            seen
+                            spacing={
+                              index === visibleSeen.length - 1
+                                ? 0
+                                : seenStep - TIMELINE_AVATAR
+                            }
+                            onSelect={onSelect}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   {!busy ? (
                     <span
@@ -493,13 +660,17 @@ function ActiveUsersTimeline({
           </div>
         </div>
       </div>
-      {hidden.length > 0 && openColumn ? (
+      {(hiddenActive.length > 0 || hiddenSeen.length > 0) && openColumn ? (
         <div className="flex flex-col gap-1 rounded-admin-control border border-admin-hairline bg-admin-canvas p-space-8">
           <p className="px-space-4 text-admin-label-md text-admin-ink-muted">
-            {hidden.length} more at {columnLabel(openColumn)}
+            {hiddenActive.length + hiddenSeen.length} more at{" "}
+            {columnLabel(openColumn)}
           </p>
           <ul className="flex max-h-48 flex-col overflow-y-auto">
-            {hidden.map((student) => {
+            {[
+              ...hiddenActive.map((student) => ({ student, seen: false })),
+              ...hiddenSeen.map((student) => ({ student, seen: true })),
+            ].map(({ student, seen }) => {
               const when = formatAbsoluteTime(student.lastLoginAt);
               return (
                 <li key={student.userId}>
@@ -512,16 +683,16 @@ function ActiveUsersTimeline({
                       name={student.displayName}
                       image={student.image}
                       size={24}
+                      muted={seen}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-admin-label-md font-semibold text-admin-ink">
                         {student.displayName}
                       </span>
-                      {when ? (
-                        <span className="block text-[11px] leading-[14px] text-admin-ink-subtle">
-                          {when}
-                        </span>
-                      ) : null}
+                      <span className="block text-[11px] leading-[14px] text-admin-ink-subtle">
+                        {seen ? "Seen only" : "Active"}
+                        {when ? ` · ${when}` : ""}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -980,9 +1151,17 @@ export function AdminOverview({
   );
   const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
   const cardUsers = useMemo(() => new Set(activeCardIds), [activeCardIds]);
+  const learners = useMemo(
+    () => liveRows.filter((row) => !row.isAdmin && !row.staff),
+    [liveRows],
+  );
   const activeUsers = useMemo(
     () => listActiveAdminUsers(liveRows, range, new Date(), cardUsers),
     [liveRows, range, cardUsers],
+  );
+  const activeUserIds = useMemo(
+    () => new Set(activeUsers.map((row) => row.userId)),
+    [activeUsers],
   );
   const activity = useMemo(
     () => buildAdminActivityStats(liveRows, range, new Date(), cardUsers),
@@ -1121,7 +1300,8 @@ export function AdminOverview({
               <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-12 2xl:gap-space-20">
                 <div className="min-w-0 lg:col-span-8">
                   <ActiveUsersTimeline
-                    users={activeUsers}
+                    users={learners}
+                    activeUserIds={activeUserIds}
                     range={range}
                     onSelect={setDetailUserId}
                   />
