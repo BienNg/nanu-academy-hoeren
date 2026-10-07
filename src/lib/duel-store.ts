@@ -407,13 +407,20 @@ export async function forgetStudiedClips(
   }
 }
 
-/** Remove every duel XP award this learner earned. The duels and the opponent's awards stay. */
+/**
+ * Remove this learner's duel XP, plays, and match-failure log.
+ * The duel row and the opponent's awards stay, so the other person keeps the match.
+ */
 export async function deleteUserDuelXp(userId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
   const { error } = await supabase.from(XP_TABLE).delete().eq("user_id", userId);
   if (error && !isDuelSchemaMissing(error.message)) {
     throw new Error(`Could not delete duel XP (${error.message}).`);
+  }
+  const { error: playsError } = await supabase.from(PLAYS_TABLE).delete().eq("user_id", userId);
+  if (playsError && !isDuelSchemaMissing(playsError.message)) {
+    throw new Error(`Could not delete duel plays (${playsError.message}).`);
   }
   const { error: failureError } = await supabase.from(FAILURES_TABLE).delete().eq("user_id", userId);
   if (failureError && !duelMatchFailureSchemaMissing(failureError.message)) {

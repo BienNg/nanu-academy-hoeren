@@ -1030,6 +1030,16 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await deleteUserXpAwards(supabase, userId);
   await deleteUserListeningRuns(supabase, userId);
   await deleteUserJumpRuns(supabase, userId, "all");
+  // These stores import this module, so a static import here would cycle.
+  const { deleteUserBadges } = await import("@/lib/badge-store");
+  const { deleteUserDuelXp, forgetStudiedClips } = await import("@/lib/duel-store");
+  const { deleteUserQuestClaims } = await import("@/lib/quest-store");
+  const { deleteUserBlitzrunde } = await import("@/lib/blitzrunde-store");
+  await deleteUserBadges(userId);
+  await deleteUserDuelXp(userId);
+  await forgetStudiedClips(userId, "all");
+  await deleteUserQuestClaims(userId);
+  await deleteUserBlitzrunde(userId);
 
   const now = new Date().toISOString();
   const { error } = await supabase.from(TABLE).upsert(
@@ -1076,6 +1086,21 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     .eq("user_id", userId);
   if (staffError) {
     console.error("Supabase deleteUserAccount staff", staffError.message);
+  }
+
+  const { error: traceError } = await supabase
+    .from(TABLE)
+    .update({
+      image: null,
+      sign_ins: [],
+      sign_in_log: [],
+      app_uses: [],
+      onboarding_completed_at: null,
+      onboarding_reset_at: null,
+    })
+    .eq("user_id", userId);
+  if (traceError) {
+    console.error("Supabase deleteUserAccount traces", traceError.message);
   }
 }
 

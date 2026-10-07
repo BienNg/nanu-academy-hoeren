@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { deleteOwnAccount } from "@/app/account/actions";
 import { ProfileButton } from "@/components/ProfileButton";
 import { BottomNav } from "@/components/BottomNav";
 import { RecapShareButton } from "@/components/RecapShareButton";
@@ -44,6 +46,114 @@ type AccountScreenProps = {
   isAdmin?: boolean;
 };
 
+function matchesDeletePhrase(value: string): boolean {
+  const folded = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  return folded === "xoa";
+}
+
+function DeleteAccountDialog({
+  busy,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [phrase, setPhrase] = useState("");
+  const confirmed = matchesDeletePhrase(phrase);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 sm:items-center">
+      <button
+        type="button"
+        aria-label="Đóng"
+        disabled={busy}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40"
+      />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-account-title"
+        aria-describedby="delete-account-body"
+        className="relative flex w-full max-w-md flex-col gap-4 rounded-[28px] bg-white p-6 shadow-[0_16px_50px_rgba(0,0,0,0.18)]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!confirmed || busy) return;
+          onConfirm();
+        }}
+      >
+        <div className="flex flex-col gap-2">
+          <h2
+            id="delete-account-title"
+            className="text-[20px] font-bold tracking-tight text-[#1d1d1f]"
+          >
+            Xóa tài khoản vĩnh viễn?
+          </h2>
+          <p id="delete-account-body" className="text-[14px] font-medium leading-relaxed text-[#86868b]">
+            Toàn bộ tiến độ, điểm XP, huy hiệu và lịch sử học sẽ bị xóa khỏi máy chủ.
+            Không thể khôi phục. Sau đó bạn có thể đăng nhập lại và bắt đầu từ đầu.
+          </p>
+        </div>
+        <label className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-[#1d1d1f]">
+            Nhập XÓA để xác nhận
+          </span>
+          <input
+            autoFocus
+            value={phrase}
+            disabled={busy}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Nhập XÓA để xác nhận"
+            placeholder="XÓA"
+            onChange={(event) => setPhrase(event.target.value)}
+            className="h-12 rounded-[14px] border border-black/10 bg-[#f5f5f7] px-4 text-[16px] font-semibold text-[#1d1d1f] outline-none focus:border-[#ff3b30]"
+          />
+        </label>
+        {error ? (
+          <p className="text-[13px] font-medium text-[#ff3b30]" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row-reverse">
+          <button
+            type="submit"
+            disabled={!confirmed || busy}
+            className="flex h-12 flex-1 items-center justify-center rounded-[14px] bg-[#ff3b30] text-[15px] font-semibold text-white transition-opacity enabled:active:scale-[0.98] disabled:opacity-40"
+          >
+            {busy ? "Đang xóa…" : "Xóa vĩnh viễn"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="flex h-12 flex-1 items-center justify-center rounded-[14px] bg-[#f5f5f7] text-[15px] font-semibold text-[#1d1d1f] enabled:active:scale-[0.98] disabled:opacity-40"
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function AccountScreen({
   callbackUrl,
   isAdmin = false,
@@ -51,6 +161,29 @@ export function AccountScreen({
   const { data: session, status } = useSession();
   const loading = status === "loading";
   const user = session?.user;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function closeDelete() {
+    if (deleting) return;
+    setDeleteOpen(false);
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteOwnAccount();
+    if (!result.ok) {
+      setDeleteError(result.error);
+      setDeleting(false);
+      return;
+    }
+    discardDeviceProgress();
+    await signOut({ callbackUrl: "/account" });
+  }
 
   if (loading) {
     return (
@@ -275,8 +408,31 @@ export function AccountScreen({
               Xem và chia sẻ
             </RecapShareButton>
           </section>
+
+          <p className="pt-10 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+              className="text-[13px] font-medium text-[#86868b]/80 transition-colors hover:text-[#1d1d1f] hover:underline"
+            >
+              Xóa tài khoản
+            </button>
+          </p>
         </div>
       </main>
+      {deleteOpen ? (
+        <DeleteAccountDialog
+          busy={deleting}
+          error={deleteError}
+          onClose={closeDelete}
+          onConfirm={() => {
+            void confirmDelete();
+          }}
+        />
+      ) : null}
       <BottomNav />
     </div>
   );

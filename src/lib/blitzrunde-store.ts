@@ -1033,3 +1033,17 @@ export async function listRankedResults(
   }
   return results;
 }
+
+/** Remove this learner's Blitzrunde joins and answers. Class rounds stay for everyone else. */
+export async function deleteUserBlitzrunde(userId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+  const answers = await supabase.from(ANSWERS_TABLE).delete().eq("user_id", userId);
+  if (answers.error && !isBlitzrundeSchemaMissing(answers.error.message)) {
+    throw new Error(`Could not delete Blitzrunde answers (${answers.error.message}).`);
+  }
+  const participants = await supabase.from(PARTICIPANTS_TABLE).delete().eq("user_id", userId);
+  if (participants.error && !isBlitzrundeSchemaMissing(participants.error.message)) {
+    throw new Error(`Could not delete Blitzrunde results (${participants.error.message}).`);
+  }
+}
