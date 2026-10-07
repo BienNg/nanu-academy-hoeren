@@ -1323,7 +1323,8 @@ export async function listStudentDuelClipQuits(
     return [];
   }
 
-  const plays = (rows.data ?? []).flatMap((row): { duelId: string; position: number; startedAt: string; finishedAt: string }[] => {
+  const plays = (rows.data ?? []).flatMap(
+    (row): { duelId: string; position: number; startedAt: string; finishedAt: string }[] => {
     const record = row as {
       duel_id?: unknown;
       position?: unknown;
