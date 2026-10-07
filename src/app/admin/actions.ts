@@ -27,10 +27,11 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   deleteUserDuelXp,
   forgetStudiedClips,
+  listStudentDuelClipQuits,
   listStudentDuelMatchFailures,
   syncStudiedClips,
 } from "@/lib/duel-store";
-import type { StudentDuelMatchFailuresPage } from "@/lib/duels";
+import type { DuelClipQuit, StudentDuelMatchFailuresPage } from "@/lib/duels";
 import type { StudentJumpRunsPage } from "@/lib/lesson-jump";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
@@ -362,6 +363,25 @@ export async function listAdminStudentDuelMatchFailures(
   const bounds = parseRunWindow(window);
   if (window && !bounds) return { ok: false, error: "Invalid time range" };
   return { ok: true, ...(await listStudentDuelMatchFailures(id, start, bounds)) };
+}
+
+export async function listAdminStudentDuelClipQuits(
+  userId: string,
+  window: { fromIso: string; toIso: string } | null = null,
+): Promise<{ ok: true; quits: DuelClipQuit[] } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const bounds = parseRunWindow(window);
+  if (window && !bounds) return { ok: false, error: "Invalid time range" };
+  return { ok: true, quits: await listStudentDuelClipQuits(id, bounds) };
 }
 
 export async function listAdminStudentClicks(

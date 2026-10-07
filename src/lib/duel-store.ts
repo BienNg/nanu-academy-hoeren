@@ -58,6 +58,7 @@ import {
   type DuelClipView,
   type DuelFeedback,
   type DuelHome,
+  type DuelClipQuit,
   type DuelMatchFailure,
   type DuelOutcome,
   type IncomingChallenge,
@@ -1294,6 +1295,82 @@ export async function listStudentDuelMatchFailures(
     return [{ id: record.id, reason: record.reason, createdAt: record.created_at }];
   });
   return { status: "ready", failures, total: total.count ?? failures.length };
+}
+
+const QUIT_LIST_CAP = 200;
+
+/** Sentences this student started and then left, newest first. */
+export async function listStudentDuelClipQuits(
+  userId: string,
+  window: { fromIso: string; toIso: string } | null = null,
+): Promise<DuelClipQuit[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return [];
+  let list = supabase
+    .from(PLAYS_TABLE)
+    .select("duel_id, position, started_at, finished_at")
+    .eq("user_id", userId)
+    .eq("state", "forfeited")
+    .not("started_at", "is", null)
+    .order("finished_at", { ascending: false })
+    .limit(QUIT_LIST_CAP);
+  if (window) {
+    list = list.gte("finished_at", window.fromIso).lt("finished_at", window.toIso);
+  }
+  const rows = await list;
+  if (rows.error) {
+    schemaGone(rows.error.message);
+    return [];
+  }
+
+  const plays = (rows.data ?? []).flatMap((row): { duelId: string; position: number; startedAt: string; finishedAt: string }[] => {
+    const record = row as {
+      duel_id?: unknown;
+      position?: unknown;
+      started_at?: unknown;
+      finished_at?: unknown;
+    };
+    if (
+      typeof record.duel_id !== "string" ||
+      typeof record.position !== "number" ||
+      typeof record.started_at !== "string" ||
+      typeof record.finished_at !== "string"
+    ) {
+      return [];
+    }
+    return [
+      {
+        duelId: record.duel_id,
+        position: record.position,
+        startedAt: record.started_at,
+        finishedAt: record.finished_at,
+      },
+    ];
+  });
+  if (plays.length === 0) return [];
+
+  const duelIds = [...new Set(plays.map((play) => play.duelId))];
+  const duels = await supabase.from(DUELS_TABLE).select("id, challenger_id, opponent_id").in("id", duelIds);
+  if (duels.error) schemaGone(duels.error.message);
+  const opponentByDuel = new Map<string, string>();
+  for (const row of (duels.data ?? []) as { id?: unknown; challenger_id?: unknown; opponent_id?: unknown }[]) {
+    if (typeof row.id !== "string" || typeof row.challenger_id !== "string" || typeof row.opponent_id !== "string") {
+      continue;
+    }
+    opponentByDuel.set(row.id, row.challenger_id === userId ? row.opponent_id : row.challenger_id);
+  }
+  const names = await namesFor(supabase, [...new Set(opponentByDuel.values())]);
+
+  return plays.map((play) => {
+    const opponentId = opponentByDuel.get(play.duelId);
+    return {
+      id: `${play.duelId}:${play.position}`,
+      position: play.position,
+      startedAt: play.startedAt,
+      finishedAt: play.finishedAt,
+      opponentName: opponentId ? (names.get(opponentId) ?? "Classmate") : "",
+    };
+  });
 }
 
 function challengeDeadline(

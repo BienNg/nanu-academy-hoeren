@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   listAdminStudentClicks,
+  listAdminStudentDuelClipQuits,
   listAdminStudentDuelMatchFailures,
   listAdminStudentJumpRuns,
   listAdminStudentRuns,
@@ -39,7 +40,10 @@ import {
   type projectStudentVisits,
 } from "@/lib/admin-detail";
 import {
+  describeDuelClipQuit,
   DUEL_MATCH_FAILURE_SCHEMA_HINT,
+  placeDuelClipQuits,
+  type DuelClipQuit,
   type DuelMatchFailure,
   type StudentDuelMatchFailuresPage,
 } from "@/lib/duels";
@@ -291,14 +295,39 @@ function VisitClickLine({
   );
 }
 
+function VisitQuitLines({ quits }: { quits: readonly DuelClipQuit[] }) {
+  if (quits.length === 0) return null;
+  return (
+    <span className="mt-space-8 flex flex-col gap-1">
+      {quits.map((quit) => (
+        <span
+          key={quit.id}
+          className="flex items-start gap-1.5 text-admin-label-md font-semibold text-admin-amber"
+        >
+          <MaterialIcon name="swords" className="mt-0.5 text-[16px]" filled />
+          <span>
+            <span className="tabular-nums">{clockLabel(quit.finishedAt)}</span>
+            {" · "}
+            {describeDuelClipQuit(quit)}
+            {" · "}
+            started {clockLabel(quit.startedAt)}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function VisitCard({
   visit,
   clicks,
+  quits,
   open,
   onToggle,
 }: {
   visit: AdminVisitRow;
   clicks: readonly StudentUiClick[];
+  quits: readonly DuelClipQuit[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -311,16 +340,16 @@ function VisitCard({
     return (
       <li
         className={`flex gap-space-12 rounded-admin-card border border-dashed border-admin-border px-space-16 py-space-12 ${
-          clicks.length > 0 ? "items-start" : "items-center"
+          clicks.length > 0 || quits.length > 0 ? "items-start" : "items-center"
         }`}
       >
         <MaterialIcon
           name="hourglass_empty"
-          className={`text-[18px] text-admin-ink-faint ${clicks.length > 0 ? "mt-0.5" : ""}`}
+          className={`text-[18px] text-admin-ink-faint ${clicks.length > 0 || quits.length > 0 ? "mt-0.5" : ""}`}
         />
         <span
           className={`text-admin-label-md font-semibold tabular-nums text-admin-ink-muted ${
-            clicks.length > 0 ? "mt-0.5" : ""
+            clicks.length > 0 || quits.length > 0 ? "mt-0.5" : ""
           }`}
         >
           {visit.timeRange}
@@ -328,6 +357,7 @@ function VisitCard({
         <span className="min-w-0 flex-1 text-admin-body-sm text-admin-ink-subtle">
           <span className="block truncate">Opened the app, no study</span>
           <VisitClickLine clicks={clicks} />
+          <VisitQuitLines quits={quits} />
           {visit.onboarding ? (
             <span className="block font-semibold text-admin-ink-muted">{visit.onboarding}</span>
           ) : null}
@@ -376,6 +406,7 @@ function VisitCard({
           </span>
 
           <VisitClickLine clicks={clicks} className="mt-space-8" />
+          <VisitQuitLines quits={quits} />
 
           {visit.lessons.length > 0 ? (
             <span className="mt-space-12 flex flex-wrap gap-space-4">
@@ -449,11 +480,30 @@ function DuelMatchTimelineRow({ failure }: { failure: DuelMatchFailure }) {
   );
 }
 
+function DuelQuitTimelineRow({ quit }: { quit: DuelClipQuit }) {
+  const when = clockLabel(quit.finishedAt);
+  return (
+    <li className="flex items-start gap-space-12 rounded-admin-card border border-admin-amber bg-admin-amber-wash px-space-16 py-space-12">
+      <MaterialIcon name="swords" className="mt-0.5 text-[18px] text-admin-amber" filled />
+      {when ? (
+        <span className="shrink-0 text-admin-label-md font-semibold tabular-nums text-admin-ink">{when}</span>
+      ) : null}
+      <span className="min-w-0 flex-1">
+        <span className="block text-admin-body-sm font-semibold text-admin-ink">{describeDuelClipQuit(quit)}</span>
+        <span className="mt-0.5 block text-admin-body-sm leading-relaxed text-admin-ink-muted">
+          Started {clockLabel(quit.startedAt)}, then left the sentence
+        </span>
+      </span>
+    </li>
+  );
+}
+
 type DayTimeline = {
   day: string;
   at: number;
   visits: AdminVisitRow[];
   duels: DuelMatchFailure[];
+  quits: DuelClipQuit[];
   clicks: UiClickGroup[];
   activeSeconds: number;
 };
@@ -461,12 +511,14 @@ type DayTimeline = {
 type DayEntry =
   | { kind: "visit"; at: number; visit: AdminVisitRow }
   | { kind: "duel"; at: number; failure: DuelMatchFailure }
+  | { kind: "quit"; at: number; quit: DuelClipQuit }
   | { kind: "clicks"; at: number; group: UiClickGroup };
 
 function visitDayTimeline(
   visits: readonly AdminVisitRow[],
   duels: readonly DuelMatchFailure[],
   clicks: readonly UiClickGroup[],
+  quits: readonly DuelClipQuit[],
 ): DayTimeline[] {
   const days: DayTimeline[] = [];
   const byDay = new Map<string, DayTimeline>();
@@ -476,7 +528,7 @@ function visitDayTimeline(
       if (at > existing.at) existing.at = at;
       return existing;
     }
-    const created: DayTimeline = { day, at, visits: [], duels: [], clicks: [], activeSeconds: 0 };
+    const created: DayTimeline = { day, at, visits: [], duels: [], quits: [], clicks: [], activeSeconds: 0 };
     byDay.set(day, created);
     days.push(created);
     return created;
@@ -495,6 +547,10 @@ function visitDayTimeline(
     const at = Date.parse(group.loggedAt);
     ensure(formatVisitDay(group.loggedAt), Number.isNaN(at) ? 0 : at).clicks.push(group);
   }
+  for (const quit of quits) {
+    const at = Date.parse(quit.finishedAt);
+    ensure(formatVisitDay(quit.finishedAt), Number.isNaN(at) ? 0 : at).quits.push(quit);
+  }
   days.sort((a, b) => b.at - a.at);
   return days;
 }
@@ -512,6 +568,11 @@ function dayEntries(group: DayTimeline): DayEntry[] {
       kind: "clicks" as const,
       at: Date.parse(clickGroup.loggedAt) || 0,
       group: clickGroup,
+    })),
+    ...group.quits.map((quit) => ({
+      kind: "quit" as const,
+      at: Date.parse(quit.finishedAt) || 0,
+      quit,
     })),
   ];
   entries.sort((a, b) => b.at - a.at);
@@ -546,21 +607,54 @@ function useDuelFailures(
   return requestKey ? failures : [];
 }
 
+function useDuelQuits(
+  userId: string | undefined,
+  range: AdminVisitRange | undefined,
+  timeZone: string | undefined,
+): DuelClipQuit[] {
+  const [quits, setQuits] = useState<DuelClipQuit[]>([]);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const window = useMemo(
+    () => (range ? visitRangeIso(range, new Date(), timeZone) : null),
+    [range, timeZone],
+  );
+  const requestKey = userId && range ? `${userId}:${range}:${window?.fromIso ?? "all"}` : null;
+  const visible = loadedFor === requestKey ? quits : [];
+
+  useEffect(() => {
+    if (!requestKey || !userId) return;
+    let cancelled = false;
+    void listAdminStudentDuelClipQuits(userId, window).then((result) => {
+      if (cancelled) return;
+      setLoadedFor(requestKey);
+      setQuits(result.ok ? result.quits : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, window]);
+
+  return visible;
+}
+
 function VisitFeed({
   visits,
   clickGroups = [],
   duelFailures = [],
+  duelQuits = [],
   openVisitId,
   onToggle,
 }: {
   visits: AdminVisitRow[];
   clickGroups?: readonly UiClickGroup[];
   duelFailures?: readonly DuelMatchFailure[];
+  duelQuits?: readonly DuelClipQuit[];
   openVisitId: string | null;
   onToggle: (id: string) => void;
 }) {
   const placed = placeUiClickGroups(visits, clickGroups);
-  const days = visitDayTimeline(visits, duelFailures, placed.unmatched);
+  const placedQuits = placeDuelClipQuits(visits, duelQuits);
+  const days = visitDayTimeline(visits, duelFailures, placed.unmatched, placedQuits.unmatched);
 
   return (
     <div className="flex flex-col gap-space-20">
@@ -574,6 +668,9 @@ function VisitFeed({
               {group.duels.length > 0
                 ? ` · ${group.duels.length} ${group.duels.length === 1 ? "duel" : "duels"}`
                 : ""}
+              {group.quits.length > 0
+                ? ` · ${group.quits.length} ${group.quits.length === 1 ? "duel quit" : "duel quits"}`
+                : ""}
               {" · "}
               {shortDuration(group.activeSeconds)}
             </span>
@@ -582,6 +679,9 @@ function VisitFeed({
             {dayEntries(group).map((entry) => {
               if (entry.kind === "duel") {
                 return <DuelMatchTimelineRow key={entry.failure.id} failure={entry.failure} />;
+              }
+              if (entry.kind === "quit") {
+                return <DuelQuitTimelineRow key={entry.quit.id} quit={entry.quit} />;
               }
               if (entry.kind === "clicks") {
                 return (
@@ -602,6 +702,7 @@ function VisitFeed({
                   key={entry.visit.id}
                   visit={entry.visit}
                   clicks={placed.byVisitId.get(entry.visit.id) ?? []}
+                  quits={placedQuits.byVisitId.get(entry.visit.id) ?? []}
                   open={openVisitId === entry.visit.id}
                   onToggle={() => onToggle(entry.visit.id)}
                 />
@@ -1315,13 +1416,15 @@ export function VisitDayList({
 }) {
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const duelFailures = useDuelFailures(userId, range, timeZone);
+  const duelQuits = useDuelQuits(userId, range, timeZone);
   const clickGroups = useVisitClicks(userId, range, timeZone);
-  if (visits.length === 0 && duelFailures.length === 0) return null;
+  if (visits.length === 0 && duelFailures.length === 0 && duelQuits.length === 0) return null;
   return (
     <VisitFeed
       visits={visits}
       clickGroups={clickGroups}
       duelFailures={duelFailures}
+      duelQuits={duelQuits}
       openVisitId={openVisitId}
       onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
     />
@@ -1348,6 +1451,7 @@ export function ActivityTab({
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const visitStats = visitStripStats(visitLog.visits);
   const duelFailures = useDuelFailures(userId, range, timeZone);
+  const duelQuits = useDuelQuits(userId, range, timeZone);
   const clickGroups = useVisitClicks(userId, range, timeZone);
 
   return (
@@ -1358,7 +1462,7 @@ export function ActivityTab({
           description="Each time the app was open, newest first."
           action={<VisitRangeSwitch range={range} onChange={onRange} />}
         />
-        {visitLog.visits.length === 0 && duelFailures.length === 0 ? (
+        {visitLog.visits.length === 0 && duelFailures.length === 0 && duelQuits.length === 0 ? (
           <EmptyPanel>{visitLog.emptyMessage}</EmptyPanel>
         ) : (
           <>
@@ -1389,6 +1493,7 @@ export function ActivityTab({
               visits={visitLog.visits}
               clickGroups={clickGroups}
               duelFailures={duelFailures}
+              duelQuits={duelQuits}
               openVisitId={openVisitId}
               onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
             />

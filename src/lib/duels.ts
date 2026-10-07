@@ -286,6 +286,75 @@ export type StudentDuelMatchFailuresPage = {
   total: number;
 };
 
+/**
+ * A duel sentence the student started and then left. The play is forfeited
+ * and still has a start time, so a skip that never began is not included.
+ */
+export type DuelClipQuit = {
+  id: string;
+  position: number;
+  startedAt: string;
+  finishedAt: string;
+  opponentName: string;
+};
+
+/** A quit just after the visit's last heartbeat still belongs to that visit. */
+const DUEL_QUIT_VISIT_GRACE_MS = 15 * 60 * 1000;
+
+export function describeDuelClipQuit(quit: DuelClipQuit): string {
+  const sentence = `Left sentence ${quit.position + 1} of ${DUEL_SIZE}`;
+  return quit.opponentName ? `${sentence} · vs ${quit.opponentName}` : sentence;
+}
+
+/**
+ * Put each started-then-left sentence on the visit that was open when they
+ * left. Anything after that visit has been closed, or before the first visit,
+ * is returned unmatched so the visit list can show it on its own.
+ */
+export function placeDuelClipQuits(
+  visits: readonly { id: string; startedAt: string; endedAt: string }[],
+  quits: readonly DuelClipQuit[],
+): { byVisitId: Map<string, DuelClipQuit[]>; unmatched: DuelClipQuit[] } {
+  const ordered = [...visits].sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  const byVisitId = new Map<string, DuelClipQuit[]>();
+  const unmatched: DuelClipQuit[] = [];
+
+  for (const quit of quits) {
+    const at = Date.parse(quit.finishedAt);
+    if (Number.isNaN(at)) {
+      unmatched.push(quit);
+      continue;
+    }
+    let match: (typeof ordered)[number] | null = null;
+    for (const visit of ordered) {
+      const start = Date.parse(visit.startedAt);
+      if (Number.isNaN(start) || start > at) break;
+      match = visit;
+    }
+    if (!match) {
+      unmatched.push(quit);
+      continue;
+    }
+    const start = Date.parse(match.startedAt);
+    const end = Date.parse(match.endedAt);
+    const closedAt = Number.isNaN(end) ? start : Math.max(end, start);
+    const next = ordered.find((visit) => visit.startedAt > match.startedAt);
+    const nextStart = next ? Date.parse(next.startedAt) : Number.POSITIVE_INFINITY;
+    if (at > closedAt + DUEL_QUIT_VISIT_GRACE_MS || at >= nextStart) {
+      unmatched.push(quit);
+      continue;
+    }
+    const list = byVisitId.get(match.id) ?? [];
+    list.push(quit);
+    byVisitId.set(match.id, list);
+  }
+
+  for (const list of byVisitId.values()) {
+    list.sort((left, right) => right.finishedAt.localeCompare(left.finishedAt));
+  }
+  return { byVisitId, unmatched };
+}
+
 export function studiedKey(lessonKey: string, clipId: string): string {
   return `${lessonKey}\0${clipId}`;
 }

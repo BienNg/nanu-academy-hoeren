@@ -24,6 +24,7 @@ import {
   extractStudiedClips,
   clipCanStart,
   dealUniqueDuelCards,
+  describeDuelClipQuit,
   duelCardsFromClips,
   formatDuelTime,
   homeBucket,
@@ -32,6 +33,7 @@ import {
   isDuelSchemaMissing,
   matchPool,
   opponentCanSeeDuel,
+  placeDuelClipQuits,
   pointsFromPlays,
   sampleItems,
   sharedStudied,
@@ -539,4 +541,25 @@ test("the record counts each closed outcome once", () => {
   let record = emptyDuelHome(true).record;
   for (const outcome of ["win", "win", "loss", "tie", null] as const) record = addToRecord(record, outcome);
   assert.deepEqual(record, { wins: 2, losses: 1, ties: 1 });
+});
+
+test("a started duel sentence that was left sits on the visit that was open", () => {
+  const quit = {
+    id: "duel-1:2",
+    position: 2,
+    startedAt: "2026-10-07T09:10:00.000Z",
+    finishedAt: "2026-10-07T09:12:00.000Z",
+    opponentName: "Lan",
+  };
+  const visits = [
+    { id: "visit-a", startedAt: "2026-10-07T09:00:00.000Z", endedAt: "2026-10-07T09:20:00.000Z" },
+  ];
+  const placed = placeDuelClipQuits(visits, [quit]);
+  assert.equal(describeDuelClipQuit(quit), "Left sentence 3 of 15 · vs Lan");
+  assert.deepEqual(placed.byVisitId.get("visit-a")?.map((item) => item.id), ["duel-1:2"]);
+  assert.equal(placed.unmatched.length, 0);
+
+  const later = { ...quit, id: "duel-1:4", finishedAt: "2026-10-07T10:00:00.000Z" };
+  const outside = placeDuelClipQuits(visits, [later]);
+  assert.deepEqual(outside.unmatched.map((item) => item.id), ["duel-1:4"]);
 });
