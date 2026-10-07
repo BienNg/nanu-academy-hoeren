@@ -65,6 +65,7 @@ export function GrammarStudySession({
   topic,
   tables,
   partNumber,
+  grammarHref,
   lessonGrammar,
 }: GrammarStudySessionProps) {
   const router = useRouter();
@@ -157,8 +158,16 @@ export function GrammarStudySession({
           failed={false}
           title={`Xong: ${part.titleVi}`}
           subtitle={isLastPart ? "Giờ luyện tập nhé!" : `Phần ${partNumber} / ${parts.length}`}
-          continueLabel="Về bài học"
-          onContinue={() => leave(course.pathHref)}
+          // A replay starts at part 1 too, so the next part is always one tap away.
+          {...(!isLastPart
+            ? {
+                continueLabel: "Phần tiếp theo",
+                onContinue: () =>
+                  leave(`${grammarHref}/study?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
+                secondaryLabel: "Về bài học",
+                onSecondary: () => leave(course.pathHref),
+              }
+            : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
         />
       </GrammarPage>
     );

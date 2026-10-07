@@ -144,6 +144,7 @@ export function GrammarPracticeSession({
   topic,
   tables,
   partNumber,
+  grammarHref,
   lessonGrammar,
 }: GrammarPracticeSessionProps) {
   const router = useRouter();
@@ -266,8 +267,16 @@ export function GrammarPracticeSession({
           streakDays={streakDays}
           finishRun={!summary.failed && isLastPart}
           failed={summary.failed}
-          continueLabel="Về bài học"
-          onContinue={() => leave(course.pathHref)}
+          // A replay starts at part 1 too, so the next part is always one tap away.
+          {...(!summary.failed && !isLastPart
+            ? {
+                continueLabel: "Phần tiếp theo",
+                onContinue: () =>
+                  leave(`${grammarHref}/practice?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
+                secondaryLabel: "Về bài học",
+                onSecondary: () => leave(course.pathHref),
+              }
+            : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
         />
       </GrammarPage>
     );
