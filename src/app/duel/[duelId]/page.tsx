@@ -13,5 +13,5 @@ export default async function DuelPlayPage({
   await requireUser();
   const { duelId } = await params;
   if (!isDuelId(duelId)) notFound();
-  return <DuelPlayScreen duelId={duelId} />;
+  return <DuelPlayScreen key={duelId} duelId={duelId} />;
 }

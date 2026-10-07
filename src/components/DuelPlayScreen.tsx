@@ -7,20 +7,22 @@ import { motion, useReducedMotion } from "framer-motion";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { McCard } from "@/components/session/McCard";
+import { ChillPingu } from "@/components/session/Pingu";
+import { CountUp } from "@/components/QuestParts";
+import { chunkyButton } from "@/components/chunkyButton";
 import {
-  DUEL_DEADLINE_DAYS,
-  DUEL_EXPIRE_CHALLENGER_XP,
-  DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
   MAX_ANSWER_CHARS,
   challengeLeftLabel,
   clipCanStart,
   completedAgoLabel,
+  duelEndSteps,
   formatDuelTime,
   isSettledState,
   mergeDuelView,
   withClipSettled,
   type DuelClipView,
+  type DuelEndStep,
   type DuelFeedback,
   type DuelView,
 } from "@/lib/duels";
@@ -40,7 +42,7 @@ function browserPlaySessionId(): string {
   return browserPlaySession;
 }
 
-type Phase = "loading" | "countdown" | "play" | "between" | "result" | "error";
+type Phase = "loading" | "countdown" | "play" | "between" | "result" | "review" | "error";
 
 type Between = {
   kind: "forfeit";
@@ -101,21 +103,142 @@ function WinnerCrown({ visible }: { visible: boolean }) {
   );
 }
 
-function resultHeadline(view: DuelView): string {
-  if (!view.complete) {
-    const left = challengeLeftLabel(view.expiresAt, new Date(), "opponent");
-    return left
-      ? `${view.opponentName} chưa xong. ${left}.`
-      : `${view.opponentName} chưa xong phần của họ.`;
-  }
-  if (view.expired) {
-    const xp =
-      view.yourXp ?? (view.yourOutcome === "win" ? DUEL_EXPIRE_CHALLENGER_XP : DUEL_EXPIRE_OPPONENT_XP);
-    return `Hết ${DUEL_DEADLINE_DAYS} ngày · +${xp} XP`;
-  }
-  if (view.yourOutcome === "win") return `Bạn thắng · +${view.yourXp ?? 50} XP`;
-  if (view.yourOutcome === "loss") return `Bạn thua · +${view.yourXp ?? 20} XP`;
-  return `Hòa · +${view.yourXp ?? 35} XP`;
+const END_TILE =
+  "flex flex-col items-center gap-1 rounded-[20px] border border-black/[0.04] bg-white px-2 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)]";
+
+function ScoreSide({ name, points, winner }: { name: string; points: number; winner: boolean }) {
+  return (
+    <div className="min-w-0 text-center">
+      <WinnerCrown visible={winner} />
+      <p className="truncate text-[11px] font-bold uppercase tracking-wider text-[#86868b]">{name}</p>
+      <p
+        className={`mt-1 text-[26px] font-bold leading-none tabular-nums tracking-tight ${
+          winner ? "text-[#0284c7]" : "text-[#1d1d1f]"
+        }`}
+      >
+        {points}
+      </p>
+    </div>
+  );
+}
+
+/** One beat after your last clip, laid out like the lesson end card. */
+function DuelEndCard({
+  step,
+  view,
+  primaryLabel,
+  onPrimary,
+  primaryBusy = false,
+  secondaryLabel,
+  onSecondary,
+}: {
+  step: DuelEndStep;
+  view: DuelView;
+  primaryLabel: string;
+  onPrimary: () => void;
+  primaryBusy?: boolean;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const rise = (delay: number) =>
+    reduceMotion
+      ? { initial: false as const, animate: { opacity: 1, y: 0 }, transition: { duration: 0 } }
+      : {
+          initial: { opacity: 0, y: 10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { delay, duration: 0.25 },
+        };
+  const won = view.yourOutcome === "win";
+  const lost = view.yourOutcome === "loss";
+
+  return (
+    <section className="fixed inset-0 z-10 flex flex-col bg-[#faf8ff]" aria-live="polite">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+3.5rem)]">
+        <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+          <motion.div
+            className="flex h-[170px] items-end justify-center"
+            initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 22 }}
+          >
+            <div className="origin-bottom scale-[1.9]" aria-hidden="true">
+              <ChillPingu pose={step.pose} />
+            </div>
+          </motion.div>
+
+          <motion.p
+            className="mt-6 text-[13px] font-semibold uppercase tracking-wider text-[#86868b]"
+            {...rise(0.15)}
+          >
+            Đấu với {view.opponentName}
+          </motion.p>
+          <motion.h2
+            className="mt-2 text-[34px] font-bold leading-[1.2] tracking-tight text-[#1d1d1f] sm:text-[40px]"
+            style={{ letterSpacing: "-0.03em" }}
+            {...rise(0.25)}
+          >
+            {step.title}
+          </motion.h2>
+          <motion.p className="mt-2 text-[17px] font-medium text-[#86868b]" {...rise(0.35)}>
+            {step.subtitle}
+          </motion.p>
+
+          {step.xp != null ? (
+            <motion.div
+              className="mt-4 inline-flex items-center gap-1 text-[28px] font-extrabold leading-none text-[#f59e0b]"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={
+                reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: 0.5 }
+              }
+            >
+              <span
+                className="material-symbols-outlined text-[28px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                bolt
+              </span>
+              +<CountUp from={0} to={step.xp} delay={0.7} duration={0.8} />
+              {" XP"}
+            </motion.div>
+          ) : null}
+
+          {step.score ? (
+            <motion.div className={`${END_TILE} mt-5 w-full`} {...rise(0.6)}>
+              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-2">
+                <ScoreSide name={view.yourName} points={view.yourPoints} winner={won} />
+                <span className="pt-4 text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
+                <ScoreSide name={view.opponentName} points={view.opponentPoints} winner={lost} />
+              </div>
+            </motion.div>
+          ) : null}
+        </div>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#faf8ff] px-6 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <motion.button
+          type="button"
+          onClick={onPrimary}
+          disabled={primaryBusy}
+          className={chunkyButton(primaryBusy ? "disabled" : "primary", "w-full")}
+          {...rise(0.8)}
+        >
+          {primaryLabel}
+        </motion.button>
+        {secondaryLabel && onSecondary ? (
+          <motion.button
+            type="button"
+            onClick={onSecondary}
+            className={chunkyButton("secondary", "mt-3 w-full")}
+            {...rise(0.8)}
+          >
+            {secondaryLabel}
+          </motion.button>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
 function countdownLabel(seconds: number): string {
@@ -192,10 +315,12 @@ function OpeningCountdown({
   }, [duelId]);
 
   return (
-    <section className="flex flex-1 flex-col items-center justify-center py-16 text-center" aria-live="polite">
-      <span className="material-symbols-outlined text-[36px] text-[#0284c7]" aria-hidden="true">
-        swords
-      </span>
+    <section className="flex flex-1 flex-col items-center justify-center py-12 text-center" aria-live="polite">
+      <div className="flex h-[110px] items-end justify-center" aria-hidden="true">
+        <div className="origin-bottom scale-[1.3]">
+          <ChillPingu pose="pingpong" />
+        </div>
+      </div>
       <p className="mt-3 text-[13px] font-extrabold uppercase tracking-wider text-[#0284c7]">
         Đấu với {opponentName}
       </p>
@@ -236,6 +361,9 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   const [livePosition, setLivePosition] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [syncError, setSyncError] = useState("");
+  /** Which end card shows. Clamped to the last one, so a reopened duel skips "Bạn đã xong". */
+  const [endStep, setEndStep] = useState(0);
+  const [startingNext, setStartingNext] = useState(false);
   const phaseRef = useRef<Phase>("loading");
   const generationRef = useRef(0);
   const viewRef = useRef<DuelView | null>(null);
@@ -362,6 +490,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
         }
         remember(payload.view);
         if (payload.view.complete || !hasPending(payload.view)) {
+          setEndStep(Number.MAX_SAFE_INTEGER);
           setPhase("result");
           return;
         }
@@ -440,10 +569,14 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   }, [livePosition, bankKey]);
   const settledCount = view?.clips.filter((item) => isSettledState(item.you.state)).length ?? 0;
   const deadlineLabel =
-    view?.expiresAt && !view.complete && phase !== "result"
+    view?.expiresAt && !view.complete && phase !== "result" && phase !== "review"
       ? challengeLeftLabel(view.expiresAt, new Date(), "you")
       : null;
   const finishedAgo = view ? completedWhen(view) : null;
+  const endSteps = view ? duelEndSteps(view) : [];
+  const endIndex = Math.min(endStep, endSteps.length - 1);
+  const currentEnd = endSteps[endIndex] ?? null;
+  const moreEndSteps = endIndex < endSteps.length - 1;
 
   const finishCorrect = (text: string) => {
     if (!clip || clockStartRef.current == null) return;
@@ -559,6 +692,19 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
     setPhase("countdown");
   };
 
+  const startNextDuel = async () => {
+    if (startingNext) return;
+    setStartingNext(true);
+    try {
+      const response = await fetch("/api/duels", { method: "POST" });
+      const data = (await response.json().catch(() => null)) as { ok?: boolean; id?: string } | null;
+      // A blocked start is explained on the duel page.
+      router.push(data?.ok && typeof data.id === "string" ? `/duel/${data.id}` : "/duel");
+    } catch {
+      router.push("/duel");
+    }
+  };
+
   const insertChar = (char: string) => {
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? draft.length;
@@ -587,6 +733,17 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             >
               Thoát
             </button>
+          ) : phase === "review" ? (
+            <button
+              type="button"
+              onClick={() => setPhase("result")}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-[#0284c7]"
+              aria-label="Về kết quả"
+            >
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                arrow_back
+              </span>
+            </button>
           ) : (
             <Link
               href="/duel"
@@ -613,7 +770,9 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                       ? view?.complete
                         ? "Kết quả"
                         : "Đang chờ đối thủ"
-                      : phase === "loading"
+                      : phase === "review"
+                        ? "Từng câu"
+                        : phase === "loading"
                         ? "Đang chuẩn bị"
                         : ""}
             </p>
@@ -656,7 +815,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             <p className="text-[16px] font-extrabold">{error}</p>
             <Link
               href="/duel"
-              className="mt-4 inline-flex h-12 items-center justify-center rounded-2xl bg-[#0284c7] px-5 text-[15px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1]"
+              className={chunkyButton("primary", "mx-auto mt-4 w-fit")}
             >
               Về trang đấu
             </Link>
@@ -772,7 +931,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                   type="button"
                   disabled={!draft.trim()}
                   onClick={() => submit()}
-                  className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
+                  className={chunkyButton(draft.trim() ? "primary" : "disabled", "w-full")}
                 >
                   Kiểm tra
                 </button>
@@ -814,7 +973,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                   type="button"
                   disabled={!draft.trim()}
                   onClick={() => submit()}
-                  className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-[#e2e7ff] disabled:text-[#94a3b8] disabled:shadow-none"
+                  className={chunkyButton(draft.trim() ? "primary" : "disabled", "w-full")}
                 >
                   Kiểm tra
                 </button>
@@ -824,61 +983,53 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
         ) : null}
 
         {phase === "between" && between ? (
-          <section className="rounded-[28px] bg-white px-5 py-8 text-center shadow-[0_4px_0_0_#dae2fd]">
-            <p className="text-[28px] font-extrabold">Câu này bị tính thua</p>
-            <p className="mt-2 text-[15px] font-semibold text-[#6e7881]">
+          <section className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+            <div className="flex h-[150px] items-end justify-center" aria-hidden="true">
+              <div className="origin-bottom scale-[1.7]">
+                <ChillPingu pose="peekaboo" />
+              </div>
+            </div>
+            <p className="mt-6 text-[28px] font-bold tracking-tight text-[#1d1d1f]">Câu này bị tính thua</p>
+            <p className="mt-2 text-[17px] font-medium text-[#86868b]">
               {view ? `Đấu với ${view.opponentName}. ` : ""}
               Bạn sẽ tiếp tục với các câu còn lại.
             </p>
             {syncError ? <p className="mt-3 text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
-            <button
-              type="button"
-              onClick={() => continueDuel()}
-              className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none"
-            >
+            <button type="button" onClick={() => continueDuel()} className={chunkyButton("primary", "mt-8 w-full")}>
               Câu tiếp theo
             </button>
-            <Link href="/duel" className="mt-3 inline-flex text-[14px] font-extrabold text-[#0284c7]">
+            <Link href="/duel" className={chunkyButton("secondary", "mt-3 w-full")}>
               Về trang đấu
             </Link>
           </section>
         ) : null}
 
-        {phase === "result" && view ? (
+        {phase === "result" && view && currentEnd ? (
+          <DuelEndCard
+            key={currentEnd.kind}
+            step={currentEnd}
+            view={view}
+            primaryLabel={moreEndSteps ? "Tiếp tục" : startingNext ? "Đang tìm đối thủ..." : "Đấu mới"}
+            primaryBusy={!moreEndSteps && startingNext}
+            onPrimary={moreEndSteps ? () => setEndStep(endIndex + 1) : () => void startNextDuel()}
+            secondaryLabel={moreEndSteps ? undefined : "Xem từng câu"}
+            onSecondary={moreEndSteps ? undefined : () => setPhase("review")}
+          />
+        ) : null}
+        {phase === "result" && syncError ? (
+          <p className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-20 px-6 text-center text-[14px] font-bold text-[#be123c]">
+            {syncError}
+          </p>
+        ) : null}
+
+        {phase === "review" && view ? (
           <div className="flex flex-col gap-4">
-            <section className="rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-5 text-white shadow-[0_6px_0_0_#0369a1]">
-              <p className="text-center text-[13px] font-bold uppercase tracking-wider text-sky-100">
-                {view.complete ? "Kết quả" : "Đang chờ đối thủ"}
-              </p>
-              <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <div className="min-w-0 text-center">
-                  <WinnerCrown visible={view.complete && view.yourOutcome === "win"} />
-                  <p className="truncate text-[14px] font-extrabold">{view.yourName}</p>
-                  <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
-                    {view.expired ? "–" : view.yourPoints}
-                  </p>
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  {finishedAgo ? (
-                    <p className="text-center text-[11px] font-bold leading-none text-sky-100">{finishedAgo}</p>
-                  ) : null}
-                  <p className="text-[13px] font-extrabold tracking-wide text-sky-100">VS</p>
-                </div>
-                <div className="min-w-0 text-center">
-                  <WinnerCrown visible={view.complete && view.yourOutcome === "loss"} />
-                  <p className="truncate text-[14px] font-extrabold">{view.opponentName}</p>
-                  <p className="mt-1 text-[40px] font-extrabold leading-none tabular-nums">
-                    {view.expired ? "–" : view.opponentPoints}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 text-center text-[16px] font-extrabold">{resultHeadline(view)}</p>
-              {!view.complete ? (
-                <p className="mt-2 text-center text-[14px] font-semibold leading-relaxed text-sky-100">
-                  Chờ {view.opponentName} làm thử thách. Kết quả hiện khi đối thủ chơi xong.
-                </p>
-              ) : null}
-            </section>
+            <p className="text-center text-[13px] font-semibold uppercase tracking-wider text-[#86868b]">
+              {view.complete && !view.expired
+                ? `${view.yourName} ${view.yourPoints}–${view.opponentPoints} ${view.opponentName}`
+                : `Đấu với ${view.opponentName}`}
+              {finishedAgo ? ` · ${finishedAgo}` : ""}
+            </p>
             {syncError ? <p className="text-center text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
             <ol className="flex flex-col gap-2">
               {view.clips.map((item) => (
@@ -951,12 +1102,9 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 </li>
               ))}
             </ol>
-            <Link
-              href="/duel"
-              className="flex h-14 items-center justify-center rounded-2xl bg-[#0284c7] text-[17px] font-extrabold text-white shadow-[0_4px_0_0_#0369a1] active:translate-y-0.5 active:shadow-none"
-            >
-              Về trang đấu
-            </Link>
+            <button type="button" onClick={() => setPhase("result")} className={chunkyButton("secondary", "w-full")}>
+              Về kết quả
+            </button>
           </div>
         ) : null}
       </main>

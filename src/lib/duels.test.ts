@@ -12,6 +12,15 @@ import {
   challengeReleasedAt,
   completedAgoLabel,
   clipWinner,
+  addToRecord,
+  duelEndSteps,
+  duelHomeFocus,
+  emptyDuelHome,
+  timeLeftPhrase,
+  type DuelCard,
+  DUEL_LOSS_XP,
+  DUEL_TIE_XP,
+  DUEL_WIN_XP,
   extractStudiedClips,
   clipCanStart,
   dealUniqueDuelCards,
@@ -428,4 +437,106 @@ test("schema hint only matches missing duel tables", () => {
     true,
   );
   assert.equal(isDuelMatchFailureSchemaMissing("duels does not exist"), false);
+});
+
+const endBase = {
+  complete: true,
+  expired: false,
+  yourOutcome: "win" as const,
+  yourXp: null,
+  yourPoints: 9,
+  opponentPoints: 6,
+  opponentName: "Lan",
+  expiresAt: null,
+};
+
+test("an open duel ends with a done card and then the opponent's turn", () => {
+  const now = new Date("2026-10-07T00:00:00Z");
+  const steps = duelEndSteps(
+    { ...endBase, complete: false, yourOutcome: null, expiresAt: "2026-10-09T00:00:00Z" },
+    now,
+  );
+  assert.deepEqual(
+    steps.map((step) => step.kind),
+    ["finished", "waiting"],
+  );
+  assert.equal(steps[1]?.xp, null);
+  assert.match(steps[1]?.subtitle ?? "", /Lan còn 2 ngày/);
+});
+
+test("an open duel without a saved deadline falls back to the full window", () => {
+  const steps = duelEndSteps({ ...endBase, complete: false, yourOutcome: null });
+  assert.match(steps[1]?.subtitle ?? "", /còn 3 ngày/);
+});
+
+test("a closed duel gets one card with its XP and score", () => {
+  const [win] = duelEndSteps(endBase);
+  assert.deepEqual([win?.kind, win?.pose, win?.xp, win?.score], ["win", "balloon", DUEL_WIN_XP, true]);
+  const [loss] = duelEndSteps({ ...endBase, yourOutcome: "loss", yourPoints: 6, opponentPoints: 9 });
+  assert.deepEqual([loss?.kind, loss?.xp, loss?.subtitle], ["loss", DUEL_LOSS_XP, "6–9. Thua vẫn được XP."]);
+  const [tie] = duelEndSteps({ ...endBase, yourOutcome: "tie", yourXp: 35 });
+  assert.deepEqual([tie?.kind, tie?.xp], ["tie", DUEL_TIE_XP]);
+});
+
+test("an expired duel hides the score and pays only the challenger", () => {
+  const [won] = duelEndSteps({ ...endBase, expired: true });
+  assert.deepEqual([won?.kind, won?.xp, won?.score], ["expired-win", DUEL_EXPIRE_CHALLENGER_XP, false]);
+  const [missed] = duelEndSteps({ ...endBase, expired: true, yourOutcome: "loss", yourXp: 0 });
+  assert.deepEqual([missed?.kind, missed?.xp, missed?.score], ["expired-loss", null, false]);
+});
+
+test("time left reads in the largest whole unit", () => {
+  const now = new Date("2026-10-07T00:00:00Z");
+  assert.equal(timeLeftPhrase("2026-10-08T12:00:00Z", now), "2 ngày");
+  assert.equal(timeLeftPhrase("2026-10-07T03:30:00Z", now), "4 giờ");
+  assert.equal(timeLeftPhrase("2026-10-07T00:00:20Z", now), "1 phút");
+  assert.equal(timeLeftPhrase("2026-10-06T00:00:00Z", now), null);
+});
+
+function homeCard(id: string, expiresAt: string | null = null): DuelCard {
+  return {
+    id,
+    yourName: "Bạn",
+    opponentName: "Lan",
+    createdAt: "2026-10-01T00:00:00Z",
+    challenged: true,
+    youSettled: 0,
+    opponentStarted: true,
+    yourOutcome: null,
+    yourXp: null,
+    yourPoints: null,
+    opponentPoints: null,
+    expired: false,
+    expiresAt,
+  };
+}
+
+test("the duel page leads with the challenge closest to running out", () => {
+  const home = {
+    ...emptyDuelHome(true, "ok"),
+    studiedCount: DUEL_SIZE,
+    incoming: [homeCard("late", "2026-10-09T00:00:00Z"), homeCard("soon", "2026-10-08T00:00:00Z")],
+    playing: [homeCard("mid")],
+  };
+  const focus = duelHomeFocus(home);
+  assert.equal(focus.kind, "incoming");
+  assert.equal(focus.kind === "incoming" ? focus.card.id : null, "soon");
+  assert.equal(duelHomeFocus({ ...home, incoming: [] }).kind, "playing");
+});
+
+test("the duel page asks for study, an intro, a start, or explains the block", () => {
+  const ready = { ...emptyDuelHome(true, "ok"), studiedCount: DUEL_SIZE };
+  assert.equal(duelHomeFocus({ ...ready, studiedCount: 4 }).kind, "study");
+  assert.equal(duelHomeFocus(ready).kind, "intro");
+  assert.equal(duelHomeFocus({ ...ready, history: [homeCard("old")] }).kind, "start");
+  assert.equal(duelHomeFocus({ ...ready, block: "cap" }).kind, "cap");
+  assert.equal(duelHomeFocus({ ...ready, block: "no_class" }).kind, "blocked");
+  assert.equal(duelHomeFocus({ ...ready, viewerIsAdmin: true }).kind, "blocked");
+  assert.equal(duelHomeFocus(emptyDuelHome(false)).kind, "blocked");
+});
+
+test("the record counts each closed outcome once", () => {
+  let record = emptyDuelHome(true).record;
+  for (const outcome of ["win", "win", "loss", "tie", null] as const) record = addToRecord(record, outcome);
+  assert.deepEqual(record, { wins: 2, losses: 1, ties: 1 });
 });

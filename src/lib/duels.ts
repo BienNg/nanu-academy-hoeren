@@ -189,6 +189,8 @@ export type DuelCard = {
   expiresAt: string | null;
 };
 
+export type DuelRecord = { wins: number; losses: number; ties: number };
+
 export type DuelHome = {
   ready: boolean;
   block: MatchBlock;
@@ -199,8 +201,49 @@ export type DuelHome = {
   incoming: DuelCard[];
   playing: DuelCard[];
   waiting: DuelCard[];
+  /** Newest first, capped. */
   history: DuelCard[];
+  /** Every closed duel, counted before history is capped. */
+  record: DuelRecord;
 };
+
+/** What the top card of the duel page asks for. */
+export type DuelFocus =
+  | { kind: "incoming"; card: DuelCard }
+  | { kind: "playing"; card: DuelCard }
+  | { kind: "study" }
+  | { kind: "intro" }
+  | { kind: "start" }
+  | { kind: "cap" }
+  | { kind: "blocked" };
+
+/**
+ * The one thing to do next: answer the challenge closest to running out,
+ * finish a duel you started, study enough clips, or start a new duel.
+ * "intro" is a learner who can duel but has never had one.
+ */
+export function duelHomeFocus(home: DuelHome): DuelFocus {
+  if (!home.ready || home.viewerIsAdmin || home.block === "admin") return { kind: "blocked" };
+  const incoming = home.incoming
+    .slice()
+    .sort((left, right) => (left.expiresAt ?? "\uffff").localeCompare(right.expiresAt ?? "\uffff"))[0];
+  if (incoming) return { kind: "incoming", card: incoming };
+  const playing = home.playing[0];
+  if (playing) return { kind: "playing", card: playing };
+  if (home.studiedCount < DUEL_SIZE) return { kind: "study" };
+  if (home.block === "ok") {
+    return home.waiting.length + home.history.length === 0 ? { kind: "intro" } : { kind: "start" };
+  }
+  if (home.block === "cap") return { kind: "cap" };
+  return { kind: "blocked" };
+}
+
+export function addToRecord(record: DuelRecord, outcome: DuelOutcome | null): DuelRecord {
+  if (outcome === "win") return { ...record, wins: record.wins + 1 };
+  if (outcome === "loss") return { ...record, losses: record.losses + 1 };
+  if (outcome === "tie") return { ...record, ties: record.ties + 1 };
+  return record;
+}
 
 /** A challenge someone sent you that you have not opened yet. */
 export type IncomingChallenge = {
@@ -624,21 +667,138 @@ export function incomingChallengeLabel(
   return left ? `${who} · ${left}` : who;
 }
 
+/** Remaining time, such as "2 ngày", "4 giờ", or "5 phút". Null once the deadline has passed. */
+export function timeLeftPhrase(expiresAt: string | null, now: Date): string | null {
+  if (!expiresAt || isChallengeExpired(expiresAt, now)) return null;
+  const left = Date.parse(expiresAt) - now.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const hour = 60 * 60 * 1000;
+  const minute = 60 * 1000;
+  if (left >= day) return `${Math.ceil(left / day)} ngày`;
+  if (left >= hour) return `${Math.ceil(left / hour)} giờ`;
+  return `${Math.max(1, Math.ceil(left / minute))} phút`;
+}
+
 /** Remaining time, such as "Còn 2 ngày" or "Đối thủ còn 4 giờ". Null once the deadline has passed. */
 export function challengeLeftLabel(
   expiresAt: string | null,
   now: Date,
   subject: "you" | "opponent",
 ): string | null {
-  if (!expiresAt || isChallengeExpired(expiresAt, now)) return null;
-  const left = Date.parse(expiresAt) - now.getTime();
-  const prefix = subject === "opponent" ? "Đối thủ còn" : "Còn";
-  const day = 24 * 60 * 60 * 1000;
-  const hour = 60 * 60 * 1000;
-  const minute = 60 * 1000;
-  if (left >= day) return `${prefix} ${Math.ceil(left / day)} ngày`;
-  if (left >= hour) return `${prefix} ${Math.ceil(left / hour)} giờ`;
-  return `${prefix} ${Math.max(1, Math.ceil(left / minute))} phút`;
+  const left = timeLeftPhrase(expiresAt, now);
+  if (!left) return null;
+  return `${subject === "opponent" ? "Đối thủ còn" : "Còn"} ${left}`;
+}
+
+/** Pingu poses an end card can use. A subset of the poses in Pingu.tsx. */
+export type DuelEndPose = "tea" | "balloon" | "pickleball" | "pingpong" | "cups" | "pen" | "peekaboo";
+
+export type DuelEndKind = "finished" | "waiting" | "win" | "loss" | "tie" | "expired-win" | "expired-loss";
+
+export type DuelEndStep = {
+  kind: DuelEndKind;
+  pose: DuelEndPose;
+  title: string;
+  subtitle: string;
+  /** XP this duel paid. Null while it is still open, or when it paid nothing. */
+  xp: number | null;
+  /** Show the point score. */
+  score: boolean;
+};
+
+/**
+ * The cards after your last clip. An open duel gets two: you are done, then
+ * what the other person has to do. A closed duel gets one card for how it ended.
+ */
+export function duelEndSteps(
+  view: Pick<
+    DuelView,
+    "complete" | "expired" | "yourOutcome" | "yourXp" | "yourPoints" | "opponentPoints" | "opponentName" | "expiresAt"
+  >,
+  now = new Date(),
+): DuelEndStep[] {
+  const name = view.opponentName.trim() || "Đối thủ";
+  const score = `${view.yourPoints}–${view.opponentPoints}`;
+  if (!view.complete) {
+    const left = timeLeftPhrase(view.expiresAt, now) ?? `${DUEL_DEADLINE_DAYS} ngày`;
+    return [
+      {
+        kind: "finished",
+        pose: "pickleball",
+        title: "Bạn đã xong!",
+        subtitle: `Thời gian ${DUEL_SIZE} câu của bạn đã được lưu.`,
+        xp: null,
+        score: false,
+      },
+      {
+        kind: "waiting",
+        pose: "tea",
+        title: `Đến lượt ${name}`,
+        subtitle: `${name} còn ${left} để chơi cùng ${DUEL_SIZE} câu. Ai nhanh hơn ở mỗi câu được 1 điểm.`,
+        xp: null,
+        score: false,
+      },
+    ];
+  }
+  if (view.expired) {
+    if (view.yourOutcome === "win") {
+      return [
+        {
+          kind: "expired-win",
+          pose: "peekaboo",
+          title: `${name} không kịp chơi`,
+          subtitle: `Hết ${DUEL_DEADLINE_DAYS} ngày. Bạn vẫn được XP vì đã chơi xong.`,
+          xp: view.yourXp ?? DUEL_EXPIRE_CHALLENGER_XP,
+          score: false,
+        },
+      ];
+    }
+    const xp = view.yourXp ?? DUEL_EXPIRE_OPPONENT_XP;
+    return [
+      {
+        kind: "expired-loss",
+        pose: "peekaboo",
+        title: "Thử thách đã hết hạn",
+        subtitle: `Bạn chưa chơi xong trong ${DUEL_DEADLINE_DAYS} ngày. Lần sau nhớ chơi sớm nhé.`,
+        xp: xp > 0 ? xp : null,
+        score: false,
+      },
+    ];
+  }
+  if (view.yourOutcome === "win") {
+    return [
+      {
+        kind: "win",
+        pose: "balloon",
+        title: "Bạn thắng!",
+        subtitle: `${score} với ${name}.`,
+        xp: view.yourXp ?? DUEL_WIN_XP,
+        score: true,
+      },
+    ];
+  }
+  if (view.yourOutcome === "loss") {
+    return [
+      {
+        kind: "loss",
+        pose: "pen",
+        title: `${name} nhanh hơn`,
+        subtitle: `${score}. Thua vẫn được XP.`,
+        xp: view.yourXp ?? DUEL_LOSS_XP,
+        score: true,
+      },
+    ];
+  }
+  return [
+    {
+      kind: "tie",
+      pose: "cups",
+      title: "Hòa!",
+      subtitle: `${score} với ${name}.`,
+      xp: view.yourXp ?? DUEL_TIE_XP,
+      score: true,
+    },
+  ];
 }
 
 /** The opponent sees a duel only after the person who started it finishes all clips. */
@@ -667,5 +827,6 @@ export function emptyDuelHome(ready: boolean, block: MatchBlock = "unavailable")
     playing: [],
     waiting: [],
     history: [],
+    record: { wins: 0, losses: 0, ties: 0 },
   };
 }

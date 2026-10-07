@@ -36,6 +36,7 @@ import {
   awardForPoints,
   challengeExpiresAt,
   challengeReleasedAt,
+  addToRecord,
   clipWinner,
   emptyDuelHome,
   extractStudiedClips,
@@ -982,7 +983,10 @@ export async function getDuelHome(user: {
     if (bucket === "incoming") home.incoming.push(card);
     else if (bucket === "playing") home.playing.push(card);
     else if (bucket === "waiting") home.waiting.push(card);
-    else home.history.push(card);
+    else {
+      home.history.push(card);
+      home.record = addToRecord(home.record, card.yourOutcome);
+    }
   }
   home.history.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   home.history = home.history.slice(0, 40);
