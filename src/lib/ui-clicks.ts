@@ -7,6 +7,15 @@ export const UI_CLICK_LABELS = {
   "nav.badges": "Huy hiệu",
 } as const;
 
+/** Same artwork as the bottom nav, so an admin row reads as that tab. */
+export const UI_CLICK_ICONS: Record<UiClickTarget, string> = {
+  "nav.learn": "/nav/learn.svg",
+  "nav.quests": "/nav/quests.svg",
+  "nav.duel": "/nav/duel.svg",
+  "nav.leaderboard": "/nav/ranking.svg",
+  "nav.badges": "/nav/badges.svg",
+};
+
 export type UiClickTarget = keyof typeof UI_CLICK_LABELS;
 
 export type UiClickCount = {
@@ -21,7 +30,11 @@ export type StudentUiClick = {
   count: number;
 };
 
-export type UiClickRange = "today" | "7d" | "all";
+/** One flush: the counts logged together, at the moment they were sent. */
+export type UiClickGroup = {
+  loggedAt: string;
+  clicks: StudentUiClick[];
+};
 
 /** Asia/Ho_Chi_Minh is UTC+7 all year. */
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -47,22 +60,97 @@ export function shiftCalendarDay(day: string, days: number): string {
   return new Date(Date.UTC(year, month - 1, date) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** Rows older than this day are dropped on the next flush. */
-export function uiClickCutoffDay(now = Date.now()): string {
-  return shiftCalendarDay(vietnamCalendarDay(now), -UI_CLICK_KEEP_DAYS);
+/** Flushes older than this instant are dropped on the next save. */
+export function uiClickCutoffIso(now = Date.now()): string {
+  return new Date(now - UI_CLICK_KEEP_DAYS * 86_400_000).toISOString();
 }
 
-/** Inclusive Vietnam days for the admin range. `null` is the retained history. */
-export function uiClickRangeDays(
-  range: UiClickRange,
-  now = Date.now(),
-): { from: string; to: string } | null {
-  if (range === "all") return null;
-  const today = vietnamCalendarDay(now);
-  return {
-    from: range === "today" ? today : shiftCalendarDay(today, -6),
-    to: today,
-  };
+/** A flush stays with the visit that was open, until the next visit or 15 minutes. */
+export const UI_CLICK_VISIT_GRACE_MS = 15 * 60 * 1000;
+
+export function uiClickGroupCounts(clicks: readonly UiClickCount[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const click of clicks) {
+    counts[click.target] = (counts[click.target] ?? 0) + click.count;
+  }
+  return counts;
+}
+
+export function uiClickGroupFromRow(loggedAt: unknown, counts: unknown): UiClickGroup | null {
+  if (typeof loggedAt !== "string" || Number.isNaN(Date.parse(loggedAt))) return null;
+  if (!counts || typeof counts !== "object" || Array.isArray(counts)) return null;
+  const clicks = summarizeUiClicks(
+    Object.entries(counts as Record<string, unknown>).flatMap(([target, count]) =>
+      typeof count === "number" ? [{ target, count }] : [],
+    ),
+  );
+  if (clicks.length === 0) return null;
+  return { loggedAt, clicks };
+}
+
+/** One tab opening, written the way an admin reads a visit. */
+export function describeVisitClick(click: StudentUiClick): string {
+  const times = click.count === 1 ? "once" : `${click.count} times`;
+  return `Opened the ${click.label} tab ${times}`;
+}
+
+export function formatVisitClicks(clicks: readonly StudentUiClick[]): string {
+  return clicks.map(describeVisitClick).join(" · ");
+}
+
+/**
+ * Put each flush on the visit that was open when it was logged. A flush just
+ * after the visit's last touch still belongs there, until the next visit starts
+ * or 15 minutes pass. Anything later is returned unmatched.
+ */
+export function placeUiClickGroups(
+  visits: readonly { id: string; startedAt: string; endedAt: string }[],
+  groups: readonly UiClickGroup[],
+): { byVisitId: Map<string, StudentUiClick[]>; unmatched: UiClickGroup[] } {
+  const ordered = [...visits].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const totals = new Map<string, Map<UiClickTarget, number>>();
+  const unmatched: UiClickGroup[] = [];
+
+  for (const group of groups) {
+    const at = Date.parse(group.loggedAt);
+    if (Number.isNaN(at)) continue;
+    let match: (typeof ordered)[number] | null = null;
+    for (const visit of ordered) {
+      const start = Date.parse(visit.startedAt);
+      if (Number.isNaN(start) || start > at) break;
+      match = visit;
+    }
+    if (!match) {
+      unmatched.push(group);
+      continue;
+    }
+    const current = match;
+    const start = Date.parse(current.startedAt);
+    const end = Date.parse(current.endedAt);
+    const closedAt = Number.isNaN(end) ? start : Math.max(end, start);
+    const next = ordered.find((visit) => visit.startedAt > current.startedAt);
+    const nextStart = next ? Date.parse(next.startedAt) : Number.POSITIVE_INFINITY;
+    // The visit stays current until the next one starts. After it has been
+    // closed for 15 minutes with no new visit, the flush is listed on its own.
+    if (at > closedAt + UI_CLICK_VISIT_GRACE_MS || at >= nextStart) {
+      unmatched.push(group);
+      continue;
+    }
+    const bucket = totals.get(current.id) ?? new Map<UiClickTarget, number>();
+    for (const click of group.clicks) {
+      bucket.set(click.target, (bucket.get(click.target) ?? 0) + click.count);
+    }
+    totals.set(current.id, bucket);
+  }
+
+  const byVisitId = new Map<string, StudentUiClick[]>();
+  for (const [id, bucket] of totals) {
+    byVisitId.set(
+      id,
+      summarizeUiClicks([...bucket].map(([target, count]) => ({ target, count }))),
+    );
+  }
+  return { byVisitId, unmatched };
 }
 
 export function addUiClick(
@@ -251,8 +339,13 @@ async function flushUiClicks(): Promise<void> {
   }
 }
 
-/** Count one tap. The network send waits until the buffer fills, 30s pass, or the tab hides. */
+/** Count one tap. The network send waits until the buffer fills, the page changes, 30s pass, or the tab hides. */
 export function trackUiClick(target: UiClickTarget, now = Date.now()): void {
   pendingClicks = addUiClick(pendingClicks, target, now);
   armUiClickFlush();
+}
+
+/** Send taps already counted. A route change calls this so the visit can show them. */
+export function flushTrackedClicks(): void {
+  void flushUiClicks();
 }

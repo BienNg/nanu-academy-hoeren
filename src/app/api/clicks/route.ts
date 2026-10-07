@@ -30,7 +30,9 @@ export async function POST(request: Request) {
   if (clicks.length === 0) return NextResponse.json({ saved: true });
 
   const saved = await recordUiClicks(session.user.id, clicks);
-  if (saved === "failed") {
+  // "missing" means the table or columns are not the current schema. Dropping the
+  // buffer here would erase the taps, so the client retries instead.
+  if (saved !== "saved") {
     return NextResponse.json({ saved: false }, { status: 500 });
   }
   return NextResponse.json({ saved: true });

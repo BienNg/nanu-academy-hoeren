@@ -1,18 +1,19 @@
--- Run once in Supabase → SQL Editor (free project is fine).
--- One row per learner, Vietnam calendar day, and named control.
--- `count` is how many times they tapped that control that day.
+-- Re-run in Supabase → SQL Editor. This replaces the daily-total table:
+-- one row per flush, at the moment the group of taps was logged.
+-- `counts` is { "nav.learn": 2, "nav.quests": 1 }. Not one row per tap.
 -- Writes go through the Next.js API with the service role key.
 
-create table if not exists public.ui_clicks (
+drop table if exists public.ui_clicks;
+
+create table public.ui_clicks (
+  id uuid primary key default gen_random_uuid(),
   user_id text not null,
-  day date not null,
-  target text not null,
-  count integer not null check (count >= 0),
-  primary key (user_id, day, target)
+  logged_at timestamptz not null,
+  counts jsonb not null
 );
 
-create index if not exists ui_clicks_user_day_idx
-  on public.ui_clicks (user_id, day desc);
+create index if not exists ui_clicks_user_logged_idx
+  on public.ui_clicks (user_id, logged_at desc);
 
 alter table public.ui_clicks enable row level security;
 

@@ -43,12 +43,11 @@ import {
   type StoredProgress,
 } from "@/lib/progress";
 import {
-  summarizeUiClicks,
-  uiClickCutoffDay,
-  uiClickRangeDays,
-  type StudentUiClick,
+  uiClickCutoffIso,
+  uiClickGroupCounts,
+  uiClickGroupFromRow,
   type UiClickCount,
-  type UiClickRange,
+  type UiClickGroup,
 } from "@/lib/ui-clicks";
 
 const TABLE = "user_progress";
@@ -2514,12 +2513,16 @@ export async function probeAdminStores(): Promise<AdminStoreProbe[]> {
 }
 
 function isMissingUiClicksTable(message: string): boolean {
-  return /ui_clicks/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+  return (
+    /ui_clicks|logged_at|counts/i.test(message) &&
+    /does not exist|schema cache|could not find/i.test(message)
+  );
 }
 
 /**
- * Add this flush onto the learner's daily counts. A missing table is reported
- * once and treated as saved so the app keeps working before the SQL is applied.
+ * Store one flush: the taps buffered together, stamped when they were logged.
+ * A missing or outdated table is reported and treated as saved so the app
+ * keeps working. Re-run supabase/ui_clicks.sql to replace the daily totals.
  */
 export async function recordUiClicks(
   userId: string,
@@ -2529,45 +2532,17 @@ export async function recordUiClicks(
   const supabase = getSupabaseAdmin();
   if (!supabase || !userId || clicks.length === 0) return "saved";
 
-  const days = [...new Set(clicks.map((click) => click.day))];
-  const { data, error } = await supabase
-    .from(CLICKS_TABLE)
-    .select("day, target, count")
-    .eq("user_id", userId)
-    .in("day", days);
+  const { error } = await supabase.from(CLICKS_TABLE).insert({
+    user_id: userId,
+    logged_at: new Date(now).toISOString(),
+    counts: uiClickGroupCounts(clicks),
+  });
   if (error) {
     if (isMissingUiClicksTable(error.message)) {
-      console.error("Supabase ui_clicks missing. Run supabase/ui_clicks.sql.");
+      console.error("Supabase ui_clicks schema is stale. Re-run supabase/ui_clicks.sql.", error.message);
       return "missing";
     }
-    console.error("Supabase recordUiClicks read", error.message);
-    return "failed";
-  }
-
-  const current = new Map<string, number>();
-  for (const row of data ?? []) {
-    const record = row as { day?: unknown; target?: unknown; count?: unknown };
-    const day = typeof record.day === "string" ? record.day.slice(0, 10) : "";
-    const target = typeof record.target === "string" ? record.target : "";
-    const count = typeof record.count === "number" ? record.count : 0;
-    if (day && target) current.set(`${day}:${target}`, count);
-  }
-
-  const rows = clicks.map((click) => ({
-    user_id: userId,
-    day: click.day,
-    target: click.target,
-    count: (current.get(`${click.day}:${click.target}`) ?? 0) + click.count,
-  }));
-  const { error: writeError } = await supabase
-    .from(CLICKS_TABLE)
-    .upsert(rows, { onConflict: "user_id,day,target" });
-  if (writeError) {
-    if (isMissingUiClicksTable(writeError.message)) {
-      console.error("Supabase ui_clicks missing. Run supabase/ui_clicks.sql.");
-      return "missing";
-    }
-    console.error("Supabase recordUiClicks upsert", writeError.message);
+    console.error("Supabase recordUiClicks insert", error.message);
     return "failed";
   }
 
@@ -2575,36 +2550,41 @@ export async function recordUiClicks(
     .from(CLICKS_TABLE)
     .delete()
     .eq("user_id", userId)
-    .lt("day", uiClickCutoffDay(now));
+    .lt("logged_at", uiClickCutoffIso(now));
   if (trimError && !isMissingUiClicksTable(trimError.message)) {
     console.error("Supabase recordUiClicks trim", trimError.message);
   }
   return "saved";
 }
 
-/** Totals for one student over the admin visit range. Days are Vietnam calendar days. */
+/** Flush groups for one student. `window` is the visit range; null is the retained history. */
 export async function listStudentUiClicks(
   userId: string,
-  range: UiClickRange,
-  now = Date.now(),
-): Promise<{ clicks: StudentUiClick[]; missing: boolean } | null> {
+  window: { fromIso: string; toIso: string } | null,
+): Promise<{ groups: UiClickGroup[]; missing: boolean } | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase || !userId) return null;
 
-  const bounds = uiClickRangeDays(range, now);
-  const filtered = supabase.from(CLICKS_TABLE).select("target, count").eq("user_id", userId);
-  const query = bounds ? filtered.gte("day", bounds.from).lte("day", bounds.to) : filtered;
+  const filtered = supabase
+    .from(CLICKS_TABLE)
+    .select("logged_at, counts")
+    .eq("user_id", userId)
+    .order("logged_at", { ascending: false })
+    .limit(500);
+  const query = window
+    ? filtered.gte("logged_at", window.fromIso).lt("logged_at", window.toIso)
+    : filtered;
   const { data, error } = await query;
   if (error) {
-    if (isMissingUiClicksTable(error.message)) return { clicks: [], missing: true };
+    if (isMissingUiClicksTable(error.message)) return { groups: [], missing: true };
     console.error("Supabase listStudentUiClicks", error.message);
     return null;
   }
 
-  const rows = (data ?? []).flatMap((row) => {
-    const record = row as { target?: unknown; count?: unknown };
-    if (typeof record.target !== "string" || typeof record.count !== "number") return [];
-    return [{ target: record.target, count: record.count }];
+  const groups = (data ?? []).flatMap((row) => {
+    const record = row as { logged_at?: unknown; counts?: unknown };
+    const group = uiClickGroupFromRow(record.logged_at, record.counts);
+    return group ? [group] : [];
   });
-  return { clicks: summarizeUiClicks(rows), missing: false };
+  return { groups, missing: false };
 }

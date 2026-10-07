@@ -6,9 +6,10 @@ import {
   acceptUiClicks,
   addUiClick,
   mergeUiClicks,
+  placeUiClickGroups,
+  describeVisitClick,
   summarizeUiClicks,
   takeUiClickBatch,
-  uiClickRangeDays,
   vietnamCalendarDay,
 } from "./ui-clicks.js";
 
@@ -74,10 +75,43 @@ test("the server keeps today and yesterday and drops everything else", () => {
   ]);
 });
 
-test("the admin range is inclusive Vietnam days", () => {
-  assert.deepEqual(uiClickRangeDays("today", MIDNIGHT), { from: "2026-10-02", to: "2026-10-02" });
-  assert.deepEqual(uiClickRangeDays("7d", MIDNIGHT), { from: "2026-09-26", to: "2026-10-02" });
-  assert.equal(uiClickRangeDays("all", MIDNIGHT), null);
+test("a flush lands on the visit that was open, not on a later one", () => {
+  const visits = [
+    { id: "early", startedAt: "2026-10-07T05:55:00.000Z", endedAt: "2026-10-07T05:55:10.000Z" },
+    { id: "later", startedAt: "2026-10-07T08:00:00.000Z", endedAt: "2026-10-07T08:10:00.000Z" },
+  ];
+  const placed = placeUiClickGroups(visits, [
+    {
+      loggedAt: "2026-10-07T05:55:40.000Z",
+      clicks: [
+        { target: "nav.badges", label: "Huy hiệu", count: 1 },
+        { target: "nav.learn", label: "Học", count: 1 },
+      ],
+    },
+    {
+      loggedAt: "2026-10-07T05:56:10.000Z",
+      clicks: [{ target: "nav.badges", label: "Huy hiệu", count: 1 }],
+    },
+    {
+      loggedAt: "2026-10-07T07:00:00.000Z",
+      clicks: [{ target: "nav.quests", label: "Nhiệm vụ", count: 4 }],
+    },
+  ]);
+  assert.deepEqual(placed.byVisitId.get("early"), [
+    { target: "nav.badges", label: "Huy hiệu", count: 2 },
+    { target: "nav.learn", label: "Học", count: 1 },
+  ]);
+  assert.equal(placed.byVisitId.has("later"), false);
+  assert.equal(placed.unmatched.length, 1);
+  assert.equal(placed.unmatched[0]?.clicks[0]?.target, "nav.quests");
+});
+
+test("a visit describes each tab opening", () => {
+  assert.equal(describeVisitClick({ target: "nav.duel", label: "Đấu", count: 1 }), "Opened the Đấu tab once");
+  assert.equal(
+    describeVisitClick({ target: "nav.learn", label: "Học", count: 3 }),
+    "Opened the Học tab 3 times",
+  );
 });
 
 test("click totals sort by count", () => {

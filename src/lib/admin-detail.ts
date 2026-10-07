@@ -877,6 +877,8 @@ export type AdminVisitRow = {
   headline: string;
   /** ISO start time, used to place the visit among other logged events. */
   startedAt: string;
+  /** ISO end time. Click groups logged during the visit use this window. */
+  endedAt: string;
   /** Local calendar day the visit started, e.g. "Mon 5 Oct". */
   day: string;
   /** Local clock range, e.g. "09:12–09:40". */
@@ -1417,6 +1419,7 @@ export function projectStudentVisits(
       id: visit.id,
       headline: formatVisitHeadline(visit),
       startedAt: visit.startedAt,
+      endedAt: visit.endedAt,
       ...visitWhen(visit),
       activeSeconds: visit.activeSeconds,
       idle,

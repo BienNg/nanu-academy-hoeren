@@ -55,7 +55,13 @@ import {
   type StudentRunsPage,
 } from "@/lib/listening-runs";
 import { visitRangeIso } from "@/lib/progress";
-import type { StudentUiClick } from "@/lib/ui-clicks";
+import {
+  describeVisitClick,
+  placeUiClickGroups,
+  UI_CLICK_ICONS,
+  type StudentUiClick,
+  type UiClickGroup,
+} from "@/lib/ui-clicks";
 
 type VisitCategory = AdminVisitDetailGroup["id"];
 
@@ -252,12 +258,47 @@ function VisitDetailGroup({ group }: { group: AdminVisitDetailGroup }) {
   );
 }
 
+function VisitClickLine({
+  clicks,
+  className = "mt-1",
+}: {
+  clicks: readonly StudentUiClick[];
+  className?: string;
+}) {
+  if (clicks.length === 0) return null;
+  return (
+    <span className={`flex flex-wrap gap-1 ${className}`}>
+      {clicks.map((click) => {
+        const phrase = describeVisitClick(click);
+        return (
+          <span
+            key={click.target}
+            title={phrase}
+            className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-admin-badge bg-admin-card px-1.5 text-[12px] font-semibold leading-4 text-admin-ink ring-1 ring-inset ring-admin-border"
+          >
+            <img
+              src={UI_CLICK_ICONS[click.target]}
+              alt=""
+              width={16}
+              height={16}
+              className="h-4 w-4 shrink-0"
+            />
+            <span>{phrase}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function VisitCard({
   visit,
+  clicks,
   open,
   onToggle,
 }: {
   visit: AdminVisitRow;
+  clicks: readonly StudentUiClick[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -268,13 +309,25 @@ function VisitCard({
 
   if (visit.idle) {
     return (
-      <li className="flex items-center gap-space-12 rounded-admin-card border border-dashed border-admin-border px-space-16 py-space-12">
-        <MaterialIcon name="hourglass_empty" className="text-[18px] text-admin-ink-faint" />
-        <span className="text-admin-label-md font-semibold tabular-nums text-admin-ink-muted">
+      <li
+        className={`flex gap-space-12 rounded-admin-card border border-dashed border-admin-border px-space-16 py-space-12 ${
+          clicks.length > 0 ? "items-start" : "items-center"
+        }`}
+      >
+        <MaterialIcon
+          name="hourglass_empty"
+          className={`text-[18px] text-admin-ink-faint ${clicks.length > 0 ? "mt-0.5" : ""}`}
+        />
+        <span
+          className={`text-admin-label-md font-semibold tabular-nums text-admin-ink-muted ${
+            clicks.length > 0 ? "mt-0.5" : ""
+          }`}
+        >
           {visit.timeRange}
         </span>
         <span className="min-w-0 flex-1 text-admin-body-sm text-admin-ink-subtle">
           <span className="block truncate">Opened the app, no study</span>
+          <VisitClickLine clicks={clicks} />
           {visit.onboarding ? (
             <span className="block font-semibold text-admin-ink-muted">{visit.onboarding}</span>
           ) : null}
@@ -321,6 +374,8 @@ function VisitCard({
               <span className="w-[22px] shrink-0" aria-hidden="true" />
             )}
           </span>
+
+          <VisitClickLine clicks={clicks} className="mt-space-8" />
 
           {visit.lessons.length > 0 ? (
             <span className="mt-space-12 flex flex-wrap gap-space-4">
@@ -399,10 +454,20 @@ type DayTimeline = {
   at: number;
   visits: AdminVisitRow[];
   duels: DuelMatchFailure[];
+  clicks: UiClickGroup[];
   activeSeconds: number;
 };
 
-function visitDayTimeline(visits: readonly AdminVisitRow[], duels: readonly DuelMatchFailure[]): DayTimeline[] {
+type DayEntry =
+  | { kind: "visit"; at: number; visit: AdminVisitRow }
+  | { kind: "duel"; at: number; failure: DuelMatchFailure }
+  | { kind: "clicks"; at: number; group: UiClickGroup };
+
+function visitDayTimeline(
+  visits: readonly AdminVisitRow[],
+  duels: readonly DuelMatchFailure[],
+  clicks: readonly UiClickGroup[],
+): DayTimeline[] {
   const days: DayTimeline[] = [];
   const byDay = new Map<string, DayTimeline>();
   const ensure = (day: string, at: number) => {
@@ -411,7 +476,7 @@ function visitDayTimeline(visits: readonly AdminVisitRow[], duels: readonly Duel
       if (at > existing.at) existing.at = at;
       return existing;
     }
-    const created: DayTimeline = { day, at, visits: [], duels: [], activeSeconds: 0 };
+    const created: DayTimeline = { day, at, visits: [], duels: [], clicks: [], activeSeconds: 0 };
     byDay.set(day, created);
     days.push(created);
     return created;
@@ -426,11 +491,31 @@ function visitDayTimeline(visits: readonly AdminVisitRow[], duels: readonly Duel
     const group = ensure(formatVisitDay(failure.createdAt), Number.isNaN(at) ? 0 : at);
     group.duels.push(failure);
   }
-  for (const group of days) {
-    group.duels.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  for (const group of clicks) {
+    const at = Date.parse(group.loggedAt);
+    ensure(formatVisitDay(group.loggedAt), Number.isNaN(at) ? 0 : at).clicks.push(group);
   }
   days.sort((a, b) => b.at - a.at);
   return days;
+}
+
+/** Newest first, so a morning duel sits below the afternoon visits from the same day. */
+function dayEntries(group: DayTimeline): DayEntry[] {
+  const entries: DayEntry[] = [
+    ...group.visits.map((visit) => ({ kind: "visit" as const, at: Date.parse(visit.startedAt) || 0, visit })),
+    ...group.duels.map((failure) => ({
+      kind: "duel" as const,
+      at: Date.parse(failure.createdAt) || 0,
+      failure,
+    })),
+    ...group.clicks.map((clickGroup) => ({
+      kind: "clicks" as const,
+      at: Date.parse(clickGroup.loggedAt) || 0,
+      group: clickGroup,
+    })),
+  ];
+  entries.sort((a, b) => b.at - a.at);
+  return entries;
 }
 
 function useDuelFailures(
@@ -463,16 +548,19 @@ function useDuelFailures(
 
 function VisitFeed({
   visits,
+  clickGroups = [],
   duelFailures = [],
   openVisitId,
   onToggle,
 }: {
   visits: AdminVisitRow[];
+  clickGroups?: readonly UiClickGroup[];
   duelFailures?: readonly DuelMatchFailure[];
   openVisitId: string | null;
   onToggle: (id: string) => void;
 }) {
-  const days = visitDayTimeline(visits, duelFailures);
+  const placed = placeUiClickGroups(visits, clickGroups);
+  const days = visitDayTimeline(visits, duelFailures, placed.unmatched);
 
   return (
     <div className="flex flex-col gap-space-20">
@@ -491,17 +579,34 @@ function VisitFeed({
             </span>
           </div>
           <ul className="mt-1 flex flex-col gap-space-8">
-            {group.duels.map((failure) => (
-              <DuelMatchTimelineRow key={failure.id} failure={failure} />
-            ))}
-            {group.visits.map((visit) => (
-              <VisitCard
-                key={visit.id}
-                visit={visit}
-                open={openVisitId === visit.id}
-                onToggle={() => onToggle(visit.id)}
-              />
-            ))}
+            {dayEntries(group).map((entry) => {
+              if (entry.kind === "duel") {
+                return <DuelMatchTimelineRow key={entry.failure.id} failure={entry.failure} />;
+              }
+              if (entry.kind === "clicks") {
+                return (
+                  <li
+                    key={entry.group.loggedAt}
+                    className="flex items-start gap-space-12 rounded-admin-card border border-dashed border-admin-border px-space-16 py-space-12"
+                  >
+                    <MaterialIcon name="ads_click" className="mt-0.5 text-[18px] text-admin-ink-faint" />
+                    <span className="mt-0.5 text-admin-label-md font-semibold tabular-nums text-admin-ink-muted">
+                      {clockLabel(entry.group.loggedAt)}
+                    </span>
+                    <VisitClickLine clicks={entry.group.clicks} className="min-w-0 flex-1" />
+                  </li>
+                );
+              }
+              return (
+                <VisitCard
+                  key={entry.visit.id}
+                  visit={entry.visit}
+                  clicks={placed.byVisitId.get(entry.visit.id) ?? []}
+                  open={openVisitId === entry.visit.id}
+                  onToggle={() => onToggle(entry.visit.id)}
+                />
+              );
+            })}
           </ul>
         </section>
       ))}
@@ -1032,75 +1137,34 @@ function JumpRunsSection({
   );
 }
 
-function clickEmptyMessage(range: AdminVisitRange): string {
-  if (range === "today") return "No clicks today.";
-  if (range === "7d") return "No clicks in the last 7 days.";
-  return "No clicks yet.";
-}
-
-function ClicksSection({ userId, range }: { userId: string; range: AdminVisitRange }) {
-  const [clicks, setClicks] = useState<StudentUiClick[] | null>(null);
-  const [missing, setMissing] = useState(false);
-  const [failed, setFailed] = useState(false);
+function useVisitClicks(
+  userId: string | undefined,
+  range: AdminVisitRange | undefined,
+  timeZone: string | undefined,
+): UiClickGroup[] {
+  const [groups, setGroups] = useState<UiClickGroup[]>([]);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const requestKey = `${userId}:${range}`;
-  const visible = loadedFor === requestKey ? clicks : null;
+  const window = useMemo(
+    () => (range ? visitRangeIso(range, new Date(), timeZone) : null),
+    [range, timeZone],
+  );
+  const requestKey = `${userId ?? ""}:${range ?? ""}:${window?.fromIso ?? "all"}`;
+  const visible = loadedFor === requestKey ? groups : [];
 
   useEffect(() => {
+    if (!userId || !range) return;
     let cancelled = false;
-    void listAdminStudentClicks(userId, range).then((result) => {
+    void listAdminStudentClicks(userId, window).then((result) => {
       if (cancelled) return;
       setLoadedFor(requestKey);
-      if (!result.ok) {
-        setFailed(true);
-        setMissing(false);
-        setClicks([]);
-        return;
-      }
-      setFailed(false);
-      setMissing(result.missing);
-      setClicks(result.clicks);
+      setGroups(result.ok ? result.groups : []);
     });
     return () => {
       cancelled = true;
     };
-  }, [requestKey, userId, range]);
+  }, [requestKey, userId, range, window]);
 
-  const top = visible?.[0]?.count ?? 0;
-
-  return (
-    <section aria-label="Clicks" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
-      <ColumnHeader title="Clicks" description="Bottom-nav taps, counted in Vietnam time." />
-      {visible == null ? (
-        <EmptyPanel>Loading clicks…</EmptyPanel>
-      ) : failed ? (
-        <EmptyPanel>Could not load clicks.</EmptyPanel>
-      ) : missing ? (
-        <EmptyPanel>Click tracking is not set up yet. Run supabase/ui_clicks.sql.</EmptyPanel>
-      ) : visible.length === 0 ? (
-        <EmptyPanel>{clickEmptyMessage(range)}</EmptyPanel>
-      ) : (
-        <Panel>
-          <ul>
-            {visible.map((click) => (
-              <li key={click.target} className="border-t border-admin-hairline px-space-20 py-space-16 first:border-t-0">
-                <div className="flex items-baseline justify-between gap-space-12">
-                  <span className="text-admin-body-md text-admin-ink">{click.label}</span>
-                  <span className="font-admin-display text-admin-body-md tabular-nums text-admin-ink">{click.count}</span>
-                </div>
-                <div className="mt-space-8 h-1.5 overflow-hidden rounded-full bg-admin-hairline" aria-hidden="true">
-                  <div
-                    className="h-full rounded-full bg-admin-cobalt"
-                    style={{ width: `${top > 0 ? Math.max(8, Math.round((click.count / top) * 100)) : 0}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-    </section>
-  );
+  return visible;
 }
 
 function duelFailureEmptyMessage(range: AdminVisitRange): string {
@@ -1238,42 +1302,6 @@ function visitStripStats(visits: readonly AdminVisitRow[]) {
   };
 }
 
-/** Activity-tab logs that are stored apart from the visit record. */
-export function StudentActivityLogs({
-  userId,
-  catalog,
-  range,
-  timeZone,
-  hideWhenEmpty = false,
-}: {
-  userId: string;
-  catalog: readonly AdminCatalogCourse[];
-  range: AdminVisitRange;
-  timeZone: string | undefined;
-  hideWhenEmpty?: boolean;
-}) {
-  return (
-    <>
-      <ListeningRunsSection
-        userId={userId}
-        catalog={catalog}
-        revision={0}
-        range={range}
-        timeZone={timeZone}
-        hideWhenEmpty={hideWhenEmpty}
-      />
-      <JumpRunsSection
-        userId={userId}
-        catalog={catalog}
-        revision={0}
-        range={range}
-        timeZone={timeZone}
-        hideWhenEmpty={hideWhenEmpty}
-      />
-    </>
-  );
-}
-
 export function VisitDayList({
   visits,
   userId,
@@ -1287,10 +1315,12 @@ export function VisitDayList({
 }) {
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const duelFailures = useDuelFailures(userId, range, timeZone);
+  const clickGroups = useVisitClicks(userId, range, timeZone);
   if (visits.length === 0 && duelFailures.length === 0) return null;
   return (
     <VisitFeed
       visits={visits}
+      clickGroups={clickGroups}
       duelFailures={duelFailures}
       openVisitId={openVisitId}
       onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
@@ -1318,6 +1348,7 @@ export function ActivityTab({
   const [openVisitId, setOpenVisitId] = useState<string | null>(null);
   const visitStats = visitStripStats(visitLog.visits);
   const duelFailures = useDuelFailures(userId, range, timeZone);
+  const clickGroups = useVisitClicks(userId, range, timeZone);
 
   return (
     <div className="grid items-start gap-x-space-32 gap-y-space-40 lg:grid-cols-2">
@@ -1356,6 +1387,7 @@ export function ActivityTab({
             />
             <VisitFeed
               visits={visitLog.visits}
+              clickGroups={clickGroups}
               duelFailures={duelFailures}
               openVisitId={openVisitId}
               onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
@@ -1364,7 +1396,6 @@ export function ActivityTab({
         )}
       </section>
       <div className="flex min-w-0 flex-col gap-space-40">
-        <ClicksSection userId={userId} range={range} />
         <DuelMatchFailuresSection
           userId={userId}
           revision={runsRevision}

@@ -9,7 +9,7 @@ import { badgeCheckDue, markBadgeCheck } from "@/lib/badge-unseen";
 import { readFreshBadges, type FreshBadge } from "@/lib/badges";
 import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/quest-badge";
 import { questZoneHeaders } from "@/lib/quests";
-import { trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
+import { flushTrackedClicks, trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
 
 const ITEMS = [
   { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-3 sm:px-4", target: "nav.learn" },
@@ -98,6 +98,10 @@ function requestFreshBadges(): Promise<FreshBadge[]> | null {
 export function BottomNav() {
   const livePath = usePathname() ?? "/";
   const pendingPath = useSyncExternalStore(subscribePendingNav, readPendingNav, () => null);
+
+  useEffect(() => {
+    flushTrackedClicks();
+  }, [livePath]);
   const pathname = pendingPath ?? livePath;
   const [challenges, setChallenges] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);

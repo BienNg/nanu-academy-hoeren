@@ -10,7 +10,7 @@ import {
   type StudentAccessPatch,
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
-import { StudentActivityLogs, VisitDayList } from "@/components/admin/student-detail/ActivityTab";
+import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
 import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import {
@@ -270,13 +270,6 @@ function StudentSummary({
             timeZone={payload.progress.streakTimeZone}
           />
         )}
-        <StudentActivityLogs
-          userId={userId}
-          catalog={catalog}
-          range="7d"
-          timeZone={payload.progress.streakTimeZone}
-          hideWhenEmpty
-        />
       </section>
     </>
   );
