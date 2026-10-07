@@ -25,12 +25,24 @@ function tenseMeta(tables: TenseTables, tense: GrammarTense): { label: string; l
   return { label: meta?.label ?? tense, labelVi: meta?.labelVi ?? "" };
 }
 
-function Title({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
+/** Same white card as the practice exercises. */
+const CARD =
+  "rounded-[24px] border border-white/20 bg-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl";
+
+/** Prompt row shared with multiple choice: a blue icon, a small label, the title. */
+function PromptCard({ icon, eyebrow, title }: { icon: string; eyebrow: string; title: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[13px] font-extrabold uppercase tracking-wider text-[#86868b]">{eyebrow}</span>
-      <h1 className="text-[24px] font-extrabold leading-tight tracking-tight text-[#1d1d1f]">{children}</h1>
-    </div>
+    <section className={`${CARD} flex items-center gap-3 p-5 md:p-6`}>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
+        <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+          {icon}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[12px] font-bold uppercase tracking-wide text-[#0066cc]">{eyebrow}</p>
+        <h1 className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">{title}</h1>
+      </div>
+    </section>
   );
 }
 
@@ -39,7 +51,7 @@ function TensePill({ tables, tense, compact = false }: { tables: TenseTables; te
   const { label, labelVi } = tenseMeta(tables, tense);
   return (
     <span
-      className={`flex w-full min-w-0 flex-col items-center justify-center rounded-xl text-center ${TENSE_TONE[tense].head} ${
+      className={`flex w-full min-w-0 flex-col items-center justify-center rounded-xl text-center shadow-[0_3px_0_rgba(0,0,0,0.12)] ${TENSE_TONE[tense].head} ${
         compact ? "px-0.5 py-1.5" : "px-3 py-2"
       }`}
     >
@@ -86,9 +98,9 @@ function Reveal({
     <motion.div
       className={className}
       style={style}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 420, damping: 28, mass: 0.7 }}
     >
       {children}
     </motion.div>
@@ -97,25 +109,20 @@ function Reveal({
 
 function OverviewScreen({ tables }: { tables: TenseTables }) {
   return (
-    <div className="flex flex-col gap-6">
-      <Title eyebrow="Ngữ pháp mới">Vergangenheit – Quá khứ</Title>
+    <div className="flex flex-col gap-4">
+      <PromptCard icon="school" eyebrow="Ngữ pháp mới" title="Vergangenheit – Quá khứ" />
       <ul className="flex flex-col gap-3">
         {STUDY_TABLE_TENSES.map((tense) => {
           const use = TENSE_USE[tense];
           const { label, labelVi } = tenseMeta(tables, tense);
           return (
-            <li
-              key={tense}
-              className={`flex items-center gap-3 rounded-2xl border-2 border-b-4 ${TENSE_TONE[tense].ring} ${TENSE_TONE[tense].soft} px-3 py-3`}
-            >
-              <span
-                className={`flex h-14 w-[104px] shrink-0 flex-col items-center justify-center rounded-xl ${TENSE_TONE[tense].head}`}
-              >
-                <span className="text-[15px] font-extrabold">{label}</span>
-                <span className="text-[13px]">{labelVi}</span>
-              </span>
+            <li key={tense} className={`overflow-hidden rounded-2xl border-2 border-b-4 bg-white ${TENSE_TONE[tense].ring}`}>
+              <div className={`flex items-baseline justify-between gap-3 px-4 py-3 ${TENSE_TONE[tense].head}`}>
+                <span className="text-[16px] font-extrabold">{label}</span>
+                <span className="text-[14px]">{labelVi}</span>
+              </div>
               {use ? (
-                <span className="flex min-w-0 items-center gap-2">
+                <div className="flex items-center gap-2 px-4 py-3">
                   <span className={`material-symbols-outlined text-[26px] ${TENSE_TONE[tense].label}`} aria-hidden="true">
                     {use.icon}
                   </span>
@@ -123,7 +130,7 @@ function OverviewScreen({ tables }: { tables: TenseTables }) {
                     <span className="block text-[16px] font-bold text-[#1d1d1f]">{use.de}</span>
                     <span className="block text-[14px] italic leading-snug text-[#3a3a3c]">{use.vi}</span>
                   </span>
-                </span>
+                </div>
               ) : null}
             </li>
           );
@@ -135,39 +142,42 @@ function OverviewScreen({ tables }: { tables: TenseTables }) {
 
 function KnownScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "known" }>; tables: TenseTables }) {
   return (
-    <div className="flex flex-col gap-5">
-      <Title eyebrow="Bạn đã biết">Vergangenheit – Quá khứ</Title>
-      <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-x-2 gap-y-3">
-        {STUDY_TABLE_TENSES.map((tense) => (
-          <TensePill key={tense} tables={tables} tense={tense} compact />
-        ))}
-        {screen.rows.map((row) => (
-          <div key={row.praesens} className="contents">
-            <span className="text-[16px] font-semibold text-[#1d1d1f]">{row.praesens}</span>
-            <span className={`text-[15px] font-semibold ${TENSE_TONE.perfekt.text}`}>{row.perfekt}</span>
-            {row.today ? (
-              <span className="flex justify-center">
-                <span
-                  className={
-                    screen.callout
-                      ? "flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-[#1d8fb0] text-[22px] font-black text-[#8a2fb0]"
-                      : "text-[28px] font-black leading-none text-[#8a2fb0]"
-                  }
-                  aria-label="Hôm nay học"
-                >
-                  ?
+    <div className="flex flex-col gap-4">
+      <PromptCard icon="lightbulb" eyebrow="Bạn đã biết" title="Vergangenheit – Quá khứ" />
+      <section className={`${CARD} p-4 md:p-5`}>
+        <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-x-2 gap-y-3">
+          {STUDY_TABLE_TENSES.map((tense) => (
+            <TensePill key={tense} tables={tables} tense={tense} compact />
+          ))}
+          {screen.rows.map((row, index) => (
+            <div key={row.praesens} className="contents">
+              {index > 0 ? <div className="col-span-3 h-px bg-black/[0.06]" style={{ gridColumn: "1 / -1" }} /> : null}
+              <span className="text-[16px] font-semibold text-[#1d1d1f]">{row.praesens}</span>
+              <span className={`text-[15px] font-semibold ${TENSE_TONE.perfekt.text}`}>{row.perfekt}</span>
+              {row.today ? (
+                <span className="flex justify-center">
+                  <span
+                    className={
+                      screen.callout
+                        ? "flex h-11 w-11 items-center justify-center rounded-full border-2 border-b-4 border-[#9a3ec0] bg-[#f7ebfb] text-[22px] font-black text-[#8a2fb0]"
+                        : "text-[28px] font-black leading-none text-[#8a2fb0]"
+                    }
+                    aria-label="Hôm nay học"
+                  >
+                    ?
+                  </span>
                 </span>
-              </span>
-            ) : (
-              <span className="text-center text-[13px] italic leading-snug text-[#86868b]">
-                noch nicht gelernt – chưa học
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+              ) : (
+                <span className="rounded-xl bg-[#f5f5f7] px-1.5 py-1 text-center text-[12px] font-medium leading-snug text-[#86868b]">
+                  noch nicht gelernt – chưa học
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
       {screen.callout ? (
-        <p className="rounded-2xl bg-[#e6f8fb] px-4 py-3 text-center text-[16px] font-semibold text-[#007a8a]">
+        <p className="rounded-2xl border-2 border-b-4 border-[#84d8ff] bg-[#ddf4ff] px-4 py-3 text-center text-[16px] font-bold text-[#0066cc]">
           Das lernen wir heute. – Hôm nay học <span aria-hidden="true">🤙</span>
         </p>
       ) : null}
@@ -202,8 +212,8 @@ function TableCell({
       type="button"
       onClick={() => onPlay(audioPath)}
       aria-label={`Nghe: ${cell.spoken}`}
-      className={`block w-full rounded-lg px-1.5 py-1.5 text-left transition-colors ${
-        playing ? "bg-[#ddf4ff]" : "active:bg-[#f0f0f3]"
+      className={`block w-full rounded-xl px-1.5 py-1.5 text-left transition-colors ${
+        playing ? "bg-[#ddf4ff]" : "hover:bg-[#f5f5f7] active:bg-[#f0f0f3]"
       } ${FOCUS_RING}`}
     >
       {text}
@@ -229,10 +239,9 @@ function TableScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
   const freshTense: GrammarTense | null = step === 2 ? "praesens" : step === 3 ? "perfekt" : step === 5 ? "praeteritum" : null;
   const column = (tense: GrammarTense) => STUDY_TABLE_TENSES.indexOf(tense) + 2;
   return (
-    <div className="flex flex-col gap-5">
-      <span className="self-start rounded-xl bg-gradient-to-r from-[#fff3b0] to-[#ffb3f2] px-5 py-2 text-[18px] font-extrabold text-[#1d1d1f]">
-        {screen.verb}
-      </span>
+    <div className="flex flex-col gap-4">
+      <PromptCard icon="table_chart" eyebrow="Chia thì" title={screen.verb} />
+      <section className={`${CARD} p-3 sm:p-5`}>
       <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1.5">
         {STUDY_TABLE_TENSES.map((tense) => (
           <div key={tense} style={{ gridRow: 1, gridColumn: column(tense) }} className="flex">
@@ -267,14 +276,15 @@ function TableScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
         {step === 4 ? (
           <Reveal
             fresh
-            className="flex items-center justify-center text-[110px] font-black leading-none text-[#c364e0]"
+            className="flex items-center justify-center text-[72px] font-black leading-none text-[#c364e0] sm:text-[96px]"
             style={{ gridRow: `2 / span ${screen.rows.length}`, gridColumn: column("praeteritum") }}
           >
             <span aria-label="Präteritum: ?">?</span>
           </Reveal>
         ) : null}
       </div>
-      {step >= 2 ? <p className="text-center text-[13px] text-[#86868b]">Chạm vào từng từ để nghe.</p> : null}
+      </section>
+      {step >= 2 ? <p className="text-center text-[13px] font-medium text-[#86868b]">Chạm vào từng từ để nghe.</p> : null}
     </div>
   );
 }
@@ -282,8 +292,8 @@ function TableScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "
 function BeispieleScreen({ screen, tables }: { screen: Extract<ReadScreen, { kind: "beispiele" }>; tables: TenseTables }) {
   const { play, playingPath } = useClipPlayer();
   return (
-    <div className="flex flex-col gap-5">
-      <Title eyebrow="Beispiele">Ví dụ</Title>
+    <div className="flex flex-col gap-4">
+      <PromptCard icon="forum" eyebrow="Beispiele" title="Ví dụ" />
       <ul className="flex flex-col gap-4">
         {screen.rows.slice(0, screen.shown).map((row: StudyExample, index) => {
           const tone = TENSE_TONE[row.tense];

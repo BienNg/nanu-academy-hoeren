@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useState, useRef, type ReactNode, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import type { Howl } from "howler";
 import { ChunkyButton } from "@/components/chunkyButton";
 import { createClipHowl, resolveAudioUrl } from "@/lib/audio";
-import { FOCUS_RING, isCardEnter } from "@/lib/keyboard";
+import { cardShortcutsBlocked, FOCUS_RING, hasModifier, isCardEnter, isTextEntry } from "@/lib/keyboard";
 
 const PRAISE = ["Tuyệt vời!", "Xuất sắc!", "Chính xác!", "Giỏi lắm!", "Perfekt!", "Super!"];
 
@@ -101,7 +102,51 @@ type FeedbackSheetProps = {
   /** Small text action under the title, e.g. "Xem lại thẻ". */
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Steps to the previous screen, beside the continue button. */
+  onBack?: () => void;
+  backDisabled?: boolean;
+  backLabel?: string;
 };
+
+/** Square back control shared by the check bar and the feedback sheet. */
+function BackButton({
+  onBack,
+  disabled = false,
+  label,
+}: {
+  onBack: () => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <ChunkyButton
+      variant={disabled ? "disabled" : "secondary"}
+      disabled={disabled}
+      onClick={onBack}
+      className="w-[52px] shrink-0 px-0"
+      aria-label={label}
+    >
+      <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+        arrow_back
+      </span>
+    </ChunkyButton>
+  );
+}
+
+/** Left arrow steps back, except while typing or in a dialog. */
+function useBackKey(onBack: (() => void) | undefined, disabled: boolean) {
+  useEffect(() => {
+    if (!onBack || disabled) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowLeft" || event.shiftKey || hasModifier(event)) return;
+      if (cardShortcutsBlocked(event) || isTextEntry(event.target)) return;
+      event.preventDefault();
+      onBack();
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [disabled, onBack]);
+}
 
 /**
  * Kiểm tra pinned to the bottom of the screen. The feedback sheet takes this
@@ -113,6 +158,9 @@ export function CheckBar({
   label = "Kiểm tra · Prüfen",
   autoFocus = false,
   buttonRef,
+  onBack,
+  backDisabled = false,
+  backLabel = "Màn trước",
 }: {
   disabled?: boolean;
   onClick: () => void;
@@ -121,24 +169,36 @@ export function CheckBar({
   autoFocus?: boolean;
   /** Lets a card hand keyboard focus to Kiểm tra. */
   buttonRef?: Ref<HTMLButtonElement>;
+  /** Steps to the previous screen. Left out, the bar is one full-width button. */
+  onBack?: () => void;
+  backDisabled?: boolean;
+  backLabel?: string;
 }) {
-  return (
-    <>
-      <div aria-hidden="true" className="h-24" />
+  useBackKey(onBack, backDisabled);
+  const [docked, setDocked] = useState(false);
+  useEffect(() => setDocked(true), []);
+  // Portaled so a sliding card (a transformed parent) cannot pull the bar off the screen edge.
+  const bar = (
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-[#fbfbfd]/95 backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-2xl px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex w-full max-w-2xl gap-3 px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          {onBack ? <BackButton onBack={onBack} disabled={backDisabled} label={backLabel} /> : null}
           <ChunkyButton
             ref={buttonRef}
             variant={disabled ? "disabled" : "primary"}
             disabled={disabled}
             autoFocus={autoFocus}
             onClick={onClick}
-            className="w-full"
+            className="min-w-0 flex-1"
           >
             {label}
           </ChunkyButton>
         </div>
       </div>
+  );
+  return (
+    <>
+      <div aria-hidden="true" className="h-24" />
+      {docked ? createPortal(bar, document.body) : null}
     </>
   );
 }
@@ -157,6 +217,9 @@ export function FeedbackSheet({
   onAction,
   secondaryLabel,
   onSecondary,
+  onBack,
+  backDisabled = false,
+  backLabel = "Màn trước",
 }: FeedbackSheetProps) {
   const style = TONES[tone];
   const reduceMotion = useReducedMotion();
@@ -164,19 +227,24 @@ export function FeedbackSheet({
   const actionRef = useRef<HTMLButtonElement>(null);
   const [height, setHeight] = useState(0);
 
+  useBackKey(onBack, backDisabled);
+  const [docked, setDocked] = useState(false);
+  useEffect(() => setDocked(true), []);
+
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
+    const node = sheetRef.current;
+    if (!node) return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setHeight(entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height);
     });
-    observer.observe(sheet);
+    observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [docked]);
 
   useEffect(() => {
+    if (!docked) return;
     actionRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [docked]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -189,9 +257,7 @@ export function FeedbackSheet({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onAction]);
 
-  return (
-    <>
-      <div aria-hidden="true" style={{ height }} />
+  const sheet = (
       <motion.div
         ref={sheetRef}
         role="status"
@@ -236,16 +302,24 @@ export function FeedbackSheet({
               ) : null}
             </div>
           </div>
-          <ChunkyButton
-            ref={actionRef}
-            variant={style.button}
-            onClick={onAction}
-            className="w-full"
-          >
-            {actionLabel}
-          </ChunkyButton>
+          <div className="flex gap-3">
+            {onBack ? <BackButton onBack={onBack} disabled={backDisabled} label={backLabel} /> : null}
+            <ChunkyButton
+              ref={actionRef}
+              variant={style.button}
+              onClick={onAction}
+              className="min-w-0 flex-1"
+            >
+              {actionLabel}
+            </ChunkyButton>
+          </div>
         </div>
       </motion.div>
+  );
+  return (
+    <>
+      <div aria-hidden="true" style={{ height }} />
+      {docked ? createPortal(sheet, document.body) : null}
     </>
   );
 }

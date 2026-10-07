@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { SessionCourse } from "@/lib/session-course";
 import type { GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
 import { checkStudyTranslate, grammarStudyParts, isStudyTask, type GrammarStudyTask } from "@/lib/grammar-node";
@@ -73,7 +74,11 @@ export function GrammarStudySession({
   const parts = useMemo(() => grammarStudyParts(course.lessonKey, topic), [course.lessonKey, topic]);
   const part = parts[partNumber - 1];
   const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [answered, setAnswered] = useState<Answered | null>(null);
+  const reduceMotion = useReducedMotion();
+  /** The opening screen stays put; later screens slide in from the direction of travel. */
+  const hasMoved = useRef(false);
   const [phase, setPhase] = useState<"screens" | "complete" | "leaving">("screens");
   const startedAtRef = useRef(0);
   const [checks, setChecks] = useState({ asked: 0, right: 0 });
@@ -109,7 +114,17 @@ export function GrammarStudySession({
       setPhase("complete");
       return;
     }
+    hasMoved.current = true;
+    setDirection(1);
     setIndex(index + 1);
+  };
+
+  const back = () => {
+    if (index === 0) return;
+    hasMoved.current = true;
+    setDirection(-1);
+    setAnswered(null);
+    setIndex(index - 1);
   };
 
   const settle = (result: Answered) => {
@@ -176,12 +191,21 @@ export function GrammarStudySession({
   return (
     <GrammarPage header={<GrammarHeader progress={progress} onClose={() => leave(course.pathHref)} />}>
       <main className="relative flex w-full flex-1 flex-col items-center">
-        <div className="flex w-full max-w-2xl flex-col px-4 pt-6 pb-24 sm:px-6 [@media(max-height:700px)]:pt-3">
-          {screen && isStudyTask(screen) ? (
+        <div className="flex w-full max-w-2xl flex-col overflow-x-hidden px-4 pt-6 pb-24 sm:px-6 [@media(max-height:700px)]:pt-3">
+          {screen ? (
+            <motion.div
+              key={screen.key}
+              initial={reduceMotion || !hasMoved.current ? false : { opacity: 0, x: direction * 56 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            >
+          {isStudyTask(screen) ? (
             <>
               {screen.kind === "choice" ? (
                 <McCard
                   key={screen.key}
+                  onBack={back}
+                  backDisabled={index === 0}
                   eyebrow="Übung · Präteritum"
                   icon="edit_note"
                   prompt={
@@ -200,6 +224,8 @@ export function GrammarStudySession({
               ) : (
                 <SentenceOrderCard
                   key={screen.key}
+                  onBack={back}
+                  backDisabled={index === 0}
                   eyebrow="Übung · Präteritum"
                   translation={<CueText cue={screen.cue} />}
                   chips={screen.bank}
@@ -227,6 +253,8 @@ export function GrammarStudySession({
                   title={answered.correct ? praiseFor(screen.key) : "Chưa đúng"}
                   actionLabel="Tiếp tục"
                   onAction={next}
+                  onBack={back}
+                  backDisabled={index === 0}
                 >
                   <TaskFeedback screen={screen} answered={answered} />
                 </FeedbackSheet>
@@ -235,8 +263,10 @@ export function GrammarStudySession({
           ) : screen ? (
             <>
               <GrammarReadScreen key={screen.key} screen={screen} tables={tables} />
-              <ContinueBar onContinue={next} />
+              <ContinueBar onContinue={next} onBack={back} backDisabled={index === 0} />
             </>
+          ) : null}
+            </motion.div>
           ) : null}
         </div>
       </main>

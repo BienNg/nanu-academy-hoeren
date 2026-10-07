@@ -66,14 +66,30 @@ export function GrammarPage({ header, children }: { header?: ReactNode; children
       className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col overflow-x-hidden bg-[#fbfbfd] selection:bg-[#0066cc] selection:text-white"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
-      {header}
-      {children}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden opacity-50">
+        <div className="absolute -top-[20%] -left-[10%] h-[70%] w-[70vw] rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/40 blur-3xl" />
+        <div className="absolute top-[10%] -right-[10%] h-[60%] w-[60vw] rounded-full bg-gradient-to-bl from-teal-100/30 to-blue-50/30 blur-3xl" />
+      </div>
+      <div className="relative z-10 flex min-h-dvh w-full flex-1 flex-col">
+        {header}
+        {children}
+      </div>
     </div>
   );
 }
 
 /** "Tiếp tục" pinned to the bottom; Enter presses it too. For screens with nothing to check. */
-export function ContinueBar({ onContinue, label = "Tiếp tục · Weiter" }: { onContinue: () => void; label?: string }) {
+export function ContinueBar({
+  onContinue,
+  label = "Tiếp tục · Weiter",
+  onBack,
+  backDisabled = false,
+}: {
+  onContinue: () => void;
+  label?: string;
+  onBack?: () => void;
+  backDisabled?: boolean;
+}) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (cardShortcutsBlocked(event) || !isCardEnter(event)) return;
@@ -84,5 +100,7 @@ export function ContinueBar({ onContinue, label = "Tiếp tục · Weiter" }: { 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onContinue]);
-  return <CheckBar onClick={onContinue} label={label} />;
+  return (
+    <CheckBar onClick={onContinue} label={label} onBack={onBack} backDisabled={backDisabled} />
+  );
 }

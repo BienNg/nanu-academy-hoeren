@@ -26,6 +26,9 @@ type SentenceOrderCardProps = {
   eyebrow?: string;
   /** Line above `translation`. Defaults to asking for a translation into German. */
   instruction?: string;
+  /** Steps to the previous screen from the check bar. */
+  onBack?: () => void;
+  backDisabled?: boolean;
 };
 
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
@@ -55,6 +58,8 @@ export function SentenceOrderCard({
   afterPrompt,
   eyebrow = "Sắp xếp câu · Satzbau",
   instruction = "Dịch câu này sang tiếng Đức",
+  onBack,
+  backDisabled = false,
 }: SentenceOrderCardProps) {
   const listening = translation === undefined;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -224,7 +229,13 @@ export function SentenceOrderCard({
       </LayoutGroup>
 
       {locked ? null : (
-        <CheckBar disabled={!canSubmit} onClick={handleSubmit} buttonRef={checkRef} />
+        <CheckBar
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+          buttonRef={checkRef}
+          onBack={onBack}
+          backDisabled={backDisabled}
+        />
       )}
     </>
   );

@@ -21,6 +21,9 @@ type McCardProps = {
   eyebrow?: string;
   /** Muted line under the prompt, such as the translation. */
   hint?: string;
+  /** Steps to the previous screen from the check bar. */
+  onBack?: () => void;
+  backDisabled?: boolean;
 };
 
 function optionTone(isSelected: boolean, isCorrect: boolean, checked: boolean): string {
@@ -54,6 +57,8 @@ export function McCard({
   afterPrompt,
   eyebrow,
   hint,
+  onBack,
+  backDisabled = false,
 }: McCardProps) {
   const checked = result !== null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -145,7 +150,9 @@ export function McCard({
         })}
       </section>
 
-      {checked ? null : <CheckBar disabled={!canSubmit} onClick={handleSubmit} />}
+      {checked ? null : (
+        <CheckBar disabled={!canSubmit} onClick={handleSubmit} onBack={onBack} backDisabled={backDisabled} />
+      )}
     </>
   );
 }
