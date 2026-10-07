@@ -40,11 +40,13 @@ function TensePill({ tables, tense, compact = false }: { tables: TenseTables; te
   return (
     <span
       className={`flex w-full min-w-0 flex-col items-center justify-center rounded-xl text-center ${TENSE_TONE[tense].head} ${
-        compact ? "px-1 py-1.5" : "px-3 py-2"
+        compact ? "px-0.5 py-1.5" : "px-3 py-2"
       }`}
     >
-      <span className={`max-w-full truncate font-extrabold ${compact ? "text-[12px]" : "text-[16px]"}`}>{label}</span>
-      <span className={`max-w-full truncate ${compact ? "text-[11px]" : "text-[13px]"}`}>{labelVi}</span>
+      <span className={`max-w-full truncate font-extrabold ${compact ? "text-[11px] min-[360px]:text-[12px]" : "text-[16px]"}`}>
+        {label}
+      </span>
+      <span className={`max-w-full truncate ${compact ? "text-[10px] min-[360px]:text-[11px]" : "text-[13px]"}`}>{labelVi}</span>
     </span>
   );
 }
@@ -215,7 +217,8 @@ const SLIDE_PERSON: Record<string, string> = {
   du: "Du",
   "er/sie/es": "Er/Sie/Es",
   ihr: "Ihr",
-  "wir/sie/Sie": "Wir/sie/Sie",
+  // Spaced as on the slide, so it wraps on a narrow phone.
+  "wir/sie/Sie": "Wir/ sie/ Sie",
 };
 
 /** Step 1 pronouns, 2 Präsens, 3 Perfekt, 4 a question mark, 5 Präteritum. */
