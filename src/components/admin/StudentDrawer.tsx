@@ -227,46 +227,46 @@ function StudentSummary({
   catalog: readonly AdminCatalogCourse[];
   payload: StudentDetailPayload;
 }) {
-  const weekLog = useMemo(
-    () => projectStudentVisits(catalog, payload.progress, "7d"),
+  const todayLog = useMemo(
+    () => projectStudentVisits(catalog, payload.progress, "today"),
     [catalog, payload.progress],
   );
-  const week = weekLog.summary;
+  const today = todayLog.summary;
 
   return (
     <>
-      <Section title="Last 7 days">
+      <Section title="Today">
         <StatGrid
           items={[
             {
               label: "Active time",
-              value: formatActiveDuration(week.activeSeconds),
-              hint: `${formatCount(week.visitCount)} ${week.visitCount === 1 ? "visit" : "visits"}`,
-              color: week.activeSeconds > 0 ? ADMIN_COLORS.ember : undefined,
+              value: formatActiveDuration(today.activeSeconds),
+              hint: `${formatCount(today.visitCount)} ${today.visitCount === 1 ? "visit" : "visits"}`,
+              color: today.activeSeconds > 0 ? ADMIN_COLORS.ember : undefined,
             },
-            { label: "Clips studied", value: formatCount(week.clipCount) },
+            { label: "Clips studied", value: formatCount(today.clipCount) },
             {
               label: "Practice runs",
-              value: formatCount(week.listeningRuns),
-              hint: `${formatCount(week.exercisesCompleted)} practice clips`,
+              value: formatCount(today.listeningRuns),
+              hint: `${formatCount(today.exercisesCompleted)} practice clips`,
             },
             {
               label: "Video",
-              value: formatActiveDuration(week.videoSeconds),
-              hint: `${formatCount(week.videosWatched)} marked watched`,
+              value: formatActiveDuration(today.videoSeconds),
+              hint: `${formatCount(today.videosWatched)} marked watched`,
             },
           ]}
         />
       </Section>
 
       <section className="flex flex-col gap-space-24 px-space-12 py-space-16">
-        {weekLog.visits.length === 0 ? (
-          <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{weekLog.emptyMessage}</p>
+        {todayLog.visits.length === 0 ? (
+          <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{todayLog.emptyMessage}</p>
         ) : (
           <VisitDayList
-            visits={weekLog.visits}
+            visits={todayLog.visits}
             userId={userId}
-            range="7d"
+            range="today"
             timeZone={payload.progress.streakTimeZone}
           />
         )}
