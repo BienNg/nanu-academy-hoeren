@@ -1,10 +1,10 @@
 /**
  * Grammar study and practice nodes (see docs/GRAMMAR_NODES.md).
  *
- * A topic's study node has one part per verb: its table, quick checks, the
- * Perfekt sentence bracket, tips and examples. Its practice node has one part
- * per verb plus a mixed part. Everything is dealt from a seed per Lektion and
- * topic, so the browser, the server and admin build the same cards and keys.
+ * A topic's study node follows the class slides, part by part as authored in
+ * the Lektion. Its practice node has one part per verb plus a mixed part.
+ * Everything is dealt from a seed per Lektion and topic, so the browser, the
+ * server and admin build the same cards and keys.
  *
  * Relative imports only, so the node tests can compile this file.
  */
@@ -12,6 +12,7 @@
 import { seedToRandom } from "./blitzrunde";
 import { findWordIndex, blankScript } from "./grammar-gaps";
 import {
+  endingAfter,
   GRAMMAR_TENSES,
   verbForm,
   type ConjugationTable,
@@ -21,6 +22,7 @@ import {
   type GrammarTip,
   type GrammarTopicContent,
   type GrammarTransformDrill,
+  type StudyExample,
   type TenseTables,
 } from "./grammar-lessons";
 import type { McOption } from "./multiple-choice";
@@ -168,7 +170,7 @@ export function ruleFor(tips: readonly GrammarTip[], verbId: string | null, tens
 
 // ---------------------------------------------------------------- questions
 
-/** A one-tap question: a German line with a blank and 2–4 options. Used by study checks and form-choice cards. */
+/** A one-tap question: a German line with a blank and 2–4 options, for form-choice cards. */
 export type GrammarChoiceQuestion = {
   /** German with GAP_BLANK where the answer goes. */
   prompt: string;
@@ -178,35 +180,6 @@ export type GrammarChoiceQuestion = {
   /** Shown after a wrong answer. */
   ruleVi?: string;
 };
-
-/**
- * "du ___" for one table cell. Options are the same verb and tense for the
- * other persons, so the student must read the pronoun. Perfekt asks for the
- * aux and shows the Partizip.
- */
-export function tableQuestion(
-  tables: TenseTables,
-  verbId: string,
-  tense: GrammarTense,
-  personId: string,
-  random: () => number,
-  ruleVi?: string,
-): GrammarChoiceQuestion | null {
-  const verb = tables.verbs[verbId];
-  const answer = verbForm(tables, verbId, tense, personId);
-  if (!verb || !answer) return null;
-  const right = answer.words[0]!;
-  const wrong = unique(tenseForms(tables, verbId, tense).map((entry) => entry.form)).filter((form) => form !== right);
-  if (wrong.length === 0) return null;
-  const label = personLabel(tables, personId);
-  const prompt = tense === "perfekt" ? `${label} ____ … ${verb.partizip}` : `${label} ____`;
-  return {
-    prompt,
-    hintVi: `${verbId} · ${TENSE_LABEL[tense]}`,
-    options: shuffle([correctOption(right), ...wrongOptions(shuffle(wrong, random).slice(0, 3), ruleVi)], random),
-    ...(ruleVi ? { ruleVi } : {}),
-  };
-}
 
 /**
  * The example with its verb blanked. Präteritum blanks the form, with the
@@ -266,139 +239,182 @@ export function checkChoice(options: readonly McOption[], selectedId: string | n
 
 // ---------------------------------------------------------------- study node
 
-/** A Perfekt sentence cut around its bracket: `Ich | habe | gestern keine Zeit | gehabt.` */
-export type SentenceBracket = {
-  /** Words before the aux, usually the subject. Empty in a question. */
-  lead: string;
-  aux: string;
-  middle: string;
-  partizip: string;
-  /** Punctuation and anything after the Partizip. */
-  tail: string;
-};
+/** Tense columns of a study table, in the class slides' order. */
+export const STUDY_TABLE_TENSES: readonly GrammarTense[] = ["praesens", "perfekt", "praeteritum"];
 
-export function sentenceBracket(script: string, aux: string, partizip: string): SentenceBracket | null {
-  const tokens = tokenizeSentence(script);
-  const words = tokens.map(chipText);
-  const auxAt = findWordIndex(words, aux);
-  const partizipAt = findWordIndex(words, partizip);
-  if (auxAt < 0 || partizipAt <= auxAt) return null;
-  const partizipToken = tokens[partizipAt]!;
-  const partizipWord = words[partizipAt]!;
-  const afterWord = partizipToken.slice(partizipToken.indexOf(partizipWord) + partizipWord.length);
-  return {
-    lead: tokens.slice(0, auxAt).join(" "),
-    aux: words[auxAt]!,
-    middle: tokens.slice(auxAt + 1, partizipAt).join(" "),
-    partizip: partizipWord,
-    tail: [afterWord, ...tokens.slice(partizipAt + 1)].join(" ").trim(),
-  };
-}
+/**
+ * Steps of a study table, one more column per Continue: pronouns, Präsens,
+ * Perfekt, a question mark over Präteritum, then the Präteritum forms.
+ */
+export const TABLE_STEPS = 5;
 
-/** One person's form on a tense screen, e.g. "du" · "hattest" with "st" marked. */
-export type GrammarTenseRow = {
-  personLabel: string;
-  form: string;
+export type StudyTableCell = {
+  text: string;
+  /** The Präteritum ending, bold on the slides: "st" in warst, "en" in waren. */
   highlight: string;
   audioPath: string | null;
   spoken: string;
 };
 
+export type StudyTableRow = { personLabel: string; cells: Record<GrammarTense, StudyTableCell> };
+
+/** A Vietnamese line with the word that says its tense. */
+export type StudyCue = { vi: string; markerVi?: string; tense: GrammarTense };
+
 export type GrammarStudyScreen =
-  | { kind: "intro"; key: string; titleVi: string; tenses: GrammarTense[] }
+  | { kind: "overview"; key: string }
   | {
-      kind: "tense";
+      kind: "known";
       key: string;
-      verb: string;
-      tense: GrammarTense;
-      rows: GrammarTenseRow[];
-      /** Pingu explains these on the screen. */
-      tips: GrammarTip[];
+      rows: { praesens: string; perfekt: string; today: boolean }[];
+      /** The second step circles today's column and says we learn it now. */
+      callout: boolean;
     }
-  | { kind: "check"; key: string; question: GrammarChoiceQuestion }
-  | { kind: "bracket"; key: string; example: GrammarExample; bracket: SentenceBracket; tips: GrammarTip[] }
-  | { kind: "tips"; key: string; tips: GrammarTip[] }
-  | { kind: "examples"; key: string; examples: GrammarExample[] };
+  | { kind: "table"; key: string; verb: string; step: number; rows: StudyTableRow[] }
+  /** The first `shown` rows are visible; `newest` is the row this step added, null when shown whole. */
+  | { kind: "beispiele"; key: string; rows: StudyExample[]; shown: number; newest: number | null }
+  | {
+      kind: "choice";
+      key: string;
+      cue: StudyCue;
+      /** German with GAP_BLANK. Null: the options are whole sentences. */
+      prompt: string | null;
+      options: McOption[];
+      script: string;
+      audioPath: string | null;
+      ruleVi: string;
+    }
+  | {
+      kind: "translate";
+      key: string;
+      cue: StudyCue;
+      answers: string[];
+      bank: WordChip[];
+      hints: { de: string; vi: string }[];
+      audioPaths: (string | null)[];
+      ruleVi: string;
+    };
 
-/** Tenses in teaching order: the known Präsens first, then the one-word past, then Perfekt. */
-export const STUDY_TENSE_ORDER: readonly GrammarTense[] = ["praesens", "praeteritum", "perfekt"];
+/** Screens that ask something; the rest are read, then continued. */
+export type GrammarStudyTask = Extract<GrammarStudyScreen, { kind: "choice" | "translate" }>;
 
-function tenseRows(table: ConjugationTable, tense: GrammarTense): GrammarTenseRow[] {
-  return table.rows.map((row) => ({
-    personLabel: row.person.label,
-    form: row.cells[tense].text,
-    highlight: row.cells[tense].highlight,
-    audioPath: row.cells[tense].audioPath,
-    spoken: row.cells[tense].spoken,
-  }));
+export function isStudyTask(screen: GrammarStudyScreen): screen is GrammarStudyTask {
+  return screen.kind === "choice" || screen.kind === "translate";
 }
 
 export type GrammarStudyPart = {
-  /** Stored once the part is finished. Stays the same while the verb list does. */
+  /** Stored once the part is finished. */
   key: string;
-  verb: string;
+  titleVi: string;
   screens: GrammarStudyScreen[];
 };
 
-/** A quick check follows the screen of each new past tense. */
-const CHECKED_TENSES: ReadonlySet<GrammarTense> = new Set(["praeteritum", "perfekt"]);
+/** The ending as the slides mark it: the wir form ends in "en" (hatten, waren), not just "n". */
+function slideEnding(form: string, base: string): string {
+  const ending = endingAfter(form, base);
+  return ending === "n" && form.endsWith("en") ? "en" : ending;
+}
+
+function studyTableRows(table: ConjugationTable): StudyTableRow[] {
+  const base = table.rows[0]?.cells.praeteritum.text ?? "";
+  return table.rows.map((row) => {
+    const cells = {} as Record<GrammarTense, StudyTableCell>;
+    for (const tense of GRAMMAR_TENSES) {
+      const cell = row.cells[tense];
+      cells[tense] = {
+        text: cell.text,
+        highlight: tense === "praeteritum" ? slideEnding(cell.text, base) : cell.highlight,
+        audioPath: cell.audioPath,
+        spoken: cell.spoken,
+      };
+    }
+    return { personLabel: row.person.label, cells };
+  });
+}
+
+function cueOf(screen: { vi: string; markerVi?: string; tense: GrammarTense }): StudyCue {
+  return { vi: screen.vi, tense: screen.tense, ...(screen.markerVi ? { markerVi: screen.markerVi } : {}) };
+}
 
 /**
- * One study part per verb, one idea per screen so it fits a phone:
- * intro (first part only), then a screen per tense in STUDY_TENSE_ORDER, each
- * new past tense followed by a quick check (Perfekt after its sentence
- * bracket), then the remaining tips, the examples and a final check.
- *
- * Tips land where they explain something: a tip tagged with a tense is on that
- * tense's screen, except a general Perfekt tip, which explains the bracket.
+ * The study node as taught on the class slides: the topic's authored parts,
+ * with a table expanded into TABLE_STEPS screens and a step-by-step Beispiele
+ * into one screen per line.
  */
-export function grammarStudyParts(
-  lessonKey: string,
-  topic: GrammarTopicContent,
-  tables: TenseTables,
-): GrammarStudyPart[] {
-  const random = seedToRandom(grammarSeed(lessonKey, topic.id, "study"));
-  return topic.tables.map((table, index) => {
-    const verbId = table.verb;
-    const verb = tables.verbs[verbId]!;
-    const examples = topic.examples.filter((example) => example.verb === verbId);
+export function grammarStudyParts(lessonKey: string, topic: GrammarTopicContent): GrammarStudyPart[] {
+  return topic.study.map((part) => {
     const screens: GrammarStudyScreen[] = [];
-    const key = (name: string) => `${topic.id}:${verbId}:${name}`;
-
-    if (index === 0) {
-      screens.push({ kind: "intro", key: key("intro"), titleVi: topic.titleVi, tenses: [...GRAMMAR_TENSES] });
-    }
-    const forVerb = topic.tips.filter((tip) => tip.verb === undefined || tip.verb === verbId);
-    const perfekt = examples.filter((example) => example.tense === "perfekt");
-    const statement = perfekt.find((example) => !example.script.trim().endsWith("?")) ?? perfekt[0];
-    const auxForm = statement ? verbForm(tables, verbId, "perfekt", statement.person)?.words[0] : undefined;
-    const bracket = statement && auxForm ? sentenceBracket(statement.script, auxForm, verb.partizip) : null;
-    const bracketTips = bracket ? forVerb.filter((tip) => tip.tense === "perfekt" && tip.verb === undefined) : [];
-
-    for (const tense of STUDY_TENSE_ORDER) {
-      const tips = forVerb.filter((tip) => tip.tense === tense && !bracketTips.includes(tip));
-      screens.push({ kind: "tense", key: key(`tense-${tense}`), verb: verbId, tense, rows: tenseRows(table, tense), tips });
-      if (tense === "perfekt" && statement && bracket) {
-        screens.push({ kind: "bracket", key: key("bracket"), example: statement, bracket, tips: bracketTips });
+    part.screens.forEach((screen, index) => {
+      const key = `${topic.id}:${part.key}:${index}`;
+      switch (screen.kind) {
+        case "overview":
+          screens.push({ kind: "overview", key });
+          break;
+        case "known":
+          screens.push({ kind: "known", key: `${key}:1`, rows: screen.rows, callout: false });
+          screens.push({ kind: "known", key: `${key}:2`, rows: screen.rows, callout: true });
+          break;
+        case "table": {
+          const table = topic.tables.find((entry) => entry.verb === screen.verb);
+          if (!table) break;
+          const rows = studyTableRows(table);
+          for (let step = 1; step <= TABLE_STEPS; step += 1) {
+            screens.push({ kind: "table", key: `${key}:${step}`, verb: screen.verb, step, rows });
+          }
+          break;
+        }
+        case "beispiele": {
+          const stepped = screen.reveal === "step";
+          for (let shown = stepped ? 1 : screen.rows.length; shown <= screen.rows.length; shown += 1) {
+            const newest = stepped ? shown - 1 : null;
+            screens.push({ kind: "beispiele", key: `${key}:${shown}`, rows: screen.rows, shown, newest });
+          }
+          break;
+        }
+        case "choice":
+          screens.push({
+            kind: "choice",
+            key,
+            cue: cueOf(screen),
+            prompt: screen.prompt ?? null,
+            // The slides' A/B order, not shuffled.
+            options: screen.options.map((text, option) => ({ id: `o${option}`, text, correct: text === screen.answer })),
+            script: screen.script,
+            audioPath: screen.audioPath,
+            ruleVi: screen.whyVi,
+          });
+          break;
+        case "translate": {
+          const random = seedToRandom(`${grammarSeed(lessonKey, topic.id, "study")}:${key}`);
+          const distractors = screen.distractors ?? [];
+          screens.push({
+            kind: "translate",
+            key,
+            cue: cueOf(screen),
+            answers: screen.answers,
+            bank: chipBank(screen.answers[0] ?? "", distractors, distractors.length, random),
+            hints: screen.hints ?? [],
+            audioPaths: screen.audioPaths,
+            ruleVi: screen.whyVi,
+          });
+          break;
+        }
       }
-      if (!CHECKED_TENSES.has(tense)) continue;
-      const question = shuffle(tables.persons, random)
-        .map((person) => tableQuestion(tables, verbId, tense, person.id, random, ruleFor(topic.tips, verbId, tense)))
-        .find(Boolean);
-      if (question) screens.push({ kind: "check", key: key(`check-${tense}`), question });
-    }
-
-    const general = forVerb.filter((tip) => tip.tense === undefined);
-    if (general.length > 0) screens.push({ kind: "tips", key: key("tips"), tips: general });
-    if (examples.length > 0) screens.push({ kind: "examples", key: key("examples"), examples });
-
-    const finalQuestion = shuffle(examples, random)
-      .map((example) => exampleQuestion(tables, example, random, ruleFor(topic.tips, verbId, example.tense)))
-      .find(Boolean);
-    if (finalQuestion) screens.push({ kind: "check", key: key("check-final"), question: finalQuestion });
-
-    return { key: `s-${verbId}`, verb: verbId, screens };
+    });
+    return { key: part.key, titleVi: part.titleVi, screens };
   });
+}
+
+/** Right when the chips match any of the answers. `answer` is the one matched, or the first. */
+export function checkStudyTranslate(
+  selected: readonly string[],
+  answers: readonly string[],
+): { accuracy: number; answer: string } {
+  const right = answers.find((answer) => checkOrder(selected, answer).accuracy === 100);
+  const fallback = answers[0] ?? "";
+  return right
+    ? { accuracy: 100, answer: right }
+    : { accuracy: checkOrder(selected, fallback).accuracy, answer: fallback };
 }
 
 // ---------------------------------------------------------------- practice node
@@ -812,9 +828,11 @@ export function checkTableFill(rows: readonly TableFillRow[], placed: readonly (
   return { accuracy, blanks };
 }
 
-/** Same check as sentence-order cards. */
-export function checkGrammarOrder(selected: readonly string[], script: string): OrderResult {
-  return checkOrder(selected, script);
+/** Same check as sentence-order cards. Any one of `script` counts as right. */
+export function checkGrammarOrder(selected: readonly string[], script: string | readonly string[]): OrderResult {
+  const scripts = typeof script === "string" ? [script] : script;
+  const results = scripts.map((candidate) => checkOrder(selected, candidate));
+  return results.find((result) => result.accuracy === 100) ?? results[0] ?? { accuracy: 0, words: [] };
 }
 
 /**
@@ -843,7 +861,7 @@ export function checkErrorCheck(fix: string | null, saidCorrect: boolean): { acc
 export type GrammarNodeLayout = {
   topicId: string;
   titleVi: string;
-  studyParts: { key: string; verb: string; screenCount: number }[];
+  studyParts: { key: string; titleVi: string; screenCount: number }[];
   practiceParts: { key: string; verb: string | null; cardCount: number }[];
 };
 
@@ -855,9 +873,9 @@ export function grammarNodeLayout(
   return {
     topicId: topic.id,
     titleVi: topic.titleVi,
-    studyParts: grammarStudyParts(lessonKey, topic, tables).map((part) => ({
+    studyParts: grammarStudyParts(lessonKey, topic).map((part) => ({
       key: part.key,
-      verb: part.verb,
+      titleVi: part.titleVi,
       screenCount: part.screens.length,
     })),
     practiceParts: grammarPracticeParts(lessonKey, topic, tables).map((part) => ({

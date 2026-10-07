@@ -472,6 +472,159 @@ function checkLessonGrammar(grammar, jsonRel, audioDir, listedFilenames) {
         errors.push(`${drillWhere} "type" must be "transform" or "error"`);
       }
     });
+
+    checkLessonStudy(topic.study, where, verbs, audioDir, listedFilenames);
+  });
+}
+
+/**
+ * A topic's "study": parts of screens as on the class slides. Tables name a
+ * topic verb, tasks have one right answer, every word order of a translate
+ * uses the same chips, and every MP3 is listed once.
+ */
+function checkLessonStudy(study, topicWhere, verbs, audioDir, listedFilenames) {
+  if (!Array.isArray(study) || study.length === 0) {
+    errors.push(`${topicWhere} "study" must list at least one part`);
+    return;
+  }
+  const text = (value) => typeof value === "string" && value.trim() !== "";
+  const audio = (filename, itemWhere) => {
+    if (!text(filename)) {
+      errors.push(`${itemWhere} is missing a non-empty "filename"`);
+      return;
+    }
+    if (listedFilenames.has(nfc(filename))) errors.push(`${itemWhere} repeats filename "${filename}"`);
+    listedFilenames.add(nfc(filename));
+    if (!existsSync(join(audioDir, filename))) {
+      skippedMissingAudio.push(`${rel(join(audioDir, filename))} (listed in ${itemWhere})`);
+    }
+  };
+  /** A Vietnamese line with a known tense, and its marker word in it. */
+  const cue = (item, itemWhere) => {
+    if (!text(item.vi)) errors.push(`${itemWhere} is missing a non-empty "vi"`);
+    if (!GRAMMAR_TENSES.includes(item.tense)) {
+      errors.push(`${itemWhere} "tense" must be one of ${GRAMMAR_TENSES.join(", ")}`);
+    }
+    if (item.markerVi !== undefined && !(text(item.markerVi) && text(item.vi) && item.vi.includes(item.markerVi))) {
+      errors.push(`${itemWhere} "markerVi" must be a word of "vi"`);
+    }
+  };
+  const sortedWords = (script) => scriptWords(script).sort().join(" ");
+
+  const partKeys = new Set();
+  study.forEach((part, partIndex) => {
+    const partWhere = `${topicWhere} study[${partIndex}]`;
+    if (!isRecord(part) || !text(part.key)) {
+      errors.push(`${partWhere} needs a non-empty "key"`);
+      return;
+    }
+    if (partKeys.has(part.key)) errors.push(`${partWhere} repeats key "${part.key}"`);
+    partKeys.add(part.key);
+    if (!text(part.titleVi)) errors.push(`${partWhere} is missing a non-empty "titleVi"`);
+    if (!Array.isArray(part.screens) || part.screens.length === 0) {
+      errors.push(`${partWhere} "screens" must list at least one screen`);
+      return;
+    }
+    part.screens.forEach((screen, screenIndex) => {
+      const screenWhere = `${partWhere} screens[${screenIndex}]`;
+      if (!isRecord(screen)) {
+        errors.push(`${screenWhere} must be an object`);
+        return;
+      }
+      switch (screen.kind) {
+        case "overview":
+          break;
+        case "known":
+          if (!Array.isArray(screen.rows) || screen.rows.length === 0) {
+            errors.push(`${screenWhere} "rows" must list at least one verb`);
+            break;
+          }
+          screen.rows.forEach((row, rowIndex) => {
+            const rowWhere = `${screenWhere} rows[${rowIndex}]`;
+            if (!isRecord(row) || !text(row.praesens) || !text(row.perfekt) || typeof row.today !== "boolean") {
+              errors.push(`${rowWhere} needs "praesens", "perfekt" and a true/false "today"`);
+            }
+          });
+          break;
+        case "table":
+          if (!verbs.includes(screen.verb)) errors.push(`${screenWhere} "verb" "${screen.verb}" is not in the topic's "verbs"`);
+          break;
+        case "beispiele":
+          if (screen.reveal !== "all" && screen.reveal !== "step") {
+            errors.push(`${screenWhere} "reveal" must be "all" or "step"`);
+          }
+          if (!Array.isArray(screen.rows) || screen.rows.length === 0) {
+            errors.push(`${screenWhere} "rows" must list at least one sentence`);
+            break;
+          }
+          screen.rows.forEach((row, rowIndex) => {
+            const rowWhere = `${screenWhere} rows[${rowIndex}]`;
+            if (!isRecord(row)) {
+              errors.push(`${rowWhere} must be an object`);
+              return;
+            }
+            cue(row, rowWhere);
+            if (!text(row.de)) errors.push(`${rowWhere} is missing a non-empty "de"`);
+            const words = new Set(text(row.de) ? scriptWords(row.de) : []);
+            if (!Array.isArray(row.verbWords) || row.verbWords.length === 0) {
+              errors.push(`${rowWhere} "verbWords" must list the verb's words`);
+            } else {
+              for (const word of row.verbWords) {
+                if (!words.has(String(word).toLowerCase())) errors.push(`${rowWhere} verb word "${word}" is not in "de"`);
+              }
+            }
+            audio(row.filename, rowWhere);
+          });
+          break;
+        case "choice": {
+          cue(screen, screenWhere);
+          const options = Array.isArray(screen.options) ? screen.options : [];
+          if (options.length < 2 || !options.every(text)) errors.push(`${screenWhere} "options" must list 2 or more texts`);
+          if (new Set(options).size !== options.length) errors.push(`${screenWhere} "options" repeat`);
+          if (!options.includes(screen.answer)) errors.push(`${screenWhere} "answer" must be one of the "options"`);
+          if (screen.prompt !== undefined && !(text(screen.prompt) && screen.prompt.includes("____"))) {
+            errors.push(`${screenWhere} "prompt" must hold the blank ____`);
+          }
+          for (const key of ["script", "whyVi"]) {
+            if (!text(screen[key])) errors.push(`${screenWhere} is missing a non-empty "${key}"`);
+          }
+          audio(screen.filename, screenWhere);
+          break;
+        }
+        case "translate": {
+          cue(screen, screenWhere);
+          const answers = Array.isArray(screen.answers) ? screen.answers : [];
+          if (answers.length === 0 || !answers.every(text)) {
+            errors.push(`${screenWhere} "answers" must list at least one sentence`);
+            break;
+          }
+          const chips = sortedWords(answers[0]);
+          for (const answer of answers.slice(1)) {
+            if (sortedWords(answer) !== chips) errors.push(`${screenWhere} answer "${answer}" uses other words than the first`);
+          }
+          const inAnswer = new Set(scriptWords(answers[0]));
+          for (const word of screen.distractors ?? []) {
+            if (inAnswer.has(String(word).toLowerCase())) errors.push(`${screenWhere} distractor "${word}" is in the answer`);
+          }
+          for (const hint of screen.hints ?? []) {
+            if (!isRecord(hint) || !text(hint.de) || !text(hint.vi)) errors.push(`${screenWhere} hints need "de" and "vi"`);
+          }
+          if (!text(screen.whyVi)) errors.push(`${screenWhere} is missing a non-empty "whyVi"`);
+          audio(screen.filename, screenWhere);
+          const more = screen.moreFilenames ?? [];
+          if (!Array.isArray(more) || more.length > answers.length - 1) {
+            errors.push(`${screenWhere} "moreFilenames" can name one file per answer after the first`);
+          } else {
+            more.forEach((filename, index) => audio(filename, `${screenWhere} moreFilenames[${index}]`));
+          }
+          break;
+        }
+        default:
+          errors.push(
+            `${screenWhere} "kind" must be one of overview, known, table, beispiele, choice, translate`,
+          );
+      }
+    });
   });
 }
 

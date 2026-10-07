@@ -55,14 +55,9 @@ This file is separate from `verbs.json`, which keeps its Präsens-only shape for
 
 ## Grammar study node
 
-One part per verb, one idea per screen, laid out for a phone (checked at 375×667 and 390×844), in a Duolingo-like style: Pingu explains in a speech bubble, forms are big tappable key-phrase rows.
+Authored in the Lektion's `study` block and taught like the class slides. See `docs/GRAMMAR_STUDY_SLIDES.md`.
 
-1. Intro (first part only): the topic and the three tenses as numbered cards.
-2. A screen per tense in teaching order Präsens → Präteritum → Perfekt, with a stepper on top. Each row plays its audio; Präteritum endings are blue and underlined, the Partizip is orange. Pingu's bubble shows the tips tagged with that tense.
-3. A quick check after Präteritum, and after Perfekt's sentence bracket (`Ich | habe | … | gehabt.`), which carries the general Perfekt tips.
-4. Untagged tips as Pingu chat bubbles.
-5. Example sentences with audio; the verb form is colored by its tense.
-6. A final check.
+A1.2 Lektion 1 is three parts: `s-sein`, `s-haben`, `s-uebung`. Perfekt is the past the class already knows. Präteritum of sein and haben is the new column. A table screen expands into five steps (pronouns, Präsens, Perfekt, a question mark, then the Präteritum forms). Präteritum endings are bold. The exercise part is the slide sentences: the Berlin and 10€ trios, then ist/war, Wo warst du?, and the two word orders that are both correct.
 
 ## Grammar practice node
 

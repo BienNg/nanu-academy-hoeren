@@ -7,11 +7,6 @@
       "verbs": ["haben", "sein"],
       "tips": [
         {
-          "id": "zwei-wege",
-          "titleVi": "2 cách nói về quá khứ",
-          "textVi": "Perfekt = haben/sein (vị trí 2) + Partizip II (cuối câu). Präteritum = chỉ 1 động từ."
-        },
-        {
           "id": "satzklammer",
           "tense": "perfekt",
           "titleVi": "Khung câu Perfekt",
@@ -36,11 +31,6 @@
           "tense": "praeteritum",
           "titleVi": "Đuôi Präteritum",
           "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir/sie/Sie thêm -n hoặc -en."
-        },
-        {
-          "id": "alltag",
-          "titleVi": "Khi nói hằng ngày",
-          "textVi": "Với haben và sein, người Đức thường dùng Präteritum: Ich war müde. Ich hatte keine Zeit. Perfekt (ich bin müde gewesen) cũng đúng nhưng ít dùng hơn."
         }
       ],
       "examples": [
@@ -259,6 +249,161 @@
           "script": "Ich habe in Berlin gewesen.",
           "fix": "Ich bin in Berlin gewesen.",
           "whyVi": "Perfekt của sein đi với sein: ich bin … gewesen."
+        }
+      ],
+      "study": [
+        {
+          "key": "s-sein",
+          "titleVi": "sein",
+          "screens": [
+            { "kind": "overview" },
+            {
+              "kind": "known",
+              "rows": [
+                { "praesens": "machen", "perfekt": "haben … gemacht", "today": false },
+                { "praesens": "haben", "perfekt": "haben … gehabt", "today": true },
+                { "praesens": "sind", "perfekt": "sind … gewesen", "today": true }
+              ]
+            },
+            { "kind": "table", "verb": "sein" }
+          ]
+        },
+        {
+          "key": "s-haben",
+          "titleVi": "haben",
+          "screens": [{ "kind": "table", "verb": "haben" }]
+        },
+        {
+          "key": "s-uebung",
+          "titleVi": "Beispiele & Übung",
+          "screens": [
+            {
+              "kind": "beispiele",
+              "reveal": "all",
+              "rows": [
+                {
+                  "tense": "praesens",
+                  "vi": "Tôi đang ở Berlin.",
+                  "markerVi": "đang",
+                  "de": "Ich bin in Berlin.",
+                  "verbWords": ["bin"],
+                  "filename": "a12-l1-gram-15-ich-bin-in-berlin.mp3"
+                },
+                {
+                  "tense": "perfekt",
+                  "vi": "Tôi đã ở Berlin.",
+                  "markerVi": "đã",
+                  "de": "Ich bin in Berlin gewesen.",
+                  "verbWords": ["bin", "gewesen"],
+                  "filename": "a12-l1-gram-16-ich-bin-in-berlin-gewesen.mp3"
+                },
+                {
+                  "tense": "praeteritum",
+                  "vi": "Tôi đã ở Berlin.",
+                  "markerVi": "đã",
+                  "de": "Ich war in Berlin.",
+                  "verbWords": ["war"],
+                  "filename": "a12-l1-gram-17-ich-war-in-berlin.mp3"
+                }
+              ]
+            },
+            {
+              "kind": "beispiele",
+              "reveal": "step",
+              "rows": [
+                {
+                  "tense": "praesens",
+                  "vi": "Tôi (đang) có 10€.",
+                  "markerVi": "đang",
+                  "de": "Ich habe 10€.",
+                  "verbWords": ["habe"],
+                  "filename": "a12-l1-gram-18-ich-habe-10-euro.mp3",
+                  "say": "Ich habe zehn Euro."
+                },
+                {
+                  "tense": "perfekt",
+                  "vi": "Tôi đã có 10€.",
+                  "markerVi": "đã",
+                  "de": "Ich habe 10€ gehabt.",
+                  "verbWords": ["habe", "gehabt"],
+                  "filename": "a12-l1-gram-19-ich-habe-10-euro-gehabt.mp3",
+                  "say": "Ich habe zehn Euro gehabt."
+                },
+                {
+                  "tense": "praeteritum",
+                  "vi": "Tôi đã có 10€.",
+                  "markerVi": "đã",
+                  "de": "Ich hatte 10€.",
+                  "verbWords": ["hatte"],
+                  "filename": "a12-l1-gram-20-ich-hatte-10-euro.mp3",
+                  "say": "Ich hatte zehn Euro."
+                }
+              ]
+            },
+            {
+              "kind": "choice",
+              "tense": "praesens",
+              "vi": "Cô ấy đang ở đâu?",
+              "markerVi": "đang",
+              "prompt": "Wo ____ sie?",
+              "options": ["ist", "war"],
+              "answer": "ist",
+              "script": "Wo ist sie?",
+              "filename": "a12-l1-gram-21-wo-ist-sie.mp3",
+              "whyVi": "đang → Präsens (ist) · đã → Präteritum (war)"
+            },
+            {
+              "kind": "choice",
+              "tense": "praeteritum",
+              "vi": "Cô ấy đã ở đâu?",
+              "markerVi": "đã",
+              "prompt": "Wo ____ sie?",
+              "options": ["ist", "war"],
+              "answer": "war",
+              "script": "Wo war sie?",
+              "filename": "a12-l1-gram-22-wo-war-sie.mp3",
+              "whyVi": "đang → Präsens (ist) · đã → Präteritum (war)"
+            },
+            {
+              "kind": "choice",
+              "tense": "praeteritum",
+              "vi": "Bạn đã ở đâu đấy?",
+              "markerVi": "đã",
+              "options": ["Wo bist du?", "Wo warst du?"],
+              "answer": "Wo warst du?",
+              "script": "Wo warst du?",
+              "filename": "a12-l1-gram-23-wo-warst-du.mp3",
+              "whyVi": "đã → Präteritum. du đi với đuôi -st: du warst."
+            },
+            {
+              "kind": "translate",
+              "tense": "praeteritum",
+              "vi": "Hôm qua tôi ở nhà.",
+              "markerVi": "Hôm qua",
+              "answers": ["Gestern war ich zu Hause."],
+              "distractors": ["bin"],
+              "filename": "a12-l1-gram-24-gestern-war-ich-zu-hause.mp3",
+              "whyVi": "Hôm qua là quá khứ → ich war. Động từ đứng ở vị trí 2: Gestern war ich zu Hause."
+            },
+            {
+              "kind": "translate",
+              "tense": "praeteritum",
+              "vi": "Tháng trước tôi (đã) có một công việc ở Berlin.",
+              "markerVi": "đã",
+              "answers": [
+                "Letzten Monat hatte ich in Berlin eine Arbeit.",
+                "Ich hatte letzten Monat in Berlin eine Arbeit."
+              ],
+              "distractors": ["habe"],
+              "hints": [
+                { "de": "letzten Monat", "vi": "tháng trước" },
+                { "de": "eine Arbeit", "vi": "một công việc" }
+              ],
+              "filename": "a12-l1-gram-25-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
+              "moreFilenames": ["a12-l1-gram-26-ich-hatte-letzten-monat-in-berlin-eine-arbeit.mp3"],
+              "whyVi": "đã có → Präteritum của haben: ich hatte. Động từ đứng ở vị trí 2."
+            }
+          ]
         }
       ]
     }
