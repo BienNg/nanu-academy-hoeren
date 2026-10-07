@@ -1,22 +1,56 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { chunkyButton } from "@/components/chunkyButton";
 import { PersonAvatar } from "@/components/LeaderboardParts";
-import { readClassQuestBoard, type ClassQuestBoard, type ClassQuestView } from "@/lib/class-quests";
+import { classQuestById, readClassQuestBoard, type ClassQuestBoard, type ClassQuestView } from "@/lib/class-quests";
 import { formatWeekCountdown } from "@/lib/xp";
 
 const SPRING = { type: "spring" as const, stiffness: 420, damping: 18 };
 /** Avatars shown before the rest collapse into "+N". */
 const AVATAR_LIMIT = 6;
+/** One color per contributor, in the order they are drawn on the bar. */
+const SHARE_COLORS = ["#FFC800", "#FF9600", "#CE82FF", "#1CB0F6", "#58CC02", "#FF4B4B", "#5856D6", "#FF86D0"];
+
+function shareOrder(quest: ClassQuestView) {
+  return [...quest.contributors].sort(
+    (left, right) => right.amount - left.amount || left.name.localeCompare(right.name, "vi"),
+  );
+}
+
+/** The tab where this quest's progress is earned. */
+function questAction(questId: string): { href: string; label: string } {
+  const metric = classQuestById(questId)?.metric;
+  if (metric === "duels") return { href: "/duel", label: "Đấu ngay" };
+  if (metric === "studied") return { href: "/", label: "Học từ vựng" };
+  return { href: "/", label: "Luyện tập ngay" };
+}
 
 function Contributors({ quest }: { quest: ClassQuestView }) {
-  const shown = quest.contributors.slice(0, AVATAR_LIMIT);
-  const more = quest.contributors.length - shown.length;
   if (quest.contributors.length === 0) {
     return <p className="text-[12px] font-bold text-[#86868b]">Chưa ai góp sức. Hãy là người đầu tiên!</p>;
   }
+  if (quest.showAmounts) {
+    const shares = shareOrder(quest);
+    return (
+      <p className="flex flex-wrap gap-x-2 gap-y-1 text-[12px] font-bold leading-5 text-[#6e6e73]">
+        {shares.map((person, index) => (
+          <span key={`${person.name}-${index}`} className="inline-flex items-center gap-1">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: SHARE_COLORS[index % SHARE_COLORS.length] }}
+              aria-hidden="true"
+            />
+            <span className="text-[#1d1d1f]">{person.name}</span> {person.amount}
+          </span>
+        ))}
+      </p>
+    );
+  }
+  const shown = quest.contributors.slice(0, AVATAR_LIMIT);
+  const more = quest.contributors.length - shown.length;
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="flex shrink-0 -space-x-1.5">
@@ -42,24 +76,32 @@ function ClassQuestCard({
   quest,
   index,
   claiming,
+  observing,
   onClaim,
 }: {
   quest: ClassQuestView;
   index: number;
   claiming: boolean;
+  observing: boolean;
   onClaim: (id: string) => void;
 }) {
   const reduceMotion = useReducedMotion() ?? false;
+  const action = questAction(quest.id);
+  const shares = quest.showAmounts ? shareOrder(quest) : [];
+  const contributed = shares.reduce((sum, person) => sum + person.amount, 0);
+  const basis = Math.max(quest.target, contributed);
   const percent = Math.min(100, Math.round((quest.progress / quest.target) * 100));
-  const hint = quest.claimed
+  const hint = observing
     ? null
-    : quest.done
-      ? quest.youContributed
-        ? null
-        : "Lớp đã xong! Luyện 1 phần để cùng nhận thưởng."
-      : quest.youContributed
-        ? "Bạn đã góp sức. Rủ cả lớp cùng luyện nhé!"
-        : null;
+    : quest.claimed
+      ? null
+      : quest.done
+        ? quest.youContributed
+          ? null
+          : "Lớp đã xong! Luyện 1 phần để cùng nhận thưởng."
+        : quest.youContributed
+          ? "Bạn đã góp sức. Rủ cả lớp cùng luyện nhé!"
+          : null;
   return (
     <motion.li
       className={`flex flex-col gap-3 px-4 py-4 ${index > 0 ? "border-t-2 border-[#f2f2f7]" : ""}`}
@@ -103,16 +145,41 @@ function ClassQuestCard({
             aria-valuemax={quest.target}
             aria-label={quest.title}
           >
-            <motion.div
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{ backgroundColor: quest.done ? "#34C759" : "#FFC800" }}
-              initial={reduceMotion ? false : { width: "0%" }}
-              animate={{ width: `${percent}%` }}
-              transition={reduceMotion ? { duration: 0 } : { duration: 0.8, ease: "easeOut", delay: 0.15 + 0.08 * index }}
-            />
+            {shares.length > 0
+              ? shares.map((person, shareIndex) => {
+                  const width = (person.amount / basis) * 100;
+                  const left = shares
+                    .slice(0, shareIndex)
+                    .reduce((sum, earlier) => sum + (earlier.amount / basis) * 100, 0);
+                  return (
+                    <motion.div
+                      key={`${person.name}-${shareIndex}`}
+                      className="absolute inset-y-0"
+                      style={{ backgroundColor: SHARE_COLORS[shareIndex % SHARE_COLORS.length] }}
+                      initial={reduceMotion ? false : { left: `${left}%`, width: "0%" }}
+                      animate={{ left: `${left}%`, width: `${width}%` }}
+                      transition={
+                        reduceMotion ? { duration: 0 } : { duration: 0.8, ease: "easeOut", delay: 0.15 + 0.08 * index }
+                      }
+                    />
+                  );
+                })
+              : (
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{ backgroundColor: quest.done ? "#34C759" : "#FFC800" }}
+                  initial={reduceMotion ? false : { width: "0%" }}
+                  animate={{ width: `${percent}%` }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.8, ease: "easeOut", delay: 0.15 + 0.08 * index }}
+                />
+              )}
             <span
               className={`absolute inset-0 flex items-center justify-center text-[12px] font-extrabold tabular-nums ${
-                quest.done ? "text-white" : "text-[#6e6e73]"
+                quest.showAmounts
+                  ? "text-[#1d1d1f] [text-shadow:0_0_3px_#fff]"
+                  : quest.done
+                    ? "text-white"
+                    : "text-[#6e6e73]"
               }`}
             >
               {quest.progress} / {quest.target}
@@ -137,9 +204,16 @@ function ClassQuestCard({
           </span>
           Đã nhận +{quest.xp} XP
         </p>
-      ) : hint ? (
-        <p className="text-[12px] font-bold text-[#5856D6]">{hint}</p>
-      ) : null}
+      ) : observing ? (
+        hint ? <p className="text-[12px] font-bold text-[#5856D6]">{hint}</p> : null
+      ) : (
+        <>
+          {hint ? <p className="text-[12px] font-bold text-[#5856D6]">{hint}</p> : null}
+          <Link href={action.href} className={chunkyButton("primary", "h-11 w-full")}>
+            {action.label}
+          </Link>
+        </>
+      )}
     </motion.li>
   );
 }
@@ -149,12 +223,14 @@ function QuestGroup({
   countdown,
   quests,
   claiming,
+  observing,
   onClaim,
 }: {
   title: string;
   countdown: string | null;
   quests: readonly ClassQuestView[];
   claiming: string | null;
+  observing: boolean;
   onClaim: (id: string) => void;
 }) {
   if (quests.length === 0) return null;
@@ -171,6 +247,7 @@ function QuestGroup({
             quest={quest}
             index={index}
             claiming={claiming === quest.id}
+            observing={observing}
             onClaim={onClaim}
           />
         ))}
@@ -180,19 +257,24 @@ function QuestGroup({
 }
 
 /**
- * Quests the whole class works on. Hidden for learners without a class, and
- * when class quests cannot be loaded.
+ * Quests the whole class works on. Hidden for learners without a class and for
+ * staff. An admin can watch any class, without counting toward its quests.
  */
 export function ClassQuestsSection({ onClaimed }: { onClaimed: (xp: number) => void }) {
   const [board, setBoard] = useState<ClassQuestBoard | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const classKeyRef = useRef("");
 
   const load = useCallback(() => {
-    void fetch("/api/class-quests")
+    const key = classKeyRef.current;
+    const url = key ? `/api/class-quests?class=${encodeURIComponent(key)}` : "/api/class-quests";
+    void fetch(url)
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
-        setBoard(readClassQuestBoard(data));
+        const next = readClassQuestBoard(data);
+        if (next?.classKey) classKeyRef.current = next.classKey;
+        setBoard(next);
         setNow(Date.now());
       })
       .catch(() => {
@@ -251,7 +333,26 @@ export function ClassQuestsSection({ onClaimed }: { onClaimed: (xp: number) => v
           </span>
           <span className="truncate">Nhiệm vụ lớp</span>
         </h2>
-        {board.className ? (
+        {board.classOptions.length > 1 ? (
+          <label className="flex min-w-0 items-center gap-2 text-[13px] font-bold text-[#6e6e73]">
+            <span className="sr-only">Lớp</span>
+            <select
+              value={board.classKey}
+              onChange={(event) => {
+                classKeyRef.current = event.target.value;
+                load();
+              }}
+              className="max-w-[11rem] truncate rounded-xl bg-[#e5e5ea] px-2 py-1 text-[13px] font-extrabold text-[#1d1d1f]"
+            >
+              {board.classOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="shrink-0">{board.learners} bạn</span>
+          </label>
+        ) : board.className ? (
           <span className="min-w-0 truncate text-[13px] font-bold text-[#6e6e73]">
             {board.className} · {board.learners} bạn
           </span>
@@ -262,6 +363,7 @@ export function ClassQuestsSection({ onClaimed }: { onClaimed: (xp: number) => v
         countdown={at && board.dayEndsAt ? formatWeekCountdown(board.dayEndsAt, at) : null}
         quests={board.daily}
         claiming={claiming}
+        observing={board.observing}
         onClaim={claim}
       />
       <QuestGroup
@@ -269,6 +371,7 @@ export function ClassQuestsSection({ onClaimed }: { onClaimed: (xp: number) => v
         countdown={at && board.weekEndsAt ? formatWeekCountdown(board.weekEndsAt, at) : null}
         quests={board.weekly}
         claiming={claiming}
+        observing={board.observing}
         onClaim={claim}
       />
       <p className="px-2 text-center text-[12px] font-semibold text-[#86868b]">

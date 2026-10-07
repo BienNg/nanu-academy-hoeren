@@ -98,6 +98,8 @@ export type ClassChampionPlace = {
   xp: number;
   /** The viewer's class today. */
   isYours: boolean;
+  /** Learners in the class today, by name. */
+  students: { name: string; isYou: boolean }[];
 };
 
 export type ClassChampions = {
@@ -750,17 +752,26 @@ export type StoredClassPlace = { classKey: string; rank: number; classXp: number
 /**
  * The banner on the classes board, from the stored podium of a finished week.
  * Stored rows are per learner, so each class is kept once. Labels come from
- * the classes learners are in today; a class nobody is in any more shows its
- * key.
+ * the classes learners are in today, and so do the students listed; a class
+ * nobody is in any more shows its key and no students.
  */
 export function classChampions(
   week: string,
   places: readonly StoredClassPlace[],
   labels: ReadonlyMap<string, string>,
   viewerClassKey: string | null,
+  learners: readonly BoardPerson[] = [],
+  viewerId: string | null = null,
 ): ClassChampions {
   const byClass = new Map<string, StoredClassPlace>();
   for (const place of places) if (!byClass.has(place.classKey)) byClass.set(place.classKey, place);
+  const rosters = new Map<string, { name: string; isYou: boolean }[]>();
+  for (const person of learners) {
+    const roster = rosters.get(person.classKey) ?? [];
+    roster.push({ name: person.name, isYou: person.userId === viewerId });
+    rosters.set(person.classKey, roster);
+  }
+  for (const roster of rosters.values()) roster.sort((left, right) => left.name.localeCompare(right.name, "vi"));
   return {
     week,
     places: [...byClass.values()]
@@ -771,6 +782,7 @@ export function classChampions(
         name: labels.get(place.classKey) ?? place.classKey,
         xp: place.classXp,
         isYours: viewerClassKey != null && viewerClassKey === place.classKey,
+        students: rosters.get(place.classKey) ?? [],
       })),
   };
 }

@@ -15,7 +15,7 @@ Classes compete against each other every week. A class's score is the total XP i
 | Week end | The top 3 classes are stored. Their learners earn a class podium badge family. |
 | Class quests | 2 daily + 1 weekly, Vietnam day and week. |
 | Payout | Contributors only, tap to claim, until the day or week ends. 25 XP daily, 80 XP weekly. |
-| Quest UI | "Nhiệm vụ lớp" section on the Quests screen, with avatars of contributors. Never lists who has not helped. |
+| Quest UI | "Nhiệm vụ lớp" section on the Quests screen. Headcount quests show avatars. XP, parts and duel quests show each contribution on the bar. Never lists who has not helped. |
 | Admin | Nothing new. |
 
 ## Part 1: Weekly class ranking (done)
@@ -33,9 +33,9 @@ Classes compete against each other every week. A class's score is the total XP i
 
 ## Part 2: Class quests (done)
 - `src/lib/class-quests.ts` (pure)
-  - Daily pool: 60% of the class practices, 2 parts per learner (each counts at most 3), 40% reach 90% on a listening part, half the class does a study part, half a duel per learner (each counts at most 2).
-  - Weekly pool: everyone practices (one may miss out from 10 learners), 5 days on which 60% practiced, 6 parts per learner (each counts at most 10).
-  - Targets: `ceil(rate × learners)`, never below 1.
+  - Daily pool: 60% of the class practices, 2 parts per learner (each counts at most 3), 40% reach 90% on a listening part, half the class does a study part, half a duel per learner (each counts at most 2). The quest shows the rounded count (`ceil(rate × learners)`), never the share.
+  - Weekly pool, fixed for every class and sized for about 6 learners: 1000 XP from listening, study and duels, 40 practice parts, or 12 duels. The bar shows how much each contributor added.
+  - Daily targets: `ceil(rate × learners)`, never below 1. Weekly targets do not change with class size.
   - Assignment by hash of `classKey + dayKey` (2 different daily quests) and `classKey + weekKey` (1 weekly quest). Nothing stored.
   - "Practice" means a listening or study part that earned XP. Duels and jump tests do not count as practice.
 - `src/lib/class-quest-store.ts`
@@ -47,7 +47,7 @@ Classes compete against each other every week. A class's score is the total XP i
     - weekly: `day_key` = the day it is claimed, `quest_id` = `class-week:<questId>`. The server refuses it when any claim for that id exists this week. Storing the claim day (not the Monday) keeps the XP in "today's XP".
   - `quest-store.ts` (personal board) and `admin-quests.ts` (admin quest stats) skip ids from `isClassQuestId`.
 - `src/app/api/class-quests/route.ts`: GET the board, POST `{ questId }` to claim. A refused claim returns 409 with `denial`.
-- `src/components/ClassQuestParts.tsx`: "Nhiệm vụ lớp" section on the Quests screen. It shows progress, avatars of who helped, and a claim button. It is hidden for learners without a class, admins and staff.
+- `src/components/ClassQuestParts.tsx`: "Nhiệm vụ lớp" section on the Quests screen. It shows progress, avatars of who helped, and a claim button. It is hidden for learners without a class and for staff. An admin can watch any class from the same tab, and does not count toward the quests.
 - Tests in `src/lib/class-quests.test.ts`.
 - Not built: Blitzrunde participation as a class quest.
 

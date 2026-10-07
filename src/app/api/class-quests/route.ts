@@ -13,8 +13,8 @@ function revokedResponse() {
   );
 }
 
-/** Today's and this week's quests for the learner's class. */
-export async function GET() {
+/** Today's and this week's quests for the learner's class. Admins may pass `class`. */
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,7 +25,13 @@ export async function GET() {
   if (access === "revoked") return revokedResponse();
 
   try {
-    return NextResponse.json(await getClassQuestBoard(session.user.id, session.user.image));
+    const classKey = new URL(request.url).searchParams.get("class");
+    return NextResponse.json(
+      await getClassQuestBoard(session.user.id, session.user.image, new Date(), {
+        email: session.user.email,
+        classKey,
+      }),
+    );
   } catch (error) {
     console.error("GET /api/class-quests", error);
     return NextResponse.json(NOT_READY);

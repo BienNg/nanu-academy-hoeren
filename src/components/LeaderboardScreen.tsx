@@ -130,78 +130,382 @@ function ClassProgressCard({
   );
 }
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+/** Visual order of a podium: third on the left, first in the middle, second on the right. Delays stage the reveal 3 → 2 → 1. */
+const PODIUM_SLOTS = [
+  {
+    rank: 3,
+    step: "min-h-14 sm:min-h-16",
+    offset: "pt-56 sm:pt-60",
+    disc: "h-14 w-14 sm:h-16 sm:w-16",
+    icon: "text-[32px]! sm:text-[38px]!",
+    block:
+      "from-[#fdba74] to-[#ea7a2c] text-[#7c2d12] shadow-[inset_0_4px_0_0_rgba(255,255,255,0.45),0_6px_0_0_#9a3412]",
+    rise: 100,
+  },
+  {
+    rank: 1,
+    step: "min-h-28 sm:min-h-32",
+    offset: "pt-40 sm:pt-44",
+    disc: "h-[72px] w-[72px] sm:h-20 sm:w-20",
+    icon: "text-[42px]! sm:text-[48px]!",
+    block:
+      "from-[#ffe58a] to-[#f5b400] text-[#6b4500] shadow-[inset_0_4px_0_0_rgba(255,255,255,0.6),0_6px_0_0_#a86f00]",
+    rise: 400,
+  },
+  {
+    rank: 2,
+    step: "min-h-20 sm:min-h-24",
+    offset: "pt-48 sm:pt-52",
+    disc: "h-14 w-14 sm:h-16 sm:w-16",
+    icon: "text-[32px]! sm:text-[38px]!",
+    block:
+      "from-[#f8fafc] to-[#b6c2d2] text-[#475569] shadow-[inset_0_4px_0_0_rgba(255,255,255,0.7),0_6px_0_0_#64748b]",
+    rise: 250,
+  },
+] as const;
+
+const PODIUM_CONFETTI = [
+  {
+    left: "6%",
+    color: "#ffd54a",
+    delay: 1.0,
+    duration: 4.2,
+    shape: "h-2.5 w-1.5",
+  },
+  {
+    left: "14%",
+    color: "#f472b6",
+    delay: 2.6,
+    duration: 3.6,
+    shape: "h-1.5 w-1.5 rounded-full",
+  },
+  {
+    left: "22%",
+    color: "#38bdf8",
+    delay: 1.4,
+    duration: 4.8,
+    shape: "h-2 w-1",
+  },
+  {
+    left: "31%",
+    color: "#a3e635",
+    delay: 3.1,
+    duration: 4.0,
+    shape: "h-2.5 w-1.5",
+  },
+  {
+    left: "40%",
+    color: "#ffd54a",
+    delay: 1.8,
+    duration: 3.8,
+    shape: "h-1.5 w-1.5 rounded-full",
+  },
+  {
+    left: "48%",
+    color: "#fb923c",
+    delay: 1.1,
+    duration: 4.4,
+    shape: "h-2 w-1",
+  },
+  {
+    left: "56%",
+    color: "#38bdf8",
+    delay: 2.2,
+    duration: 4.1,
+    shape: "h-2.5 w-1.5",
+  },
+  {
+    left: "64%",
+    color: "#f472b6",
+    delay: 1.3,
+    duration: 3.7,
+    shape: "h-2 w-1",
+  },
+  {
+    left: "72%",
+    color: "#ffd54a",
+    delay: 2.9,
+    duration: 4.6,
+    shape: "h-1.5 w-1.5 rounded-full",
+  },
+  {
+    left: "80%",
+    color: "#a3e635",
+    delay: 1.6,
+    duration: 4.0,
+    shape: "h-2.5 w-1.5",
+  },
+  {
+    left: "88%",
+    color: "#fb923c",
+    delay: 2.4,
+    duration: 3.9,
+    shape: "h-2 w-1",
+  },
+  {
+    left: "95%",
+    color: "#38bdf8",
+    delay: 1.2,
+    duration: 4.5,
+    shape: "h-1.5 w-1.5 rounded-full",
+  },
+];
+
+const PODIUM_SPARKLES = [
+  { className: "left-[8%] top-[22%] text-[14px]", delay: 0.2 },
+  { className: "left-[24%] top-[12%] text-[10px]", delay: 1.1 },
+  { className: "right-[10%] top-[18%] text-[16px]", delay: 0.6 },
+  { className: "right-[26%] top-[34%] text-[10px]", delay: 1.6 },
+  { className: "left-[4%] top-[52%] text-[11px]", delay: 1.9 },
+  { className: "right-[5%] top-[50%] text-[12px]", delay: 0.9 },
+];
 
 function weekLabel(week: string): string {
   const [, month, day] = week.split("-");
   return `${day}.${month}.`;
 }
 
-/** Last week's top 3 classes. Before any class has scored, it invites the first champion. */
+/** Counts from 0 up to `target` after `delayMs`; jumps straight there for reduced motion. */
+function useCountUp(target: number, delayMs: number) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const duration = 900;
+    const start = performance.now() + (reduce ? 0 : delayMs);
+    let frame = requestAnimationFrame(function tick(now) {
+      const progress = reduce
+        ? 1
+        : Math.min(1, Math.max(0, (now - start) / duration));
+      setValue(Math.round(target * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [target, delayMs]);
+  return value;
+}
+
+function PodiumPlace({
+  place,
+  slot,
+}: {
+  place: ClassChampions["places"][number] | undefined;
+  slot: (typeof PODIUM_SLOTS)[number];
+}) {
+  const { rank } = slot;
+  const popDelay = slot.rise + 450;
+  const xp = useCountUp(place?.xp ?? 0, popDelay + 150);
+  return (
+    <li
+      className={`flex min-w-0 flex-col ${slot.offset} ${rank === 1 ? "z-10" : ""}`}
+    >
+      <span className="sr-only">
+        {place
+          ? `Hạng ${rank}: ${place.name}, ${place.xp.toLocaleString("vi-VN")} XP`
+          : `Hạng ${rank} trống`}
+      </span>
+      <div className="relative flex w-full flex-1 flex-col">
+        <div className="absolute inset-x-0 bottom-full flex justify-center pb-2">
+          {place ? (
+            <div
+              className="podium-pop flex w-full flex-col items-center px-0.5 text-center"
+              style={{ animationDelay: `${popDelay}ms` }}
+              aria-hidden="true"
+            >
+              <div className="relative">
+                {rank === 1 ? (
+                  <span className="podium-crown absolute -top-6 left-1/2 -ml-[14px] text-[28px] leading-none sm:-top-7 sm:-ml-4 sm:text-[32px]">
+                    👑
+                  </span>
+                ) : null}
+                <span
+                  className={`flex items-center justify-center rounded-full bg-gradient-to-b ring-4 ring-white/15 ${slot.block} ${slot.disc} ${
+                    rank === 1 ? "podium-glow" : ""
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined ${slot.icon}`}
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {rank === 1 ? "emoji_events" : "military_tech"}
+                  </span>
+                </span>
+              </div>
+              <p
+                className={`mt-2 w-full truncate font-extrabold leading-tight text-white ${
+                  rank === 1
+                    ? "text-[17px] sm:text-[19px]"
+                    : "text-[14px] sm:text-[16px]"
+                }`}
+              >
+                {place.name}
+              </p>
+              {place.isYours ? (
+                <span className="mt-1 rounded-full bg-[#ffd54a] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#3d2700] shadow-[0_2px_0_0_#b77f00]">
+                  Lớp bạn
+                </span>
+              ) : null}
+              <p className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[12px] font-extrabold tabular-nums text-[#ffe58a]">
+                <span
+                  className="material-symbols-outlined text-[14px]!"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  bolt
+                </span>
+                {xp.toLocaleString("vi-VN")}
+              </p>
+            </div>
+          ) : (
+            <span
+              className="podium-pop flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-white/25 text-[18px] font-extrabold text-white/40"
+              style={{ animationDelay: `${popDelay}ms` }}
+              aria-hidden="true"
+            >
+              ?
+            </span>
+          )}
+        </div>
+        <div
+          className={`podium-rise relative flex w-full flex-1 flex-col items-center overflow-hidden rounded-t-2xl px-1.5 pb-3 pt-2 sm:px-2.5 ${slot.step} ${
+            place
+              ? `bg-gradient-to-b ${slot.block}`
+              : "border-2 border-b-0 border-dashed border-white/20 bg-white/5 text-white/30"
+          }`}
+          style={{ animationDelay: `${slot.rise}ms` }}
+        >
+          <span
+            className={`font-extrabold leading-none ${rank === 1 ? "text-[38px] sm:text-[44px]" : "text-[26px] sm:text-[30px]"} ${
+              place ? "drop-shadow-[0_2px_0_rgba(255,255,255,0.55)]" : ""
+            }`}
+            aria-hidden="true"
+          >
+            {rank}
+          </span>
+          {place && place.students.length > 0 ? (
+            <ul
+              className="mt-2 flex w-full flex-wrap justify-center gap-1"
+              aria-label={`Học viên lớp ${place.name}`}
+            >
+              {place.students.map((student, index) => (
+                <li
+                  key={`${student.name}-${index}`}
+                  className={`podium-name max-w-full break-words rounded-xl px-2 py-0.5 text-center text-[11px] font-extrabold leading-tight sm:rounded-full sm:text-[12px] ${
+                    student.isYou
+                      ? "bg-[#0284c7] text-white shadow-[0_2px_0_0_#0369a1]"
+                      : "bg-white/45"
+                  }`}
+                  style={{
+                    animationDelay: `${slot.rise + 650 + Math.min(index, 12) * 45}ms`,
+                  }}
+                >
+                  {student.name}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {place && rank === 1 ? (
+            <span
+              className="podium-shine pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+              aria-hidden="true"
+            />
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** Last week's top 3 classes, standing on a podium. Before any class has scored, it invites the first champion. */
 function ClassChampionsBanner({ champions }: { champions: ClassChampions }) {
-  const [first, ...rest] = champions.places;
+  const byRank = new Map(champions.places.map((place) => [place.rank, place]));
+  const hasPlaces = champions.places.length > 0;
   return (
     <section
       aria-label="Nhà vô địch tuần trước"
-      className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#ffd54a] to-[#ffb020] p-4 text-[#5c3b00] shadow-[0_5px_0_0_#d99100] sm:p-5"
+      className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-[#3b1d8f] via-[#2a1670] to-[#160d45] p-4 text-white shadow-[0_5px_0_0_#0f0a33] sm:p-6"
     >
-      <p className="relative z-10 flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-[#7a4b00]">
-        <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-          emoji_events
-        </span>
-        Nhà vô địch tuần trước · từ {weekLabel(champions.week)}
-      </p>
-      {first ? (
+      <span
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,213,74,0.32),transparent_62%)]"
+        aria-hidden="true"
+      />
+      {hasPlaces ? (
         <>
-          <div className="relative z-10 mt-2 flex items-center gap-2">
-            <span className="text-[28px] leading-none" aria-hidden="true">
-              {MEDALS[0]}
+          {PODIUM_SPARKLES.map((sparkle) => (
+            <span
+              key={sparkle.className}
+              className={`podium-twinkle pointer-events-none absolute leading-none text-[#ffe58a] ${sparkle.className}`}
+              style={{ animationDelay: `${sparkle.delay}s` }}
+              aria-hidden="true"
+            >
+              ✦
             </span>
-            <div className="min-w-0">
-              <p className="flex items-center gap-2">
-                <span className="truncate text-[20px] font-extrabold leading-tight text-[#3d2700]">{first.name}</span>
-                {first.isYours ? (
-                  <span className="shrink-0 rounded-full bg-[#3d2700] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#ffd54a]">
-                    Lớp bạn
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-[13px] font-bold tabular-nums">{first.xp.toLocaleString("vi-VN")} XP</p>
-            </div>
-          </div>
-          {rest.length > 0 ? (
-            <ol className="relative z-10 mt-3 flex flex-col gap-1.5">
-              {rest.map((place) => (
-                <li
-                  key={place.rank}
-                  className="flex items-center gap-2 rounded-2xl bg-white/45 px-3 py-1.5 text-[14px] font-extrabold"
-                >
-                  <span aria-label={`Hạng ${place.rank}`}>{MEDALS[place.rank - 1]}</span>
-                  <span className="min-w-0 flex-1 truncate">
-                    {place.name}
-                    {place.isYours ? <span className="ml-1.5 text-[11px] uppercase text-[#7a4b00]">· Lớp bạn</span> : null}
-                  </span>
-                  <span className="shrink-0 tabular-nums">{place.xp.toLocaleString("vi-VN")} XP</span>
-                </li>
-              ))}
-            </ol>
-          ) : null}
+          ))}
+          {PODIUM_CONFETTI.map((piece) => (
+            <span
+              key={piece.left}
+              className={`podium-confetti pointer-events-none absolute -top-3 ${piece.shape}`}
+              style={{
+                left: piece.left,
+                backgroundColor: piece.color,
+                animationDelay: `${piece.delay}s`,
+                animationDuration: `${piece.duration}s`,
+              }}
+              aria-hidden="true"
+            />
+          ))}
         </>
+      ) : null}
+      <div className="relative z-10 flex justify-center">
+        <p className="inline-flex items-center gap-1 rounded-full bg-[#ffd54a] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#3d2700] shadow-[0_3px_0_0_#b77f00]">
+          <span
+            className="material-symbols-outlined text-[16px]!"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+            aria-hidden="true"
+          >
+            emoji_events
+          </span>
+          Nhà vô địch tuần trước · từ {weekLabel(champions.week)}
+        </p>
+      </div>
+      {hasPlaces ? (
+        <ol
+          className="relative z-10 mt-9 grid w-full grid-cols-3 gap-2 sm:mt-11 sm:gap-3"
+          aria-label="Bục trao giải"
+        >
+          {PODIUM_SLOTS.map((slot) => (
+            <PodiumPlace
+              key={slot.rank}
+              place={byRank.get(slot.rank)}
+              slot={slot}
+            />
+          ))}
+        </ol>
       ) : (
-        <div className="relative z-10 mt-2 pr-16">
-          <p className="text-[18px] font-extrabold leading-tight text-[#3d2700]">Chưa có nhà vô địch nào</p>
-          <p className="mt-1 text-[13px] font-bold">
-            Tuần trước chưa lớp nào ghi XP. Lớp nào nhiều XP nhất đến Chủ nhật sẽ là nhà vô địch!
+        <div className="relative z-10 mt-3 pr-16">
+          <p className="text-[18px] font-extrabold leading-tight text-white">
+            Chưa có nhà vô địch nào
+          </p>
+          <p className="mt-1 text-[13px] font-bold text-white/75">
+            Tuần trước chưa lớp nào ghi XP. Lớp nào nhiều XP nhất đến Chủ nhật
+            sẽ là nhà vô địch!
           </p>
         </div>
       )}
-      <span
-        className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-2 text-[110px] text-white/25"
-        style={{ fontVariationSettings: "'FILL' 1" }}
-        aria-hidden="true"
-      >
-        emoji_events
-      </span>
+      {hasPlaces ? (
+        <div
+          className="relative z-10 -mx-4 -mb-4 h-3 bg-[#0f0a33]/70 sm:-mx-6 sm:-mb-6"
+          aria-hidden="true"
+        />
+      ) : (
+        <span
+          className="material-symbols-outlined pointer-events-none absolute -bottom-5 -right-2 text-[110px] text-[#ffd54a]/25"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+          aria-hidden="true"
+        >
+          emoji_events
+        </span>
+      )}
     </section>
   );
 }

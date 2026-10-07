@@ -580,13 +580,28 @@ test("last week's champions come from the stored podium, one row per class", () 
     ],
     labels,
     "a",
+    [
+      { userId: "a2", name: "Minh", classKey: "a", className: "A1 Abend", isAdmin: false, xp: 0, reachedAt: null },
+      { userId: "a1", name: "An", classKey: "a", className: "A1 Abend", isAdmin: false, xp: 40, reachedAt: null },
+      { userId: "b1", name: "Bao", classKey: "b", className: "B1", isAdmin: false, xp: 300, reachedAt: null },
+    ],
+    "a2",
   );
   assert.equal(champions.week, "2026-09-28");
   assert.deepEqual(champions.places, [
-    { rank: 1, name: "B1", xp: 300, isYours: false },
-    { rank: 2, name: "A1 Abend", xp: 100, isYours: true },
-    // Nobody is in class "c" today, so it shows its key.
-    { rank: 3, name: "c", xp: 50, isYours: false },
+    { rank: 1, name: "B1", xp: 300, isYours: false, students: [{ name: "Bao", isYou: false }] },
+    {
+      rank: 2,
+      name: "A1 Abend",
+      xp: 100,
+      isYours: true,
+      students: [
+        { name: "An", isYou: false },
+        { name: "Minh", isYou: true },
+      ],
+    },
+    // Nobody is in class "c" today, so it shows its key and no students.
+    { rank: 3, name: "c", xp: 50, isYours: false, students: [] },
   ]);
   assert.deepEqual(classChampions("2026-09-28", [], labels, null).places, []);
 });

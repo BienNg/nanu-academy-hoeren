@@ -11,7 +11,6 @@ import {
   type ClassQuestBoard,
   type ClassQuestDefinition,
   type ClassQuestDenial,
-  type ClassQuestPerson,
   type ClassQuestResult,
 } from "@/lib/class-quests";
 import {
@@ -20,10 +19,11 @@ import {
   type AdminClassLeague,
   type AdminClassPodiumRow,
 } from "@/lib/admin-class-league";
+import { isAdminUser } from "@/lib/admins";
 import { getSupabaseAdmin, getUserClassName } from "@/lib/progress-store";
 import { isQuestSchemaMissing } from "@/lib/quest-store";
 import { classLearners, dayKey, leaderboardClassKey, weekEndsAt, weekKey } from "@/lib/xp";
-import { listClassLearners, readWeekBoardPeople } from "@/lib/xp-store";
+import { listClassLearners, listLearnerClassOptions, readWeekBoardPeople } from "@/lib/xp-store";
 
 const CLAIMS_TABLE = "quest_claims";
 const XP_TABLE = "xp_awards";
@@ -70,14 +70,14 @@ async function readClassActivity(
   userIds: readonly string[],
   week: string,
 ): Promise<ClassActivity[] | null> {
-  const listening: { run_id: string; user_id: string; day_key: string }[] = [];
+  const listening: { run_id: string; user_id: string; day_key: string; xp: number }[] = [];
   const activity: ClassActivity[] = [];
   for (const ids of chunks(userIds)) {
     const [awards, study, duels] = await Promise.all([
       readAll((from, to) =>
         supabase
           .from(XP_TABLE)
-          .select("run_id, user_id, day_key")
+          .select("run_id, user_id, day_key, xp")
           .eq("week_key", week)
           .gt("xp", 0)
           .in("user_id", ids)
@@ -87,7 +87,7 @@ async function readClassActivity(
       readAll((from, to) =>
         supabase
           .from(STUDY_XP_TABLE)
-          .select("id, user_id, day_key")
+          .select("id, user_id, day_key, xp")
           .eq("week_key", week)
           .gt("xp", 0)
           .in("user_id", ids)
@@ -97,7 +97,7 @@ async function readClassActivity(
       readAll((from, to) =>
         supabase
           .from(DUEL_XP_TABLE)
-          .select("duel_id, user_id, day_key")
+          .select("duel_id, user_id, day_key, xp")
           .eq("week_key", week)
           .in("user_id", ids)
           .order("duel_id")
@@ -109,20 +109,35 @@ async function readClassActivity(
       console.error("Supabase class quest activity", "listening or study XP unreadable");
       return null;
     }
-    for (const row of awards as { run_id?: unknown; user_id?: unknown; day_key?: unknown }[]) {
+    for (const row of awards as { run_id?: unknown; user_id?: unknown; day_key?: unknown; xp?: unknown }[]) {
       if (typeof row.run_id === "string" && typeof row.user_id === "string" && typeof row.day_key === "string") {
-        listening.push({ run_id: row.run_id, user_id: row.user_id, day_key: row.day_key });
+        listening.push({
+          run_id: row.run_id,
+          user_id: row.user_id,
+          day_key: row.day_key,
+          xp: typeof row.xp === "number" ? row.xp : 0,
+        });
       }
     }
-    for (const row of study as { user_id?: unknown; day_key?: unknown }[]) {
+    for (const row of study as { user_id?: unknown; day_key?: unknown; xp?: unknown }[]) {
       if (typeof row.user_id === "string" && typeof row.day_key === "string") {
-        activity.push({ userId: row.user_id, day: row.day_key, kind: "study" });
+        activity.push({
+          userId: row.user_id,
+          day: row.day_key,
+          kind: "study",
+          xp: typeof row.xp === "number" ? row.xp : 0,
+        });
       }
     }
     // Duels are optional. A project without them still has class quests.
-    for (const row of (duels ?? []) as { user_id?: unknown; day_key?: unknown }[]) {
+    for (const row of (duels ?? []) as { user_id?: unknown; day_key?: unknown; xp?: unknown }[]) {
       if (typeof row.user_id === "string" && typeof row.day_key === "string") {
-        activity.push({ userId: row.user_id, day: row.day_key, kind: "duel" });
+        activity.push({
+          userId: row.user_id,
+          day: row.day_key,
+          kind: "duel",
+          xp: typeof row.xp === "number" ? row.xp : 0,
+        });
       }
     }
   }
@@ -144,6 +159,7 @@ async function readClassActivity(
       day: row.day_key,
       kind: "listening",
       accuracy: accuracyByRun.get(row.run_id) ?? 0,
+      xp: row.xp,
     });
   }
   return activity;
@@ -185,7 +201,10 @@ function emptyBoard(now: Date, ready: boolean, hasClass = false): ClassQuestBoar
   return {
     ready,
     hasClass,
+    classKey: "",
     className: null,
+    classOptions: [],
+    observing: false,
     learners: 0,
     daily: [],
     weekly: [],
@@ -198,17 +217,31 @@ async function readClassQuestState(
   viewerId: string,
   viewerImage: string | null | undefined,
   now: Date,
+  viewer?: { email?: string | null; classKey?: string | null },
 ): Promise<ClassQuestState> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return { board: emptyBoard(now, false), quests: [] };
 
-  const classKey = leaderboardClassKey(await getUserClassName(viewerId));
+  const admin = isAdminUser({ id: viewerId, email: viewer?.email });
+  const ownClass = leaderboardClassKey(await getUserClassName(viewerId));
+  const requested = admin ? leaderboardClassKey(viewer?.classKey) : "";
+  let classKey = requested || ownClass;
+  let classOptions: { key: string; label: string }[] = [];
+  if (admin) {
+    const options = await listLearnerClassOptions();
+    if (!options) return { board: emptyBoard(now, false), quests: [] };
+    classOptions = options;
+    if (!classOptions.some((option) => option.key === classKey)) {
+      classKey = classOptions.find((option) => option.key === ownClass)?.key ?? classOptions[0]?.key ?? "";
+    }
+  }
+
   const roster = classKey ? await listClassLearners(classKey, viewerId, viewerImage) : [];
   if (!roster) return { board: emptyBoard(now, false), quests: [] };
-  // Admins, staff and learners without a class have no class quests.
-  if (!roster.some((learner) => learner.userId === viewerId)) {
-    return { board: emptyBoard(now, true), quests: [] };
-  }
+  const onRoster = roster.some((learner) => learner.userId === viewerId);
+  // Staff and learners without a class have no class quests. An admin can watch one.
+  if (!onRoster && !admin) return { board: emptyBoard(now, true), quests: [] };
+  if (roster.length === 0) return { board: emptyBoard(now, true), quests: [] };
 
   const today = dayKey(now);
   const week = weekKey(now);
@@ -233,14 +266,21 @@ async function readClassQuestState(
     })),
   ];
 
-  const people = new Map<string, ClassQuestPerson>(
+  const people = new Map(
     roster.map((learner) => [learner.userId, { name: learner.name, image: learner.image }]),
   );
   const views = quests.map((entry) => buildClassQuestView({ ...entry, viewerId, people }));
   return {
     board: {
       ...emptyBoard(now, true, true),
-      className: roster.find((learner) => learner.userId === viewerId)?.className ?? null,
+      classKey,
+      className:
+        classOptions.find((option) => option.key === classKey)?.label ??
+        roster.find((learner) => learner.userId === viewerId)?.className ??
+        roster[0]?.className ??
+        null,
+      classOptions,
+      observing: !onRoster,
       learners: roster.length,
       daily: views.filter((view) => view.period === "day"),
       weekly: views.filter((view) => view.period === "week"),
@@ -254,8 +294,9 @@ export async function getClassQuestBoard(
   viewerId: string,
   viewerImage?: string | null,
   now = new Date(),
+  viewer?: { email?: string | null; classKey?: string | null },
 ): Promise<ClassQuestBoard> {
-  return (await readClassQuestState(viewerId, viewerImage, now)).board;
+  return (await readClassQuestState(viewerId, viewerImage, now, viewer)).board;
 }
 
 export type ClassClaimResult = {

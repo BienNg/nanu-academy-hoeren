@@ -1417,6 +1417,24 @@ async function readXpBoardPeople(
 export type ClassLearner = { userId: string; name: string; image: string | null; className: string };
 
 /**
+ * Real classes that have at least one learner. Admins and staff are left out,
+ * the same as on the classes board. Null when profiles cannot be read.
+ */
+export async function listLearnerClassOptions(): Promise<{ key: string; label: string }[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const profiles = await listBoardProfiles(supabase);
+  const people = profiles.flatMap((row) => {
+    const className = readClassName(row.class_name);
+    const classKey = leaderboardClassKey(className);
+    if (!classKey || row.staff === true) return [];
+    if (isAdminUser({ id: row.user_id, email: typeof row.email === "string" ? row.email : null })) return [];
+    return [{ classKey, className }];
+  });
+  return leaderboardClassOptions(people);
+}
+
+/**
  * Learners of one real class, the roster class quests count. Admins, staff and
  * deleted accounts are left out, the same as on the classes board.
  */
@@ -1471,10 +1489,13 @@ export async function getClassLeaderboard(
 
   const viewer = people.find((person) => person.userId === input.viewerId);
   const viewerClass = viewer && !viewer.isAdmin && !viewer.isStaff ? viewer.classKey || null : null;
-  const labels = new Map(leaderboardClassOptions(classLearners(people)).map((option) => [option.key, option.label]));
+  const learners = classLearners(people);
+  const labels = new Map(leaderboardClassOptions(learners).map((option) => [option.key, option.label]));
   const classes = {
     ...rankClasses(people, input.viewerId),
-    ...(lastWeek ? { lastWeek: classChampions(lastWeek.week, lastWeek.places, labels, viewerClass) } : {}),
+    ...(lastWeek
+      ? { lastWeek: classChampions(lastWeek.week, lastWeek.places, labels, viewerClass, learners, input.viewerId) }
+      : {}),
   };
   const yours = classes.rows.find((row) => row.isYours);
   return finish({

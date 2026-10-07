@@ -2,8 +2,9 @@
  * Class quests.
  * A class gets two quests a Vietnam day and one a Vietnam week. Which ones is
  * a pure function of the class and the day or week, so nothing is stored for
- * the assignment. Targets scale with the class's learners, so a class of 5 and
- * a class of 16 face the same share.
+ * the assignment. A daily target is a share of the class, rounded up to a
+ * whole number, and the quest shows that number. A weekly target is fixed,
+ * sized for a class of about 6: 1000 XP, 40 parts, or 12 duels.
  *
  * Progress is counted by the server from rows it already wrote (xp_awards,
  * study_xp_awards, duel_xp_awards, listening_runs). A finished quest pays XP
@@ -25,8 +26,8 @@ export type ClassQuestMetric =
   | "parts"
   /** Duels finished, each learner counted up to `perLearnerCap`. */
   | "duels"
-  /** Days on which `rate` of the class practiced. Weekly only. */
-  | "class-days";
+  /** Listening, study and duel XP added together. */
+  | "xp";
 
 export type ClassQuestDefinition = {
   id: string;
@@ -34,13 +35,14 @@ export type ClassQuestDefinition = {
   metric: ClassQuestMetric;
   /**
    * Learner metrics: share of the class. Volume metrics: amount per learner.
-   * "class-days": share of the class that must practice on a day.
+   * The title is given the rounded count, so the quest never shows the share.
+   * Ignored when `fixedTarget` is set.
    */
-  rate: number;
+  rate?: number;
+  /** A target that does not change with the class size. */
+  fixedTarget?: number;
   /** Volume metrics only. */
   perLearnerCap?: number;
-  /** "class-days" only. */
-  days?: number;
   icon: string;
   title: (target: number) => string;
 };
@@ -49,8 +51,10 @@ export const CLASS_QUEST_DAILY_XP = 25;
 export const CLASS_QUEST_WEEKLY_XP = 80;
 export const CLASS_QUEST_ACCURACY_MIN = 90;
 export const CLASS_DAILY_QUEST_COUNT = 2;
-/** From this many learners, "everyone" lets one learner miss out. */
-export const CLASS_EVERYONE_SLACK_FROM = 10;
+/** Weekly piles, sized so a class of about 6 has a real week of work. */
+export const CLASS_WEEKLY_XP_TARGET = 1000;
+export const CLASS_WEEKLY_PARTS_TARGET = 40;
+export const CLASS_WEEKLY_DUELS_TARGET = 12;
 
 export const CLASS_DAILY_POOL: readonly ClassQuestDefinition[] = [
   {
@@ -99,30 +103,28 @@ export const CLASS_DAILY_POOL: readonly ClassQuestDefinition[] = [
 
 export const CLASS_WEEKLY_POOL: readonly ClassQuestDefinition[] = [
   {
-    id: "everyone",
+    id: "xp-1000",
     period: "week",
-    metric: "practiced",
-    rate: 1,
-    icon: "diversity_3",
-    title: (n) => `Cả lớp cùng luyện tập tuần này: ${n} bạn`,
+    metric: "xp",
+    fixedTarget: CLASS_WEEKLY_XP_TARGET,
+    icon: "bolt",
+    title: (n) => `Cả lớp kiếm ${n} XP tuần này`,
   },
   {
-    id: "class-days-5",
-    period: "week",
-    metric: "class-days",
-    rate: 0.6,
-    days: 5,
-    icon: "local_fire_department",
-    title: (n) => `${n} ngày có 60% lớp luyện tập`,
-  },
-  {
-    id: "parts-6",
+    id: "parts-40",
     period: "week",
     metric: "parts",
-    rate: 6,
-    perLearnerCap: 10,
+    fixedTarget: CLASS_WEEKLY_PARTS_TARGET,
     icon: "flag",
     title: (n) => `Cả lớp hoàn thành ${n} phần luyện tập tuần này`,
+  },
+  {
+    id: "duels-12",
+    period: "week",
+    metric: "duels",
+    fixedTarget: CLASS_WEEKLY_DUELS_TARGET,
+    icon: "swords",
+    title: (n) => `Cả lớp chơi ${n} lượt đấu tuần này`,
   },
 ];
 
@@ -175,19 +177,18 @@ export function classQuestById(id: string): ClassQuestDefinition | null {
 
 /** What the quest asks of a class with `learners` learners. Never below 1. */
 export function classQuestTarget(quest: ClassQuestDefinition, learners: number): number {
+  if (quest.fixedTarget != null) return Math.max(1, Math.floor(quest.fixedTarget));
   const size = Math.max(1, Math.floor(learners));
-  if (quest.metric === "class-days") return quest.days ?? 1;
-  if (quest.metric === "practiced" && quest.rate >= 1) {
-    return size >= CLASS_EVERYONE_SLACK_FROM ? size - 1 : size;
-  }
-  return Math.max(1, Math.ceil(quest.rate * size - 1e-9));
+  return Math.max(1, Math.ceil((quest.rate ?? 0) * size - 1e-9));
 }
 
 /** One thing a learner did, as the server stored it. `day` is the Vietnam day. */
 export type ClassActivity =
-  | { userId: string; day: string; kind: "listening"; accuracy: number }
-  | { userId: string; day: string; kind: "study" }
-  | { userId: string; day: string; kind: "duel" };
+  | { userId: string; day: string; kind: "listening"; accuracy: number; xp?: number }
+  | { userId: string; day: string; kind: "study"; xp?: number }
+  | { userId: string; day: string; kind: "duel"; xp?: number };
+
+export type ClassQuestShare = { userId: string; amount: number };
 
 export type ClassQuestResult = {
   target: number;
@@ -196,6 +197,8 @@ export type ClassQuestResult = {
   done: boolean;
   /** Learners who added to the quest, in roster order. */
   contributors: string[];
+  /** How much of the bar each contributor filled, in roster order. */
+  shares: ClassQuestShare[];
 };
 
 function countBy(
@@ -210,6 +213,21 @@ function countBy(
 }
 
 const isPart = (entry: ClassActivity) => entry.kind === "listening" || entry.kind === "study";
+
+function countXp(activity: readonly ClassActivity[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const entry of activity) {
+    const xp = entry.xp ?? 0;
+    if (xp <= 0) continue;
+    counts.set(entry.userId, (counts.get(entry.userId) ?? 0) + xp);
+  }
+  return counts;
+}
+
+/** Headcount metrics record that a learner counted, not how many parts they did. */
+function asPresence(counts: Map<string, number>): Map<string, number> {
+  return new Map([...counts].map(([userId]) => [userId, 1]));
+}
 
 /**
  * Progress of one quest. `activity` must already be cut to the quest's day or
@@ -226,49 +244,44 @@ export function evaluateClassQuest(
 
   let value = 0;
   let counts: Map<string, number>;
+  let cap = Number.POSITIVE_INFINITY;
   switch (quest.metric) {
     case "practiced":
-      counts = countBy(own, isPart);
+      counts = asPresence(countBy(own, isPart));
       value = counts.size;
       break;
     case "studied":
-      counts = countBy(own, (entry) => entry.kind === "study");
+      counts = asPresence(countBy(own, (entry) => entry.kind === "study"));
       value = counts.size;
       break;
     case "accurate":
-      counts = countBy(
-        own,
-        (entry) => entry.kind === "listening" && entry.accuracy >= CLASS_QUEST_ACCURACY_MIN,
+      counts = asPresence(
+        countBy(own, (entry) => entry.kind === "listening" && entry.accuracy >= CLASS_QUEST_ACCURACY_MIN),
       );
       value = counts.size;
       break;
     case "parts":
-    case "duels": {
+    case "duels":
       counts = countBy(own, quest.metric === "parts" ? isPart : (entry) => entry.kind === "duel");
-      const cap = quest.perLearnerCap ?? Number.POSITIVE_INFINITY;
+      cap = quest.perLearnerCap ?? Number.POSITIVE_INFINITY;
       for (const count of counts.values()) value += Math.min(count, cap);
       break;
-    }
-    case "class-days": {
-      counts = countBy(own, isPart);
-      const needed = Math.max(1, Math.ceil(quest.rate * Math.max(1, roster.length) - 1e-9));
-      const byDay = new Map<string, Set<string>>();
-      for (const entry of own) {
-        if (!isPart(entry)) continue;
-        const learners = byDay.get(entry.day) ?? new Set<string>();
-        learners.add(entry.userId);
-        byDay.set(entry.day, learners);
-      }
-      value = [...byDay.values()].filter((learners) => learners.size >= needed).length;
+    case "xp":
+      counts = countXp(own);
+      for (const xp of counts.values()) value += xp;
       break;
-    }
   }
 
+  const shares = roster.flatMap((userId) => {
+    const amount = Math.min(counts.get(userId) ?? 0, cap);
+    return amount > 0 ? [{ userId, amount }] : [];
+  });
   return {
     target,
     progress: Math.min(value, target),
     done: value >= target,
-    contributors: roster.filter((userId) => (counts.get(userId) ?? 0) > 0),
+    contributors: shares.map((share) => share.userId),
+    shares,
   };
 }
 
@@ -287,7 +300,7 @@ export function classClaimDenial(input: {
   return null;
 }
 
-export type ClassQuestPerson = { name: string; image: string | null };
+export type ClassQuestPerson = { name: string; image: string | null; amount: number };
 
 export type ClassQuestView = {
   id: string;
@@ -298,18 +311,27 @@ export type ClassQuestView = {
   target: number;
   progress: number;
   done: boolean;
-  /** Avatars of who helped. Never lists who did not. */
+  /** Who helped, with how much of the bar they filled. Never lists who did not. */
   contributors: ClassQuestPerson[];
+  /** Parts, duels and XP quests show each contribution. Headcount quests show faces. */
+  showAmounts: boolean;
   youContributed: boolean;
   claimed: boolean;
   claimable: boolean;
 };
 
+export type ClassQuestClassOption = { key: string; label: string };
+
 export type ClassQuestBoard = {
   ready: boolean;
-  /** False when the viewer is not a learner in a class. */
+  /** False when there is no class to show. */
   hasClass: boolean;
+  classKey: string;
   className: string | null;
+  /** Other classes an admin can open. Empty for a learner. */
+  classOptions: ClassQuestClassOption[];
+  /** The viewer is watching a class they do not belong to, so they cannot claim. */
+  observing: boolean;
   learners: number;
   daily: ClassQuestView[];
   weekly: ClassQuestView[];
@@ -323,7 +345,7 @@ export function buildClassQuestView(input: {
   result: ClassQuestResult;
   viewerId: string;
   claimed: boolean;
-  people: ReadonlyMap<string, ClassQuestPerson>;
+  people: ReadonlyMap<string, { name: string; image: string | null }>;
 }): ClassQuestView {
   const { quest, result } = input;
   return {
@@ -335,10 +357,11 @@ export function buildClassQuestView(input: {
     target: result.target,
     progress: result.progress,
     done: result.done,
-    contributors: result.contributors.flatMap((userId) => {
-      const person = input.people.get(userId);
-      return person ? [person] : [];
+    contributors: result.shares.flatMap((share) => {
+      const person = input.people.get(share.userId);
+      return person ? [{ ...person, amount: share.amount }] : [];
     }),
+    showAmounts: quest.metric === "parts" || quest.metric === "duels" || quest.metric === "xp",
     youContributed: result.contributors.includes(input.viewerId),
     claimed: input.claimed,
     claimable: classClaimDenial({ result, viewerId: input.viewerId, claimed: input.claimed }) === null,
@@ -380,10 +403,15 @@ function readView(value: unknown): ClassQuestView | null {
                 typeof (person as { image?: unknown }).image === "string"
                   ? (person as { image: string }).image
                   : null,
+              amount:
+                typeof (person as { amount?: unknown }).amount === "number"
+                  ? (person as { amount: number }).amount
+                  : 0,
             },
           ]
         : [],
     ),
+    showAmounts: raw.showAmounts === true,
     youContributed: raw.youContributed === true,
     claimed: raw.claimed === true,
     claimable: raw.claimable === true,
@@ -400,10 +428,23 @@ export function readClassQuestBoard(value: unknown): ClassQuestBoard | null {
   const daily = read(raw.daily);
   const weekly = read(raw.weekly);
   if (daily.length === 0 && weekly.length === 0) return null;
+  const classOptions = Array.isArray(raw.classOptions)
+    ? raw.classOptions.flatMap((option) =>
+        option &&
+        typeof option === "object" &&
+        typeof (option as { key?: unknown }).key === "string" &&
+        typeof (option as { label?: unknown }).label === "string"
+          ? [{ key: (option as { key: string }).key, label: (option as { label: string }).label }]
+          : [],
+      )
+    : [];
   return {
     ready: true,
     hasClass: true,
+    classKey: typeof raw.classKey === "string" ? raw.classKey : "",
     className: typeof raw.className === "string" ? raw.className : null,
+    classOptions,
+    observing: raw.observing === true,
     learners: typeof raw.learners === "number" ? raw.learners : 0,
     daily,
     weekly,
