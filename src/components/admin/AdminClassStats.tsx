@@ -23,11 +23,10 @@ import {
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildClassStats,
-  type AdminClassQuestStatus,
   type AdminCatalogCourse,
   type ClassMemberStat,
 } from "@/lib/admin-detail";
-import type { AdminClassLeagueRow } from "@/lib/admin-class-league";
+import type { AdminClassLeagueRow, AdminClassQuestStatus } from "@/lib/admin-class-league";
 import type { AdminClassLeagueData } from "@/lib/class-quest-store";
 import {
   classKey,
