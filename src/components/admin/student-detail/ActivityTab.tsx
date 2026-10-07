@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  listAdminStudentClicks,
   listAdminStudentDuelMatchFailures,
   listAdminStudentJumpRuns,
   listAdminStudentRuns,
@@ -54,6 +55,7 @@ import {
   type StudentRunsPage,
 } from "@/lib/listening-runs";
 import { visitRangeIso } from "@/lib/progress";
+import type { StudentUiClick } from "@/lib/ui-clicks";
 
 type VisitCategory = AdminVisitDetailGroup["id"];
 
@@ -1030,6 +1032,77 @@ function JumpRunsSection({
   );
 }
 
+function clickEmptyMessage(range: AdminVisitRange): string {
+  if (range === "today") return "No clicks today.";
+  if (range === "7d") return "No clicks in the last 7 days.";
+  return "No clicks yet.";
+}
+
+function ClicksSection({ userId, range }: { userId: string; range: AdminVisitRange }) {
+  const [clicks, setClicks] = useState<StudentUiClick[] | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const requestKey = `${userId}:${range}`;
+  const visible = loadedFor === requestKey ? clicks : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAdminStudentClicks(userId, range).then((result) => {
+      if (cancelled) return;
+      setLoadedFor(requestKey);
+      if (!result.ok) {
+        setFailed(true);
+        setMissing(false);
+        setClicks([]);
+        return;
+      }
+      setFailed(false);
+      setMissing(result.missing);
+      setClicks(result.clicks);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, range]);
+
+  const top = visible?.[0]?.count ?? 0;
+
+  return (
+    <section aria-label="Clicks" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
+      <ColumnHeader title="Clicks" description="Bottom-nav taps, counted in Vietnam time." />
+      {visible == null ? (
+        <EmptyPanel>Loading clicks…</EmptyPanel>
+      ) : failed ? (
+        <EmptyPanel>Could not load clicks.</EmptyPanel>
+      ) : missing ? (
+        <EmptyPanel>Click tracking is not set up yet. Run supabase/ui_clicks.sql.</EmptyPanel>
+      ) : visible.length === 0 ? (
+        <EmptyPanel>{clickEmptyMessage(range)}</EmptyPanel>
+      ) : (
+        <Panel>
+          <ul>
+            {visible.map((click) => (
+              <li key={click.target} className="border-t border-admin-hairline px-space-20 py-space-16 first:border-t-0">
+                <div className="flex items-baseline justify-between gap-space-12">
+                  <span className="text-admin-body-md text-admin-ink">{click.label}</span>
+                  <span className="font-admin-display text-admin-body-md tabular-nums text-admin-ink">{click.count}</span>
+                </div>
+                <div className="mt-space-8 h-1.5 overflow-hidden rounded-full bg-admin-hairline" aria-hidden="true">
+                  <div
+                    className="h-full rounded-full bg-admin-cobalt"
+                    style={{ width: `${top > 0 ? Math.max(8, Math.round((click.count / top) * 100)) : 0}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </section>
+  );
+}
+
 function duelFailureEmptyMessage(range: AdminVisitRange): string {
   if (range === "today") return "No failed duel matches today.";
   if (range === "7d") return "No failed duel matches in the last 7 days.";
@@ -1291,6 +1364,7 @@ export function ActivityTab({
         )}
       </section>
       <div className="flex min-w-0 flex-col gap-space-40">
+        <ClicksSection userId={userId} range={range} />
         <DuelMatchFailuresSection
           userId={userId}
           revision={runsRevision}

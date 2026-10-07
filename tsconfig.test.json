@@ -75,6 +75,8 @@
     "src/lib/class-quests.ts",
     "src/lib/class-quests.test.ts",
     "src/lib/admin-class-league.ts",
-    "src/lib/admin-class-league.test.ts"
+    "src/lib/admin-class-league.test.ts",
+    "src/lib/ui-clicks.ts",
+    "src/lib/ui-clicks.test.ts"
   ]
 }

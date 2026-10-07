@@ -9,14 +9,15 @@ import { badgeCheckDue, markBadgeCheck } from "@/lib/badge-unseen";
 import { readFreshBadges, type FreshBadge } from "@/lib/badges";
 import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/quest-badge";
 import { questZoneHeaders } from "@/lib/quests";
+import { trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-3 sm:px-4" },
-  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-1.5 sm:px-2.5" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-3 sm:px-4" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-1.5 sm:px-2.5" },
-  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", pad: "px-1.5 sm:px-2.5" },
-] as const;
+  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-3 sm:px-4", target: "nav.learn" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-1.5 sm:px-2.5", target: "nav.quests" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-3 sm:px-4", target: "nav.duel" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-1.5 sm:px-2.5", target: "nav.leaderboard" },
+  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", pad: "px-1.5 sm:px-2.5", target: "nav.badges" },
+] as const satisfies readonly { href: string; label: string; icon: string; pad: string; target: UiClickTarget }[];
 
 function isCurrent(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/" || pathname.startsWith("/learn");
@@ -200,6 +201,7 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
+                onClick={() => trackUiClick(item.target)}
                 className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
                   active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
                 }`}

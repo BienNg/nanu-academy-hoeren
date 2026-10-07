@@ -32,6 +32,7 @@ import {
   formatCount,
   formatPercent,
 } from "@/components/admin/AdminUi";
+import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
 import {
@@ -92,7 +93,13 @@ function useNow(intervalMs = 30_000): number | null {
   return now;
 }
 
-type DomainStat = { label: string; value: string; hint: string };
+type DomainStat = {
+  label: string;
+  value: string;
+  hint: string;
+  /** Path glyph, as tall as the label, number, and hint together. */
+  icon?: string;
+};
 
 /** One silo of the metric deck: a coloured rule, a domain banner, and its stats. */
 function DomainCard({
@@ -135,17 +142,34 @@ function DomainCard({
         {stats.map((stat, index) => (
           <div
             key={stat.label}
-            className={`flex min-w-0 flex-col ${index > 0 ? "pl-space-12" : ""}`}
+            className={`flex min-w-0 items-center gap-space-12 ${index > 0 ? "pl-space-16" : ""}`}
           >
-            <dt className="truncate text-admin-body-sm text-admin-ink-muted">
-              {stat.label}
-            </dt>
-            <dd className="font-admin-display text-admin-metric tabular-nums text-admin-ink">
-              {stat.value}
-            </dd>
-            <dd className="text-[12px] leading-4 text-admin-ink-subtle">
-              {stat.hint}
-            </dd>
+            {stat.icon ? (
+              <span
+                className={`relative h-[70px] shrink-0 ${
+                  stat.icon === "menu_book" ? "w-[4.75rem]" : "w-[4.5rem]"
+                }`}
+              >
+                <LessonPathIcon
+                  name={stat.icon}
+                  onWhite
+                  className={`absolute top-1/2 left-1/2 h-[70px] w-[70px] -translate-x-1/2 -translate-y-1/2 ${
+                    stat.icon === "menu_book" ? "scale-[1.22]" : "scale-90"
+                  }`}
+                />
+              </span>
+            ) : null}
+            <div className="flex min-w-0 flex-col">
+              <dt className="truncate text-admin-body-sm text-admin-ink-muted">
+                {stat.label}
+              </dt>
+              <dd className="font-admin-display text-admin-metric tabular-nums text-admin-ink">
+                {stat.value}
+              </dd>
+              <dd className="text-[12px] leading-4 text-admin-ink-subtle">
+                {stat.hint}
+              </dd>
+            </div>
           </div>
         ))}
       </dl>
@@ -373,7 +397,7 @@ function ActiveUsersTimeline({
         color={ADMIN_COLORS.ember}
         hint={
           timeline.grain === "hour"
-            ? "Each avatar sits on the Vietnam hour of that student's latest visit. Hover for details."
+            ? "Each avatar sits on the Vietnam hour of that student's latest visit. The smaller number is the same hour in Germany. Hover for details."
             : "Each avatar sits on the Vietnam day of that student's latest visit. Hover for details."
         }
       />
@@ -1066,6 +1090,7 @@ export function AdminOverview({
                   value:
                     studyPartCount == null ? "—" : formatCount(studyPartCount),
                   hint: "Parts finished",
+                  icon: "menu_book",
                 },
                 {
                   label: "Practice parts",
@@ -1074,6 +1099,7 @@ export function AdminOverview({
                       ? "—"
                       : formatCount(practicePartCount),
                   hint: "Parts finished",
+                  icon: "fitness_center",
                 },
               ]}
             />

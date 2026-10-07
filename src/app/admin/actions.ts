@@ -62,6 +62,7 @@ import {
   isProgressStoreConfigured,
   listStudentJumpRuns,
   listStudentListeningRuns,
+  listStudentUiClicks,
   livingAccessFrom,
   normalizeGrantEmail,
   setCloudProgress,
@@ -75,6 +76,7 @@ import {
 import { deleteUserQuestClaims } from "@/lib/quest-store";
 import { deleteUserBadges } from "@/lib/badge-store";
 import { listUserXpEvents } from "@/lib/xp-store";
+import type { StudentUiClick, UiClickRange } from "@/lib/ui-clicks";
 
 /**
  * Every admin page reads the same user rows, so one layout-scoped call covers
@@ -360,6 +362,28 @@ export async function listAdminStudentDuelMatchFailures(
   const bounds = parseRunWindow(window);
   if (window && !bounds) return { ok: false, error: "Invalid time range" };
   return { ok: true, ...(await listStudentDuelMatchFailures(id, start, bounds)) };
+}
+
+export async function listAdminStudentClicks(
+  userId: string,
+  range: UiClickRange,
+): Promise<{ ok: true; clicks: StudentUiClick[]; missing: boolean } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (range !== "today" && range !== "7d" && range !== "all") {
+    return { ok: false, error: "Invalid time range" };
+  }
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const page = await listStudentUiClicks(id, range);
+  if (!page) return { ok: false, error: "Could not load this student's clicks." };
+  return { ok: true, ...page };
 }
 
 export async function deleteAdminUser(

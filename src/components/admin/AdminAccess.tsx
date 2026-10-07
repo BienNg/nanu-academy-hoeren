@@ -448,6 +448,7 @@ export function AdminAccess({
         className: row.className,
         levelAccess: row.levelAccess,
         interviewAccess: row.interviewAccess,
+        updatedAt: row.updatedAt,
       })),
     [pendingRows],
   );

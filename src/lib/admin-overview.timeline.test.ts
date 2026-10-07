@@ -7,6 +7,7 @@ import {
   buildActiveUserTimeline,
   buildAdminActivityStats,
   formatRelativeLastSeen,
+  listAdminClasses,
   partsByUser,
   type AdminUserRow,
 } from "./admin-overview.js";
@@ -51,6 +52,9 @@ test("today places each student once, from midnight through the current hour", (
   );
   assert.deepEqual(placed, ["9:early", "12:noon"]);
   assert.equal(timeline.unplaced, 3);
+  // 2 Oct 2026 is still CEST: Vietnam is five hours ahead of Berlin.
+  assert.equal(timeline.columns[0]?.marker, "19");
+  assert.equal(timeline.columns[13]?.marker, "8");
 });
 
 test("students who share an hour stack newest first", () => {
@@ -195,4 +199,17 @@ test("videos started counts each played video once per learner, from visits in t
   const stats = buildAdminActivityStats([viewer], "today", NOW);
   assert.equal(stats.videosStarted, 2);
   assert.equal(stats.startedVideoSeconds, 240);
+});
+
+test("class tabs list newest created class first", () => {
+  assert.deepEqual(
+    listAdminClasses([
+      { className: "Ausbildung", lastLoginAt: "2025-01-01T00:00:00.000Z" },
+      { className: "G01", lastLoginAt: "2025-06-01T00:00:00.000Z" },
+      { className: "G129", lastLoginAt: "2026-10-01T00:00:00.000Z" },
+      { className: "G128", lastLoginAt: "2026-09-01T00:00:00.000Z" },
+      { className: "G129", lastLoginAt: "2026-10-02T00:00:00.000Z" },
+    ]).map((option) => option.label),
+    ["G129", "G128", "G01", "Ausbildung"],
+  );
 });

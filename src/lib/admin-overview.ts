@@ -278,11 +278,29 @@ export function buildAdminRosterTrend(
   });
 }
 
+type AdminClassMemberHint = {
+  className?: string | null;
+  updatedAt?: string | null;
+  lastLoginAt?: string | null;
+  lastSignInAt?: string | null;
+  signIns?: AdminUserRow["signIns"];
+  progress?: AdminUserRow["progress"];
+};
+
+/** Earliest day this person was seen, or the pending-grant update day. */
+function classMemberFirstDay(row: AdminClassMemberHint): string | null {
+  if (row.progress && row.signIns) {
+    return firstSeenDay(row as AdminUserRow);
+  }
+  return calendarDay(row.updatedAt ?? row.lastLoginAt ?? row.lastSignInAt ?? null);
+}
+
 /** Distinct classes, labeled with the most common spelling of each name. */
 export function listAdminClasses(
-  rows: readonly { className?: string | null }[],
+  rows: readonly AdminClassMemberHint[],
 ): AdminClassOption[] {
   const groups = new Map<string, Map<string, number>>();
+  const firstDay = new Map<string, string | null>();
   for (const row of rows) {
     const key = classKey(row.className);
     if (!key) continue;
@@ -290,6 +308,13 @@ export function listAdminClasses(
     const votes = groups.get(key) ?? new Map<string, number>();
     votes.set(label, (votes.get(label) ?? 0) + 1);
     groups.set(key, votes);
+    const day = classMemberFirstDay(row);
+    const current = firstDay.get(key);
+    if (current === undefined) {
+      firstDay.set(key, day);
+    } else if (day && (!current || day < current)) {
+      firstDay.set(key, day);
+    }
   }
 
   const options: AdminClassOption[] = [];
@@ -310,7 +335,16 @@ export function listAdminClasses(
     options.push({ key, label, count });
   }
 
-  options.sort((a, b) => a.label.localeCompare(b.label, "vi", { sensitivity: "base" }));
+  options.sort((a, b) => {
+    const aDay = firstDay.get(a.key) ?? "";
+    const bDay = firstDay.get(b.key) ?? "";
+    if (aDay !== bDay) {
+      if (!aDay) return 1;
+      if (!bDay) return -1;
+      return bDay.localeCompare(aDay);
+    }
+    return a.label.localeCompare(b.label, "vi", { sensitivity: "base" });
+  });
   return options;
 }
 
@@ -450,7 +484,10 @@ export type ActiveTimelineStudent = {
 export type ActiveTimelineColumn = {
   key: string;
   label: string;
-  /** Month name on the first column and on the 1st, for 30- and 90-day axes. */
+  /**
+   * Secondary axis text. Today's columns show the Europe/Berlin hour under the
+   * Vietnam hour. Longer day ranges show the month on the first column and on the 1st.
+   */
   marker: string | null;
   /** Newest last-seen first. */
   students: ActiveTimelineStudent[];
@@ -500,6 +537,21 @@ function byNewestSeen(a: ActiveTimelineStudent, b: ActiveTimelineStudent): numbe
   return a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" });
 }
 
+/** Europe/Berlin wall-clock hour for a Vietnam hour on `vietnamDay` (`YYYY-MM-DD`). */
+function berlinHourLabel(vietnamDay: string, hour: number): string {
+  const instant = timelineDateFromClockKey(
+    `${vietnamDay}T${String(hour).padStart(2, "0")}`,
+  );
+  const part = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Berlin",
+    hour: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(instant)
+    .find((item) => item.type === "hour")?.value;
+  return String(Number(part));
+}
+
 function timelineDayParts(day: string): { label: string; month: string; dayNum: number } | null {
   const date = new Date(`${day}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return null;
@@ -528,7 +580,7 @@ export function buildActiveUserTimeline(
     const columns: ActiveTimelineColumn[] = Array.from({ length: currentHour + 1 }, (_, hour) => ({
       key: `${today}T${String(hour).padStart(2, "0")}`,
       label: String(hour),
-      marker: null,
+      marker: berlinHourLabel(today, hour),
       students: [],
     }));
     const byHour = new Map(columns.map((column) => [column.key, column]));
@@ -1772,6 +1824,7 @@ export type AdminWaitingClassMember = {
   className: string | null;
   levelAccess: readonly string[];
   interviewAccess: boolean;
+  updatedAt?: string | null;
 };
 
 export type AdminAccessBoard = {
