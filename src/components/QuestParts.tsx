@@ -16,11 +16,13 @@ export function CountUp({
   to,
   delay = 0,
   duration = 0.9,
+  format,
 }: {
   from: number;
   to: number;
   delay?: number;
   duration?: number;
+  format?: (value: number) => string;
 }) {
   const reduceMotion = useReducedMotion() ?? false;
   const [value, setValue] = useState(from);
@@ -36,7 +38,8 @@ export function CountUp({
     return () => controls.stop();
   }, [from, to, delay, duration, reduceMotion]);
 
-  return <>{reduceMotion ? to : value}</>;
+  const shown = reduceMotion ? to : value;
+  return <>{format ? format(shown) : shown}</>;
 }
 
 /** Wooden chest. It springs open once the quest it guards is done. */

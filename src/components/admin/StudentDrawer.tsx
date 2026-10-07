@@ -23,6 +23,7 @@ import {
 import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { activeStreakDays, formatActiveDuration } from "@/lib/progress";
+import { dayKey } from "@/lib/xp";
 
 type XpLoadState = { userId: string; events: AdminXpEvent[] | null };
 
@@ -117,30 +118,37 @@ function XpSummary({
   catalog: readonly AdminCatalogCourse[];
   events: readonly AdminXpEvent[];
 }) {
-  const xp = useMemo(() => summarizeStudentXp(catalog, events), [catalog, events]);
+  const now = useNow();
+  const xp = useMemo(() => {
+    const today = dayKey(new Date(now));
+    const todayEvents = events.filter(
+      (event) => (event.dayKey ?? dayKey(new Date(event.at))) === today,
+    );
+    return summarizeStudentXp(catalog, todayEvents, new Date(now));
+  }, [catalog, events, now]);
 
   return (
     <Section title="XP">
       <StatGrid
         items={[
           {
-            label: "Total XP",
+            label: "Today",
             value: formatCount(xp.total),
-            hint: `${formatCount(xp.awards)} ${xp.awards === 1 ? "award" : "awards"}`,
+            hint: "Vietnam time",
             color: xp.total > 0 ? ADMIN_COLORS.amber : undefined,
           },
           {
-            label: "This week",
-            value: formatCount(xp.week),
-            hint: `${formatCount(xp.today)} today · Vietnam time`,
+            label: "Awards",
+            value: formatCount(xp.awards),
+            hint: xp.awards === 1 ? "award today" : "awards today",
           },
         ]}
       />
       {xp.sources.length === 0 ? (
-        <p className="pt-space-12 text-admin-body-sm text-admin-ink-subtle">No XP earned yet.</p>
+        <p className="pt-space-12 text-admin-body-sm text-admin-ink-subtle">No XP earned today.</p>
       ) : (
         <>
-          <SubHeading title="By source" meta="Share of total" />
+          <SubHeading title="By source" meta="Share of today" />
           <div
             className="mb-space-8 flex h-2 gap-px overflow-hidden rounded-full bg-admin-subtle"
             role="img"

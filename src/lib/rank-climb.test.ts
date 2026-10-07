@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { climbWindowStart, planRankClimb } from "./rank-climb.js";
-import type { LeaderboardRow } from "./xp.js";
+import { climbWindowStart, planClassRankClimb, planRankClimb } from "./rank-climb.js";
+import type { ClassBoardRow, LeaderboardRow } from "./xp.js";
 
 function board(entries: readonly [name: string, xp: number, isYou?: boolean][]): LeaderboardRow[] {
   return entries.map(([name, xp, isYou = false], index) => ({
@@ -96,4 +96,86 @@ test("planRankClimb has nothing to show without XP or without a row for you", ()
   assert.equal(planRankClimb(rows, 0), null);
   assert.equal(planRankClimb(board([["A", 10], ["B", 5]]), 10), null);
   assert.equal(planRankClimb([], 10), null);
+});
+
+function classes(
+  entries: readonly [name: string, xp: number, members: number, isYours?: boolean][],
+): ClassBoardRow[] {
+  return entries.map(([name, xp, members, isYours = false], index) => ({
+    rank: index + 1,
+    name,
+    xp,
+    members,
+    xpPerMember: Math.round(xp / members),
+    isYours,
+  }));
+}
+
+test("planClassRankClimb takes the part's XP off the viewer's class", () => {
+  const climb = planClassRankClimb(
+    classes([
+      ["A1 Tối", 2200, 8],
+      ["A1 Sáng", 1800, 8, true],
+      ["A2 Chiều", 1600, 6],
+      ["B1 Sáng", 1500, 5],
+      ["A1 Chiều", 900, 7],
+    ]),
+    400,
+  );
+  assert.ok(climb);
+  assert.equal(climb.xpBefore, 1400);
+  assert.equal(climb.xpAfter, 1800);
+  assert.equal(climb.rankBefore, 4);
+  assert.equal(climb.rankAfter, 2);
+  const yours = climb.rows.find((row) => row.isYours);
+  assert.equal(yours?.xpPerMemberBefore, 175);
+  assert.equal(yours?.xpPerMemberAfter, 225);
+});
+
+test("planClassRankClimb breaks ties by XP per learner, then name", () => {
+  const byRate = planClassRankClimb(
+    classes([
+      ["Bạn", 100, 4, true],
+      ["Đông", 80, 2],
+      ["An", 80, 8],
+    ]),
+    20,
+  );
+  assert.ok(byRate);
+  // Before: 80 XP and 20 XP/learner sits under Đông (40) and above An (10).
+  assert.equal(byRate.rankBefore, 2);
+  assert.equal(byRate.rankAfter, 1);
+
+  const byName = planClassRankClimb(
+    classes([
+      ["Minh", 80, 5, true],
+      ["An", 50, 5],
+    ]),
+    30,
+  );
+  assert.ok(byName);
+  // Before both have 50 XP and 10 XP/learner, so An stays above Minh.
+  assert.equal(byName.rankBefore, 2);
+  assert.equal(byName.rankAfter, 1);
+});
+
+test("planClassRankClimb starts a new class below every class already ranked", () => {
+  const climb = planClassRankClimb(
+    classes([
+      ["A1 Tối", 400, 4],
+      ["A1 Sáng", 25, 5, true],
+    ]),
+    25,
+  );
+  assert.ok(climb);
+  assert.equal(climb.xpBefore, 0);
+  assert.equal(climb.rankBefore, 2);
+  assert.equal(climb.rankAfter, 2);
+});
+
+test("planClassRankClimb has nothing to show without XP or without your class", () => {
+  const rows = classes([["A1 Sáng", 40, 4, true]]);
+  assert.equal(planClassRankClimb(rows, 0), null);
+  assert.equal(planClassRankClimb(classes([["A1 Tối", 40, 4]]), 10), null);
+  assert.equal(planClassRankClimb([], 10), null);
 });

@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { CARD } from "@/components/admin/AdminUi";
 import { BadgeUnlockSheet } from "@/components/BadgeParts";
-import { PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
+import { ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
 import { freshBadge, type FreshBadge } from "@/lib/badges";
-import { planRankClimb } from "@/lib/rank-climb";
+import { planClassRankClimb, planRankClimb } from "@/lib/rank-climb";
 import type { QuestUpdate } from "@/lib/quests";
 import { dropQueuedStreakCelebration, stageStreakCelebration } from "@/lib/useProgress";
-import type { LeaderboardRow } from "@/lib/xp";
+import type { ClassBoardRow, LeaderboardRow } from "@/lib/xp";
 
 type SequenceFlags = {
   streak: boolean;
@@ -37,6 +37,7 @@ const SEQUENCES: readonly {
       flags.streak ? "streak" : null,
       flags.quests ? "quests" : null,
       flags.board ? "leaderboard" : null,
+      flags.board ? "class ranking" : null,
       flags.badge ? "badge" : null,
     ].filter((step): step is string => step != null);
     return {
@@ -64,7 +65,8 @@ type SceneId =
   | "streak"
   | "quests"
   | "bonus"
-  | "climb";
+  | "climb"
+  | "class-climb";
 
 const SCENES: readonly { id: SceneId; group: string; title: string; detail: string }[] = [
   {
@@ -95,7 +97,7 @@ const SCENES: readonly { id: SceneId; group: string; title: string; detail: stri
     id: "part",
     group: "End of a part",
     title: "Part complete",
-    detail: "With XP. Admins are not on a class board, so the ranking step closes itself.",
+    detail: "With XP. Admins are not ranked, so the class board and class ranking close themselves.",
   },
   {
     id: "lesson",
@@ -150,6 +152,12 @@ const SCENES: readonly { id: SceneId; group: string; title: string; detail: stri
     group: "After the part card",
     title: "Class board climb",
     detail: "Sample numbers. Does not read the real board.",
+  },
+  {
+    id: "class-climb",
+    group: "After the part card",
+    title: "Class ranking climb",
+    detail: "Your class passes two others. Sample numbers. Does not read the real board.",
   },
 ];
 
@@ -260,6 +268,23 @@ function sampleRow(name: string, xp: number, rank: number, isYou = false): Leade
   };
 }
 
+function sampleClass(
+  name: string,
+  xp: number,
+  members: number,
+  rank: number,
+  isYours = false,
+): ClassBoardRow {
+  return {
+    rank,
+    name,
+    xp,
+    members,
+    xpPerMember: Math.round(xp / members),
+    isYours,
+  };
+}
+
 const SAMPLE_CLIMB = planRankClimb(
   [
     sampleRow("Lan", 500, 1),
@@ -272,6 +297,18 @@ const SAMPLE_CLIMB = planRankClimb(
     sampleRow("Dũng", 90, 8),
   ],
   80,
+);
+
+const SAMPLE_CLASS_CLIMB = planClassRankClimb(
+  [
+    sampleClass("A1 Tối", 2200, 8, 1),
+    sampleClass("A1 Sáng", 1800, 8, 2, true),
+    sampleClass("A2 Chiều", 1600, 6, 3),
+    sampleClass("B1 Sáng", 1500, 5, 4),
+    sampleClass("A1 Chiều", 900, 7, 5),
+    sampleClass("A2 Tối", 700, 6, 6),
+  ],
+  400,
 );
 
 export function AdminPreviews() {
@@ -377,7 +414,21 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
           onContinue={onClose}
         />
       ) : null}
-      {scene !== "badge" && scene !== "badges" && scene !== "tiers" && scene !== "climb" ? (
+      {scene === "class-climb" && SAMPLE_CLASS_CLIMB ? (
+        <ClassRankClimbStepView
+          climb={SAMPLE_CLASS_CLIMB}
+          countdown="Còn 3 ngày"
+          contributionBefore={80}
+          contributionAfter={480}
+          continueLabel="Về bài học"
+          onContinue={onClose}
+        />
+      ) : null}
+      {scene !== "badge" &&
+      scene !== "badges" &&
+      scene !== "tiers" &&
+      scene !== "climb" &&
+      scene !== "class-climb" ? (
         <PartCompleteScreen key={scene} {...partProps(scene, onClose)} />
       ) : null}
     </div>
@@ -385,10 +436,19 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
 }
 
 function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: () => void }) {
-  const [step, setStep] = useState<"part" | "board" | "badge">("part");
+  const [step, setStep] = useState<"part" | "board" | "classes" | "badge">("part");
   const afterPart = () => {
     if (flags.board) setStep("board");
     else if (flags.badge) setStep("badge");
+    else onClose();
+  };
+  const afterBoard = () => {
+    if (SAMPLE_CLASS_CLIMB) setStep("classes");
+    else if (flags.badge) setStep("badge");
+    else onClose();
+  };
+  const afterClasses = () => {
+    if (flags.badge) setStep("badge");
     else onClose();
   };
 
@@ -415,11 +475,18 @@ function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: ()
           climb={SAMPLE_CLIMB}
           className="A1 Sáng"
           countdown="Còn 3 ngày"
+          continueLabel="Tiếp tục"
+          onContinue={afterBoard}
+        />
+      ) : null}
+      {step === "classes" && SAMPLE_CLASS_CLIMB ? (
+        <ClassRankClimbStepView
+          climb={SAMPLE_CLASS_CLIMB}
+          countdown="Còn 3 ngày"
+          contributionBefore={80}
+          contributionAfter={480}
           continueLabel={flags.badge ? "Tiếp tục" : "Về bài học"}
-          onContinue={() => {
-            if (flags.badge) setStep("badge");
-            else onClose();
-          }}
+          onContinue={afterClasses}
         />
       ) : null}
       {step === "badge" ? <BadgeUnlockSheet badges={badgesFor("badge")} onDone={onClose} /> : null}
