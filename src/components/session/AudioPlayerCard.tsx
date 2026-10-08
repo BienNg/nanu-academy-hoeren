@@ -209,14 +209,14 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
   const isPlaying = visualState === "playing";
 
   return (
-    <section className="mt-3 flex flex-col items-center gap-5">
+    <section className="mt-2 flex flex-col items-center gap-3 [@media(max-height:760px)]:mt-1 [@media(max-height:760px)]:gap-2">
       <button
         type="button"
         aria-label="Dạng sóng âm thanh — chạm để phát hoặc tạm dừng"
         // The big play button below is the keyboard stop for the same action.
         tabIndex={-1}
         onClick={handlePlayPause}
-        className="flex h-[76px] w-full items-center justify-between gap-1 rounded-full border-2 border-[#e5e5ea] bg-white px-6 transition-colors hover:bg-[#fafafa]"
+        className="flex h-[76px] w-full items-center justify-between gap-1 overflow-hidden rounded-full border-2 border-[#e5e5ea] bg-white px-6 transition-colors hover:bg-[#fafafa] [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:px-4"
       >
         {WAVEFORM_BAR_HEIGHTS_PX.map((height, index) => (
           <span
@@ -237,11 +237,11 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
           aria-keyshortcuts={REPLAY_KEYS}
           title="Space · Ctrl+Space"
           onClick={handlePlayPause}
-          className={`flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none ${FOCUS_RING}`}
+          className={`flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:w-14 [@media(max-height:760px)]:shadow-[0_4px_0_#004c99] [@media(max-height:760px)]:active:translate-y-[4px] ${FOCUS_RING}`}
         >
           <MaterialIcon
             name={isPlaying ? "pause" : "play_arrow"}
-            className={isPlaying ? "text-[44px]" : "ml-1 text-[48px]"}
+            className={isPlaying ? "text-[44px] [@media(max-height:760px)]:text-[28px]" : "ml-1 text-[48px] [@media(max-height:760px)]:text-[32px]"}
             filled
           />
         </button>

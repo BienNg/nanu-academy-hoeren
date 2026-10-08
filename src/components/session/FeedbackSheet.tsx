@@ -201,7 +201,7 @@ export function CheckBar({
   );
   return (
     <>
-      <div aria-hidden="true" className="h-24" />
+      <div aria-hidden="true" data-check-spacer="" className="h-24" />
       {docked ? createPortal(bar, document.body) : null}
     </>
   );

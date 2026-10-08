@@ -109,7 +109,7 @@ export function McCard({
 
       {afterPrompt}
 
-      <section className={`mt-4 grid gap-3 rounded-[24px] ${layout === "list" ? "grid-cols-1" : "grid-cols-2"} bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6`}>
+      <section className={`mt-4 grid gap-3 rounded-[24px] ${layout === "list" ? "grid-cols-1" : "grid-cols-2"} bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] [@media(max-height:760px)]:mt-3 [@media(max-height:760px)]:gap-2 [@media(max-height:760px)]:p-3 md:p-6`}>
         {options.map((option, index) => {
           const isSelected = option.id === (checked ? result.selectedId : selectedId);
           const shortcut = index < 10 ? digitLabel(index) : null;
@@ -127,7 +127,9 @@ export function McCard({
                 handleSubmit();
               }}
               className={`relative flex items-center gap-3 rounded-2xl border-2 border-b-4 px-3 py-3 text-[16px] font-bold leading-snug ${
-                layout === "list" ? "min-h-[64px] justify-start px-4 text-left" : "min-h-[88px] justify-center text-center"
+                layout === "list"
+                  ? "min-h-[64px] justify-start px-4 text-left"
+                  : "min-h-[88px] justify-center text-center [@media(max-height:760px)]:min-h-[64px]"
               } transition-all ${checked ? "" : "active:translate-y-0.5 active:border-b-2"} ${optionTone(
                 isSelected,
                 option.id === result?.correctId,

@@ -640,3 +640,54 @@ export function buildAdminClipDifficultyBoard(
     hardest,
   };
 }
+
+/** A part saved just after the visit's last heartbeat still belongs to that visit. */
+const RUN_VISIT_GRACE_MS = 15 * 60 * 1000;
+
+/**
+ * Put each finished practice part on the visit that was open when it ended.
+ * A part after that visit has closed, or before the first visit, is unmatched.
+ */
+export function placeListeningRuns(
+  visits: readonly { id: string; startedAt: string; endedAt: string }[],
+  runs: readonly StoredListeningRun[],
+): { byVisitId: Map<string, StoredListeningRun[]>; unmatched: StoredListeningRun[] } {
+  const ordered = [...visits].sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  const byVisitId = new Map<string, StoredListeningRun[]>();
+  const unmatched: StoredListeningRun[] = [];
+
+  for (const run of runs) {
+    const at = Date.parse(run.createdAt);
+    if (Number.isNaN(at)) {
+      unmatched.push(run);
+      continue;
+    }
+    let match: (typeof ordered)[number] | null = null;
+    for (const visit of ordered) {
+      const start = Date.parse(visit.startedAt);
+      if (Number.isNaN(start) || start > at) break;
+      match = visit;
+    }
+    if (!match) {
+      unmatched.push(run);
+      continue;
+    }
+    const start = Date.parse(match.startedAt);
+    const end = Date.parse(match.endedAt);
+    const closedAt = Number.isNaN(end) ? start : Math.max(end, start);
+    const next = ordered.find((visit) => visit.startedAt > match.startedAt);
+    const nextStart = next ? Date.parse(next.startedAt) : Number.POSITIVE_INFINITY;
+    if (at > closedAt + RUN_VISIT_GRACE_MS || at >= nextStart) {
+      unmatched.push(run);
+      continue;
+    }
+    const list = byVisitId.get(match.id) ?? [];
+    list.push(run);
+    byVisitId.set(match.id, list);
+  }
+
+  for (const list of byVisitId.values()) {
+    list.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+  return { byVisitId, unmatched };
+}

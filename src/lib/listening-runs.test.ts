@@ -9,9 +9,11 @@ import {
   clipResultsForFinishedPart,
   isListeningSchemaMissing,
   parseListeningRunInput,
+  placeListeningRuns,
   rankClipOutcomes,
   storedListeningRunFromRow,
   type ClipOutcomeTotal,
+  type StoredListeningRun,
 } from "./listening-runs.js";
 
 const RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -291,6 +293,42 @@ test("rankings keep the clips students miss and clear most", () => {
   assert.equal(
     ranked.succeeded.some((row) => row.clipId === `clip-${CLIP_RANK_LIMIT}`),
     false,
+  );
+});
+
+test("practice parts land on the visit that was open, including a late save", () => {
+  const run = (id: string, createdAt: string): StoredListeningRun => ({
+    id,
+    lessonKey: "a1-1/lektion-2",
+    partNumber: 2,
+    partCount: 9,
+    outcome: "fail",
+    accuracy: 25,
+    answeredCount: 4,
+    clipCount: 12,
+    elapsedMs: 60_000,
+    clips: [],
+    createdAt,
+  });
+  const visits = [
+    {
+      id: "today",
+      startedAt: "2026-10-08T09:06:00.000Z",
+      endedAt: "2026-10-08T09:20:00.000Z",
+    },
+  ];
+  const placed = placeListeningRuns(visits, [
+    run("inside", "2026-10-08T09:10:00.000Z"),
+    run("late", "2026-10-08T09:22:00.000Z"),
+    run("next-day", "2026-10-08T12:00:00.000Z"),
+  ]);
+  assert.deepEqual(
+    placed.byVisitId.get("today")?.map((entry) => entry.id),
+    ["late", "inside"],
+  );
+  assert.deepEqual(
+    placed.unmatched.map((entry) => entry.id),
+    ["next-day"],
   );
 });
 

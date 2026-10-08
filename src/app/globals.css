@@ -42,6 +42,11 @@ body[data-admin-preview] [data-session-dock] {
   outline: none;
 }
 
+/* Practice screens inset the scroller above the pinned Kiểm tra bar, so the bar's own spacer would be a blank gap. */
+[data-dock-inset] [data-check-spacer] {
+  display: none;
+}
+
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }

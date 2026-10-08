@@ -1060,6 +1060,8 @@ export type AdminVisitStats = {
   /** Jump tests finished in this visit. */
   jumps: number;
   jumpsPassed: number;
+  /** Missed answers in this visit. The lesson and the card are not stored. */
+  wrongAttempts: number;
 };
 
 export type AdminVisitSignalKind = "returning" | "stuck" | "video";
@@ -1467,6 +1469,7 @@ function visitStats(
     videosWatched: visit.videos.filter((video) => video.watched).length,
     jumps: (visit.jumps ?? []).length,
     jumpsPassed: (visit.jumps ?? []).filter((jump) => jump.passed).length,
+    wrongAttempts: visit.wrongAttempts ?? 0,
   };
 }
 
@@ -1478,7 +1481,8 @@ function visitIsIdle(stats: AdminVisitStats): boolean {
     stats.videoSeconds < 1 &&
     stats.videosWatched === 0 &&
     stats.leftUnfinished === 0 &&
-    stats.jumps === 0
+    stats.jumps === 0 &&
+    stats.wrongAttempts === 0
   );
 }
 
@@ -1755,6 +1759,7 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
   const watched = visit.videos.filter((video) => video.watched);
   const left = visit.leftSessions ?? [];
   const jumps = visit.jumps ?? [];
+  const wrong = visit.wrongAttempts ?? 0;
   const studied =
     clipCount > 0 ||
     exercises > 0 ||
@@ -1762,7 +1767,8 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
     videoSeconds >= 1 ||
     watched.length > 0 ||
     left.length > 0 ||
-    jumps.length > 0;
+    jumps.length > 0 ||
+    wrong > 0;
   const onboarding = visitOnboardingLine(visit);
   if (!studied) {
     return onboarding ? ["Opened the app, no study", onboarding] : ["Opened the app, no study"];
@@ -1808,6 +1814,9 @@ function visitLines(courses: readonly AdminCatalogCourse[], visit: Visit): strin
     if (watched.length === 1) line += ` · "${watched[0]?.title ?? "Video"}" marked watched`;
     else if (watched.length > 1) line += ` · ${watched.length} marked watched`;
     lines.push(line);
+  }
+  if (wrong > 0) {
+    lines.push(wrong === 1 ? "1 wrong answer" : `${wrong} wrong answers`);
   }
   if (onboarding) lines.push(onboarding);
   return lines;

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildLessonTimingTrail,
   formatLessonGap,
+  projectStudentVisits,
   type AdminCatalogCourse,
   type LessonStartSignal,
 } from "./admin-detail.js";
@@ -218,4 +219,32 @@ test("a start earlier than the previous completion leaves the gap blank", () => 
   assert.equal(trail[1]?.accessAt, "2026-10-04T00:00:00.000Z");
   assert.equal(trail[1]?.startedAt, "2026-10-03T00:00:00.000Z");
   assert.equal(trail[1]?.waitToStartMs, null);
+});
+
+test("wrong answers alone are a visit, not an open with no study", () => {
+  const log = projectStudentVisits(
+    [],
+    progress({
+      visits: [
+        {
+          id: "misses",
+          startedAt: "2026-10-08T09:06:22.152Z",
+          endedAt: "2026-10-08T09:10:26.555Z",
+          activeSeconds: 233,
+          lessons: [],
+          clips: [],
+          exercisesCompleted: 0,
+          listeningRuns: 0,
+          videos: [],
+          wrongAttempts: 9,
+        } satisfies Visit,
+      ],
+    }),
+    "all",
+    new Date("2026-10-08T10:00:00.000Z"),
+  );
+  const visit = log.visits[0];
+  assert.equal(visit?.idle, false);
+  assert.equal(visit?.stats.wrongAttempts, 9);
+  assert.deepEqual(visit?.lines, ["9 wrong answers"]);
 });

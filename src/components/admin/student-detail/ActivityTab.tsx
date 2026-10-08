@@ -55,6 +55,7 @@ import {
 } from "@/lib/lesson-jump";
 import {
   LISTENING_SCHEMA_HINT,
+  placeListeningRuns,
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
@@ -67,7 +68,7 @@ import {
   type UiClickGroup,
 } from "@/lib/ui-clicks";
 
-type VisitCategory = AdminVisitDetailGroup["id"];
+type VisitCategory = AdminVisitDetailGroup["id"] | "wrong";
 
 /** Study is curriculum (emerald), practice and video are media (violet), unfinished is amber. */
 const VISIT_CATEGORY: Record<VisitCategory, { icon: string; tile: string; bar: string }> = {
@@ -76,6 +77,7 @@ const VISIT_CATEGORY: Record<VisitCategory, { icon: string; tile: string; bar: s
   left: { icon: "pending", tile: "bg-admin-amber-wash text-admin-amber", bar: "bg-admin-amber" },
   video: { icon: "play_circle", tile: "bg-admin-violet-wash text-admin-violet-ink", bar: "bg-admin-violet-soft" },
   jump: { icon: "skip_next", tile: "bg-admin-cobalt-wash text-admin-cobalt", bar: "bg-admin-cobalt" },
+  wrong: { icon: "cancel", tile: "bg-admin-crimson-wash text-admin-crimson", bar: "bg-admin-crimson" },
 };
 
 const VISIT_SIGNAL: Record<AdminVisitSignalKind, { icon: string; className: string }> = {
@@ -90,7 +92,10 @@ const DETAIL_TONE: Record<AdminVisitDetailTone, { icon: string; className: strin
   warning: { icon: "error", className: "text-admin-amber" },
 };
 
-function visitMetrics(stats: AdminVisitStats): {
+function visitMetrics(
+  stats: AdminVisitStats,
+  runs: readonly StoredListeningRun[] = [],
+): {
   category: VisitCategory;
   icon?: string;
   value: string;
@@ -110,26 +115,62 @@ function visitMetrics(stats: AdminVisitStats): {
       label: stats.clipsStudied === 1 ? "Clip studied" : "Clips studied",
     });
   }
-  if (stats.practiceParts > 0) {
+  // Finished practice parts, passed or out of hearts, from the same log as the practice list.
+  // The visit's own part count only includes parts that were completed.
+  if (runs.length > 0) {
+    const passed = runs.filter((run) => run.outcome === "success").length;
+    const failed = runs.length - passed;
+    const missed = runs.reduce((sum, run) => sum + run.clips.filter((clip) => clip.missed).length, 0);
     metrics.push({
       category: "listening",
-      value: String(stats.practiceParts),
-      label: stats.practiceParts === 1 ? "Practice part" : "Practice parts",
+      value: String(runs.length),
+      label: runs.length === 1 ? "Practice run" : "Practice runs",
     });
-  } else if (stats.practiceClips > 0) {
-    metrics.push({
-      category: "listening",
-      value: String(stats.practiceClips),
-      label: stats.practiceClips === 1 ? "Practice clip" : "Practice clips",
-    });
-  }
-  if (stats.practiceRuns > 0) {
-    metrics.push({
-      category: "listening",
-      icon: "flag",
-      value: String(stats.practiceRuns),
-      label: stats.practiceRuns === 1 ? "Practice run" : "Practice runs",
-    });
+    if (passed > 0) {
+      metrics.push({
+        category: "listening",
+        icon: "check_circle",
+        value: String(passed),
+        label: "Passed",
+      });
+    }
+    if (failed > 0) {
+      metrics.push({
+        category: "listening",
+        icon: "heart_broken",
+        value: String(failed),
+        label: "Out of hearts",
+      });
+    }
+    if (missed > 0) {
+      metrics.push({
+        category: "wrong",
+        value: String(missed),
+        label: "Missed",
+      });
+    }
+  } else {
+    if (stats.practiceParts > 0) {
+      metrics.push({
+        category: "listening",
+        value: String(stats.practiceParts),
+        label: stats.practiceParts === 1 ? "Practice part" : "Practice parts",
+      });
+    } else if (stats.practiceClips > 0) {
+      metrics.push({
+        category: "listening",
+        value: String(stats.practiceClips),
+        label: stats.practiceClips === 1 ? "Practice clip" : "Practice clips",
+      });
+    }
+    if (stats.practiceRuns > 0) {
+      metrics.push({
+        category: "listening",
+        icon: "flag",
+        value: String(stats.practiceRuns),
+        label: stats.practiceRuns === 1 ? "Practice run" : "Practice runs",
+      });
+    }
   }
   if (stats.videoSeconds >= 1 || stats.videosWatched > 0) {
     metrics.push({
@@ -154,6 +195,13 @@ function visitMetrics(stats: AdminVisitStats): {
       category: "jump",
       value: String(stats.jumps),
       label,
+    });
+  }
+  if (runs.length === 0 && stats.wrongAttempts > 0) {
+    metrics.push({
+      category: "wrong",
+      value: String(stats.wrongAttempts),
+      label: stats.wrongAttempts === 1 ? "Wrong answer" : "Wrong answers",
     });
   }
   return metrics;
@@ -322,12 +370,14 @@ function VisitCard({
   visit,
   clicks,
   quits,
+  runs,
   open,
   onToggle,
 }: {
   visit: AdminVisitRow;
   clicks: readonly StudentUiClick[];
   quits: readonly DuelClipQuit[];
+  runs: readonly StoredListeningRun[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -367,7 +417,7 @@ function VisitCard({
     );
   }
 
-  const metrics = visitMetrics(visit.stats);
+  const metrics = visitMetrics(visit.stats, runs);
 
   return (
     <li>
@@ -642,6 +692,7 @@ function VisitFeed({
   clickGroups = [],
   duelFailures = [],
   duelQuits = [],
+  runs = [],
   openVisitId,
   onToggle,
 }: {
@@ -649,11 +700,13 @@ function VisitFeed({
   clickGroups?: readonly UiClickGroup[];
   duelFailures?: readonly DuelMatchFailure[];
   duelQuits?: readonly DuelClipQuit[];
+  runs?: readonly StoredListeningRun[];
   openVisitId: string | null;
   onToggle: (id: string) => void;
 }) {
   const placed = placeUiClickGroups(visits, clickGroups);
   const placedQuits = placeDuelClipQuits(visits, duelQuits);
+  const placedRuns = placeListeningRuns(visits, runs);
   const days = visitDayTimeline(visits, duelFailures, placed.unmatched, placedQuits.unmatched);
 
   return (
@@ -703,6 +756,7 @@ function VisitFeed({
                   visit={entry.visit}
                   clicks={placed.byVisitId.get(entry.visit.id) ?? []}
                   quits={placedQuits.byVisitId.get(entry.visit.id) ?? []}
+                  runs={placedRuns.byVisitId.get(entry.visit.id) ?? []}
                   open={openVisitId === entry.visit.id}
                   onToggle={() => onToggle(entry.visit.id)}
                 />
@@ -1238,6 +1292,53 @@ function JumpRunsSection({
   );
 }
 
+function useVisitRuns(
+  userId: string | undefined,
+  range: AdminVisitRange | undefined,
+  timeZone: string | undefined,
+  revision = 0,
+): StoredListeningRun[] {
+  const [runs, setRuns] = useState<StoredListeningRun[]>([]);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const window = useMemo(
+    () => (range ? visitRangeIso(range, new Date(), timeZone) : null),
+    [range, timeZone],
+  );
+  const requestKey = `${userId ?? ""}:${range ?? ""}:${window?.fromIso ?? "all"}:${revision}`;
+  const visible = loadedFor === requestKey ? runs : [];
+
+  useEffect(() => {
+    if (!userId || !range) return;
+    let cancelled = false;
+    void (async () => {
+      const collected: StoredListeningRun[] = [];
+      let offset = 0;
+      let total = Number.POSITIVE_INFINITY;
+      while (collected.length < total && collected.length < 100) {
+        const result = await listAdminStudentRuns(userId, offset, window);
+        if (cancelled) return;
+        if (!result.ok || result.status !== "ready") {
+          setLoadedFor(requestKey);
+          setRuns([]);
+          return;
+        }
+        collected.push(...result.runs);
+        total = result.total;
+        if (result.runs.length === 0) break;
+        offset += result.runs.length;
+      }
+      if (cancelled) return;
+      setLoadedFor(requestKey);
+      setRuns(collected);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, userId, range, window]);
+
+  return visible;
+}
+
 function useVisitClicks(
   userId: string | undefined,
   range: AdminVisitRange | undefined,
@@ -1418,6 +1519,7 @@ export function VisitDayList({
   const duelFailures = useDuelFailures(userId, range, timeZone);
   const duelQuits = useDuelQuits(userId, range, timeZone);
   const clickGroups = useVisitClicks(userId, range, timeZone);
+  const runs = useVisitRuns(userId, range, timeZone);
   if (visits.length === 0 && duelFailures.length === 0 && duelQuits.length === 0) return null;
   return (
     <VisitFeed
@@ -1425,6 +1527,7 @@ export function VisitDayList({
       clickGroups={clickGroups}
       duelFailures={duelFailures}
       duelQuits={duelQuits}
+      runs={runs}
       openVisitId={openVisitId}
       onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
     />
@@ -1453,6 +1556,7 @@ export function ActivityTab({
   const duelFailures = useDuelFailures(userId, range, timeZone);
   const duelQuits = useDuelQuits(userId, range, timeZone);
   const clickGroups = useVisitClicks(userId, range, timeZone);
+  const runs = useVisitRuns(userId, range, timeZone, runsRevision);
 
   return (
     <div className="grid items-start gap-x-space-32 gap-y-space-40 lg:grid-cols-2">
@@ -1494,6 +1598,7 @@ export function ActivityTab({
               clickGroups={clickGroups}
               duelFailures={duelFailures}
               duelQuits={duelQuits}
+              runs={runs}
               openVisitId={openVisitId}
               onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
             />

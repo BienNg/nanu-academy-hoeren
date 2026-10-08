@@ -772,7 +772,7 @@ export function LearnSession({
   return (
     <div
       data-layout="wide"
-      className="relative flex w-screen max-w-none flex-1 flex-col bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
+      className="relative flex h-dvh w-screen max-w-none flex-col bg-[#fbfbfd] selection:bg-[#0066cc] selection:text-white overflow-hidden"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       <div className="pointer-events-none absolute left-1/2 top-0 h-[800px] w-screen -translate-x-1/2 overflow-hidden opacity-50">
@@ -781,7 +781,7 @@ export function LearnSession({
       </div>
 
       {phase === "practice" ? (
-        <header className="sticky top-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
+        <header className="z-50 w-full shrink-0 border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
           <div className="mx-auto w-full max-w-4xl px-4 pt-2 pb-3 sm:px-6">
             <p
               className={`mb-1 text-center text-[12px] font-extrabold uppercase tracking-wide ${
@@ -901,8 +901,11 @@ export function LearnSession({
           </div>
         </main>
       ) : (
-        <main className="relative flex w-full flex-1 flex-col items-center">
-          <div className="flex w-full max-w-2xl flex-col px-6 pt-6 pb-24">
+        <main
+          data-dock-inset=""
+          className="relative mb-[calc(1.25rem+52px+max(1.5rem,env(safe-area-inset-bottom)))] flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain"
+        >
+          <div className="flex w-full max-w-2xl flex-col px-6 pt-4 pb-3 [@media(max-height:760px)]:pt-3">
             {currentCard?.kind === "order" ? (
               <>
                 <SentenceOrderCard
@@ -966,12 +969,10 @@ export function LearnSession({
                 result={mcResult}
                 icon="hearing"
                 afterPrompt={
-                  <div className="mt-4">
-                    <AudioPlayerCard
-                      key={`listening-choice-audio-${cardKey}`}
-                      audioPath={currentClip.audioPath}
-                    />
-                  </div>
+                  <AudioPlayerCard
+                    key={`listening-choice-audio-${cardKey}`}
+                    audioPath={currentClip.audioPath}
+                  />
                 }
               />
             ) : currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice" ? (
