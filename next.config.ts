@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The recap card reads its fonts from disk at request time.
+  // The share cards read their fonts from disk at request time.
   outputFileTracingIncludes: {
     "/api/recap-card": ["./src/assets/fonts/*.ttf", "./public/logo192.png"],
+    "/admin/class-league/card": ["./src/assets/fonts/*.ttf", "./public/logo192.png"],
     "/opengraph-image": [
       "./src/assets/fonts/BeVietnamPro-Medium.ttf",
       "./src/assets/fonts/BeVietnamPro-ExtraBold.ttf",

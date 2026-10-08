@@ -15,9 +15,13 @@ import {
 } from "@/lib/class-quests";
 import {
   buildAdminClassLeague,
+  buildAdminWeekResults,
+  dateInWeek,
+  finishedWeeks,
   type AdminClassClaim,
   type AdminClassLeague,
   type AdminClassPodiumRow,
+  type AdminWeekResults,
 } from "@/lib/admin-class-league";
 import { isAdminUser } from "@/lib/admins";
 import { getSupabaseAdmin, getUserClassName } from "@/lib/progress-store";
@@ -420,12 +424,35 @@ async function readAdminClassPodiums(
   );
 }
 
-/** This week's classes board, quests and claims, plus recent class podiums, for admins. */
-export async function readAdminClassLeague(now = new Date()): Promise<AdminClassLeagueData> {
+/** A finished week's winners and class posts. Null when that week's XP or activity is unreadable. */
+export async function readAdminWeekResults(week: string, now = new Date()): Promise<AdminWeekResults | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const people = await readWeekBoardPeople(dateInWeek(week));
+  if (!people) return null;
+  const activity = await readClassActivity(
+    supabase,
+    classLearners(people).map((person) => person.userId),
+    week,
+  );
+  return activity ? buildAdminWeekResults({ week, people, activity, now }) : null;
+}
+
+/**
+ * A finished week's winners, this week's classes board, quests and claims,
+ * plus recent class podiums, for admins. `resultWeek` defaults to last week.
+ */
+export async function readAdminClassLeague(
+  now = new Date(),
+  resultWeek = finishedWeeks(now)[0]!,
+): Promise<AdminClassLeagueData> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return { ready: false, podiumsReady: false, league: null };
   const week = weekKey(now);
-  const people = await readWeekBoardPeople(now);
+  const [people, results] = await Promise.all([
+    readWeekBoardPeople(now),
+    readAdminWeekResults(resultWeek, now),
+  ]);
   if (!people) return { ready: false, podiumsReady: false, league: null };
 
   const [activity, claims, podiums] = await Promise.all([
@@ -446,6 +473,7 @@ export async function readAdminClassLeague(now = new Date()): Promise<AdminClass
       activity,
       claims,
       podiums: podiums === "missing" ? [] : podiums,
+      results,
       now,
     }),
   };

@@ -61,6 +61,12 @@ Classes compete against each other every week. A class's score is the total XP i
 
 ## Admin: Class league (done)
 - `/admin/class-league` (Engagement group). Built by `buildAdminClassLeague` in `src/lib/admin-class-league.ts`, read by `readAdminClassLeague` in `class-quest-store.ts`.
+- Winners of a finished week (`?week=`, last week by default, the last 8 weeks), for support to congratulate classes on Monday. Built by `buildAdminWeekResults` from that week's board and activity, with the same ranking as the Lớp tab and the stored podiums:
+  - Class podium and most active class (highest share of learners who practiced, at least 3 learners).
+  - Each class's top 3 learners by week XP (`classPodiums`, without staff). A tie for first is flagged.
+  - A post for the all-classes group and one per class group, in Vietnamese, to copy. A class's rank shows the total ("hạng 2/7") only when at least 5 classes earned XP (`RANK_TOTAL_MIN_CLASSES`), otherwise just "hạng 2". Posts and cards never mention quests. Classes without XP get a restart post with no names. Nothing is stored or sent.
+  - A podium card image beside each post, drawn by `src/app/admin/class-league/card/route.tsx` (`?week=`, `&class=` for a class) with `next/og`, in the weekly recap card's style. It is 1080×1920 (9:16) so it fills a phone screen in the group chat, and ends with "nanugo.app". The class card shows only the top 3 learners with their Google photos and XP. The main card shows the top 3 classes and, inside each podium block, that class's best 3 learners with the XP they earned. Support copies it to the clipboard or downloads it. Classes without a champion have no card.
+  - Teachers see their classes' rows and posts, not the all-classes post.
 - This week's classes board with learners who practiced, week XP, XP per learner, a square per day for the daily quests, the weekly quest and claims.
 - Today's quests per class, with the names of who helped and how many claimed.
 - The stored class podiums of the last 8 finished weeks.

@@ -1,9 +1,58 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { ReactNode } from "react";
 import type { WeeklyRecapCard } from "@/lib/weekly-recap-store";
 
 /** Portrait 4:5, the size Facebook, Instagram and Zalo show without cropping. */
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1350;
+
+const FONT_DIR = join(process.cwd(), "src/assets/fonts");
+
+let assets: Promise<{
+  fonts: { name: string; data: Buffer; weight: 500 | 700 | 800; style: "normal" }[];
+  logoSrc: string;
+}> | null = null;
+
+/**
+ * Fonts and logo for share cards, read once per instance. A route that draws
+ * a card lists these files in `outputFileTracingIncludes` in next.config.ts.
+ */
+export function loadShareCardAssets() {
+  assets ??= Promise.all([
+    readFile(join(FONT_DIR, "BeVietnamPro-Medium.ttf")),
+    readFile(join(FONT_DIR, "BeVietnamPro-Bold.ttf")),
+    readFile(join(FONT_DIR, "BeVietnamPro-ExtraBold.ttf")),
+    readFile(join(process.cwd(), "public/logo192.png"), "base64"),
+  ]).then(([medium, bold, extraBold, logo]) => ({
+    fonts: [
+      { name: "Be Vietnam Pro", data: medium, weight: 500, style: "normal" },
+      { name: "Be Vietnam Pro", data: bold, weight: 700, style: "normal" },
+      { name: "Be Vietnam Pro", data: extraBold, weight: 800, style: "normal" },
+    ],
+    logoSrc: `data:image/png;base64,${logo}`,
+  }));
+  return assets;
+}
+
+/**
+ * The Google photo as a data URI, larger than the stored 96px size. A slow or
+ * failed fetch draws the initial instead of failing the whole card.
+ */
+export async function shareCardPhoto(image: string | null): Promise<string | null> {
+  if (!image) return null;
+  const large = image.replace(/=s\d+(-c)?$/, "=s320-c");
+  try {
+    const response = await fetch(large, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return null;
+    const type = response.headers.get("content-type") ?? "image/jpeg";
+    if (!type.startsWith("image/")) return null;
+    const body = Buffer.from(await response.arrayBuffer());
+    return `data:${type};base64,${body.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 const BLUE = "#0071e3";
 const BLUE_DEEP = "#003f88";
