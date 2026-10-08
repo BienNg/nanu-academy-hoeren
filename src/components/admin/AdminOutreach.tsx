@@ -74,7 +74,7 @@ export function AdminOutreach({
   pendingReady: boolean;
 }) {
   const [savedCases, setSavedCases] = useState<readonly OutreachCase[]>(cases);
-  const [view, setView] = useState<"today" | "picture">("today");
+  const [view, setView] = useState<"today" | "action" | "picture">("today");
   const [pickedJob, setPickedJob] = useState<OutreachJobId | null>(null);
   const [cleared, setCleared] = useState<Partial<Record<OutreachJobId, number>>>({});
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -108,6 +108,7 @@ export function AdminOutreach({
     return OUTREACH_JOBS.map((id) => ({ id, members: buckets.get(id) ?? [] }));
   }, [rows, today]);
 
+  const actionRows = useMemo(() => jobs.flatMap((job) => job.members), [jobs]);
   const firstOpen = jobs.find((job) => job.members.length > 0)?.id ?? null;
   const activeId = pickedJob ?? firstOpen;
   const active = jobs.find((job) => job.id === activeId) ?? null;
@@ -154,10 +155,76 @@ export function AdminOutreach({
         <Button variant={view === "today" ? "primary" : "secondary"} onClick={() => setView("today")}>
           Hôm nay
         </Button>
+        <Button variant={view === "action" ? "primary" : "secondary"} onClick={() => setView("action")}>
+          Cần làm
+        </Button>
         <Button variant={view === "picture" ? "primary" : "secondary"} onClick={() => setView("picture")}>
           Tình hình
         </Button>
       </div>
+
+      {view === "action" ? (
+        actionRows.length === 0 ? (
+          <Notice>Không còn ai cần nhắn.</Notice>
+        ) : (
+          <TablePanel
+            icon="checklist"
+            title="Cần làm"
+            hint="Mọi người đang có việc. Follow-up trước, rồi tin 2, rồi tin 1."
+            trailing={
+              <span className="text-admin-body-md font-semibold text-admin-ink">
+                Còn {formatCount(actionRows.length)}
+              </span>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-left">
+                <thead className={THEAD}>
+                  <tr>
+                    <th className={TH}>Tên</th>
+                    <th className={TH}>Lớp</th>
+                    <th className={TH}>Việc</th>
+                    <th className={TH}>Vì sao</th>
+                  </tr>
+                </thead>
+                <tbody className="text-admin-body-md text-admin-ink">
+                  {actionRows.map((row) => {
+                    const job = outreachJobFor(row, today);
+                    if (!job) return null;
+                    return (
+                      <tr
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Mở ${displayName(row.name, row.email)}`}
+                        onClick={() => setCaseId(row.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") setCaseId(row.id);
+                        }}
+                        className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
+                      >
+                        <td className="px-space-16 py-space-8">
+                          <span className="flex items-center gap-space-8 font-semibold">
+                            {displayName(row.name, row.email)}
+                            {row.staff ? <StaffBadge /> : null}
+                          </span>
+                        </td>
+                        <td className="px-space-16 py-space-8">{row.className?.trim() || "—"}</td>
+                        <td className="px-space-16 py-space-8">
+                          <Badge tone="cobalt">{OUTREACH_JOB_LABEL[job]}</Badge>
+                        </td>
+                        <td className="px-space-16 py-space-8 text-admin-body-sm text-admin-ink-muted">
+                          {outreachJobWhy(row, job)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </TablePanel>
+        )
+      ) : null}
 
       {view === "today" ? (
         <>
@@ -257,7 +324,9 @@ export function AdminOutreach({
             <Notice>Không có việc hôm nay.</Notice>
           )}
         </>
-      ) : (
+      ) : null}
+
+      {view === "picture" ? (
         <>
           <section className={`${CARD} p-space-16 sm:p-space-20`}>
             <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Nhóm</h2>
@@ -321,21 +390,23 @@ export function AdminOutreach({
             </div>
           </TablePanel>
         </>
-      )}
+      ) : null}
 
       {openRow ? (
         <AdminOutreachCase
-          key={`${openRow.id}:${openRow.outreachCase?.updatedAt ?? ""}`}
+          key={openRow.id}
           row={openRow}
           job={outreachJobFor(openRow, today)}
           casesReady={casesReady && storeConfigured}
           onClose={() => setCaseId(null)}
           onSaved={(outreachCase, advance) => {
             remember(outreachCase);
-            if (!advance || !active) return;
-            const index = active.members.findIndex((row) => row.id === openRow.id);
-            const next = active.members[index + 1] ?? active.members[index - 1];
-            setCleared((current) => ({ ...current, [active.id]: (current[active.id] ?? 0) + 1 }));
+            if (!advance) return;
+            const queue = view === "action" ? actionRows : (active?.members ?? []);
+            const index = queue.findIndex((row) => row.id === openRow.id);
+            const next = queue[index + 1] ?? queue[index - 1];
+            const job = outreachJobFor(openRow, today);
+            if (job) setCleared((current) => ({ ...current, [job]: (current[job] ?? 0) + 1 }));
             setCaseId(next && next.id !== openRow.id ? next.id : null);
           }}
           onOpenStudent={

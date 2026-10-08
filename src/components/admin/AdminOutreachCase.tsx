@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { saveOutreachCase } from "@/app/admin/outreach/actions";
 import { Button, Drawer, INPUT } from "@/components/admin/AdminUi";
 import { formatAdminTimestamp } from "@/lib/admin-overview";
@@ -57,6 +57,34 @@ function formFrom(row: OutreachRow): FormState {
     feedback: outreachCase?.feedback ?? "",
     featureRequest: outreachCase?.featureRequest ?? "",
     notes: outreachCase?.notes ?? "",
+  };
+}
+
+function sameForm(left: FormState, right: FormState): boolean {
+  return (
+    left.greetingName === right.greetingName &&
+    left.groupOverride === right.groupOverride &&
+    left.status === right.status &&
+    left.followUp === right.followUp &&
+    left.followUpOn === right.followUpOn &&
+    left.reason === right.reason &&
+    left.feedback === right.feedback &&
+    left.featureRequest === right.featureRequest &&
+    left.notes === right.notes
+  );
+}
+
+function formFromCase(outreachCase: OutreachCase): FormState {
+  return {
+    greetingName: outreachAddress(outreachCase.greetingName),
+    groupOverride: outreachCase.groupOverride ?? "",
+    status: outreachCase.status,
+    followUp: outreachCase.followUp,
+    followUpOn: outreachCase.followUpOn ?? "",
+    reason: outreachCase.reason ?? "",
+    feedback: outreachCase.feedback,
+    featureRequest: outreachCase.featureRequest,
+    notes: outreachCase.notes,
   };
 }
 
@@ -126,6 +154,11 @@ export function AdminOutreachCase({
   const [form, setForm] = useState(() => formFrom(row));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const formRef = useRef(form);
+  const baselineRef = useRef(form);
+  const savingRef = useRef<Promise<boolean> | null>(null);
+  const closingRef = useRef(false);
+  formRef.current = form;
   const [asked, setAsked] = useState<ReadonlySet<string>>(() => new Set());
   const [catalogCategory, setCatalogCategory] = useState<OutreachQuestionCategory | "all">(() =>
     outreachCatalogStart(job, row.computedCategory),
@@ -163,38 +196,61 @@ export function AdminOutreachCase({
     status?: OutreachStatus;
     clearFollowUp?: boolean;
     advance?: boolean;
-  }) {
+  }): Promise<boolean> {
     if (!row.email) {
       setError("Học viên này chưa có email.");
-      return;
+      return false;
     }
+    const snapshot = formRef.current;
     const key = extra.markSent ? `sent-${extra.markSent}` : extra.claim ? "claim" : "save";
     setSaving(key);
     setError(null);
-    const result = await saveOutreachCase({
+    const run = saveOutreachCase({
       email: row.email,
-      greetingName: form.greetingName,
-      groupOverride: form.groupOverride || null,
-      status: extra.status ?? form.status,
-      followUp: extra.clearFollowUp ? false : form.followUp,
-      followUpOn: extra.clearFollowUp ? null : form.followUpOn || null,
-      reason: form.reason || null,
-      feedback: form.feedback,
-      featureRequest: form.featureRequest,
-      notes: form.notes,
-      category,
+      greetingName: snapshot.greetingName,
+      groupOverride: snapshot.groupOverride || null,
+      status: extra.status ?? snapshot.status,
+      followUp: extra.clearFollowUp ? false : snapshot.followUp,
+      followUpOn: extra.clearFollowUp ? null : snapshot.followUpOn || null,
+      reason: snapshot.reason || null,
+      feedback: snapshot.feedback,
+      featureRequest: snapshot.featureRequest,
+      notes: snapshot.notes,
+      category: snapshot.groupOverride || row.computedCategory,
       markSent: extra.markSent ?? null,
       clearFollowUp: extra.clearFollowUp === true,
       claim: extra.claim === true,
       hadAccount: row.hasAccount,
       parts: row.parts,
     });
+    savingRef.current = run.then((result) => result.ok);
+    const result = await run;
+    if (savingRef.current) savingRef.current = null;
     setSaving(null);
     if (!result.ok) {
       setError(result.error);
-      return;
+      return false;
     }
+    const saved = formFromCase(result.value);
+    baselineRef.current = saved;
+    if (sameForm(formRef.current, snapshot)) setForm(saved);
     onSaved(result.value, extra.advance === true);
+    return true;
+  }
+
+  async function leave(andThen: () => void) {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (savingRef.current) await savingRef.current;
+    const dirty = !sameForm(formRef.current, baselineRef.current);
+    if (dirty && casesReady && row.email) {
+      const ok = await persist({});
+      if (!ok) {
+        closingRef.current = false;
+        return;
+      }
+    }
+    andThen();
   }
 
   const clearOnSend = job === "followup";
@@ -206,21 +262,11 @@ export function AdminOutreachCase({
   return (
     <Drawer
       open
-      onClose={onClose}
+      onClose={() => void leave(onClose)}
       title={row.name?.trim() || row.email || "Học viên"}
       subtitle={row.email ?? "Chưa có email"}
       panelClassName="sm:w-[1100px] sm:max-w-[calc(100vw-24px)]"
       bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
-      footer={
-        <Button
-          variant="primary"
-          icon="save"
-          disabled={saving !== null || !casesReady || !row.email}
-          onClick={() => void persist({})}
-        >
-          {saving === "save" ? "Đang lưu" : "Lưu"}
-        </Button>
-      }
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
       <div className="flex flex-col gap-space-16 px-space-20 py-space-16 lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-admin-hairline">
@@ -443,7 +489,7 @@ export function AdminOutreachCase({
         </label>
 
         {onOpenStudent ? (
-          <Button variant="ghost" icon="person" onClick={onOpenStudent}>
+          <Button variant="ghost" icon="person" onClick={() => void leave(onOpenStudent)}>
             Hồ sơ học viên
           </Button>
         ) : null}
