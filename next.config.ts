@@ -3,13 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // The share cards read their fonts from disk at request time.
   outputFileTracingIncludes: {
-    "/api/recap-card": ["./src/assets/fonts/*.ttf", "./public/logo192.png"],
-    "/admin/class-league/card": ["./src/assets/fonts/*.ttf", "./public/logo192.png"],
-    "/opengraph-image": [
-      "./src/assets/fonts/BeVietnamPro-Medium.ttf",
-      "./src/assets/fonts/BeVietnamPro-ExtraBold.ttf",
-      "./public/logo192.png",
-    ],
+    "/api/recap-card": ["./src/assets/fonts/*.ttf"],
+    "/admin/class-league/card": ["./src/assets/fonts/*.ttf"],
+    "/opengraph-image": ["./src/assets/fonts/*.ttf"],
+    "/icon": ["./src/assets/fonts/Fredoka-Bold.ttf"],
+    "/apple-icon": ["./src/assets/fonts/Fredoka-Bold.ttf"],
   },
   // Replaces the built-in list, so the original crawlers stay and Zalo is added.
   // Zalo's preview fetch is not in Next's default set, and it reads tags from <head>.

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppMark } from "@/components/Logo";
 import {
   leagueClassLabel,
   resultWeekLabel,
@@ -270,7 +271,7 @@ function Chip({ children }: { children: ReactNode }) {
   );
 }
 
-export function LeagueCard({ content, logoSrc }: { content: LeagueCardContent; logoSrc: string }) {
+export function LeagueCard({ content }: { content: LeagueCardContent }) {
   return (
     <div
       style={{
@@ -291,14 +292,13 @@ export function LeagueCard({ content, logoSrc }: { content: LeagueCardContent; l
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 92,
-              height: 92,
-              borderRadius: 26,
+              width: 108,
+              height: 108,
+              borderRadius: 30,
               background: "white",
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoSrc} width={76} height={76} alt="" />
+            <AppMark size={84} />
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 36, fontWeight: 800 }}>NaNu NaNa Du Hoc Duc</div>

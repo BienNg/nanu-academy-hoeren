@@ -28,13 +28,13 @@ export async function GET(request: NextRequest) {
   const row = classKey ? results.classes.find((entry) => entry.classKey === classKey) : null;
   if (classKey && !row) notFound();
 
-  const [{ fonts, logoSrc }, photos] = await Promise.all([
+  const [{ fonts }, photos] = await Promise.all([
     loadShareCardAssets(),
     Promise.all((row?.champions ?? []).map((place) => shareCardPhoto(place.image))),
   ]);
   const content = row ? classCardContent(results, row, photos) : leagueCardContent(results);
 
-  return new ImageResponse(<LeagueCard content={content} logoSrc={logoSrc} />, {
+  return new ImageResponse(<LeagueCard content={content} />, {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     fonts,

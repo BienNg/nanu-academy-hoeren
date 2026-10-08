@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ReactNode } from "react";
+import { AppMark } from "@/components/Logo";
 import type { WeeklyRecapCard } from "@/lib/weekly-recap-store";
 
 /** Portrait 4:5, the size Facebook, Instagram and Zalo show without cropping. */
@@ -11,26 +12,26 @@ const FONT_DIR = join(process.cwd(), "src/assets/fonts");
 
 let assets: Promise<{
   fonts: { name: string; data: Buffer; weight: 500 | 700 | 800; style: "normal" }[];
-  logoSrc: string;
 }> | null = null;
 
 /**
- * Fonts and logo for share cards, read once per instance. A route that draws
- * a card lists these files in `outputFileTracingIncludes` in next.config.ts.
+ * Fonts for share cards, read once per instance. A route that draws a card
+ * lists these files in `outputFileTracingIncludes` in next.config.ts.
+ * Fredoka draws the 1a app mark.
  */
 export function loadShareCardAssets() {
   assets ??= Promise.all([
     readFile(join(FONT_DIR, "BeVietnamPro-Medium.ttf")),
     readFile(join(FONT_DIR, "BeVietnamPro-Bold.ttf")),
     readFile(join(FONT_DIR, "BeVietnamPro-ExtraBold.ttf")),
-    readFile(join(process.cwd(), "public/logo192.png"), "base64"),
-  ]).then(([medium, bold, extraBold, logo]) => ({
+    readFile(join(FONT_DIR, "Fredoka-Bold.ttf")),
+  ]).then(([medium, bold, extraBold, fredoka]) => ({
     fonts: [
       { name: "Be Vietnam Pro", data: medium, weight: 500, style: "normal" },
       { name: "Be Vietnam Pro", data: bold, weight: 700, style: "normal" },
       { name: "Be Vietnam Pro", data: extraBold, weight: 800, style: "normal" },
+      { name: "Fredoka", data: fredoka, weight: 700, style: "normal" },
     ],
-    logoSrc: `data:image/png;base64,${logo}`,
   }));
   return assets;
 }
@@ -185,11 +186,9 @@ function Avatar({ image, name }: { image: string | null; name: string }) {
 
 export function RecapCard({
   card,
-  logoSrc,
   imageSrc,
 }: {
   card: WeeklyRecapCard;
-  logoSrc: string;
   /** The profile photo as a data URI, or null to draw the initial. */
   imageSrc: string | null;
 }) {
@@ -219,14 +218,13 @@ export function RecapCard({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 76,
-              height: 76,
-              borderRadius: 22,
+              width: 92,
+              height: 92,
+              borderRadius: 26,
               background: "white",
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoSrc} width={62} height={62} alt="" />
+            <AppMark size={72} />
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 32, fontWeight: 800 }}>NaNu NaNa Du Hoc Duc</div>

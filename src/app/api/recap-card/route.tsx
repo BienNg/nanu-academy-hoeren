@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
   const card = await loadWeeklyRecapCard(targetId, week);
   if (!card) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [{ fonts, logoSrc }, imageSrc] = await Promise.all([
+  const [{ fonts }, imageSrc] = await Promise.all([
     loadShareCardAssets(),
     shareCardPhoto(card.profile.image),
   ]);
 
-  return new ImageResponse(<RecapCard card={card} logoSrc={logoSrc} imageSrc={imageSrc} />, {
+  return new ImageResponse(<RecapCard card={card} imageSrc={imageSrc} />, {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     fonts,

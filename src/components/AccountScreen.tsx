@@ -7,6 +7,7 @@ import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { deleteOwnAccount } from "@/app/account/actions";
 import { BadgeMedal, BadgeSheet } from "@/components/BadgeParts";
+import { Wordmark } from "@/components/Logo";
 import { FamilySheet } from "@/components/BadgesScreen";
 import { readEarnedFamilies, type BadgeFamilyView } from "@/lib/badges";
 import { BottomNav } from "@/components/BottomNav";
@@ -643,22 +644,12 @@ export function AccountScreen({
           
           <div className="relative z-10 flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-32">
             <div className="flex flex-col items-center gap-4 text-center">
-              <Image
-                src="/logo192.png"
-                alt="NaNu Nana"
-                width={192}
-                height={192}
-                className="h-40 w-40 object-contain"
-                priority
-              />
-              <div className="flex flex-col gap-2">
-                <h1 className="font-display text-[32px] font-bold leading-tight tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-                  NaNu Go
-                </h1>
-                <p className="max-w-[280px] text-lg font-medium text-[#86868b]">
-                  Học và luyện tập tiếng Đức chuyên ngành.
-                </p>
-              </div>
+              <h1 className="m-0">
+                <Wordmark className="text-[48px] sm:text-[64px]" />
+              </h1>
+              <p className="max-w-[280px] text-lg font-medium text-[#86868b]">
+                Học và luyện tập tiếng Đức chuyên ngành.
+              </p>
             </div>
 
             <section className="flex w-full max-w-[400px] flex-col gap-6 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">

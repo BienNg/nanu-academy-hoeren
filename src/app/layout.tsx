@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
+import { Be_Vietnam_Pro, Fredoka, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { auth } from "@/auth";
@@ -17,6 +17,13 @@ const beVietnamPro = Be_Vietnam_Pro({
   variable: "--font-be-vietnam-pro",
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
+  subsets: ["latin"],
+  weight: "700",
   display: "swap",
 });
 
@@ -65,7 +72,7 @@ export default async function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${plusJakartaSans.variable} ${beVietnamPro.variable} h-full antialiased`}
+      className={`${plusJakartaSans.variable} ${beVietnamPro.variable} ${fredoka.variable} h-full antialiased`}
     >
       <head>
         {/* Material Symbols used by design-reference mockups (home, exercise). */}

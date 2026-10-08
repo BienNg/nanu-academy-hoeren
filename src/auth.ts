@@ -37,8 +37,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (pathname === "/account" || pathname.startsWith("/account/")) {
         return true;
       }
-      // Link previews fetch this image with no session.
-      if (pathname === "/opengraph-image" || pathname.startsWith("/opengraph-image/")) {
+      // Link previews and the browser tab fetch these with no session.
+      if (
+        pathname === "/opengraph-image" ||
+        pathname.startsWith("/opengraph-image/") ||
+        pathname === "/icon" ||
+        pathname.startsWith("/icon/") ||
+        pathname === "/apple-icon" ||
+        pathname.startsWith("/apple-icon/")
+      ) {
         return true;
       }
       return !!auth;
