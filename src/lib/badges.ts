@@ -367,23 +367,26 @@ function readFresh(value: unknown): FreshBadge[] {
     .filter((badge): badge is FreshBadge => badge != null);
 }
 
+function isBadgeFamily(family: unknown): family is BadgeFamilyView {
+  return (
+    Boolean(family) &&
+    typeof (family as BadgeFamilyView).id === "string" &&
+    typeof (family as BadgeFamilyView).title === "string" &&
+    typeof (family as BadgeFamilyView).icon === "string" &&
+    typeof (family as BadgeFamilyView).color === "string" &&
+    typeof (family as BadgeFamilyView).value === "number" &&
+    typeof (family as BadgeFamilyView).tier === "number" &&
+    Array.isArray((family as BadgeFamilyView).tiers) &&
+    BADGE_GROUPS.some((group) => group.id === (family as BadgeFamilyView).group)
+  );
+}
+
 /** Reads a GET /api/badges body. Null when badges are not ready. */
 export function readBadgeBoard(value: unknown): BadgeBoardView | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as { ready?: unknown; families?: unknown; earned?: unknown; total?: unknown; fresh?: unknown };
   if (raw.ready !== true || !Array.isArray(raw.families)) return null;
-  const families = raw.families.filter(
-    (family): family is BadgeFamilyView =>
-      Boolean(family) &&
-      typeof family.id === "string" &&
-      typeof family.title === "string" &&
-      typeof family.icon === "string" &&
-      typeof family.color === "string" &&
-      typeof family.value === "number" &&
-      typeof family.tier === "number" &&
-      Array.isArray(family.tiers) &&
-      BADGE_GROUPS.some((group) => group.id === family.group),
-  );
+  const families = raw.families.filter(isBadgeFamily);
   if (families.length === 0) return null;
   return {
     families,
@@ -391,6 +394,12 @@ export function readBadgeBoard(value: unknown): BadgeBoardView | null {
     total: typeof raw.total === "number" ? raw.total : BADGE_COUNT,
     fresh: readFresh(raw.fresh),
   };
+}
+
+/** Earned-badge rows from the profile payload. Drops anything that is not a family. */
+export function readEarnedFamilies(value: unknown): BadgeFamilyView[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((family) => isBadgeFamily(family) && family.tier > 0);
 }
 
 /** Reads the unseen badges from a GET /api/badges?unseen=1 body. */

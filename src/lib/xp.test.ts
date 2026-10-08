@@ -12,6 +12,7 @@ import {
   passesAlreadyFinished,
   formatWeekCountdown,
   googleProfileImage,
+  parseDisplayName,
   isXpSchemaMissing,
   previewLeaderboardRows,
   rankClasses,
@@ -605,4 +606,13 @@ test("last week's champions come from the stored podium, one row per class", () 
     { rank: 3, name: "c", xp: 50, isYours: false, students: [] },
   ]);
   assert.deepEqual(classChampions("2026-09-28", [], labels, null).places, []);
+});
+
+test("a display name keeps letters and drops links", () => {
+  assert.equal(parseDisplayName("  Nguyễn   Văn  "), "Nguyễn Văn");
+  assert.equal(parseDisplayName("Anna-Lena"), "Anna-Lena");
+  assert.equal(parseDisplayName("A"), null);
+  assert.equal(parseDisplayName("lan@mail.com"), null);
+  assert.equal(parseDisplayName("https://x.test"), null);
+  assert.equal(parseDisplayName("ok!"), null);
 });

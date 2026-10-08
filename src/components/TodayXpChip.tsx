@@ -3,7 +3,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ProfileButton } from "@/components/ProfileButton";
 import { useProgress } from "@/lib/useProgress";
 
 export function TodayXpChip({
@@ -137,13 +136,12 @@ export function StreakChip() {
   );
 }
 
-/** Streak, total XP, and profile — the controls on the home top bar. */
+/** Streak and total XP — the controls on the home top bar. Profile lives in the bottom nav. */
 export function TopBarStatus() {
   return (
     <div className="flex shrink-0 items-center gap-2">
       <StreakChip />
       <TodayXpChip />
-      <ProfileButton />
     </div>
   );
 }

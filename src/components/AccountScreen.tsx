@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { deleteOwnAccount } from "@/app/account/actions";
-import { ProfileButton } from "@/components/ProfileButton";
+import { BadgeMedal, BadgeSheet } from "@/components/BadgeParts";
+import { FamilySheet } from "@/components/BadgesScreen";
+import { readEarnedFamilies, type BadgeFamilyView } from "@/lib/badges";
 import { BottomNav } from "@/components/BottomNav";
+import { chunkyButton } from "@/components/chunkyButton";
 import { RecapShareButton } from "@/components/RecapShareButton";
-import { discardDeviceProgress, rememberClientDevice } from "@/lib/useProgress";
+import { leaderboardDisplayName, parseDisplayName } from "@/lib/xp";
+import { discardDeviceProgress, rememberClientDevice, useProgress } from "@/lib/useProgress";
 
 function MaterialIcon({
   name,
@@ -154,6 +159,416 @@ function DeleteAccountDialog({
   );
 }
 
+type ProfileSnapshot = {
+  name: string;
+  className: string | null;
+  classXp: number;
+  classSize: number;
+  weekRank: number | null;
+  totalXp: number;
+  top3: number;
+  badges: BadgeFamilyView[];
+};
+
+function readProfile(value: unknown): ProfileSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (raw.ready !== true) return null;
+  const badges = readEarnedFamilies(raw.badges);
+  return {
+    name: typeof raw.name === "string" ? raw.name : "",
+    className: typeof raw.className === "string" && raw.className.length > 0 ? raw.className : null,
+    classXp: typeof raw.classXp === "number" ? raw.classXp : 0,
+    classSize: typeof raw.classSize === "number" ? raw.classSize : 0,
+    weekRank: typeof raw.weekRank === "number" ? raw.weekRank : null,
+    totalXp: typeof raw.totalXp === "number" ? raw.totalXp : 0,
+    top3: typeof raw.top3 === "number" ? raw.top3 : 0,
+    badges,
+  };
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("vi-VN");
+}
+
+function FireIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <path d="M16 3c1 5 6 7 6 13a6 6 0 0 1-12 0c0-2 1-3 1-5 2 1 3 2 3 4 2-3 1-8 2-12Z" fill="#FF9600" />
+      <path d="M16 13c.6 2.4 3 3.4 3 6.4a3 3 0 0 1-6 0c0-1 .6-1.6.6-2.6 1 .5 1.6 1 1.6 2 .8-1.6.4-4 .8-5.8Z" fill="#FFC800" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <path d="M18 3 7 18h8l-2 11 12-16h-8l1-10Z" fill="#FFC800" stroke="#E6A800" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GemIcon({ rank }: { rank: number | null }) {
+  const fill = rank === 1 ? "#FFC800" : rank === 2 ? "#C5CED9" : rank === 3 ? "#FF4B4B" : "#1CB0F6";
+  const lip = rank === 1 ? "#E6A800" : rank === 2 ? "#8E9AAB" : rank === 3 ? "#D43636" : "#1899D6";
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <path d="M8 12 16 4l8 8-8 16L8 12Z" fill={lip} />
+      <path d="M8 12h16L16 4 8 12Z" fill={fill} />
+      <path d="M8 12 16 28 16 12 8 12Z" fill="#fff" opacity="0.28" />
+    </svg>
+  );
+}
+
+function MedalIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <circle cx="16" cy="18" r="9" fill="#FFC800" />
+      <circle cx="16" cy="18" r="6" fill="#FFE08A" />
+      <path d="M12 6h3l1 6h-4L12 6Zm5 0h3l-1 6h-4l2-6Z" fill="#FF4B4B" />
+      <path d="M16 14.5 17.1 17h2.6l-2.1 1.6.8 2.5L16 19.6 13.6 21l.8-2.5L12.3 17h2.6L16 14.5Z" fill="#E6A800" />
+    </svg>
+  );
+}
+
+function StatCard({
+  icon,
+  value,
+  label,
+}: {
+  icon: ReactNode;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="flex min-h-[88px] items-center gap-2.5 rounded-2xl border-2 border-[#e5e5e5] bg-white px-3 py-3">
+      {icon}
+      <div className="min-w-0">
+        <p className="truncate text-[22px] leading-6 font-extrabold text-[#3c3c3c] tabular-nums">{value}</p>
+        <p className="text-[13px] leading-4 font-bold text-[#afafaf]">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function LearnerProfile({
+  image,
+  email,
+  isAdmin,
+  onSignOut,
+  onDelete,
+}: {
+  image: string | null | undefined;
+  email: string | null | undefined;
+  isAdmin: boolean;
+  onSignOut: () => void;
+  onDelete: () => void;
+}) {
+  const { streakDays } = useProgress();
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [profile, setProfile] = useState<ProfileSnapshot | null | undefined>(undefined);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [openBadgeId, setOpenBadgeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/profile")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        if (!cancelled) setProfile(readProfile(data));
+      })
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const shownName = leaderboardDisplayName(profile?.name);
+  const showPhoto = Boolean(image) && !photoFailed;
+  const openBadge = profile?.badges.find((badge) => badge.id === openBadgeId) ?? null;
+
+  async function saveName() {
+    if (saving) return;
+    const parsed = parseDisplayName(draft);
+    if (!parsed) {
+      setNameError("Tên cần từ 2 đến 30 chữ, không chứa ký tự đặc biệt.");
+      return;
+    }
+    setSaving(true);
+    setNameError(null);
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: parsed }),
+      });
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string"
+            ? (data as { error: string }).error
+            : "Không lưu được tên. Thử lại sau một lúc.";
+        setNameError(message);
+        setSaving(false);
+        return;
+      }
+      const saved =
+        data && typeof data === "object" && typeof (data as { name?: unknown }).name === "string"
+          ? (data as { name: string }).name
+          : parsed;
+      setProfile((current) =>
+        current
+          ? { ...current, name: saved }
+          : {
+              name: saved,
+              className: null,
+              classXp: 0,
+              classSize: 0,
+              weekRank: null,
+              totalXp: 0,
+              top3: 0,
+              badges: [],
+            },
+      );
+      setEditing(false);
+    } catch {
+      setNameError("Không lưu được tên. Thử lại sau một lúc.");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col overflow-x-hidden bg-[#faf8ff] text-[#131b2e]"
+    >
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-full max-w-md items-center justify-end px-4 md:max-w-3xl">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl text-[#1cb0f6] active:bg-[#ddf4ff]"
+            aria-label="Cài đặt"
+          >
+            <MaterialIcon name="settings" className="text-[26px]" />
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:max-w-3xl">
+        <section className="flex flex-col items-center text-center">
+          <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-[#ddf4ff] shadow-[0_4px_0_#e5e5e5] ring-2 ring-[#e5e5e5]">
+            {showPhoto && image ? (
+              <Image
+                src={image}
+                alt=""
+                width={112}
+                height={112}
+                priority
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+                onError={() => setPhotoFailed(true)}
+              />
+            ) : (
+              <img src="/nav/profile.svg" alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
+
+          {editing ? (
+            <form
+              className="mt-4 flex w-full flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveName();
+              }}
+            >
+              <label className="flex flex-col gap-1 text-left">
+                <span className="text-[13px] font-extrabold tracking-wide text-[#afafaf] uppercase">Tên hiển thị</span>
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  maxLength={30}
+                  autoFocus
+                  autoComplete="nickname"
+                  className="h-12 rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 text-center text-[18px] font-extrabold text-[#3c3c3c] outline-none focus:border-[#1cb0f6]"
+                />
+              </label>
+              {nameError ? (
+                <p className="text-[13px] font-bold text-[#ff4b4b]" role="alert">
+                  {nameError}
+                </p>
+              ) : (
+                <p className="text-[13px] font-bold text-[#afafaf]">Tên này hiện trên bảng xếp hạng.</p>
+              )}
+              <button type="submit" disabled={saving} className={chunkyButton(saving ? "disabled" : "primary", "w-full")}>
+                {saving ? "Đang lưu…" : "Lưu"}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setEditing(false);
+                  setNameError(null);
+                }}
+                className={chunkyButton("secondary", "w-full")}
+              >
+                Hủy
+              </button>
+            </form>
+          ) : profile === undefined ? (
+            <div className="mt-3 h-8 w-40 animate-pulse rounded-full bg-[#e2e7ff]" />
+          ) : (
+            <div className="mt-3 flex max-w-full items-center justify-center gap-1">
+              <h1 className="truncate text-[26px] leading-8 font-extrabold tracking-tight text-[#3c3c3c]">{shownName}</h1>
+              <button
+                type="button"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#1cb0f6] active:bg-[#ddf4ff]"
+                aria-label="Sửa tên"
+                onClick={() => {
+                  setDraft(profile?.name ?? "");
+                  setNameError(null);
+                  setEditing(true);
+                }}
+              >
+                <MaterialIcon name="edit" className="text-[20px]" />
+              </button>
+            </div>
+          )}
+          {email && !editing ? <p className="mt-1 max-w-full truncate text-[14px] font-bold text-[#afafaf]">{email}</p> : null}
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Thống kê</h2>
+          <div className="grid grid-cols-2 gap-3 pt-2 md:grid-cols-4">
+            <StatCard icon={<FireIcon />} value={String(streakDays)} label="Chuỗi ngày" />
+            <StatCard icon={<BoltIcon />} value={profile ? formatCount(profile.totalXp) : "—"} label="Tổng XP" />
+            <div className="relative">
+              {profile?.weekRank != null ? (
+                <span className="absolute -top-2.5 left-1/2 z-10 -translate-x-1/2 rounded-md bg-[#ff4b4b] px-1.5 py-0.5 text-[10px] leading-none font-extrabold tracking-wide text-white">
+                  TUẦN NÀY
+                </span>
+              ) : null}
+              <StatCard
+                icon={<GemIcon rank={profile?.weekRank ?? null} />}
+                value={profile?.weekRank != null ? String(profile.weekRank) : "—"}
+                label="Hạng lớp"
+              />
+            </div>
+            <StatCard icon={<MedalIcon />} value={profile ? formatCount(profile.top3) : "—"} label="Lần top 3" />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Lớp của bạn</h2>
+          {profile === undefined ? (
+            <div className="h-36 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+          ) : profile?.className ? (
+            <div className="rounded-2xl border-2 border-[#e5e5e5] bg-white p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ddf4ff]">
+                  <img src="/nav/learn.svg" alt="" className="h-9 w-9" />
+                </span>
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-[18px] leading-6 font-extrabold">{profile.className}</p>
+                  <p className="text-[13px] font-bold text-[#afafaf]">{profile.classSize} học viên</p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#fff4d4] px-3 py-2.5">
+                <BoltIcon />
+                <p className="min-w-0">
+                  <span className="text-[20px] leading-6 font-extrabold tabular-nums">{formatCount(profile.classXp)}</span>
+                  <span className="ml-1.5 text-[13px] font-bold text-[#afafaf]">XP cả lớp</span>
+                </p>
+              </div>
+              <p className="mt-2 text-[13px] font-bold text-[#afafaf]">Tổng XP mọi người trong lớp đã kiếm.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-5 text-center">
+              <p className="text-[16px] font-extrabold">Bạn chưa ở trong lớp nào</p>
+              <p className="mt-1 text-[13px] font-bold text-[#afafaf]">Khi được xếp lớp, XP của cả lớp hiện ở đây.</p>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <h2 className="text-[22px] leading-7 font-extrabold tracking-tight">Huy hiệu</h2>
+            <Link href="/badges" className="text-[13px] font-extrabold tracking-wide text-[#1cb0f6] uppercase">
+              Tất cả
+            </Link>
+          </div>
+          {profile === undefined ? (
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-7">
+              {Array.from({ length: 6 }, (_, index) => (
+                <li key={index} className="h-28 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+              ))}
+            </ul>
+          ) : profile.badges.length > 0 ? (
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-7">
+              {profile.badges.map((badge) => (
+                <li key={badge.id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenBadgeId(badge.id)}
+                    className="flex h-full w-full flex-col items-center gap-1.5 rounded-2xl border-2 border-[#e5e5e5] bg-white px-2 py-3 text-center"
+                    aria-label={`${badge.title}, cấp ${badge.tier}`}
+                  >
+                    <BadgeMedal familyId={badge.id} tier={badge.tier} size={64} />
+                    <span className="line-clamp-2 text-[12px] leading-4 font-extrabold">{badge.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-5 text-center text-[15px] font-extrabold">
+              Chưa có huy hiệu. Học đều để mở huy hiệu đầu tiên.
+            </p>
+          )}
+        </section>
+      </main>
+
+      <AnimatePresence>
+        {settingsOpen ? (
+          <BadgeSheet key="profile-settings" title="Cài đặt" onClose={() => setSettingsOpen(false)}>
+            <div className="flex flex-col gap-3">
+              <p className="text-[22px] font-extrabold text-[#3c3c3c]">Cài đặt</p>
+              {isAdmin ? (
+                <Link href="/admin" className={chunkyButton("secondary", "w-full")}>
+                  Admin
+                </Link>
+              ) : null}
+              <RecapShareButton className={chunkyButton("primary", "w-full")}>Chia sẻ tuần</RecapShareButton>
+              <button type="button" onClick={onSignOut} className={chunkyButton("secondary", "w-full")}>
+                Đăng xuất
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  onDelete();
+                }}
+                className="mx-auto mt-2 text-[13px] font-bold text-[#afafaf] underline"
+              >
+                Xóa tài khoản
+              </button>
+            </div>
+          </BadgeSheet>
+        ) : null}
+        {openBadge ? (
+          <FamilySheet key={openBadge.id} family={openBadge} onClose={() => setOpenBadgeId(null)} />
+        ) : null}
+      </AnimatePresence>
+      <BottomNav />
+    </div>
+  );
+}
+
 export function AccountScreen({
   callbackUrl,
   isAdmin = false,
@@ -279,150 +694,20 @@ export function AccountScreen({
   }
 
   return (
-    <div 
-      data-layout="wide"
-      className="relative flex w-screen max-w-none flex-1 flex-col bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
-      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
-    >
-      <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
-        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              aria-label="Về bài học"
-              className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-            >
-              <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-            </Link>
-            <h1 className="font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-              Tài khoản
-            </h1>
-          </div>
-          <ProfileButton />
-        </div>
-      </header>
-
-      <main className="relative flex w-full flex-1 flex-col items-center bg-transparent">
-        {/* Background decorative elements */}
-        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-50">
-          <div className="absolute -left-[20%] top-[0%] h-[30%] w-[70%] rounded-full bg-blue-100/40 blur-[100px] md:-left-[10%] md:h-[40%] md:w-[50%] md:blur-[120px]" />
-        </div>
-        
-        <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6 px-6 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
-          <section className="flex flex-col gap-5 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
-            <div className="flex items-center gap-4">
-              <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full shadow-sm border border-black/[0.05]">
-                {user.image ? (
-                  <Image
-                    src={user.image}
-                    alt=""
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-[#f5f5f7] text-[#86868b]">
-                    <MaterialIcon name="person" className="text-[36px]" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 flex-col justify-center gap-1">
-                <h2 className="truncate font-headline-sm text-[20px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                  {user.name ?? "Học viên NaNu"}
-                </h2>
-                {user.email ? (
-                  <p className="truncate font-body-sm text-[14px] text-[#86868b]">
-                    {user.email}
-                  </p>
-                ) : null}
-                <div className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-[#0066cc]/10 px-2 py-0.5 border border-[#0066cc]/20">
-                  <GoogleIcon className="h-3 w-3" />
-                  <span className="font-caption text-[11px] font-bold uppercase tracking-wider text-[#0066cc]">
-                    Đã liên kết
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {isAdmin ? (
-              <Link
-                href="/admin"
-                className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#e8f2fc] font-label-lg text-[15px] font-semibold text-[#0066cc] transition-all hover:bg-[#d0e5fa] active:scale-[0.98]"
-              >
-                <MaterialIcon name="admin_panel_settings" className="text-[20px]" />
-                Admin dashboard
-              </Link>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => {
-                discardDeviceProgress();
-                void signOut({ callbackUrl: "/account" });
-              }}
-              className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] border border-black/[0.05] bg-white font-label-lg text-[15px] font-semibold text-[#ff3b30] shadow-sm transition-all hover:bg-[#fff2f2] active:scale-[0.98]"
-            >
-              <MaterialIcon name="logout" className="text-[20px]" />
-              Đăng xuất
-            </button>
-          </section>
-
-          <section className="flex flex-col gap-4 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
-                <MaterialIcon name="workspace_premium" className="text-[26px]" filled />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="font-headline-sm text-[17px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                  Huy hiệu
-                </h2>
-                <p className="text-[14px] font-medium text-[#86868b]">
-                  Sưu tầm huy hiệu Đồng, Bạc, Vàng và Kim cương khi học đều và leo bảng xếp hạng.
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/badges"
-              className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#5856d6] font-label-lg text-[15px] font-semibold text-white transition-all hover:bg-[#4b49c4] active:scale-[0.98]"
-            >
-              <MaterialIcon name="military_tech" className="text-[20px]" />
-              Xem bộ sưu tập
-            </Link>
-          </section>
-
-          <section className="flex flex-col gap-4 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#0071e3]/10 text-[#0071e3]">
-                <MaterialIcon name="celebration" className="text-[26px]" filled />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="font-headline-sm text-[17px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                  Tổng kết tuần
-                </h2>
-                <p className="text-[14px] font-medium text-[#86868b]">
-                  Tạo ảnh thành tích tuần này và chia sẻ với bạn bè, gia đình.
-                </p>
-              </div>
-            </div>
-            <RecapShareButton className="flex h-[48px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0071e3] font-label-lg text-[15px] font-semibold text-white transition-all hover:bg-[#0062c4] active:scale-[0.98]">
-              <MaterialIcon name="ios_share" className="text-[20px]" />
-              Xem và chia sẻ
-            </RecapShareButton>
-          </section>
-
-          <p className="pt-10 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteError(null);
-                setDeleteOpen(true);
-              }}
-              className="text-[13px] font-medium text-[#86868b]/80 transition-colors hover:text-[#1d1d1f] hover:underline"
-            >
-              Xóa tài khoản
-            </button>
-          </p>
-        </div>
-      </main>
+    <>
+      <LearnerProfile
+        image={user.image}
+        email={user.email}
+        isAdmin={isAdmin}
+        onSignOut={() => {
+          discardDeviceProgress();
+          void signOut({ callbackUrl: "/account" });
+        }}
+        onDelete={() => {
+          setDeleteError(null);
+          setDeleteOpen(true);
+        }}
+      />
       {deleteOpen ? (
         <DeleteAccountDialog
           busy={deleting}
@@ -433,7 +718,6 @@ export function AccountScreen({
           }}
         />
       ) : null}
-      <BottomNav />
-    </div>
+    </>
   );
 }

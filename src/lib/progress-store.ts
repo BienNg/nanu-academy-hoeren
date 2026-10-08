@@ -14,7 +14,7 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing } from "@/lib/xp";
+import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing, parseDisplayName } from "@/lib/xp";
 import {
   isJumpRunsSchemaMissing,
   isJumpXpSchemaMissing,
@@ -200,6 +200,10 @@ function isMissingImageColumn(message: string): boolean {
   return /image/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
 }
 
+function isMissingNameCustomColumn(message: string): boolean {
+  return /name_custom/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
 function isMissingSignInLogColumn(message: string): boolean {
   return /sign_in_log/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
 }
@@ -210,6 +214,8 @@ function isMissingAppUsesColumn(message: string): boolean {
 
 let loggedMissingImageColumn = false;
 let imageColumnRetryAt = 0;
+let loggedMissingNameCustomColumn = false;
+let nameCustomColumnMissing = false;
 let loggedMissingSignInLogColumn = false;
 let signInLogColumnRetryAt = 0;
 let loggedMissingAppUsesColumn = false;
@@ -253,6 +259,16 @@ function noteMissingImageColumn(message: string): void {
   loggedMissingImageColumn = true;
   console.error(
     "user_progress.image is missing. Re-run supabase/user_progress.sql.",
+    message,
+  );
+}
+
+function noteMissingNameCustomColumn(message: string): void {
+  nameCustomColumnMissing = true;
+  if (loggedMissingNameCustomColumn) return;
+  loggedMissingNameCustomColumn = true;
+  console.error(
+    "user_progress.name_custom is missing. Re-run supabase/user_progress.sql so a chosen name survives the next Google sign-in.",
     message,
   );
 }
@@ -327,13 +343,15 @@ export async function setCloudProgress(
   const now = new Date().toISOString();
   // last_login_at here is last seen (a progress write), not a Google sign-in.
   const image = imageWritesPaused() ? null : googleProfileImage(profile.image);
+  const touch = await readProfileTouch(supabase, userId);
+  const keepChosenName = touch !== "error" && touch.nameCustom;
   const withIdentity = {
     user_id: userId,
     data: payload,
     updated_at: now,
     last_login_at: now,
     ...(profile.email !== undefined ? { email: profile.email } : {}),
-    ...(profile.name !== undefined ? { name: profile.name } : {}),
+    ...(profile.name !== undefined && !keepChosenName ? { name: profile.name } : {}),
     ...(image ? { image } : {}),
   };
 
@@ -537,6 +555,41 @@ function progressSource(row: RawProgressRow): Partial<StoredProgress> {
   };
 }
 
+/** Whether this account already has a row, and whether the learner chose their name. */
+async function readProfileTouch(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ exists: boolean; nameCustom: boolean } | "error"> {
+  if (nameCustomColumnMissing) {
+    const plain = await supabase.from(TABLE).select("user_id").eq("user_id", userId).maybeSingle();
+    if (plain.error) {
+      console.error("Supabase touchUserProfile read", plain.error.message);
+      return "error";
+    }
+    return { exists: Boolean(plain.data), nameCustom: false };
+  }
+  const flagged = await supabase
+    .from(TABLE)
+    .select("user_id, name_custom")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!flagged.error) {
+    const row = flagged.data as { name_custom?: unknown } | null;
+    return { exists: Boolean(row), nameCustom: row?.name_custom === true };
+  }
+  if (!isMissingNameCustomColumn(flagged.error.message)) {
+    console.error("Supabase touchUserProfile read", flagged.error.message);
+    return "error";
+  }
+  noteMissingNameCustomColumn(flagged.error.message);
+  const plain = await supabase.from(TABLE).select("user_id").eq("user_id", userId).maybeSingle();
+  if (plain.error) {
+    console.error("Supabase touchUserProfile read", plain.error.message);
+    return "error";
+  }
+  return { exists: Boolean(plain.data), nameCustom: false };
+}
+
 /**
  * Best-effort identity + last-seen write. `last_login_at` is the last time
  * this account touched the app, not a Google sign-in. Progress JSON is never
@@ -550,16 +603,8 @@ export async function touchUserProfile(
   if (!supabase) return;
 
   const now = new Date().toISOString();
-  const { data: existing, error: readError } = await supabase
-    .from(TABLE)
-    .select("user_id, data")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (readError) {
-    console.error("Supabase touchUserProfile read", readError.message);
-    return;
-  }
+  const existing = await readProfileTouch(supabase, userId);
+  if (existing === "error") return;
 
   const image = imageWritesPaused() ? null : googleProfileImage(profile.image);
   const patch: {
@@ -569,10 +614,10 @@ export async function touchUserProfile(
     image?: string;
   } = { last_login_at: now };
   if (profile.email !== undefined) patch.email = profile.email;
-  if (profile.name !== undefined) patch.name = profile.name;
+  if (profile.name !== undefined && !existing.nameCustom) patch.name = profile.name;
   if (image) patch.image = image;
 
-  if (existing) {
+  if (existing.exists) {
     const { error } = await supabase.from(TABLE).update(patch).eq("user_id", userId);
     if (error && image && isMissingImageColumn(error.message)) {
       noteMissingImageColumn(error.message);
@@ -700,6 +745,7 @@ type SignInRow = {
   sign_ins?: unknown;
   sign_in_log?: unknown;
   class_name?: unknown;
+  name_custom?: unknown;
 };
 
 /**
@@ -711,6 +757,11 @@ async function readSignInRow(
   userId: string,
 ): Promise<{ row: SignInRow | null; hasSignIns: boolean; hasSignInLog: boolean } | null> {
   const attempts: { columns: string; hasSignIns: boolean; hasSignInLog: boolean }[] = [
+    {
+      columns: "user_id, deleted_at, sign_ins, sign_in_log, class_name, name_custom",
+      hasSignIns: true,
+      hasSignInLog: true,
+    },
     {
       columns: "user_id, deleted_at, sign_ins, sign_in_log, class_name",
       hasSignIns: true,
@@ -741,6 +792,53 @@ async function readSignInRow(
 
   console.error("Supabase recordUserSignIn read", lastMessage);
   return null;
+}
+
+/** The name stored for this learner, or null when there is no row. */
+export async function readLearnerName(userId: string): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return null;
+  const { data, error } = await supabase.from(TABLE).select("name").eq("user_id", userId).maybeSingle();
+  if (error) {
+    console.error("Supabase readLearnerName", error.message);
+    return null;
+  }
+  const row = data as { name?: unknown } | null;
+  return typeof row?.name === "string" ? row.name : null;
+}
+
+/**
+ * Store the name the learner typed. A later Google sign-in keeps it once
+ * `name_custom` exists. Until that column is added, the name is still saved
+ * and the next sign-in can replace it.
+ */
+export async function renameLearner(
+  userId: string,
+  name: string,
+): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  const parsed = parseDisplayName(name);
+  if (!parsed) {
+    return { ok: false, error: "Tên cần từ 2 đến 30 chữ, không chứa ký tự đặc biệt." };
+  }
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ok: false, error: "Không lưu được tên lúc này." };
+
+  const apply = (patch: Record<string, unknown>) =>
+    supabase.from(TABLE).update(patch).eq("user_id", userId).select("user_id").maybeSingle();
+
+  let result = nameCustomColumnMissing
+    ? await apply({ name: parsed })
+    : await apply({ name: parsed, name_custom: true });
+  if (result.error && isMissingNameCustomColumn(result.error.message)) {
+    noteMissingNameCustomColumn(result.error.message);
+    result = await apply({ name: parsed });
+  }
+  if (result.error) {
+    console.error("Supabase renameLearner", result.error.message);
+    return { ok: false, error: "Không lưu được tên. Thử lại sau một lúc." };
+  }
+  if (!result.data) return { ok: false, error: "Không lưu được tên. Hãy đăng nhập lại." };
+  return { ok: true, name: parsed };
 }
 
 /**
@@ -781,9 +879,10 @@ export async function recordUserSignIn(
       : null;
   const requestedImage = googleProfileImage(profile.image);
   const image = requestedImage && !imageWritesPaused() ? requestedImage : null;
+  const keepChosenName = row?.name_custom === true;
   const identity = {
     ...(profile.email !== undefined ? { email: profile.email } : {}),
-    ...(profile.name !== undefined ? { name: profile.name } : {}),
+    ...(profile.name !== undefined && !keepChosenName ? { name: profile.name } : {}),
     ...(image ? { image } : {}),
   };
   const isNewAccount = !row || Boolean(row.deleted_at);

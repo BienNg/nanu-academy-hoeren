@@ -306,6 +306,23 @@ export function leaderboardDisplayName(name: string | null | undefined): string 
   return trimmed ? trimmed : "Học viên";
 }
 
+const DISPLAY_NAME_MIN = 2;
+const DISPLAY_NAME_MAX = 30;
+
+/**
+ * A name the learner chose. Letters (including Vietnamese), numbers, spaces,
+ * apostrophes, periods and hyphens. Anything that looks like a link or an
+ * email is refused.
+ */
+export function parseDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  if (trimmed.length < DISPLAY_NAME_MIN || trimmed.length > DISPLAY_NAME_MAX) return null;
+  if (!/^[\p{L}\p{N}](?:[\p{L}\p{N} '.\-]*[\p{L}\p{N}])?$/u.test(trimmed)) return null;
+  if (/https?:|www\.|@/i.test(trimmed)) return null;
+  return trimmed;
+}
+
 const GOOGLE_PROFILE_HOST = "lh3.googleusercontent.com";
 
 /** A Google account photo URL, or null for anything else. */

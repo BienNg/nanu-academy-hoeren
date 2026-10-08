@@ -5,7 +5,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
-import { ProfileButton } from "@/components/ProfileButton";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { ChillPingu, PATH_POSES, ReadingPingu, type PathPose } from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
@@ -1712,7 +1711,6 @@ export default function LevelViewClient({
               </span>
             </div>
             <TodayXpChip />
-            <ProfileButton />
           </div>
         </div>
       </header>

@@ -12,12 +12,13 @@ import { questZoneHeaders } from "@/lib/quests";
 import { flushTrackedClicks, trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg", pad: "px-3 sm:px-4", target: "nav.learn" },
-  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", pad: "px-1.5 sm:px-2.5", target: "nav.quests" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", pad: "px-3 sm:px-4", target: "nav.duel" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", pad: "px-1.5 sm:px-2.5", target: "nav.leaderboard" },
-  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", pad: "px-1.5 sm:px-2.5", target: "nav.badges" },
-] as const satisfies readonly { href: string; label: string; icon: string; pad: string; target: UiClickTarget }[];
+  { href: "/", label: "Học", icon: "/nav/learn.svg", target: "nav.learn" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", target: "nav.quests" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", target: "nav.duel" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", target: "nav.leaderboard" },
+  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", target: "nav.badges" },
+  { href: "/account", label: "Hồ sơ", icon: "/nav/profile.svg", target: "nav.profile" },
+] as const satisfies readonly { href: string; label: string; icon: string; target: UiClickTarget }[];
 
 function isCurrent(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/" || pathname.startsWith("/learn");
@@ -191,7 +192,7 @@ export function BottomNav() {
         aria-label="Điều hướng chính"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
       >
-        <div className="mx-auto flex w-full max-w-md items-center justify-around px-1 py-1.5 sm:px-3">
+        <div className="mx-auto flex w-full max-w-lg items-end justify-around px-1 py-1.5 sm:px-2">
           {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
             const active = isCurrent(pathname, item.href);
             const badge =
@@ -210,7 +211,7 @@ export function BottomNav() {
                   if (item.target === "nav.duel") return;
                   trackUiClick(item.target);
                 }}
-                className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
+                className={`flex min-w-0 flex-col items-center gap-px rounded-2xl border-2 px-0.5 py-1 sm:px-2 ${
                   active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
                 }`}
               >
@@ -230,7 +231,7 @@ export function BottomNav() {
                   ) : null}
                 </span>
                 <span
-                  className={`whitespace-nowrap font-label-sm text-[12px] font-semibold leading-4 tracking-[0.02em] ${
+                  className={`whitespace-nowrap font-label-sm text-[11px] font-semibold leading-4 tracking-[0.01em] sm:text-[12px] ${
                     active ? "text-[#0059B5]" : "text-[#6E6E73]"
                   }`}
                 >

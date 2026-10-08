@@ -369,21 +369,34 @@ export function SessionContentSkeleton({
 
 export function AccountScreenSkeleton({ path }: { path?: string }) {
   return (
-    <ScreenFrame>
-      <LearnerHeader path={path} kicker="Tài khoản" />
-      <main className="relative z-10 mx-auto flex w-full max-w-2xl flex-col px-6 pb-24 pt-6">
-        <div className="rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="flex items-center gap-4">
-            <Bone className="h-[72px] w-[72px] rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <Bone className="h-6 w-40 rounded-full" />
-              <Bone className="h-4 w-52 max-w-full rounded-full" />
-            </div>
-          </div>
-          <Bone className="mt-6 h-12 w-full rounded-[16px]" />
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
+    >
+      <LoadingBar />
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-full max-w-md items-center justify-end px-4 md:max-w-3xl">
+          <Bone className="h-11 w-11 rounded-2xl" />
         </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-6 px-4 pt-4 pb-28 md:max-w-3xl">
+        <Bone className="h-28 w-28 rounded-full" />
+        <Bone className="h-8 w-40 rounded-full" />
+        <div className="grid w-full grid-cols-2 gap-3">
+          <Bone className="h-[88px] rounded-2xl" />
+          <Bone className="h-[88px] rounded-2xl" />
+          <Bone className="h-[88px] rounded-2xl" />
+          <Bone className="h-[88px] rounded-2xl" />
+        </div>
+        <Bone className="h-36 w-full rounded-2xl" />
       </main>
-    </ScreenFrame>
+      <BottomNav />
+      {path ? <span className="sr-only">{path}</span> : null}
+    </div>
   );
 }
 

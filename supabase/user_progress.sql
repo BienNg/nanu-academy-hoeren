@@ -8,6 +8,8 @@ create table if not exists public.user_progress (
   updated_at timestamptz not null default now(),
   email text,
   name text,
+  -- True after the learner edits their name. Google sign-in then leaves `name` alone.
+  name_custom boolean not null default false,
   -- Google profile photo (https://lh3.googleusercontent.com/...).
   -- Shown on the ranking list and on the admin Levels paths.
   image text,
@@ -49,6 +51,7 @@ create table if not exists public.user_progress (
 alter table public.user_progress
   add column if not exists email text,
   add column if not exists name text,
+  add column if not exists name_custom boolean not null default false,
   add column if not exists image text,
   add column if not exists last_login_at timestamptz,
   add column if not exists deleted_at timestamptz,

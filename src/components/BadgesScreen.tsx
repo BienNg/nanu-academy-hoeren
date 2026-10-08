@@ -87,7 +87,7 @@ function FamilyCard({
   );
 }
 
-function FamilySheet({ family, onClose }: { family: BadgeFamilyView; onClose: () => void }) {
+export function FamilySheet({ family, onClose }: { family: BadgeFamilyView; onClose: () => void }) {
   return (
     <BadgeSheet title={family.title} onClose={onClose}>
       <div className="flex flex-col items-center text-center">
