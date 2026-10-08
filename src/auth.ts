@@ -37,6 +37,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (pathname === "/account" || pathname.startsWith("/account/")) {
         return true;
       }
+      // Link previews fetch this image with no session.
+      if (pathname === "/opengraph-image" || pathname.startsWith("/opengraph-image/")) {
+        return true;
+      }
       return !!auth;
     },
     async jwt({ token, account, profile, user }) {

@@ -20,9 +20,32 @@ const beVietnamPro = Be_Vietnam_Pro({
   display: "swap",
 });
 
+const siteUrl = "https://www.nanugo.app";
+const shareTitle = "NaNu Academy";
+const shareDescription =
+  "Học và luyện tập tiếng Đức chuyên ngành. Từ NaNu NaNa - Du Hoc Duc.";
+
 export const metadata: Metadata = {
-  title: "NaNu Academy",
-  description: "Học và luyện tập tiếng Đức dành cho người Việt",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: shareTitle,
+    template: "%s · NaNu Academy",
+  },
+  description: shareDescription,
+  applicationName: "NaNu NaNa - Du Hoc Duc",
+  openGraph: {
+    type: "website",
+    locale: "vi_VN",
+    url: siteUrl,
+    siteName: "NaNu NaNa - Du Hoc Duc",
+    title: shareTitle,
+    description: shareDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: shareTitle,
+    description: shareDescription,
+  },
 };
 
 export const viewport: Viewport = {
