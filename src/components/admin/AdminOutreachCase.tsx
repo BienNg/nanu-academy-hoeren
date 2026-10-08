@@ -21,6 +21,7 @@ import {
   outreachCatalogStart,
   outreachDayAfter,
   outreachMessage2,
+  outreachAnswerCompletesTin1,
   outreachPrimarySend,
   outreachRelativeDay,
   outreachRequiredMessageId,
@@ -284,7 +285,13 @@ export function AdminOutreachCase({
       return false;
     }
     const snapshot = formRef.current;
-    const key = extra.markSent ? `sent-${extra.markSent}` : extra.claim ? "claim" : "save";
+    const categoryNow = snapshot.groupOverride || row.computedCategory;
+    const markSent =
+      extra.markSent ??
+      (outreachAnswerCompletesTin1(job, snapshot.status, categoryNow, snapshot.feedback, snapshot.featureRequest)
+        ? 1
+        : null);
+    const key = markSent ? `sent-${markSent}` : extra.claim ? "claim" : "save";
     setSaving(key);
     setError(null);
     const run = saveOutreachCase({
@@ -298,8 +305,8 @@ export function AdminOutreachCase({
       feedback: snapshot.feedback,
       featureRequest: snapshot.featureRequest,
       notes: snapshot.notes,
-      category: snapshot.groupOverride || row.computedCategory,
-      markSent: extra.markSent ?? null,
+      category: categoryNow,
+      markSent,
       clearFollowUp: extra.clearFollowUp === true,
       claim: extra.claim === true,
       hadAccount: row.hasAccount,
@@ -448,7 +455,7 @@ export function AdminOutreachCase({
               {saving === "save" ? "Đang lưu" : "Lưu"}
             </Button>
           ) : null}
-          {send != null && sendLabel ? (
+          {send != null && send !== 1 && sendLabel ? (
             <Button
               variant="primary"
               icon="send"
@@ -778,7 +785,13 @@ export function AdminOutreachCase({
                   </li>
                   <li>Dán vào tin nhắn riêng cho {recipient} và gửi.</li>
                   <li>
-                    Bấm <span className="font-semibold text-admin-ink">{sendLabel} &amp; tiếp</span> ở cuối khung.
+                    {send === 1 ? (
+                      <>Khi có câu trả lời, ghi vào Feedback hoặc Yêu cầu tính năng. Người này được tính là xong.</>
+                    ) : (
+                      <>
+                        Bấm <span className="font-semibold text-admin-ink">{sendLabel} &amp; tiếp</span> ở cuối khung.
+                      </>
+                    )}
                   </li>
                 </ol>
                 {message2.kind === "warning" ? (

@@ -7,6 +7,7 @@ import {
   filterOutreachRows,
   joinOutreach,
   outreachConversionHint,
+  outreachAnswerCompletesTin1,
   outreachAddress,
   outreachCatalog,
   outreachCatalogStart,
@@ -321,6 +322,11 @@ test("due dates read in relative days and overdue follow-ups are flagged", () =>
   assert.equal(outreachPrimarySend("followup", "da_gui_tin_1", "light"), 2);
   assert.equal(outreachPrimarySend("followup", "da_gui_tin_2", "light"), "checkin");
   assert.equal(outreachPrimarySend("tin1-preaccess", "chua_gui", "preaccess"), 1);
+  assert.equal(outreachAnswerCompletesTin1("tin1-light", "chua_gui", "light", "app hơi khó", ""), true);
+  assert.equal(outreachAnswerCompletesTin1("tin1-heavy", "chua_gui", "heavy", "  ", "thêm bài ngắn"), true);
+  assert.equal(outreachAnswerCompletesTin1("tin1-never", "chua_gui", "never", "", ""), false);
+  assert.equal(outreachAnswerCompletesTin1("tin1-light", "da_gui_tin_1", "light", "đã nói", ""), false);
+  assert.equal(outreachAnswerCompletesTin1("tin2", "da_gui_tin_1", "light", "đã nói", ""), false);
   assert.equal(outreachPrimarySend(null, "chua_gui", "light"), null);
   assert.equal(outreachRequiredMessageId("tin1-light", "chua_gui", "light"), "open");
   assert.equal(outreachRequiredMessageId("tin2", "da_gui_tin_1", "heavy"), "wish-main");

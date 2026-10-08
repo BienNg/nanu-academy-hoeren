@@ -966,3 +966,19 @@ export function outreachPrimarySend(
   }
   return 1;
 }
+
+/**
+ * Tin 1 is finished by recording what they said, not by a send button.
+ * A non-empty Feedback or feature request marks someone still waiting on tin 1.
+ */
+export function outreachAnswerCompletesTin1(
+  job: OutreachJobId | null,
+  status: OutreachStatus,
+  group: OutreachGroup,
+  feedback: string,
+  featureRequest: string,
+): boolean {
+  if (status !== "chua_gui") return false;
+  if (!feedback.trim() && !featureRequest.trim()) return false;
+  return outreachPrimarySend(job, status, group) === 1;
+}
