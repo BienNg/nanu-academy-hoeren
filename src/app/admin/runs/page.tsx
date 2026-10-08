@@ -20,7 +20,7 @@ import {
 } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Practice · Admin · NaNu Academy",
+  title: "Practice · Admin",
   robots: { index: false, follow: false },
 };
 

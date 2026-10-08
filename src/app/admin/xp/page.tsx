@@ -22,7 +22,7 @@ import { listAdminQuestClaims } from "@/lib/quest-store";
 import { listAdminDuelXp, listAdminListeningXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
-  title: "XP · Admin · NaNu Academy",
+  title: "XP · Admin",
   robots: { index: false, follow: false },
 };
 

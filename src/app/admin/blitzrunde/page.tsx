@@ -14,7 +14,7 @@ import { getAvailableChapters, getAvailableLevels } from "@/lib/levels";
 import { isProgressStoreConfigured } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Blitzrunde · Admin · NaNu Academy",
+  title: "Blitzrunde · Admin",
   robots: { index: false, follow: false },
 };
 

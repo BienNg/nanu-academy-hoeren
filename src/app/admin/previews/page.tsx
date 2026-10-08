@@ -3,7 +3,7 @@ import { AdminPreviews } from "@/components/admin/AdminPreviews";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Previews · Admin · NaNu Academy",
+  title: "Previews · Admin",
   robots: { index: false, follow: false },
 };
 

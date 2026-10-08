@@ -653,7 +653,7 @@ export function AccountScreen({
               />
               <div className="flex flex-col gap-2">
                 <h1 className="font-display text-[32px] font-bold leading-tight tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.02em" }}>
-                  NaNu Academy
+                  NaNu Go
                 </h1>
                 <p className="max-w-[280px] text-lg font-medium text-[#86868b]">
                   Học và luyện tập tiếng Đức chuyên ngành.

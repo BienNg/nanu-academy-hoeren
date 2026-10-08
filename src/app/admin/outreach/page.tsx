@@ -21,7 +21,7 @@ import {
 import { dayKey } from "@/lib/xp";
 
 export const metadata: Metadata = {
-  title: "Outreach · Admin · NaNu Academy",
+  title: "Outreach · Admin",
   robots: { index: false, follow: false },
 };
 

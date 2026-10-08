@@ -5,7 +5,7 @@ import { buildAdminCatalogBoard } from "@/lib/admin-catalog";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Catalog · Admin · NaNu Academy",
+  title: "Catalog · Admin",
   robots: { index: false, follow: false },
 };
 

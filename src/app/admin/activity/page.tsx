@@ -18,7 +18,7 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { isProgressStoreConfigured, touchUserProfile } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Activity · Admin · NaNu Academy",
+  title: "Activity · Admin",
   robots: { index: false, follow: false },
 };
 

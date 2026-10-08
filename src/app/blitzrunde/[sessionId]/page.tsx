@@ -7,7 +7,7 @@ import { isBlitzrundeId } from "@/lib/blitzrunde";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Blitzrunde · NaNu Academy",
+  title: "Blitzrunde",
   robots: { index: false, follow: false },
 };
 

@@ -21,7 +21,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 });
 
 const siteUrl = "https://www.nanugo.app";
-const shareTitle = "NaNu Academy";
+const shareTitle = "NaNu Go";
 const shareDescription =
   "Học và luyện tập tiếng Đức chuyên ngành. Từ NaNu NaNa - Du Hoc Duc.";
 
@@ -29,10 +29,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: shareTitle,
-    template: "%s · NaNu Academy",
+    template: "%s · NaNu Go",
   },
   description: shareDescription,
-  applicationName: "NaNu NaNa - Du Hoc Duc",
+  applicationName: "NaNu Go",
   openGraph: {
     type: "website",
     locale: "vi_VN",

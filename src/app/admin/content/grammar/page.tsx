@@ -5,7 +5,7 @@ import { buildAdminGrammarBoard } from "@/lib/admin-grammar";
 import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Grammar gaps · Admin · NaNu Academy",
+  title: "Grammar gaps · Admin",
   robots: { index: false, follow: false },
 };
 

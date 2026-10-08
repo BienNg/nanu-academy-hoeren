@@ -7,7 +7,7 @@ import { readAdminClassLeague } from "@/lib/class-quest-store";
 import { isProgressStoreConfigured, touchUserProfile } from "@/lib/progress-store";
 
 export const metadata: Metadata = {
-  title: "Class league · Admin · NaNu Academy",
+  title: "Class league · Admin",
   robots: { index: false, follow: false },
 };
 

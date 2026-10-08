@@ -3,7 +3,7 @@ import { BadgesScreen } from "@/components/BadgesScreen";
 import { requireUser } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Huy hiệu · NaNu Academy",
+  title: "Huy hiệu",
 };
 
 export const dynamic = "force-dynamic";

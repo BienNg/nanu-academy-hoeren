@@ -213,11 +213,11 @@ export function outreachMessage1(group: OutreachGroup, address: OutreachAddress 
   if (group === "fresh") return null;
   const text =
     group === "heavy"
-      ? `Ê em ơi! 😊 Mình thấy dạo này em học trên app NaNu Academy nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`
+      ? `Ê em ơi! 😊 Mình thấy dạo này em học trên app NaNu Go nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`
       : group === "light"
-        ? `Ê em ơi! 😊 Mình thấy em có thử app NaNu Academy, cảm ơn em nha! Hỏi thiệt nè: em thấy sao? Có chỗ nào khó hiểu, chán, hay không giống em nghĩ không? Cứ nói thẳng với mình nha, mình không giận đâu 😄`
+        ? `Ê em ơi! 😊 Mình thấy em có thử app NaNu Go, cảm ơn em nha! Hỏi thiệt nè: em thấy sao? Có chỗ nào khó hiểu, chán, hay không giống em nghĩ không? Cứ nói thẳng với mình nha, mình không giận đâu 😄`
         : group === "never"
-          ? `Ê em ơi! 😊 Mình thấy em đã đăng ký app NaNu Academy nhưng chưa vô xem thử. Không sao hết nha! Em có bị vướng chỗ nào không, kiểu đăng nhập hay không biết bắt đầu từ đâu? Nói mình biết, mình giúp liền 😊`
+          ? `Ê em ơi! 😊 Mình thấy em đã đăng ký app NaNu Go nhưng chưa vô xem thử. Không sao hết nha! Em có bị vướng chỗ nào không, kiểu đăng nhập hay không biết bắt đầu từ đâu? Nói mình biết, mình giúp liền 😊`
           : `Ê em ơi! 😊 Lớp mình đa số đăng ký app rồi, mà em thì chưa. Mình tò mò thôi: em có lý do gì không? Bận, bị vướng chỗ nào, hay thấy chưa cần? Em cứ nói thật nha, giúp tụi mình nhiều lắm 🙏`;
   return withOutreachAddress(text, address);
 }
@@ -230,7 +230,7 @@ export type OutreachFollowUp =
 /** Quiet-week check-in. One script for anyone who already finished tin 2. */
 export function outreachCheckIn(address: OutreachAddress = "em"): string {
   return withOutreachAddress(
-    `Ê em ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Academy. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`,
+    `Ê em ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Go. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`,
     address,
   );
 }
@@ -350,7 +350,7 @@ const ASKED_BY: { id: string; category: OutreachQuestionCategory; label: string;
   { id: "fit-who", category: "fit", label: "Ai nữa cần app", groups: ["heavy", "light"], message: "Trong lớp, bạn nào em nghĩ cũng cần app này? Vì sao?" },
   { id: "fit-recommend", category: "fit", label: "Em sẽ nói gì với bạn", groups: ["heavy", "light"], message: "Nếu giới thiệu app cho bạn cùng lớp, em sẽ nói gì?" },
   { id: "fit-expect", category: "fit", label: "Em tưởng app sẽ làm gì", groups: ["heavy", "light", "never"], message: "Trước khi mở app, em tưởng nó sẽ giúp em cái gì?" },
-  { id: "fit-heard", category: "fit", label: "Em nghĩ app dùng để làm gì", groups: ["preaccess"], message: "Em nghe nói app NaNu Academy dùng để làm gì?" },
+  { id: "fit-heard", category: "fit", label: "Em nghĩ app dùng để làm gì", groups: ["preaccess"], message: "Em nghe nói app NaNu Go dùng để làm gì?" },
   { id: "fit-almost", category: "fit", label: "Cái gì suýt khiến em dừng", groups: ["light", "never"], message: "Cái gì suýt khiến em không dùng app?" },
   { id: "fit-must", category: "fit", label: "Cần gì thì em sẽ dùng", groups: ["light", "never", "preaccess"], message: "App cần có gì, hoặc khác gì, thì em mới muốn dùng mỗi tuần?" },
   { id: "stop-time", category: "stop", label: "Không có thời gian", groups: ["light", "never"], message: "Dạo này em bận nên chưa vô học hả?", reason: "no_time" },

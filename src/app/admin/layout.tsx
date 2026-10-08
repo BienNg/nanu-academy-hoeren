@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Admin · NaNu Academy",
+  title: "Admin",
   robots: { index: false, follow: false },
 };
 

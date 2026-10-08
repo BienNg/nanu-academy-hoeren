@@ -3,7 +3,7 @@ import { QuestsScreen } from "@/components/QuestsScreen";
 import { requireUser } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Nhiệm vụ · NaNu Academy",
+  title: "Nhiệm vụ",
 };
 
 export const dynamic = "force-dynamic";

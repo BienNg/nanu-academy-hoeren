@@ -24,7 +24,7 @@ import {
 import { countAdminStudyParts, sumAdminRangeXp } from "@/lib/xp-store";
 
 export const metadata: Metadata = {
-  title: "Overview · Admin · NaNu Academy",
+  title: "Overview · Admin",
   robots: { index: false, follow: false },
 };
 

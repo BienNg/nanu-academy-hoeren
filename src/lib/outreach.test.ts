@@ -80,7 +80,7 @@ test("messages use the address instead of the name", () => {
   const heavy = outreachMessage1("heavy", "anh") ?? "";
   assert.match(heavy, /^Ê anh ơi!/);
   assert.match(heavy, /Anh thấy app sao/);
-  assert.match(heavy, /Academy/);
+  assert.match(heavy, /NaNu Go/);
   assert.doesNotMatch(heavy, /(?<![\p{L}])em(?![\p{L}])/u);
   const tech = outreachObjectionReply("tech", "cô");
   assert.equal(tech.kind, "message");
