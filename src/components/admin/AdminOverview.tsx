@@ -63,6 +63,65 @@ function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
 }
 
+/** Full tint. Anything above the cap stays at this strength. */
+const ACTIVITY_TINT_FULL = {
+  studyParts: 4,
+  practiceParts: 8,
+  /** 60 minutes. */
+  activeSeconds: 60 * 60,
+  videoMinutes: 30,
+} as const;
+
+/**
+ * A quiet cobalt tint behind the figure only. Zero stays clear. The wash
+ * rises in a straight line up to the fixed cap for that column.
+ */
+function ActivityFigure({
+  value,
+  full,
+  children,
+}: {
+  value: number | null;
+  full: number;
+  children: React.ReactNode;
+}) {
+  if (value == null) return children;
+  if (value <= 0 || full <= 0) {
+    return <span className="text-admin-ink-faint">{children}</span>;
+  }
+  const mix = Math.round(8 + Math.min(1, value / full) * 18);
+  return (
+    <span
+      className="inline-flex justify-end rounded-admin-badge px-space-8 py-px"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${ADMIN_COLORS.cobalt} ${mix}%, transparent)`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CapBadge({ text }: { text: string }) {
+  return (
+    <span className="group/cap relative inline-flex">
+      <button
+        type="button"
+        aria-label={text}
+        className="inline-flex size-[14px] items-center justify-center rounded-full border border-admin-border bg-admin-card text-[10px] font-semibold leading-none tracking-normal text-admin-ink-subtle transition-colors hover:border-admin-cobalt hover:text-admin-cobalt focus-visible:border-admin-cobalt focus-visible:shadow-admin-focus"
+      >
+        i
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-30 hidden w-max rounded-admin-control bg-admin-ink px-space-8 py-space-4 text-left text-[12px] font-medium normal-case leading-4 tracking-normal text-white shadow-admin-pop group-hover/cap:block group-focus-within/cap:block"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 const RELATIVE_UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
   { unit: "year", ms: 365 * 24 * 60 * 60 * 1000 },
   { unit: "month", ms: 30 * 24 * 60 * 60 * 1000 },
@@ -915,10 +974,30 @@ function ActiveUsersTable({
               <th className={TH}>Class</th>
               <th className={TH}>Last seen</th>
               <th className={`${TH} text-right`}>Streak</th>
-              <th className={`${TH} text-right`}>Study parts</th>
-              <th className={`${TH} text-right`}>Practice parts</th>
-              <th className={`${TH} text-right`}>Active time</th>
-              <th className={`${TH} text-right`}>Video</th>
+              <th className={`${TH} text-right`}>
+                <span className="inline-flex items-center justify-end gap-space-4">
+                  Study parts
+                  <CapBadge text="Full tint at 4 parts" />
+                </span>
+              </th>
+              <th className={`${TH} text-right`}>
+                <span className="inline-flex items-center justify-end gap-space-4">
+                  Practice parts
+                  <CapBadge text="Full tint at 8 passed parts" />
+                </span>
+              </th>
+              <th className={`${TH} text-right`}>
+                <span className="inline-flex items-center justify-end gap-space-4">
+                  Active time
+                  <CapBadge text="Full tint at 60 minutes" />
+                </span>
+              </th>
+              <th className={`${TH} text-right`}>
+                <span className="inline-flex items-center justify-end gap-space-4">
+                  Video
+                  <CapBadge text="Full tint at 30 minutes" />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody className="text-admin-body-md text-admin-ink">
@@ -1043,29 +1122,51 @@ function ActiveUsersTable({
                       className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
                       title={partTitle}
                     >
-                      {studyPartsByUser == null ? "—" : formatCount(studyParts)}
+                      <ActivityFigure
+                        value={studyPartsByUser == null ? null : studyParts}
+                        full={ACTIVITY_TINT_FULL.studyParts}
+                      >
+                        {studyPartsByUser == null ? "—" : formatCount(studyParts)}
+                      </ActivityFigure>
                     </td>
                     <td
                       className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
                       title={`${partTitle}. Passed parts only.`}
                     >
-                      {practicePartsByUser == null
-                        ? "—"
-                        : formatCount(practiceParts)}
+                      <ActivityFigure
+                        value={
+                          practicePartsByUser == null ? null : practiceParts
+                        }
+                        full={ACTIVITY_TINT_FULL.practiceParts}
+                      >
+                        {practicePartsByUser == null
+                          ? "—"
+                          : formatCount(practiceParts)}
+                      </ActivityFigure>
                     </td>
                     <td
                       className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
                       title={`Active time ${window}`}
                     >
-                      {formatActiveDuration(activeSeconds)}
+                      <ActivityFigure
+                        value={activeSeconds}
+                        full={ACTIVITY_TINT_FULL.activeSeconds}
+                      >
+                        {formatActiveDuration(activeSeconds)}
+                      </ActivityFigure>
                     </td>
                     <td
                       className="whitespace-nowrap px-space-16 py-space-8 text-right tabular-nums"
                       title={`Video played ${window}`}
                     >
-                      {videoMinutes === 0
-                        ? "0 min"
-                        : `${formatCount(videoMinutes)} min`}
+                      <ActivityFigure
+                        value={videoMinutes}
+                        full={ACTIVITY_TINT_FULL.videoMinutes}
+                      >
+                        {videoMinutes === 0
+                          ? "0 min"
+                          : `${formatCount(videoMinutes)} min`}
+                      </ActivityFigure>
                     </td>
                   </tr>
                 );
