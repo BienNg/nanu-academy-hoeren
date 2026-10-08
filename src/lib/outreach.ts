@@ -1,10 +1,12 @@
 /**
- * Support outreach: the four groups already come from usage. This module
- * personalizes the approved Vietnamese messages and tracks the conversation.
- * Nothing here sends a message.
+ * Support outreach: groups come from recent study. This module personalizes
+ * the approved Vietnamese messages and picks the one job support should do
+ * next. Nothing here sends a message.
  */
 
-export const OUTREACH_GROUPS = ["preaccess", "never", "light", "heavy"] as const;
+import { dayKey } from "./xp";
+
+export const OUTREACH_GROUPS = ["preaccess", "fresh", "never", "light", "heavy"] as const;
 
 export type OutreachGroup = (typeof OUTREACH_GROUPS)[number];
 
@@ -38,10 +40,24 @@ export type OutreachQueue = (typeof OUTREACH_QUEUES)[number];
 export const OUTREACH_TEXT_MAX = 4000;
 export const OUTREACH_NAME_MAX = 80;
 
+/** Under this many days since the first sign-in, and not already Dùng nhiều. */
+export const OUTREACH_FRESH_DAYS = 3;
+/** Last study this many days ago, or older, counts as quiet. */
+export const OUTREACH_QUIET_DAYS = 7;
+/** Study days counted toward Dùng nhiều. */
+export const OUTREACH_HABIT_DAYS = 28;
+export const OUTREACH_HABIT_STUDY_DAYS = 3;
+/** A burst of active time inside this window also counts as Dùng nhiều. */
+export const OUTREACH_BURST_DAYS = 7;
+export const OUTREACH_HEAVY_SECONDS = 90 * 60;
+/** Below this, with no finished part, they have not tried the app. */
+export const OUTREACH_TRIED_SECONDS = 5 * 60;
+
 export const OUTREACH_GROUP_LABEL: Record<OutreachGroup, string> = {
   heavy: "Dùng nhiều",
   light: "Dùng ít",
   never: "Đã đăng ký, chưa làm gì",
+  fresh: "Mới",
   preaccess: "Chưa đăng ký",
 };
 
@@ -111,6 +127,8 @@ export type OutreachContact = {
   hasAccount: boolean;
   activeSeconds: number | null;
   lastSeenAt: string | null;
+  /** Latest Vietnam day with active time, or null when they have not studied. */
+  lastStudyOn: string | null;
   staff: boolean;
 };
 
@@ -139,8 +157,13 @@ export type OutreachPatch = {
   notes: string;
   /** Group used for this save, after the override. Blocks tin 2 for pre-access. */
   category: OutreachGroup;
-  /** Set when support marks a message sent. */
-  markSent: 1 | 2 | null;
+  /**
+   * 1 or 2 advances the script status. "checkin" only stamps the send time,
+   * for the quiet-week message and a finished follow-up.
+   */
+  markSent: 1 | 2 | "checkin" | null;
+  /** Drop the follow-up flag when this send clears that job. */
+  clearFollowUp: boolean;
   claim: boolean;
   hadAccount: boolean;
   parts: number | null;
@@ -170,7 +193,8 @@ export function outreachGreetingName(
   return "em";
 }
 
-export function outreachMessage1(group: OutreachGroup, greetingName: string): string {
+export function outreachMessage1(group: OutreachGroup, greetingName: string): string | null {
+  if (group === "fresh") return null;
   const name = greetingName.trim() || "em";
   if (group === "heavy") {
     return `Ê ${name} ơi! 😊 Mình thấy dạo này em học trên app NaNu Academy nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`;
@@ -189,7 +213,19 @@ export type OutreachFollowUp =
   | { kind: "warning"; text: string };
 
 /** Tin nhắn 2, or the warning for students who have not signed up. */
+/** Quiet-week check-in. One script for anyone who already finished tin 2. */
+export function outreachCheckIn(greetingName: string): string {
+  const name = greetingName.trim() || "em";
+  return `Ê ${name} ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Academy. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`;
+}
+
 export function outreachMessage2(group: OutreachGroup): OutreachFollowUp {
+  if (group === "fresh") {
+    return {
+      kind: "warning",
+      text: "Nhóm Mới chưa nhắn. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.",
+    };
+  }
   if (group === "preaccess") {
     return {
       kind: "warning",
@@ -318,10 +354,13 @@ export function applyOutreachPatch(
   if (!email) return { ok: false, error: "This student has no email." };
 
   const base = existing ?? emptyOutreachCase(email);
-  if (patch.markSent === 2 && patch.category === "preaccess") {
-    return { ok: false, error: "Nhóm chưa đăng ký chỉ có một tin." };
+  if (patch.markSent === 2 && (patch.category === "preaccess" || patch.category === "fresh")) {
+    return { ok: false, error: "Nhóm này không có tin 2." };
   }
   if (patch.markSent === 2 && STATUS_RANK[atLeast(base.status, patch.status)] < STATUS_RANK.da_gui_tin_1) {
+    return { ok: false, error: "Gửi tin 1 trước." };
+  }
+  if (patch.markSent === "checkin" && STATUS_RANK[atLeast(base.status, patch.status)] < STATUS_RANK.da_gui_tin_1) {
     return { ok: false, error: "Gửi tin 1 trước." };
   }
   if (patch.followUpOn && !isDay(patch.followUpOn)) {
@@ -352,8 +391,8 @@ export function applyOutreachPatch(
       sentAt,
       ownerUserId: claim ? actor.userId : base.ownerUserId,
       ownerName: claim ? clampText(actor.name ?? "", OUTREACH_NAME_MAX) || null : base.ownerName,
-      followUp: patch.followUp,
-      followUpOn: patch.followUpOn,
+      followUp: patch.clearFollowUp ? false : patch.followUp,
+      followUpOn: patch.clearFollowUp ? null : patch.followUpOn,
       reason: patch.reason,
       feedback: clampText(patch.feedback, OUTREACH_TEXT_MAX),
       featureRequest: clampText(patch.featureRequest, OUTREACH_TEXT_MAX),
@@ -497,4 +536,157 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
     })),
     wishes,
   };
+}
+
+export type OutreachActivityDay = {
+  day: string;
+  activeSeconds: number;
+};
+
+export type OutreachUsage = {
+  hasAccount: boolean;
+  parts: number;
+  /** Active seconds still stored on the account. */
+  activeSeconds: number;
+  studyDays: readonly OutreachActivityDay[];
+  /** Vietnam day of the first sign-in. Null when it is unknown. */
+  firstSeenOn: string | null;
+};
+
+/** `YYYY-MM-DD`, `days` earlier. Date-only arithmetic, no timezone shift. */
+export function outreachDayBefore(day: string, days: number): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, date));
+  utc.setUTCDate(utc.getUTCDate() - days);
+  const y = utc.getUTCFullYear();
+  const m = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(utc.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function secondsInWindow(days: readonly OutreachActivityDay[], start: string, today: string): number {
+  let seconds = 0;
+  for (const day of days) {
+    if (day.day >= start && day.day <= today) seconds += day.activeSeconds;
+  }
+  return seconds;
+}
+
+function studyDayCount(days: readonly OutreachActivityDay[], start: string, today: string): number {
+  const seen = new Set<string>();
+  for (const day of days) {
+    if (day.activeSeconds > 0 && day.day >= start && day.day <= today) seen.add(day.day);
+  }
+  return seen.size;
+}
+
+/**
+ * Group order: not signed up, then a recent burst or a habit, then too new
+ * to judge, then signed up and idle, then everyone who tried the app.
+ */
+export function classifyOutreach(usage: OutreachUsage, today: string): OutreachGroup {
+  if (!usage.hasAccount) return "preaccess";
+  const habitStart = outreachDayBefore(today, OUTREACH_HABIT_DAYS - 1);
+  const burstStart = outreachDayBefore(today, OUTREACH_BURST_DAYS - 1);
+  const heavy =
+    studyDayCount(usage.studyDays, habitStart, today) >= OUTREACH_HABIT_STUDY_DAYS ||
+    secondsInWindow(usage.studyDays, burstStart, today) >= OUTREACH_HEAVY_SECONDS;
+  if (heavy) return "heavy";
+  const freshLine = outreachDayBefore(today, OUTREACH_FRESH_DAYS);
+  if (usage.firstSeenOn != null && usage.firstSeenOn > freshLine) return "fresh";
+  if (usage.parts === 0 && usage.activeSeconds < OUTREACH_TRIED_SECONDS) return "never";
+  return "light";
+}
+
+export function latestStudyDay(days: readonly OutreachActivityDay[]): string | null {
+  let latest: string | null = null;
+  for (const day of days) {
+    if (day.activeSeconds <= 0) continue;
+    if (latest == null || day.day > latest) latest = day.day;
+  }
+  return latest;
+}
+
+export const OUTREACH_JOBS = [
+  "followup",
+  "quiet",
+  "tin2",
+  "tin1-heavy",
+  "tin1-light",
+  "tin1-never",
+  "tin1-preaccess",
+] as const;
+
+export type OutreachJobId = (typeof OUTREACH_JOBS)[number];
+
+export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
+  followup: "Follow-up đến hạn",
+  quiet: "Im một tuần",
+  tin2: "Tin 2",
+  "tin1-heavy": "Tin 1 · Dùng nhiều",
+  "tin1-light": "Tin 1 · Dùng ít",
+  "tin1-never": "Tin 1 · Chưa làm gì",
+  "tin1-preaccess": "Tin 1 · Chưa đăng ký",
+};
+
+export const OUTREACH_JOB_HINT: Record<OutreachJobId, string> = {
+  followup: "Mỗi người một ghi chú. Mở hàng, nhắn, rồi đánh dấu.",
+  quiet: "Một lời hỏi thăm. Chỉ người đã nhận tin 2 và im một tuần.",
+  tin2: "Hỏi em muốn app có thêm gì. Làm hết nhóm này trước lời hỏi thăm.",
+  "tin1-heavy": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
+  "tin1-light": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
+  "tin1-never": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
+  "tin1-preaccess": "Một mẫu. Không gửi link trong tin này.",
+};
+
+const TIN2_GROUPS: ReadonlySet<OutreachGroup> = new Set(["heavy", "light", "never"]);
+const QUIET_GROUPS: ReadonlySet<OutreachGroup> = new Set(["heavy", "light"]);
+const QUIET_STATUSES: ReadonlySet<OutreachStatus> = new Set([
+  "da_gui_tin_2",
+  "da_tra_loi",
+  "khong_tra_loi",
+]);
+
+function sentOn(sentAt: string | null): string | null {
+  if (!sentAt) return null;
+  const date = new Date(sentAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return dayKey(date);
+}
+
+/**
+ * The one job this person sits in. Follow-up wins. Tin 2 wins over the quiet
+ * check-in. Mới is never a job.
+ */
+export function outreachJobFor(row: OutreachRow, today: string): OutreachJobId | null {
+  const outreachCase = row.outreachCase;
+  if (outreachCase?.followUp && outreachCase.followUpOn && outreachCase.followUpOn <= today) {
+    return "followup";
+  }
+  if (row.status === "da_gui_tin_1" && TIN2_GROUPS.has(row.category)) return "tin2";
+  const quietLine = outreachDayBefore(today, OUTREACH_QUIET_DAYS);
+  const studiedRecently = row.lastStudyOn != null && row.lastStudyOn > quietLine;
+  const messagedOn = sentOn(outreachCase?.sentAt ?? null);
+  const messagedRecently = messagedOn != null && messagedOn > quietLine;
+  if (
+    QUIET_GROUPS.has(row.category) &&
+    QUIET_STATUSES.has(row.status) &&
+    !studiedRecently &&
+    !messagedRecently
+  ) {
+    return "quiet";
+  }
+  if (row.status !== "chua_gui") return null;
+  if (row.category === "heavy") return "tin1-heavy";
+  if (row.category === "light") return "tin1-light";
+  if (row.category === "never") return "tin1-never";
+  if (row.category === "preaccess") return "tin1-preaccess";
+  return null;
+}
+
+export function outreachJobWhy(row: OutreachRow, job: OutreachJobId): string {
+  if (job === "followup") return row.outreachCase?.followUpOn ? `Hẹn ${row.outreachCase.followUpOn}` : "Đã hẹn";
+  if (job === "quiet") return row.lastStudyOn ? `Học lần cuối ${row.lastStudyOn}` : "Chưa thấy học";
+  if (job === "tin2") return "Đã gửi tin 1";
+  return "Chưa gửi";
 }

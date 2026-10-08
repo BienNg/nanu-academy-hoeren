@@ -46,7 +46,8 @@ function readPatch(input: unknown): OutreachPatch | null {
   if (groupOverride === undefined || status == null || reason === undefined || !category) {
     return null;
   }
-  const markSent = raw.markSent === 1 || raw.markSent === 2 ? raw.markSent : null;
+  const markSent =
+    raw.markSent === 1 || raw.markSent === 2 || raw.markSent === "checkin" ? raw.markSent : null;
   const parts = typeof raw.parts === "number" && Number.isFinite(raw.parts) ? Math.max(0, Math.floor(raw.parts)) : null;
   return {
     email,
@@ -61,6 +62,7 @@ function readPatch(input: unknown): OutreachPatch | null {
     notes: typeof raw.notes === "string" ? raw.notes : "",
     category,
     markSent,
+    clearFollowUp: raw.clearFollowUp === true,
     claim: raw.claim === true,
     hadAccount: raw.hadAccount === true,
     parts,

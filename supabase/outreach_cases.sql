@@ -23,7 +23,7 @@ create table if not exists public.outreach_cases (
   updated_at timestamptz not null default now(),
   constraint outreach_cases_group_check check (
     group_override is null
-    or group_override in ('preaccess', 'never', 'light', 'heavy')
+    or group_override in ('preaccess', 'fresh', 'never', 'light', 'heavy')
   ),
   constraint outreach_cases_status_check check (
     status in (
@@ -50,6 +50,13 @@ create table if not exists public.outreach_cases (
 );
 
 alter table public.outreach_cases enable row level security;
+
+-- Re-run after adding Mới: the create above does not alter an existing check.
+alter table public.outreach_cases drop constraint if exists outreach_cases_group_check;
+alter table public.outreach_cases add constraint outreach_cases_group_check check (
+  group_override is null
+  or group_override in ('preaccess', 'fresh', 'never', 'light', 'heavy')
+);
 
 -- Existing projects: drop the unused send-channel column.
 alter table public.outreach_cases drop constraint if exists outreach_cases_channel_check;

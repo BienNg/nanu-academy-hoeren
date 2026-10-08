@@ -8,6 +8,7 @@ import {
   bucketPartStamps,
   buildActiveUserTimeline,
   buildAdminActivityStats,
+  buildAdminClientUsage,
   buildOutreachPeople,
   filterOutreachPeople,
   formatRelativeLastSeen,
@@ -16,7 +17,13 @@ import {
   rowsForClassScope,
   type AdminUserRow,
 } from "./admin-overview.js";
-import { DEFAULT_PROGRESS, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
+import {
+  DEFAULT_PROGRESS,
+  type AppUseRecord,
+  type LearnProgress,
+  type StoredProgress,
+  type Visit,
+} from "./progress.js";
 
 const NOW = new Date("2026-10-02T06:30:00.000Z");
 
@@ -288,7 +295,7 @@ function account(
     levelAccess: [],
     interviewAccess: false,
     livingAccess: [],
-    className: "G01",
+    className: "G128",
     signIns: [],
     appUses: [],
     lastSignInAt: null,
@@ -304,7 +311,7 @@ function withActivity(seconds: number, learnEntry?: LearnProgress): StoredProgre
   };
 }
 
-test("outreach splits pre-access, no part, light use, and heavy use", () => {
+test("outreach splits pre-access, light use, and a recent burst", () => {
   const people = buildOutreachPeople(
     [
       account("idle", "idle@school.com", withActivity(3 * 60 * 60)),
@@ -328,21 +335,46 @@ test("outreach splits pre-access, no part, light use, and heavy use", () => {
       { email: "waiting@school.com", className: "G02", updatedAt: "2026-10-01T00:00:00.000Z" },
       { email: "Light@School.com", className: "G02", updatedAt: null },
     ],
+    new Date("2026-10-01T06:00:00.000Z"),
   );
 
   assert.deepEqual(
     people.map((person) => [person.email, person.category]),
     [
       ["waiting@school.com", "preaccess"],
-      ["idle@school.com", "never"],
       ["light@school.com", "light"],
       ["study@school.com", "light"],
       ["heavy@school.com", "heavy"],
+      ["idle@school.com", "heavy"],
     ],
   );
   assert.equal(people.find((person) => person.email === "idle@school.com")?.parts, 0);
   assert.equal(people.find((person) => person.email === "light@school.com")?.parts, 1);
   assert.equal(people.find((person) => person.email === "waiting@school.com")?.activeSeconds, null);
+
+  const skipped = buildOutreachPeople(
+    [
+      { ...account("admin", "admin@school.com", withActivity(60)), isAdmin: true, className: "G128" },
+      { ...account("coach", "coach@school.com", withActivity(60)), teacher: true, className: "G128" },
+      { ...account("desk", "desk@school.com", withActivity(60)), staff: true, className: "G128" },
+      account("g01", "g01@school.com", withActivity(60)),
+      account("trade", "trade@school.com", withActivity(60)),
+      account("kept", "kept@school.com", withActivity(60)),
+    ].map((entry, index) =>
+      index === 3 ? { ...entry, className: "G01" } : index === 4 ? { ...entry, className: "Ausbildung" } : entry,
+    ),
+    [
+      { email: "g01-wait@school.com", className: "G01", updatedAt: null },
+      { email: "trade-wait@school.com", className: "ausbildung", updatedAt: null },
+      { email: "kept-wait@school.com", className: "G129", updatedAt: null },
+      { email: "g01@school.com", className: "G129", updatedAt: null },
+    ],
+    new Date("2026-10-01T06:00:00.000Z"),
+  );
+  assert.deepEqual(
+    skipped.map((person) => person.email),
+    ["kept-wait@school.com", "kept@school.com"],
+  );
 
   const lightOnly = filterOutreachPeople(people, "light", "study");
   assert.deepEqual(
@@ -381,4 +413,73 @@ test("a teacher only sees students in the classes they teach", () => {
     ["student"],
   );
   assert.equal(rowsForClassScope(rows, null).length, 4);
+});
+
+function appUse(
+  at: string,
+  device: AppUseRecord["device"],
+  browser: string | null,
+  seenAt = at,
+): AppUseRecord {
+  return { at, seenAt, device, browser, location: null };
+}
+
+test("client usage counts students once per browser and device in the window", () => {
+  const usage = buildAdminClientUsage(
+    [
+      {
+        ...row("phone", null),
+        appUses: [
+          appUse("2026-10-02T01:00:00.000Z", "mobile", "Chrome"),
+          appUse("2026-10-02T03:00:00.000Z", "mobile", "Chrome"),
+          appUse("2026-10-02T04:00:00.000Z", "desktop", "Safari"),
+        ],
+      },
+      {
+        ...row("tablet", null),
+        appUses: [appUse("2026-10-02T02:00:00.000Z", "tablet", "Safari")],
+      },
+      {
+        ...row("yesterday", null),
+        appUses: [appUse("2026-10-01T10:00:00.000Z", "desktop", "Firefox")],
+      },
+      {
+        ...row("still-open", null),
+        appUses: [
+          appUse("2026-10-01T16:00:00.000Z", "mobile", "Chrome", "2026-10-01T18:00:00.000Z"),
+        ],
+      },
+      {
+        ...row("blank", null),
+        appUses: [appUse("2026-10-02T02:30:00.000Z", null, null)],
+      },
+      {
+        ...row("coach", null),
+        isAdmin: true,
+        appUses: [appUse("2026-10-02T02:00:00.000Z", "desktop", "Edge")],
+      },
+    ],
+    "today",
+    NOW,
+  );
+
+  assert.deepEqual(
+    usage.devices.map((slice) => [slice.label, slice.students, slice.visits]),
+    [
+      ["Mobile", 2, 3],
+      ["Tablet", 1, 1],
+      ["Desktop", 1, 1],
+      ["Unknown", 1, 1],
+    ],
+  );
+  assert.deepEqual(
+    usage.browsers.map((slice) => [slice.label, slice.students, slice.visits]),
+    [
+      ["Chrome", 2, 3],
+      ["Safari", 2, 2],
+      ["Unknown", 1, 1],
+    ],
+  );
+  assert.equal(usage.students, 4);
+  assert.equal(usage.visits, 6);
 });

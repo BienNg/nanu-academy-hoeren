@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyOutreachPatch,
+  classifyOutreach,
   emptyOutreachCase,
   filterOutreachRows,
   joinOutreach,
   outreachConversionHint,
+  outreachJobFor,
   outreachGreetingName,
   outreachMessage1,
   outreachMessage2,
@@ -30,6 +32,7 @@ function contact(overrides: Partial<OutreachContact> = {}): OutreachContact {
     hasAccount: true,
     activeSeconds: 1200,
     lastSeenAt: "2026-10-01T00:00:00.000Z",
+    lastStudyOn: "2026-10-01",
     staff: false,
     ...overrides,
   };
@@ -49,6 +52,7 @@ function patch(overrides: Partial<OutreachPatch> = {}): OutreachPatch {
     notes: "",
     category: "light",
     markSent: null,
+    clearFollowUp: false,
     claim: false,
     hadAccount: true,
     parts: 1,
@@ -61,8 +65,8 @@ test("greeting falls back to em and prefers the name support typed", () => {
   assert.equal(outreachGreetingName("  ", "  "), "em");
   assert.equal(outreachGreetingName("Ngọc", null), "Ngọc");
   assert.equal(outreachGreetingName("Ngọc", "em"), "em");
-  assert.match(outreachMessage1("preaccess", "em"), /^Ê em ơi!/);
-  assert.match(outreachMessage1("heavy", "Quế Ngọc"), /Ê Quế Ngọc ơi!/);
+  assert.match(outreachMessage1("preaccess", "em") ?? "", /^Ê em ơi!/);
+  assert.match(outreachMessage1("heavy", "Quế Ngọc") ?? "", /Ê Quế Ngọc ơi!/);
 });
 
 test("group 4 has one message and a warning instead of tin 2", () => {
@@ -166,4 +170,81 @@ test("queues, override, follow-up, and conversion use the case", () => {
     1,
   );
   assert.equal(summarizeOutreach(rows).wishes[0]?.text, "thêm bài nghe ngắn");
+});
+
+const TODAY = "2026-10-08";
+
+test("a recent burst is dùng nhiều, a month of 1.5 hours is not", () => {
+  assert.equal(
+    classifyOutreach(
+      {
+        hasAccount: true,
+        parts: 0,
+        activeSeconds: 4 * 60 * 60,
+        studyDays: [{ day: "2026-10-07", activeSeconds: 4 * 60 * 60 }],
+        firstSeenOn: "2026-10-06",
+      },
+      TODAY,
+    ),
+    "heavy",
+  );
+  assert.equal(
+    classifyOutreach(
+      {
+        hasAccount: true,
+        parts: 1,
+        activeSeconds: 90 * 60,
+        studyDays: [{ day: "2026-09-20", activeSeconds: 90 * 60 }],
+        firstSeenOn: "2026-09-10",
+      },
+      TODAY,
+    ),
+    "light",
+  );
+  assert.equal(
+    classifyOutreach(
+      {
+        hasAccount: true,
+        parts: 0,
+        activeSeconds: 60,
+        studyDays: [],
+        firstSeenOn: "2026-10-07",
+      },
+      TODAY,
+    ),
+    "fresh",
+  );
+  assert.equal(
+    classifyOutreach(
+      {
+        hasAccount: true,
+        parts: 0,
+        activeSeconds: 60,
+        studyDays: [],
+        firstSeenOn: "2026-10-01",
+      },
+      TODAY,
+    ),
+    "never",
+  );
+});
+
+test("tin 2 comes before the quiet check-in, and mới is not a job", () => {
+  const quiet = joinOutreach(
+    [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
+    [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_2", sentAt: "2026-09-20T00:00:00.000Z" }],
+  );
+  assert.equal(outreachJobFor(quiet[0]!, TODAY), "quiet");
+
+  const needsTin2 = joinOutreach(
+    [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
+    [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", sentAt: "2026-09-20T00:00:00.000Z" }],
+  );
+  assert.equal(outreachJobFor(needsTin2[0]!, TODAY), "tin2");
+
+  const fresh = joinOutreach(
+    [contact({ computedCategory: "fresh", parts: 0, activeSeconds: 0, lastStudyOn: null })],
+    [],
+  );
+  assert.equal(outreachJobFor(fresh[0]!, TODAY), null);
 });

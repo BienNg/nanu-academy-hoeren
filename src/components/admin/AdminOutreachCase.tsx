@@ -12,12 +12,14 @@ import {
   OUTREACH_REASON_LABEL,
   OUTREACH_STATUSES,
   OUTREACH_STATUS_LABEL,
+  outreachCheckIn,
   outreachGreetingName,
   outreachMessage1,
   outreachMessage2,
   outreachObjectionReply,
   type OutreachCase,
   type OutreachGroup,
+  type OutreachJobId,
   type OutreachReason,
   type OutreachRow,
   type OutreachStatus,
@@ -76,15 +78,17 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export function AdminOutreachCase({
   row,
+  job,
   casesReady,
   onClose,
   onSaved,
   onOpenStudent,
 }: {
   row: OutreachRow;
+  job: OutreachJobId | null;
   casesReady: boolean;
   onClose: () => void;
-  onSaved: (outreachCase: OutreachCase) => void;
+  onSaved: (outreachCase: OutreachCase, advance: boolean) => void;
   onOpenStudent: (() => void) | null;
 }) {
   const [form, setForm] = useState(() => formFrom(row));
@@ -95,10 +99,17 @@ export function AdminOutreachCase({
   const greeting = outreachGreetingName(row.name, form.greetingName);
   const message1 = outreachMessage1(category, greeting);
   const message2 = outreachMessage2(category);
+  const checkIn = outreachCheckIn(greeting);
   const reply = form.reason ? outreachObjectionReply(form.reason) : null;
   const sentLabel = row.outreachCase?.sentAt ? formatAdminTimestamp(row.outreachCase.sentAt) : null;
 
-  async function persist(extra: { markSent?: 1 | 2; claim?: boolean; status?: OutreachStatus }) {
+  async function persist(extra: {
+    markSent?: 1 | 2 | "checkin";
+    claim?: boolean;
+    status?: OutreachStatus;
+    clearFollowUp?: boolean;
+    advance?: boolean;
+  }) {
     if (!row.email) {
       setError("Học viên này chưa có email.");
       return;
@@ -111,14 +122,15 @@ export function AdminOutreachCase({
       greetingName: form.greetingName,
       groupOverride: form.groupOverride || null,
       status: extra.status ?? form.status,
-      followUp: form.followUp,
-      followUpOn: form.followUpOn || null,
+      followUp: extra.clearFollowUp ? false : form.followUp,
+      followUpOn: extra.clearFollowUp ? null : form.followUpOn || null,
       reason: form.reason || null,
       feedback: form.feedback,
       featureRequest: form.featureRequest,
       notes: form.notes,
       category,
       markSent: extra.markSent ?? null,
+      clearFollowUp: extra.clearFollowUp === true,
       claim: extra.claim === true,
       hadAccount: row.hasAccount,
       parts: row.parts,
@@ -128,11 +140,14 @@ export function AdminOutreachCase({
       setError(result.error);
       return;
     }
-    onSaved(result.value);
+    onSaved(result.value, extra.advance === true);
   }
 
+  const clearOnSend = job === "followup";
   const tin1Sent = form.status !== "chua_gui";
-  const canTin2 = category !== "preaccess" && (form.status === "da_gui_tin_1" || form.status === "da_tra_loi" || form.status === "khong_tra_loi");
+  const canTin2 =
+    (category === "heavy" || category === "light" || category === "never") &&
+    (form.status === "da_gui_tin_1" || form.status === "da_tra_loi" || form.status === "khong_tra_loi");
 
   return (
     <Drawer
@@ -230,13 +245,37 @@ export function AdminOutreachCase({
           />
         </label>
 
-        <section className="flex flex-col gap-space-8">
-          <div className="flex items-center justify-between gap-space-8">
-            <h3 className={LABEL}>Tin nhắn 1</h3>
-            <CopyButton text={message1} label="Chép tin 1" />
-          </div>
-          <p className={MESSAGE}>{message1}</p>
-        </section>
+        {job === "quiet" ? (
+          <section className="flex flex-col gap-space-8">
+            <div className="flex items-center justify-between gap-space-8">
+              <h3 className={LABEL}>Hỏi thăm</h3>
+              <CopyButton text={checkIn} label="Chép lời hỏi thăm" />
+            </div>
+            <p className={MESSAGE}>{checkIn}</p>
+            <Button
+              variant="primary"
+              icon="send"
+              disabled={saving !== null || !casesReady}
+              onClick={() => void persist({ markSent: "checkin", advance: true })}
+            >
+              {saving === "sent-checkin" ? "Đang lưu" : "Đánh dấu đã nhắn"}
+            </Button>
+          </section>
+        ) : null}
+
+        {category === "fresh" ? (
+          <p className="rounded-admin-control border border-admin-amber bg-admin-amber-wash px-space-12 py-space-12 text-admin-body-sm text-admin-amber-ink">
+            Nhóm Mới chưa nhắn. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.
+          </p>
+        ) : message1 ? (
+          <section className="flex flex-col gap-space-8">
+            <div className="flex items-center justify-between gap-space-8">
+              <h3 className={LABEL}>Tin nhắn 1</h3>
+              <CopyButton text={message1} label="Chép tin 1" />
+            </div>
+            <p className={MESSAGE}>{message1}</p>
+          </section>
+        ) : null}
 
         <section className="flex flex-col gap-space-8">
           <div className="flex items-center justify-between gap-space-8">
@@ -257,16 +296,16 @@ export function AdminOutreachCase({
             variant="secondary"
             icon="send"
             disabled={saving !== null || !casesReady || tin1Sent}
-            onClick={() => void persist({ markSent: 1 })}
+            onClick={() => void persist({ markSent: 1, clearFollowUp: clearOnSend, advance: true })}
           >
             {saving === "sent-1" ? "Đang lưu" : "Đánh dấu đã gửi tin 1"}
           </Button>
-          {category !== "preaccess" ? (
+          {category !== "preaccess" && category !== "fresh" ? (
             <Button
               variant="secondary"
               icon="send"
               disabled={saving !== null || !casesReady || !canTin2}
-              onClick={() => void persist({ markSent: 2 })}
+              onClick={() => void persist({ markSent: 2, clearFollowUp: clearOnSend, advance: true })}
             >
               {saving === "sent-2" ? "Đang lưu" : "Đánh dấu đã gửi tin 2"}
             </Button>

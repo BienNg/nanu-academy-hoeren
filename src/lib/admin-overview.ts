@@ -3,7 +3,9 @@ import {
   activeStreakDays,
   normalizeGrantEmail,
   normalizeProgress,
+  signInDeviceLabel,
   type AppUseRecord,
+  type SignInDevice,
   type SignInRecord,
   type StoredProgress,
 } from "./progress";
@@ -11,6 +13,7 @@ import type {
   AdminStoreProbe,
   UserProgressListItem,
 } from "@/lib/progress-store";
+import { classifyOutreach, latestStudyDay, type OutreachActivityDay } from "@/lib/outreach";
 import { dayKey, googleProfileImage } from "./xp";
 import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
 import type { AdminDuelRecord } from "@/lib/duel-store";
@@ -1200,6 +1203,102 @@ export function buildAdminActivityBoard(
   return { grain, points, leaders: buildActivityLeaders(learners, days) };
 }
 
+export type AdminClientSlice = {
+  key: string;
+  label: string;
+  /** Students with at least one overlapping visit on this client. */
+  students: number;
+  /** Visits that overlap the selected window. */
+  visits: number;
+};
+
+export type AdminClientUsage = {
+  devices: AdminClientSlice[];
+  browsers: AdminClientSlice[];
+  /** Students with a visit in the window, including ones with no client fields. */
+  students: number;
+  visits: number;
+};
+
+const CLIENT_DEVICE_ORDER: readonly SignInDevice[] = ["mobile", "tablet", "desktop"];
+
+function visitOverlapsWindow(visit: AppUseRecord, fromMs: number, toMs: number): boolean {
+  const start = Date.parse(visit.at);
+  if (Number.isNaN(start)) return false;
+  const seen = Date.parse(visit.seenAt);
+  const end = Number.isNaN(seen) ? start : Math.max(start, seen);
+  return start < toMs && end >= fromMs;
+}
+
+/**
+ * Browsers and devices used in the selected window. A visit counts when it
+ * overlaps the Vietnam interval. One student can appear in more than one slice.
+ */
+export function buildAdminClientUsage(
+  rows: readonly AdminUserRow[],
+  range: AdminRange = DEFAULT_ADMIN_RANGE,
+  now = new Date(),
+): AdminClientUsage {
+  const { from, to } = adminRangeVietnamInterval(range, now);
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  const devices = new Map<string, { students: Set<string>; visits: number }>();
+  const browsers = new Map<string, { students: Set<string>; visits: number }>();
+  const people = new Set<string>();
+  let visits = 0;
+
+  const bump = (
+    buckets: Map<string, { students: Set<string>; visits: number }>,
+    key: string,
+    userId: string,
+  ) => {
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { students: new Set(), visits: 0 };
+      buckets.set(key, bucket);
+    }
+    bucket.students.add(userId);
+    bucket.visits += 1;
+  };
+
+  for (const row of learnerRows(rows)) {
+    for (const visit of row.appUses) {
+      if (!visitOverlapsWindow(visit, fromMs, toMs)) continue;
+      people.add(row.userId);
+      visits += 1;
+      bump(devices, visit.device ?? "unknown", row.userId);
+      bump(browsers, visit.browser?.trim() || "Unknown", row.userId);
+    }
+  }
+
+  const slice = (
+    key: string,
+    label: string,
+    bucket: { students: Set<string>; visits: number } | undefined,
+  ): AdminClientSlice | null => {
+    if (!bucket || bucket.students.size === 0) return null;
+    return { key, label, students: bucket.students.size, visits: bucket.visits };
+  };
+
+  const deviceSlices = CLIENT_DEVICE_ORDER.flatMap((device) => {
+    const item = slice(device, signInDeviceLabel(device), devices.get(device));
+    return item ? [item] : [];
+  });
+  const unknownDevice = slice("unknown", "Unknown", devices.get("unknown"));
+  if (unknownDevice) deviceSlices.push(unknownDevice);
+
+  const browserSlices = [...browsers.entries()]
+    .flatMap(([key, bucket]) => {
+      const item = slice(key, key, bucket);
+      return item ? [item] : [];
+    })
+    .sort(
+      (a, b) => b.students - a.students || b.visits - a.visits || a.label.localeCompare(b.label),
+    );
+
+  return { devices: deviceSlices, browsers: browserSlices, students: people.size, visits };
+}
+
 function shiftUtcDay(day: string, delta: number): string {
   const date = new Date(`${day}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + delta);
@@ -2290,7 +2389,7 @@ export function buildAdminHealthBoard(
 /** 1.5 hours. At or above this, a learner who finished a part counts as heavy use. */
 export const OUTREACH_HEAVY_SECONDS = 90 * 60;
 
-export const OUTREACH_CATEGORIES = ["preaccess", "never", "light", "heavy"] as const;
+export const OUTREACH_CATEGORIES = ["preaccess", "fresh", "never", "light", "heavy"] as const;
 
 export type OutreachCategory = (typeof OUTREACH_CATEGORIES)[number];
 
@@ -2313,14 +2412,17 @@ export type OutreachPerson = {
   /** Finished parts still stored on the account. Null for someone who has not signed up. */
   parts: number | null;
   lastSeenAt: string | null;
+  /** Latest stored day with active time. Null for someone who has not studied. */
+  lastStudyOn: string | null;
   user: AdminUserRow | null;
 };
 
 const OUTREACH_ORDER: Record<OutreachCategory, number> = {
   preaccess: 0,
-  never: 1,
-  light: 2,
-  heavy: 3,
+  fresh: 1,
+  never: 2,
+  light: 3,
+  heavy: 4,
 };
 
 /** Active seconds kept on daily activity. Older days are dropped after 120 days. */
@@ -2358,37 +2460,90 @@ export function finishedLessonParts(progress: StoredProgress): number {
   return parts;
 }
 
-export function outreachCategoryForUser(progress: StoredProgress): Exclude<OutreachCategory, "preaccess"> {
-  if (finishedLessonParts(progress) === 0) return "never";
-  return lifetimeActiveSeconds(progress) >= OUTREACH_HEAVY_SECONDS ? "heavy" : "light";
+function outreachActivityDays(progress: StoredProgress): OutreachActivityDay[] {
+  const days: OutreachActivityDay[] = [];
+  for (const [day, entry] of Object.entries(progress.activity ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const activeSeconds = entry?.activeSeconds ?? 0;
+    if (activeSeconds > 0) days.push({ day, activeSeconds });
+  }
+  return days;
+}
+
+function outreachFirstSeenOn(signIns: AdminUserRow["signIns"] | undefined): string | null {
+  const at = signIns?.[0]?.at;
+  if (!at) return null;
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return null;
+  return dayKey(date);
+}
+
+export function outreachCategoryForUser(
+  progress: StoredProgress,
+  firstSeenOn: string | null = null,
+  today = dayKey(new Date()),
+): Exclude<OutreachCategory, "preaccess"> {
+  const group = classifyOutreach(
+    {
+      hasAccount: true,
+      parts: finishedLessonParts(progress),
+      activeSeconds: lifetimeActiveSeconds(progress),
+      studyDays: outreachActivityDays(progress),
+      firstSeenOn,
+    },
+    today,
+  );
+  return group === "preaccess" ? "never" : group;
 }
 
 function outreachLabel(person: Pick<OutreachPerson, "name" | "email">): string {
   return person.name?.trim() || person.email?.trim() || "";
 }
 
+/** Internal classes. Outreach is for the later student groups only. */
+const OUTREACH_EXCLUDED_CLASSES = new Set(["g01", "ausbildung"]);
+
+function outreachSkipped(row: Pick<AdminUserRow, "isAdmin" | "staff" | "teacher" | "className">): boolean {
+  if (row.isAdmin || row.staff || row.teacher) return true;
+  return OUTREACH_EXCLUDED_CLASSES.has(classKey(row.className));
+}
+
 /** Signed-up learners plus pre-unlock emails that have not created an account. */
 export function buildOutreachPeople(
   rows: readonly AdminUserRow[],
   pending: readonly OutreachPending[],
+  now = new Date(),
 ): OutreachPerson[] {
+  const today = dayKey(now);
   const signedEmails = new Set<string>();
   const people: OutreachPerson[] = [];
 
   for (const row of rows) {
     const email = normalizeGrantEmail(row.email ?? "");
     if (email) signedEmails.add(email);
+    if (outreachSkipped(row)) continue;
     const parts = finishedLessonParts(row.progress);
     const activeSeconds = lifetimeActiveSeconds(row.progress);
+    const studyDays = outreachActivityDays(row.progress);
     people.push({
       id: row.userId,
-      category: parts === 0 ? "never" : activeSeconds >= OUTREACH_HEAVY_SECONDS ? "heavy" : "light",
+      category: classifyOutreach(
+        {
+          hasAccount: true,
+          parts,
+          activeSeconds,
+          studyDays,
+          firstSeenOn: outreachFirstSeenOn(row.signIns),
+        },
+        today,
+      ),
       name: row.name,
       email: row.email,
       className: row.className,
       activeSeconds,
       parts,
       lastSeenAt: row.lastLoginAt,
+      lastStudyOn: latestStudyDay(studyDays),
       user: row,
     });
   }
@@ -2396,6 +2551,7 @@ export function buildOutreachPeople(
   for (const grant of pending) {
     const email = normalizeGrantEmail(grant.email);
     if (!email || signedEmails.has(email)) continue;
+    if (OUTREACH_EXCLUDED_CLASSES.has(classKey(grant.className))) continue;
     people.push({
       id: `pending:${email}`,
       category: "preaccess",
@@ -2405,6 +2561,7 @@ export function buildOutreachPeople(
       activeSeconds: null,
       parts: null,
       lastSeenAt: grant.updatedAt,
+      lastStudyOn: null,
       user: null,
     });
   }
@@ -2439,6 +2596,7 @@ export function countOutreachCategories(
 ): Record<OutreachCategory, number> {
   const counts: Record<OutreachCategory, number> = {
     preaccess: 0,
+    fresh: 0,
     never: 0,
     light: 0,
     heavy: 0,
