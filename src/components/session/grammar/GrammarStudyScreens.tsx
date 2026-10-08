@@ -344,18 +344,24 @@ function BeispieleScreen({
       <PromptCard icon="forum" eyebrow="Beispiele" title="Ví dụ" />
       <ul className="flex flex-col gap-4">
         {screen.rows.slice(0, screen.shown).map((row: StudyExample, index) => {
-          const tone = TENSE_TONE[row.tense];
+          const verbMark = row.tense
+            ? `font-extrabold ${TENSE_TONE[row.tense].label}`
+            : row.tone
+              ? `font-extrabold ${PREP_TONE[row.tone].text}`
+              : "font-extrabold text-[#1d1d1f]";
           return (
               <Reveal
-                key={`${row.tense}-${row.de}`}
+                key={`${row.tense ?? row.tone ?? "line"}-${row.de}`}
                 as="li"
                 fresh={reveal && index === screen.newest && index > 0}
                 className="flex flex-col gap-2"
               >
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-lg px-2.5 py-1 text-[13px] font-extrabold ${tone.head}`}>
-                    {tenseMeta(tables, row.tense).label}
-                  </span>
+                  {row.tense ? (
+                    <span className={`rounded-lg px-2.5 py-1 text-[13px] font-extrabold ${TENSE_TONE[row.tense].head}`}>
+                      {tenseMeta(tables, row.tense).label}
+                    </span>
+                  ) : null}
                   <span className="text-[16px] text-[#3a3a3c]">
                     <CueText cue={row} />
                   </span>
@@ -368,7 +374,7 @@ function BeispieleScreen({
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="text-[18px] font-semibold leading-snug text-[#1d1d1f]">
-                      <Emphasize text={row.de} terms={row.verbWords} markClass={`font-extrabold ${tone.label}`} />
+                      <Emphasize text={row.de} terms={row.verbWords} markClass={verbMark} />
                     </span>
                     {row.tense === "praeteritum" ? (
                       <span
