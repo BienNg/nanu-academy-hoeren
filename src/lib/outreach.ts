@@ -322,7 +322,7 @@ export const OUTREACH_QUESTION_CATEGORY_LABEL: Record<OutreachQuestionCategory, 
   open: "Mở đầu",
   like: "Em thấy sao",
   fit: "Nhu cầu thật",
-  stop: "Vì sao chưa học",
+  stop: "Trả lời từ chối",
   signup: "Chưa đăng ký",
   wish: "Muốn thêm gì",
   checkin: "Hỏi thăm",
@@ -439,6 +439,25 @@ export function outreachCatalog(group: OutreachGroup, address: OutreachAddress =
     });
   }
   return items;
+}
+
+/** Catalog ids of the scripted messages. Every other item is an optional question. */
+export const OUTREACH_SCRIPT_IDS: ReadonlySet<string> = new Set(["open", "wish-main", "checkin"]);
+
+/**
+ * Catalog id of the script this job must send. Null when the message is
+ * personal (a follow-up after tin 2) or there is no job.
+ */
+export function outreachRequiredMessageId(
+  job: OutreachJobId | null,
+  status: OutreachStatus,
+  group: OutreachGroup,
+): "open" | "wish-main" | "checkin" | null {
+  const send = outreachPrimarySend(job, status, group);
+  if (send === 1) return "open";
+  if (send === 2) return "wish-main";
+  if (send === "checkin" && job === "quiet") return "checkin";
+  return null;
 }
 
 /** Category to open first for the job support is doing. */
@@ -609,6 +628,44 @@ export function outreachFollowUpDue(row: OutreachRow, today: string): boolean {
   return outreachCase.followUpOn <= today;
 }
 
+/** Case-insensitive match on name, email, class, owner, notes, status and group. */
+export function outreachMatchesQuery(row: OutreachRow, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [
+    row.name,
+    row.email,
+    row.className,
+    row.outreachCase?.ownerName,
+    row.outreachCase?.feedback,
+    row.outreachCase?.featureRequest,
+    row.outreachCase?.notes,
+    OUTREACH_STATUS_LABEL[row.status],
+    OUTREACH_GROUP_LABEL[row.category],
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
+export const OUTREACH_OWNER_FILTERS = ["all", "mine", "unowned"] as const;
+
+export type OutreachOwnerFilter = (typeof OUTREACH_OWNER_FILTERS)[number];
+
+export const OUTREACH_OWNER_FILTER_LABEL: Record<OutreachOwnerFilter, string> = {
+  all: "Tất cả",
+  mine: "Của tôi",
+  unowned: "Chưa ai nhận",
+};
+
+export function outreachOwnerMatches(row: OutreachRow, owner: OutreachOwnerFilter, viewerId: string): boolean {
+  const ownerId = row.outreachCase?.ownerUserId ?? null;
+  if (owner === "mine") return ownerId != null && ownerId === viewerId;
+  if (owner === "unowned") return ownerId == null;
+  return true;
+}
+
 export function filterOutreachRows(
   rows: readonly OutreachRow[],
   filter: {
@@ -619,30 +676,14 @@ export function filterOutreachRows(
     today: string;
   },
 ): OutreachRow[] {
-  const needle = filter.query.trim().toLowerCase();
   return rows.filter((row) => {
     if (filter.category !== "all" && row.category !== filter.category) return false;
     if (filter.queue === "tin1" && row.status !== "chua_gui") return false;
     if (filter.queue === "tin2" && !outreachNeedsTin2(row)) return false;
     if (filter.queue === "followup" && !outreachFollowUpDue(row, filter.today)) return false;
-    if (filter.queue === "mine" && row.outreachCase?.ownerUserId !== filter.viewerId) return false;
+    if (filter.queue === "mine" && !outreachOwnerMatches(row, "mine", filter.viewerId)) return false;
     if (filter.queue === "wishes" && !row.outreachCase?.featureRequest.trim()) return false;
-    if (!needle) return true;
-    const haystack = [
-      row.name,
-      row.email,
-      row.className,
-      row.outreachCase?.ownerName,
-      row.outreachCase?.feedback,
-      row.outreachCase?.featureRequest,
-      row.outreachCase?.notes,
-      OUTREACH_STATUS_LABEL[row.status],
-      OUTREACH_GROUP_LABEL[row.category],
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(needle);
+    return outreachMatchesQuery(row, filter.query);
   });
 }
 
@@ -657,14 +698,27 @@ export type OutreachWish = {
 export function summarizeOutreach(rows: readonly OutreachRow[]): {
   reasons: { reason: OutreachReason; count: number }[];
   wishes: OutreachWish[];
+  statuses: { status: OutreachStatus; count: number }[];
+  /** Cases per owner, most first. */
+  owners: { name: string; count: number }[];
 } {
   const reasonCounts = new Map<OutreachReason, number>();
   for (const reason of OUTREACH_REASONS) reasonCounts.set(reason, 0);
+  const statusCounts = new Map<OutreachStatus, number>();
+  for (const status of OUTREACH_STATUSES) statusCounts.set(status, 0);
+  const ownerCounts = new Map<string, number>();
   const wishes: OutreachWish[] = [];
 
   for (const row of rows) {
+    if (row.category !== "fresh" || row.status !== "chua_gui") {
+      statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
+    }
     const outreachCase = row.outreachCase;
     if (!outreachCase) continue;
+    if (outreachCase.ownerUserId) {
+      const owner = outreachCase.ownerName?.trim() || "Không tên";
+      ownerCounts.set(owner, (ownerCounts.get(owner) ?? 0) + 1);
+    }
     if (outreachCase.reason) {
       reasonCounts.set(outreachCase.reason, (reasonCounts.get(outreachCase.reason) ?? 0) + 1);
     }
@@ -686,6 +740,10 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
       count: reasonCounts.get(reason) ?? 0,
     })),
     wishes,
+    statuses: OUTREACH_STATUSES.map((status) => ({ status, count: statusCounts.get(status) ?? 0 })),
+    owners: [...ownerCounts]
+      .map(([name, count]) => ({ name, count }))
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name)),
   };
 }
 
@@ -713,6 +771,29 @@ export function outreachDayBefore(day: string, days: number): string {
   const m = String(utc.getUTCMonth() + 1).padStart(2, "0");
   const d = String(utc.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** `YYYY-MM-DD`, `days` later. */
+export function outreachDayAfter(day: string, days: number): string {
+  return outreachDayBefore(day, -days);
+}
+
+/** Whole days from `from` to `to`; negative when `to` is earlier. */
+export function outreachDaysBetween(from: string, to: string): number {
+  const toUtc = (day: string) => {
+    const [year, month, date] = day.split("-").map(Number);
+    return Date.UTC(year, month - 1, date);
+  };
+  return Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
+}
+
+/** "hôm nay", "hôm qua", "5 ngày trước", or "còn 2 ngày" for a later day. */
+export function outreachRelativeDay(day: string, today: string): string {
+  const ago = outreachDaysBetween(day, today);
+  if (ago === 0) return "hôm nay";
+  if (ago === 1) return "hôm qua";
+  if (ago === -1) return "ngày mai";
+  return ago > 0 ? `${ago} ngày trước` : `còn ${-ago} ngày`;
 }
 
 function secondsInWindow(days: readonly OutreachActivityDay[], start: string, today: string): number {
@@ -835,9 +916,68 @@ export function outreachJobFor(row: OutreachRow, today: string): OutreachJobId |
   return null;
 }
 
-export function outreachJobWhy(row: OutreachRow, job: OutreachJobId): string {
-  if (job === "followup") return row.outreachCase?.followUpOn ? `Hẹn ${row.outreachCase.followUpOn}` : "Đã hẹn";
-  if (job === "quiet") return row.lastStudyOn ? `Học lần cuối ${row.lastStudyOn}` : "Chưa thấy học";
-  if (job === "tin2") return "Đã gửi tin 1";
-  return "Chưa gửi";
+/** Vietnam day of the last recorded send, or null. */
+export function outreachLastSentOn(row: OutreachRow): string | null {
+  return sentOn(row.outreachCase?.sentAt ?? null);
+}
+
+/** Why this person is in the job, in relative days. Overdue follow-ups read as alerts. */
+export function outreachJobWhy(
+  row: OutreachRow,
+  job: OutreachJobId,
+  today: string,
+): { text: string; overdue: boolean } {
+  if (job === "followup") {
+    const due = row.outreachCase?.followUpOn;
+    if (!due) return { text: "Đã hẹn", overdue: false };
+    const late = outreachDaysBetween(due, today);
+    return late > 0 ? { text: `Quá hạn ${late} ngày`, overdue: true } : { text: "Hẹn hôm nay", overdue: false };
+  }
+  if (job === "quiet") {
+    return {
+      text: row.lastStudyOn ? `Học lần cuối ${outreachRelativeDay(row.lastStudyOn, today)}` : "Chưa thấy học",
+      overdue: false,
+    };
+  }
+  if (job === "tin2") {
+    const sent = outreachLastSentOn(row);
+    return { text: sent ? `Tin 1 gửi ${outreachRelativeDay(sent, today)}` : "Đã gửi tin 1", overdue: false };
+  }
+  return { text: "Chưa nhắn", overdue: false };
+}
+
+/**
+ * The job a send today most likely cleared, read back from the saved case so
+ * the count survives a reload. A finished follow-up counts toward the message
+ * it sent.
+ */
+export function outreachDoneTodayJob(row: OutreachRow, today: string): OutreachJobId | null {
+  if (outreachLastSentOn(row) !== today) return null;
+  if (row.status === "da_gui_tin_1") {
+    if (row.category === "heavy") return "tin1-heavy";
+    if (row.category === "light") return "tin1-light";
+    if (row.category === "never") return "tin1-never";
+    if (row.category === "preaccess") return "tin1-preaccess";
+    return null;
+  }
+  if (row.status === "da_gui_tin_2") return "tin2";
+  if (QUIET_GROUPS.has(row.category) && QUIET_STATUSES.has(row.status)) return "quiet";
+  return null;
+}
+
+/** The one send that finishes this job. Null when there is no job. */
+export function outreachPrimarySend(
+  job: OutreachJobId | null,
+  status: OutreachStatus,
+  group: OutreachGroup,
+): 1 | 2 | "checkin" | null {
+  if (job == null) return null;
+  if (job === "tin2") return 2;
+  if (job === "quiet") return "checkin";
+  if (job === "followup") {
+    if (status === "chua_gui") return 1;
+    if (status === "da_gui_tin_1" && TIN2_GROUPS.has(group)) return 2;
+    return "checkin";
+  }
+  return 1;
 }

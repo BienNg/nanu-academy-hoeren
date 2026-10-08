@@ -25,9 +25,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminOutreachPage() {
+export default async function AdminOutreachPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   await connection();
   const session = await requireAdmin();
+  const query = await searchParams;
 
   const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
     slug: beruf.slug,
@@ -72,6 +77,8 @@ export default async function AdminOutreachPage() {
       catalog={catalog}
       storeConfigured={storeConfigured}
       pendingReady={pending !== null}
+      initialView={query.view === "picture" ? "picture" : "queue"}
+      initialJob={typeof query.job === "string" ? query.job : null}
     />
   );
 }

@@ -10,10 +10,19 @@ import {
   outreachAddress,
   outreachCatalog,
   outreachCatalogStart,
+  outreachDayAfter,
+  outreachDaysBetween,
+  outreachDoneTodayJob,
   outreachJobFor,
+  outreachJobWhy,
+  outreachMatchesQuery,
   outreachMessage1,
   outreachMessage2,
   outreachObjectionReply,
+  outreachOwnerMatches,
+  outreachPrimarySend,
+  outreachRelativeDay,
+  outreachRequiredMessageId,
   summarizeOutreach,
   type OutreachCase,
   type OutreachContact,
@@ -279,4 +288,44 @@ test("the question catalog follows the group and opens on the current job", () =
   assert.match(unsigned.find((item) => item.id === "signup-tech")?.reply ?? "", /Chụp màn hình/);
 
   assert.equal(outreachCatalog("fresh", "em").length, 0);
+});
+
+test("due dates read in relative days and overdue follow-ups are flagged", () => {
+  assert.equal(outreachDaysBetween("2026-10-05", TODAY), 3);
+  assert.equal(outreachDayAfter(TODAY, 7), "2026-10-15");
+  assert.equal(outreachRelativeDay("2026-10-07", TODAY), "hôm qua");
+  assert.equal(outreachRelativeDay("2026-10-10", TODAY), "còn 2 ngày");
+
+  const [late] = joinOutreach(
+    [contact()],
+    [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", followUp: true, followUpOn: "2026-10-06" }],
+  );
+  assert.deepEqual(outreachJobWhy(late!, "followup", TODAY), { text: "Quá hạn 2 ngày", overdue: true });
+  assert.equal(outreachPrimarySend("followup", "da_gui_tin_1", "light"), 2);
+  assert.equal(outreachPrimarySend("followup", "da_gui_tin_2", "light"), "checkin");
+  assert.equal(outreachPrimarySend("tin1-preaccess", "chua_gui", "preaccess"), 1);
+  assert.equal(outreachPrimarySend(null, "chua_gui", "light"), null);
+  assert.equal(outreachRequiredMessageId("tin1-light", "chua_gui", "light"), "open");
+  assert.equal(outreachRequiredMessageId("tin2", "da_gui_tin_1", "heavy"), "wish-main");
+  assert.equal(outreachRequiredMessageId("quiet", "da_gui_tin_2", "heavy"), "checkin");
+  assert.equal(outreachRequiredMessageId("followup", "da_gui_tin_2", "light"), null);
+});
+
+test("sends today count toward the job they cleared, and owners filter", () => {
+  const rows = joinOutreach(
+    [contact(), contact({ id: "user-2", email: "an@school.com", computedCategory: "heavy" })],
+    [
+      { ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", sentAt: NOW.toISOString(), ownerUserId: "staff-1", ownerName: "Lan" },
+      { ...emptyOutreachCase("an@school.com"), status: "da_gui_tin_2", sentAt: "2026-10-01T04:00:00.000Z" },
+    ],
+  );
+  assert.equal(outreachDoneTodayJob(rows[0]!, TODAY), "tin1-light");
+  assert.equal(outreachDoneTodayJob(rows[1]!, TODAY), null);
+  assert.equal(outreachOwnerMatches(rows[0]!, "mine", "staff-1"), true);
+  assert.equal(outreachOwnerMatches(rows[1]!, "unowned", "staff-1"), true);
+  assert.equal(outreachMatchesQuery(rows[0]!, "lan"), true);
+
+  const summary = summarizeOutreach(rows);
+  assert.deepEqual(summary.owners, [{ name: "Lan", count: 1 }]);
+  assert.equal(summary.statuses.find((item) => item.status === "da_gui_tin_2")?.count, 1);
 });
