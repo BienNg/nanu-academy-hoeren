@@ -226,6 +226,23 @@ test("a recent burst is dùng nhiều, a month of 1.5 hours is not", () => {
     classifyOutreach(
       {
         hasAccount: true,
+        parts: 1,
+        activeSeconds: 40 * 60,
+        studyDays: [
+          { day: "2026-10-01", activeSeconds: 10 * 60 },
+          { day: "2026-10-03", activeSeconds: 15 * 60 },
+          { day: "2026-10-06", activeSeconds: 15 * 60 },
+        ],
+        firstSeenOn: "2026-09-01",
+      },
+      TODAY,
+    ),
+    "light",
+  );
+  assert.equal(
+    classifyOutreach(
+      {
+        hasAccount: true,
         parts: 0,
         activeSeconds: 60,
         studyDays: [],

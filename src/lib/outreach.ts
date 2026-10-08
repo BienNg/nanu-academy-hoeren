@@ -44,10 +44,7 @@ export const OUTREACH_NAME_MAX = 80;
 export const OUTREACH_FRESH_DAYS = 3;
 /** Last study this many days ago, or older, counts as quiet. */
 export const OUTREACH_QUIET_DAYS = 7;
-/** Study days counted toward Dùng nhiều. */
-export const OUTREACH_HABIT_DAYS = 28;
-export const OUTREACH_HABIT_STUDY_DAYS = 3;
-/** A burst of active time inside this window also counts as Dùng nhiều. */
+/** A burst of active time inside this window counts as Dùng nhiều. */
 export const OUTREACH_BURST_DAYS = 7;
 export const OUTREACH_HEAVY_SECONDS = 90 * 60;
 /** Below this, with no finished part, they have not tried the app. */
@@ -804,26 +801,14 @@ function secondsInWindow(days: readonly OutreachActivityDay[], start: string, to
   return seconds;
 }
 
-function studyDayCount(days: readonly OutreachActivityDay[], start: string, today: string): number {
-  const seen = new Set<string>();
-  for (const day of days) {
-    if (day.activeSeconds > 0 && day.day >= start && day.day <= today) seen.add(day.day);
-  }
-  return seen.size;
-}
-
 /**
- * Group order: not signed up, then a recent burst or a habit, then too new
- * to judge, then signed up and idle, then everyone who tried the app.
+ * Group order: not signed up, then a recent burst of active time, then too
+ * new to judge, then signed up and idle, then everyone who tried the app.
  */
 export function classifyOutreach(usage: OutreachUsage, today: string): OutreachGroup {
   if (!usage.hasAccount) return "preaccess";
-  const habitStart = outreachDayBefore(today, OUTREACH_HABIT_DAYS - 1);
   const burstStart = outreachDayBefore(today, OUTREACH_BURST_DAYS - 1);
-  const heavy =
-    studyDayCount(usage.studyDays, habitStart, today) >= OUTREACH_HABIT_STUDY_DAYS ||
-    secondsInWindow(usage.studyDays, burstStart, today) >= OUTREACH_HEAVY_SECONDS;
-  if (heavy) return "heavy";
+  if (secondsInWindow(usage.studyDays, burstStart, today) >= OUTREACH_HEAVY_SECONDS) return "heavy";
   const freshLine = outreachDayBefore(today, OUTREACH_FRESH_DAYS);
   if (usage.firstSeenOn != null && usage.firstSeenOn > freshLine) return "fresh";
   if (usage.parts === 0 && usage.activeSeconds < OUTREACH_TRIED_SECONDS) return "never";
