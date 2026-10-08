@@ -950,7 +950,7 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
 /**
  * How much of each progress document an admin screen needs.
  * `account` is identity plus the small streak fields.
- * `activity` adds visits, daily activity, and video watch state.
+ * `activity` adds visits, daily activity, video watch state, and app-use clients.
  * `videos` is the watch map plus visits (per-video playback seconds) for the videos board.
  * `levels` adds lesson and interview progress for the level paths.
  * `outreach` adds lesson and interview progress on top of daily activity, for the support list.
@@ -1031,7 +1031,9 @@ export async function listAllUserProgress(
   const withSignIns = slice === "activity";
   for (const profile of ADMIN_PROFILE_COLUMNS) {
     const base = `${profile}, ${progressColumns}`;
-    const sets = withSignIns ? [`${base}, sign_ins`, base] : [base];
+    const sets = withSignIns
+      ? [`${base}, sign_ins, app_uses`, `${base}, sign_ins`, base]
+      : [base];
     for (const columns of sets) {
       const result = await fetchProgressPages(supabase, columns);
       if (result) return listedProgress(result);

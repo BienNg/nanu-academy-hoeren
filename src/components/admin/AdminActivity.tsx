@@ -10,6 +10,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  LabelList,
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
@@ -50,6 +52,8 @@ import {
   adminRangeLabel,
   buildAdminActivityBoard,
   buildAdminActivityStats,
+  buildAdminClientUsage,
+  type AdminClientSlice,
   classKey,
   listAdminClasses,
   type AdminActivityGrain,
@@ -840,6 +844,99 @@ function WorkChart({
   );
 }
 
+const CLIENT_PALETTE = [
+  ADMIN_COLORS.cobalt,
+  ADMIN_COLORS.ember,
+  ADMIN_COLORS.emerald,
+  ADMIN_COLORS.violet,
+  ADMIN_COLORS.amber,
+  ADMIN_COLORS.violetSoft,
+  ADMIN_COLORS.crimson,
+  ADMIN_COLORS.amberSoft,
+];
+
+function clientColor(slice: AdminClientSlice, index: number): string {
+  if (slice.key === "mobile") return ADMIN_COLORS.ember;
+  if (slice.key === "tablet") return ADMIN_COLORS.amber;
+  if (slice.key === "desktop") return ADMIN_COLORS.cobalt;
+  if (slice.key === "unknown" || slice.key === "Unknown") return ADMIN_COLORS.inkFaint;
+  return CLIENT_PALETTE[index % CLIENT_PALETTE.length];
+}
+
+function clientSummary(slices: readonly AdminClientSlice[]): string {
+  if (slices.length === 0) return "No app visits recorded in this window.";
+  return slices
+    .map((slice) => `${slice.label}, ${formatStudents(slice.students)}`)
+    .join(". ");
+}
+
+function ClientTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: readonly { payload?: AdminClientSlice; color?: string }[];
+}) {
+  const point = payload?.[0]?.payload;
+  if (!active || !point) return null;
+  const color = payload?.[0]?.color ?? ADMIN_COLORS.cobalt;
+  return (
+    <ChartTooltip
+      active
+      label={point.label}
+      payload={[
+        { name: "Students", value: point.students, color },
+        { name: "Visits", value: point.visits, color },
+      ]}
+    />
+  );
+}
+
+function ClientChart({ slices }: { slices: readonly AdminClientSlice[] }) {
+  if (slices.length === 0) {
+    return (
+      <p className="flex h-full items-center justify-center px-space-16 text-center text-admin-body-sm text-admin-ink-subtle">
+        No app visits recorded in this window.
+      </p>
+    );
+  }
+  const data = slices.map((slice, index) => ({ ...slice, fill: clientColor(slice, index) }));
+  return (
+    <div className="h-full w-full" role="img" aria-label={clientSummary(slices)}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          layout="vertical"
+          data={data}
+          margin={{ top: 8, right: 36, left: 8, bottom: 0 }}
+        >
+          <XAxis type="number" hide domain={[0, (max: number) => Math.max(1, max)]} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={108}
+            tick={{ fill: AXIS, fontSize: 12 }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip content={<ClientTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
+          <Bar dataKey="students" name="Students" radius={[0, 2, 2, 0]} maxBarSize={22}>
+            {data.map((slice) => (
+              <Cell key={slice.key} fill={slice.fill} />
+            ))}
+            <LabelList
+              dataKey="students"
+              position="right"
+              formatter={(value) => formatCount(typeof value === "number" ? value : Number(value))}
+              fill={ADMIN_COLORS.inkMuted}
+              style={{ fontSize: 12 }}
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function formatDayWithWeekday(day: string): string | null {
   const date = new Date(`${day}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return null;
@@ -1244,6 +1341,10 @@ export function AdminActivity({
       }),
     [filteredRows, range, studyPartBuckets, practicePartBuckets],
   );
+  const clients = useMemo(
+    () => buildAdminClientUsage(filteredRows, range),
+    [filteredRows, range],
+  );
   const filterOptions = useMemo(
     () => [
       { key: "all", label: "All classes", count: learners.length },
@@ -1490,6 +1591,35 @@ export function AdminActivity({
       </section>
 
       <AdminRetention rows={filteredRows} range={range} />
+
+      <section aria-labelledby="activity-clients" className="flex flex-col gap-space-12">
+        <SectionHeading
+          id="activity-clients"
+          icon="devices"
+          title="Browsers and devices"
+          meta={
+            clients.students > 0
+              ? `${formatStudents(clients.students)} · ${formatCount(clients.visits)} ${clients.visits === 1 ? "visit" : "visits"}`
+              : undefined
+          }
+        />
+        <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
+          <ChartPanel
+            icon="smartphone"
+            title="Devices"
+            hint={`Unique students whose visit overlapped ${window}. A student on two devices is counted in both.`}
+          >
+            <ClientChart slices={clients.devices} />
+          </ChartPanel>
+          <ChartPanel
+            icon="language"
+            title="Browsers"
+            hint={`Unique students whose visit overlapped ${window}. A student on two browsers is counted in both.`}
+          >
+            <ClientChart slices={clients.browsers} />
+          </ChartPanel>
+        </div>
+      </section>
 
       <section aria-labelledby="activity-trends" className="flex flex-col gap-space-12">
         <SectionHeading
