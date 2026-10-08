@@ -12,6 +12,7 @@ import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   studentProgressClear,
   type AdminXpEvent,
+  type LessonStartSignal,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { getCefrLevels, getChapterClips } from "@/lib/levels";
@@ -56,6 +57,7 @@ import {
   deleteUserAccount,
   findActiveUserIdByEmail,
   getAdminStudentDetail,
+  listLessonStartSignals,
   getCloudProgress,
   getStoredUserEmail,
   getUserClassName,
@@ -279,6 +281,7 @@ export async function loadAdminStudentDetail(userId: string): Promise<
       progress: StoredProgress;
       signIns: SignInRecord[];
       appUses: AppUseRecord[];
+      startSignals: LessonStartSignal[];
     }
   | { ok: false; error: string }
 > {
@@ -291,9 +294,12 @@ export async function loadAdminStudentDetail(userId: string): Promise<
   if (!isProgressStoreConfigured()) {
     return { ok: false, error: "Cloud progress store is not configured" };
   }
-  const detail = await getAdminStudentDetail(id);
+  const [detail, startSignals] = await Promise.all([
+    getAdminStudentDetail(id),
+    listLessonStartSignals(id),
+  ]);
   if (!detail) return { ok: false, error: "Could not load this student's progress." };
-  return { ok: true, ...detail };
+  return { ok: true, ...detail, startSignals };
 }
 
 export async function loadAdminStudentXp(

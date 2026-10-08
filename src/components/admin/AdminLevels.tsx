@@ -556,6 +556,7 @@ export function AdminLevels({
         <StudentDetail
           row={detailRow}
           catalog={courseCatalog}
+          focusLevelSlug={levelSlug}
           onClose={() => setDetailUserId(null)}
         />
       ) : null}

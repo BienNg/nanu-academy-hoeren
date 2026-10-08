@@ -11,6 +11,7 @@ import {
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
 import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
+import { LessonTimingPath } from "@/components/admin/student-detail/LessonTimingPath";
 import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import {
@@ -292,11 +293,14 @@ export function StudentDetail({
   catalog,
   onClose,
   onAccessChange,
+  focusLevelSlug,
 }: {
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
   onAccessChange?: (patch: StudentAccessPatch) => void;
+  /** Level open on the Levels path. The drawer then shows that Lektion trail. */
+  focusLevelSlug?: string;
 }) {
   const [load, setLoad] = useState<LoadState | null>(null);
   const [xpLoad, setXpLoad] = useState<XpLoadState | null>(null);
@@ -317,6 +321,7 @@ export function StudentDetail({
                 progress: result.progress,
                 signIns: result.signIns,
                 appUses: result.appUses,
+                startSignals: result.startSignals,
               },
             }
           : { userId: row.userId, ok: false, error: result.error },
@@ -349,6 +354,7 @@ export function StudentDetail({
         catalog={catalog}
         onClose={onClose}
         onAccessChange={onAccessChange}
+        focusLevelSlug={focusLevelSlug}
         preloaded={current?.ok ? current.payload : undefined}
       />
     );
@@ -435,7 +441,19 @@ export function StudentDetail({
       {current == null ? (
         <DrawerSkeleton />
       ) : current.ok ? (
-        <StudentSummary userId={row.userId} catalog={catalog} payload={current.payload} />
+        <>
+          {focusLevelSlug ? (
+            <div className="border-b border-admin-hairline px-space-20 py-space-16">
+              <LessonTimingPath
+                course={catalog.find((entry) => entry.id === focusLevelSlug)}
+                progress={current.payload.progress}
+                signInAts={current.payload.signIns.map((entry) => entry.at)}
+                signals={current.payload.startSignals}
+              />
+            </div>
+          ) : null}
+          <StudentSummary userId={row.userId} catalog={catalog} payload={current.payload} />
+        </>
       ) : (
         <p
           role="alert"

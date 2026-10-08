@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, Button } from "@/components/admin/AdminUi";
+import { LessonTimingPath } from "@/components/admin/student-detail/LessonTimingPath";
 import { LessonBlock } from "@/components/admin/student-detail/meters";
 import {
   AccessSwitch,
@@ -9,10 +10,13 @@ import {
   Panel,
 } from "@/components/admin/student-detail/shared";
 import type {
+  AdminCatalogCourse,
   AdminCourseDetail,
   AdminLessonDetail,
+  LessonStartSignal,
   StudentProgressTarget,
 } from "@/lib/admin-detail";
+import type { StoredProgress } from "@/lib/progress";
 
 export type PendingDelete = StudentProgressTarget & { label: string; detail: string };
 
@@ -88,6 +92,10 @@ export function CoursesTab({
   interviewCourses,
   livingCourses,
   course,
+  catalogCourse,
+  progress,
+  signInAts,
+  startSignals,
   lessons,
   granted,
   isAdmin,
@@ -106,6 +114,10 @@ export function CoursesTab({
   interviewCourses: readonly AdminCourseDetail[];
   livingCourses: readonly AdminCourseDetail[];
   course: AdminCourseDetail | undefined;
+  catalogCourse: AdminCatalogCourse | undefined;
+  progress: StoredProgress;
+  signInAts: readonly string[];
+  startSignals: readonly LessonStartSignal[];
   lessons: readonly AdminLessonDetail[];
   granted: (course: AdminCourseDetail) => boolean;
   isAdmin: boolean;
@@ -237,6 +249,14 @@ export function CoursesTab({
                   ) : null
                 }
               />
+              {course.kind === "cefr" && !course.living ? (
+                <LessonTimingPath
+                  course={catalogCourse}
+                  progress={progress}
+                  signInAts={signInAts}
+                  signals={startSignals}
+                />
+              ) : null}
               {lessons.length === 0 ? (
                 <EmptyPanel>No lessons with content in this course yet.</EmptyPanel>
               ) : (

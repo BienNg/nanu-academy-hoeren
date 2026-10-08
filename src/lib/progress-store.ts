@@ -1920,6 +1920,103 @@ export async function listStudentListeningRuns(
   }
 }
 
+export type LessonStartSignalRow = {
+  lessonKey: string;
+  studiedAt: string | null;
+  listeningStartedAt: string | null;
+};
+
+/**
+ * Earliest studied-clip time and earliest listening-part start per lesson.
+ * A lesson whose clips all share one timestamp has no studied time: that is
+ * one batch write. A missing table leaves that side empty.
+ */
+export async function listLessonStartSignals(userId: string): Promise<LessonStartSignalRow[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return [];
+
+  const studied = new Map<string, { min: string; max: string; count: number }>();
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("studied_clips")
+      .select("lesson_key, first_studied_at")
+      .eq("user_id", userId)
+      .order("lesson_key", { ascending: true })
+      .order("first_studied_at", { ascending: true })
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (!schemaObjectMissing(error.message, "studied_clips")) {
+        console.error("Supabase listLessonStartSignals studied_clips", error.message);
+      }
+      break;
+    }
+    const page = (data ?? []) as { lesson_key?: unknown; first_studied_at?: unknown }[];
+    for (const row of page) {
+      if (typeof row.lesson_key !== "string" || typeof row.first_studied_at !== "string") continue;
+      const current = studied.get(row.lesson_key);
+      if (!current) {
+        studied.set(row.lesson_key, {
+          min: row.first_studied_at,
+          max: row.first_studied_at,
+          count: 1,
+        });
+      } else {
+        current.count += 1;
+        if (row.first_studied_at < current.min) current.min = row.first_studied_at;
+        if (row.first_studied_at > current.max) current.max = row.first_studied_at;
+      }
+    }
+    if (page.length < LIST_PAGE_SIZE) break;
+    from += LIST_PAGE_SIZE;
+  }
+
+  const listening = new Map<string, string>();
+  from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select("lesson_key, elapsed_ms, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (!isListeningSchemaMissing(error.message)) {
+        console.error("Supabase listLessonStartSignals listening_runs", error.message);
+      }
+      break;
+    }
+    const page = (data ?? []) as {
+      lesson_key?: unknown;
+      elapsed_ms?: unknown;
+      created_at?: unknown;
+    }[];
+    for (const row of page) {
+      if (typeof row.lesson_key !== "string" || typeof row.created_at !== "string") continue;
+      const elapsed = typeof row.elapsed_ms === "number" ? row.elapsed_ms : Number(row.elapsed_ms);
+      const createdMs = Date.parse(row.created_at);
+      if (!Number.isFinite(elapsed) || elapsed < 0 || !Number.isFinite(createdMs)) continue;
+      const startedAt = new Date(createdMs - elapsed).toISOString();
+      const current = listening.get(row.lesson_key);
+      if (!current || startedAt < current) listening.set(row.lesson_key, startedAt);
+    }
+    if (page.length < LIST_PAGE_SIZE) break;
+    from += LIST_PAGE_SIZE;
+  }
+
+  const keys = new Set([...studied.keys(), ...listening.keys()]);
+  return [...keys].map((lessonKey) => {
+    const clip = studied.get(lessonKey);
+    const uniform = clip != null && clip.count > 1 && clip.min === clip.max;
+    return {
+      lessonKey,
+      studiedAt: clip && !uniform ? clip.min : null,
+      listeningStartedAt: listening.get(lessonKey) ?? null,
+    };
+  });
+}
+
 /**
  * Log one jump test attempt. A finished attempt replaces the quit row a
  * closing tab may have sent first; a quit never replaces a finished one.

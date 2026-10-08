@@ -29,6 +29,7 @@ import {
   type AdminCourseDetail,
   type AdminVisitRange,
   type AdminXpEvent,
+  type LessonStartSignal,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { activeStreakDays, type StoredProgress } from "@/lib/progress";
@@ -55,6 +56,7 @@ export type StudentDetailPayload = {
   progress: StoredProgress;
   signIns: AdminUserRow["signIns"];
   appUses: AdminUserRow["appUses"];
+  startSignals: LessonStartSignal[];
 };
 
 function DetailTabs({ tab, onChange }: { tab: DetailTab; onChange: (tab: DetailTab) => void }) {
@@ -123,11 +125,14 @@ export function StudentDetailModal({
   onClose,
   onAccessChange,
   preloaded,
+  focusLevelSlug,
 }: {
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
   onAccessChange?: (patch: StudentAccessPatch) => void;
+  /** Level open on the Levels path, so this student's trail starts there. */
+  focusLevelSlug?: string;
   /** Detail already read for `row.userId`, so opening from the drawer skips a refetch. */
   preloaded?: StudentDetailPayload;
 }) {
@@ -166,7 +171,7 @@ export function StudentDetailModal({
   );
   const [tab, setTab] = useState<DetailTab>("overview");
   const panelRef = useRef<HTMLDivElement>(null);
-  const [courseId, setCourseId] = useState("");
+  const [courseId, setCourseId] = useState(focusLevelSlug ?? "");
   const [levelAccess, setLevelAccess] = useState(row.levelAccess);
   const [interviewAccess, setInterviewAccess] = useState(row.interviewAccess);
   const [livingAccess, setLivingAccess] = useState(row.livingAccess);
@@ -209,6 +214,7 @@ export function StudentDetailModal({
         progress: result.progress,
         signIns: result.signIns,
         appUses: result.appUses,
+        startSignals: result.startSignals,
       });
     });
     return () => {
@@ -549,6 +555,10 @@ export function StudentDetailModal({
                     interviewCourses={interviewCourses}
                     livingCourses={livingCourses}
                     course={course}
+                    catalogCourse={catalog.find((entry) => entry.id === course?.id)}
+                    progress={progress}
+                    signInAts={(payload?.signIns ?? row.signIns).map((entry) => entry.at)}
+                    startSignals={payload?.startSignals ?? []}
                     lessons={lessons}
                     granted={courseGranted}
                     isAdmin={row.isAdmin}

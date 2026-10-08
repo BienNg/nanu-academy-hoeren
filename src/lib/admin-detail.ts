@@ -7,7 +7,7 @@ import type {
   Visit,
   VisitExerciseLesson,
   VisitSummary,
-} from "@/lib/progress";
+} from "./progress";
 import {
   daysBetweenUtc,
   describeVisitSignal,
@@ -23,15 +23,15 @@ import {
   summarizeVisits,
   type PracticeNodePart,
   type VisitRange,
-} from "@/lib/progress";
-import { dayKey, weekKey } from "@/lib/xp";
-import { onboardingSkipLine } from "@/lib/onboarding";
+} from "./progress";
+import { dayKey, weekKey } from "./xp";
+import { onboardingSkipLine } from "./onboarding";
 import {
   grammarActivityId,
   grammarNodeProgress,
   type GrammarNodeKind,
   type GrammarNodeLayout,
-} from "@/lib/grammar-node";
+} from "./grammar-node";
 
 export type AdminCatalogCard = {
   id: string;
@@ -832,6 +832,198 @@ export function buildLevelPath(
     lessons,
     finished,
   };
+}
+
+/** Earliest studied-clip and listening-part times for one lesson key. */
+export type LessonStartSignal = {
+  lessonKey: string;
+  /** Null when every clip shares one timestamp, which is a batch write, not a start. */
+  studiedAt: string | null;
+  /** `created_at` minus `elapsed_ms` of the earliest finished listening part. */
+  listeningStartedAt: string | null;
+};
+
+export type LessonTimingNode = {
+  id: string;
+  label: string;
+  kind: "video" | "study" | "practice";
+  /** This is the first Study or Practice node. Grammar is not on this trail. */
+  first: boolean;
+};
+
+export type LessonTiming = {
+  id: string;
+  label: string;
+  nodes: LessonTimingNode[];
+  /** When this Lektion opened. Lektion 1 is approximate. Later ones are the previous completion. */
+  accessAt: string | null;
+  accessApproximate: boolean;
+  /** When the first Study or Practice node was opened, if that moment is stored. */
+  startedAt: string | null;
+  /** Milliseconds from access to `startedAt`. Null when either time is missing or the start is earlier. */
+  waitToStartMs: number | null;
+  /** Listening finished, or a jump passed. This is also when the next Lektion opened. */
+  completedAt: string | null;
+};
+
+function earlierStamp(left: string | null, right: string | null): string | null {
+  if (!left) return right;
+  if (!right) return left;
+  const leftMs = Date.parse(left);
+  const rightMs = Date.parse(right);
+  if (Number.isNaN(leftMs)) return right;
+  if (Number.isNaN(rightMs)) return left;
+  return leftMs <= rightMs ? left : right;
+}
+
+function earliestStamp(values: readonly (string | null | undefined)[]): string | null {
+  let best: string | null = null;
+  for (const value of values) best = earlierStamp(best, value ?? null);
+  return best;
+}
+
+function beforeCompletion(stamp: string | null, completedAt: string | null): string | null {
+  if (!stamp || Number.isNaN(Date.parse(stamp))) return null;
+  if (!completedAt) return stamp;
+  return stamp < completedAt ? stamp : null;
+}
+
+function lessonStorageKeys(lesson: AdminCatalogLesson): string[] {
+  const keys = [lesson.learnKey, lesson.videoKeyPrefix].filter(
+    (key): key is string => typeof key === "string" && key.length > 0,
+  );
+  return [...new Set(keys)];
+}
+
+function visitTouchesLesson(visit: Visit, keys: ReadonlySet<string>): boolean {
+  if (visit.lessons.some((key) => keys.has(key))) return true;
+  if (visit.clips.some((clip) => keys.has(clip.lessonKey))) return true;
+  if ((visit.exerciseLessons ?? []).some((lesson) => keys.has(lesson.lessonKey))) return true;
+  if ((visit.leftSessions ?? []).some((session) => keys.has(session.lessonKey))) return true;
+  if ((visit.jumps ?? []).some((jump) => keys.has(jump.lessonKey))) return true;
+  for (const video of visit.videos) {
+    for (const key of keys) {
+      if (video.key === key || video.key.startsWith(`${key}/`)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * How long a gap lasted. Under a minute stays "under 1 min", including zero.
+ */
+export function formatLessonGap(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 60_000) return "under 1 min";
+  const minutes = Math.round(ms / 60_000);
+  const days = Math.floor(minutes / (60 * 24));
+  const hours = Math.floor((minutes - days * 60 * 24) / 60);
+  const rest = minutes % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return rest > 0 ? `${hours}h ${rest}m` : `${hours}h`;
+  return `${minutes}m`;
+}
+
+/**
+ * One student's Lektion trail. Lektion 1 access is the earlier of the first
+ * sign-in and the first activity in the level, because the course grant has
+ * no timestamp. Each later Lektion opens at the previous Lektion's
+ * `completedAt`. The first-node start is a part-1 quit, or a studied-clip time
+ * the caller kept. A listening start counts only when the first node is Practice.
+ */
+export function buildLessonTimingTrail(
+  course: AdminCatalogCourse,
+  progress: StoredProgress,
+  signInAts: readonly string[],
+  signals: readonly LessonStartSignal[],
+): LessonTiming[] {
+  const signalByKey = new Map(signals.map((signal) => [signal.lessonKey, signal]));
+  const levelKeys = new Set(course.lessons.flatMap(lessonStorageKeys));
+  const activity: (string | null)[] = [earliestStamp(signInAts)];
+
+  for (const visit of progress.visits ?? []) {
+    if (visitTouchesLesson(visit, levelKeys)) activity.push(visit.startedAt);
+  }
+  for (const lesson of course.lessons) {
+    const keys = new Set(lessonStorageKeys(lesson));
+    for (const key of keys) {
+      const signal = signalByKey.get(key);
+      activity.push(signal?.studiedAt ?? null, signal?.listeningStartedAt ?? null);
+    }
+    if (lesson.videoKeyPrefix) {
+      const prefix = `${lesson.videoKeyPrefix}/`;
+      for (const [key, video] of Object.entries(progress.videos)) {
+        if (key === lesson.videoKeyPrefix || key.startsWith(prefix)) {
+          activity.push(video.updatedAt);
+        }
+      }
+    }
+    for (const visit of progress.visits ?? []) {
+      for (const session of visit.leftSessions ?? []) {
+        if (keys.has(session.lessonKey)) activity.push(session.startedAt);
+      }
+    }
+  }
+
+  const levelOpenedAt = earliestStamp(activity);
+  const rows: LessonTiming[] = [];
+
+  for (const lesson of course.lessons) {
+    const templates = levelNodeTemplates(lesson);
+    const firstIndex = templates.findIndex((node) => node.kind !== "video");
+    const first = firstIndex >= 0 ? templates[firstIndex] : undefined;
+    const keys = new Set(lessonStorageKeys(lesson));
+    const completedAt = lesson.learnKey
+      ? (progress.learn[lesson.learnKey]?.completedAt ?? null)
+      : null;
+    const previous = rows.at(-1);
+    const accessAt = previous ? previous.completedAt : levelOpenedAt;
+    const accessApproximate = !previous && accessAt != null;
+
+    let startedAt: string | null = null;
+    if (first?.kind === "study" || first?.kind === "practice") {
+      const candidates: (string | null)[] = [];
+      for (const visit of progress.visits ?? []) {
+        for (const session of visit.leftSessions ?? []) {
+          if (session.kind !== first.kind || session.partNumber !== 1) continue;
+          if (!keys.has(session.lessonKey)) continue;
+          candidates.push(beforeCompletion(session.startedAt, completedAt));
+        }
+      }
+      for (const key of keys) {
+        const signal = signalByKey.get(key);
+        candidates.push(beforeCompletion(signal?.studiedAt ?? null, completedAt));
+        if (first.kind === "practice") {
+          candidates.push(beforeCompletion(signal?.listeningStartedAt ?? null, completedAt));
+        }
+      }
+      startedAt = earliestStamp(candidates);
+    }
+
+    const accessMs = accessAt ? Date.parse(accessAt) : Number.NaN;
+    const startedMs = startedAt ? Date.parse(startedAt) : Number.NaN;
+    const waitToStartMs =
+      Number.isFinite(accessMs) && Number.isFinite(startedMs) && startedMs >= accessMs
+        ? startedMs - accessMs
+        : null;
+
+    rows.push({
+      id: lesson.id,
+      label: lesson.label,
+      nodes: templates.map((node, index) => ({
+        id: node.id,
+        label: node.label,
+        kind: node.kind,
+        first: index === firstIndex,
+      })),
+      accessAt,
+      accessApproximate,
+      startedAt,
+      waitToStartMs,
+      completedAt,
+    });
+  }
+
+  return rows;
 }
 
 export type AdminVisitRange = VisitRange;

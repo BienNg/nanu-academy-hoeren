@@ -52,6 +52,8 @@
     "src/lib/living-content.ts",
     "src/lib/living-content.test.ts",
     "src/lib/admins.ts",
+    "src/lib/admin-detail.ts",
+    "src/lib/admin-detail.timing.test.ts",
     "src/lib/admin-overview.ts",
     "src/lib/admin-overview.timeline.test.ts",
     "src/lib/weekly-recap.ts",
