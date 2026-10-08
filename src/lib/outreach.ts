@@ -19,10 +19,6 @@ export const OUTREACH_STATUSES = [
 
 export type OutreachStatus = (typeof OUTREACH_STATUSES)[number];
 
-export const OUTREACH_CHANNELS = ["zalo", "facebook", "email", "other"] as const;
-
-export type OutreachChannel = (typeof OUTREACH_CHANNELS)[number];
-
 export const OUTREACH_REASONS = [
   "no_time",
   "tech",
@@ -58,13 +54,6 @@ export const OUTREACH_STATUS_LABEL: Record<OutreachStatus, string> = {
   da_dung: "Đã đăng ký / đã dùng sau khi nhắn",
 };
 
-export const OUTREACH_CHANNEL_LABEL: Record<OutreachChannel, string> = {
-  zalo: "Zalo",
-  facebook: "Facebook",
-  email: "Email",
-  other: "Khác",
-};
-
 export const OUTREACH_REASON_LABEL: Record<OutreachReason, string> = {
   no_time: "Không có thời gian",
   tech: "Lỗi đăng ký / kỹ thuật",
@@ -98,7 +87,6 @@ export type OutreachCase = {
   greetingName: string | null;
   groupOverride: OutreachGroup | null;
   status: OutreachStatus;
-  channel: OutreachChannel | null;
   sentAt: string | null;
   ownerUserId: string | null;
   ownerName: string | null;
@@ -143,7 +131,6 @@ export type OutreachPatch = {
   greetingName: string | null;
   groupOverride: OutreachGroup | null;
   status: OutreachStatus;
-  channel: OutreachChannel | null;
   followUp: boolean;
   followUpOn: string | null;
   reason: OutreachReason | null;
@@ -152,7 +139,7 @@ export type OutreachPatch = {
   notes: string;
   /** Group used for this save, after the override. Blocks tin 2 for pre-access. */
   category: OutreachGroup;
-  /** Set when support marks a message sent. Requires a channel. */
+  /** Set when support marks a message sent. */
   markSent: 1 | 2 | null;
   claim: boolean;
   hadAccount: boolean;
@@ -165,10 +152,6 @@ export function isOutreachGroup(value: string): value is OutreachGroup {
 
 export function isOutreachStatus(value: string): value is OutreachStatus {
   return (OUTREACH_STATUSES as readonly string[]).includes(value);
-}
-
-export function isOutreachChannel(value: string): value is OutreachChannel {
-  return (OUTREACH_CHANNELS as readonly string[]).includes(value);
 }
 
 export function isOutreachReason(value: string): value is OutreachReason {
@@ -285,7 +268,6 @@ export function emptyOutreachCase(email: string): OutreachCase {
     greetingName: null,
     groupOverride: null,
     status: "chua_gui",
-    channel: null,
     sentAt: null,
     ownerUserId: null,
     ownerName: null,
@@ -339,9 +321,6 @@ export function applyOutreachPatch(
   if (patch.markSent === 2 && patch.category === "preaccess") {
     return { ok: false, error: "Nhóm chưa đăng ký chỉ có một tin." };
   }
-  if (patch.markSent != null && !patch.channel) {
-    return { ok: false, error: "Chọn kênh trước khi đánh dấu đã gửi." };
-  }
   if (patch.markSent === 2 && STATUS_RANK[atLeast(base.status, patch.status)] < STATUS_RANK.da_gui_tin_1) {
     return { ok: false, error: "Gửi tin 1 trước." };
   }
@@ -370,7 +349,6 @@ export function applyOutreachPatch(
       greetingName: patch.greetingName ? clampText(patch.greetingName, OUTREACH_NAME_MAX) : null,
       groupOverride: patch.groupOverride,
       status,
-      channel: patch.channel,
       sentAt,
       ownerUserId: claim ? actor.userId : base.ownerUserId,
       ownerName: claim ? clampText(actor.name ?? "", OUTREACH_NAME_MAX) || null : base.ownerName,
@@ -478,14 +456,6 @@ export function filterOutreachRows(
   });
 }
 
-const REPLIED: ReadonlySet<OutreachStatus> = new Set(["da_tra_loi", "da_dung"]);
-
-export type OutreachChannelStat = {
-  channel: OutreachChannel;
-  sent: number;
-  replied: number;
-};
-
 export type OutreachWish = {
   id: string;
   name: string;
@@ -496,15 +466,10 @@ export type OutreachWish = {
 
 export function summarizeOutreach(rows: readonly OutreachRow[]): {
   reasons: { reason: OutreachReason; count: number }[];
-  channels: OutreachChannelStat[];
   wishes: OutreachWish[];
 } {
   const reasonCounts = new Map<OutreachReason, number>();
   for (const reason of OUTREACH_REASONS) reasonCounts.set(reason, 0);
-  const channelCounts = new Map<OutreachChannel, OutreachChannelStat>();
-  for (const channel of OUTREACH_CHANNELS) {
-    channelCounts.set(channel, { channel, sent: 0, replied: 0 });
-  }
   const wishes: OutreachWish[] = [];
 
   for (const row of rows) {
@@ -512,13 +477,6 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
     if (!outreachCase) continue;
     if (outreachCase.reason) {
       reasonCounts.set(outreachCase.reason, (reasonCounts.get(outreachCase.reason) ?? 0) + 1);
-    }
-    if (outreachCase.channel && outreachCase.status !== "chua_gui") {
-      const stat = channelCounts.get(outreachCase.channel);
-      if (stat) {
-        stat.sent += 1;
-        if (REPLIED.has(outreachCase.status)) stat.replied += 1;
-      }
     }
     const wish = outreachCase.featureRequest.trim();
     if (wish) {
@@ -537,7 +495,6 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
       reason,
       count: reasonCounts.get(reason) ?? 0,
     })),
-    channels: OUTREACH_CHANNELS.map((channel) => channelCounts.get(channel)!),
     wishes,
   };
 }

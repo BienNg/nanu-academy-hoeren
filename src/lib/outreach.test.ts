@@ -41,7 +41,6 @@ function patch(overrides: Partial<OutreachPatch> = {}): OutreachPatch {
     greetingName: null,
     groupOverride: null,
     status: "chua_gui",
-    channel: "zalo",
     followUp: false,
     followUpOn: null,
     reason: null,
@@ -106,8 +105,6 @@ test("marking tin 2 keeps a reply and blocks the unsigned group", () => {
 test("tin 2 waits until tin 1 exists", () => {
   const early = applyOutreachPatch(null, patch({ markSent: 2 }), ACTOR, NOW);
   assert.equal(early.ok, false);
-  const missingChannel = applyOutreachPatch(null, patch({ markSent: 1, channel: null }), ACTOR, NOW);
-  assert.equal(missingChannel.ok, false);
 });
 
 test("queues, override, follow-up, and conversion use the case", () => {
@@ -115,7 +112,6 @@ test("queues, override, follow-up, and conversion use the case", () => {
   const waiting: OutreachCase = {
     ...base,
     status: "da_gui_tin_1",
-    channel: "zalo",
     sentAt: "2026-10-01T00:00:00.000Z",
     ownerUserId: "staff-1",
     followUp: true,
@@ -170,5 +166,4 @@ test("queues, override, follow-up, and conversion use the case", () => {
     1,
   );
   assert.equal(summarizeOutreach(rows).wishes[0]?.text, "thêm bài nghe ngắn");
-  assert.equal(summarizeOutreach(rows).channels.find((item) => item.channel === "zalo")?.sent, 1);
 });

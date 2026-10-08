@@ -15,6 +15,7 @@ import {
   addToRecord,
   duelEndSteps,
   duelHomeFocus,
+  duelStartGate,
   emptyDuelHome,
   timeLeftPhrase,
   type DuelCard,
@@ -535,6 +536,21 @@ test("the duel page asks for study, an intro, a start, or explains the block", (
   assert.equal(duelHomeFocus({ ...ready, block: "no_class" }).kind, "blocked");
   assert.equal(duelHomeFocus({ ...ready, viewerIsAdmin: true }).kind, "blocked");
   assert.equal(duelHomeFocus(emptyDuelHome(false)).kind, "blocked");
+});
+
+test("the start button is available only when a new duel can begin", () => {
+  const ready = { ...emptyDuelHome(true, "ok"), studiedCount: DUEL_SIZE };
+  assert.equal(duelStartGate(ready), "available");
+  assert.equal(duelStartGate({ ...ready, history: [homeCard("old")] }), "available");
+  assert.equal(duelStartGate({ ...ready, playing: [homeCard("mid")] }), "available");
+  assert.equal(duelStartGate({ ...ready, studiedCount: 4 }), "study");
+  assert.equal(duelStartGate({ ...ready, block: "cap" }), "cap");
+  assert.equal(duelStartGate({ ...ready, block: "no_class" }), "no_class");
+  assert.equal(duelStartGate({ ...ready, block: "no_overlap" }), "no_overlap");
+  assert.equal(duelStartGate({ ...ready, block: "unavailable" }), "unavailable");
+  assert.equal(duelStartGate({ ...ready, viewerIsAdmin: true }), "admin");
+  assert.equal(duelStartGate(emptyDuelHome(false)), "off");
+  assert.equal(duelStartGate({ ...emptyDuelHome(false), studiedCount: 2, block: "no_class" }), "off");
 });
 
 test("the record counts each closed outcome once", () => {

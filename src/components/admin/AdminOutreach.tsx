@@ -16,7 +16,6 @@ import {
   TR,
   TablePanel,
   formatCount,
-  formatPercent,
   type BadgeTone,
 } from "@/components/admin/AdminUi";
 import type { AdminCatalogCourse } from "@/lib/admin-detail";
@@ -33,7 +32,6 @@ import {
   OUTREACH_QUEUES,
   OUTREACH_QUEUE_LABEL,
   OUTREACH_REASON_LABEL,
-  OUTREACH_CHANNEL_LABEL,
   OUTREACH_STATUS_LABEL,
   filterOutreachRows,
   joinOutreach,
@@ -242,7 +240,7 @@ export function AdminOutreach({
                 <th className={TH}>Tên</th>
                 <th className={TH}>Email</th>
                 <th className={TH}>Lớp</th>
-                <th className={TH}>Phần</th>
+                <th className={TH}>Bài tập</th>
                 <th className={TH}>Thời gian</th>
                 <th className={TH}>Lần cuối</th>
                 <th className={TH}>Nhóm</th>
@@ -335,37 +333,18 @@ export function AdminOutreach({
         </div>
       </TablePanel>
 
-      <section className="grid gap-space-16 lg:grid-cols-2">
-        <div className={`${CARD} p-space-16 sm:p-space-20`}>
-          <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Lý do từ chối</h2>
-          <p className="mt-space-4 text-admin-body-sm text-admin-ink-muted">Cả chiến dịch, kể cả người đang bị lọc khỏi bảng.</p>
-          <ul className="mt-space-16 flex flex-col gap-space-8">
-            {summary.reasons.map((item) => (
-              <li key={item.reason} className="flex items-center justify-between gap-space-12 text-admin-body-md">
-                <span>{OUTREACH_REASON_LABEL[item.reason]}</span>
-                <span className="tabular-nums font-semibold">{formatCount(item.count)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className={`${CARD} p-space-16 sm:p-space-20`}>
-          <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Kênh gửi</h2>
-          <p className="mt-space-4 text-admin-body-sm text-admin-ink-muted">
-            Đã trả lời gồm trạng thái đã trả lời và đã dùng sau khi nhắn.
-          </p>
-          <ul className="mt-space-16 flex flex-col gap-space-8">
-            {summary.channels.map((item) => (
-              <li key={item.channel} className="flex items-center justify-between gap-space-12 text-admin-body-md">
-                <span>{OUTREACH_CHANNEL_LABEL[item.channel]}</span>
-                <span className="tabular-nums text-admin-ink-muted">
-                  {formatCount(item.replied)}/{formatCount(item.sent)}
-                  {item.sent > 0 ? ` · ${formatPercent(item.replied / item.sent)}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <div className={`${CARD} p-space-16 sm:p-space-20`}>
+        <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">Lý do từ chối</h2>
+        <p className="mt-space-4 text-admin-body-sm text-admin-ink-muted">Cả chiến dịch, kể cả người đang bị lọc khỏi bảng.</p>
+        <ul className="mt-space-16 flex flex-col gap-space-8">
+          {summary.reasons.map((item) => (
+            <li key={item.reason} className="flex items-center justify-between gap-space-12 text-admin-body-md">
+              <span>{OUTREACH_REASON_LABEL[item.reason]}</span>
+              <span className="tabular-nums font-semibold">{formatCount(item.count)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <TablePanel
         icon="lightbulb"

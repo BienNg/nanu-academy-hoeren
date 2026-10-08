@@ -18,6 +18,7 @@ import {
   challengeLeftLabel,
   completedAgoLabel,
   duelHomeFocus,
+  duelStartGate,
   timeLeftPhrase,
   type DuelCard,
   type DuelEndPose,
@@ -25,6 +26,7 @@ import {
   type DuelHome,
   type MatchBlock,
 } from "@/lib/duels";
+import { trackDuelStartSeen } from "@/lib/ui-clicks";
 
 const HISTORY_PREVIEW = 3;
 
@@ -447,6 +449,7 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
   const [allHistory, setAllHistory] = useState(false);
 
   useEffect(() => {
+    trackDuelStartSeen(duelStartGate(initial));
     let cancelled = false;
     void fetch("/api/duels")
       .then((response) => (response.ok ? response.json() : null))
@@ -462,7 +465,7 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
   }, []);
 
   const focus = duelHomeFocus(home);
-  const canStart = home.ready && home.block === "ok" && home.studiedCount >= DUEL_SIZE && !home.viewerIsAdmin;
+  const canStart = duelStartGate(home) === "available";
 
   const start = async () => {
     if (!canStart || starting) return;

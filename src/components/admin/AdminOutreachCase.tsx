@@ -6,8 +6,6 @@ import { Button, Drawer, INPUT } from "@/components/admin/AdminUi";
 import { formatAdminTimestamp } from "@/lib/admin-overview";
 import { formatActiveDuration } from "@/lib/progress";
 import {
-  OUTREACH_CHANNELS,
-  OUTREACH_CHANNEL_LABEL,
   OUTREACH_GROUPS,
   OUTREACH_GROUP_LABEL,
   OUTREACH_REASONS,
@@ -19,7 +17,6 @@ import {
   outreachMessage2,
   outreachObjectionReply,
   type OutreachCase,
-  type OutreachChannel,
   type OutreachGroup,
   type OutreachReason,
   type OutreachRow,
@@ -35,7 +32,6 @@ type FormState = {
   greetingName: string;
   groupOverride: OutreachGroup | "";
   status: OutreachStatus;
-  channel: OutreachChannel | "";
   followUp: boolean;
   followUpOn: string;
   reason: OutreachReason | "";
@@ -50,7 +46,6 @@ function formFrom(row: OutreachRow): FormState {
     greetingName: outreachCase?.greetingName ?? "",
     groupOverride: outreachCase?.groupOverride ?? "",
     status: row.status,
-    channel: outreachCase?.channel ?? "",
     followUp: outreachCase?.followUp ?? false,
     followUpOn: outreachCase?.followUpOn ?? "",
     reason: outreachCase?.reason ?? "",
@@ -116,7 +111,6 @@ export function AdminOutreachCase({
       greetingName: form.greetingName,
       groupOverride: form.groupOverride || null,
       status: extra.status ?? form.status,
-      channel: form.channel || null,
       followUp: form.followUp,
       followUpOn: form.followUpOn || null,
       reason: form.reason || null,
@@ -258,32 +252,11 @@ export function AdminOutreachCase({
           )}
         </section>
 
-        <label className={FIELD}>
-          <span className={LABEL}>Kênh gửi</span>
-          <select
-            className={INPUT}
-            value={form.channel}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                channel: event.target.value as OutreachChannel | "",
-              }))
-            }
-          >
-            <option value="">Chọn kênh</option>
-            {OUTREACH_CHANNELS.map((channel) => (
-              <option key={channel} value={channel}>
-                {OUTREACH_CHANNEL_LABEL[channel]}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <div className="flex flex-wrap gap-space-8">
           <Button
             variant="secondary"
             icon="send"
-            disabled={saving !== null || !casesReady || !form.channel || tin1Sent}
+            disabled={saving !== null || !casesReady || tin1Sent}
             onClick={() => void persist({ markSent: 1 })}
           >
             {saving === "sent-1" ? "Đang lưu" : "Đánh dấu đã gửi tin 1"}
@@ -292,7 +265,7 @@ export function AdminOutreachCase({
             <Button
               variant="secondary"
               icon="send"
-              disabled={saving !== null || !casesReady || !form.channel || !canTin2}
+              disabled={saving !== null || !casesReady || !canTin2}
               onClick={() => void persist({ markSent: 2 })}
             >
               {saving === "sent-2" ? "Đang lưu" : "Đánh dấu đã gửi tin 2"}

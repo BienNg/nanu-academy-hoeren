@@ -5,6 +5,14 @@ export const UI_CLICK_LABELS = {
   "nav.duel": "Đấu",
   "nav.leaderboard": "Xếp hạng",
   "nav.badges": "Huy hiệu",
+  "duel.ready": "Đấu",
+  "duel.locked.study": "Đấu",
+  "duel.locked.cap": "Đấu",
+  "duel.locked.no_class": "Đấu",
+  "duel.locked.no_overlap": "Đấu",
+  "duel.locked.off": "Đấu",
+  "duel.locked.admin": "Đấu",
+  "duel.locked.unavailable": "Đấu",
 } as const;
 
 /** Same artwork as the bottom nav, so an admin row reads as that tab. */
@@ -14,6 +22,14 @@ export const UI_CLICK_ICONS: Record<UiClickTarget, string> = {
   "nav.duel": "/nav/duel.svg",
   "nav.leaderboard": "/nav/ranking.svg",
   "nav.badges": "/nav/badges.svg",
+  "duel.ready": "/nav/duel.svg",
+  "duel.locked.study": "/nav/duel.svg",
+  "duel.locked.cap": "/nav/duel.svg",
+  "duel.locked.no_class": "/nav/duel.svg",
+  "duel.locked.no_overlap": "/nav/duel.svg",
+  "duel.locked.off": "/nav/duel.svg",
+  "duel.locked.admin": "/nav/duel.svg",
+  "duel.locked.unavailable": "/nav/duel.svg",
 };
 
 export type UiClickTarget = keyof typeof UI_CLICK_LABELS;
@@ -88,10 +104,27 @@ export function uiClickGroupFromRow(loggedAt: unknown, counts: unknown): UiClick
   return { loggedAt, clicks };
 }
 
+/**
+ * Why the Đấu page did or did not offer a new duel. Stored as the click target,
+ * so the visit can say whether start was available.
+ */
+const DUEL_OPEN_DETAIL: Partial<Record<UiClickTarget, string>> = {
+  "duel.ready": "start available",
+  "duel.locked.study": "start locked, study more first",
+  "duel.locked.cap": "start locked, too many open duels",
+  "duel.locked.no_class": "start locked, no class",
+  "duel.locked.no_overlap": "start locked, no classmate ready",
+  "duel.locked.off": "start locked, duels are off",
+  "duel.locked.admin": "start locked, teacher account",
+  "duel.locked.unavailable": "start locked, no opponent right now",
+};
+
 /** One tab opening, written the way an admin reads a visit. */
 export function describeVisitClick(click: StudentUiClick): string {
   const times = click.count === 1 ? "once" : `${click.count} times`;
-  return `Opened the ${click.label} tab ${times}`;
+  const detail = DUEL_OPEN_DETAIL[click.target];
+  const state = detail ? `, ${detail}` : "";
+  return `Opened the ${click.label} tab ${times}${state}`;
 }
 
 export function formatVisitClicks(clicks: readonly StudentUiClick[]): string {
@@ -343,6 +376,38 @@ async function flushUiClicks(): Promise<void> {
 export function trackUiClick(target: UiClickTarget, now = Date.now()): void {
   pendingClicks = addUiClick(pendingClicks, target, now);
   armUiClickFlush();
+}
+
+/** The start-button state the Đấu page showed. Matches `duelStartGate` in duels.ts. */
+export type DuelStartClick =
+  | "available"
+  | "study"
+  | "cap"
+  | "no_class"
+  | "no_overlap"
+  | "off"
+  | "admin"
+  | "unavailable";
+
+const DUEL_START_TARGET: Record<DuelStartClick, UiClickTarget> = {
+  available: "duel.ready",
+  study: "duel.locked.study",
+  cap: "duel.locked.cap",
+  no_class: "duel.locked.no_class",
+  no_overlap: "duel.locked.no_overlap",
+  off: "duel.locked.off",
+  admin: "duel.locked.admin",
+  unavailable: "duel.locked.unavailable",
+};
+
+let lastDuelStartSeen: { target: UiClickTarget; at: number } | null = null;
+
+/** Count one opening of the Đấu page, with the start button's state. A strict-mode remount does not count twice. */
+export function trackDuelStartSeen(gate: DuelStartClick, now = Date.now()): void {
+  const target = DUEL_START_TARGET[gate];
+  if (lastDuelStartSeen && lastDuelStartSeen.target === target && now - lastDuelStartSeen.at < 1000) return;
+  lastDuelStartSeen = { target, at: now };
+  trackUiClick(target, now);
 }
 
 /** Send taps already counted. A route change calls this so the visit can show them. */

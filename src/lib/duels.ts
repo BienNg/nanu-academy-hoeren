@@ -238,6 +238,34 @@ export function duelHomeFocus(home: DuelHome): DuelFocus {
   return { kind: "blocked" };
 }
 
+/**
+ * Whether the button that starts a new duel is on the page.
+ * "available" is Đấu ngay / Đấu mới. Every other value is why that button is absent or locked,
+ * matching the message the page shows.
+ */
+export type DuelStartGate =
+  | "available"
+  | "study"
+  | "cap"
+  | "no_class"
+  | "no_overlap"
+  | "off"
+  | "admin"
+  | "unavailable";
+
+export function duelStartGate(home: DuelHome): DuelStartGate {
+  if (home.ready && home.block === "ok" && home.studiedCount >= DUEL_SIZE && !home.viewerIsAdmin) {
+    return "available";
+  }
+  if (!home.ready) return "off";
+  if (home.viewerIsAdmin || home.block === "admin") return "admin";
+  if (home.studiedCount < DUEL_SIZE) return "study";
+  if (home.block === "no_class") return "no_class";
+  if (home.block === "no_overlap") return "no_overlap";
+  if (home.block === "cap") return "cap";
+  return "unavailable";
+}
+
 export function addToRecord(record: DuelRecord, outcome: DuelOutcome | null): DuelRecord {
   if (outcome === "win") return { ...record, wins: record.wins + 1 };
   if (outcome === "loss") return { ...record, losses: record.losses + 1 };

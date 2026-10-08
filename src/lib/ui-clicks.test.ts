@@ -109,6 +109,14 @@ test("a flush lands on the visit that was open, not on a later one", () => {
 test("a visit describes each tab opening", () => {
   assert.equal(describeVisitClick({ target: "nav.duel", label: "Đấu", count: 1 }), "Opened the Đấu tab once");
   assert.equal(
+    describeVisitClick({ target: "duel.ready", label: "Đấu", count: 1 }),
+    "Opened the Đấu tab once, start available",
+  );
+  assert.equal(
+    describeVisitClick({ target: "duel.locked.study", label: "Đấu", count: 2 }),
+    "Opened the Đấu tab 2 times, start locked, study more first",
+  );
+  assert.equal(
     describeVisitClick({ target: "nav.learn", label: "Học", count: 3 }),
     "Opened the Học tab 3 times",
   );

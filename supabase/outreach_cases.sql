@@ -1,7 +1,7 @@
 -- Run once in Supabase → SQL Editor (free project is fine).
 -- One row per student email for the support outreach campaign.
 -- The app still chooses the group from usage. This table stores the
--- conversation: status, channel, reply, and follow-up. Nothing is sent.
+-- conversation: status, reply, and follow-up. Nothing is sent.
 -- No anon/authenticated policies: only the service role (server) can read/write.
 
 create table if not exists public.outreach_cases (
@@ -9,7 +9,6 @@ create table if not exists public.outreach_cases (
   greeting_name text,
   group_override text,
   status text not null default 'chua_gui',
-  channel text,
   sent_at timestamptz,
   owner_user_id text,
   owner_name text,
@@ -36,9 +35,6 @@ create table if not exists public.outreach_cases (
       'da_dung'
     )
   ),
-  constraint outreach_cases_channel_check check (
-    channel is null or channel in ('zalo', 'facebook', 'email', 'other')
-  ),
   constraint outreach_cases_reason_check check (
     reason is null
     or reason in (
@@ -54,3 +50,7 @@ create table if not exists public.outreach_cases (
 );
 
 alter table public.outreach_cases enable row level security;
+
+-- Existing projects: drop the unused send-channel column.
+alter table public.outreach_cases drop constraint if exists outreach_cases_channel_check;
+alter table public.outreach_cases drop column if exists channel;

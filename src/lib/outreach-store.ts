@@ -1,7 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/progress-store";
 import {
   emptyOutreachCase,
-  isOutreachChannel,
   isOutreachGroup,
   isOutreachReason,
   isOutreachStatus,
@@ -11,14 +10,13 @@ import {
 const TABLE = "outreach_cases";
 
 const COLUMNS =
-  "email, greeting_name, group_override, status, channel, sent_at, owner_user_id, owner_name, follow_up, follow_up_on, reason, feedback, feature_request, notes, had_account_at_contact, parts_at_contact, updated_at";
+  "email, greeting_name, group_override, status, sent_at, owner_user_id, owner_name, follow_up, follow_up_on, reason, feedback, feature_request, notes, had_account_at_contact, parts_at_contact, updated_at";
 
 type OutreachCaseRow = {
   email?: unknown;
   greeting_name?: unknown;
   group_override?: unknown;
   status?: unknown;
-  channel?: unknown;
   sent_at?: unknown;
   owner_user_id?: unknown;
   owner_name?: unknown;
@@ -55,10 +53,6 @@ export function outreachCaseFromRow(row: OutreachCaseRow): OutreachCase | null {
       return group && isOutreachGroup(group) ? group : null;
     })(),
     status: status && isOutreachStatus(status) ? status : "chua_gui",
-    channel: (() => {
-      const channel = text(row.channel);
-      return channel && isOutreachChannel(channel) ? channel : null;
-    })(),
     sentAt: text(row.sent_at),
     ownerUserId: text(row.owner_user_id),
     ownerName: text(row.owner_name),
@@ -84,7 +78,6 @@ function rowFromCase(outreachCase: OutreachCase): Record<string, unknown> {
     greeting_name: outreachCase.greetingName,
     group_override: outreachCase.groupOverride,
     status: outreachCase.status,
-    channel: outreachCase.channel,
     sent_at: outreachCase.sentAt,
     owner_user_id: outreachCase.ownerUserId,
     owner_name: outreachCase.ownerName,

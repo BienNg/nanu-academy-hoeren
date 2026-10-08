@@ -205,7 +205,11 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
-                onClick={() => trackUiClick(item.target)}
+                onClick={() => {
+                  // The Đấu page records the open, with whether start was available.
+                  if (item.target === "nav.duel") return;
+                  trackUiClick(item.target);
+                }}
                 className={`flex flex-col items-center gap-px rounded-2xl border-2 py-1 ${item.pad} ${
                   active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
                 }`}

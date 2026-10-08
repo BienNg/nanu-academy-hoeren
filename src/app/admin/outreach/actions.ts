@@ -6,7 +6,6 @@ import { isAdminUser } from "@/lib/admins";
 import { normalizeGrantEmail } from "@/lib/progress";
 import {
   applyOutreachPatch,
-  isOutreachChannel,
   isOutreachGroup,
   isOutreachReason,
   isOutreachStatus,
@@ -42,16 +41,9 @@ function readPatch(input: unknown): OutreachPatch | null {
   if (!email) return null;
   const groupOverride = optionalEnum(raw.groupOverride, isOutreachGroup);
   const status = optionalEnum(raw.status, isOutreachStatus);
-  const channel = optionalEnum(raw.channel, isOutreachChannel);
   const reason = optionalEnum(raw.reason, isOutreachReason);
   const category = typeof raw.category === "string" && isOutreachGroup(raw.category) ? raw.category : null;
-  if (
-    groupOverride === undefined ||
-    status == null ||
-    channel === undefined ||
-    reason === undefined ||
-    !category
-  ) {
+  if (groupOverride === undefined || status == null || reason === undefined || !category) {
     return null;
   }
   const markSent = raw.markSent === 1 || raw.markSent === 2 ? raw.markSent : null;
@@ -61,7 +53,6 @@ function readPatch(input: unknown): OutreachPatch | null {
     greetingName: typeof raw.greetingName === "string" ? raw.greetingName : null,
     groupOverride,
     status,
-    channel,
     followUp: raw.followUp === true,
     followUpOn: typeof raw.followUpOn === "string" && raw.followUpOn ? raw.followUpOn : null,
     reason,
