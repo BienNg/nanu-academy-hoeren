@@ -509,7 +509,7 @@ function LearnerProfile({
                 <li key={index} className="h-28 animate-pulse rounded-2xl bg-[#e2e7ff]" />
               ))}
             </ul>
-          ) : profile.badges.length > 0 ? (
+          ) : profile && profile.badges.length > 0 ? (
             <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-7">
               {profile.badges.map((badge) => (
                 <li key={badge.id}>
