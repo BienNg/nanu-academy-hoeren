@@ -7,8 +7,10 @@ import {
   filterOutreachRows,
   joinOutreach,
   outreachConversionHint,
+  outreachAddress,
+  outreachCatalog,
+  outreachCatalogStart,
   outreachJobFor,
-  outreachGreetingName,
   outreachMessage1,
   outreachMessage2,
   outreachObjectionReply,
@@ -60,13 +62,23 @@ function patch(overrides: Partial<OutreachPatch> = {}): OutreachPatch {
   };
 }
 
-test("greeting falls back to em and prefers the name support typed", () => {
-  assert.equal(outreachGreetingName(null, null), "em");
-  assert.equal(outreachGreetingName("  ", "  "), "em");
-  assert.equal(outreachGreetingName("Ngọc", null), "Ngọc");
-  assert.equal(outreachGreetingName("Ngọc", "em"), "em");
+test("messages use the address instead of the name", () => {
+  assert.equal(outreachAddress(null), "em");
+  assert.equal(outreachAddress("Ngọc"), "em");
+  assert.equal(outreachAddress("chi"), "chị");
   assert.match(outreachMessage1("preaccess", "em") ?? "", /^Ê em ơi!/);
-  assert.match(outreachMessage1("heavy", "Quế Ngọc") ?? "", /Ê Quế Ngọc ơi!/);
+  const heavy = outreachMessage1("heavy", "anh") ?? "";
+  assert.match(heavy, /^Ê anh ơi!/);
+  assert.match(heavy, /Anh thấy app sao/);
+  assert.match(heavy, /Academy/);
+  assert.doesNotMatch(heavy, /(?<![\p{L}])em(?![\p{L}])/u);
+  const tech = outreachObjectionReply("tech", "cô");
+  assert.equal(tech.kind, "message");
+  if (tech.kind === "message") {
+    assert.match(tech.text, /xem nha/);
+    assert.match(tech.text, /Cô bị vướng/);
+    assert.doesNotMatch(tech.text, /(?<![\p{L}])em(?![\p{L}])/u);
+  }
 });
 
 test("group 4 has one message and a warning instead of tin 2", () => {
@@ -247,4 +259,24 @@ test("tin 2 comes before the quiet check-in, and mới is not a job", () => {
     [],
   );
   assert.equal(outreachJobFor(fresh[0]!, TODAY), null);
+});
+
+test("the question catalog follows the group and opens on the current job", () => {
+  const heavy = outreachCatalog("heavy", "chú");
+  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^Ê chú ơi!/);
+  assert.ok(heavy.some((item) => item.category === "like"));
+  assert.equal(heavy.find((item) => item.id === "fit-disappointed")?.message?.includes("rất tiếc"), true);
+  assert.ok(heavy.some((item) => item.id === "wish-main"));
+  assert.equal(heavy.some((item) => item.category === "signup"), false);
+  assert.equal(outreachCatalogStart("tin2", "heavy"), "wish");
+  assert.equal(outreachCatalogStart("quiet", "heavy"), "checkin");
+
+  const unsigned = outreachCatalog("preaccess", "em");
+  assert.equal(unsigned.some((item) => item.id === "wish-main"), false);
+  assert.equal(unsigned.some((item) => item.id === "fit-disappointed"), false);
+  assert.ok(unsigned.some((item) => item.id === "fit-instead"));
+  assert.ok(unsigned.some((item) => item.category === "signup"));
+  assert.match(unsigned.find((item) => item.id === "signup-tech")?.reply ?? "", /Chụp màn hình/);
+
+  assert.equal(outreachCatalog("fresh", "em").length, 0);
 });

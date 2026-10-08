@@ -6,20 +6,23 @@ import { Button, Drawer, INPUT } from "@/components/admin/AdminUi";
 import { formatAdminTimestamp } from "@/lib/admin-overview";
 import { formatActiveDuration } from "@/lib/progress";
 import {
+  OUTREACH_ADDRESSES,
   OUTREACH_GROUPS,
   OUTREACH_GROUP_LABEL,
+  OUTREACH_QUESTION_CATEGORIES,
+  OUTREACH_QUESTION_CATEGORY_LABEL,
   OUTREACH_REASONS,
   OUTREACH_REASON_LABEL,
   OUTREACH_STATUSES,
   OUTREACH_STATUS_LABEL,
-  outreachCheckIn,
-  outreachGreetingName,
-  outreachMessage1,
+  outreachAddress,
+  outreachCatalog,
+  outreachCatalogStart,
   outreachMessage2,
-  outreachObjectionReply,
   type OutreachCase,
   type OutreachGroup,
   type OutreachJobId,
+  type OutreachQuestionCategory,
   type OutreachReason,
   type OutreachRow,
   type OutreachStatus,
@@ -45,7 +48,7 @@ type FormState = {
 function formFrom(row: OutreachRow): FormState {
   const outreachCase = row.outreachCase;
   return {
-    greetingName: outreachCase?.greetingName ?? "",
+    greetingName: outreachAddress(outreachCase?.greetingName),
     groupOverride: outreachCase?.groupOverride ?? "",
     status: row.status,
     followUp: outreachCase?.followUp ?? false,
@@ -76,6 +79,35 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+function CatalogTab({
+  label,
+  count,
+  pressed,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={pressed}
+      onClick={onClick}
+      className={`inline-flex items-center gap-space-4 rounded-admin-badge border px-space-8 py-1 text-admin-body-sm outline-none focus-visible:shadow-admin-focus ${
+        pressed
+          ? "border-admin-cobalt bg-admin-cobalt-wash font-semibold text-admin-cobalt"
+          : "border-admin-hairline text-admin-ink-muted hover:bg-admin-subtle"
+      }`}
+    >
+      {label}
+      <span className="tabular-nums">{count}</span>
+    </button>
+  );
+}
+
 export function AdminOutreachCase({
   row,
   job,
@@ -94,14 +126,36 @@ export function AdminOutreachCase({
   const [form, setForm] = useState(() => formFrom(row));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [asked, setAsked] = useState<ReadonlySet<string>>(() => new Set());
+  const [catalogCategory, setCatalogCategory] = useState<OutreachQuestionCategory | "all">(() =>
+    outreachCatalogStart(job, row.computedCategory),
+  );
 
   const category: OutreachGroup = form.groupOverride || row.computedCategory;
-  const greeting = outreachGreetingName(row.name, form.greetingName);
-  const message1 = outreachMessage1(category, greeting);
-  const message2 = outreachMessage2(category);
-  const checkIn = outreachCheckIn(greeting);
-  const reply = form.reason ? outreachObjectionReply(form.reason) : null;
+  const address = outreachAddress(form.greetingName);
+  const catalog = outreachCatalog(category, address);
+  const message2 = outreachMessage2(category, address);
+  const visibleCategories = OUTREACH_QUESTION_CATEGORIES.filter((item) =>
+    catalog.some((question) => question.category === item),
+  );
+  const shownCategory =
+    catalogCategory === "all" || visibleCategories.includes(catalogCategory)
+      ? catalogCategory
+      : (visibleCategories[0] ?? "all");
+  const visibleQuestions =
+    shownCategory === "all" ? catalog : catalog.filter((question) => question.category === shownCategory);
+  const askedCount = catalog.filter((question) => asked.has(question.id)).length;
   const sentLabel = row.outreachCase?.sentAt ? formatAdminTimestamp(row.outreachCase.sentAt) : null;
+
+  function toggleAsked(id: string, reason: OutreachReason | null, on: boolean) {
+    setAsked((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    if (on && reason) setForm((current) => ({ ...current, reason }));
+  }
 
   async function persist(extra: {
     markSent?: 1 | 2 | "checkin";
@@ -155,7 +209,8 @@ export function AdminOutreachCase({
       onClose={onClose}
       title={row.name?.trim() || row.email || "Học viên"}
       subtitle={row.email ?? "Chưa có email"}
-      panelClassName="sm:w-[560px]"
+      panelClassName="sm:w-[1100px] sm:max-w-[calc(100vw-24px)]"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       footer={
         <Button
           variant="primary"
@@ -167,7 +222,8 @@ export function AdminOutreachCase({
         </Button>
       }
     >
-      <div className="flex flex-col gap-space-16 px-space-20 py-space-16">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div className="flex flex-col gap-space-16 px-space-20 py-space-16 lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-admin-hairline">
         {!casesReady ? (
           <p className="rounded-admin-control border border-admin-amber bg-admin-amber-wash px-space-12 py-space-12 text-admin-body-sm text-admin-amber-ink">
             Chưa lưu được. Chạy supabase/outreach_cases.sql một lần, rồi tải lại trang.
@@ -236,60 +292,25 @@ export function AdminOutreachCase({
         </label>
 
         <label className={FIELD}>
-          <span className={LABEL}>Tên trong lời chào</span>
-          <input
+          <span className={LABEL}>Xưng hô</span>
+          <select
             className={INPUT}
-            value={form.greetingName}
-            placeholder={row.name?.trim() || "em"}
+            value={address}
             onChange={(event) => setForm((current) => ({ ...current, greetingName: event.target.value }))}
-          />
+          >
+            {OUTREACH_ADDRESSES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
 
-        {job === "quiet" ? (
-          <section className="flex flex-col gap-space-8">
-            <div className="flex items-center justify-between gap-space-8">
-              <h3 className={LABEL}>Hỏi thăm</h3>
-              <CopyButton text={checkIn} label="Chép lời hỏi thăm" />
-            </div>
-            <p className={MESSAGE}>{checkIn}</p>
-            <Button
-              variant="primary"
-              icon="send"
-              disabled={saving !== null || !casesReady}
-              onClick={() => void persist({ markSent: "checkin", advance: true })}
-            >
-              {saving === "sent-checkin" ? "Đang lưu" : "Đánh dấu đã nhắn"}
-            </Button>
-          </section>
-        ) : null}
-
-        {category === "fresh" ? (
+        {category === "fresh" && message2.kind === "warning" ? (
           <p className="rounded-admin-control border border-admin-amber bg-admin-amber-wash px-space-12 py-space-12 text-admin-body-sm text-admin-amber-ink">
-            Nhóm Mới chưa nhắn. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.
+            {message2.text}
           </p>
-        ) : message1 ? (
-          <section className="flex flex-col gap-space-8">
-            <div className="flex items-center justify-between gap-space-8">
-              <h3 className={LABEL}>Tin nhắn 1</h3>
-              <CopyButton text={message1} label="Chép tin 1" />
-            </div>
-            <p className={MESSAGE}>{message1}</p>
-          </section>
         ) : null}
-
-        <section className="flex flex-col gap-space-8">
-          <div className="flex items-center justify-between gap-space-8">
-            <h3 className={LABEL}>Tin nhắn 2</h3>
-            {message2.kind === "message" ? <CopyButton text={message2.text} label="Chép tin 2" /> : null}
-          </div>
-          {message2.kind === "warning" ? (
-            <p className="rounded-admin-control border border-admin-amber bg-admin-amber-wash px-space-12 py-space-12 text-admin-body-sm text-admin-amber-ink">
-              {message2.text}
-            </p>
-          ) : (
-            <p className={MESSAGE}>{message2.text}</p>
-          )}
-        </section>
 
         <div className="flex flex-wrap gap-space-8">
           <Button
@@ -308,6 +329,16 @@ export function AdminOutreachCase({
               onClick={() => void persist({ markSent: 2, clearFollowUp: clearOnSend, advance: true })}
             >
               {saving === "sent-2" ? "Đang lưu" : "Đánh dấu đã gửi tin 2"}
+            </Button>
+          ) : null}
+          {job === "quiet" ? (
+            <Button
+              variant="primary"
+              icon="send"
+              disabled={saving !== null || !casesReady}
+              onClick={() => void persist({ markSent: "checkin", advance: true })}
+            >
+              {saving === "sent-checkin" ? "Đang lưu" : "Đánh dấu đã nhắn"}
             </Button>
           ) : null}
         </div>
@@ -371,9 +402,11 @@ export function AdminOutreachCase({
           <select
             className={INPUT}
             value={form.reason}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, reason: event.target.value as OutreachReason | "" }))
-            }
+            onChange={(event) => {
+              const reason = event.target.value as OutreachReason | "";
+              setForm((current) => ({ ...current, reason }));
+              if (reason) setCatalogCategory(category === "preaccess" ? "signup" : "stop");
+            }}
           >
             <option value="">Chưa chọn</option>
             {OUTREACH_REASONS.map((reason) => (
@@ -383,17 +416,6 @@ export function AdminOutreachCase({
             ))}
           </select>
         </label>
-        {reply ? (
-          <section className="flex flex-col gap-space-8">
-            <div className="flex items-center justify-between gap-space-8">
-              <h3 className={LABEL}>Câu trả lời cho CS gửi</h3>
-              {reply.kind === "message" ? <CopyButton text={reply.text} label="Chép câu trả lời" /> : null}
-            </div>
-            <p className={reply.kind === "note" ? "text-admin-body-sm text-admin-ink-muted" : MESSAGE}>
-              {reply.text}
-            </p>
-          </section>
-        ) : null}
 
         <label className={FIELD}>
           <span className={LABEL}>Feedback chung</span>
@@ -425,6 +447,100 @@ export function AdminOutreachCase({
             Hồ sơ học viên
           </Button>
         ) : null}
+      </div>
+
+      <section className="flex min-h-[28rem] min-w-0 flex-1 flex-col border-t border-admin-hairline lg:min-h-0 lg:border-t-0">
+        <div className="flex shrink-0 flex-col gap-space-8 border-b border-admin-hairline bg-admin-card px-space-20 py-space-12">
+          <div className="flex items-baseline justify-between gap-space-8">
+            <h3 className="font-admin-display text-admin-headline-sm text-admin-ink">Câu hỏi</h3>
+            <p className="text-admin-body-sm text-admin-ink-muted">
+              {catalog.length === 0 ? "Chưa có câu để hỏi" : `Đã hỏi ${askedCount}/${catalog.length}`}
+            </p>
+          </div>
+          {message2.kind === "warning" && category !== "fresh" ? (
+            <p className="text-admin-body-sm text-admin-amber-ink">{message2.text}</p>
+          ) : null}
+          {visibleCategories.length > 0 ? (
+            <div className="flex flex-wrap gap-space-4" role="tablist" aria-label="Nhóm câu hỏi">
+              <CatalogTab
+                label="Tất cả"
+                count={catalog.length - askedCount}
+                pressed={shownCategory === "all"}
+                onClick={() => setCatalogCategory("all")}
+              />
+              {visibleCategories.map((item) => {
+                const inCategory = catalog.filter((question) => question.category === item);
+                const left = inCategory.filter((question) => !asked.has(question.id)).length;
+                return (
+                  <CatalogTab
+                    key={item}
+                    label={OUTREACH_QUESTION_CATEGORY_LABEL[item]}
+                    count={left}
+                    pressed={shownCategory === item}
+                    onClick={() => setCatalogCategory(item)}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-space-20 py-space-16">
+          {catalog.length === 0 ? (
+            <p className="text-admin-body-sm text-admin-ink-muted">
+              Nhóm Mới chưa có câu hỏi. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-space-12">
+              {visibleQuestions.map((question) => {
+                const checked = asked.has(question.id);
+                const matchesReason = question.reason != null && question.reason === form.reason;
+                return (
+                  <li
+                    key={question.id}
+                    className={`flex flex-col gap-space-8 rounded-admin-control border px-space-12 py-space-12 ${
+                      matchesReason ? "border-admin-cobalt bg-admin-cobalt-wash" : "border-admin-hairline"
+                    }`}
+                  >
+                    <label className="flex items-start gap-space-8 text-admin-body-md text-admin-ink">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={checked}
+                        onChange={(event) => toggleAsked(question.id, question.reason, event.target.checked)}
+                      />
+                      <span>
+                        <span className="font-semibold">{question.label}</span>
+                        {shownCategory === "all" ? (
+                          <span className="ml-space-8 text-admin-body-sm text-admin-ink-subtle">
+                            {OUTREACH_QUESTION_CATEGORY_LABEL[question.category]}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                    {question.message ? (
+                      <>
+                        <p className={MESSAGE}>{question.message}</p>
+                        <div>
+                          <CopyButton text={question.message} label="Chép câu hỏi" />
+                        </div>
+                      </>
+                    ) : null}
+                    {question.reply ? (
+                      <>
+                        <p className={LABEL}>Nếu em ấy trả lời theo hướng này</p>
+                        <p className={MESSAGE}>{question.reply}</p>
+                        <div>
+                          <CopyButton text={question.reply} label="Chép câu trả lời" />
+                        </div>
+                      </>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
       </div>
     </Drawer>
   );

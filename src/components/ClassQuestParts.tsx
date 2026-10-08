@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { chunkyButton } from "@/components/chunkyButton";
 import { PersonAvatar } from "@/components/LeaderboardParts";
 import { classQuestById, readClassQuestBoard, type ClassQuestBoard, type ClassQuestView } from "@/lib/class-quests";
@@ -78,12 +78,15 @@ function ClassQuestCard({
   claiming,
   observing,
   onClaim,
+  onPractice,
 }: {
   quest: ClassQuestView;
   index: number;
   claiming: boolean;
   observing: boolean;
   onClaim: (id: string) => void;
+  /** When set, the practice button stays on this screen instead of leaving it. */
+  onPractice?: () => void;
 }) {
   const reduceMotion = useReducedMotion() ?? false;
   const action = questAction(quest.id);
@@ -209,12 +212,75 @@ function ClassQuestCard({
       ) : (
         <>
           {hint ? <p className="text-[12px] font-bold text-[#5856D6]">{hint}</p> : null}
-          <Link href={action.href} className={chunkyButton("primary", "h-11 w-full")}>
-            {action.label}
-          </Link>
+          {onPractice ? (
+            <button type="button" onClick={onPractice} className={chunkyButton("primary", "h-11 w-full")}>
+              {action.label}
+            </button>
+          ) : (
+            <Link href={action.href} className={chunkyButton("primary", "h-11 w-full")}>
+              {action.label}
+            </Link>
+          )}
         </>
       )}
     </motion.li>
+  );
+}
+
+export function ClassQuestBoardView({
+  headerAside,
+  daily,
+  weekly,
+  dayCountdown,
+  weekCountdown,
+  observing,
+  claiming,
+  onClaim,
+  onPractice,
+}: {
+  headerAside?: ReactNode;
+  daily: readonly ClassQuestView[];
+  weekly: readonly ClassQuestView[];
+  dayCountdown: string | null;
+  weekCountdown: string | null;
+  observing: boolean;
+  claiming: string | null;
+  onClaim: (id: string) => void;
+  onPractice?: () => void;
+}) {
+  return (
+    <section aria-label="Nhiệm vụ lớp" className="flex flex-col gap-3">
+      <div className="flex items-end justify-between gap-2 px-1 pt-2">
+        <h2 className="flex min-w-0 items-center gap-1.5 text-[18px] font-extrabold text-[#1d1d1f]">
+          <span className="material-symbols-outlined text-[22px] text-[#5856D6]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
+            groups
+          </span>
+          <span className="truncate">Nhiệm vụ lớp</span>
+        </h2>
+        {headerAside}
+      </div>
+      <QuestGroup
+        title="Hôm nay"
+        countdown={dayCountdown}
+        quests={daily}
+        claiming={claiming}
+        observing={observing}
+        onClaim={onClaim}
+        onPractice={onPractice}
+      />
+      <QuestGroup
+        title="Tuần này"
+        countdown={weekCountdown}
+        quests={weekly}
+        claiming={claiming}
+        observing={observing}
+        onClaim={onClaim}
+        onPractice={onPractice}
+      />
+      <p className="px-2 text-center text-[12px] font-semibold text-[#86868b]">
+        Ai góp sức thì nhận XP khi lớp hoàn thành. Nhận trước khi hết ngày hoặc hết tuần.
+      </p>
+    </section>
   );
 }
 
@@ -225,6 +291,7 @@ function QuestGroup({
   claiming,
   observing,
   onClaim,
+  onPractice,
 }: {
   title: string;
   countdown: string | null;
@@ -232,6 +299,7 @@ function QuestGroup({
   claiming: string | null;
   observing: boolean;
   onClaim: (id: string) => void;
+  onPractice?: () => void;
 }) {
   if (quests.length === 0) return null;
   return (
@@ -249,6 +317,7 @@ function QuestGroup({
             claiming={claiming === quest.id}
             observing={observing}
             onClaim={onClaim}
+            onPractice={onPractice}
           />
         ))}
       </ul>
@@ -324,59 +393,41 @@ export function ClassQuestsSection({ onClaimed }: { onClaimed: (xp: number) => v
 
   if (!board) return null;
   const at = now != null ? new Date(now) : null;
+  const headerAside =
+    board.classOptions.length > 1 ? (
+      <label className="flex min-w-0 items-center gap-2 text-[13px] font-bold text-[#6e6e73]">
+        <span className="sr-only">Lớp</span>
+        <select
+          value={board.classKey}
+          onChange={(event) => {
+            classKeyRef.current = event.target.value;
+            load();
+          }}
+          className="max-w-[11rem] truncate rounded-xl bg-[#e5e5ea] px-2 py-1 text-[13px] font-extrabold text-[#1d1d1f]"
+        >
+          {board.classOptions.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span className="shrink-0">{board.learners} bạn</span>
+      </label>
+    ) : board.className ? (
+      <span className="min-w-0 truncate text-[13px] font-bold text-[#6e6e73]">
+        {board.className} · {board.learners} bạn
+      </span>
+    ) : null;
   return (
-    <section aria-label="Nhiệm vụ lớp" className="flex flex-col gap-3">
-      <div className="flex items-end justify-between gap-2 px-1 pt-2">
-        <h2 className="flex min-w-0 items-center gap-1.5 text-[18px] font-extrabold text-[#1d1d1f]">
-          <span className="material-symbols-outlined text-[22px] text-[#5856D6]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
-            groups
-          </span>
-          <span className="truncate">Nhiệm vụ lớp</span>
-        </h2>
-        {board.classOptions.length > 1 ? (
-          <label className="flex min-w-0 items-center gap-2 text-[13px] font-bold text-[#6e6e73]">
-            <span className="sr-only">Lớp</span>
-            <select
-              value={board.classKey}
-              onChange={(event) => {
-                classKeyRef.current = event.target.value;
-                load();
-              }}
-              className="max-w-[11rem] truncate rounded-xl bg-[#e5e5ea] px-2 py-1 text-[13px] font-extrabold text-[#1d1d1f]"
-            >
-              {board.classOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <span className="shrink-0">{board.learners} bạn</span>
-          </label>
-        ) : board.className ? (
-          <span className="min-w-0 truncate text-[13px] font-bold text-[#6e6e73]">
-            {board.className} · {board.learners} bạn
-          </span>
-        ) : null}
-      </div>
-      <QuestGroup
-        title="Hôm nay"
-        countdown={at && board.dayEndsAt ? formatWeekCountdown(board.dayEndsAt, at) : null}
-        quests={board.daily}
-        claiming={claiming}
-        observing={board.observing}
-        onClaim={claim}
-      />
-      <QuestGroup
-        title="Tuần này"
-        countdown={at && board.weekEndsAt ? formatWeekCountdown(board.weekEndsAt, at) : null}
-        quests={board.weekly}
-        claiming={claiming}
-        observing={board.observing}
-        onClaim={claim}
-      />
-      <p className="px-2 text-center text-[12px] font-semibold text-[#86868b]">
-        Ai góp sức thì nhận XP khi lớp hoàn thành. Nhận trước khi hết ngày hoặc hết tuần.
-      </p>
-    </section>
+    <ClassQuestBoardView
+      headerAside={headerAside}
+      daily={board.daily}
+      weekly={board.weekly}
+      dayCountdown={at && board.dayEndsAt ? formatWeekCountdown(board.dayEndsAt, at) : null}
+      weekCountdown={at && board.weekEndsAt ? formatWeekCountdown(board.weekEndsAt, at) : null}
+      observing={board.observing}
+      claiming={claiming}
+      onClaim={claim}
+    />
   );
 }

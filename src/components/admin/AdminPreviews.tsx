@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { CARD, IconTile, INPUT } from "@/components/admin/AdminUi";
 import { BadgeUnlockSheet } from "@/components/BadgeParts";
@@ -17,13 +17,18 @@ import { PartHearts } from "@/components/session/PartHearts";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { TableFillCard } from "@/components/session/grammar/TableFillCard";
+import { ClassQuestBoardView } from "@/components/ClassQuestParts";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { EarnedToast } from "@/components/QuestsScreen";
 import { ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
+import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
 import { duelEndSteps, type DuelEndStep, type DuelView } from "@/lib/duels";
 import type { McResult } from "@/lib/multiple-choice";
 import { planClassRankClimb, planRankClimb } from "@/lib/rank-climb";
+import type { ClassQuestView } from "@/lib/class-quests";
 import type { QuestUpdate } from "@/lib/quests";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { dropQueuedStreakCelebration, stageStreakCelebration } from "@/lib/useProgress";
@@ -344,7 +349,7 @@ const SAMPLE_CLASS_CLIMB = planClassRankClimb(
   400,
 );
 
-type CatalogCategory = "celebrations" | "cards" | "duels" | "blitz" | "sequences" | "session";
+type CatalogCategory = "celebrations" | "cards" | "duels" | "blitz" | "sequences" | "session" | "onboarding" | "quests";
 
 type CatalogItem = {
   id: string;
@@ -367,9 +372,27 @@ const CATEGORIES: readonly {
   { id: "blitz", label: "Blitzrunde", icon: BLITZRUNDE_ICON, color: ADMIN_COLORS.ember },
   { id: "sequences", label: "Sequences", icon: "account_tree", color: ADMIN_COLORS.violet },
   { id: "session", label: "Session", icon: "widgets", color: ADMIN_COLORS.crimson },
+  { id: "onboarding", label: "Onboarding", icon: "route", color: ADMIN_COLORS.cobalt },
+  { id: "quests", label: "Quests", icon: "task_alt", color: ADMIN_COLORS.amber },
 ];
 
 const EXTRA_ITEMS: readonly CatalogItem[] = [
+  {
+    id: "quest-claims",
+    category: "quests",
+    group: "Class quests",
+    icon: "redeem",
+    title: "Quest claims",
+    detail: "A sample class board. Nhận XP marks that card claimed here. Nothing is stored.",
+  },
+  {
+    id: "onboarding-tour",
+    category: "onboarding",
+    group: "Level map",
+    icon: "route",
+    title: "First-run tour",
+    detail: "The five steps over a sample map. Nothing is stored. The last step starts it again.",
+  },
   {
     id: "card-choice",
     category: "cards",
@@ -798,6 +821,8 @@ function OpenPreview({ id, onClose }: { id: string; onClose: () => void }) {
     );
   }
   if (id.startsWith("blitz-")) return <BlitzResultsPreview id={id} onClose={onClose} />;
+  if (id === "quest-claims") return <QuestClaimsPreview onClose={onClose} />;
+  if (id === "onboarding-tour") return <OnboardingPreview onClose={onClose} />;
   if (id === "session-quit") {
     return (
       <PreviewChrome onClose={onClose}>
@@ -840,6 +865,110 @@ function OpenPreview({ id, onClose }: { id: string; onClose: () => void }) {
   return null;
 }
 
+const SAMPLE_DAILY: readonly ClassQuestView[] = [
+  {
+    id: "parts-2",
+    period: "day",
+    title: "Cả lớp hoàn thành 12 phần luyện tập",
+    icon: "fitness_center",
+    xp: 25,
+    target: 12,
+    progress: 12,
+    done: true,
+    contributors: [
+      { name: "Lan", image: null, amount: 3 },
+      { name: "Minh", image: null, amount: 3 },
+      { name: "An", image: null, amount: 2 },
+      { name: "Hà", image: null, amount: 4 },
+    ],
+    showAmounts: true,
+    youContributed: true,
+    claimed: false,
+    claimable: true,
+  },
+  {
+    id: "practice-60",
+    period: "day",
+    title: "4 bạn trong lớp luyện tập hôm nay",
+    icon: "groups",
+    xp: 25,
+    target: 4,
+    progress: 2,
+    done: false,
+    contributors: [
+      { name: "Lan", image: null, amount: 1 },
+      { name: "Minh", image: null, amount: 1 },
+    ],
+    showAmounts: false,
+    youContributed: true,
+    claimed: false,
+    claimable: false,
+  },
+];
+
+const SAMPLE_WEEKLY: readonly ClassQuestView[] = [
+  {
+    id: "xp-1000",
+    period: "week",
+    title: "Cả lớp kiếm 1000 XP tuần này",
+    icon: "bolt",
+    xp: 80,
+    target: 1000,
+    progress: 1000,
+    done: true,
+    contributors: [
+      { name: "Lan", image: null, amount: 420 },
+      { name: "An", image: null, amount: 310 },
+      { name: "Hà", image: null, amount: 270 },
+    ],
+    showAmounts: true,
+    youContributed: false,
+    claimed: false,
+    claimable: false,
+  },
+];
+
+function markClaimed(quests: readonly ClassQuestView[], id: string): ClassQuestView[] {
+  return quests.map((quest) => (quest.id === id ? { ...quest, claimed: true, claimable: false } : quest));
+}
+
+/** Sample class quests. Claiming only changes this preview. */
+function QuestClaimsPreview({ onClose }: { onClose: () => void }) {
+  const [daily, setDaily] = useState<readonly ClassQuestView[]>(SAMPLE_DAILY);
+  const [weekly, setWeekly] = useState<readonly ClassQuestView[]>(SAMPLE_WEEKLY);
+  const [toast, setToast] = useState<QuestUpdate | null>(null);
+  const claim = (id: string) => {
+    const quest = [...daily, ...weekly].find((entry) => entry.id === id);
+    if (!quest?.claimable) return;
+    setDaily((current) => markClaimed(current, id));
+    setWeekly((current) => markClaimed(current, id));
+    setToast({ xp: quest.xp, completed: [], bonus: false, quests: [] });
+  };
+
+  return (
+    <PreviewChrome onClose={onClose}>
+      {toast ? <EarnedToast update={toast} onDone={() => setToast(null)} /> : null}
+      <div className="h-full overflow-y-auto bg-[#faf8ff] px-4 pt-16 pb-10">
+        <div className="mx-auto w-full max-w-md">
+          <ClassQuestBoardView
+            headerAside={
+              <span className="min-w-0 truncate text-[13px] font-bold text-[#6e6e73]">A1 Sáng · 6 bạn</span>
+            }
+            daily={daily}
+            weekly={weekly}
+            dayCountdown="Còn 6 giờ"
+            weekCountdown="Còn 3 ngày"
+            observing={false}
+            claiming={null}
+            onClaim={claim}
+            onPractice={() => {}}
+          />
+        </div>
+      </div>
+    </PreviewChrome>
+  );
+}
+
 function CloseButton({ onClose }: { onClose: () => void }) {
   return (
     <button
@@ -849,6 +978,147 @@ function CloseButton({ onClose }: { onClose: () => void }) {
     >
       Close
     </button>
+  );
+}
+
+const PATH_VARS = {
+  "--path-accent": "#0284c7",
+  "--path-accent-deep": "#0369a1",
+  "--path-accent-light": "#0ea5e9",
+  "--path-guide": "#1cb0f6",
+  "--path-node": "#3A81C6",
+  "--path-node-lip": "#2C679F",
+} as CSSProperties;
+
+function GuideBubble({ label }: { label: string }) {
+  return (
+    <div className="pointer-events-none absolute top-1 left-1/2 z-20 -translate-x-1/2">
+      <div className="flex flex-col items-center drop-shadow-[0_8px_14px_rgba(28,27,31,0.14)]">
+        <span className="rounded-2xl bg-white px-3 py-1.5 text-[13px] font-extrabold tracking-[0.06em] whitespace-nowrap text-[var(--path-guide)] uppercase">
+          {label}
+        </span>
+        <svg viewBox="0 0 20 9" className="-mt-px h-[9px] w-5" aria-hidden="true">
+          <path d="M0 0 H20 L10 9 Z" fill="#ffffff" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function SamplePathNode({
+  tour,
+  icon,
+  label,
+  guide,
+  locked,
+  shift,
+}: {
+  tour?: string;
+  icon: string;
+  label: string;
+  guide?: string;
+  locked?: boolean;
+  shift: number;
+}) {
+  return (
+    <li
+      data-tour={tour}
+      className={`relative ${guide ? "pt-14" : ""}`}
+      style={{ transform: `translateX(${shift}px)` }}
+    >
+      {guide ? <GuideBubble label={guide} /> : null}
+      <div className="flex max-w-[10.5rem] flex-col items-center text-center">
+        {locked ? (
+          <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
+            <span className="opacity-45 grayscale">
+              <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
+            </span>
+          </span>
+        ) : (
+          <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
+            <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
+          </span>
+        )}
+        <span
+          className={`mt-1.5 text-[12px] font-bold leading-4 ${locked ? "text-[#6e7881]" : "text-[var(--path-accent-deep)]"}`}
+        >
+          {label}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The real tour, pointed at a sample map. Finishing does not stamp
+ * onboarding; it starts the steps again.
+ */
+function OnboardingPreview({ onClose }: { onClose: () => void }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [run, setRun] = useState(0);
+  const restart = () => {
+    scrollerRef.current?.scrollTo({ top: 0 });
+    setRun((value) => value + 1);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-[#fbfbfd]" style={PATH_VARS}>
+      <CloseButton onClose={onClose} />
+      <div ref={scrollerRef} className="h-full overflow-y-auto">
+        <header className="sticky top-0 z-40 border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
+          <div className="mx-auto flex h-14 max-w-4xl items-center px-6">
+            <button
+              type="button"
+              data-tour="course"
+              className="flex max-w-[11rem] items-center gap-0.5 text-[#0066cc]"
+            >
+              <span className="truncate text-[17px] font-medium tracking-tight">A1</span>
+              <MaterialIcon name="expand_more" className="text-[22px]" />
+            </button>
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-md flex-col gap-8 px-6 pt-8 pb-24">
+          <div className="rounded-2xl bg-gradient-to-br from-[var(--path-accent)] to-[var(--path-accent-light)] p-4 text-white shadow-[0_6px_0_0_var(--path-accent-deep)]">
+            <p className="text-[12px] font-bold tracking-wide text-sky-100 uppercase">A1</p>
+            <h2 className="mt-1 text-[22px] font-extrabold leading-7">Luyện nghe</h2>
+          </div>
+          <section className="flex flex-col items-center">
+            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_var(--path-accent)]">
+              <h3 className="text-[20px] font-extrabold leading-7 tracking-tight text-[#131b2e]">A1 - Lektion 1</h3>
+              <p className="text-[13px] font-bold leading-5 text-[var(--path-accent)]">Lektion hiện tại</p>
+            </div>
+            <ul className="relative flex w-full flex-col items-center gap-3 py-3">
+              <SamplePathNode tour="video" icon="smart_display" label="Video" guide="Bắt đầu" shift={-40} />
+              <SamplePathNode tour="study" icon="menu_book" label="Học từ vựng" shift={-72} />
+              <SamplePathNode tour="practice" icon="fitness_center" label="Luyện tập" locked shift={-40} />
+            </ul>
+          </section>
+          <section className="flex flex-col items-center">
+            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
+              <h3 className="text-[20px] font-extrabold leading-7 tracking-tight text-[#6e7881]">A1 - Lektion 2</h3>
+              <p className="text-[13px] font-medium leading-5 text-[#6e7881]">Xong Lektion 1 trước đã</p>
+            </div>
+            <ul className="relative flex w-full flex-col items-center py-3">
+              <li data-tour="jump" className="relative pt-14" style={{ transform: "translateX(0px)" }}>
+                <GuideBubble label="Nhảy tới đây?" />
+                <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
+                  <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
+                    <path
+                      d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
+                      fill="#FFFFFF"
+                      stroke="#FFFFFF"
+                      strokeWidth="5"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
+      <OnboardingTour key={run} onFinish={restart} />
+    </div>
   );
 }
 

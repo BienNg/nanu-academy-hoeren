@@ -160,7 +160,7 @@ function Hero({ board, countdown }: { board: QuestBoardView | null; countdown: s
   );
 }
 
-function EarnedToast({ update, onDone }: { update: QuestUpdate; onDone: () => void }) {
+export function EarnedToast({ update, onDone }: { update: QuestUpdate; onDone: () => void }) {
   useEffect(() => {
     const timer = window.setTimeout(onDone, 3200);
     return () => window.clearTimeout(timer);

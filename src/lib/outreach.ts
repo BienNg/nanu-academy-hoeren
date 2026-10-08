@@ -181,31 +181,48 @@ export function isOutreachReason(value: string): value is OutreachReason {
   return (OUTREACH_REASONS as readonly string[]).includes(value);
 }
 
-/** Name inserted into the greeting. An empty name becomes "em". */
-export function outreachGreetingName(
-  accountName: string | null | undefined,
-  greetingName: string | null | undefined,
-): string {
-  const custom = greetingName?.trim();
-  if (custom) return custom;
-  const account = accountName?.trim();
-  if (account) return account;
-  return "em";
+/** How support addresses the student. Messages use this instead of the name. */
+export const OUTREACH_ADDRESSES = ["em", "anh", "chị", "cô", "chú"] as const;
+
+export type OutreachAddress = (typeof OUTREACH_ADDRESSES)[number];
+
+const ADDRESS_ALIAS: Record<string, OutreachAddress> = {
+  em: "em",
+  anh: "anh",
+  chị: "chị",
+  chi: "chị",
+  cô: "cô",
+  co: "cô",
+  chú: "chú",
+  chu: "chú",
+};
+
+/** Unknown or empty values stay "em". */
+export function outreachAddress(value: string | null | undefined): OutreachAddress {
+  const key = value?.trim().toLowerCase() ?? "";
+  return ADDRESS_ALIAS[key] ?? "em";
 }
 
-export function outreachMessage1(group: OutreachGroup, greetingName: string): string | null {
+/** Swap the address word, including a capital at the start of a sentence. Leaves "xem" alone. */
+export function withOutreachAddress(text: string, address: OutreachAddress): string {
+  if (address === "em") return text;
+  const titled = address.charAt(0).toUpperCase() + address.slice(1);
+  return text
+    .replace(/(?<![\p{L}])Em(?![\p{L}])/gu, titled)
+    .replace(/(?<![\p{L}])em(?![\p{L}])/gu, address);
+}
+
+export function outreachMessage1(group: OutreachGroup, address: OutreachAddress = "em"): string | null {
   if (group === "fresh") return null;
-  const name = greetingName.trim() || "em";
-  if (group === "heavy") {
-    return `Ê ${name} ơi! 😊 Mình thấy dạo này em học trên app NaNu Academy nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`;
-  }
-  if (group === "light") {
-    return `Ê ${name} ơi! 😊 Mình thấy em có thử app NaNu Academy, cảm ơn em nha! Hỏi thiệt nè: em thấy sao? Có chỗ nào khó hiểu, chán, hay không giống em nghĩ không? Cứ nói thẳng với mình nha, mình không giận đâu 😄`;
-  }
-  if (group === "never") {
-    return `Ê ${name} ơi! 😊 Mình thấy em đã đăng ký app NaNu Academy nhưng chưa vô xem thử. Không sao hết nha! Em có bị vướng chỗ nào không, kiểu đăng nhập hay không biết bắt đầu từ đâu? Nói mình biết, mình giúp liền 😊`;
-  }
-  return `Ê ${name} ơi! 😊 Lớp mình đa số đăng ký app rồi, mà em thì chưa. Mình tò mò thôi: em có lý do gì không? Bận, bị vướng chỗ nào, hay thấy chưa cần? Em cứ nói thật nha, giúp tụi mình nhiều lắm 🙏`;
+  const text =
+    group === "heavy"
+      ? `Ê em ơi! 😊 Mình thấy dạo này em học trên app NaNu Academy nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`
+      : group === "light"
+        ? `Ê em ơi! 😊 Mình thấy em có thử app NaNu Academy, cảm ơn em nha! Hỏi thiệt nè: em thấy sao? Có chỗ nào khó hiểu, chán, hay không giống em nghĩ không? Cứ nói thẳng với mình nha, mình không giận đâu 😄`
+        : group === "never"
+          ? `Ê em ơi! 😊 Mình thấy em đã đăng ký app NaNu Academy nhưng chưa vô xem thử. Không sao hết nha! Em có bị vướng chỗ nào không, kiểu đăng nhập hay không biết bắt đầu từ đâu? Nói mình biết, mình giúp liền 😊`
+          : `Ê em ơi! 😊 Lớp mình đa số đăng ký app rồi, mà em thì chưa. Mình tò mò thôi: em có lý do gì không? Bận, bị vướng chỗ nào, hay thấy chưa cần? Em cứ nói thật nha, giúp tụi mình nhiều lắm 🙏`;
+  return withOutreachAddress(text, address);
 }
 
 export type OutreachFollowUp =
@@ -214,40 +231,40 @@ export type OutreachFollowUp =
 
 /** Tin nhắn 2, or the warning for students who have not signed up. */
 /** Quiet-week check-in. One script for anyone who already finished tin 2. */
-export function outreachCheckIn(greetingName: string): string {
-  const name = greetingName.trim() || "em";
-  return `Ê ${name} ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Academy. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`;
+export function outreachCheckIn(address: OutreachAddress = "em"): string {
+  return withOutreachAddress(
+    `Ê em ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Academy. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`,
+    address,
+  );
 }
 
-export function outreachMessage2(group: OutreachGroup): OutreachFollowUp {
-  if (group === "fresh") {
-    return {
-      kind: "warning",
-      text: "Nhóm Mới chưa nhắn. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.",
-    };
-  }
-  if (group === "preaccess") {
-    return {
-      kind: "warning",
-      text: "⚠️ Nhóm này chỉ có 1 tin. KHÔNG gửi link trong tin đầu. Chỉ gửi link khi em ấy trả lời tích cực hoặc nhờ giúp đăng ký.",
-    };
-  }
-  if (group === "heavy") {
-    return {
-      kind: "message",
-      text: "À mà tụi mình vẫn đang làm app tiếp nè, nên em muốn app có thêm gì cứ nói mình nha! Lớn hay nhỏ đều được, tính năng, kiểu bài học, gì giúp em học tiếng Đức dễ hơn là mình thêm 💪",
-    };
-  }
-  if (group === "light") {
-    return {
-      kind: "message",
-      text: "Tụi mình vẫn đang làm app tiếp nè, nên có gì giúp em muốn vô học nhiều hơn là nói mình nha! Nhỏ xíu cũng được. Tụi mình muốn làm đúng cái em cần 💪",
-    };
-  }
-  return {
-    kind: "message",
-    text: "Còn nếu em muốn app có thêm gì thì cũng nói mình nha, tụi mình đang làm tiếp nè 😊",
-  };
+export function outreachMessage2(group: OutreachGroup, address: OutreachAddress = "em"): OutreachFollowUp {
+  const followUp: OutreachFollowUp =
+    group === "fresh"
+      ? {
+          kind: "warning",
+          text: "Nhóm Mới chưa nhắn. Chờ đủ 3 ngày, trừ khi em ấy đã học nhiều.",
+        }
+      : group === "preaccess"
+        ? {
+            kind: "warning",
+            text: "⚠️ Nhóm này chỉ có 1 tin. KHÔNG gửi link trong tin đầu. Chỉ gửi link khi em ấy trả lời tích cực hoặc nhờ giúp đăng ký.",
+          }
+        : group === "heavy"
+          ? {
+              kind: "message",
+              text: "À mà tụi mình vẫn đang làm app tiếp nè, nên em muốn app có thêm gì cứ nói mình nha! Lớn hay nhỏ đều được, tính năng, kiểu bài học, gì giúp em học tiếng Đức dễ hơn là mình thêm 💪",
+            }
+          : group === "light"
+            ? {
+                kind: "message",
+                text: "Tụi mình vẫn đang làm app tiếp nè, nên có gì giúp em muốn vô học nhiều hơn là nói mình nha! Nhỏ xíu cũng được. Tụi mình muốn làm đúng cái em cần 💪",
+              }
+            : {
+                kind: "message",
+                text: "Còn nếu em muốn app có thêm gì thì cũng nói mình nha, tụi mình đang làm tiếp nè 😊",
+              };
+  return { ...followUp, text: withOutreachAddress(followUp.text, address) };
 }
 
 export type OutreachObjectionReply =
@@ -255,47 +272,181 @@ export type OutreachObjectionReply =
   | { kind: "note"; text: string };
 
 /** Ready-made reply, or a note to support when there is no template. */
-export function outreachObjectionReply(reason: OutreachReason): OutreachObjectionReply {
-  if (reason === "no_time") {
-    return {
-      kind: "message",
-      text: "Mình hiểu, ai cũng bận hết. Nhưng chính vì vậy mới có app nè: để em học xen kẽ lúc rảnh, chờ xe hay nghỉ giữa giờ cũng được. Mỗi ngày vài phút thôi cũng đủ giúp em ôn lại bài trên lớp, không bị quên. Em thử vài phút/ngày xem sao nha 😊",
-    };
+export function outreachObjectionReply(
+  reason: OutreachReason,
+  address: OutreachAddress = "em",
+): OutreachObjectionReply {
+  const reply: OutreachObjectionReply =
+    reason === "no_time"
+      ? {
+          kind: "message",
+          text: "Mình hiểu, ai cũng bận hết. Nhưng chính vì vậy mới có app nè: để em học xen kẽ lúc rảnh, chờ xe hay nghỉ giữa giờ cũng được. Mỗi ngày vài phút thôi cũng đủ giúp em ôn lại bài trên lớp, không bị quên. Em thử vài phút/ngày xem sao nha 😊",
+        }
+      : reason === "tech"
+        ? {
+            kind: "message",
+            text: "Ồ vậy hả, cảm ơn em đã nói! Em bị vướng đoạn nào, đăng nhập hay không vào được? Chụp màn hình gửi mình xem nha, mình giúp em liền 💪",
+          }
+        : reason === "no_need"
+          ? {
+              kind: "message",
+              text: "Ok em, cảm ơn em nói thật nha. Em đang ôn bài bằng cách nào rồi? Mình hỏi để xem app có thể bổ sung gì cho em không. App chỉ là phần thêm để luyện nghe và từ vựng nhanh hơn thôi, không bắt buộc đâu 😊",
+            }
+          : reason === "forgot"
+            ? {
+                kind: "message",
+                text: "Không sao nha, ai cũng có lúc quên mà 😄 Em vô thử khoảng 5 phút thôi, xem có hợp không. Có gì khó mình hỗ trợ em nè!",
+              }
+            : reason === "other_method"
+              ? {
+                  kind: "message",
+                  text: "Tốt quá, em có cách học riêng là hay rồi! App không thay thế mấy cách đó đâu, chỉ là thêm một chỗ để em luyện nghe và ôn từ vựng nhanh, đúng với bài đang học trên lớp. Dùng kèm thì càng nhớ lâu hơn 🙌",
+                }
+              : reason === "no_motivation"
+                ? {
+                    kind: "message",
+                    text: "Hiểu em mà, có lúc ai cũng vậy 😅 Hay là em đặt mục tiêu nhỏ thôi: 5 phút/ngày, vài ngày đầu thôi. Nhỏ vậy dễ giữ thói quen hơn nhiều. Em thấy sao?",
+                  }
+                : {
+                    kind: "note",
+                    text: "Chưa có mẫu. Hỏi thêm em ấy rồi ghi vào Feedback chung.",
+                  };
+  return { ...reply, text: withOutreachAddress(reply.text, address) };
+}
+
+export const OUTREACH_QUESTION_CATEGORIES = ["open", "like", "fit", "stop", "signup", "wish", "checkin"] as const;
+
+export type OutreachQuestionCategory = (typeof OUTREACH_QUESTION_CATEGORIES)[number];
+
+export const OUTREACH_QUESTION_CATEGORY_LABEL: Record<OutreachQuestionCategory, string> = {
+  open: "Mở đầu",
+  like: "Em thấy sao",
+  fit: "Nhu cầu thật",
+  stop: "Vì sao chưa học",
+  signup: "Chưa đăng ký",
+  wish: "Muốn thêm gì",
+  checkin: "Hỏi thăm",
+};
+
+export type OutreachCatalogItem = {
+  id: string;
+  category: OutreachQuestionCategory;
+  /** Short line support scans before copying. */
+  label: string;
+  /** Message to copy, or null when support should not send one. */
+  message: string | null;
+  /** Ready reply after the student answers this question. */
+  reply: string | null;
+  reason: OutreachReason | null;
+};
+
+const ASKED_BY: { id: string; category: OutreachQuestionCategory; label: string; groups: readonly OutreachGroup[]; message: string; reason?: OutreachReason }[] = [
+  { id: "like-best", category: "like", label: "Phần em thích nhất", groups: ["heavy", "light"], message: "Em thích phần nào nhất trên app? Nghe, từ vựng, hay chỗ khác?" },
+  { id: "like-hard", category: "like", label: "Chỗ khó hoặc chán", groups: ["heavy", "light"], message: "Có chỗ nào em thấy khó hiểu, chán, hay không giống em nghĩ không?" },
+  { id: "like-return", category: "like", label: "Vì sao em quay lại", groups: ["heavy", "light"], message: "Cái gì khiến em muốn mở app lại?" },
+  { id: "fit-last", category: "fit", label: "Lần học gần nhất", groups: ["heavy", "light", "never", "preaccess"], message: "Lần gần nhất em học tiếng Đức ngoài giờ lớp, em làm gì? Kể mình nghe từng bước nha." },
+  { id: "fit-hard", category: "fit", label: "Chỗ khó nhất khi học", groups: ["heavy", "light", "never", "preaccess"], message: "Chỗ nào trong việc học tiếng Đức đang khó nhất với em?" },
+  { id: "fit-instead", category: "fit", label: "Đang học bằng gì", groups: ["heavy", "light", "never", "preaccess"], message: "Nếu không có app, em đang ôn bài bằng gì?" },
+  { id: "fit-tried", category: "fit", label: "Cách đã thử mà không hợp", groups: ["heavy", "light", "never", "preaccess"], message: "Em đã thử cách nào để học nghe hoặc nhớ từ, mà thấy không hợp?" },
+  { id: "fit-disappointed", category: "fit", label: "Nếu app biến mất", groups: ["heavy", "light"], message: "Nếu mai app không còn, em thấy sao: rất tiếc, hơi tiếc, hay không sao?" },
+  { id: "fit-benefit", category: "fit", label: "App giúp em việc gì", groups: ["heavy", "light"], message: "App đang giúp em được việc gì nhất?" },
+  { id: "fit-who", category: "fit", label: "Ai nữa cần app", groups: ["heavy", "light"], message: "Trong lớp, bạn nào em nghĩ cũng cần app này? Vì sao?" },
+  { id: "fit-recommend", category: "fit", label: "Em sẽ nói gì với bạn", groups: ["heavy", "light"], message: "Nếu giới thiệu app cho bạn cùng lớp, em sẽ nói gì?" },
+  { id: "fit-expect", category: "fit", label: "Em tưởng app sẽ làm gì", groups: ["heavy", "light", "never"], message: "Trước khi mở app, em tưởng nó sẽ giúp em cái gì?" },
+  { id: "fit-heard", category: "fit", label: "Em nghĩ app dùng để làm gì", groups: ["preaccess"], message: "Em nghe nói app NaNu Academy dùng để làm gì?" },
+  { id: "fit-almost", category: "fit", label: "Cái gì suýt khiến em dừng", groups: ["light", "never"], message: "Cái gì suýt khiến em không dùng app?" },
+  { id: "fit-must", category: "fit", label: "Cần gì thì em sẽ dùng", groups: ["light", "never", "preaccess"], message: "App cần có gì, hoặc khác gì, thì em mới muốn dùng mỗi tuần?" },
+  { id: "stop-time", category: "stop", label: "Không có thời gian", groups: ["light", "never"], message: "Dạo này em bận nên chưa vô học hả?", reason: "no_time" },
+  { id: "stop-tech", category: "stop", label: "Lỗi đăng ký / kỹ thuật", groups: ["light", "never"], message: "Em có bị kẹt lúc đăng nhập hay không vào được bài không?", reason: "tech" },
+  { id: "stop-need", category: "stop", label: "Không cần / không hiệu quả", groups: ["light", "never"], message: "Em thấy app chưa giúp được gì cho em hả?", reason: "no_need" },
+  { id: "stop-forgot", category: "stop", label: "Quên / không biết", groups: ["light", "never"], message: "Em có quên app không, hay định vô mà chưa kịp?", reason: "forgot" },
+  { id: "stop-other", category: "stop", label: "Học cách khác", groups: ["light", "never"], message: "Em đang ôn bài bằng cách nào rồi?", reason: "other_method" },
+  { id: "stop-motivation", category: "stop", label: "Thiếu động lực", groups: ["light", "never"], message: "Em có muốn học mà chưa có động lực không?", reason: "no_motivation" },
+  { id: "stop-start", category: "stop", label: "Không biết bắt đầu", groups: ["never"], message: "Em có biết bắt đầu từ bài nào không?" },
+  { id: "signup-time", category: "signup", label: "Không có thời gian", groups: ["preaccess"], message: "Em bận nên chưa đăng ký hả?", reason: "no_time" },
+  { id: "signup-tech", category: "signup", label: "Lỗi đăng ký / kỹ thuật", groups: ["preaccess"], message: "Em có thử đăng ký mà bị lỗi không?", reason: "tech" },
+  { id: "signup-need", category: "signup", label: "Không cần / không hiệu quả", groups: ["preaccess"], message: "Em thấy chưa cần app hả?", reason: "no_need" },
+  { id: "signup-forgot", category: "signup", label: "Quên / không biết", groups: ["preaccess"], message: "Em có nhận được link lớp không, hay quên đăng ký?", reason: "forgot" },
+  { id: "signup-other", category: "signup", label: "Học cách khác", groups: ["preaccess"], message: "Em đang học cách khác nên chưa cần đăng ký hả?", reason: "other_method" },
+  { id: "signup-motivation", category: "signup", label: "Thiếu động lực", groups: ["preaccess"], message: "Em có muốn học mà chưa muốn đăng ký không?", reason: "no_motivation" },
+  { id: "wish-lesson", category: "wish", label: "Kiểu bài em muốn", groups: ["heavy", "light", "never"], message: "Em muốn bài học kiểu nào hơn? Ngắn hơn, đúng bài trên lớp, hay kiểu khác?" },
+  { id: "wish-missing", category: "wish", label: "App còn thiếu gì", groups: ["heavy", "light", "never"], message: "So với cách em đang học, app còn thiếu gì?" },
+];
+
+function catalogReply(reason: OutreachReason | undefined, address: OutreachAddress): string | null {
+  if (!reason) return null;
+  const reply = outreachObjectionReply(reason, address);
+  return reply.kind === "message" ? reply.text : null;
+}
+
+/** Questions for this group, in the order support should scan them. Mới has none. */
+export function outreachCatalog(group: OutreachGroup, address: OutreachAddress = "em"): OutreachCatalogItem[] {
+  if (group === "fresh") return [];
+  const items: OutreachCatalogItem[] = [];
+  const opener = outreachMessage1(group, address);
+  if (opener) {
+    items.push({
+      id: "open",
+      category: "open",
+      label: "Tin nhắn 1",
+      message: opener,
+      reply: null,
+      reason: null,
+    });
   }
-  if (reason === "tech") {
-    return {
-      kind: "message",
-      text: "Ồ vậy hả, cảm ơn em đã nói! Em bị vướng đoạn nào, đăng nhập hay không vào được? Chụp màn hình gửi mình xem nha, mình giúp em liền 💪",
-    };
+  for (const seed of ASKED_BY) {
+    if (seed.category === "wish") continue;
+    if (!seed.groups.includes(group)) continue;
+    items.push({
+      id: seed.id,
+      category: seed.category,
+      label: seed.label,
+      message: withOutreachAddress(seed.message, address),
+      reply: catalogReply(seed.reason, address),
+      reason: seed.reason ?? null,
+    });
   }
-  if (reason === "no_need") {
-    return {
-      kind: "message",
-      text: "Ok em, cảm ơn em nói thật nha. Em đang ôn bài bằng cách nào rồi? Mình hỏi để xem app có thể bổ sung gì cho em không. App chỉ là phần thêm để luyện nghe và từ vựng nhanh hơn thôi, không bắt buộc đâu 😊",
-    };
+  const followUp = outreachMessage2(group, address);
+  if (followUp.kind === "message") {
+    items.push({
+      id: "wish-main",
+      category: "wish",
+      label: "Tin nhắn 2",
+      message: followUp.text,
+      reply: null,
+      reason: null,
+    });
   }
-  if (reason === "forgot") {
-    return {
-      kind: "message",
-      text: "Không sao nha, ai cũng có lúc quên mà 😄 Em vô thử khoảng 5 phút thôi, xem có hợp không. Có gì khó mình hỗ trợ em nè!",
-    };
+  for (const seed of ASKED_BY) {
+    if (seed.category !== "wish" || !seed.groups.includes(group)) continue;
+    items.push({
+      id: seed.id,
+      category: seed.category,
+      label: seed.label,
+      message: withOutreachAddress(seed.message, address),
+      reply: null,
+      reason: null,
+    });
   }
-  if (reason === "other_method") {
-    return {
-      kind: "message",
-      text: "Tốt quá, em có cách học riêng là hay rồi! App không thay thế mấy cách đó đâu, chỉ là thêm một chỗ để em luyện nghe và ôn từ vựng nhanh, đúng với bài đang học trên lớp. Dùng kèm thì càng nhớ lâu hơn 🙌",
-    };
+  if (group === "heavy" || group === "light") {
+    items.push({
+      id: "checkin",
+      category: "checkin",
+      label: "Im một tuần",
+      message: outreachCheckIn(address),
+      reply: null,
+      reason: null,
+    });
   }
-  if (reason === "no_motivation") {
-    return {
-      kind: "message",
-      text: "Hiểu em mà, có lúc ai cũng vậy 😅 Hay là em đặt mục tiêu nhỏ thôi: 5 phút/ngày, vài ngày đầu thôi. Nhỏ vậy dễ giữ thói quen hơn nhiều. Em thấy sao?",
-    };
-  }
-  return {
-    kind: "note",
-    text: "Chưa có mẫu. Hỏi thêm em ấy rồi ghi vào Feedback chung.",
-  };
+  return items;
+}
+
+/** Category to open first for the job support is doing. */
+export function outreachCatalogStart(job: OutreachJobId | null, group: OutreachGroup): OutreachQuestionCategory {
+  if (job === "quiet") return "checkin";
+  if (job === "tin2") return "wish";
+  if (job === "followup") return group === "preaccess" ? "signup" : "stop";
+  return "open";
 }
 
 export function emptyOutreachCase(email: string): OutreachCase {
@@ -632,10 +783,10 @@ export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
 export const OUTREACH_JOB_HINT: Record<OutreachJobId, string> = {
   followup: "Mỗi người một ghi chú. Mở hàng, nhắn, rồi đánh dấu.",
   quiet: "Một lời hỏi thăm. Chỉ người đã nhận tin 2 và im một tuần.",
-  tin2: "Hỏi em muốn app có thêm gì. Làm hết nhóm này trước lời hỏi thăm.",
-  "tin1-heavy": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
-  "tin1-light": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
-  "tin1-never": "Một mẫu cho cả nhóm. Lời chào đổi theo tên.",
+  tin2: "Hỏi học viên muốn app có thêm gì. Làm hết nhóm này trước lời hỏi thăm.",
+  "tin1-heavy": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
+  "tin1-light": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
+  "tin1-never": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
   "tin1-preaccess": "Một mẫu. Không gửi link trong tin này.",
 };
 

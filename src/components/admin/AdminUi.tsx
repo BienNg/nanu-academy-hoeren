@@ -1050,6 +1050,7 @@ export function Drawer({
   header,
   footer,
   panelClassName,
+  bodyClassName,
   children,
 }: {
   open: boolean;
@@ -1061,6 +1062,8 @@ export function Drawer({
   footer?: ReactNode;
   /** Replaces the default `sm:w-[420px]` panel width. */
   panelClassName?: string;
+  /** Replaces the scrolling body. Outreach uses this for two panes. */
+  bodyClassName?: string;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -1110,7 +1113,7 @@ export function Drawer({
             <MaterialIcon name="close" className="text-[20px]" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className={bodyClassName ?? "min-h-0 flex-1 overflow-y-auto overscroll-contain"}>{children}</div>
         {footer ? (
           <div className="flex shrink-0 items-center justify-end gap-space-8 border-t border-admin-hairline bg-admin-canvas px-space-20 py-space-12 pb-safe">
             {footer}
