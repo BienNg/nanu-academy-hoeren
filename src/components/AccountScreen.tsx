@@ -618,23 +618,6 @@ export function AccountScreen({
         className="relative flex w-screen max-w-none flex-1 flex-col bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
         style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
       >
-        <header className="sticky top-0 z-50 w-full bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl border-b border-black/[0.05]">
-          <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                aria-label="Về bài học"
-                className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] active:scale-95"
-              >
-                <MaterialIcon name="arrow_back_ios_new" className="text-[20px]" />
-              </Link>
-              <h1 className="font-headline-sm text-[17px] font-bold tracking-tight text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                Đăng nhập
-              </h1>
-            </div>
-          </div>
-        </header>
-
         <main className="relative flex w-full flex-1 flex-col items-center bg-transparent">
           {/* Background decorative elements */}
           <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-50">
