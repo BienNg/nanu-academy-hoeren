@@ -33,6 +33,11 @@ create table if not exists public.user_progress (
   -- courses. They cannot delete accounts or progress. Full admins are the
   -- hardcoded allowlist and ignore this flag.
   staff boolean not null default false,
+  -- Class teachers. Narrower than staff: they view the classes in
+  -- teacher_classes and learn any course they were granted, with the whole
+  -- trail open. They do not grant access or delete. Not combined with staff.
+  teacher boolean not null default false,
+  teacher_classes text[] not null default '{}',
   -- When the learner finished the first-run map tour. Set once, never cleared.
   -- supabase/onboarding.sql backfills learners who already had XP.
   onboarding_completed_at timestamptz,
@@ -54,6 +59,8 @@ alter table public.user_progress
   add column if not exists sign_in_log jsonb not null default '[]'::jsonb,
   add column if not exists app_uses jsonb not null default '[]'::jsonb,
   add column if not exists staff boolean not null default false,
+  add column if not exists teacher boolean not null default false,
+  add column if not exists teacher_classes text[] not null default '{}',
   add column if not exists onboarding_completed_at timestamptz,
   add column if not exists onboarding_reset_at timestamptz;
 

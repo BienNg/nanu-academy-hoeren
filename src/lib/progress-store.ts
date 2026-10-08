@@ -391,6 +391,10 @@ export type UserProgressListItem = {
    * courses. Full admins are a separate allowlist and ignore this flag.
    */
   staff: boolean;
+  /** Class teacher. Views assigned classes only. Not combined with staff. */
+  teacher: boolean;
+  /** Class labels this teacher may view. Empty when they are not a teacher. */
+  teacherClasses: string[];
   progress: StoredProgress;
 };
 
@@ -411,6 +415,8 @@ type RawProgressRow = {
   sign_in_log?: unknown;
   app_uses?: unknown;
   staff?: unknown;
+  teacher?: unknown;
+  teacher_classes?: unknown;
   practiceDates?: unknown;
   lastPracticeDate?: unknown;
   streakTimeZone?: unknown;
@@ -436,6 +442,22 @@ export function readLevelAccess(value: unknown): string[] {
     slugs.push(slug);
   }
   return slugs;
+}
+
+/** Class labels stored for a teacher. Same cleanup as a student's class. */
+export function readTeacherClasses(value: unknown): string[] {
+  const raw = readLevelAccess(value);
+  const classes: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const name = readClassName(item);
+    if (!name) continue;
+    const key = name.toLocaleLowerCase("vi");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    classes.push(name);
+  }
+  return classes;
 }
 
 /** Admin class label. Empty and non-strings become "no class". */
@@ -484,6 +506,8 @@ function mapProgressRow(row: RawProgressRow): UserProgressListItem {
     signIns: readSignIns(row.sign_in_log, row.sign_ins),
     appUses: readAppUseRecords(row.app_uses),
     staff: row.staff === true,
+    teacher: row.teacher === true,
+    teacherClasses: readTeacherClasses(row.teacher_classes),
     progress: normalizeProgress(progressSource(row)),
   };
 }
@@ -934,6 +958,7 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
 export type AdminListSlice = "account" | "activity" | "levels" | "videos" | "outreach";
 
 const ADMIN_PROFILE_COLUMNS = [
+  "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, staff, teacher, teacher_classes",
   "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, staff",
   "user_id, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name",
   "user_id, updated_at, email, name, last_login_at, deleted_at, level_access, class_name",
@@ -944,6 +969,7 @@ const ADMIN_PROFILE_COLUMNS = [
 ];
 
 const FULL_PROGRESS_COLUMNS = [
+  "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, app_uses, staff, teacher, teacher_classes",
   "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, app_uses, staff",
   "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, sign_in_log, staff",
   "user_id, data, updated_at, email, name, image, last_login_at, deleted_at, level_access, class_name, sign_ins, staff",
@@ -1095,6 +1121,14 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     .eq("user_id", userId);
   if (staffError) {
     console.error("Supabase deleteUserAccount staff", staffError.message);
+  }
+
+  const { error: teacherError } = await supabase
+    .from(TABLE)
+    .update({ teacher: false, teacher_classes: [] })
+    .eq("user_id", userId);
+  if (teacherError) {
+    console.error("Supabase deleteUserAccount teacher", teacherError.message);
   }
 
   const { error: traceError } = await supabase
@@ -1442,17 +1476,41 @@ export async function setUserClass(
 
 /** True when this account may open the dashboard as staff. A missing column means no. */
 export const getUserStaff = cache(async (userId: string): Promise<boolean> => {
-  const supabase = getSupabaseAdmin();
-  if (!supabase || !userId) return false;
+  const flags = await getUserDashboardFlags(userId);
+  return flags.staff;
+});
 
-  const { data, error } = await supabase
+export type DashboardFlags = {
+  staff: boolean;
+  teacher: boolean;
+  /** Class labels, already cleaned. Empty when this person is not a teacher. */
+  classes: string[];
+};
+
+/** Staff and teacher flags for one account. A missing column means that flag is off. */
+export const getUserDashboardFlags = cache(async (userId: string): Promise<DashboardFlags> => {
+  const empty: DashboardFlags = { staff: false, teacher: false, classes: [] };
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return empty;
+
+  const withTeacher = await supabase
     .from(TABLE)
-    .select("staff")
+    .select("staff, teacher, teacher_classes")
     .eq("user_id", userId)
     .maybeSingle();
+  if (!withTeacher.error && withTeacher.data) {
+    const row = withTeacher.data as { staff?: unknown; teacher?: unknown; teacher_classes?: unknown };
+    const teacher = row.teacher === true;
+    return {
+      staff: row.staff === true,
+      teacher,
+      classes: teacher ? readTeacherClasses(row.teacher_classes) : [],
+    };
+  }
 
-  if (error || !data) return false;
-  return (data as { staff?: unknown }).staff === true;
+  const staffOnly = await supabase.from(TABLE).select("staff").eq("user_id", userId).maybeSingle();
+  if (staffOnly.error || !staffOnly.data) return empty;
+  return { ...empty, staff: (staffOnly.data as { staff?: unknown }).staff === true };
 });
 
 /** The admin-set class label for one learner, or null when they have none. */
@@ -1486,6 +1544,35 @@ export async function setUserStaff(userId: string, staff: boolean): Promise<void
   if (error) {
     throw new Error(
       `Could not update staff access (${error.message}). Run supabase/user_progress.sql once to add the staff column.`,
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("This user has not signed in yet.");
+  }
+}
+
+/** Full admins and staff. Grants or removes the teacher role and its classes. */
+export async function setUserTeacher(
+  userId: string,
+  teacher: boolean,
+  classes: readonly string[],
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error("Cloud progress store is not configured");
+  }
+
+  const nextClasses = teacher ? readTeacherClasses(classes) : [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ teacher, teacher_classes: nextClasses })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) {
+    throw new Error(
+      `Could not update teacher access (${error.message}). Run supabase/user_progress.sql once to add the teacher columns.`,
     );
   }
 

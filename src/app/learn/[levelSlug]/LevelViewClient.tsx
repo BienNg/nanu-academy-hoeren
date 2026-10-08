@@ -510,8 +510,8 @@ function JumpNode({ href, label }: { href: string; label: string }) {
  * On an open Lektion, video nodes stay open so a leading run can be skipped.
  * The first node after those videos is open too, and so is every finished
  * node. Every other node stays locked until each Study and Practice node
- * before it is complete. Admins skip that sequence
- * on a real Lektion. Coming soon lessons stay locked for everyone.
+ * before it is complete. Admins and teachers skip that sequence
+ * on a real Lektion they can open. Coming soon lessons stay locked for everyone.
  */
 function trailNodeLocked(
   nodes: readonly TrailNode[],
@@ -1375,7 +1375,7 @@ export default function LevelViewClient({
   level,
   chapters,
   cefrCatalog,
-  isAdmin = false,
+  unlockPath = false,
   courses,
   accessLocked = false,
   loadLessonDictionary,
@@ -1386,7 +1386,8 @@ export default function LevelViewClient({
   level: Level;
   chapters: Chapter[];
   cefrCatalog: readonly AdminCatalogCourse[];
-  isAdmin?: boolean;
+  /** Skip the lesson and node sequence. Admins, and teachers on a granted course. */
+  unlockPath?: boolean;
   courses: { levels: CourseMenuItem[]; interviews: CourseMenuItem[]; living?: CourseMenuItem[] };
   /** The learner has no course grant. The path is visible and every node is locked. */
   accessLocked?: boolean;
@@ -1529,7 +1530,7 @@ export default function LevelViewClient({
         (chapter, index) =>
           chapter.hasAudio !== false &&
           !learnChapterCompleted(progressKeyOf(chapter)) &&
-          (isAdmin || !firstIncompletePrevious(index)),
+          (unlockPath || !firstIncompletePrevious(index)),
       )
     : -1;
 
@@ -1820,7 +1821,7 @@ export default function LevelViewClient({
             const gateChapter = firstIncompletePrevious(index);
             const isLocked =
               !accessLocked &&
-              !isAdmin &&
+              !unlockPath &&
               isAvailable &&
               !isCompleted &&
               Boolean(gateChapter);
@@ -2041,7 +2042,7 @@ export default function LevelViewClient({
                       const bubbleId = `${chapter.slug}:${node.key}`;
                       const locked =
                         accessLocked ||
-                        trailNodeLocked(nodes, nodeIndex, isOpen, isAdmin);
+                        trailNodeLocked(nodes, nodeIndex, isOpen, unlockPath);
                       const showGuide =
                         !continueGuideClaimed &&
                         !locked &&

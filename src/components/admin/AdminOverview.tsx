@@ -1165,7 +1165,7 @@ export function AdminOverview({
   const classOptions = useMemo(() => listAdminClasses(liveRows), [liveRows]);
   const cardUsers = useMemo(() => new Set(activeCardIds), [activeCardIds]);
   const learners = useMemo(
-    () => liveRows.filter((row) => !row.isAdmin && !row.staff),
+    () => liveRows.filter((row) => !row.isAdmin && !row.staff && !row.teacher),
     [liveRows],
   );
   const activeUsers = useMemo(

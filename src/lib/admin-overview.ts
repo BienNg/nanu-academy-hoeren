@@ -55,6 +55,10 @@ export type AdminUserRow = {
   className: string | null;
   /** Limited dashboard access. Not the full admin. */
   staff: boolean;
+  /** Views assigned classes only. Not combined with staff. */
+  teacher: boolean;
+  /** Classes this teacher may open. Empty for everyone else. */
+  teacherClasses: string[];
   /** Google sign-ins, oldest first. Older rows have no device, browser, or location. */
   signIns: SignInRecord[];
   /** Learner app visits, oldest first. */
@@ -134,6 +138,8 @@ export function toAdminUserRow(item: UserProgressListItem): AdminUserRow {
     livingAccess: item.livingAccess ?? [],
     className: item.className,
     staff: item.staff === true,
+    teacher: item.teacher === true,
+    teacherClasses: item.teacherClasses ?? [],
     signIns: item.signIns ?? [],
     appUses: item.appUses ?? [],
     lastSignInAt: item.signIns?.length ? (item.signIns[item.signIns.length - 1]?.at ?? null) : null,
@@ -890,9 +896,25 @@ function isRowActiveInWindow(
   return days.some((day) => completedCardOnDay(row.progress, day));
 }
 
-/** Students only. Admins and staff (teachers) stay out of engagement totals. */
+/** Students only. Admins, staff, and teachers stay out of engagement totals. */
 function learnerRows(rows: readonly AdminUserRow[]): AdminUserRow[] {
-  return rows.filter((row) => !row.isAdmin && !row.staff);
+  return rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher);
+}
+
+/**
+ * A teacher sees students in the classes they were assigned. `null` keeps
+ * every row, for the owner and staff. Students with no class stay hidden.
+ */
+export function rowsForClassScope(
+  rows: readonly AdminUserRow[],
+  classKeys: ReadonlySet<string> | null,
+): AdminUserRow[] {
+  if (!classKeys) return [...rows];
+  return rows.filter((row) => {
+    if (row.isAdmin || row.staff || row.teacher) return false;
+    const key = classKey(row.className);
+    return key.length > 0 && classKeys.has(key);
+  });
 }
 
 /** Totals over the selected window. Days are Asia/Ho_Chi_Minh. */

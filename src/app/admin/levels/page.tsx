@@ -4,12 +4,13 @@ import { AdminLevels } from "@/components/admin/AdminLevels";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   shortBerufLabel,
+  rowsForClassScope,
   toAdminUserRow,
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
 import {
@@ -24,7 +25,8 @@ export const metadata: Metadata = {
 
 export default async function AdminLevelsPage() {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
 
   const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
     slug: beruf.slug,
@@ -46,8 +48,9 @@ export default async function AdminLevelsPage() {
 
   return (
     <AdminLevels
-      rows={items.map((item) =>
-        toAdminUserRow(withSessionIdentity(item, session.user)),
+      rows={rowsForClassScope(
+        items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
+        access.teacherClassKeys,
       )}
       levels={getCefrLevels().map(({ level, slug }) => ({ level, slug }))}
       courseCatalog={buildAdminCourseCatalog(tracks)}

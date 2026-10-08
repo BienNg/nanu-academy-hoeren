@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
@@ -13,7 +14,7 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
@@ -33,7 +34,9 @@ export default async function AdminPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  if (access.role === "teacher") redirect("/admin/students");
+  const session = access.session;
   const range = parseAdminRange((await searchParams).range, OVERVIEW_ADMIN_RANGE);
 
   const berufe = getAvailableBerufe();
@@ -63,7 +66,7 @@ export default async function AdminPage({
   const xpReads = storeConfigured ? await sumAdminRangeXp(fromDay, toDay) : null;
   const partWindow = adminRangeVietnamInterval(range);
   const learnerIds = new Set(
-    rows.filter((row) => !row.isAdmin && !row.staff).map((row) => row.userId),
+    rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher).map((row) => row.userId),
   );
   const partCounts = storeConfigured
     ? await Promise.all([

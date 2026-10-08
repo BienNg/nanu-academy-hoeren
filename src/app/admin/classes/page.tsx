@@ -2,15 +2,18 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminClassStats } from "@/components/admin/AdminClassStats";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
+import { limitAdminClassLeague } from "@/lib/admin-class-league";
 import { readAdminClassLeague } from "@/lib/class-quest-store";
 import {
+  classKey,
+  rowsForClassScope,
   shortBerufLabel,
   toAdminUserRow,
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
@@ -25,7 +28,8 @@ export const metadata: Metadata = {
 
 export default async function AdminClassesPage() {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
 
   const berufe = getAvailableBerufe();
   const tracks: AdminTrackColumn[] = berufe.map((beruf) => ({
@@ -50,20 +54,30 @@ export default async function AdminClassesPage() {
   const classLeague = storeConfigured
     ? await readAdminClassLeague()
     : { ready: false, podiumsReady: false, league: null };
-  const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user)),
+  const rows = rowsForClassScope(
+    items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
+    access.teacherClassKeys,
   );
+  const league = classLeague.league
+    ? limitAdminClassLeague(classLeague.league, access.teacherClassKeys)
+    : null;
 
   return (
     <AdminClassStats
       rows={rows}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
-      classLeague={classLeague}
-      pending={(pending ?? []).map((grant) => ({
-        email: grant.email,
-        className: grant.className,
-      }))}
+      classLeague={{ ...classLeague, league }}
+      pending={(pending ?? [])
+        .filter(
+          (grant) =>
+            !access.teacherClassKeys ||
+            access.teacherClassKeys.has(classKey(grant.className)),
+        )
+        .map((grant) => ({
+          email: grant.email,
+          className: grant.className,
+        }))}
     />
   );
 }

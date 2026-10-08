@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { isAdminUser } from "@/lib/admins";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,8 +26,7 @@ export default async function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await requireAdmin();
-  const role = isAdminUser(session.user) ? "owner" : "staff";
+  const { role } = await requireDashboard();
 
   return (
     <AdminShell role={role} fontClassName={`${inter.variable} ${jetbrainsMono.variable}`}>

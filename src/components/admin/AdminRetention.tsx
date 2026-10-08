@@ -257,7 +257,7 @@ export function AdminRetention({
 }) {
   const board = useMemo(
     () => buildAdminRetentionBoard(
-      rows.filter((row) => !row.isAdmin && !row.staff),
+      rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher),
       range,
     ),
     [rows, range],

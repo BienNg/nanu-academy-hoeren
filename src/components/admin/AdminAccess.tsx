@@ -19,7 +19,7 @@ import {
   setAdminUserLivingAccess,
 } from "@/app/admin/actions";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
-import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import { AdminPageHeader, MaterialIcon, StaffBadge, TeacherBadge } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   Badge,
@@ -1112,6 +1112,7 @@ export function AdminAccess({
                               {row.displayName}
                             </span>
                             {row.staff && !row.isAdmin ? <StaffBadge /> : null}
+                            {row.teacher && !row.isAdmin ? <TeacherBadge /> : null}
                           </span>
                           {row.email && row.email !== row.displayName ? (
                             <span className="truncate text-admin-body-sm text-admin-ink-subtle">{row.email}</span>

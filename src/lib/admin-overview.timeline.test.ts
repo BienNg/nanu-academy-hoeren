@@ -13,6 +13,7 @@ import {
   formatRelativeLastSeen,
   listAdminClasses,
   partsByUser,
+  rowsForClassScope,
   type AdminUserRow,
 } from "./admin-overview.js";
 import { DEFAULT_PROGRESS, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
@@ -361,4 +362,23 @@ test("class tabs list newest created class first", () => {
     ]).map((option) => option.label),
     ["G129", "G128", "G01", "Ausbildung"],
   );
+});
+
+test("a teacher only sees students in the classes they teach", () => {
+  const rows = [
+    row("student", "2026-10-02T02:00:00.000Z"),
+    row("other", "2026-10-02T03:00:00.000Z"),
+    row("none", "2026-10-02T04:00:00.000Z"),
+    row("coach", "2026-10-02T05:00:00.000Z"),
+  ].map((entry, index) => ({
+    ...entry,
+    className: index === 0 ? "G128" : index === 1 ? "G129" : null,
+    teacher: index === 3,
+    teacherClasses: index === 3 ? ["G128"] : [],
+  }));
+  assert.deepEqual(
+    rowsForClassScope(rows, new Set(["g128"])).map((entry) => entry.userId),
+    ["student"],
+  );
+  assert.equal(rowsForClassScope(rows, null).length, 4);
 });

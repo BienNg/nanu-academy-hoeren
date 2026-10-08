@@ -507,7 +507,7 @@ test("a node practice run must hold exactly the clips of its card part", () => {
   assert.equal(nodePracticeRunSize({ ...base, partNumber: 3, runClipIds: ["c2", "c3"] }), null);
 });
 
-test("classes board sums week XP per class and skips admins, staff and workplaces", () => {
+test("classes board sums week XP per class and skips admins, staff, teachers and workplaces", () => {
   const b = { classKey: "lop-b", className: "Lớp B" };
   const board = rankClasses(
     [
@@ -518,6 +518,7 @@ test("classes board sums week XP per class and skips admins, staff and workplace
       person("b2", 50, b),
       person("teacher", 500, { isAdmin: true }),
       person("staff", 300, { ...b, isStaff: true }),
+      person("coach", 800, { ...b, isTeacher: true }),
       person("living", 900, { classKey: `${LIVING_BOARD_CLASS_PREFIX}cafe`, className: "Café" }),
       person("loner", 700, { classKey: "", className: null }),
     ],

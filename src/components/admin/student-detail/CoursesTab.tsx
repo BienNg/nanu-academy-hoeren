@@ -91,6 +91,7 @@ export function CoursesTab({
   lessons,
   granted,
   isAdmin,
+  canGrant = true,
   interviewAccess,
   accessSaving,
   canDelete,
@@ -108,6 +109,8 @@ export function CoursesTab({
   lessons: readonly AdminLessonDetail[];
   granted: (course: AdminCourseDetail) => boolean;
   isAdmin: boolean;
+  /** Teachers can see grants. They cannot change them. */
+  canGrant?: boolean;
   interviewAccess: boolean;
   accessSaving: boolean;
   canDelete: boolean;
@@ -146,7 +149,7 @@ export function CoursesTab({
                     selected={entry.id === course?.id}
                     granted={granted(entry)}
                     showSwitch
-                    switchDisabled={isAdmin || accessSaving}
+                    switchDisabled={isAdmin || !canGrant || accessSaving}
                     onSelect={() => onSelectCourse(entry.id)}
                     onToggle={() => onToggleLevel(entry.id)}
                   />
@@ -163,7 +166,7 @@ export function CoursesTab({
                 action={
                   <AccessSwitch
                     on={isAdmin || interviewAccess}
-                    disabled={isAdmin || accessSaving}
+                    disabled={isAdmin || !canGrant || accessSaving}
                     label={interviewAccess ? "Lock interview practice" : "Unlock interview practice"}
                     onToggle={onToggleInterview}
                   />
@@ -197,7 +200,7 @@ export function CoursesTab({
                     selected={entry.id === course?.id}
                     granted={granted(entry)}
                     showSwitch
-                    switchDisabled={isAdmin || accessSaving}
+                    switchDisabled={isAdmin || !canGrant || accessSaving}
                     onSelect={() => onSelectCourse(entry.id)}
                     onToggle={() => onToggleLiving(entry)}
                   />

@@ -1,6 +1,5 @@
 import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
-import { isAdminUser } from "@/lib/admins";
-import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
+import { requireLevelAccess, requireUser, unlocksLessonPath } from "@/lib/auth-guard";
 import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
 import type { SessionClip } from "@/lib/content";
 import {
@@ -59,7 +58,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       level={level}
       chapters={chaptersWithAudio}
       cefrCatalog={buildCefrProgressCatalog()}
-      isAdmin={isAdminUser(session.user)}
+      unlockPath={await unlocksLessonPath(session.user)}
       courses={courses}
       loadLessonDictionary={loadLessonDictionary}
       liveRound={liveRound}

@@ -61,6 +61,8 @@ type StudySessionProps = {
    * Leave it out for a lesson that is one Study node.
    */
   node?: number | "current";
+  /** Open this node's parts even when earlier nodes are unfinished. */
+  unlockPath?: boolean;
 };
 
 function SessionActions({
@@ -129,6 +131,7 @@ export function StudySession({
   initialViewMode = "cards",
   startReplay = false,
   node,
+  unlockPath = false,
 }: StudySessionProps) {
   const router = useRouter();
   const { data: authSession, status: authStatus } = useSession();
@@ -191,7 +194,7 @@ export function StudySession({
   const studyNode =
     pathNodes?.find((entry) => entry.kind === "study" && entry.node === nodeNumber) ?? null;
   const adminBypass =
-    authStatus === "authenticated" && isAdminUser(authSession?.user ?? {});
+    unlockPath || (authStatus === "authenticated" && isAdminUser(authSession?.user ?? {}));
   const nodeLocked =
     authStatus !== "loading" &&
     !adminBypass &&

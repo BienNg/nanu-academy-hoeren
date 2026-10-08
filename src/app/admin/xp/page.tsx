@@ -6,12 +6,13 @@ import {
   adminRangeVietnamDayKeys,
   parseAdminRange,
   shortBerufLabel,
+  rowsForClassScope,
   toAdminUserRow,
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   isProgressStoreConfigured,
@@ -31,7 +32,8 @@ export default async function AdminXpPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
   const range = parseAdminRange((await searchParams).range);
   const days = adminRangeVietnamDayKeys(range);
   const fromDay = days[days.length - 1] ?? days[0];
@@ -54,9 +56,13 @@ export default async function AdminXpPage({
   }
 
   const items = storeConfigured ? await listCachedUserProgress("account") : [];
-  const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user)),
+  const rows = rowsForClassScope(
+    items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
+    access.teacherClassKeys,
   );
+  const studentIds = access.teacherClassKeys
+    ? new Set(rows.map((row) => row.userId))
+    : null;
 
   const [listening, duels] = storeConfigured
     ? await Promise.all([listAdminListeningXp(fromDay, toDay), listAdminDuelXp(fromDay, toDay)])
@@ -73,9 +79,13 @@ export default async function AdminXpPage({
     <AdminXp
       rows={rows}
       catalog={catalog}
-      listening={listening.rows}
-      duelXp={duels.rows}
-      questClaims={quests.rows}
+      listening={
+        studentIds ? listening.rows.filter((row) => studentIds.has(row.userId)) : listening.rows
+      }
+      duelXp={studentIds ? duels.rows.filter((row) => studentIds.has(row.userId)) : duels.rows}
+      questClaims={
+        studentIds ? quests.rows.filter((row) => studentIds.has(row.userId)) : quests.rows
+      }
       questsReady={quests.ready}
       range={range}
       storeConfigured={storeConfigured}

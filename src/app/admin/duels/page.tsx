@@ -3,11 +3,12 @@ import { connection } from "next/server";
 import { AdminDuels } from "@/components/admin/AdminDuels";
 import {
   parseAdminRange,
+  rowsForClassScope,
   toAdminUserRow,
   withSessionIdentity,
 } from "@/lib/admin-overview";
 import { listCachedAdminDuels, listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import {
   isProgressStoreConfigured,
   touchUserProfile,
@@ -24,7 +25,8 @@ export default async function AdminDuelsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
   const range = parseAdminRange((await searchParams).range);
 
   const storeConfigured = isProgressStoreConfigured();
@@ -36,9 +38,13 @@ export default async function AdminDuelsPage({
   }
 
   const items = storeConfigured ? await listCachedUserProgress("account") : [];
-  const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user)),
+  const rows = rowsForClassScope(
+    items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
+    access.teacherClassKeys,
   );
+  const studentIds = access.teacherClassKeys
+    ? new Set(rows.map((row) => row.userId))
+    : null;
 
   const duels = storeConfigured
     ? await listCachedAdminDuels()
@@ -47,7 +53,13 @@ export default async function AdminDuelsPage({
   return (
     <AdminDuels
       people={rows}
-      duels={duels.rows}
+      duels={
+        studentIds
+          ? duels.rows.filter(
+              (row) => studentIds.has(row.challengerId) || studentIds.has(row.opponentId),
+            )
+          : duels.rows
+      }
       range={range}
       storeConfigured={storeConfigured}
       duelsReady={duels.ready}

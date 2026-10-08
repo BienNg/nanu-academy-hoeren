@@ -357,7 +357,10 @@ export function AdminLevels({
 
   // Admin accounts open every level regardless of grants, so they are teachers
   // here rather than students on the trail.
-  const students = useMemo(() => rows.filter((row) => !row.isAdmin), [rows]);
+  const students = useMemo(
+    () => rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher),
+    [rows],
+  );
   const details = useMemo(
     () =>
       students.map((row) => ({

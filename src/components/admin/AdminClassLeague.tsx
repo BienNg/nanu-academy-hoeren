@@ -105,7 +105,7 @@ export function AdminClassLeague({
         title="Class league"
         subtitle={`The classes board and class quests for this Vietnam week${
           league ? ` (since Monday ${shortDate(league.week)})` : ""
-        }. Same ranking and quests learners see. Admins and staff are not counted.`}
+        }. Same ranking and quests learners see. Admins, staff, and teachers are not counted.`}
       />
 
       {!storeConfigured ? (

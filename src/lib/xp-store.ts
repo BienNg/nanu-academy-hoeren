@@ -1040,6 +1040,7 @@ type BoardProfileRow = {
   deleted_at?: string | null;
   image?: string | null;
   staff?: boolean | null;
+  teacher?: boolean | null;
 };
 
 function boardImage(
@@ -1055,6 +1056,7 @@ function boardImage(
 
 async function listBoardProfiles(supabase: SupabaseClient): Promise<BoardProfileRow[]> {
   const columnSets = [
+    "user_id, name, email, class_name, level_access, deleted_at, image, staff, teacher",
     "user_id, name, email, class_name, level_access, deleted_at, image, staff",
     "user_id, name, email, class_name, level_access, deleted_at, image",
     "user_id, name, email, class_name, deleted_at, image",
@@ -1393,6 +1395,7 @@ async function readXpBoardPeople(
         email: typeof row.email === "string" ? row.email : null,
       }),
       isStaff: row.staff === true,
+      isTeacher: row.teacher === true,
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
       image: boardImage(row, viewerId, viewerImage),
@@ -1427,7 +1430,7 @@ export async function listLearnerClassOptions(): Promise<{ key: string; label: s
   const people = profiles.flatMap((row) => {
     const className = readClassName(row.class_name);
     const classKey = leaderboardClassKey(className);
-    if (!classKey || row.staff === true) return [];
+    if (!classKey || row.staff === true || row.teacher === true) return [];
     if (isAdminUser({ id: row.user_id, email: typeof row.email === "string" ? row.email : null })) return [];
     return [{ classKey, className }];
   });
@@ -1448,7 +1451,9 @@ export async function listClassLearners(
   const profiles = await listBoardProfiles(supabase);
   return profiles.flatMap((row) => {
     const className = readClassName(row.class_name);
-    if (!className || leaderboardClassKey(className) !== classKey || row.staff === true) return [];
+    if (!className || leaderboardClassKey(className) !== classKey || row.staff === true || row.teacher === true) {
+      return [];
+    }
     if (isAdminUser({ id: row.user_id, email: typeof row.email === "string" ? row.email : null })) return [];
     return [
       {
@@ -1488,7 +1493,8 @@ export async function getClassLeaderboard(
   if (!people) return finish(blank);
 
   const viewer = people.find((person) => person.userId === input.viewerId);
-  const viewerClass = viewer && !viewer.isAdmin && !viewer.isStaff ? viewer.classKey || null : null;
+  const viewerClass =
+    viewer && !viewer.isAdmin && !viewer.isStaff && !viewer.isTeacher ? viewer.classKey || null : null;
   const learners = classLearners(people);
   const labels = new Map(leaderboardClassOptions(learners).map((option) => [option.key, option.label]));
   const classes = {
@@ -1572,6 +1578,7 @@ export async function getDuelLeaderboard(input: BoardQuery): Promise<Leaderboard
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,
       }),
+      isTeacher: row.teacher === true,
       xp: total?.xp ?? 0,
       reachedAt: total?.reachedAt ?? null,
       won: total?.won ?? 0,
@@ -1677,6 +1684,7 @@ export async function getBlitzrundeLeaderboard(input: BoardQuery): Promise<Leade
         id: row.user_id,
         email: typeof row.email === "string" ? row.email : null,
       }),
+      isTeacher: row.teacher === true,
       xp: total.points,
       reachedAt: total.lastAt,
       won: total.gold,

@@ -127,6 +127,15 @@ export function StaffBadge() {
   );
 }
 
+export function TeacherBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-admin-badge border border-admin-emerald/30 bg-admin-emerald-wash px-1.5 py-0.5 text-admin-label-sm text-admin-emerald-ink">
+      <MaterialIcon name="school" className="text-[14px]" />
+      Teacher
+    </span>
+  );
+}
+
 export function MaterialIcon({
   name,
   className,
@@ -219,6 +228,24 @@ const ADMIN_NAV: AdminNavGroup[] = [
     ],
   },
 ];
+
+const TEACHER_HREFS = new Set([
+  "/admin/students",
+  "/admin/classes",
+  "/admin/levels",
+  "/admin/activity",
+  "/admin/xp",
+  "/admin/duels",
+  "/admin/class-league",
+]);
+
+function navForRole(role: AdminDashboardRole): AdminNavGroup[] {
+  if (role !== "teacher") return ADMIN_NAV;
+  return ADMIN_NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => TEACHER_HREFS.has(item.href)),
+  })).filter((group) => group.items.length > 0);
+}
 
 function isActiveHref(pathname: string, href: string): boolean {
   if (href === "/admin") return pathname === "/admin";
@@ -342,6 +369,7 @@ function AdminSidebar({
 }) {
   const pathname = usePathname();
   const role = useAdminRole();
+  const nav = navForRole(role);
 
   return (
     <aside
@@ -376,6 +404,10 @@ function AdminSidebar({
             <span className="block truncate text-[11px] font-medium leading-[14px] text-admin-ink-subtle">
               Staff · cannot delete
             </span>
+          ) : role === "teacher" ? (
+            <span className="block truncate text-[11px] font-medium leading-[14px] text-admin-ink-subtle">
+              Teacher · your classes
+            </span>
           ) : null}
         </span>
         <button
@@ -396,7 +428,7 @@ function AdminSidebar({
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-space-8 py-space-12">
-        {ADMIN_NAV.map((group) => (
+        {nav.map((group) => (
           <div key={group.id} className="mb-space-12 last:mb-0">
             {group.label ? (
               <p

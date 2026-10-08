@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { isAdminUser } from "@/lib/admins";
+import { isAdminUser, type AdminDashboardRole } from "@/lib/admins";
+import { classKey } from "@/lib/admin-overview";
 import {
+  getUserDashboardFlags,
   getUserInterviewAccess,
   getUserLevelAccess,
   getUserLivingAccess,
-  getUserStaff,
   resolveAccountAccess,
 } from "@/lib/progress-store";
 
@@ -108,13 +109,55 @@ export async function requireLivingAccess(
   }
 }
 
+export type DashboardAccess = {
+  session: Awaited<ReturnType<typeof requireUser>>;
+  role: AdminDashboardRole;
+  /** Null for the owner and staff. A teacher's assigned class keys otherwise. */
+  teacherClassKeys: ReadonlySet<string> | null;
+};
+
 /**
- * Full admins and staff. Everyone else gets a 404 — no admin UI or data.
+ * Owner, staff, or teacher. Teachers are limited to `teacherClassKeys`.
+ * Everyone else gets a 404.
+ */
+export async function requireDashboard(): Promise<DashboardAccess> {
+  const session = await requireUser();
+  if (isAdminUser(session.user)) {
+    return { session, role: "owner", teacherClassKeys: null };
+  }
+  const flags = session.user.id
+    ? await getUserDashboardFlags(session.user.id)
+    : { staff: false, teacher: false, classes: [] };
+  if (flags.staff) return { session, role: "staff", teacherClassKeys: null };
+  if (flags.teacher) {
+    return {
+      session,
+      role: "teacher",
+      teacherClassKeys: new Set(flags.classes.map((name) => classKey(name)).filter((key) => key.length > 0)),
+    };
+  }
+  notFound();
+}
+
+/**
+ * Full admins and staff. Teachers and everyone else get a 404.
  * Staff can read stats and grant access; delete stays with the full admin.
  */
 export async function requireAdmin() {
-  const session = await requireUser();
-  if (isAdminUser(session.user)) return session;
-  if (session.user.id && (await getUserStaff(session.user.id))) return session;
-  notFound();
+  const access = await requireDashboard();
+  if (access.role === "teacher") notFound();
+  return access.session;
+}
+
+/**
+ * Admins open every trail. A teacher opens every playable node in a course
+ * they were granted. The page still checks that grant first.
+ */
+export async function unlocksLessonPath(user: {
+  id?: string | null;
+  email?: string | null;
+}): Promise<boolean> {
+  if (isAdminUser(user)) return true;
+  if (!user.id) return false;
+  return (await getUserDashboardFlags(user.id)).teacher;
 }

@@ -1,4 +1,4 @@
-import { requireLevelAccess, requireUser } from "@/lib/auth-guard";
+import { requireLevelAccess, requireUser, unlocksLessonPath } from "@/lib/auth-guard";
 import {
   getCefrLevel,
   getChapterClips,
@@ -49,6 +49,7 @@ export default async function LearnPracticePage({
       }
       hasNextChapter={Boolean(nextChapter)}
       node={parseNodeParam(query.node)}
+      unlockPath={await unlocksLessonPath(session.user)}
     />
   );
 }

@@ -68,6 +68,8 @@ type LearnSessionProps = {
    * one part per visit. Leave it out for a lesson that is one Practice node.
    */
   node?: number | "current";
+  /** Open this node's parts even when earlier nodes are unfinished. */
+  unlockPath?: boolean;
 };
 
 const LISTENING_HEARTS = 3;
@@ -103,6 +105,7 @@ export function LearnSession({
   course,
   clips,
   node,
+  unlockPath = false,
 }: LearnSessionProps) {
   const router = useRouter();
   const { data: authSession, status } = useSession();
@@ -172,7 +175,7 @@ export function LearnSession({
   const runOrder = learnRunClipOrderFor(chapterProgressKey);
   const chapterMarkedDone = learnChapterCompleted(chapterProgressKey);
   const adminBypass =
-    status === "authenticated" && isAdminUser(authSession?.user ?? {});
+    unlockPath || (status === "authenticated" && isAdminUser(authSession?.user ?? {}));
   const nodeMode = node !== undefined;
   const reviewedIds = reviewedLearnClipIdsFor(chapterProgressKey);
   const studyFinished = learnStudyCompleted(chapterProgressKey);

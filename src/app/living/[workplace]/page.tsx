@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import LevelViewClient from "@/app/learn/[levelSlug]/LevelViewClient";
 import { buildLivingProgressCatalog } from "@/lib/admin-catalog";
-import { isAdminUser } from "@/lib/admins";
-import { requireLivingAccess, requireUser } from "@/lib/auth-guard";
+import { requireLivingAccess, requireUser, unlocksLessonPath } from "@/lib/auth-guard";
 import type { SessionClip } from "@/lib/content";
 import { countScriptWords, loadLearnerCourseMenu } from "@/lib/levels";
 import { getLivingSceneClips, getLivingScenes, getLivingWorkplace } from "@/lib/living";
@@ -67,7 +66,7 @@ export default async function LivingWorkplacePage({ params }: LivingWorkplacePag
       level={{ level: workplace.label, slug: livingAccessSlug(workplace.slug) }}
       chapters={chapters}
       cefrCatalog={buildLivingProgressCatalog(workplace.slug)}
-      isAdmin={isAdminUser(session.user)}
+      unlockPath={await unlocksLessonPath(session.user)}
       courses={courses}
       loadLessonDictionary={loadLessonDictionary}
       path={{

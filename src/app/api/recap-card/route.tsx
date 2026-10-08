@@ -4,7 +4,8 @@ import { ImageResponse } from "next/og";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { isAdminUser } from "@/lib/admins";
-import { getUserStaff, resolveAccountAccess } from "@/lib/progress-store";
+import { classKey } from "@/lib/admin-overview";
+import { getUserClassName, getUserDashboardFlags, resolveAccountAccess } from "@/lib/progress-store";
 import { recapFileName, resolveRecapWeek } from "@/lib/weekly-recap";
 import { loadWeeklyRecapCard } from "@/lib/weekly-recap-store";
 import { CARD_HEIGHT, CARD_WIDTH, RecapCard } from "./card";
@@ -71,7 +72,13 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const targetId = params.get("user") || viewerId;
   if (targetId !== viewerId) {
-    const canSeeOthers = isAdminUser(session.user) || (await getUserStaff(viewerId));
+    const flags = await getUserDashboardFlags(viewerId);
+    const studentClass = classKey(await getUserClassName(targetId));
+    const teachesTarget =
+      flags.teacher &&
+      studentClass.length > 0 &&
+      flags.classes.some((name) => classKey(name) === studentClass);
+    const canSeeOthers = isAdminUser(session.user) || flags.staff || teachesTarget;
     if (!canSeeOthers) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

@@ -13,7 +13,7 @@ import {
   setAdminUserLivingAccess,
 } from "@/app/admin/actions";
 import { workplaceFromAccessSlug } from "@/lib/living-content";
-import { MaterialIcon, StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
+import { MaterialIcon, StaffBadge, TeacherBadge, useAdminRole } from "@/components/admin/AdminShell";
 import { Badge, Button, Dialog, buttonClass } from "@/components/admin/AdminUi";
 import { AccountTab } from "@/components/admin/student-detail/AccountTab";
 import { ActivityTab } from "@/components/admin/student-detail/ActivityTab";
@@ -132,7 +132,9 @@ export function StudentDetailModal({
   preloaded?: StudentDetailPayload;
 }) {
   const router = useRouter();
-  const canDelete = useAdminRole() === "owner";
+  const role = useAdminRole();
+  const canDelete = role === "owner";
+  const canGrant = role !== "teacher";
   const [progressOverride, setProgressOverride] = useState<{
     userId: string;
     progress: StoredProgress;
@@ -448,6 +450,7 @@ export function StudentDetailModal({
                     <p className="text-admin-label-sm uppercase text-admin-cobalt">Student</p>
                     {row.isAdmin ? <Badge tone="cobalt">Admin</Badge> : null}
                     {row.staff && !row.isAdmin ? <StaffBadge /> : null}
+                    {row.teacher && !row.isAdmin ? <TeacherBadge /> : null}
                     {row.className ? (
                       <Badge tone="cobalt">
                         <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
@@ -549,6 +552,7 @@ export function StudentDetailModal({
                     lessons={lessons}
                     granted={courseGranted}
                     isAdmin={row.isAdmin}
+                    canGrant={canGrant}
                     interviewAccess={interviewAccess}
                     accessSaving={accessSaving}
                     canDelete={canDelete}

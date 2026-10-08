@@ -7,12 +7,13 @@ import {
   OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
   shortBerufLabel,
+  rowsForClassScope,
   toAdminUserRow,
   withSessionIdentity,
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { isProgressStoreConfigured, touchUserProfile } from "@/lib/progress-store";
 
@@ -27,7 +28,8 @@ export default async function AdminActivityPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
   const range = parseAdminRange((await searchParams).range, OVERVIEW_ADMIN_RANGE);
 
   const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
@@ -47,8 +49,9 @@ export default async function AdminActivityPage({
   }
 
   const items = storeConfigured ? await listCachedUserProgress("activity") : [];
-  const rows = items.map((item) =>
-    toAdminUserRow(withSessionIdentity(item, session.user)),
+  const rows = rowsForClassScope(
+    items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
+    access.teacherClassKeys,
   );
   const parts = await loadActivityWindow(range);
 

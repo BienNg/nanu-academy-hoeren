@@ -19,6 +19,7 @@ import { getLivingWorkplaces } from "@/lib/living";
 import { livingAccessSlug, workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   CLASS_NAME_MAX_LENGTH,
+  classKey,
   normalizeClassName,
   shortBerufLabel,
   type AdminTrackColumn,
@@ -57,6 +58,8 @@ import {
   getAdminStudentDetail,
   getCloudProgress,
   getStoredUserEmail,
+  getUserClassName,
+  getUserDashboardFlags,
   getUserLevelAccess,
   getUserStaff,
   hasInterviewAccess,
@@ -70,6 +73,7 @@ import {
   setUserClass,
   setUserLevelAccess,
   setUserStaff,
+  setUserTeacher,
   upsertPendingLevelGrant,
   withoutReservedAccess,
   type PendingLevelGrant,
@@ -90,12 +94,25 @@ function revalidateAdmin(): void {
   updateTag(ADMIN_LISTENING_RUNS_TAG);
 }
 
-/** Full admins and staff. Deletes stay on `isAdminUser` alone. */
+/** Full admins and staff. Deletes stay on `isAdminUser` alone. Teachers cannot grant or delete. */
 async function requireDashboardAdmin(): Promise<boolean> {
   const session = await auth();
   if (!session?.user?.id) return false;
   if (isAdminUser(session.user)) return true;
   return getUserStaff(session.user.id);
+}
+
+/** Owner, staff, or a teacher reading a student in one of their classes. */
+async function requireStudentRead(userId: string): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.id) return false;
+  if (isAdminUser(session.user)) return true;
+  const flags = await getUserDashboardFlags(session.user.id);
+  if (flags.staff) return true;
+  if (!flags.teacher) return false;
+  const className = await getUserClassName(userId);
+  const key = classKey(className);
+  return key.length > 0 && flags.classes.some((name) => classKey(name) === key);
 }
 
 function adminCourseCatalog() {
@@ -201,7 +218,7 @@ export async function clearAdminStudentSignIns(
 export async function loadAdminStudentOnboarding(
   userId: string,
 ): Promise<({ ok: true } & OnboardingStatus) | { ok: false; error: string }> {
-  if (!(await requireDashboardAdmin())) {
+  if (!(await requireStudentRead(userId.trim()))) {
     return { ok: false, error: "Unauthorized" };
   }
   const id = userId.trim();
@@ -265,7 +282,8 @@ export async function loadAdminStudentDetail(userId: string): Promise<
     }
   | { ok: false; error: string }
 > {
-  if (!(await requireDashboardAdmin())) {
+  const idForGate = userId.trim();
+  if (!(await requireStudentRead(idForGate))) {
     return { ok: false, error: "Unauthorized" };
   }
   const id = userId.trim();
@@ -281,7 +299,8 @@ export async function loadAdminStudentDetail(userId: string): Promise<
 export async function loadAdminStudentXp(
   userId: string,
 ): Promise<{ ok: true; events: AdminXpEvent[] } | { ok: false; error: string }> {
-  if (!(await requireDashboardAdmin())) {
+  const idForGate = userId.trim();
+  if (!(await requireStudentRead(idForGate))) {
     return { ok: false, error: "Unauthorized" };
   }
   const id = userId.trim();
@@ -748,6 +767,9 @@ export async function setAdminUserStaff(
   }
 
   const next = staff === true;
+  if (next && (await getUserDashboardFlags(id)).teacher) {
+    return { ok: false, error: "Remove the teacher role before making this account staff." };
+  }
   try {
     await setUserStaff(id, next);
   } catch (error) {
@@ -758,4 +780,60 @@ export async function setAdminUserStaff(
   revalidateAdmin();
   revalidatePath("/account");
   return { ok: true, staff: next };
+}
+
+export async function setAdminUserTeacher(
+  userId: string,
+  teacher: boolean,
+  classes: readonly string[],
+): Promise<{ ok: true; teacher: boolean; classes: string[] } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id || !(await requireDashboardAdmin())) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  const id = userId.trim();
+  if (!id) return { ok: false, error: "Missing user id" };
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const email = await getStoredUserEmail(id);
+  if (isAdminUser({ id, email })) {
+    return { ok: false, error: "This account already has full admin access." };
+  }
+
+  const next = teacher === true;
+  if (next && (await getUserDashboardFlags(id)).staff) {
+    return { ok: false, error: "Remove staff access before making this account a teacher." };
+  }
+
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const value of classes) {
+    if (typeof value !== "string") continue;
+    const normalized = normalizeClassName(value);
+    if (!normalized) continue;
+    if (normalized.length > CLASS_NAME_MAX_LENGTH) {
+      return { ok: false, error: "Class names can be at most 64 characters." };
+    }
+    const key = classKey(normalized);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(normalized);
+  }
+  if (next && names.length === 0) {
+    return { ok: false, error: "Choose at least one class." };
+  }
+
+  try {
+    await setUserTeacher(id, next, names);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update teacher access";
+    return { ok: false, error: message };
+  }
+
+  revalidateAdmin();
+  revalidatePath("/account");
+  return { ok: true, teacher: next, classes: next ? names : [] };
 }

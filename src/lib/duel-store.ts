@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
+import { getUserDashboardFlags } from "@/lib/progress-store";
 import { seedToRandom } from "@/lib/blitzrunde";
 import { scoreAttempt } from "@/lib/scoring";
 import { checkOrder, isListeningOrderEligible } from "@/lib/sentence-order";
@@ -632,6 +633,10 @@ async function loadClassContext(user: {
   };
   const supabase = getSupabaseAdmin();
   if (!supabase) return empty;
+
+  if ((await getUserDashboardFlags(user.id)).teacher) {
+    return { ...empty, ready: true, block: "admin", viewerIsAdmin: true };
+  }
 
   const profiles = await listProfiles(supabase);
   if (isQueryError(profiles)) {

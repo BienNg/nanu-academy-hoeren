@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { LearnSession } from "@/components/session/LearnSession";
-import { requireLivingAccess, requireUser } from "@/lib/auth-guard";
+import { requireLivingAccess, requireUser, unlocksLessonPath } from "@/lib/auth-guard";
 import { getLivingSceneClips, getLivingScenes, getLivingWorkplace } from "@/lib/living";
 import { livingSessionCourse } from "@/lib/session-course";
 
@@ -32,6 +32,7 @@ export default async function LivingPracticePage({ params }: LivingPracticePageP
           : `/living/${workplace.slug}`
       }
       hasNextChapter={Boolean(nextScene)}
+      unlockPath={await unlocksLessonPath(session.user)}
     />
   );
 }

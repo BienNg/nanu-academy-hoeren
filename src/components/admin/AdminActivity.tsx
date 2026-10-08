@@ -1196,7 +1196,7 @@ export function AdminActivity({
     ? (rows.find((row) => row.userId === detailUserId) ?? null)
     : null;
   const learners = useMemo(
-    () => rows.filter((row) => !row.isAdmin && !row.staff),
+    () => rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher),
     [rows],
   );
   const rowsById = useMemo(
@@ -1230,7 +1230,7 @@ export function AdminActivity({
     let studyParts = 0;
     let practiceParts = 0;
     for (const row of filteredRows) {
-      if (row.isAdmin || row.staff) continue;
+      if (row.isAdmin || row.staff || row.teacher) continue;
       studyParts += studyPartsByUser[row.userId] ?? 0;
       practiceParts += practicePartsByUser[row.userId] ?? 0;
     }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { StudySession } from "@/components/session/StudySession";
-import { requireLivingAccess, requireUser } from "@/lib/auth-guard";
+import { requireLivingAccess, requireUser, unlocksLessonPath } from "@/lib/auth-guard";
 import { getLivingScene, getLivingSceneClips, getLivingWorkplace } from "@/lib/living";
 import { livingSessionCourse } from "@/lib/session-course";
 
@@ -29,6 +29,7 @@ export default async function LivingStudyPage({ params, searchParams }: LivingSt
       clips={getLivingSceneClips(workplace.slug, scene.id)}
       initialViewMode={requestedView === "list" ? "list" : "cards"}
       startReplay={requestedReplay === "1"}
+      unlockPath={await unlocksLessonPath(session.user)}
     />
   );
 }

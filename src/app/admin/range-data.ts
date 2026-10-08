@@ -8,6 +8,7 @@ import {
   bucketPartStamps,
   parseAdminRange,
   partsByUser,
+  rowsForClassScope,
   toAdminUserRow,
   withSessionIdentity,
   DEFAULT_ADMIN_RANGE,
@@ -16,7 +17,7 @@ import {
   type AdminRange,
 } from "@/lib/admin-overview";
 import type { AdminQuestClaimRow } from "@/lib/admin-quests";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireDashboard } from "@/lib/auth-guard";
 import {
   countAdminPracticeParts,
   isProgressStoreConfigured,
@@ -59,16 +60,25 @@ export type XpWindow = {
   questsReady: boolean;
 };
 
-function learnerIds(rows: readonly { userId: string; isAdmin: boolean; staff: boolean }[]) {
-  return new Set(rows.filter((row) => !row.isAdmin && !row.staff).map((row) => row.userId));
+function learnerIds(
+  rows: readonly { userId: string; isAdmin: boolean; staff: boolean; teacher: boolean }[],
+) {
+  return new Set(
+    rows.filter((row) => !row.isAdmin && !row.staff && !row.teacher).map((row) => row.userId),
+  );
 }
 
 async function activityLearnerIds() {
-  const session = await requireAdmin();
-  if (!isProgressStoreConfigured()) return { configured: false as const, ids: new Set<string>() };
+  const access = await requireDashboard();
+  if (!isProgressStoreConfigured()) {
+    return { configured: false as const, ids: new Set<string>(), teacher: false };
+  }
   const items = await listCachedUserProgress("activity");
-  const rows = items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user)));
-  return { configured: true as const, ids: learnerIds(rows) };
+  const rows = rowsForClassScope(
+    items.map((item) => toAdminUserRow(withSessionIdentity(item, access.session.user))),
+    access.teacherClassKeys,
+  );
+  return { configured: true as const, ids: learnerIds(rows), teacher: access.role === "teacher" };
 }
 
 function cardIds(
@@ -161,7 +171,7 @@ export async function loadActivityWindow(range: AdminRange): Promise<ActivityWin
 
 /** Listening XP, duel XP, and quest claims for the XP tab. */
 export async function loadXpWindow(range: AdminRange): Promise<XpWindow> {
-  await requireAdmin();
+  const learners = await activityLearnerIds();
   const parsed = parseAdminRange(range, DEFAULT_ADMIN_RANGE);
   const days = adminRangeVietnamDayKeys(parsed);
   const fromDay = days[days.length - 1] ?? days[0];
@@ -176,10 +186,11 @@ export async function loadXpWindow(range: AdminRange): Promise<XpWindow> {
     listAdminQuestClaims(fromDay, toDay),
   ]);
 
+  const allowed = learners.configured && learners.teacher ? learners.ids : null;
   return {
-    listening: listening.rows,
-    duelXp: duels.rows,
-    questClaims: quests.rows,
+    listening: allowed ? listening.rows.filter((row) => allowed.has(row.userId)) : listening.rows,
+    duelXp: allowed ? duels.rows.filter((row) => allowed.has(row.userId)) : duels.rows,
+    questClaims: allowed ? quests.rows.filter((row) => allowed.has(row.userId)) : quests.rows,
     xpReady: listening.ready,
     questsReady: quests.ready,
   };

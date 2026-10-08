@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { loadAdminStudentDetail, loadAdminStudentXp } from "@/app/admin/actions";
-import { MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import { MaterialIcon, StaffBadge, TeacherBadge } from "@/components/admin/AdminShell";
 import { Badge, Button, Drawer, buttonClass, formatCount } from "@/components/admin/AdminUi";
 import {
   StudentDetailModal,
@@ -396,6 +396,7 @@ export function StudentDetail({
         <div className="flex flex-wrap items-center gap-space-8">
           {row.isAdmin ? <Badge tone="cobalt">Admin</Badge> : null}
           {row.staff && !row.isAdmin ? <StaffBadge /> : null}
+          {row.teacher && !row.isAdmin ? <TeacherBadge /> : null}
           <Badge tone={row.className ? "cobalt" : "neutral"}>
             <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
             {row.className ?? "No class"}

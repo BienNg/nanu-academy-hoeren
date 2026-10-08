@@ -52,6 +52,8 @@ export type BoardPerson = {
   isAdmin: boolean;
   /** Staff accounts. Left out of the class ranking. */
   isStaff?: boolean;
+  /** Teachers. Left out of class rankings, the same as staff. */
+  isTeacher?: boolean;
   xp: number;
   reachedAt: string | null;
   won?: number;
@@ -582,9 +584,13 @@ export function assembleLeaderboard(input: {
   const contenders =
     input.scope === "class"
       ? input.people.filter(
-          (person) => !person.isAdmin && classKey.length > 0 && person.classKey === classKey,
+          (person) =>
+            !person.isAdmin &&
+            !person.isTeacher &&
+            classKey.length > 0 &&
+            person.classKey === classKey,
         )
-      : input.people.filter((person) => !person.isAdmin && person.xp > 0);
+      : input.people.filter((person) => !person.isAdmin && !person.isTeacher && person.xp > 0);
 
   const ranked = [...contenders].sort((left, right) => comparePeople(left, right, board)).map((person, index) => ({
     person,
@@ -663,7 +669,7 @@ export type ClassPodiumPlace = {
 export function classPodiums(people: readonly BoardPerson[], size = 3): ClassPodiumPlace[] {
   const byClass = new Map<string, BoardPerson[]>();
   for (const person of people) {
-    if (person.isAdmin || !person.classKey || person.xp <= 0) continue;
+    if (person.isAdmin || person.isTeacher || !person.classKey || person.xp <= 0) continue;
     const list = byClass.get(person.classKey) ?? [];
     list.push(person);
     byClass.set(person.classKey, list);
@@ -684,6 +690,7 @@ export function classLearners(people: readonly BoardPerson[]): BoardPerson[] {
     (person) =>
       !person.isAdmin &&
       !person.isStaff &&
+      !person.isTeacher &&
       person.classKey.length > 0 &&
       !person.classKey.startsWith(LIVING_BOARD_CLASS_PREFIX),
   );

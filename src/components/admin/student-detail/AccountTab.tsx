@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { loadAdminStudentOnboarding, resetAdminStudentOnboarding } from "@/app/admin/actions";
-import { MaterialIcon } from "@/components/admin/AdminShell";
+import { MaterialIcon, useAdminRole } from "@/components/admin/AdminShell";
 import { Button } from "@/components/admin/AdminUi";
 import { ColumnHeader, Panel, formatAbsoluteTime } from "@/components/admin/student-detail/shared";
 import type { AdminUserRow } from "@/lib/admin-overview";
@@ -66,6 +66,7 @@ type OnboardingView =
 /** Whether the learner finished the first-run map tour, with a reset that shows it again. */
 function OnboardingSection({ userId }: { userId: string }) {
   const [view, setView] = useState<OnboardingView>({ state: "loading" });
+  const canReset = useAdminRole() !== "teacher";
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
@@ -112,9 +113,11 @@ function OnboardingSection({ userId }: { userId: string }) {
             className={`text-[18px] ${completed ? "text-admin-cobalt" : "text-admin-ink-faint"}`}
           />
           <p className="min-w-0 flex-1 text-admin-body-sm text-admin-ink">{status}</p>
-          <Button icon="restart_alt" disabled={!completed || resetting} onClick={reset}>
-            {resetting ? "Resetting…" : "Reset onboarding"}
-          </Button>
+          {canReset ? (
+            <Button icon="restart_alt" disabled={!completed || resetting} onClick={reset}>
+              {resetting ? "Resetting…" : "Reset onboarding"}
+            </Button>
+          ) : null}
         </div>
         {resetError ? (
           <p

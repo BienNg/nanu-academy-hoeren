@@ -14,7 +14,15 @@ import {
   type ClassActivity,
   type ClassQuestDefinition,
 } from "./class-quests";
-import { classLearners, classStandings, dayKey, leaderboardClassOptions, weekKey, type BoardPerson } from "./xp";
+import {
+  classLearners,
+  classStandings,
+  dayKey,
+  leaderboardClassKey,
+  leaderboardClassOptions,
+  weekKey,
+  type BoardPerson,
+} from "./xp";
 
 export type AdminClassQuestStatus = {
   id: string;
@@ -218,6 +226,42 @@ export function buildAdminClassLeague(input: {
       weeklyDone: classes.filter((row) => row.weekly.done).length,
       claims: claims.length,
       claimXp: claims.reduce((sum, claim) => sum + claim.xp, 0),
+    },
+  };
+}
+
+/** Keep the classes a teacher is assigned to, and recount the page totals. */
+export function limitAdminClassLeague(
+  league: AdminClassLeague,
+  classKeys: ReadonlySet<string> | null,
+): AdminClassLeague {
+  if (!classKeys) return league;
+  const classes = league.classes.filter((row) => classKeys.has(row.classKey));
+  const podiums = league.podiums
+    .map((week) => ({
+      ...week,
+      places: week.places.filter((place) => classKeys.has(leaderboardClassKey(place.name))),
+    }))
+    .filter((week) => week.places.length > 0);
+  const dailyTotal = classes.reduce(
+    (sum, row) => sum + row.days.reduce((total, day) => total + day.total, 0),
+    0,
+  );
+  return {
+    ...league,
+    classes,
+    podiums,
+    totals: {
+      classes: classes.length,
+      rankedClasses: classes.filter((row) => row.rank != null).length,
+      dailyDone: classes.reduce(
+        (sum, row) => sum + row.days.reduce((total, day) => total + day.done, 0),
+        0,
+      ),
+      dailyTotal,
+      weeklyDone: classes.filter((row) => row.weekly.done).length,
+      claims: classes.reduce((sum, row) => sum + row.claims, 0),
+      claimXp: classes.reduce((sum, row) => sum + row.claimXp, 0),
     },
   };
 }

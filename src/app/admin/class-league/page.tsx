@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminClassLeague } from "@/components/admin/AdminClassLeague";
-import { requireAdmin } from "@/lib/auth-guard";
+import { limitAdminClassLeague } from "@/lib/admin-class-league";
+import { requireDashboard } from "@/lib/auth-guard";
 import { readAdminClassLeague } from "@/lib/class-quest-store";
 import { isProgressStoreConfigured, touchUserProfile } from "@/lib/progress-store";
 
@@ -12,7 +13,8 @@ export const metadata: Metadata = {
 
 export default async function AdminClassLeaguePage() {
   await connection();
-  const session = await requireAdmin();
+  const access = await requireDashboard();
+  const session = access.session;
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -28,7 +30,7 @@ export default async function AdminClassLeaguePage() {
 
   return (
     <AdminClassLeague
-      league={data.league}
+      league={data.league ? limitAdminClassLeague(data.league, access.teacherClassKeys) : null}
       storeConfigured={storeConfigured}
       ready={data.ready}
       podiumsReady={data.podiumsReady}

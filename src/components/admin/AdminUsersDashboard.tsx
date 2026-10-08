@@ -26,8 +26,15 @@ import {
   setAdminUserInterviewAccess,
   setAdminUserLevelAccess,
   setAdminUserStaff,
+  setAdminUserTeacher,
 } from "@/app/admin/actions";
-import { AdminPageHeader, MaterialIcon, StaffBadge, useAdminRole } from "@/components/admin/AdminShell";
+import {
+  AdminPageHeader,
+  MaterialIcon,
+  StaffBadge,
+  TeacherBadge,
+  useAdminRole,
+} from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   Badge,
@@ -116,15 +123,23 @@ function RowActionsMenu({
   name,
   isAdmin,
   isStaff,
+  isTeacher,
+  canAssignStaff,
+  canAssignTeacher,
   staffSaving,
   onStaff,
+  onTeacher,
   onDelete,
 }: {
   name: string;
   isAdmin: boolean;
   isStaff: boolean;
+  isTeacher: boolean;
+  canAssignStaff: boolean;
+  canAssignTeacher: boolean;
   staffSaving: boolean;
   onStaff: () => void;
+  onTeacher: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -140,7 +155,11 @@ function RowActionsMenu({
       if (!button) return;
       const rect = button.getBoundingClientRect();
       const width = 220;
-      const height = isAdmin ? 52 : 96;
+      const itemCount =
+        (canAssignStaff && !isAdmin ? 1 : 0) +
+        (canAssignTeacher && !isAdmin ? 1 : 0) +
+        (canAssignStaff ? 1 : 0);
+      const height = Math.max(1, itemCount) * 44 + 8;
       const spaceBelow = window.innerHeight - rect.bottom;
       const top =
         spaceBelow < height + 8 && rect.top > spaceBelow
@@ -173,7 +192,7 @@ function RowActionsMenu({
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, isAdmin]);
+  }, [open, isAdmin, canAssignStaff, canAssignTeacher]);
 
   const menu =
     open && box && typeof document !== "undefined"
@@ -185,7 +204,7 @@ function RowActionsMenu({
             className={`${POPOVER} w-[220px]`}
             style={{ top: box.top, left: box.left }}
           >
-            {isAdmin ? null : (
+            {canAssignStaff && !isAdmin ? (
               <button
                 type="button"
                 role="menuitem"
@@ -199,19 +218,36 @@ function RowActionsMenu({
                 <MaterialIcon name="admin_panel_settings" className="text-[18px] text-admin-cobalt" />
                 {isStaff ? "Remove staff" : "Make staff"}
               </button>
-            )}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onDelete();
-              }}
-              className={`${POPOVER_ITEM} text-admin-crimson hover:bg-admin-crimson-wash focus-visible:bg-admin-crimson-wash`}
-            >
-              <MaterialIcon name="delete" className="text-[18px]" />
-              Delete
-            </button>
+            ) : null}
+            {canAssignTeacher && !isAdmin ? (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={staffSaving}
+                onClick={() => {
+                  setOpen(false);
+                  onTeacher();
+                }}
+                className={POPOVER_ITEM}
+              >
+                <MaterialIcon name="school" className="text-[18px] text-admin-emerald" />
+                {isTeacher ? "Edit teacher classes" : "Make teacher"}
+              </button>
+            ) : null}
+            {canAssignStaff ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+                className={`${POPOVER_ITEM} text-admin-crimson hover:bg-admin-crimson-wash focus-visible:bg-admin-crimson-wash`}
+              >
+                <MaterialIcon name="delete" className="text-[18px]" />
+                Delete
+              </button>
+            ) : null}
           </div>,
           document.body,
         )
@@ -246,6 +282,7 @@ function ClassEditor({
   suggestions,
   saving,
   onSave,
+  readOnly = false,
 }: {
   userId: string;
   studentName: string;
@@ -253,6 +290,7 @@ function ClassEditor({
   suggestions: readonly string[];
   saving: boolean;
   onSave: (next: string) => void;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -322,6 +360,15 @@ function ClassEditor({
       window.removeEventListener("scroll", placeMenu, true);
     };
   }, [editing, matches.length]);
+
+  if (readOnly) {
+    return (
+      <span className="inline-flex h-7 max-w-full items-center gap-1 rounded-admin-badge bg-admin-subtle px-space-8 text-admin-label-md font-semibold text-admin-ink">
+        <MaterialIcon name="school" className="text-[14px] text-admin-ink-subtle" />
+        <span className="truncate">{value ?? "No class"}</span>
+      </span>
+    );
+  }
 
   const menu =
     editing && menuBox && typeof document !== "undefined"
@@ -450,6 +497,7 @@ function LevelAccessChips({
   interviewAccess,
   interviewSaving,
   onToggleInterview,
+  locked = false,
 }: {
   row: AdminUserRow;
   levels: readonly AdminLevelOption[];
@@ -459,6 +507,7 @@ function LevelAccessChips({
   interviewAccess: boolean;
   interviewSaving: boolean;
   onToggleInterview: () => void;
+  locked?: boolean;
 }) {
   if (row.isAdmin) {
     return (
@@ -482,8 +531,8 @@ function LevelAccessChips({
             key={level.slug}
             label={level.level}
             on={on}
-            disabled={saving || interviewSaving}
-            title={on ? `Lock ${level.level}` : `Unlock ${level.level}`}
+            disabled={locked || saving || interviewSaving}
+            title={locked ? level.level : on ? `Lock ${level.level}` : `Unlock ${level.level}`}
             onToggle={() => onToggle(level.slug)}
           />
         );
@@ -491,8 +540,14 @@ function LevelAccessChips({
       <GrantChip
         label="Phỏng vấn"
         on={interviewAccess}
-        disabled={saving || interviewSaving}
-        title={interviewAccess ? "Hide Luyện phỏng vấn theo nghề" : "Show Luyện phỏng vấn theo nghề"}
+        disabled={locked || saving || interviewSaving}
+        title={
+          locked
+            ? "Luyện phỏng vấn theo nghề"
+            : interviewAccess
+              ? "Hide Luyện phỏng vấn theo nghề"
+              : "Show Luyện phỏng vấn theo nghề"
+        }
         onToggle={onToggleInterview}
       />
     </div>
@@ -644,7 +699,18 @@ export function AdminUsersDashboard({
   } | null>(null);
   const [staffSaving, setStaffSaving] = useState(false);
   const [staffError, setStaffError] = useState<string | null>(null);
-  const isOwner = useAdminRole() === "owner";
+  const [teacherByUser, setTeacherByUser] = useState<Record<string, boolean>>({});
+  const [teacherClassesByUser, setTeacherClassesByUser] = useState<Record<string, string[]>>({});
+  const [teacherPrompt, setTeacherPrompt] = useState<{
+    row: AdminUserRow;
+    classes: string[];
+  } | null>(null);
+  const [teacherSaving, setTeacherSaving] = useState(false);
+  const [teacherError, setTeacherError] = useState<string | null>(null);
+  const role = useAdminRole();
+  const isOwner = role === "owner";
+  const readOnly = role === "teacher";
+  const canAssignTeacher = role === "owner" || role === "staff";
   const savingRef = useRef(new Set<string>());
   const savingInterviewRef = useRef(new Set<string>());
   const savingClassRef = useRef(new Set<string>());
@@ -662,6 +728,16 @@ export function AdminUsersDashboard({
     if (row.isAdmin) return false;
     if (Object.hasOwn(staffByUser, row.userId)) return staffByUser[row.userId];
     return row.staff;
+  }
+
+  function teacherFor(row: AdminUserRow): boolean {
+    if (row.isAdmin) return false;
+    if (Object.hasOwn(teacherByUser, row.userId)) return teacherByUser[row.userId];
+    return row.teacher;
+  }
+
+  function teacherClassesFor(row: AdminUserRow): string[] {
+    return teacherClassesByUser[row.userId] ?? row.teacherClasses;
   }
 
   const classFor = useCallback(
@@ -779,6 +855,7 @@ export function AdminUsersDashboard({
   );
 
   const classOptions = useMemo(() => listAdminClasses(visibleRows), [visibleRows]);
+  const schoolClassLabels = useMemo(() => listAdminClasses(rows).map((option) => option.label), [rows]);
 
   const displayClass = useCallback(
     (row: AdminUserRow): string | null => {
@@ -871,8 +948,41 @@ export function AdminUsersDashboard({
       ...current,
       [staffPrompt.row.userId]: result.staff,
     }));
+    if (result.staff) {
+      setTeacherByUser((current) => ({ ...current, [staffPrompt.row.userId]: false }));
+      setTeacherClassesByUser((current) => ({ ...current, [staffPrompt.row.userId]: [] }));
+    }
     setStaffPrompt(null);
     setStaffSaving(false);
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function handleSaveTeacher(remove = false) {
+    if (!teacherPrompt || teacherSaving) return;
+    setTeacherSaving(true);
+    setTeacherError(null);
+    const result = await setAdminUserTeacher(
+      teacherPrompt.row.userId,
+      !remove,
+      remove ? [] : teacherPrompt.classes,
+    );
+    if (!result.ok) {
+      setTeacherError(result.error);
+      setTeacherSaving(false);
+      return;
+    }
+    setTeacherByUser((current) => ({ ...current, [teacherPrompt.row.userId]: result.teacher }));
+    setTeacherClassesByUser((current) => ({
+      ...current,
+      [teacherPrompt.row.userId]: result.classes,
+    }));
+    if (result.teacher) {
+      setStaffByUser((current) => ({ ...current, [teacherPrompt.row.userId]: false }));
+    }
+    setTeacherPrompt(null);
+    setTeacherSaving(false);
     startTransition(() => {
       router.refresh();
     });
@@ -977,15 +1087,26 @@ export function AdminUsersDashboard({
   const classSuggestions = classOptions.map((option) => option.label);
 
   function rowActions(row: AdminUserRow) {
+    if (row.isAdmin && !isOwner) return null;
     return (
       <RowActionsMenu
         name={row.displayName}
         isAdmin={row.isAdmin}
         isStaff={staffFor(row)}
-        staffSaving={staffSaving}
+        isTeacher={teacherFor(row)}
+        canAssignStaff={isOwner}
+        canAssignTeacher={canAssignTeacher}
+        staffSaving={staffSaving || teacherSaving}
         onStaff={() => {
           setStaffError(null);
           setStaffPrompt({ row, next: !staffFor(row) });
+        }}
+        onTeacher={() => {
+          setTeacherError(null);
+          setTeacherPrompt({
+            row,
+            classes: teacherFor(row) ? teacherClassesFor(row) : [],
+          });
         }}
         onDelete={() => {
           setDeleteError(null);
@@ -1006,6 +1127,7 @@ export function AdminUsersDashboard({
         interviewAccess={interviewFor(row)}
         interviewSaving={savingInterviewIds.includes(row.userId)}
         onToggleInterview={() => void toggleInterview(row)}
+        locked={readOnly}
       />
     );
   }
@@ -1017,12 +1139,17 @@ export function AdminUsersDashboard({
       value: displayClass(row),
       suggestions: classSuggestions,
       saving: savingClassIds.includes(row.userId) || bulkBusy,
+      readOnly,
       onSave: (next: string) => void saveClass(row, next),
     };
   }
 
   const emptyMessage =
-    visibleRows.length === 0 ? "No users have synced progress yet." : "No users match your search.";
+    visibleRows.length === 0
+      ? readOnly
+        ? "No students in your classes yet."
+        : "No users have synced progress yet."
+      : "No users match your search.";
 
   return (
     <>
@@ -1031,9 +1158,11 @@ export function AdminUsersDashboard({
           kicker="People"
           title="Students"
           subtitle={
-            isOwner
-              ? "Assign classes, grant courses, and choose staff. Staff see every stat and can grant access. Only you can delete."
-              : "Assign classes and grant courses. You can see every stat. Deleting accounts or progress stays with the main admin."
+            readOnly
+              ? "Students in the classes you teach. You can open their progress. Grants and deletes stay with the admin."
+              : isOwner
+                ? "Assign classes, grant courses, and choose staff or teachers. Staff see every stat and can grant access. Only you can delete."
+                : "Assign classes, grant courses, and assign teachers. You can see every stat. Deleting stays with the main admin."
           }
           trailing={
             <HeaderChip icon="group">
@@ -1124,8 +1253,9 @@ export function AdminUsersDashboard({
         {accessError ? <Notice>{accessError}</Notice> : null}
         {classError ? <Notice>{classError}</Notice> : null}
         {staffError && !staffPrompt ? <Notice>{staffError}</Notice> : null}
+        {teacherError && !teacherPrompt ? <Notice>{teacherError}</Notice> : null}
 
-        {selectedRows.length > 0 ? (
+        {!readOnly && selectedRows.length > 0 ? (
           <BulkBar
             count={selectedRows.length}
             levels={levels}
@@ -1166,12 +1296,14 @@ export function AdminUsersDashboard({
                     onSort={handleSort}
                     className="sticky left-0 z-20 bg-admin-subtle"
                   >
-                    <Checkbox
-                      aria-label={allOnPage ? "Clear this page" : "Select this page"}
-                      checked={allOnPage}
-                      disabled={pageIds.length === 0 || bulkBusy}
-                      onChange={togglePage}
-                    />
+                    {readOnly ? null : (
+                      <Checkbox
+                        aria-label={allOnPage ? "Clear this page" : "Select this page"}
+                        checked={allOnPage}
+                        disabled={pageIds.length === 0 || bulkBusy}
+                        onChange={togglePage}
+                      />
+                    )}
                   </SortHeader>
                   <SortHeader
                     label="Class"
@@ -1186,7 +1318,7 @@ export function AdminUsersDashboard({
                   <th scope="col" className={`${TH} text-left`}>
                     Level access
                   </th>
-                  {isOwner ? (
+                  {canAssignTeacher ? (
                     <th scope="col" className={`${TH} sticky right-0 z-20 w-14 bg-admin-subtle`}>
                       <span className="sr-only">Actions</span>
                     </th>
@@ -1197,7 +1329,7 @@ export function AdminUsersDashboard({
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={isOwner ? 6 : 5}
+                      colSpan={canAssignTeacher ? 6 : 5}
                       className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                     >
                       {emptyMessage}
@@ -1224,24 +1356,27 @@ export function AdminUsersDashboard({
                       >
                         <td className={`sticky left-0 z-10 px-space-16 py-space-8 ${stickyBg}`}>
                           <div className="flex min-w-[15rem] items-center gap-space-12">
-                            <span
-                              className="flex"
-                              onClick={(event) => event.stopPropagation()}
-                              onKeyDown={(event) => event.stopPropagation()}
-                            >
-                              <Checkbox
-                                aria-label={`Select ${row.displayName}`}
-                                checked={picked}
-                                disabled={bulkBusy}
-                                onChange={() => toggleSelected(row.userId)}
-                              />
-                            </span>
+                            {readOnly ? null : (
+                              <span
+                                className="flex"
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                              >
+                                <Checkbox
+                                  aria-label={`Select ${row.displayName}`}
+                                  checked={picked}
+                                  disabled={bulkBusy}
+                                  onChange={() => toggleSelected(row.userId)}
+                                />
+                              </span>
+                            )}
                             <div className="flex min-w-0 flex-col">
                               <span className="flex flex-wrap items-center gap-space-8">
                                 <span className="font-semibold text-admin-ink transition-colors group-hover:text-admin-cobalt">
                                   {row.displayName}
                                 </span>
                                 {staffFor(row) ? <StaffBadge /> : null}
+                                {teacherFor(row) ? <TeacherBadge /> : null}
                               </span>
                               {row.email && row.email !== row.displayName ? (
                                 <span className="truncate text-admin-body-sm text-admin-ink-subtle">
@@ -1259,7 +1394,7 @@ export function AdminUsersDashboard({
                           <Streak days={row.streakDays} />
                         </td>
                         <td className="px-space-16 py-space-8">{levelChips(row)}</td>
-                        {isOwner ? (
+                        {canAssignTeacher ? (
                           <td
                             className={`sticky right-0 z-10 px-space-12 py-space-8 text-right ${stickyBg}`}
                             onClick={(event) => event.stopPropagation()}
@@ -1283,15 +1418,17 @@ export function AdminUsersDashboard({
               </p>
             ) : (
               <>
-                <div className="flex items-center gap-space-12 border-b border-admin-hairline bg-admin-subtle px-space-16 py-space-8">
-                  <Checkbox
-                    aria-label={allOnPage ? "Clear this page" : "Select this page"}
-                    checked={allOnPage}
-                    disabled={bulkBusy}
-                    onChange={togglePage}
-                  />
-                  <span className="text-admin-label-sm uppercase text-admin-ink-subtle">Select page</span>
-                </div>
+                {readOnly ? null : (
+                  <div className="flex items-center gap-space-12 border-b border-admin-hairline bg-admin-subtle px-space-16 py-space-8">
+                    <Checkbox
+                      aria-label={allOnPage ? "Clear this page" : "Select this page"}
+                      checked={allOnPage}
+                      disabled={bulkBusy}
+                      onChange={togglePage}
+                    />
+                    <span className="text-admin-label-sm uppercase text-admin-ink-subtle">Select page</span>
+                  </div>
+                )}
                 <ul>
                   {paged.pageRows.map((row) => {
                     const picked = selected.includes(row.userId);
@@ -1303,14 +1440,16 @@ export function AdminUsersDashboard({
                         }`}
                       >
                         <div className="flex items-start gap-space-12">
-                          <span className="flex pt-0.5">
-                            <Checkbox
-                              aria-label={`Select ${row.displayName}`}
-                              checked={picked}
-                              disabled={bulkBusy}
-                              onChange={() => toggleSelected(row.userId)}
-                            />
-                          </span>
+                          {readOnly ? null : (
+                            <span className="flex pt-0.5">
+                              <Checkbox
+                                aria-label={`Select ${row.displayName}`}
+                                checked={picked}
+                                disabled={bulkBusy}
+                                onChange={() => toggleSelected(row.userId)}
+                              />
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() => setDetailUserId(row.userId)}
@@ -1319,6 +1458,7 @@ export function AdminUsersDashboard({
                             <span className="flex flex-wrap items-center gap-space-8">
                               <span className="font-semibold text-admin-ink">{row.displayName}</span>
                               {staffFor(row) ? <StaffBadge /> : null}
+                              {teacherFor(row) ? <TeacherBadge /> : null}
                             </span>
                             {row.email && row.email !== row.displayName ? (
                               <span className="block truncate text-admin-body-sm text-admin-ink-subtle">
@@ -1326,14 +1466,16 @@ export function AdminUsersDashboard({
                               </span>
                             ) : null}
                           </button>
-                          {isOwner ? rowActions(row) : null}
+                          {canAssignTeacher ? rowActions(row) : null}
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-space-16 gap-y-space-8 pl-7">
+                        <div
+                          className={`flex flex-wrap items-center gap-x-space-16 gap-y-space-8 ${readOnly ? "" : "pl-7"}`}
+                        >
                           <ClassEditor {...classEditor(row)} />
                           <Streak days={row.streakDays} />
                           <LastSeen iso={row.lastLoginAt} />
                         </div>
-                        <div className="pl-7">{levelChips(row)}</div>
+                        <div className={readOnly ? "" : "pl-7"}>{levelChips(row)}</div>
                       </li>
                     );
                   })}
@@ -1471,6 +1613,101 @@ export function AdminUsersDashboard({
           </p>
         ) : null}
       </Dialog>
+
+      <Dialog
+        open={teacherPrompt != null}
+        onClose={() => {
+          if (teacherSaving) return;
+          setTeacherPrompt(null);
+          setTeacherError(null);
+        }}
+        title={teacherPrompt && teacherFor(teacherPrompt.row) ? "Teacher classes" : "Make teacher?"}
+        description={
+          teacherPrompt ? (
+            <>
+              <span className="font-semibold text-admin-ink">
+                {teacherPrompt.row.email ?? teacherPrompt.row.displayName}
+              </span>{" "}
+              can view progress for the classes you pick. They cannot grant courses or delete.
+            </>
+          ) : null
+        }
+        actions={
+          <>
+            {teacherPrompt && teacherFor(teacherPrompt.row) ? (
+              <Button
+                variant="destructive"
+                disabled={teacherSaving}
+                onClick={() => void handleSaveTeacher(true)}
+              >
+                Remove teacher
+              </Button>
+            ) : (
+              <Button
+                disabled={teacherSaving}
+                onClick={() => {
+                  setTeacherPrompt(null);
+                  setTeacherError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              disabled={teacherSaving || (teacherPrompt?.classes.length ?? 0) === 0}
+              onClick={() => void handleSaveTeacher(false)}
+            >
+              {teacherSaving ? "Saving…" : "Save"}
+            </Button>
+          </>
+        }
+      >
+        {teacherPrompt ? (
+          <div className="flex max-h-64 flex-col gap-space-8 overflow-y-auto">
+            {teacherClassChoices(schoolClassLabels, teacherPrompt.classes).map((label) => {
+              const on = teacherPrompt.classes.some((name) => classKey(name) === classKey(label));
+              return (
+                <label key={label} className="flex items-center gap-space-8 text-admin-body-sm text-admin-ink">
+                  <Checkbox
+                    aria-label={label}
+                    checked={on}
+                    disabled={teacherSaving}
+                    onChange={() => {
+                      setTeacherPrompt((current) => {
+                        if (!current) return current;
+                        const classes = on
+                          ? current.classes.filter((name) => classKey(name) !== classKey(label))
+                          : [...current.classes, label];
+                        return { ...current, classes };
+                      });
+                    }}
+                  />
+                  <span className="truncate">{label}</span>
+                </label>
+              );
+            })}
+            {teacherClassChoices(schoolClassLabels, teacherPrompt.classes).length === 0 ? (
+              <p className="text-admin-body-sm text-admin-ink-muted">
+                No classes yet. Give a student a class first.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {teacherError ? (
+          <p role="alert" className="text-admin-body-sm text-admin-crimson">
+            {teacherError}
+          </p>
+        ) : null}
+      </Dialog>
     </>
   );
+}
+
+function teacherClassChoices(school: readonly string[], selected: readonly string[]): string[] {
+  const labels = [...school];
+  for (const name of selected) {
+    if (!labels.some((label) => classKey(label) === classKey(name))) labels.push(name);
+  }
+  return labels;
 }
