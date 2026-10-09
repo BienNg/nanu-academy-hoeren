@@ -993,6 +993,7 @@ export function LearnSession({
             ) : currentCard?.kind === "grammar-gap" ? (
               <McCard
                 key={`gap-${cardKey}`}
+                speaker
                 prompt={currentCard.gap?.prompt ?? currentClip.script}
                 eyebrow={currentCard.gap?.labelVi}
                 hint={currentClip.translationVi}
@@ -1019,6 +1020,7 @@ export function LearnSession({
             ) : currentCard?.kind === "multiple-choice" || currentCard?.kind === "vi-choice" ? (
               <McCard
                 key={`mc-${cardKey}`}
+                speaker={currentCard.kind === "multiple-choice"}
                 prompt={currentCard.kind === "vi-choice" ? (currentClip.translationVi ?? "") : currentClip.script}
                 options={currentCard.options ?? []}
                 onSubmit={handleMcSubmit}

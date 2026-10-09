@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DailyQuestIntro } from "@/components/DailyQuestIntro";
 import { NavigationFeedback } from "@/components/RouteLoading";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { SplashScreen } from "@/components/SplashScreen";
 import { StreakCelebration } from "@/components/StreakCelebration";
 
@@ -12,6 +13,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex min-h-dvh flex-1 flex-col bg-surface text-on-surface antialiased selection:bg-primary-fixed">
       <SplashScreen />
+      <InstallPrompt />
       <div className="relative flex w-full flex-1 flex-col bg-surface">
         <div className="mx-auto flex w-full flex-1 flex-col md:max-w-[680px] has-[[data-layout=wide]]:max-w-none has-[[data-layout=wide]]:md:max-w-none">
           <NavigationFeedback />

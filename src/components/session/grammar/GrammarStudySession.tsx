@@ -247,16 +247,17 @@ export function GrammarStudySession({
                   key={`${screen.key}:${attempt}`}
                   onBack={back}
                   backDisabled={index === 0}
+                  speaker={Boolean(screen.prompt)}
                   eyebrow={screen.cue.tense ? "Übung · Präteritum" : topic.titleVi}
                   icon="edit_note"
                   prompt={
-                    <>
+                    screen.prompt ?? (
                       <span className="block text-[17px] font-medium text-[#3a3a3c]">
                         <CueText cue={screen.cue} />
                       </span>
-                      {screen.prompt ? <span className="mt-1 block">{screen.prompt}</span> : null}
-                    </>
+                    )
                   }
+                  hint={screen.prompt ? <CueText cue={screen.cue} /> : undefined}
                   layout={screen.prompt ? "grid" : "list"}
                   options={screen.options}
                   onSubmit={answerChoice}

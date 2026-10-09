@@ -146,6 +146,7 @@ function CardView({
     return (
       <McCard
         key={`mc-${card.position}`}
+        speaker={card.kind === "multiple-choice"}
         prompt={card.prompt}
         options={card.options}
         onSubmit={(selectedId) =>

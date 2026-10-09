@@ -869,6 +869,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             ) : clip.kind === "multiple-choice" || clip.kind === "vi-choice" ? (
               <McCard
                 key={`mc-${clip.position}`}
+                speaker={clip.kind === "multiple-choice"}
                 prompt={clip.kind === "vi-choice" ? (clip.translationVi ?? "") : (clip.script ?? "")}
                 options={clip.options ?? []}
                 onSubmit={submitMc}

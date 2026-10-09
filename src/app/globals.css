@@ -1723,3 +1723,263 @@ html[data-splash="seen"] .pingu-splash {
     animation: none;
   }
 }
+
+/* Mai, from design-reference/Mai Character Animation.html. */
+.mai .mai-figure,
+.mai .mai-head,
+.mai .mai-arm-l,
+.mai .mai-arm-r,
+.mai .mai-pupil {
+  transform-box: view-box;
+}
+
+.mai .mai-figure {
+  animation: mai-bob 3.2s ease-in-out infinite;
+}
+
+.mai .mai-head {
+  transform-origin: 200px 262px;
+  animation: mai-sway 4s ease-in-out infinite;
+}
+
+.mai .mai-arm-l {
+  transform-origin: 136px 290px;
+}
+
+.mai .mai-arm-r {
+  transform-origin: 264px 290px;
+}
+
+.mai .mai-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mai-blink 5s infinite;
+}
+
+.mai .mai-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mai-twinkle 0.9s ease-in-out infinite;
+}
+
+.mai .mai-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mai .m,
+.mai .e-happy,
+.mai .brow-worry,
+.mai .sweat,
+.mai .stars {
+  display: none;
+}
+
+.mai[data-mood="idle"] .m-smile,
+.mai[data-mood="hello"] .m-smile,
+.mai[data-mood="correct"] .m-open,
+.mai[data-mood="streak"] .m-open,
+.mai[data-mood="oops"] .m-wavy,
+.mai[data-mood="listen"] .m-small {
+  display: inline;
+}
+
+.mai[data-mood="correct"] .e-happy,
+.mai[data-mood="streak"] .e-happy {
+  display: inline;
+}
+
+.mai[data-mood="correct"] .e-open,
+.mai[data-mood="streak"] .e-open {
+  display: none;
+}
+
+.mai[data-mood="oops"] .brow-worry,
+.mai[data-mood="oops"] .sweat {
+  display: inline;
+}
+
+.mai[data-mood="oops"] .brow-neutral {
+  display: none;
+}
+
+.mai[data-mood="streak"] .stars {
+  display: inline;
+}
+
+.mai[data-mood="hello"] .mai-arm-r {
+  animation: mai-wave 0.6s ease-in-out infinite alternate;
+}
+
+.mai[data-mood="correct"] .mai-figure,
+.mai[data-mood="streak"] .mai-figure {
+  animation: mai-jump 0.62s ease-out 3;
+}
+
+.mai[data-mood="correct"] .mai-shadow,
+.mai[data-mood="streak"] .mai-shadow {
+  animation: mai-shadow-jump 0.62s ease-out 3;
+}
+
+.mai[data-mood="correct"] .mai-arm-l,
+.mai[data-mood="streak"] .mai-arm-l {
+  animation: mai-pump-l 0.31s ease-in-out infinite alternate;
+}
+
+.mai[data-mood="correct"] .mai-arm-r,
+.mai[data-mood="streak"] .mai-arm-r {
+  animation: mai-pump-r 0.31s ease-in-out infinite alternate;
+}
+
+.mai[data-mood="correct"] .mai-head,
+.mai[data-mood="streak"] .mai-head {
+  animation: none;
+  transform: rotate(-3deg);
+}
+
+.mai[data-mood="oops"] .mai-head {
+  animation: mai-shake 0.7s ease-in-out 1 forwards;
+}
+
+.mai[data-mood="oops"] .mai-arm-l {
+  transform: rotate(32deg);
+}
+
+.mai[data-mood="oops"] .mai-arm-r {
+  transform: rotate(-32deg);
+}
+
+.mai[data-mood="listen"] .mai-head {
+  animation: none;
+  transform: rotate(-8deg);
+}
+
+.mai[data-mood="listen"] .mai-arm-r {
+  transform: rotate(-168deg);
+}
+
+.mai[data-mood="listen"] .mai-pupil {
+  transform: translate(6px, -3px);
+}
+
+@keyframes mai-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes mai-sway {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+
+@keyframes mai-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  96.5% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes mai-wave {
+  from {
+    transform: rotate(-135deg);
+  }
+  to {
+    transform: rotate(-160deg);
+  }
+}
+
+@keyframes mai-pump-l {
+  from {
+    transform: rotate(145deg);
+  }
+  to {
+    transform: rotate(160deg);
+  }
+}
+
+@keyframes mai-pump-r {
+  from {
+    transform: rotate(-145deg);
+  }
+  to {
+    transform: rotate(-160deg);
+  }
+}
+
+@keyframes mai-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  42% {
+    transform: translateY(-28px);
+  }
+}
+
+@keyframes mai-shadow-jump {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  42% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+}
+
+@keyframes mai-shake {
+  0% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(7deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+  75% {
+    transform: rotate(7deg);
+  }
+  100% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes mai-twinkle {
+  0%,
+  100% {
+    transform: scale(0.55);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mai .mai-figure,
+  .mai .mai-head,
+  .mai .mai-eye,
+  .mai .mai-star,
+  .mai .mai-shadow,
+  .mai .mai-arm-l,
+  .mai .mai-arm-r {
+    animation: none !important;
+  }
+}

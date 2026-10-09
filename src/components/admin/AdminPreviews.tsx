@@ -1332,6 +1332,7 @@ function ChoicePreview({
     >
       <McCard
         key={attempt}
+        speaker={!vietnamese && !listening}
         icon={listening ? "hearing" : vietnamese ? "spellcheck" : "translate"}
         layout={vietnamese ? "list" : "grid"}
         eyebrow={listening ? "Nghe · Hören" : vietnamese ? "Chọn câu tiếng Đức" : "Chọn nghĩa"}

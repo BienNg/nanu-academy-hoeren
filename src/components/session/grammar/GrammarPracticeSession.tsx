@@ -278,6 +278,7 @@ export function GrammarPracticeSession({
           {!card ? null : card.kind === "form-choice" ? (
             <McCard
               key={cardKey}
+              speaker
               eyebrow="Ngữ pháp · Chọn dạng đúng"
               icon="edit_note"
               prompt={card.question.prompt}
@@ -310,6 +311,7 @@ export function GrammarPracticeSession({
           ) : card.kind === "error-check" ? (
             <McCard
               key={cardKey}
+              speaker
               eyebrow="Câu này đúng hay sai?"
               icon="rule"
               prompt={card.script}

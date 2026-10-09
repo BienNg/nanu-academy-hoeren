@@ -567,6 +567,7 @@ export function JumpSession({
             ) : (
               <McCard
                 key={`mc-${attemptCount}-${currentCard.key}`}
+                speaker={currentCard.kind === "multiple-choice"}
                 prompt={
                   currentCard.kind === "vi-choice" ? currentClip.translationVi : currentClip.script
                 }

@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { McOption, McResult } from "@/lib/multiple-choice";
 import { CheckBar } from "@/components/session/FeedbackSheet";
+import { Mai, type MaiMood } from "@/components/session/Mai";
 import { digitLabel, digitShortcut, FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 
 type McCardProps = {
@@ -20,7 +21,9 @@ type McCardProps = {
   /** Small label above the prompt, such as the grammar topic. */
   eyebrow?: string;
   /** Muted line under the prompt, such as the translation. */
-  hint?: string;
+  hint?: ReactNode;
+  /** German prompt sits in a speech bubble next to Mai. */
+  speaker?: boolean;
   /** Steps to the previous screen from the check bar. */
   onBack?: () => void;
   backDisabled?: boolean;
@@ -33,6 +36,30 @@ function optionTone(isSelected: boolean, isCorrect: boolean, checked: boolean): 
   if (checked) return "border-[#e5e5e5] bg-white text-[#aeaeb2]";
   if (isSelected) return "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]";
   return "border-[#e5e5e5] bg-white text-[#4b4b4b] hover:bg-[#f7f7f7]";
+}
+
+function maiMood(result: McResult | null): MaiMood {
+  if (!result) return "idle";
+  return result.accuracy >= 100 ? "correct" : "oops";
+}
+
+/** A gap in a German sentence, drawn as a thick underscore. */
+function GermanPrompt({ children }: { children: ReactNode }) {
+  if (typeof children !== "string" || !children.includes("____")) return children;
+  const parts = children.split("____");
+  return parts.map((part, index) => (
+    <span key={`${part}-${index}`}>
+      {part}
+      {index < parts.length - 1 ? (
+        <span
+          className="mx-0.5 inline-block min-w-16 translate-y-[-2px] border-b-[3px] border-[#c7c7cc]"
+          aria-label="chỗ trống"
+        >
+          {"\u00a0"}
+        </span>
+      ) : null}
+    </span>
+  ));
 }
 
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
@@ -57,6 +84,7 @@ export function McCard({
   afterPrompt,
   eyebrow,
   hint,
+  speaker = false,
   onBack,
   backDisabled = false,
 }: McCardProps) {
@@ -90,22 +118,58 @@ export function McCard({
 
   return (
     <>
-      <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
-            <MaterialIcon name={icon} className="text-[22px]" />
-          </div>
-          <div className="min-w-0">
-            {eyebrow ? (
-              <p className="text-[12px] font-bold uppercase tracking-wide text-[#0066cc]">{eyebrow}</p>
-            ) : null}
-            <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
-              {prompt}
-            </p>
-            {hint ? <p className="mt-1 text-[15px] italic leading-snug text-[#6e6e73]">“{hint}”</p> : null}
+      {speaker ? (
+        <div className="flex items-end gap-1.5 sm:gap-3">
+          <Mai
+            mood={maiMood(result)}
+            className="w-[108px] shrink-0 [@media(max-height:760px)]:w-[84px] sm:w-[128px]"
+          />
+          <div className="relative mb-2 min-w-0 flex-1">
+            <div className="rounded-2xl border-2 border-b-4 border-[#e5e5ea] bg-white px-4 py-3.5">
+              {eyebrow ? (
+                <p className="mb-1 text-[12px] font-bold uppercase tracking-wide text-[#0066cc]">{eyebrow}</p>
+              ) : null}
+              <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+                <GermanPrompt>{prompt}</GermanPrompt>
+              </p>
+              {hint ? (
+                <p className="mt-1 text-[15px] italic leading-snug text-[#6e6e73]">
+                  {typeof hint === "string" ? `“${hint}”` : hint}
+                </p>
+              ) : null}
+            </div>
+            <span
+              aria-hidden="true"
+              className="absolute top-6 -left-3 block h-0 w-0 border-y-8 border-r-[14px] border-y-transparent border-r-[#e5e5ea]"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute top-[25px] -left-[9px] block h-0 w-0 border-y-[7px] border-r-[12px] border-y-transparent border-r-white"
+            />
           </div>
         </div>
-      </section>
+      ) : (
+        <section className="flex flex-col gap-4 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0066cc]/10 text-[#0066cc]">
+              <MaterialIcon name={icon} className="text-[22px]" />
+            </div>
+            <div className="min-w-0">
+              {eyebrow ? (
+                <p className="text-[12px] font-bold uppercase tracking-wide text-[#0066cc]">{eyebrow}</p>
+              ) : null}
+              <p className="text-[20px] font-semibold leading-snug tracking-tight text-[#1d1d1f]">
+                {prompt}
+              </p>
+              {hint ? (
+                <p className="mt-1 text-[15px] italic leading-snug text-[#6e6e73]">
+                  {typeof hint === "string" ? `“${hint}”` : hint}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      )}
 
       {afterPrompt}
 

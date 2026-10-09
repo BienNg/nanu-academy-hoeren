@@ -53,6 +53,11 @@ export const metadata: Metadata = {
     title: shareTitle,
     description: shareDescription,
   },
+  appleWebApp: {
+    capable: true,
+    title: shareTitle,
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -80,6 +85,12 @@ export default async function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{if(sessionStorage.getItem("nanu-splash")==="1")document.documentElement.setAttribute("data-splash","seen")}catch(e){}})()`,
+          }}
+        />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){})`,
           }}
         />
         {/* Material Symbols used by design-reference mockups (home, exercise). */}

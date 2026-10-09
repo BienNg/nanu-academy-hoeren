@@ -43,8 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         pathname.startsWith("/opengraph-image/") ||
         pathname === "/icon" ||
         pathname.startsWith("/icon/") ||
+        /^\/icon\d+(\/|$)/.test(pathname) ||
         pathname === "/apple-icon" ||
-        pathname.startsWith("/apple-icon/")
+        pathname.startsWith("/apple-icon/") ||
+        pathname === "/manifest.webmanifest"
       ) {
         return true;
       }
