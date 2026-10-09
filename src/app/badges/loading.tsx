@@ -1,5 +1,5 @@
-import { QuestsScreenSkeleton } from "@/components/RouteLoading";
+import { BadgesScreenSkeleton } from "@/components/RouteLoading";
 
 export default function BadgesLoading() {
-  return <QuestsScreenSkeleton />;
+  return <BadgesScreenSkeleton />;
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BottomNav, publishPendingNav } from "@/components/BottomNav";
+import { TopBarStatus } from "@/components/TodayXpChip";
 
 const screenFont = {
   fontFamily:
@@ -158,6 +159,23 @@ function LearnerHeader({
   );
 }
 
+const TAB_SCREEN =
+  "relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff] text-[#131b2e]";
+const TAB_MAIN_PAD = "pb-[calc(6.5rem+env(safe-area-inset-bottom))]";
+
+function QuestsHeader({ title }: { title: string }) {
+  return (
+    <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pt-3 pb-2.5">
+        <h1 className="min-w-0 truncate font-headline-md text-headline-md font-extrabold tracking-tight text-[#131b2e]">
+          {title}
+        </h1>
+        <TopBarStatus />
+      </div>
+    </header>
+  );
+}
+
 export function QuestsScreenSkeleton() {
   return (
     <div
@@ -166,18 +184,61 @@ export function QuestsScreenSkeleton() {
       aria-busy="true"
       aria-label="Đang tải nội dung"
       data-layout="wide"
-      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
+      className={TAB_SCREEN}
     >
-      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between px-4 pt-3 pb-2.5">
-          <div className="h-7 w-32 animate-pulse rounded-full bg-[#e2e7ff]" />
-          <div className="h-7 w-28 animate-pulse rounded-full bg-[#e2e7ff]" />
-        </div>
-      </header>
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-4 pb-28">
-        <div className="h-36 animate-pulse rounded-[24px] bg-[#ffb020]/25" />
+      <QuestsHeader title="Nhiệm vụ" />
+      <main className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-4 ${TAB_MAIN_PAD}`}>
+        <section className="relative flex min-h-[132px] items-center overflow-hidden rounded-[24px] bg-gradient-to-br from-[#ffb020] to-[#ff8a00] p-4 pr-[112px] text-white shadow-[0_6px_0_0_#d97706]">
+          <div className="relative z-10 flex flex-col gap-1">
+            <span className="flex items-center gap-1 text-[11px] font-extrabold tracking-wider text-white/85 uppercase">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+                flag
+              </span>
+              Nhiệm vụ hằng ngày
+            </span>
+            <p className="text-[19px] leading-6 font-extrabold">Hoàn thành nhiệm vụ, nhận thêm XP!</p>
+          </div>
+        </section>
         <div className="h-72 animate-pulse rounded-[24px] bg-white shadow-[0_4px_0_0_#e5e5ea]" />
-        <div className="h-28 animate-pulse rounded-[24px] bg-white shadow-[0_4px_0_0_#e5e5ea]" />
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
+export function BadgesScreenSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      data-layout="wide"
+      className={TAB_SCREEN}
+    >
+      <QuestsHeader title="Huy hiệu" />
+      <main className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pt-4 ${TAB_MAIN_PAD}`}>
+        <section className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#5856D6] to-[#0071E3] p-4 text-white shadow-[0_6px_0_0_#3634a3]">
+          <span className="flex items-center gap-1 text-[11px] font-extrabold tracking-wider text-white/85 uppercase">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              workspace_premium
+            </span>
+            Bộ sưu tập
+          </span>
+          <p className="mt-1 text-[28px] leading-8 font-extrabold tabular-nums">
+            <span className="inline-block h-7 w-8 animate-pulse rounded-full bg-white/40 align-middle" />
+            <span className="text-[18px] text-white/75"> / — huy hiệu</span>
+          </p>
+          <p className="mt-1 text-[13px] font-semibold text-white/85">
+            Học đều, giữ chuỗi và leo bảng xếp hạng để mở khóa cấp Đồng, Bạc, Vàng và Kim cương.
+          </p>
+          <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/25" />
+        </section>
+        <div className="grid grid-cols-2 gap-3 min-[400px]:grid-cols-3">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="h-44 animate-pulse rounded-[22px] bg-white shadow-[0_4px_0_0_#e5e5ea]" />
+          ))}
+        </div>
       </main>
       <BottomNav />
     </div>
@@ -192,16 +253,39 @@ export function DuelScreenSkeleton() {
       aria-busy="true"
       aria-label="Đang tải nội dung"
       data-layout="wide"
-      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
+      className={TAB_SCREEN}
     >
-      <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-4xl px-4 py-4 sm:px-6">
-          <div className="h-7 w-24 animate-pulse rounded-full bg-[#e2e7ff]" />
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
+          <h1 className="min-w-0 truncate font-headline-md text-headline-md font-extrabold tracking-tight">
+            Đấu
+          </h1>
+          <TopBarStatus />
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-3 px-4 pb-28 pt-4 sm:px-6">
-        <div className="h-40 animate-pulse rounded-[28px] bg-[#0284c7]/20" />
-        <div className="h-24 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+      <main className={`mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 pt-4 sm:px-6 ${TAB_MAIN_PAD}`}>
+        <section className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] p-4 text-white shadow-[0_6px_0_0_#0369a1]">
+          <div className="flex min-h-[100px] flex-col gap-2 pr-[118px]">
+            <span className="h-3 w-24 animate-pulse rounded-full bg-white/40" />
+            <span className="h-6 w-48 max-w-full animate-pulse rounded-full bg-white/50" />
+            <span className="h-4 w-40 max-w-full animate-pulse rounded-full bg-white/30" />
+          </div>
+          <span className="mt-4 flex h-[52px] w-full animate-pulse rounded-2xl bg-white/80" />
+        </section>
+        <section className="rounded-2xl bg-white px-4 py-4 shadow-[0_3px_0_0_#dae2fd]">
+          <span className="block h-3 w-20 animate-pulse rounded-full bg-[#e2e7ff]" />
+          <div className="mt-3 flex flex-col gap-3">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[#e0f2fe]" />
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
+                  <span className="h-4 w-32 animate-pulse rounded-full bg-[#e2e7ff]" />
+                  <span className="h-3 w-full animate-pulse rounded-full bg-[#e2e7ff]" />
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
       <BottomNav />
     </div>
@@ -216,50 +300,112 @@ export function LeaderboardScreenSkeleton() {
       aria-busy="true"
       aria-label="Đang tải nội dung"
       data-layout="wide"
-      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
+      className={TAB_SCREEN}
     >
-      <header className="sticky top-0 z-30 border-b border-black/[0.05] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4 sm:px-6">
-          <div className="h-7 w-40 animate-pulse rounded-full bg-[#e2e7ff]" />
-          <div className="h-11 w-full animate-pulse rounded-full bg-[#e2e7ff]" />
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-4 pb-2.5 pt-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <h1 className="min-w-0 font-headline-md text-headline-md font-extrabold tracking-tight text-[#131b2e]">
+              Bảng xếp hạng
+            </h1>
+            <TopBarStatus />
+          </div>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-3 px-4 pb-28 pt-4 sm:px-6">
-        <div className="h-36 animate-pulse rounded-[28px] bg-[#0284c7]/20" />
-        <div className="h-64 animate-pulse rounded-[28px] bg-white shadow-[0_4px_0_0_#dae2fd]" />
+      <main className={`mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 pt-4 sm:px-6 ${TAB_MAIN_PAD}`}>
+        <div className="flex flex-col gap-3">
+          <div className="h-[52px] animate-pulse rounded-2xl bg-[#e2e7ff]" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="h-11 w-44 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+            <div className="h-11 w-28 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+          </div>
+        </div>
+        <section className="h-[148px] animate-pulse rounded-[28px] bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] shadow-[0_6px_0_0_#0369a1]" />
+        <ol className="flex flex-col gap-2">
+          {Array.from({ length: 6 }, (_, index) => (
+            <li
+              key={index}
+              className="flex h-[60px] items-center gap-3 rounded-2xl bg-white px-3 shadow-[0_3px_0_0_#dae2fd]"
+            >
+              <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[#e2e7ff]" />
+              <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[#e2e7ff]" />
+              <span className="h-4 w-32 animate-pulse rounded-full bg-[#e2e7ff]" />
+            </li>
+          ))}
+        </ol>
       </main>
       <BottomNav />
     </div>
   );
 }
 
+const LEVEL_PATH_SHIFTS = [-36, 0, 36];
+
 export function LevelScreenSkeleton({
-  path,
   kicker = "Luyện tập theo trình độ",
 }: {
   path?: string;
   kicker?: string;
 }) {
+  const living = kicker === "Leben in Deutschland";
   return (
-    <ScreenFrame>
-      <LearnerHeader path={path} kicker={kicker} />
-      <section className="relative z-10 flex w-full flex-col items-center px-6 pb-16 pt-16 text-center">
-        <Bone className="h-4 w-40 rounded-full" />
-        <Bone className="mt-6 h-16 w-64 max-w-full rounded-2xl" />
-        <Bone className="mt-6 h-5 w-80 max-w-full rounded-full" />
-      </section>
-      <section className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center gap-8 px-4 pb-24">
-        {Array.from({ length: 3 }, (_, index) => (
-          <div key={index} className="flex w-full flex-col items-center gap-3">
-            <div className="w-full rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
-              <Bone className="h-6 w-2/3 rounded-full" />
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Đang tải nội dung"
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#fbfbfd]"
+    >
+      <LoadingBar />
+      <header className="fixed top-0 left-0 z-50 w-full border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
+          <span className="flex max-w-[11rem] items-center gap-0.5 text-[#0066cc] sm:max-w-[16rem]">
+            <span className="h-[17px] w-16 animate-pulse rounded-md bg-[#c5dff8]" />
+            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+              expand_more
+            </span>
+          </span>
+          <TopBarStatus />
+        </div>
+      </header>
+      <section className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:px-6">
+        <div
+          className={`relative w-full overflow-hidden rounded-2xl p-4 text-white ${
+            living
+              ? "bg-gradient-to-br from-[#e11d48] to-[#f97316] shadow-[0_6px_0_0_#be123c]"
+              : "bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] shadow-[0_6px_0_0_#0369a1]"
+          }`}
+        >
+          <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-white/80">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              {living ? "storefront" : "school"}
+            </span>
+            {kicker}
+          </span>
+          <span className="mt-2 block h-7 w-40 max-w-full animate-pulse rounded-full bg-white/40" />
+          <span className="mt-2 block h-4 w-full animate-pulse rounded-full bg-white/30" />
+          <span className="mt-1.5 block h-4 w-4/5 animate-pulse rounded-full bg-white/30" />
+          <span className="mt-4 block h-3 w-full animate-pulse rounded-full bg-white/25" />
+        </div>
+        {Array.from({ length: 2 }, (_, lesson) => (
+          <div key={lesson} className="flex w-full flex-col items-center gap-3">
+            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
+              <span className="h-7 w-2/3 animate-pulse rounded-full bg-[#e8e8ed]" />
+              <span className="h-4 w-1/2 animate-pulse rounded-full bg-[#e8e8ed]" />
             </div>
-            <Bone className={`h-[70px] w-[70px] rounded-full ${index % 2 === 0 ? "-translate-x-9" : "translate-x-9"}`} />
-            <Bone className="h-[70px] w-[70px] rounded-full" />
+            <ul className="flex w-full flex-col items-center gap-3 py-3">
+              {LEVEL_PATH_SHIFTS.map((shift, index) => (
+                <li key={index} style={{ transform: `translateX(${shift}px)` }}>
+                  <span className="block h-[52px] w-[52px] animate-pulse rounded-full bg-[#e8e8ed] shadow-[0_5px_0_0_#C5CEDB]" />
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </section>
-    </ScreenFrame>
+      <BottomNav />
+    </div>
   );
 }
 
@@ -367,6 +513,8 @@ export function SessionContentSkeleton({
   );
 }
 
+const PROFILE_STATS = ["Chuỗi ngày", "Tổng XP", "Hạng lớp", "Lần top 3"] as const;
+
 export function AccountScreenSkeleton({ path }: { path?: string }) {
   return (
     <div
@@ -375,24 +523,54 @@ export function AccountScreenSkeleton({ path }: { path?: string }) {
       aria-busy="true"
       aria-label="Đang tải nội dung"
       data-layout="wide"
-      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col bg-[#faf8ff]"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col overflow-x-hidden bg-[#faf8ff] text-[#131b2e]"
     >
       <LoadingBar />
       <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex h-14 w-full max-w-md items-center justify-end px-4 md:max-w-3xl">
-          <Bone className="h-11 w-11 rounded-2xl" />
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl text-[#1cb0f6]" aria-hidden="true">
+            <span className="material-symbols-outlined text-[26px]">settings</span>
+          </span>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-6 px-4 pt-4 pb-28 md:max-w-3xl">
-        <Bone className="h-28 w-28 rounded-full" />
-        <Bone className="h-8 w-40 rounded-full" />
-        <div className="grid w-full grid-cols-2 gap-3">
-          <Bone className="h-[88px] rounded-2xl" />
-          <Bone className="h-[88px] rounded-2xl" />
-          <Bone className="h-[88px] rounded-2xl" />
-          <Bone className="h-[88px] rounded-2xl" />
-        </div>
-        <Bone className="h-36 w-full rounded-2xl" />
+      <main className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pt-4 md:max-w-3xl ${TAB_MAIN_PAD}`}>
+        <section className="flex flex-col items-center text-center">
+          <div className="h-28 w-28 animate-pulse rounded-full border-4 border-white bg-[#ddf4ff] shadow-[0_4px_0_#e5e5e5] ring-2 ring-[#e5e5e5]" />
+          <div className="mt-3 h-8 w-40 animate-pulse rounded-full bg-[#e2e7ff]" />
+        </section>
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Thống kê</h2>
+          <div className="grid grid-cols-2 gap-3 pt-2 md:grid-cols-4">
+            {PROFILE_STATS.map((label) => (
+              <div
+                key={label}
+                className="flex min-h-[88px] items-center gap-2.5 rounded-2xl border-2 border-[#e5e5e5] bg-white px-3 py-3"
+              >
+                <span className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-[#e2e7ff]" />
+                <span className="min-w-0">
+                  <span className="block h-6 w-10 animate-pulse rounded-full bg-[#e2e7ff]" />
+                  <span className="mt-1 block text-[13px] leading-4 font-bold text-[#afafaf]">{label}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="h-40 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Lớp của bạn</h2>
+          <div className="h-36 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+        </section>
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <h2 className="text-[22px] leading-7 font-extrabold tracking-tight">Huy hiệu</h2>
+            <span className="text-[13px] font-extrabold tracking-wide text-[#1cb0f6] uppercase">Tất cả</span>
+          </div>
+          <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-7">
+            {Array.from({ length: 6 }, (_, index) => (
+              <li key={index} className="h-28 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+            ))}
+          </ul>
+        </section>
       </main>
       <BottomNav />
       {path ? <span className="sr-only">{path}</span> : null}
@@ -546,7 +724,8 @@ export function ScreenForPath({ path }: { path: string }) {
     return <LevelScreenSkeleton path={path} />;
   }
   if (parts[0] === "learn") return <ChapterScreenSkeleton path={path} />;
-  if (parts[0] === "quests" || parts[0] === "badges") return <QuestsScreenSkeleton />;
+  if (parts[0] === "quests") return <QuestsScreenSkeleton />;
+  if (parts[0] === "badges") return <BadgesScreenSkeleton />;
   if (parts[0] === "duel") return <DuelScreenSkeleton />;
   if (parts[0] === "leaderboard") return <LeaderboardScreenSkeleton />;
   return <LevelScreenSkeleton path={path} />;

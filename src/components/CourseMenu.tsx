@@ -10,6 +10,37 @@ export type CourseMenuItem = {
   unlocked: boolean;
 };
 
+function GermanFlag() {
+  const clipId = useId().replace(/:/g, "");
+  return (
+    <svg
+      viewBox="0 0 22 15"
+      className="mr-1.5 h-[15px] w-[22px] shrink-0"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect width="22" height="15" rx="2.5" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`}>
+        <rect width="22" height="5" fill="#000" />
+        <rect y="5" width="22" height="5" fill="#DD0000" />
+        <rect y="10" width="22" height="5" fill="#FFCE00" />
+      </g>
+      <rect
+        x="0.5"
+        y="0.5"
+        width="21"
+        height="14"
+        rx="2"
+        fill="none"
+        stroke="rgba(19,27,46,0.18)"
+      />
+    </svg>
+  );
+}
+
 function MaterialIcon({ name, className }: { name: string; className?: string }) {
   return (
     <span className={`material-symbols-outlined ${className ?? ""}`} aria-hidden="true">
@@ -107,6 +138,7 @@ export function CourseMenu({
         onClick={() => setOpen((value) => !value)}
         className="flex max-w-[11rem] items-center gap-0.5 text-[#0066cc] transition-opacity hover:opacity-80 active:opacity-60 sm:max-w-[16rem]"
       >
+        <GermanFlag />
         <span className="truncate text-[17px] font-medium tracking-tight">{label}</span>
         <MaterialIcon name={open ? "expand_less" : "expand_more"} className="text-[22px]" />
       </button>
