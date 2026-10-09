@@ -262,12 +262,13 @@ export function AdminRetention({
     ),
     [rows, range],
   );
-  const window =
-    range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
+  const period =
+    range === "today" ? "today" : `the last ${adminRangeLabel(range).toLowerCase()}`;
+  const window = range === "today" ? "today" : `in ${period}`;
   const d1Hint =
     range === "today"
-      ? "Of people active yesterday, share who also opened the app today."
-      : "Of people active on a Vietnam day, share who also came the next day.";
+      ? "Students who practiced yesterday, and also practiced today."
+      : "Each day a student practiced, did they practice again the next day?";
 
   return (
     <section aria-labelledby="activity-retention" className="flex flex-col gap-space-12">
@@ -296,9 +297,13 @@ export function AdminRetention({
       >
         <KpiTile
           icon="event_repeat"
-          label="Returning"
+          label="Came back"
           value={formatCount(board.returning)}
-          caption={`Active ${window}, also seen before it`}
+          caption={
+            range === "today"
+              ? "Practiced today. Their first visit was on an earlier day."
+              : `Practiced in ${period}. They had already used the app before then.`
+          }
           color={ADMIN_COLORS.ember}
         />
         <KpiTile
@@ -310,16 +315,18 @@ export function AdminRetention({
         />
         <KpiTile
           icon="redo"
-          label="Next-day return"
+          label="Back next day"
           value={formatPercent(board.d1Rate)}
           caption={
             board.d1Cohort === 0
-              ? "No earlier day to compare"
-              : `${formatCount(board.d1Returned)} of ${formatCount(board.d1Cohort)} came back`
+              ? "No earlier practice day to compare yet."
+              : range === "today"
+                ? `${formatCount(board.d1Returned)} of ${formatCount(board.d1Cohort)} who practiced yesterday also practiced today.`
+                : `When a student practiced, they came back the next day ${formatCount(board.d1Returned)} of ${formatCount(board.d1Cohort)} times.`
           }
           color={ADMIN_COLORS.ember}
           progress={board.d1Rate == null ? undefined : board.d1Rate / 100}
-          progressLabel="Next-day return rate"
+          progressLabel="Share of practice days followed by another practice the next day"
         />
         <KpiTile
           icon="local_fire_department"
@@ -330,9 +337,13 @@ export function AdminRetention({
         />
         <KpiTile
           icon="hourglass_disabled"
-          label="Quiet"
+          label="Gone quiet"
           value={formatCount(board.lapsed)}
-          caption={range === "today" ? "Last seen before yesterday" : `Seen before this window, not ${window}`}
+          caption={
+            range === "today"
+              ? "Used the app before yesterday, and not since."
+              : `Used the app before ${period}, and not since.`
+          }
           color={board.lapsed > 0 ? ADMIN_COLORS.crimson : ADMIN_COLORS.inkSubtle}
         />
       </div>
@@ -368,7 +379,7 @@ export function AdminRetention({
           hint={
             range === "today"
               ? "Last seen two or more days ago."
-              : "Practiced or opened the app before this window, not since."
+              : `Used the app before ${period}, and not since.`
           }
           empty="Nobody in this window looks lapsed."
           rows={board.lapsedPeople}

@@ -1,9 +1,137 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 type PinguMood = "cheering" | "oops";
+
+type RiveModule = typeof import("@rive-app/react-canvas");
+type PinguRive = { rive: RiveModule; file: InstanceType<RiveModule["RiveFile"]> };
+
+/** Every artboard named in docs/PINGU_RIVE.md. Until it ships, the SVGs below play instead. */
+const PINGU_RIV = "/rive/pingu.riv";
+const PINGU_STATE_MACHINE = "Pingu";
+/** Room an artboard keeps on each side of the 240×250 pose for balloons, balls, and confetti. */
+const PINGU_BLEED = 60;
+
+let pinguRive: Promise<PinguRive | null> | undefined;
+
+/** One fetch per page. Without pingu.riv the runtime and its 2 MB WASM never download. */
+function loadPinguRive() {
+  pinguRive ??= fetch(PINGU_RIV)
+    .then(async (res) => {
+      if (!res.ok) return null;
+      const [buffer, rive] = await Promise.all([res.arrayBuffer(), import("@rive-app/react-canvas")]);
+      rive.RuntimeLoader.setWasmUrl(new URL("@rive-app/canvas/rive.wasm", import.meta.url).href);
+      rive.RuntimeLoader.setWasmFallbackUrl(new URL("@rive-app/canvas/rive_fallback.wasm", import.meta.url).href);
+      const file = new rive.RiveFile({ buffer });
+      await file.init();
+      // Pinned for the page's lifetime: the last Pingu unmounting would otherwise free the file the next one reads.
+      file.getInstance();
+      return { rive, file };
+    })
+    .catch(() => null);
+  return pinguRive;
+}
+
+/**
+ * Plays `artboard` from pingu.riv over the SVG pose, and keeps the SVG when the file or artboard
+ * is missing or the student prefers reduced motion.
+ */
+function PinguStage({
+  artboard,
+  size,
+  locked = false,
+  className = "inline-block",
+  children,
+}: {
+  artboard: string;
+  /** The SVG's box. Bled artboards overhang it by PINGU_BLEED; without it the canvas fills the stage. */
+  size?: { width: number; height: number };
+  locked?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [pingu, setPingu] = useState<PinguRive | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    let live = true;
+    void loadPinguRive().then((loaded) => {
+      if (live) setPingu(loaded);
+    });
+    return () => {
+      live = false;
+    };
+  }, [reduceMotion]);
+
+  const box: CSSProperties = size
+    ? {
+        left: (-size.width * PINGU_BLEED) / 240,
+        top: (-size.height * PINGU_BLEED) / 250,
+        width: (size.width * (240 + 2 * PINGU_BLEED)) / 240,
+        height: (size.height * (250 + 2 * PINGU_BLEED)) / 250,
+      }
+    : { inset: 0, width: "100%", height: "100%" };
+
+  return (
+    <span className={`pingu-stage relative ${className}`} data-rive={state === "ready" ? "on" : undefined}>
+      {children}
+      {pingu && !reduceMotion && state !== "failed" ? (
+        <PinguCanvas
+          key={artboard}
+          pingu={pingu}
+          artboard={artboard}
+          locked={locked}
+          style={{ position: "absolute", pointerEvents: "none", ...box }}
+          onReady={() => setState("ready")}
+          onFail={() => setState("failed")}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function PinguCanvas({
+  pingu,
+  artboard,
+  locked,
+  style,
+  onReady,
+  onFail,
+}: {
+  pingu: PinguRive;
+  artboard: string;
+  locked: boolean;
+  style: CSSProperties;
+  onReady: () => void;
+  onFail: () => void;
+}) {
+  const { useRive, useViewModelInstanceBoolean } = pingu.rive;
+  const { rive, RiveComponent } = useRive(
+    {
+      riveFile: pingu.file,
+      artboard,
+      stateMachine: PINGU_STATE_MACHINE,
+      autoplay: true,
+      autoBind: true,
+      shouldDisableRiveListeners: true,
+      onLoad: onReady,
+      onLoadError: onFail,
+    },
+    // Callers scale Pingu up to 1.9×, so the canvas draws at twice the screen's density.
+    { customDevicePixelRatio: Math.min(4, (window.devicePixelRatio || 1) * 2) },
+  );
+  const { setValue: setLocked } = useViewModelInstanceBoolean("locked", rive?.viewModelInstance);
+
+  useEffect(() => {
+    if (rive?.viewModelInstance) setLocked(locked);
+  }, [rive, locked, setLocked]);
+
+  return <RiveComponent style={style} aria-hidden="true" />;
+}
 
 /** Poses that can stand beside a Lektion on the path. */
 export const PATH_POSES = [
@@ -89,17 +217,31 @@ export function ChillPingu({ pose, locked = false }: { pose: ChillPose; locked?:
     ) : (
       <PuzzleCube />
     );
-  return <div className={locked ? "pingu-locked" : undefined}>{art}</div>;
+  return (
+    <div className={locked ? "pingu-locked" : undefined}>
+      <PinguStage artboard={pose} size={{ width: 78, height: 81 }} locked={locked}>
+        {art}
+      </PinguStage>
+    </div>
+  );
 }
 
 /** Glasses-and-book pose from the chill sheet, for the vocabulary sheet. */
 export function ReadingPingu({ size = 168 }: { size?: number }) {
   const height = Math.round(size * (250 / 240));
   return (
+    <PinguStage artboard="reading" size={{ width: size, height }}>
+      <ReadingPinguArt width={size} height={height} />
+    </PinguStage>
+  );
+}
+
+function ReadingPinguArt({ width, height }: { width: number; height: number }) {
+  return (
     <svg
       className="pingu"
       viewBox="0 0 240 250"
-      width={size}
+      width={width}
       height={height}
       style={{ overflow: "visible" }}
       role="img"
@@ -678,6 +820,14 @@ function Peekaboo() {
 /** Pingu mid-hop, arms up. The jump test intro also stands him on the jump pad. */
 export function CheeringPingu() {
   return (
+    <PinguStage artboard="cheering" size={{ width: 156, height: 162 }}>
+      <CheeringPinguArt />
+    </PinguStage>
+  );
+}
+
+function CheeringPinguArt() {
+  return (
     <svg
       className="pingu"
       viewBox="0 0 240 250"
@@ -720,6 +870,14 @@ export function CheeringPingu() {
 }
 
 function Oops() {
+  return (
+    <PinguStage artboard="oops" size={{ width: 156, height: 162 }}>
+      <OopsArt />
+    </PinguStage>
+  );
+}
+
+function OopsArt() {
   return (
     <svg
       className="pingu"
@@ -894,6 +1052,15 @@ function CeleHair() {
  * The earned medal is drawn on top by the unlock screen.
  */
 export function CelebratePingu({ tier }: { tier: number }) {
+  const level = Math.min(Math.max(tier, 1), 4);
+  return (
+    <PinguStage artboard={`celebrate-${level}`} className="block h-full w-full">
+      <CelebratePinguArt tier={tier} />
+    </PinguStage>
+  );
+}
+
+function CelebratePinguArt({ tier }: { tier: number }) {
   const pose = CELE_POSES[Math.min(Math.max(tier, 1), 4) - 1]!;
   return (
     <svg

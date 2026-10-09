@@ -446,6 +446,15 @@ body[data-admin-preview] [data-session-dock] {
   transform-box: view-box;
 }
 
+/* Once the Rive artboard draws, the SVG keeps holding the layout but stops showing and animating. */
+.pingu-stage[data-rive="on"] > svg {
+  visibility: hidden;
+}
+
+.pingu-stage[data-rive="on"] > svg * {
+  animation: none !important;
+}
+
 .pingu-shadow-hop {
   transform-origin: 50% 50%;
   animation: pingu-shadow-hop 1s ease-in-out 0.45s infinite;
