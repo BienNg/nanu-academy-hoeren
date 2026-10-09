@@ -1194,6 +1194,7 @@ function LessonDictionaryModal({
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [historyClose, setHistoryClose] = useState(false);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -1209,6 +1210,49 @@ function LessonDictionaryModal({
     };
   }, [onClose]);
 
+  useEffect(() => {
+    // Deferred so Strict Mode's setup/cleanup/setup cycle pushes one entry.
+    let pushed = false;
+    const pushTimer = window.setTimeout(() => {
+      const current = window.history.state;
+      window.history.pushState(
+        current == null ? { lessonDictionary: true } : { ...current, lessonDictionary: true },
+        "",
+      );
+      pushed = true;
+    }, 0);
+
+    const onPopState = (event: PopStateEvent) => {
+      if (!pushed) return;
+      pushed = false;
+      // Next.js reloads the page when a popstate entry was not created by the app router.
+      event.stopImmediatePropagation();
+      // Commit a zero-length exit before unmounting. The slide-out never
+      // finishes during a history pop, which leaves the sheet mounted.
+      document.body.style.overflow = "";
+      setHistoryClose(true);
+    };
+    window.addEventListener("popstate", onPopState, true);
+
+    return () => {
+      window.clearTimeout(pushTimer);
+      window.removeEventListener("popstate", onPopState, true);
+      if (!pushed) return;
+      pushed = false;
+      const swallow = (event: PopStateEvent) => {
+        event.stopImmediatePropagation();
+        window.removeEventListener("popstate", swallow, true);
+      };
+      window.addEventListener("popstate", swallow, true);
+      window.history.back();
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!historyClose) return;
+    onClose();
+  }, [historyClose, onClose]);
+
   const dash = title.indexOf(" - ");
   const kicker = dash > 0 ? `${title.slice(0, dash)}, ${title.slice(dash + 3)}` : title;
 
@@ -1219,8 +1263,8 @@ function LessonDictionaryModal({
       onClick={onClose}
       initial={slide ? { x: "100%" } : false}
       animate={{ x: 0 }}
-      exit={slide ? { x: "100%" } : { transition: { duration: 0 } }}
-      transition={slide ? SHEET_SLIDE : { duration: 0 }}
+      exit={slide && !historyClose ? { x: "100%" } : { transition: { duration: 0 } }}
+      transition={slide && !historyClose ? SHEET_SLIDE : { duration: 0 }}
     >
       <div
         role="dialog"
