@@ -16,7 +16,7 @@ import { workplaceFromAccessSlug } from "@/lib/living-content";
 import { MaterialIcon, StaffBadge, TeacherBadge, useAdminRole } from "@/components/admin/AdminShell";
 import { Badge, Button, Dialog, buttonClass } from "@/components/admin/AdminUi";
 import { AccountTab } from "@/components/admin/student-detail/AccountTab";
-import { ActivityTab } from "@/components/admin/student-detail/ActivityTab";
+import { ActivityTab, InstalledAppBadge, PwaPromptList } from "@/components/admin/student-detail/ActivityTab";
 import { CoursesTab, type PendingDelete } from "@/components/admin/student-detail/CoursesTab";
 import { visibleLessons } from "@/components/admin/student-detail/meters";
 import { OverviewTab } from "@/components/admin/student-detail/OverviewTab";
@@ -471,7 +471,9 @@ export function StudentDetailModal({
                       />
                       {streakDays} {streakDays === 1 ? "day" : "days"}
                     </Badge>
+                    {progress.pwaInstalledAt ? <InstalledAppBadge /> : null}
                   </div>
+                  <PwaPromptList progress={progress} className="mt-space-8" />
                   <h2
                     id="student-detail-title"
                     className="mt-1 truncate font-admin-display text-admin-headline-lg text-admin-ink sm:text-admin-display-mobile"

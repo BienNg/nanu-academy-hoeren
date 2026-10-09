@@ -49,8 +49,10 @@ import {
   recordVisitLeftSession,
   recordVisitListeningRun,
   recordVisitOnboarding,
+  recordVisitPwaPrompt,
   recordVisitVideo,
   recordVisitWrongAttempt,
+  markPwaInstalled,
   saveLessonVideoPosition,
   setLearnRunOrder,
   setLessonVideoWatched,
@@ -58,12 +60,15 @@ import {
   toContinueLearning,
   toContinueLevelLearning,
   touchVisit,
+  visitClientFromDevice,
   VISIT_IDLE_MS,
   type BerufProgressSummary,
   type ContinueLevelCatalogEntry,
   type LessonVideoProgress,
   type StoredProgress,
+  type VisitClient,
   type VisitOnboarding,
+  type VisitPwaPromptKind,
 } from "@/lib/progress";
 
 /** Cached so useSyncExternalStore gets a stable reference when data is unchanged. */
@@ -392,6 +397,20 @@ function applyVisitResult(
   else if (sync === "heartbeat") queueVisitCloudSync();
 }
 
+function currentVisitClient(): VisitClient | null {
+  if (typeof window === "undefined") return null;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true;
+  return visitClientFromDevice(
+    classifySignInDevice({
+      userAgent: navigator.userAgent,
+      maxTouchPoints: navigator.maxTouchPoints,
+    }),
+    standalone,
+  );
+}
+
 function endVisibleVisit(): void {
   if (typeof window === "undefined") return;
   if (!readVisitId() && lastVisibleTick === 0) return;
@@ -402,6 +421,7 @@ function endVisibleVisit(): void {
     touchVisit(readProgressSnapshot(), new Date(nowMs), {
       preferredId: readVisitId(),
       visibleSeconds: elapsed,
+      client: currentVisitClient(),
     }),
     "local",
   );
@@ -416,6 +436,7 @@ function onVisitTick(): void {
     touchVisit(readProgressSnapshot(), new Date(nowMs), {
       preferredId: readVisitId(),
       visibleSeconds: elapsed,
+      client: currentVisitClient(),
     }),
     "heartbeat",
   );
@@ -448,6 +469,13 @@ export function startVisitTracking(): () => void {
     flushVisitCloudSync();
   };
 
+  const onInstalled = () => {
+    const next = markPwaInstalled(readProgressSnapshot(), new Date());
+    if (next === readProgressSnapshot()) return;
+    writeProgress(next);
+    void pushCloudProgress(next);
+  };
+
   if (document.visibilityState === "visible") {
     lastVisibleTick = Date.now();
     onVisitTick();
@@ -456,14 +484,31 @@ export function startVisitTracking(): () => void {
   const timer = window.setInterval(onVisitTick, VISIT_TICK_MS);
   document.addEventListener("visibilitychange", onVisibility);
   window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("appinstalled", onInstalled);
   visitCleanup = () => {
     window.clearInterval(timer);
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("pagehide", onPageHide);
+    window.removeEventListener("appinstalled", onInstalled);
     visitTracking = false;
     visitCleanup = null;
   };
   return () => stopVisitTracking();
+}
+
+/** Log one install-prompt tap on the open visit. No-op until the learner is signed in. */
+export function logPwaPrompt(kind: VisitPwaPromptKind): void {
+  if (typeof window === "undefined" || !activeUserId) return;
+  applyVisitResult(
+    recordVisitPwaPrompt(
+      readProgressSnapshot(),
+      new Date(),
+      readVisitId(),
+      kind,
+      currentVisitClient(),
+    ),
+    "now",
+  );
 }
 
 export function useVisitTracking(): void {

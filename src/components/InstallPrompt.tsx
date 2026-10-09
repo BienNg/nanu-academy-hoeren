@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AppMark } from "@/components/Logo";
+import { logPwaPrompt } from "@/lib/useProgress";
 
 const DISMISS_KEY = "nanu-pwa-install-dismissed";
 
@@ -93,6 +93,7 @@ export function InstallPrompt() {
   if (mode === "android" && !promptEvent && !androidWaited) return null;
 
   function dismiss() {
+    logPwaPrompt("later");
     try {
       localStorage.setItem(DISMISS_KEY, "1");
     } catch {
@@ -104,10 +105,16 @@ export function InstallPrompt() {
   async function install() {
     if (!promptEvent) return;
     setInstalling(true);
+    logPwaPrompt("install");
     try {
       await promptEvent.prompt();
       const choice = await promptEvent.userChoice;
-      if (choice.outcome === "accepted") setMode(null);
+      if (choice.outcome === "accepted") {
+        logPwaPrompt("installed");
+        setMode(null);
+      } else {
+        logPwaPrompt("cancelled");
+      }
       setPromptEvent(null);
     } finally {
       setInstalling(false);

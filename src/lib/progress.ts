@@ -240,6 +240,24 @@ export type Visit = {
   /** Onboarding outcomes in this visit. Not study: an idle visit stays idle. */
   onboarding?: VisitOnboarding[];
   wrongAttempts?: number;
+  /** Phone or desktop, and whether this launch was the installed app. */
+  client?: VisitClient;
+  /** Install-prompt taps in this visit, oldest first. Not study. */
+  pwaPrompts?: VisitPwaPrompt[];
+};
+
+/** How this visit was opened. A tablet counts as a phone. */
+export type VisitClient = {
+  device: "phone" | "desktop";
+  surface: "pwa" | "browser";
+};
+
+/** One tap on the install prompt, or the browser dialog that followed Cài đặt. */
+export type VisitPwaPromptKind = "install" | "installed" | "cancelled" | "later";
+
+export type VisitPwaPrompt = {
+  at: string;
+  kind: VisitPwaPromptKind;
 };
 
 /**
@@ -293,6 +311,8 @@ export type StoredProgress = {
   activity?: Record<string, DayActivity>;
   /** Recent app-open periods. Capped at 60 visits or 90 days. */
   visits?: Visit[];
+  /** First time we saw the installed app, or Chrome reported an accepted install. */
+  pwaInstalledAt?: string;
   /** Admin deletions. The learner app cannot add or remove these. */
   adminClears?: AdminProgressClear[];
   /** Clear ids already applied on this snapshot. */
@@ -661,6 +681,10 @@ export function normalizeProgress(
   const videos = normalizeVideos(parsed?.videos);
   const activity = normalizeActivity(parsed?.activity);
   const visits = normalizeVisits(parsed?.visits);
+  const pwaInstalledAt = earlierIso(
+    readPwaInstalledAt(parsed?.pwaInstalledAt),
+    installedAtFromVisits(visits),
+  );
   const adminClears = normalizeAdminClears(parsed?.adminClears);
   const adminClearAck = normalizeAdminClearAck(parsed?.adminClearAck, adminClears);
 
@@ -685,6 +709,7 @@ export function normalizeProgress(
         : {}),
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
+      ...(pwaInstalledAt ? { pwaInstalledAt } : {}),
       ...(adminClears.length ? { adminClears } : {}),
       ...(adminClearAck.length ? { adminClearAck } : {}),
     },
@@ -897,6 +922,10 @@ export function mergeProgress(
 
   const activity = mergeActivity(a.activity, b.activity);
   const visits = mergeVisits(a.visits, b.visits);
+  const pwaInstalledAt = earlierIso(
+    earlierIso(readPwaInstalledAt(a.pwaInstalledAt), readPwaInstalledAt(b.pwaInstalledAt)),
+    installedAtFromVisits(visits),
+  );
 
   const merged = applyVisitRetention(
     {
@@ -911,6 +940,7 @@ export function mergeProgress(
       ...(streakTimeZone ? { streakTimeZone } : {}),
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
+      ...(pwaInstalledAt ? { pwaInstalledAt } : {}),
     },
     new Date(),
   );
@@ -1447,6 +1477,7 @@ const VISIT_LIST_CAP = {
   leftSessions: 40,
   jumps: 24,
   onboarding: 8,
+  pwaPrompts: 12,
 };
 
 export type VisitRange = "today" | "7d" | "30d" | "90d" | "all";
@@ -1687,6 +1718,7 @@ function withVisitTotals(visit: Visit): Visit {
   else delete next.jumps;
   if (!next.onboarding?.length) delete next.onboarding;
   if (!next.wrongAttempts) delete next.wrongAttempts;
+  if (!next.pwaPrompts?.length) delete next.pwaPrompts;
   return withoutIdleActiveTime(next);
 }
 
@@ -1766,6 +1798,8 @@ function normalizeVisit(value: unknown): Visit | null {
     [],
   );
   const wrongAttempts = countField(record.wrongAttempts);
+  const client = normalizeVisitClient(record.client);
+  const pwaPrompts = normalizePwaPrompts(record.pwaPrompts);
   return withVisitTotals({
     id,
     startedAt,
@@ -1786,6 +1820,8 @@ function normalizeVisit(value: unknown): Visit | null {
     ...(jumps.length > 0 ? { jumps } : {}),
     ...(onboarding.length > 0 ? { onboarding } : {}),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
+    ...(client ? { client } : {}),
+    ...(pwaPrompts.length > 0 ? { pwaPrompts } : {}),
   });
 }
 
@@ -1913,6 +1949,8 @@ function mergeVisit(left: Visit, right: Visit): Visit {
     jumps: mergeJumps(left.jumps, right.jumps),
     onboarding: mergeOnboarding(left.onboarding, right.onboarding),
     ...(wrongAttempts > 0 ? { wrongAttempts } : {}),
+    ...mergeVisitClient(left, right),
+    ...mergePwaPrompts(left.pwaPrompts, right.pwaPrompts),
   });
 }
 
@@ -2034,15 +2072,165 @@ function blankVisit(id: string, now: Date): Visit {
   };
 }
 
+const PWA_PROMPT_KINDS = new Set<VisitPwaPromptKind>(["install", "installed", "cancelled", "later"]);
+
+/** How many install-prompt moments the student header lists. */
+export const PWA_PROMPT_LIST_CAP = 8;
+
+/**
+ * Phone or desktop for a visit. Tablets count as phones. Null when the
+ * browser gave us nothing to classify.
+ */
+export function visitClientFromDevice(
+  device: SignInDevice | null,
+  standalone: boolean,
+): VisitClient | null {
+  if (!device) return null;
+  return {
+    device: device === "desktop" ? "desktop" : "phone",
+    surface: standalone ? "pwa" : "browser",
+  };
+}
+
+export function describeVisitClient(client: VisitClient): string {
+  const device = client.device === "phone" ? "Phone" : "Desktop";
+  const surface = client.surface === "pwa" ? "App" : "Browser";
+  return `${device} · ${surface}`;
+}
+
+export function describePwaPrompt(kind: VisitPwaPromptKind): string {
+  if (kind === "install") return "Tapped Cài đặt";
+  if (kind === "installed") return "Accepted the install";
+  if (kind === "cancelled") return "Cancelled the install";
+  return "Tapped Để sau";
+}
+
+/** Install-prompt moments across retained visits, newest first. */
+export function recentPwaPrompts(
+  progress: StoredProgress,
+  limit = PWA_PROMPT_LIST_CAP,
+): VisitPwaPrompt[] {
+  const prompts = (progress.visits ?? []).flatMap((visit) => visit.pwaPrompts ?? []);
+  return prompts.sort((left, right) => (left.at < right.at ? 1 : left.at > right.at ? -1 : 0)).slice(0, limit);
+}
+
+function earlierIso(left: string | undefined, right: string | undefined): string | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  return left <= right ? left : right;
+}
+
+function readPwaInstalledAt(value: unknown): string | undefined {
+  const stamp = stampIso(value, "");
+  return stamp || undefined;
+}
+
+function installedAtFromVisits(visits: readonly Visit[]): string | undefined {
+  let earliest: string | undefined;
+  for (const visit of visits) {
+    if (visit.client?.surface === "pwa") earliest = earlierIso(earliest, visit.startedAt);
+    for (const prompt of visit.pwaPrompts ?? []) {
+      if (prompt.kind === "installed") earliest = earlierIso(earliest, prompt.at);
+    }
+  }
+  return earliest;
+}
+
+function withPwaInstalled(progress: StoredProgress, at: string): StoredProgress {
+  const next = earlierIso(progress.pwaInstalledAt, at);
+  if (!next || next === progress.pwaInstalledAt) return progress;
+  return { ...progress, pwaInstalledAt: next };
+}
+
+/** Remember that Chrome reported an accepted install, without a prompt-tap row. */
+export function markPwaInstalled(progress: StoredProgress, now: Date): StoredProgress {
+  return withPwaInstalled(progress, now.toISOString());
+}
+
+function withVisitClient(visit: Visit, client: VisitClient | null | undefined): Visit {
+  if (visit.client || !client) return visit;
+  return { ...visit, client };
+}
+
+function normalizeVisitClient(value: unknown): VisitClient | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const device = record.device === "phone" || record.device === "desktop" ? record.device : null;
+  const surface = record.surface === "pwa" || record.surface === "browser" ? record.surface : null;
+  if (!device || !surface) return undefined;
+  return { device, surface };
+}
+
+function normalizePwaPrompt(value: unknown): VisitPwaPrompt | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const kind = record.kind;
+  if (typeof kind !== "string" || !PWA_PROMPT_KINDS.has(kind as VisitPwaPromptKind)) return null;
+  const at = stampIso(record.at, "");
+  if (!at) return null;
+  return { at, kind: kind as VisitPwaPromptKind };
+}
+
+function normalizePwaPrompts(value: unknown): VisitPwaPrompt[] {
+  if (!Array.isArray(value)) return [];
+  const prompts: VisitPwaPrompt[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    const prompt = normalizePwaPrompt(entry);
+    if (!prompt) continue;
+    const key = `${prompt.at}\n${prompt.kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    prompts.push(prompt);
+    if (prompts.length >= VISIT_LIST_CAP.pwaPrompts) break;
+  }
+  prompts.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0));
+  return prompts;
+}
+
+function mergeVisitClient(left: Visit, right: Visit): { client?: VisitClient } {
+  const earlier = left.startedAt <= right.startedAt ? left : right;
+  const later = earlier === left ? right : left;
+  const client = earlier.client ?? later.client;
+  return client ? { client } : {};
+}
+
+function mergePwaPrompts(
+  left: readonly VisitPwaPrompt[] | undefined,
+  right: readonly VisitPwaPrompt[] | undefined,
+): { pwaPrompts?: VisitPwaPrompt[] } {
+  const prompts = normalizePwaPrompts([...(left ?? []), ...(right ?? [])]);
+  return prompts.length > 0 ? { pwaPrompts: prompts } : {};
+}
+
+/** Append one install-prompt moment to the open visit. An accepted install also sticks. */
+export function recordVisitPwaPrompt(
+  progress: StoredProgress,
+  now: Date,
+  preferredId: string | null,
+  kind: VisitPwaPromptKind,
+  client?: VisitClient | null,
+): { progress: StoredProgress; visitId: string } {
+  const opened = openVisit(progress, now, preferredId, client);
+  const prompts = normalizePwaPrompts([
+    ...(opened.visit.pwaPrompts ?? []),
+    { at: now.toISOString(), kind },
+  ]);
+  let next = commitVisit(opened.progress, { ...opened.visit, pwaPrompts: prompts }, now);
+  if (kind === "installed") next = withPwaInstalled(next, now.toISOString());
+  return { progress: next, visitId: opened.visitId };
+}
+
 /**
  * Continue `preferredId` when its last activity is within 15 minutes.
  * Otherwise start a new visit. Visible seconds are added only when continuing;
- * the idle gap itself is not watch time.
+ * the idle gap itself is not watch time. `client` is how this launch was opened.
+ * A visit keeps the client it started with.
  */
 export function touchVisit(
   progress: StoredProgress,
   now: Date,
-  options: { preferredId?: string | null; visibleSeconds?: number },
+  options: { preferredId?: string | null; visibleSeconds?: number; client?: VisitClient | null },
 ): { progress: StoredProgress; visitId: string } {
   const preferredId = options.preferredId || null;
   const visibleSeconds = Math.max(0, options.visibleSeconds ?? 0);
@@ -2054,40 +2242,53 @@ export function touchVisit(
 
   if (!existing || gapMs > VISIT_IDLE_MS) {
     const visitId = !existing && preferredId ? preferredId : createVisitId(now);
-    const next = applyVisitRetention(
-      { ...progress, visits: [...(progress.visits ?? []), blankVisit(visitId, now)] },
-      now,
-    );
-    return { progress: next, visitId };
+    const created = withVisitClient(blankVisit(visitId, now), options.client);
+    let next: StoredProgress = { ...progress, visits: [...(progress.visits ?? []), created] };
+    if (created.client?.surface === "pwa") next = withPwaInstalled(next, created.startedAt);
+    return { progress: applyVisitRetention(next, now), visitId };
   }
 
-  const engaged = visitHasStudy(existing);
+  const stamped = withVisitClient(existing, options.client);
+  const base =
+    stamped.client?.surface === "pwa" ? withPwaInstalled(progress, stamped.startedAt) : progress;
+  const engaged = visitHasStudy(stamped);
   const add = engaged ? roundSeconds(Math.min(visibleSeconds, Math.max(0, gapMs / 1000))) : 0;
   const endedAt = now.toISOString();
+  const clientChanged = stamped !== existing || base !== progress;
+
   if (!engaged) {
-    if (existing.activeSeconds === 0 && existing.endedAt === endedAt) {
-      return { progress, visitId: existing.id };
+    if (!clientChanged && stamped.activeSeconds === 0 && stamped.endedAt === endedAt) {
+      return { progress, visitId: stamped.id };
     }
-    const updated: Visit = { ...existing, endedAt, activeSeconds: 0 };
+    const updated: Visit = { ...stamped, endedAt, activeSeconds: 0 };
     return {
-      visitId: existing.id,
+      visitId: stamped.id,
       progress: applyVisitRetention(
-        { ...progress, visits: replaceVisit(progress.visits ?? [], updated) },
+        { ...base, visits: replaceVisit(base.visits ?? [], updated) },
         now,
       ),
     };
   }
-  if (add <= 0) return { progress, visitId: existing.id };
+  if (add <= 0) {
+    if (!clientChanged) return { progress, visitId: stamped.id };
+    return {
+      visitId: stamped.id,
+      progress: applyVisitRetention(
+        { ...base, visits: replaceVisit(base.visits ?? [], stamped) },
+        now,
+      ),
+    };
+  }
 
   const updated: Visit = {
-    ...existing,
+    ...stamped,
     endedAt,
-    activeSeconds: existing.activeSeconds + add,
+    activeSeconds: stamped.activeSeconds + add,
   };
   return {
-    visitId: existing.id,
+    visitId: stamped.id,
     progress: applyVisitRetention(
-      { ...progress, visits: replaceVisit(progress.visits ?? [], updated) },
+      { ...base, visits: replaceVisit(base.visits ?? [], updated) },
       now,
     ),
   };
@@ -2097,18 +2298,18 @@ function openVisit(
   progress: StoredProgress,
   now: Date,
   preferredId: string | null,
+  client?: VisitClient | null,
 ): { progress: StoredProgress; visitId: string; visit: Visit } {
-  const opened = touchVisit(progress, now, { preferredId, visibleSeconds: 0 });
+  const opened = touchVisit(progress, now, { preferredId, visibleSeconds: 0, client });
   const visit = opened.progress.visits?.find((entry) => entry.id === opened.visitId);
   if (visit) return { ...opened, visit };
-  const created = blankVisit(opened.visitId, now);
+  const created = withVisitClient(blankVisit(opened.visitId, now), client);
+  let next: StoredProgress = { ...opened.progress, visits: [...(opened.progress.visits ?? []), created] };
+  if (created.client?.surface === "pwa") next = withPwaInstalled(next, created.startedAt);
   return {
     visitId: opened.visitId,
     visit: created,
-    progress: applyVisitRetention(
-      { ...opened.progress, visits: [...(opened.progress.visits ?? []), created] },
-      now,
-    ),
+    progress: applyVisitRetention(next, now),
   };
 }
 

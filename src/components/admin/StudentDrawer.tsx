@@ -15,7 +15,7 @@ import {
   type StudentAccessPatch,
   type StudentDetailPayload,
 } from "@/components/admin/StudentDetailModal";
-import { VisitDayList } from "@/components/admin/student-detail/ActivityTab";
+import { VisitDayList, InstalledAppBadge, PwaPromptList } from "@/components/admin/student-detail/ActivityTab";
 import { LessonTimingPath } from "@/components/admin/student-detail/LessonTimingPath";
 import { useNow } from "@/components/admin/student-detail/shared";
 import { RecapShareButton } from "@/components/RecapShareButton";
@@ -402,6 +402,7 @@ export function StudentDetail({
   }
 
   const streakDays = activeStreakDays(current?.ok ? current.payload.progress : row.progress);
+  const studentProgress = current?.ok ? current.payload.progress : row.progress;
   const lastSeen = formatRelativeLastSeen(row.lastLoginAt, new Date(now));
   const lastSeenExact = formatAdminTimestamp(row.lastLoginAt);
 
@@ -456,7 +457,9 @@ export function StudentDetail({
             />
             {streakDays} {streakDays === 1 ? "day" : "days"}
           </Badge>
+          {studentProgress.pwaInstalledAt ? <InstalledAppBadge /> : null}
         </div>
+        <PwaPromptList progress={studentProgress} />
         <dl>
           <div className="min-w-0">
             <dt className="text-admin-body-sm text-admin-ink-muted">Last seen</dt>

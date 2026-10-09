@@ -11,6 +11,7 @@ import {
   recordVisitJump,
   recordVisitLeftSession,
   recordVisitListeningRun,
+  recordVisitPwaPrompt,
   recordVisitVideo,
   summarizeVisits,
   todayIsoDate,
@@ -390,4 +391,84 @@ test("a jump test is stored once per Lektion, and a pass replaces a miss", () =>
 
   const reloaded = normalizeProgress(passed.progress);
   assert.equal(reloaded.visits?.[0]?.jumps?.[0]?.passed, true);
+});
+
+test("a visit records phone or desktop, and the installed app sticks", () => {
+  const start = new Date("2026-10-09T02:00:00.000Z");
+  const phone = touchVisit(blank(), start, {
+    preferredId: "visit-a",
+    client: { device: "phone", surface: "browser" },
+  });
+  assert.deepEqual(phone.progress.visits?.[0]?.client, { device: "phone", surface: "browser" });
+  assert.equal(phone.progress.pwaInstalledAt, undefined);
+
+  const continued = touchVisit(phone.progress, new Date(start.getTime() + 60_000), {
+    preferredId: "visit-a",
+    visibleSeconds: 0,
+    client: { device: "desktop", surface: "pwa" },
+  });
+  assert.deepEqual(continued.progress.visits?.[0]?.client, { device: "phone", surface: "browser" });
+  assert.equal(continued.progress.pwaInstalledAt, undefined);
+
+  const later = new Date(start.getTime() + 30 * 60_000);
+  const installed = touchVisit(continued.progress, later, {
+    client: { device: "phone", surface: "pwa" },
+  });
+  assert.equal(installed.progress.visits?.length, 2);
+  assert.deepEqual(installed.progress.visits?.[0]?.client, { device: "phone", surface: "pwa" });
+  assert.equal(installed.progress.pwaInstalledAt, later.toISOString());
+
+  const kept = touchVisit(installed.progress, new Date(later.getTime() + 60_000), {
+    preferredId: installed.visitId,
+    client: { device: "phone", surface: "browser" },
+  });
+  assert.equal(kept.progress.pwaInstalledAt, later.toISOString());
+});
+
+test("install prompt taps keep their time, and an accepted install sticks", () => {
+  const start = new Date("2026-10-09T03:00:00.000Z");
+  const opened = touchVisit(blank(), start, {
+    preferredId: "visit-a",
+    client: { device: "phone", surface: "browser" },
+  });
+  const tapped = recordVisitPwaPrompt(
+    opened.progress,
+    new Date(start.getTime() + 5_000),
+    opened.visitId,
+    "install",
+    { device: "phone", surface: "browser" },
+  );
+  const acceptedAt = new Date(start.getTime() + 8_000);
+  const accepted = recordVisitPwaPrompt(
+    tapped.progress,
+    acceptedAt,
+    tapped.visitId,
+    "installed",
+    { device: "phone", surface: "browser" },
+  );
+  const visit = accepted.progress.visits?.[0];
+  assert.deepEqual(
+    visit?.pwaPrompts?.map((prompt) => prompt.kind),
+    ["install", "installed"],
+  );
+  assert.equal(visit?.pwaPrompts?.[0]?.at, new Date(start.getTime() + 5_000).toISOString());
+  assert.equal(accepted.progress.pwaInstalledAt, acceptedAt.toISOString());
+  assert.equal(visit?.activeSeconds, 0);
+
+  const later = recordVisitPwaPrompt(blank(), start, "visit-b", "later", {
+    device: "desktop",
+    surface: "browser",
+  });
+  assert.equal(later.progress.pwaInstalledAt, undefined);
+  assert.equal(later.progress.visits?.[0]?.client?.device, "desktop");
+  assert.deepEqual(later.progress.visits?.[0]?.pwaPrompts?.map((prompt) => prompt.kind), ["later"]);
+
+  const merged = mergeProgress(accepted.progress, later.progress);
+  assert.equal(merged.pwaInstalledAt, acceptedAt.toISOString());
+  const reloaded = normalizeProgress({
+    ...accepted.progress,
+    pwaInstalledAt: undefined,
+    visits: accepted.progress.visits,
+  });
+  assert.equal(reloaded.pwaInstalledAt, acceptedAt.toISOString());
 });

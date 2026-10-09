@@ -59,7 +59,8 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { visitRangeIso } from "@/lib/progress";
+import { formatAdminTimestamp } from "@/lib/admin-overview";
+import { describePwaPrompt, recentPwaPrompts, visitRangeIso, type StoredProgress } from "@/lib/progress";
 import {
   describeVisitClick,
   placeUiClickGroups,
@@ -391,22 +392,31 @@ function VisitCard({
     return (
       <li
         className={`flex gap-space-12 rounded-admin-card border border-dashed border-admin-border px-space-16 py-space-12 ${
-          clicks.length > 0 || quits.length > 0 ? "items-start" : "items-center"
+          clicks.length > 0 || quits.length > 0 || visit.client || visit.pwaPrompts.length > 0
+            ? "items-start"
+            : "items-center"
         }`}
       >
         <MaterialIcon
           name="hourglass_empty"
-          className={`text-[18px] text-admin-ink-faint ${clicks.length > 0 || quits.length > 0 ? "mt-0.5" : ""}`}
+          className={`text-[18px] text-admin-ink-faint ${
+            clicks.length > 0 || quits.length > 0 || visit.client || visit.pwaPrompts.length > 0
+              ? "mt-0.5"
+              : ""
+          }`}
         />
         <span
           className={`text-admin-label-md font-semibold tabular-nums text-admin-ink-muted ${
-            clicks.length > 0 || quits.length > 0 ? "mt-0.5" : ""
+            clicks.length > 0 || quits.length > 0 || visit.client || visit.pwaPrompts.length > 0
+              ? "mt-0.5"
+              : ""
           }`}
         >
           {visit.timeRange}
         </span>
         <span className="min-w-0 flex-1 text-admin-body-sm text-admin-ink-subtle">
           <span className="block truncate">Opened the app, no study</span>
+          <VisitOrigin visit={visit} />
           <VisitClickLine clicks={clicks} />
           <VisitQuitLines quits={quits} />
           {visit.onboarding ? (
@@ -456,6 +466,7 @@ function VisitCard({
             )}
           </span>
 
+          <VisitOrigin visit={visit} />
           <VisitClickLine clicks={clicks} className="mt-space-8" />
           <VisitQuitLines quits={quits} />
 
@@ -506,6 +517,61 @@ function VisitCard({
         ) : null}
       </Panel>
     </li>
+  );
+}
+
+function VisitOrigin({ visit }: { visit: AdminVisitRow }) {
+  if (!visit.client && visit.pwaPrompts.length === 0) return null;
+  return (
+    <span className="mt-1 flex flex-col gap-0.5">
+      {visit.client ? (
+        <span className="block font-semibold text-admin-ink-muted">{visit.client}</span>
+      ) : null}
+      {visit.pwaPrompts.map((prompt) => (
+        <span
+          key={`${prompt.at}-${prompt.kind}`}
+          className="block font-semibold text-admin-ink-muted"
+        >
+          <span className="tabular-nums">{clockLabel(prompt.at)}</span>
+          {" · "}
+          {describePwaPrompt(prompt.kind)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function InstalledAppBadge() {
+  return (
+    <Badge tone="emerald">
+      <MaterialIcon name="install_mobile" className="-mx-0.5 text-[14px]" />
+      App installed
+    </Badge>
+  );
+}
+
+export function PwaPromptList({
+  progress,
+  className = "",
+}: {
+  progress: StoredProgress;
+  className?: string;
+}) {
+  const prompts = recentPwaPrompts(progress);
+  if (prompts.length === 0) return null;
+  return (
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <p className="text-admin-body-sm text-admin-ink-muted">Install prompt</p>
+      <ul className="flex flex-col gap-0.5">
+        {prompts.map((prompt) => (
+          <li key={`${prompt.at}-${prompt.kind}`} className="text-admin-body-sm text-admin-ink">
+            <time dateTime={prompt.at}>{formatAdminTimestamp(prompt.at)}</time>
+            {" · "}
+            {describePwaPrompt(prompt.kind)}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

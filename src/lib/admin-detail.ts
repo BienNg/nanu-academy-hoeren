@@ -6,11 +6,13 @@ import type {
   StoredProgress,
   Visit,
   VisitExerciseLesson,
+  VisitPwaPrompt,
   VisitSummary,
 } from "./progress";
 import {
   daysBetweenUtc,
   describeVisitSignal,
+  describeVisitClient,
   formatActiveDuration,
   lessonVideoStatus,
   completedStudyPartCount,
@@ -1084,6 +1086,10 @@ export type AdminVisitRow = {
   lines: string[];
   /** "Onboarding completed" or "Onboarding skipped because …". Null when neither happened. */
   onboarding: string | null;
+  /** "Phone · App" and the same for desktop and the browser. Null on older visits. */
+  client: string | null;
+  /** Install-prompt taps during this visit, oldest first. */
+  pwaPrompts: VisitPwaPrompt[];
   signal: string | null;
   signalKind: AdminVisitSignalKind | null;
   details: AdminVisitDetailGroup[];
@@ -1624,6 +1630,8 @@ export function projectStudentVisits(
       stats,
       lines: visitLines(courses, visit),
       onboarding: visitOnboardingLine(visit),
+      client: visit.client ? describeVisitClient(visit.client) : null,
+      pwaPrompts: visit.pwaPrompts ?? [],
       signal,
       signalKind: signal ? visitSignalKind(signalInput) : null,
       details: visitDetails(courses, visit),
