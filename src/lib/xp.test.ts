@@ -6,6 +6,8 @@ import {
   LIVING_BOARD_CLASS_PREFIX,
   leaderboardClassOptions,
   dayKey,
+  recentDayKeys,
+  shortWeekday,
   decidePartXp,
   decideStudyPartXp,
   nodePracticeRunSize,
@@ -65,6 +67,27 @@ test("Vietnam week starts Monday and rolls at local midnight", () => {
   const monday = new Date("2026-09-27T17:00:00.000Z");
   assert.equal(dayKey(monday), "2026-09-28");
   assert.equal(weekKey(monday), "2026-09-28");
+});
+
+test("a profile week is the last seven Vietnam days, not the calendar week", () => {
+  assert.deepEqual(recentDayKeys(NOW), [
+    "2026-09-21",
+    "2026-09-22",
+    "2026-09-23",
+    "2026-09-24",
+    "2026-09-25",
+    "2026-09-26",
+    "2026-09-27",
+  ]);
+  assert.equal(shortWeekday("2026-09-21"), "T2");
+  assert.equal(shortWeekday("2026-09-27"), "CN");
+
+  const fridayMorning = new Date("2026-10-09T03:00:00.000Z");
+  const friday = recentDayKeys(fridayMorning);
+  assert.equal(friday[0], "2026-10-03");
+  assert.equal(friday[6], "2026-10-09");
+  assert.equal(shortWeekday(friday[0]!), "T7");
+  assert.equal(shortWeekday(friday[6]!), "T6");
 });
 
 test("countdown uses days, then hours", () => {

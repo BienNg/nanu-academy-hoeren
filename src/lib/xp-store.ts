@@ -44,6 +44,7 @@ import { isQuestSchemaMissing, listQuestClaimRows } from "@/lib/quest-store";
 import {
   assembleLeaderboard,
   dayKey,
+  recentDayKeys,
   decidePartXp,
   decideStudyPartXp,
   nodePracticeRunSize,
@@ -804,6 +805,75 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
     if (row.week_key === currentWeek) week += row.xp;
   }
   return { ready: true, today, week, total };
+}
+
+export type DailyXp = {
+  day: string;
+  xp: number;
+};
+
+const DAILY_XP_TABLES: readonly {
+  table: string;
+  missing: (message: string) => boolean;
+}[] = [
+  { table: XP_TABLE, missing: isXpSchemaMissing },
+  { table: STUDY_XP_TABLE, missing: isStudyXpSchemaMissing },
+  { table: DUEL_XP_TABLE, missing: isDuelSchemaMissing },
+  { table: JUMP_XP_TABLE, missing: isJumpXpSchemaMissing },
+  { table: QUEST_CLAIMS_TABLE, missing: isQuestSchemaMissing },
+];
+
+async function sumUserXpOnDays(
+  supabase: SupabaseClient,
+  userId: string,
+  days: readonly string[],
+  source: (typeof DAILY_XP_TABLES)[number],
+): Promise<number[]> {
+  const totals = days.map(() => 0);
+  const index = new Map(days.map((day, slot) => [day, slot]));
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(source.table)
+      .select("xp, day_key")
+      .eq("user_id", userId)
+      .in("day_key", [...days])
+      .order("day_key")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!source.missing(error.message)) {
+        console.error(`Supabase daily xp ${source.table}`, error.message);
+      }
+      return totals;
+    }
+    const page = (data ?? []) as { xp?: unknown; day_key?: unknown }[];
+    for (const row of page) {
+      if (typeof row.xp !== "number" || typeof row.day_key !== "string") continue;
+      const slot = index.get(row.day_key);
+      if (slot == null) continue;
+      totals[slot] = (totals[slot] ?? 0) + row.xp;
+    }
+    if (page.length < PAGE_SIZE) return totals;
+    from += PAGE_SIZE;
+  }
+}
+
+/**
+ * XP on each of the last 7 Vietnam days, oldest first.
+ * The profile label says this week. The window is rolling, not Monday–Sunday.
+ * Null when the store is off.
+ */
+export async function getUserDailyXp(userId: string, now = new Date()): Promise<DailyXp[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const days = recentDayKeys(now, 7);
+  const sums = await Promise.all(
+    DAILY_XP_TABLES.map((source) => sumUserXpOnDays(supabase, userId, days, source)),
+  );
+  return days.map((day, index) => ({
+    day,
+    xp: sums.reduce((total, column) => total + (column[index] ?? 0), 0),
+  }));
 }
 
 /** The learner's all-time XP, for the completed screen. Null when unreadable. */

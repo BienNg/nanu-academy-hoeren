@@ -1534,8 +1534,9 @@ function visitSignalKind(input: {
 
 function emptyVisitMessage(range: AdminVisitRange): string {
   if (range === "today") return "No visits today.";
-  if (range === "7d") return "No visits in the last 7 days.";
-  return "No visits recorded yet.";
+  if (range === "all") return "No visits recorded yet.";
+  const days = range === "7d" ? "7 days" : range === "30d" ? "30 days" : "90 days";
+  return `No visits in the last ${days}.`;
 }
 
 /** Late visit heartbeats can land a little before the jump's own stamp. */
@@ -1663,7 +1664,8 @@ function visitChart(
     }
     label = (start) => `${start.getHours().toString().padStart(2, "0")}:00`;
   } else {
-    let first = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+    const span = range === "30d" ? 29 : range === "90d" ? 89 : 6;
+    let first = new Date(today.getFullYear(), today.getMonth(), today.getDate() - span);
     if (range === "all") {
       // XP can predate visit history, so the earliest award also widens the chart.
       const earliest = [

@@ -1449,7 +1449,14 @@ const VISIT_LIST_CAP = {
   onboarding: 8,
 };
 
-export type VisitRange = "today" | "7d" | "all";
+export type VisitRange = "today" | "7d" | "30d" | "90d" | "all";
+
+const VISIT_RANGE_DAYS: Record<Exclude<VisitRange, "all">, number> = {
+  today: 1,
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+};
 
 export type VisitSummary = {
   activeSeconds: number;
@@ -2526,7 +2533,7 @@ function visitRangeBounds(
   const zone = validTimeZone(timeZone) ?? deviceTimeZone();
   const today = localCalendarDay(now, zone);
   const endMs = zoneMidnightMs(shiftIsoDay(today, 1), zone);
-  const firstDay = range === "today" ? today : shiftIsoDay(today, -6);
+  const firstDay = shiftIsoDay(today, -(VISIT_RANGE_DAYS[range] - 1));
   return { startMs: zoneMidnightMs(firstDay, zone), endMs };
 }
 

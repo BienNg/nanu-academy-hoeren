@@ -122,6 +122,8 @@ const CHART_TAB_OPTIONS = (Object.keys(CHART_TABS) as ChartTab[]).map((key) => (
 const SLOT: Record<AdminVisitRange, string> = {
   today: "hour",
   "7d": "day",
+  "30d": "day",
+  "90d": "day",
   all: "day (or week, for long histories)",
 };
 

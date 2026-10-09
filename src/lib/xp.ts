@@ -192,6 +192,28 @@ export function dayKey(date: Date): string {
   return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
 }
 
+const DAY_MS = 86_400_000;
+const SHORT_WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"] as const;
+
+/** Short Vietnamese weekday for a `YYYY-MM-DD` key. Sunday is CN. */
+export function shortWeekday(key: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) return "";
+  const weekday = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay();
+  return SHORT_WEEKDAYS[weekday] ?? "";
+}
+
+/** The last `count` Vietnam calendar days, oldest first, including `now`. */
+export function recentDayKeys(now: Date, count = 7): string[] {
+  const parts = vietnamParts(now);
+  const todayMs = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const start = todayMs - (Math.max(1, count) - 1) * DAY_MS;
+  return Array.from({ length: Math.max(1, count) }, (_, index) => {
+    const date = new Date(start + index * DAY_MS);
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  });
+}
+
 /** Monday of the Vietnam week that contains `date`, `YYYY-MM-DD`. */
 export function weekKey(date: Date): string {
   const parts = vietnamParts(date);

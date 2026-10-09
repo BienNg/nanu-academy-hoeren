@@ -13,7 +13,7 @@ import { readEarnedFamilies, type BadgeFamilyView } from "@/lib/badges";
 import { BottomNav } from "@/components/BottomNav";
 import { chunkyButton } from "@/components/chunkyButton";
 import { RecapShareButton } from "@/components/RecapShareButton";
-import { leaderboardDisplayName, parseDisplayName } from "@/lib/xp";
+import { leaderboardDisplayName, parseDisplayName, recentDayKeys, shortWeekday } from "@/lib/xp";
 import { discardDeviceProgress, rememberClientDevice, useProgress } from "@/lib/useProgress";
 
 function MaterialIcon({
@@ -160,6 +160,11 @@ function DeleteAccountDialog({
   );
 }
 
+type DailyXpPoint = {
+  day: string;
+  xp: number;
+};
+
 type ProfileSnapshot = {
   name: string;
   className: string | null;
@@ -169,6 +174,7 @@ type ProfileSnapshot = {
   totalXp: number;
   top3: number;
   badges: BadgeFamilyView[];
+  days: DailyXpPoint[];
 };
 
 function readProfile(value: unknown): ProfileSnapshot | null {
@@ -185,7 +191,107 @@ function readProfile(value: unknown): ProfileSnapshot | null {
     totalXp: typeof raw.totalXp === "number" ? raw.totalXp : 0,
     top3: typeof raw.top3 === "number" ? raw.top3 : 0,
     badges,
+    days: readDailyXp(raw.days),
   };
+}
+
+function readDailyXp(value: unknown): DailyXpPoint[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const day = (entry as { day?: unknown }).day;
+    const xp = (entry as { xp?: unknown }).xp;
+    if (typeof day !== "string" || typeof xp !== "number" || !Number.isFinite(xp)) return [];
+    return [{ day, xp: Math.max(0, xp) }];
+  });
+}
+
+function axisMax(peak: number): number {
+  if (peak <= 0) return 40;
+  const pow = 10 ** Math.floor(Math.log10(peak));
+  for (const step of [1, 2, 4, 5, 8, 10]) {
+    const candidate = step * pow;
+    if (candidate > peak) return candidate;
+  }
+  return pow * 10;
+}
+
+function WeekXpChart({ name, days }: { name: string; days: DailyXpPoint[] }) {
+  const [active, setActive] = useState<number | null>(null);
+  const points = days.length > 0 ? days : recentDayKeys(new Date()).map((day) => ({ day, xp: 0 }));
+  const total = points.reduce((sum, point) => sum + point.xp, 0);
+  const max = axisMax(Math.max(0, ...points.map((point) => point.xp)));
+  const ticks = [max, max / 2, 0];
+
+  const width = 320;
+  const height = 118;
+  const left = 26;
+  const right = 6;
+  const top = 8;
+  const bottom = 18;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const plotted = points.map((point, index) => {
+    const x = left + (points.length === 1 ? plotW / 2 : (index / (points.length - 1)) * plotW);
+    const y = top + plotH - (point.xp / max) * plotH;
+    return { ...point, x, y, label: shortWeekday(point.day) };
+  });
+  const line = plotted
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+    .join(" ");
+  const column = plotW / plotted.length;
+
+  return (
+    <div className="rounded-2xl border-2 border-[#e5e5e5] bg-white px-3 pt-3 pb-2">
+      <h2 className="text-[15px] leading-5 font-extrabold tracking-tight text-[#3c3c3c]">XP tuần này</h2>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-[#4b4b4b]">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-[#1cb0f6]" aria-hidden="true" />
+          <span className="truncate">{name}</span>
+        </span>
+        <span className="shrink-0 text-[13px] font-extrabold text-[#1cb0f6] tabular-nums">{formatCount(total)} XP</span>
+      </div>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="mt-1 block w-full"
+        role="img"
+        aria-label={`XP 7 ngày gần nhất của ${name}, tổng ${formatCount(total)} XP`}
+      >
+          {ticks.map((tick) => {
+            const y = top + plotH - (tick / max) * plotH;
+            return (
+              <g key={tick}>
+                <line x1={left} x2={width - right} y1={y} y2={y} stroke="#e5e5e5" strokeWidth="1" />
+                <text x={left - 6} y={y + 3} textAnchor="end" fill="#afafaf" fontSize="10" fontWeight="600">
+                  {formatCount(tick)}
+                </text>
+              </g>
+            );
+          })}
+          <path d={line} fill="none" stroke="#8ecfff" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+          {plotted.map((point, index) => {
+            const selected = active === index;
+            const labelY = point.y < top + 16 ? point.y + 14 : point.y - 8;
+            return (
+              <g key={point.day} className="cursor-pointer" onClick={() => setActive(selected ? null : index)}>
+                <rect x={point.x - column / 2} y={top} width={column} height={plotH} fill="transparent">
+                  <title>{`${point.label} ${formatCount(point.xp)} XP`}</title>
+                </rect>
+                <circle cx={point.x} cy={point.y} r={selected ? 3.5 : 2.5} fill="#1cb0f6" />
+                {selected ? (
+                  <text x={point.x} y={labelY} textAnchor="middle" fill="#1cb0f6" fontSize="10" fontWeight="700">
+                    {formatCount(point.xp)}
+                  </text>
+                ) : null}
+                <text x={point.x} y={height - 4} textAnchor="middle" fill="#afafaf" fontSize="10" fontWeight="600">
+                  {point.label}
+                </text>
+              </g>
+            );
+          })}
+      </svg>
+    </div>
+  );
 }
 
 function formatCount(value: number): string {
@@ -335,6 +441,7 @@ function LearnerProfile({
               totalXp: 0,
               top3: 0,
               badges: [],
+              days: [],
             },
       );
       setEditing(false);
@@ -463,6 +570,14 @@ function LearnerProfile({
             </div>
             <StatCard icon={<MedalIcon />} value={profile ? formatCount(profile.top3) : "—"} label="Lần top 3" />
           </div>
+        </section>
+
+        <section>
+          {profile === undefined ? (
+            <div className="h-40 animate-pulse rounded-2xl bg-[#e2e7ff]" />
+          ) : (
+            <WeekXpChart name={shownName} days={profile?.days ?? []} />
+          )}
         </section>
 
         <section>

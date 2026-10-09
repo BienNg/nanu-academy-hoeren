@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { syncBadges } from "@/lib/badge-store";
 import { isProgressStoreConfigured, readLearnerName, renameLearner, resolveAccountAccess } from "@/lib/progress-store";
-import { getUserXpTotals, getLeaderboard } from "@/lib/xp-store";
+import { getUserXpTotals, getLeaderboard, getUserDailyXp } from "@/lib/xp-store";
 
 function revokedResponse() {
   return NextResponse.json({ error: "Account deleted", revoked: true }, { status: 410 });
@@ -29,13 +29,17 @@ export async function GET() {
     canPickClass: false,
   };
 
-  const [storedName, totals, allTime, week, badges] = await Promise.all([
+  const [storedName, totals, allTime, week, badges, daily] = await Promise.all([
     readLearnerName(viewerId),
     getUserXpTotals(viewerId),
     getLeaderboard({ ...boardInput, range: "all" }),
     getLeaderboard({ ...boardInput, range: "week" }),
     syncBadges(viewerId).catch((error: unknown) => {
       console.error("GET /api/profile badges", error);
+      return null;
+    }),
+    getUserDailyXp(viewerId).catch((error: unknown) => {
+      console.error("GET /api/profile daily xp", error);
       return null;
     }),
   ]);
@@ -54,6 +58,7 @@ export async function GET() {
     totalXp: totals.total,
     top3: podium?.value ?? 0,
     badges: earned,
+    days: daily ?? [],
   });
 }
 

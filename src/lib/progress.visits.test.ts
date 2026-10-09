@@ -263,6 +263,13 @@ test("range totals follow today, 7 days, and all time", () => {
   assert.equal(week.visitCount, 1);
   assert.equal(week.clipCount, 1);
 
+  const month = summarizeVisits(result.progress, "30d", now);
+  assert.equal(month.visitCount, 2);
+  assert.equal(month.clipCount, 2);
+
+  const quarter = summarizeVisits(result.progress, "90d", now);
+  assert.equal(quarter.visitCount, 2);
+
   const all = summarizeVisits(result.progress, "all", now);
   assert.equal(all.visitCount, 2);
   assert.equal(all.clipCount, 2);

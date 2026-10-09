@@ -3,7 +3,12 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { loadAdminStudentDetail, loadAdminStudentXp } from "@/app/admin/actions";
-import { MaterialIcon, StaffBadge, TeacherBadge } from "@/components/admin/AdminShell";
+import {
+  MaterialIcon,
+  StaffBadge,
+  TeacherBadge,
+  useAdminPageRange,
+} from "@/components/admin/AdminShell";
 import { Badge, Button, Drawer, buttonClass, formatCount } from "@/components/admin/AdminUi";
 import {
   StudentDetailModal,
@@ -21,7 +26,14 @@ import {
   type AdminXpEvent,
   type AdminXpSource,
 } from "@/lib/admin-detail";
-import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
+import {
+  adminRangeLabel,
+  adminRangeVietnamDayKeys,
+  formatAdminTimestamp,
+  formatRelativeLastSeen,
+  type AdminRange,
+  type AdminUserRow,
+} from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { activeStreakDays, formatActiveDuration } from "@/lib/progress";
 import { dayKey } from "@/lib/xp";
@@ -112,28 +124,42 @@ function SubHeading({ title, meta }: { title: string; meta?: string }) {
 const LIST = "divide-y divide-admin-hairline overflow-hidden rounded-admin-control border border-admin-hairline";
 const ROW = "flex items-center gap-space-8 bg-admin-card px-space-12 py-space-8 text-admin-body-sm";
 
+function rangePeriod(range: AdminRange): string {
+  return range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
+}
+
 function XpSummary({
   catalog,
   events,
+  range,
 }: {
   catalog: readonly AdminCatalogCourse[];
   events: readonly AdminXpEvent[];
+  range: AdminRange;
 }) {
   const now = useNow();
   const xp = useMemo(() => {
-    const today = dayKey(new Date(now));
-    const todayEvents = events.filter(
-      (event) => (event.dayKey ?? dayKey(new Date(event.at))) === today,
+    const days = new Set(adminRangeVietnamDayKeys(range, new Date(now)));
+    const rangedEvents = events.filter((event) =>
+      days.has(event.dayKey ?? dayKey(new Date(event.at))),
     );
-    return summarizeStudentXp(catalog, todayEvents, new Date(now));
-  }, [catalog, events, now]);
+    return summarizeStudentXp(catalog, rangedEvents, new Date(now));
+  }, [catalog, events, now, range]);
+  const awardHint =
+    range === "today"
+      ? xp.awards === 1
+        ? "award today"
+        : "awards today"
+      : xp.awards === 1
+        ? "award"
+        : "awards";
 
   return (
     <Section title="XP">
       <StatGrid
         items={[
           {
-            label: "Today",
+            label: adminRangeLabel(range),
             value: formatCount(xp.total),
             hint: "Vietnam time",
             color: xp.total > 0 ? ADMIN_COLORS.amber : undefined,
@@ -141,15 +167,20 @@ function XpSummary({
           {
             label: "Awards",
             value: formatCount(xp.awards),
-            hint: xp.awards === 1 ? "award today" : "awards today",
+            hint: awardHint,
           },
         ]}
       />
       {xp.sources.length === 0 ? (
-        <p className="pt-space-12 text-admin-body-sm text-admin-ink-subtle">No XP earned today.</p>
+        <p className="pt-space-12 text-admin-body-sm text-admin-ink-subtle">
+          No XP earned {rangePeriod(range)}.
+        </p>
       ) : (
         <>
-          <SubHeading title="By source" meta="Share of today" />
+          <SubHeading
+            title="By source"
+            meta={range === "today" ? "Share of today" : "Share"}
+          />
           <div
             className="mb-space-8 flex h-2 gap-px overflow-hidden rounded-full bg-admin-subtle"
             role="img"
@@ -227,56 +258,66 @@ function DrawerSkeleton() {
   );
 }
 
+/** Same calendar the header date tab uses. */
+const ADMIN_RANGE_ZONE = "Asia/Ho_Chi_Minh";
+
 function StudentSummary({
   userId,
   catalog,
   payload,
+  range,
 }: {
   userId: string;
   catalog: readonly AdminCatalogCourse[];
   payload: StudentDetailPayload;
+  range: AdminRange;
 }) {
-  const todayLog = useMemo(
-    () => projectStudentVisits(catalog, payload.progress, "today"),
-    [catalog, payload.progress],
+  const visitLog = useMemo(
+    () =>
+      projectStudentVisits(
+        catalog,
+        { ...payload.progress, streakTimeZone: ADMIN_RANGE_ZONE },
+        range,
+      ),
+    [catalog, payload.progress, range],
   );
-  const today = todayLog.summary;
+  const summary = visitLog.summary;
 
   return (
     <>
-      <Section title="Today">
+      <Section title={adminRangeLabel(range)}>
         <StatGrid
           items={[
             {
               label: "Active time",
-              value: formatActiveDuration(today.activeSeconds),
-              hint: `${formatCount(today.visitCount)} ${today.visitCount === 1 ? "visit" : "visits"}`,
-              color: today.activeSeconds > 0 ? ADMIN_COLORS.ember : undefined,
+              value: formatActiveDuration(summary.activeSeconds),
+              hint: `${formatCount(summary.visitCount)} ${summary.visitCount === 1 ? "visit" : "visits"}`,
+              color: summary.activeSeconds > 0 ? ADMIN_COLORS.ember : undefined,
             },
-            { label: "Clips studied", value: formatCount(today.clipCount) },
+            { label: "Clips studied", value: formatCount(summary.clipCount) },
             {
               label: "Practice runs",
-              value: formatCount(today.listeningRuns),
-              hint: `${formatCount(today.exercisesCompleted)} practice clips`,
+              value: formatCount(summary.listeningRuns),
+              hint: `${formatCount(summary.exercisesCompleted)} practice clips`,
             },
             {
               label: "Video",
-              value: formatActiveDuration(today.videoSeconds),
-              hint: `${formatCount(today.videosWatched)} marked watched`,
+              value: formatActiveDuration(summary.videoSeconds),
+              hint: `${formatCount(summary.videosWatched)} marked watched`,
             },
           ]}
         />
       </Section>
 
       <section className="flex flex-col gap-space-24 px-space-12 py-space-16">
-        {todayLog.visits.length === 0 ? (
-          <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{todayLog.emptyMessage}</p>
+        {visitLog.visits.length === 0 ? (
+          <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{visitLog.emptyMessage}</p>
         ) : (
           <VisitDayList
-            visits={todayLog.visits}
+            visits={visitLog.visits}
             userId={userId}
-            range="today"
-            timeZone={payload.progress.streakTimeZone}
+            range={range}
+            timeZone={ADMIN_RANGE_ZONE}
           />
         )}
       </section>
@@ -345,6 +386,7 @@ export function StudentDetail({
 
   const xpCurrent = xpLoad?.userId === row.userId ? xpLoad : null;
   const now = useNow();
+  const range = useAdminPageRange() ?? "today";
 
   if (full) {
     return (
@@ -431,7 +473,7 @@ export function StudentDetail({
       </div>
 
       {xpCurrent == null ? null : xpCurrent.events ? (
-        <XpSummary catalog={catalog} events={xpCurrent.events} />
+        <XpSummary catalog={catalog} events={xpCurrent.events} range={range} />
       ) : (
         <Section title="XP">
           <p className="text-admin-body-sm text-admin-ink-subtle">Could not load XP.</p>
@@ -452,7 +494,12 @@ export function StudentDetail({
               />
             </div>
           ) : null}
-          <StudentSummary userId={row.userId} catalog={catalog} payload={current.payload} />
+          <StudentSummary
+            userId={row.userId}
+            catalog={catalog}
+            payload={current.payload}
+            range={range}
+          />
         </>
       ) : (
         <p

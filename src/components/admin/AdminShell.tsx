@@ -48,6 +48,17 @@ export function useAdminRange(serverRange: AdminRange): AdminRange {
 }
 
 /**
+ * The header date tab on pages that show it. Null on pages without the tab,
+ * so a student drawer there keeps its own window.
+ */
+export function useAdminPageRange(): AdminRange | null {
+  const pathname = usePathname();
+  const range = useAdminRange(defaultAdminRangeForPath(pathname));
+  if (activeItem(pathname)?.ranged !== true) return null;
+  return range;
+}
+
+/**
  * Keeps `value` paired with the range it belongs to. A new tab keeps the
  * previous numbers until `load` returns, so the lists already on the page
  * are not fetched again.
@@ -506,6 +517,12 @@ function RangePill() {
   const fallback = defaultAdminRangeForPath(pathname);
   const current = useAdminRange(parseAdminRange(searchParams.get("range") ?? undefined, fallback));
 
+  // Publish the tab (including the URL on first paint) so the student drawer
+  // can read it without its own search-param subscription.
+  useEffect(() => {
+    pick(pathname, current);
+  }, [pick, pathname, current]);
+
   const select = useCallback(
     (range: AdminRange) => {
       pick(pathname, range);
@@ -644,7 +661,9 @@ export function AdminShell({
   const pathname = usePathname();
   const [picked, setPicked] = useState<PickedAdminRange | null>(null);
   const pick = useCallback((path: string, range: AdminRange) => {
-    setPicked({ pathname: path, range });
+    setPicked((prev) =>
+      prev?.pathname === path && prev.range === range ? prev : { pathname: path, range },
+    );
   }, []);
   const activePick = picked && picked.pathname === pathname ? picked : null;
   const rangeContext = useMemo(() => ({ picked: activePick, pick }), [activePick, pick]);
