@@ -590,10 +590,16 @@ function LearnerProfile({
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ddf4ff]">
                   <img src="/nav/learn.svg" alt="" className="h-9 w-9" />
                 </span>
-                <div className="min-w-0 text-left">
+                <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-[18px] leading-6 font-extrabold">{profile.className}</p>
                   <p className="text-[13px] font-bold text-[#afafaf]">{profile.classSize} học viên</p>
                 </div>
+                <Link
+                  href="/leaderboard?board=classes"
+                  className="shrink-0 text-[13px] font-extrabold tracking-wide text-[#1cb0f6] uppercase"
+                >
+                  Xếp hạng
+                </Link>
               </div>
               <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#fff4d4] px-3 py-2.5">
                 <BoltIcon />
