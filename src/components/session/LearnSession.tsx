@@ -447,8 +447,10 @@ export function LearnSession({
   const isLastPart = nodeMode ? partFinishesLesson : partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase === "practice");
-  const losesStreakOnQuit =
-    dropStreakForUnfinishedSession(progress, chapterProgressKey).streakDays < streakDays;
+  const losesStreakOnQuit = useMemo(
+    () => dropStreakForUnfinishedSession(progress, chapterProgressKey).streakDays < streakDays,
+    [progress, chapterProgressKey, streakDays],
+  );
   const progressTotal = partCards?.length ?? 0;
   const progressFill =
     progressTotal <= 0 ? 0 : Math.min(1, (clipIndex + (isPerfect ? 1 : 0)) / progressTotal);

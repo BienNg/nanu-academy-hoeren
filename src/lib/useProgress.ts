@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { clearBadgeBoardCache } from "@/lib/badge-unseen";
 import { clearQuestBoardCache } from "@/lib/quest-badge";
@@ -1066,6 +1066,8 @@ export function useProgress(
 
   const continueLearning = toContinueLearning(progress, totalsBySlug);
   const continueLevel = toContinueLevelLearning(progress, levelCatalog);
+  // Walks every visit and video timestamp through Intl. Skip it unless progress changes.
+  const streakDays = useMemo(() => activeStreakDays(progress), [progress]);
 
   const progressFor = useCallback(
     (berufSlug: string): BerufProgressSummary =>
@@ -1081,7 +1083,7 @@ export function useProgress(
     continueLearning,
     continueLevel,
     progressFor,
-    streakDays: activeStreakDays(progress),
+    streakDays,
     recordPracticeDay,
     markClipDone,
     markLearnClipDone,
