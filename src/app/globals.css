@@ -1161,6 +1161,151 @@ body[data-admin-preview] [data-session-dock] {
   }
 }
 
+/* Waving hello, from the mascot sheet. The bubble shows while he waves. */
+.pingu-hello-tap-a {
+  animation: pingu-chill-step 1.6s ease-in-out infinite;
+}
+
+.pingu-hello-tap-b {
+  animation: pingu-chill-step 1.6s ease-in-out 0.8s infinite;
+}
+
+.pingu-hello-sway {
+  animation: pingu-hello-sway 3.4s ease-in-out infinite;
+}
+
+@keyframes pingu-hello-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+.pingu-hello-wave {
+  animation: pingu-hello-wave 4s ease-in-out infinite;
+}
+
+@keyframes pingu-hello-wave {
+  0% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-58deg);
+  }
+  20% {
+    transform: rotate(-30deg);
+  }
+  30% {
+    transform: rotate(-58deg);
+  }
+  40% {
+    transform: rotate(-30deg);
+  }
+  50% {
+    transform: rotate(-58deg);
+  }
+  62%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.pingu-hello-bubble {
+  transform-origin: 20% 100%;
+  animation: pingu-hello-bubble 4s ease-in-out infinite;
+}
+
+@keyframes pingu-hello-bubble {
+  0%,
+  4% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  12%,
+  55% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Launch splash. The root layout's inline script hides it on later loads in the same tab,
+   and the fallback fade clears it if the page's JavaScript never runs. */
+html[data-splash="seen"] .pingu-splash {
+  display: none;
+}
+
+.pingu-splash {
+  animation: pingu-splash-fallback 0.4s ease 4s forwards;
+  transition:
+    opacity 0.4s ease,
+    visibility 0.4s;
+}
+
+.pingu-splash[data-state="leaving"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@keyframes pingu-splash-fallback {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.pingu-splash-content {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pingu-splash[data-state="leaving"] .pingu-splash-content {
+  transform: scale(1.08);
+}
+
+.pingu-splash-pop {
+  transform-origin: 50% 100%;
+  animation: pingu-splash-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pingu-splash-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(48px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.04, 0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pingu-splash-rise {
+  animation: pingu-splash-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+@keyframes pingu-splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .pingu-locked {
   filter: grayscale(1);
   opacity: 0.55;
@@ -1179,12 +1324,16 @@ body[data-admin-preview] [data-session-dock] {
 
 @media (prefers-reduced-motion: reduce) {
   .pingu *,
-  .pingu-bubble {
+  .pingu-bubble,
+  .pingu-hello-bubble,
+  .pingu-splash * {
     animation: none !important;
+    transition: none !important;
   }
 
   .pingu .pingu-chill-heart,
-  .pingu .pingu-chill-note {
+  .pingu .pingu-chill-note,
+  .pingu-hello-bubble {
     opacity: 1;
   }
 }

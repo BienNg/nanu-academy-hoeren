@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -48,7 +49,8 @@ import { practiceNodeDecks, practicePartLayout } from "@/lib/practice-node";
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import type { PairingResult } from "@/lib/pairing";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
-import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
+import { playCelebrationSound, playHeartLostSound, playSuccessSound } from "@/lib/sfx";
+import { ComboBurst } from "@/components/session/ComboBurst";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { PartHearts } from "@/components/session/PartHearts";
@@ -73,6 +75,8 @@ type LearnSessionProps = {
 };
 
 const LISTENING_HEARTS = 3;
+/** Every this many first-try answers in a row plays the full-screen burst. */
+const COMBO_BURST_EVERY = 5;
 const PRACTICE_FOCUS_KEY = "nanu-focus-luyen-nghe";
 const pendingRunOrders = new Map<string, string[]>();
 const replacementRunOrders = new Map<string, string[]>();
@@ -124,6 +128,10 @@ export function LearnSession({
   const [heartsLeft, setHeartsLeft] = useState(LISTENING_HEARTS);
   const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
   const [combo, setCombo] = useState(0);
+  /** Burst on screen: an in-a-row milestone or a flawless part, with an id so back-to-back bursts remount. */
+  const [comboBurst, setComboBurst] = useState<{ count: number; perfect: boolean; id: number } | null>(
+    null,
+  );
   const [quitOpen, setQuitOpen] = useState(false);
   const [phase, setPhase] = useState<"practice" | "complete" | "leaving">("practice");
   /** Part of a finished node this visit replays. Null on a first pass. */
@@ -529,15 +537,29 @@ export function LearnSession({
     missedAnswersRef.current.set(card.clip.id, { ...answers, [card.kind]: attempt });
   };
 
+  /**
+   * Counts a first correct answer on this card toward the combo. Returns true when it earns a
+   * burst: every 5th in a row, or the last card of a part with no miss at all.
+   */
+  const countCombo = () => {
+    if (!currentCard || !partCards || comboCountedKeyRef.current === currentCard.key) return false;
+    comboCountedKeyRef.current = currentCard.key;
+    const next = combo + 1;
+    setCombo(next);
+    const perfect = clipIndex + 1 >= partCards.length && missedCardKeysRef.current.size === 0;
+    if (!perfect && next % COMBO_BURST_EVERY !== 0) return false;
+    setComboBurst((current) => ({ count: next, perfect, id: (current?.id ?? 0) + 1 }));
+    return true;
+  };
+
+  const endComboBurst = useCallback(() => setComboBurst(null), []);
+
   /** Kind-agnostic hearts/streak bookkeeping. Each handler sets its own result state first. */
   const applyResult = (accuracy: number, attempt?: MissedAttempt | null) => {
     if (!currentCard) return;
     if (accuracy === 100) {
-      playSuccessSound();
-      if (comboCountedKeyRef.current !== currentCard.key) {
-        comboCountedKeyRef.current = currentCard.key;
-        setCombo((count) => count + 1);
-      }
+      if (countCombo()) playCelebrationSound();
+      else playSuccessSound();
       return;
     }
 
@@ -625,10 +647,7 @@ export function LearnSession({
     if (!currentCard?.pairItems) return;
     if (pairingSolvedKeyRef.current === currentCard.key) return;
     pairingSolvedKeyRef.current = currentCard.key;
-    if (comboCountedKeyRef.current !== currentCard.key) {
-      comboCountedKeyRef.current = currentCard.key;
-      setCombo((count) => count + 1);
-    }
+    const milestone = countCombo();
     const pairs = currentCard.pairItems.map((clip) => ({
       viClipId: clip.id,
       deClipId: clip.id,
@@ -640,7 +659,8 @@ export function LearnSession({
       total: pairs.length,
       pairs,
     });
-    playSuccessSound();
+    if (milestone) playCelebrationSound();
+    else playSuccessSound();
   };
 
   const commitPart = () => {
@@ -785,14 +805,16 @@ export function LearnSession({
       {phase === "practice" ? (
         <header className="z-50 w-full shrink-0 border-b border-black/[0.05] bg-[#fbfbfd]/80 pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.02)] backdrop-blur-xl">
           <div className="mx-auto w-full max-w-4xl px-4 pt-2 pb-3 sm:px-6">
-            <p
+            <motion.p
               className={`mb-1 text-center text-[12px] font-extrabold uppercase tracking-wide ${
                 combo >= 2 ? (combo >= 5 ? "text-[#ff9500]" : "text-[#0066cc]") : "invisible"
               }`}
               aria-hidden={combo < 2}
+              animate={comboBurst ? { scale: [1, 1.45, 1] } : { scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
             >
               {Math.max(combo, 2)} liên tiếp
-            </p>
+            </motion.p>
             <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
               <button
                 type="button"
@@ -848,6 +870,23 @@ export function LearnSession({
           </div>
         </header>
       ) : null}
+
+      {/* Not tied to the practice phase, so a PERFEKT! on the last card plays out over the complete screen. */}
+      {comboBurst ? (
+        <ComboBurst
+          key={comboBurst.id}
+          count={comboBurst.count}
+          perfect={comboBurst.perfect}
+          onDone={endComboBurst}
+        />
+      ) : null}
+      <p className="sr-only" aria-live="polite">
+        {comboBurst
+          ? comboBurst.perfect
+            ? "Perfekt! Đúng hết cả phần."
+            : `${comboBurst.count} câu đúng liên tiếp!`
+          : ""}
+      </p>
 
       {quitOpen && phase === "practice" ? (
         <QuitDialog

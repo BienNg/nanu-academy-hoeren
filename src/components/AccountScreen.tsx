@@ -15,6 +15,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { XpWeekCompareChart } from "@/components/LeaderboardParts";
 import { chunkyButton } from "@/components/chunkyButton";
 import { RecapShareButton } from "@/components/RecapShareButton";
+import { WavingPingu } from "@/components/session/Pingu";
 import { leaderboardDisplayName, parseDisplayName, recentDayKeys, shortWeekday } from "@/lib/xp";
 import { discardDeviceProgress, rememberClientDevice, useProgress } from "@/lib/useProgress";
 
@@ -901,54 +902,42 @@ export function AccountScreen({
 
   if (!user) {
     return (
-      <div 
+      <div
         data-layout="wide"
-        className="relative flex w-screen max-w-none flex-1 flex-col bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
-        style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
+        className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col overflow-x-hidden bg-white selection:bg-[#0066cc] selection:text-white"
       >
-        <main className="relative flex w-full flex-1 flex-col items-center bg-transparent">
-          {/* Background decorative elements */}
-          <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-50">
-            <div className="absolute -left-[10%] -top-[10%] h-[40%] w-[60%] rounded-full bg-blue-100/40 blur-[80px] md:-left-[5%] md:-top-[5%] md:h-[50%] md:w-[40%] md:blur-[120px]" />
-            <div className="absolute -bottom-[10%] -right-[10%] h-[40%] w-[60%] rounded-full bg-teal-100/30 blur-[80px] md:-bottom-[5%] md:-right-[5%] md:h-[50%] md:w-[40%] md:blur-[120px]" />
+        {/* Phone: Pingu and the wordmark centered, buttons on the bottom. Wide: Pingu left, the rest right. */}
+        <main className="mx-auto grid w-full max-w-[960px] flex-1 grid-rows-[1fr_auto_auto_1fr_auto] px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] [grid-template-areas:'.'_'pingu'_'brand'_'.'_'actions'] lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[1fr_auto_auto_1fr] lg:gap-x-16 lg:px-10 lg:[grid-template-areas:'pingu_.'_'pingu_brand'_'pingu_actions'_'pingu_.']">
+          <div className="flex justify-center [grid-area:pingu] lg:items-center">
+            <WavingPingu className="w-[200px] sm:w-[240px] lg:w-[360px]" />
           </div>
-          
-          <div className="relative z-10 flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-8 px-6 pb-32">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <h1 className="m-0">
-                <Wordmark className="text-[48px] sm:text-[64px]" />
-              </h1>
-              <p className="max-w-[280px] text-lg font-medium text-[#86868b]">
-                Học và luyện tập tiếng Đức chuyên ngành.
-              </p>
-            </div>
 
-            <section className="flex w-full max-w-[400px] flex-col gap-6 rounded-[32px] border border-white/20 bg-white/80 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
-              <div className="flex flex-col gap-2 text-center">
-                <h2 className="font-headline-sm text-[20px] font-bold text-[#1d1d1f]" style={{ letterSpacing: "-0.015em" }}>
-                  Bắt đầu học ngay
-                </h2>
-                <p className="text-[14px] font-medium text-[#86868b]">
-                  Đăng nhập để lưu tiến độ và đồng bộ trên mọi thiết bị của bạn.
-                </p>
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  rememberClientDevice();
-                  void signIn("google", { callbackUrl });
-                }}
-                className="group relative flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-[16px] bg-white border border-black/[0.05] font-label-lg text-[16px] font-semibold text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#f5f5f7] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] active:scale-[0.98]"
-              >
-                <GoogleIcon className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
-                <span>Tiếp tục với Google</span>
-              </button>
-              
-              <p className="text-center text-[12px] font-medium text-[#86868b]">
-                Bằng việc đăng nhập, bạn đồng ý với Điều khoản và Chính sách bảo mật của chúng tôi.
-              </p>
-            </section>
+          <div className="mt-8 flex flex-col items-center gap-3 text-center [grid-area:brand] lg:mt-0">
+            <h1 className="m-0">
+              <Wordmark className="text-[44px] sm:text-[52px]" />
+            </h1>
+            <p className="font-headline-sm max-w-[300px] text-[18px] leading-[26px] font-bold text-[#4b4b4f] sm:max-w-[340px] sm:text-[20px] sm:leading-[28px]">
+              Học và luyện tập tiếng Đức chuyên ngành.
+            </p>
+          </div>
+
+          <div className="mx-auto flex w-full max-w-[400px] flex-col gap-4 pt-8 [grid-area:actions] lg:pt-10">
+            <button
+              type="button"
+              onClick={() => {
+                rememberClientDevice();
+                void signIn("google", { callbackUrl });
+              }}
+              className={chunkyButton("primary", "w-full")}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white">
+                <GoogleIcon className="h-[18px] w-[18px]" />
+              </span>
+              Tiếp tục với Google
+            </button>
+            <p className="text-center text-[12px] leading-4 font-medium text-[#86868b]">
+              Bằng việc đăng nhập, bạn đồng ý với Điều khoản và Chính sách bảo mật của chúng tôi.
+            </p>
           </div>
         </main>
       </div>

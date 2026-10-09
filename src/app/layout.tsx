@@ -73,8 +73,15 @@ export default async function RootLayout({
     <html
       lang="vi"
       className={`${plusJakartaSans.variable} ${beVietnamPro.variable} ${fredoka.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
+        {/* Hides the launch splash on later loads in this tab. Same key as SplashScreen. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(sessionStorage.getItem("nanu-splash")==="1")document.documentElement.setAttribute("data-splash","seen")}catch(e){}})()`,
+          }}
+        />
         {/* Material Symbols used by design-reference mockups (home, exercise). */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link

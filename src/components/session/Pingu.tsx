@@ -41,6 +41,7 @@ function loadPinguRive() {
 function PinguStage({
   artboard,
   size,
+  fluid = false,
   locked = false,
   className = "inline-block",
   children,
@@ -48,6 +49,8 @@ function PinguStage({
   artboard: string;
   /** The SVG's box. Bled artboards overhang it by PINGU_BLEED; without it the canvas fills the stage. */
   size?: { width: number; height: number };
+  /** A bled artboard whose SVG is sized by CSS, so the overhang is a share of the stage. */
+  fluid?: boolean;
   locked?: boolean;
   className?: string;
   children: ReactNode;
@@ -74,7 +77,14 @@ function PinguStage({
         width: (size.width * (240 + 2 * PINGU_BLEED)) / 240,
         height: (size.height * (250 + 2 * PINGU_BLEED)) / 250,
       }
-    : { inset: 0, width: "100%", height: "100%" };
+    : fluid
+      ? {
+          left: `${(-100 * PINGU_BLEED) / 240}%`,
+          top: `${(-100 * PINGU_BLEED) / 250}%`,
+          width: `${(100 * (240 + 2 * PINGU_BLEED)) / 240}%`,
+          height: `${(100 * (250 + 2 * PINGU_BLEED)) / 250}%`,
+        }
+      : { inset: 0, width: "100%", height: "100%" };
 
   return (
     <span className={`pingu-stage relative ${className}`} data-rive={state === "ready" ? "on" : undefined}>
@@ -308,6 +318,105 @@ function ReadingPinguArt({ width, height }: { width: number; height: number }) {
         </g>
       </g>
     </svg>
+  );
+}
+
+/**
+ * Waving hello from the mascot sheet, with its "Hallo!" bubble. Width comes from
+ * `className`; the bubble scales with it.
+ */
+export function WavingPingu({ className = "w-[240px]" }: { className?: string }) {
+  return (
+    <div className={`@container relative ${className}`}>
+      <PinguStage artboard="hello" fluid className="block w-full">
+        <svg
+          className="pingu block h-auto w-full"
+          viewBox="0 0 240 250"
+          style={{ overflow: "visible" }}
+          role="img"
+          aria-label="Pingu vẫy tay chào"
+        >
+          <ellipse cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+          <g className="pingu-chill-breathe">
+            <g className="pingu-hello-tap-a">
+              <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+            </g>
+            <g className="pingu-hello-tap-b">
+              <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+            </g>
+            <g className="pingu-fl-l pingu-hello-sway">
+              <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+            </g>
+            <g className="pingu-fl-r pingu-hello-wave">
+              <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+            </g>
+            <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+            <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+            <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+            <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+            <ellipse cx="76" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+            <ellipse cx="164" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.5" />
+            <g className="pingu-blink">
+              <ellipse cx="92" cy="118" rx="9" ry="11" fill="#141B2E" />
+              <ellipse cx="148" cy="118" rx="9" ry="11" fill="#141B2E" />
+              <circle cx="95.5" cy="113" r="3.4" fill="#FFFFFF" />
+              <circle cx="151.5" cy="113" r="3.4" fill="#FFFFFF" />
+              <circle cx="89.5" cy="123" r="1.6" fill="#FFFFFF" />
+              <circle cx="145.5" cy="123" r="1.6" fill="#FFFFFF" />
+            </g>
+            <path d="M107 134 Q120 124 133 134 Q131 150 120 152 Q109 150 107 134 Z" fill="#FF9500" />
+            <path d="M113 136 Q120 131 127 136" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          </g>
+        </svg>
+      </PinguStage>
+      <div
+        className="pingu-hello-bubble absolute top-[3.2cqw] -right-[11.6cqw] rounded-full bg-white px-[6.3cqw] py-[3.2cqw] shadow-[0_12px_32px_-4px_rgba(0,0,0,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)]"
+        aria-hidden="true"
+      >
+        <div className="absolute -bottom-[1.6cqw] left-[5.8cqw] h-[4.2cqw] w-[4.2cqw] rotate-45 rounded-[0.8cqw] bg-white" />
+        <div className="font-headline-sm relative text-[6.84cqw] leading-[8.42cqw] font-bold tracking-[-0.02em] text-[#1d1d1f]">
+          Hallo!
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pingu on the launch splash: eyes shut with joy, flippers out in a ta-da. */
+export function SplashPingu({ className = "w-[168px]" }: { className?: string }) {
+  return (
+    <PinguStage artboard="splash" fluid className={`block ${className}`}>
+      <svg
+        className="pingu block h-auto w-full"
+        viewBox="0 0 240 250"
+        style={{ overflow: "visible" }}
+        role="img"
+        aria-label="Pingu"
+      >
+        <ellipse cx="120" cy="238" rx="64" ry="8" fill="#0B6FB0" opacity="0.45" />
+        <g className="pingu-chill-breathe">
+          <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <g className="pingu-fl-l" style={{ transform: "rotate(40deg)" }}>
+            <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+          </g>
+          <g className="pingu-fl-r" style={{ transform: "rotate(-40deg)" }}>
+            <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+          </g>
+          <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+          <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+          <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+          <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <ellipse cx="76" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+          <ellipse cx="164" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+          <path d="M82 122 Q92 106 102 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <path d="M138 122 Q148 106 158 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <ellipse cx="120" cy="150" rx="9" ry="7" fill="#D9423A" />
+          <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+          <path d="M113 134 Q120 129 127 134" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        </g>
+      </svg>
+    </PinguStage>
   );
 }
 
