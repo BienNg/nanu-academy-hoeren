@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { chunkyButton } from "@/components/chunkyButton";
 import { ClassQuestsSection } from "@/components/ClassQuestParts";
@@ -16,7 +16,7 @@ import {
   type QuestProgress,
   type QuestUpdate,
 } from "@/lib/quests";
-import { publishQuestBadge } from "@/lib/quest-badge";
+import { cachedQuestBoard, publishQuestBadge, rememberQuestBoard } from "@/lib/quest-badge";
 import { formatWeekCountdown } from "@/lib/xp";
 
 type QuestRow = QuestProgress;
@@ -186,33 +186,62 @@ export function EarnedToast({ update, onDone }: { update: QuestUpdate; onDone: (
   );
 }
 
+function showCachedQuestClock(setNow: (now: number) => void, setResetAt: (at: number) => void): void {
+  const loadedAt = Date.now();
+  setNow(loadedAt);
+  setResetAt(nextLocalMidnight(loadedAt));
+}
+
 export function QuestsScreen() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [toast, setToast] = useState<QuestUpdate | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [resetAt, setResetAt] = useState<number | null>(null);
+  const requestId = useRef(0);
 
-  const load = useCallback(() => {
+  const load = useCallback((options?: { force?: boolean }) => {
+    const cached = cachedQuestBoard();
+    if (!options?.force && cached?.fresh) return;
+    const id = ++requestId.current;
     void fetch("/api/quests", { headers: questZoneHeaders() })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
+        if (id !== requestId.current) return;
         const board = readQuestBoard(data);
-        setState(board ? { status: "ready", board } : { status: "unavailable" });
-        publishQuestBadge(board ? board.quests.filter((quest) => !quest.done).length : 0);
-        if (board?.update && board.update.xp > 0) setToast(board.update);
-        const loadedAt = Date.now();
-        setNow(loadedAt);
-        setResetAt(nextLocalMidnight(loadedAt));
+        if (!board) {
+          const still = cachedQuestBoard();
+          if (!still) publishQuestBadge(0);
+          setState(still ? { status: "ready", board: still.board } : { status: "unavailable" });
+          return;
+        }
+        // The toast belongs to this response. A later visit should not play it again.
+        rememberQuestBoard({ ...board, update: null });
+        setState({ status: "ready", board });
+        publishQuestBadge(board.quests.filter((quest) => !quest.done).length);
+        if (board.update && board.update.xp > 0) setToast(board.update);
+        showCachedQuestClock(setNow, setResetAt);
       })
-      .catch(() => setState({ status: "unavailable" }));
+      .catch(() => {
+        if (id !== requestId.current) return;
+        const still = cachedQuestBoard();
+        setState(still ? { status: "ready", board: still.board } : { status: "unavailable" });
+      });
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const cached = cachedQuestBoard();
+    if (cached) {
+      setState({ status: "ready", board: cached.board });
+      showCachedQuestClock(setNow, setResetAt);
+    }
     load();
+  }, [load]);
+
+  useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 30_000);
-    // Coming back to the tab picks up progress from other tabs and a new local day.
+    // Coming back to the browser tab picks up progress from other pages and a new local day.
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") load({ force: true });
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -223,7 +252,7 @@ export function QuestsScreen() {
 
   const expired = now != null && resetAt != null && now >= resetAt;
   useEffect(() => {
-    if (expired) load();
+    if (expired) load({ force: true });
   }, [expired, load]);
 
   const countdown =
@@ -274,7 +303,7 @@ export function QuestsScreen() {
               type="button"
               onClick={() => {
                 setState({ status: "loading" });
-                load();
+                load({ force: true });
               }}
               className={chunkyButton("secondary", "mt-1 w-full")}
             >

@@ -21,6 +21,7 @@ import {
 import { checkMc, type McResult } from "@/lib/multiple-choice";
 import { checkOrder, type PracticeCard } from "@/lib/sentence-order";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
+import { clearQuestBoardCache } from "@/lib/quest-badge";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { FOCUS_RING } from "@/lib/keyboard";
@@ -92,10 +93,12 @@ async function submitLessonJump(input: {
       quests?: unknown;
       total?: unknown;
     };
+    const quests = readQuestUpdate(data.quests);
+    if (quests) clearQuestBoardCache();
     return {
       xp: typeof data.xp === "number" ? data.xp : null,
       kind: typeof data.kind === "string" ? data.kind : null,
-      quests: readQuestUpdate(data.quests),
+      quests,
       total: typeof data.total === "number" ? data.total : null,
     };
   } catch (error) {

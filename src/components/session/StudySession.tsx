@@ -34,6 +34,7 @@ import {
   splitStudyParts,
 } from "@/lib/progress";
 import { isAdminUser } from "@/lib/admins";
+import { clearQuestBoardCache } from "@/lib/quest-badge";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
 import { playSuccessSound } from "@/lib/sfx";
@@ -518,11 +519,13 @@ export function StudySession({
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { xp?: unknown; kind?: unknown; quests?: unknown; total?: unknown } | null) => {
+        const quests = data ? readQuestUpdate(data.quests) : null;
+        if (quests) clearQuestBoardCache();
         setXpGrant({
           xp: data && typeof data.xp === "number" ? data.xp : null,
           kind: data && typeof data.kind === "string" ? data.kind : null,
           pending: false,
-          quests: data ? readQuestUpdate(data.quests) : null,
+          quests,
           total: data && typeof data.total === "number" ? data.total : null,
         });
       })

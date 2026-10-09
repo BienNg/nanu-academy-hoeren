@@ -6,6 +6,7 @@ import {
   type CardKind,
   type MissedAttemptKind,
 } from "./card-kinds";
+import { clearQuestBoardCache } from "./quest-badge";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "./quests";
 
 export type ListeningRunOutcome = "success" | "fail";
@@ -420,10 +421,12 @@ export async function submitListeningRun(
       quests?: unknown;
       total?: unknown;
     };
+    const quests = readQuestUpdate(data.quests);
+    if (quests) clearQuestBoardCache();
     return {
       xp: typeof data.xp === "number" ? data.xp : null,
       kind: typeof data.kind === "string" ? data.kind : null,
-      quests: readQuestUpdate(data.quests),
+      quests,
       total: typeof data.total === "number" ? data.total : null,
     };
   } catch (error) {

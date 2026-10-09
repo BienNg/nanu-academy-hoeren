@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { clearBadgeBoardCache } from "@/lib/badge-unseen";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } from "react";
 import { chunkyButton } from "@/components/chunkyButton";
@@ -563,6 +564,7 @@ export function BadgeUnlockSheet({
 
 /** Tell the server these unlocks were shown. Failures only mean the popup shows again. */
 export function markBadgesSeenRemote(ids: readonly string[]): void {
+  clearBadgeBoardCache();
   if (ids.length === 0) return;
   void fetch("/api/badges", {
     method: "POST",

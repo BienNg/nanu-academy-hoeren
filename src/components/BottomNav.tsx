@@ -5,10 +5,16 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { BadgeUnlockSheet, markBadgesSeenRemote } from "@/components/BadgeParts";
-import { badgeCheckDue, markBadgeCheck } from "@/lib/badge-unseen";
+import { badgeCheckDue, clearBadgeBoardCache, markBadgeCheck } from "@/lib/badge-unseen";
 import { readFreshBadges, type FreshBadge } from "@/lib/badges";
-import { publishQuestBadge, readQuestBadge, subscribeQuestBadge } from "@/lib/quest-badge";
-import { questZoneHeaders } from "@/lib/quests";
+import {
+  clearQuestBoardCache,
+  publishQuestBadge,
+  readQuestBadge,
+  rememberQuestBoard,
+  subscribeQuestBadge,
+} from "@/lib/quest-badge";
+import { questZoneHeaders, readQuestBoard } from "@/lib/quests";
 import { flushTrackedClicks, trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
 
 const ITEMS = [
@@ -86,7 +92,9 @@ function requestFreshBadges(): Promise<FreshBadge[]> | null {
     .then((response) => (response.ok ? response.json() : null))
     .then((data: unknown) => {
       markBadgeCheck();
-      return readFreshBadges(data);
+      const badges = readFreshBadges(data);
+      if (badges.length > 0) clearBadgeBoardCache();
+      return badges;
     })
     // No popup this time. The next check finds the same unlocks.
     .catch(() => [])
@@ -136,15 +144,16 @@ export function BottomNav() {
       void fetch("/api/quests", { headers: questZoneHeaders() })
         .then((response) => (response.ok ? response.json() : null))
         .then((data: unknown) => {
-          if (cancelled || !data || typeof data !== "object") return;
-          const board = data as { ready?: unknown; quests?: unknown };
-          if (board.ready !== true || !Array.isArray(board.quests)) {
+          if (cancelled) return;
+          const board = readQuestBoard(data);
+          if (!board) {
             publishQuestBadge(0);
             return;
           }
-          publishQuestBadge(
-            board.quests.filter((quest) => !(quest as { done?: unknown }).done).length,
-          );
+          publishQuestBadge(board.quests.filter((quest) => !quest.done).length);
+          // A claim in this request changed the board. The quests tab should load it again.
+          if (board.update) clearQuestBoardCache();
+          else rememberQuestBoard({ ...board, update: null });
         })
         .catch(() => {
           // The tab still works. The badge appears after the next check.

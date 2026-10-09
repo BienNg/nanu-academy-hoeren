@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { BadgeMedal, BadgeSheet, BadgeUnlockSheet, markBadgesSeenRemote, TierPips } from "@/components/BadgeParts";
 import { BottomNav } from "@/components/BottomNav";
 import { chunkyButton } from "@/components/chunkyButton";
@@ -14,7 +14,7 @@ import {
   type BadgeFamilyView,
   type FreshBadge,
 } from "@/lib/badges";
-import { markBadgeCheck } from "@/lib/badge-unseen";
+import { cachedBadgeBoard, markBadgeCheck, rememberBadgeBoard } from "@/lib/badge-unseen";
 
 type LoadState =
   | { status: "loading" }
@@ -179,21 +179,42 @@ export function BadgesScreen() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [openId, setOpenId] = useState<string | null>(null);
   const [fresh, setFresh] = useState<FreshBadge[]>([]);
+  const requestId = useRef(0);
 
-  const load = useCallback(() => {
+  const load = useCallback((options?: { force?: boolean }) => {
+    const cached = cachedBadgeBoard();
+    if (!options?.force && cached?.fresh) return;
+    const id = ++requestId.current;
     void fetch("/api/badges")
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
+        if (id !== requestId.current) return;
         const board = readBadgeBoard(data);
         // This screen shows its own unlocks, so the nav need not ask again soon.
         markBadgeCheck();
-        setState(board ? { status: "ready", board } : { status: "unavailable" });
-        if (board && board.fresh.length > 0) setFresh(board.fresh);
+        if (board) {
+          rememberBadgeBoard(board);
+          setState({ status: "ready", board });
+          if (board.fresh.length > 0) setFresh(board.fresh);
+          return;
+        }
+        const still = cachedBadgeBoard();
+        setState(still ? { status: "ready", board: still.board } : { status: "unavailable" });
       })
-      .catch(() => setState({ status: "unavailable" }));
+      .catch(() => {
+        if (id !== requestId.current) return;
+        const still = cachedBadgeBoard();
+        setState(still ? { status: "ready", board: still.board } : { status: "unavailable" });
+      });
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const cached = cachedBadgeBoard();
+    if (cached) {
+      setState({ status: "ready", board: cached.board });
+      if (cached.board.fresh.length > 0) setFresh(cached.board.fresh);
+      markBadgeCheck();
+    }
     load();
   }, [load]);
 
@@ -239,7 +260,7 @@ export function BadgesScreen() {
               type="button"
               onClick={() => {
                 setState({ status: "loading" });
-                load();
+                load({ force: true });
               }}
               className={chunkyButton("secondary", "mt-1 w-full")}
             >

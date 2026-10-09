@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { clearBadgeBoardCache } from "@/lib/badge-unseen";
+import { clearQuestBoardCache } from "@/lib/quest-badge";
 import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
@@ -202,6 +204,8 @@ export function discardDeviceProgress(): void {
     // Session storage can be blocked. The progress cache is still cleared.
   }
   clearStoredProgress(window.localStorage);
+  clearBadgeBoardCache();
+  clearQuestBoardCache();
   resetProgressMemory();
   window.dispatchEvent(new Event("nanu-horen-progress"));
 }

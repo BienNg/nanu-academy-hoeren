@@ -8,7 +8,7 @@ import { chunkyButton } from "@/components/chunkyButton";
 import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
 import { isOnboardingActive, subscribeOnboardingGate } from "@/lib/onboarding-gate";
 import { localCalendarDay } from "@/lib/progress";
-import { publishQuestBadge } from "@/lib/quest-badge";
+import { clearQuestBoardCache, publishQuestBadge, rememberQuestBoard } from "@/lib/quest-badge";
 import {
   isQuestIntroSurface,
   questIntroGreeting,
@@ -124,6 +124,8 @@ export function DailyQuestIntro() {
           return;
         }
         publishQuestBadge(next.quests.filter((quest) => !quest.done).length);
+        if (next.update) clearQuestBoardCache();
+        else rememberQuestBoard({ ...next, update: null });
         if (!shouldShowQuestIntro(readShownDay(key), today, next.quests)) {
           writeShownDay(key, today);
           return;
