@@ -124,6 +124,7 @@ export type ClassBoardExtras = {
 
 export type LeaderboardRow = {
   rank: number | null;
+  userId: string;
   name: string;
   xp: number;
   isYou: boolean;
@@ -677,6 +678,7 @@ export function assembleLeaderboard(input: {
     viewerIsAdmin,
     rows: visible.map((entry, index) => ({
       rank: entry.rank > 0 ? entry.rank : null,
+      userId: entry.person.userId,
       name: entry.person.name,
       xp: entry.person.xp,
       isYou: entry.person.userId === input.viewerId,

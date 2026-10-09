@@ -863,10 +863,13 @@ async function sumUserXpOnDays(
  * The profile label says this week. The window is rolling, not Monday–Sunday.
  * Null when the store is off.
  */
-export async function getUserDailyXp(userId: string, now = new Date()): Promise<DailyXp[] | null> {
+export async function getUserDailyXp(
+  userId: string,
+  now = new Date(),
+  days = recentDayKeys(now, 7),
+): Promise<DailyXp[] | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
-  const days = recentDayKeys(now, 7);
   const sums = await Promise.all(
     DAILY_XP_TABLES.map((source) => sumUserXpOnDays(supabase, userId, days, source)),
   );

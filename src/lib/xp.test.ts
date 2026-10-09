@@ -286,6 +286,7 @@ test("class board lists the whole class and global keeps the top plus you", () =
     ["1:high:40", "2:you:10", "3:tie:10", "4:An:0"],
   );
   assert.equal(classroom.yourRank, 2);
+  assert.equal(classroom.rows.find((row) => row.isYou)?.userId, "you");
   assert.equal(classroom.className, "Lớp A");
   assert.equal(classroom.classKey, "lop-a");
   assert.deepEqual(classroom.classOptions, []);
@@ -344,6 +345,7 @@ test("class options keep the most common spelling", () => {
 function previewRow(rank: number, name: string, isYou = false): LeaderboardRow {
   return {
     rank,
+    userId: name,
     name,
     xp: 100 - rank,
     isYou,

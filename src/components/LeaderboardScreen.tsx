@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBarStatus } from "@/components/TodayXpChip";
@@ -1123,11 +1124,13 @@ export function LeaderboardScreen({
                     ···
                   </p>
                 ) : null}
-                <div
-                  className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${
+                <Link
+                  href={`/leaderboard/${encodeURIComponent(row.userId)}`}
+                  aria-label={row.isYou ? "Hồ sơ của bạn" : `Hồ sơ của ${row.name}`}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-transform active:translate-y-0.5 ${
                     row.isYou
                       ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]"
-                      : "bg-white shadow-[0_3px_0_0_#dae2fd]"
+                      : "bg-white shadow-[0_3px_0_0_#dae2fd] hover:bg-[#f7f8ff]"
                   }`}
                 >
                   <RankBadge rank={row.rank} />
@@ -1161,7 +1164,7 @@ export function LeaderboardScreen({
                     </span>
                     {row.xp}
                   </span>
-                </div>
+                </Link>
               </li>
             ))}
           </ol>

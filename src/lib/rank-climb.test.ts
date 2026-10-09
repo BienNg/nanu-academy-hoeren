@@ -6,6 +6,7 @@ import type { ClassBoardRow, LeaderboardRow } from "./xp.js";
 function board(entries: readonly [name: string, xp: number, isYou?: boolean][]): LeaderboardRow[] {
   return entries.map(([name, xp, isYou = false], index) => ({
     rank: index + 1,
+    userId: name,
     name,
     xp,
     isYou,

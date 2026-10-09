@@ -295,6 +295,7 @@ const BONUS_QUEST: QuestUpdate = {
 function sampleRow(name: string, xp: number, rank: number, isYou = false): LeaderboardRow {
   return {
     rank,
+    userId: name,
     name,
     xp,
     isYou,

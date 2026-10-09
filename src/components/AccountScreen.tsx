@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { deleteOwnAccount } from "@/app/account/actions";
 import { BadgeMedal, BadgeSheet } from "@/components/BadgeParts";
@@ -11,6 +12,7 @@ import { Wordmark } from "@/components/Logo";
 import { FamilySheet } from "@/components/BadgesScreen";
 import { readEarnedFamilies, type BadgeFamilyView } from "@/lib/badges";
 import { BottomNav } from "@/components/BottomNav";
+import { XpWeekCompareChart } from "@/components/LeaderboardParts";
 import { chunkyButton } from "@/components/chunkyButton";
 import { RecapShareButton } from "@/components/RecapShareButton";
 import { leaderboardDisplayName, parseDisplayName, recentDayKeys, shortWeekday } from "@/lib/xp";
@@ -685,6 +687,171 @@ function LearnerProfile({
         {openBadge ? (
           <FamilySheet key={openBadge.id} family={openBadge} onClose={() => setOpenBadgeId(null)} />
         ) : null}
+      </AnimatePresence>
+      <BottomNav />
+    </div>
+  );
+}
+
+export type PeerProfile = {
+  name: string;
+  image: string | null;
+  isYou: boolean;
+  streakDays: number;
+  totalXp: number;
+  weekRank: number | null;
+  top3: number;
+  className: string | null;
+  classXp: number;
+  classSize: number;
+  badges: BadgeFamilyView[];
+  youDays: DailyXpPoint[];
+  themDays: DailyXpPoint[];
+};
+
+export function PeerProfileScreen({ profile }: { profile: PeerProfile }) {
+  const router = useRouter();
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [openBadgeId, setOpenBadgeId] = useState<string | null>(null);
+  const openBadge = profile.badges.find((badge) => badge.id === openBadgeId) ?? null;
+  const showPhoto = Boolean(profile.image) && !photoFailed;
+
+  return (
+    <div
+      data-layout="wide"
+      className="relative flex min-h-dvh w-screen max-w-none flex-1 flex-col overflow-x-hidden bg-[#faf8ff] text-[#131b2e]"
+    >
+      <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-full max-w-md items-center px-4 md:max-w-3xl">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl text-[#1cb0f6] active:bg-[#ddf4ff]"
+            aria-label="Quay lại"
+          >
+            <MaterialIcon name="arrow_back" className="text-[26px]" />
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:max-w-3xl">
+        <section className="flex flex-col items-center text-center">
+          <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-[#ddf4ff] shadow-[0_4px_0_#e5e5e5] ring-2 ring-[#e5e5e5]">
+            {showPhoto && profile.image ? (
+              <Image
+                src={profile.image}
+                alt=""
+                width={112}
+                height={112}
+                priority
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+                onError={() => setPhotoFailed(true)}
+              />
+            ) : (
+              <img src="/nav/profile.svg" alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
+          <h1 className="mt-3 max-w-full truncate text-[26px] leading-8 font-extrabold tracking-tight text-[#3c3c3c]">
+            {profile.isYou ? "Bạn" : profile.name}
+          </h1>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Thống kê</h2>
+          <div className="grid grid-cols-2 gap-3 pt-2 md:grid-cols-4">
+            <StatCard icon={<FireIcon />} value={String(profile.streakDays)} label="Chuỗi ngày" />
+            <StatCard icon={<BoltIcon />} value={formatCount(profile.totalXp)} label="Tổng XP" />
+            <div className="relative">
+              {profile.weekRank != null ? (
+                <span className="absolute -top-2.5 left-1/2 z-10 -translate-x-1/2 rounded-md bg-[#ff4b4b] px-1.5 py-0.5 text-[10px] leading-none font-extrabold tracking-wide text-white">
+                  TUẦN NÀY
+                </span>
+              ) : null}
+              <StatCard
+                icon={<GemIcon rank={profile.weekRank} />}
+                value={profile.weekRank != null ? String(profile.weekRank) : "—"}
+                label="Hạng lớp"
+              />
+            </div>
+            <StatCard icon={<MedalIcon />} value={formatCount(profile.top3)} label="Lần top 3" />
+          </div>
+        </section>
+
+        <section>
+          <XpWeekCompareChart
+            themName={profile.isYou ? null : profile.name}
+            themDays={profile.isYou ? null : profile.themDays}
+            youDays={profile.youDays}
+          />
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">
+            {profile.isYou ? "Lớp của bạn" : "Lớp"}
+          </h2>
+          {profile.className ? (
+            <div className="rounded-2xl border-2 border-[#e5e5e5] bg-white p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ddf4ff]">
+                  <img src="/nav/learn.svg" alt="" className="h-9 w-9" />
+                </span>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-[18px] leading-6 font-extrabold">{profile.className}</p>
+                  <p className="text-[13px] font-bold text-[#afafaf]">{profile.classSize} học viên</p>
+                </div>
+                <Link
+                  href="/leaderboard?board=classes"
+                  className="shrink-0 text-[13px] font-extrabold tracking-wide text-[#1cb0f6] uppercase"
+                >
+                  Xếp hạng
+                </Link>
+              </div>
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#fff4d4] px-3 py-2.5">
+                <BoltIcon />
+                <p className="min-w-0">
+                  <span className="text-[20px] leading-6 font-extrabold tabular-nums">{formatCount(profile.classXp)}</span>
+                  <span className="ml-1.5 text-[13px] font-bold text-[#afafaf]">XP cả lớp</span>
+                </p>
+              </div>
+              <p className="mt-2 text-[13px] font-bold text-[#afafaf]">Tổng XP mọi người trong lớp đã kiếm.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-5 text-center">
+              <p className="text-[16px] font-extrabold">Chưa ở trong lớp nào</p>
+              <p className="mt-1 text-[13px] font-bold text-[#afafaf]">Khi được xếp lớp, XP của cả lớp hiện ở đây.</p>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-[22px] leading-7 font-extrabold tracking-tight">Huy hiệu</h2>
+          {profile.badges.length > 0 ? (
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-7">
+              {profile.badges.map((badge) => (
+                <li key={badge.id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenBadgeId(badge.id)}
+                    className="flex h-full w-full flex-col items-center gap-1.5 rounded-2xl border-2 border-[#e5e5e5] bg-white px-2 py-3 text-center"
+                    aria-label={`${badge.title}, cấp ${badge.tier}`}
+                  >
+                    <BadgeMedal familyId={badge.id} tier={badge.tier} size={64} />
+                    <span className="line-clamp-2 text-[12px] leading-4 font-extrabold">{badge.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-2xl border-2 border-[#e5e5e5] bg-white px-4 py-5 text-center text-[15px] font-extrabold">
+              Chưa có huy hiệu.
+            </p>
+          )}
+        </section>
+      </main>
+
+      <AnimatePresence>
+        {openBadge ? <FamilySheet key={openBadge.id} family={openBadge} onClose={() => setOpenBadgeId(null)} /> : null}
       </AnimatePresence>
       <BottomNav />
     </div>

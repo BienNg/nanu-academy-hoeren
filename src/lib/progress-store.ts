@@ -794,6 +794,30 @@ async function readSignInRow(
   return null;
 }
 
+/** Name and photo for a profile another learner can open. Null when there is no row. */
+export async function readLearnerCard(
+  userId: string,
+): Promise<{ name: string | null; image: string | null } | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return null;
+  const withImage = await supabase.from(TABLE).select("name, image").eq("user_id", userId).maybeSingle();
+  if (withImage.error && isMissingImageColumn(withImage.error.message)) {
+    const nameOnly = await supabase.from(TABLE).select("name").eq("user_id", userId).maybeSingle();
+    if (nameOnly.error || !nameOnly.data) return null;
+    const row = nameOnly.data as { name?: unknown };
+    return { name: typeof row.name === "string" ? row.name : null, image: null };
+  }
+  if (withImage.error || !withImage.data) {
+    if (withImage.error) console.error("Supabase readLearnerCard", withImage.error.message);
+    return null;
+  }
+  const row = withImage.data as { name?: unknown; image?: unknown };
+  return {
+    name: typeof row.name === "string" ? row.name : null,
+    image: googleProfileImage(row.image),
+  };
+}
+
 /** The name stored for this learner, or null when there is no row. */
 export async function readLearnerName(userId: string): Promise<string | null> {
   const supabase = getSupabaseAdmin();
