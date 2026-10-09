@@ -176,6 +176,7 @@ function resetProgressMemory(): void {
   cachedSerialized = JSON.stringify(DEFAULT_PROGRESS);
   invalidateRawSnapshot();
   lastCloudSerialized = null;
+  lastCloudConfirmed = null;
 }
 
 /**
@@ -223,6 +224,7 @@ function bindProgressUser(userId: string): void {
   revocationHandled = false;
   activeUserId = userId;
   lastCloudSerialized = null;
+  lastCloudConfirmed = null;
   lastVisibleTick = 0;
   try {
     window.sessionStorage.removeItem(VISIT_ID_KEY);
@@ -263,6 +265,8 @@ let visitCleanup: (() => void) | null = null;
 let lastVisibleTick = 0;
 let visitCloudTimer: number | null = null;
 let lastCloudSerialized: string | null = null;
+/** The last document the server accepted. A later upload of this exact text is the echo that re-saved the same progress. */
+let lastCloudConfirmed: string | null = null;
 
 function readVisitId(): string | null {
   try {
@@ -295,15 +299,24 @@ export function rememberClientDevice(): void {
   document.cookie = signInDeviceCookie(device, window.location.protocol === "https:");
 }
 
+function releaseUnconfirmedAttempt(serialized: string): void {
+  if (lastCloudSerialized === serialized) lastCloudSerialized = lastCloudConfirmed;
+}
+
 async function pushCloudProgress(progress: StoredProgress): Promise<void> {
   rememberClientDevice();
   if (cloudPushSuppressed || !activeUserId) return;
   const userId = activeUserId;
   const generation = syncGeneration;
+  const serialized = JSON.stringify(progress);
+  // Already stored by the previous reply, or this exact text is already in flight.
+  // Listeners that upload the snapshot they just received would otherwise send
+  // the same document straight back.
+  if (serialized === lastCloudConfirmed || serialized === lastCloudSerialized) return;
   // Refuse a snapshot captured for a previous account. Callers that race a
   // sign-out or account switch no longer upload that account's progress.
-  if (JSON.stringify(readProgressSnapshot()) !== JSON.stringify(progress)) return;
-  lastCloudSerialized = JSON.stringify(progress);
+  if (JSON.stringify(readProgressSnapshot()) !== serialized) return;
+  lastCloudSerialized = serialized;
   try {
     const response = await fetch("/api/progress", {
       method: "PUT",
@@ -311,21 +324,31 @@ async function pushCloudProgress(progress: StoredProgress): Promise<void> {
       body: JSON.stringify(progress),
     });
     if (!progressSyncIsCurrent(userId, generation)) return;
-    if (!progressSyncIsCurrent(userId, generation)) return;
     if (response.status === 410) {
       handleRevokedAccount();
       return;
     }
-    if (!response.ok) return;
+    if (!response.ok) {
+      if (progressSyncIsCurrent(userId, generation)) releaseUnconfirmedAttempt(serialized);
+      return;
+    }
     const data = (await response.json()) as { progress?: unknown };
-    if (!progressSyncIsCurrent(userId, generation) || data.progress == null) return;
+    if (!progressSyncIsCurrent(userId, generation) || data.progress == null) {
+      if (progressSyncIsCurrent(userId, generation)) releaseUnconfirmedAttempt(serialized);
+      return;
+    }
     // A newer local write happened while this request was in flight.
-    if (JSON.stringify(readProgressSnapshot()) !== JSON.stringify(progress)) return;
+    if (JSON.stringify(readProgressSnapshot()) !== serialized) return;
     const saved = normalizeProgress(data.progress as Partial<StoredProgress>);
-    if (JSON.stringify(saved) === JSON.stringify(progress)) return;
+    const savedSerialized = JSON.stringify(saved);
+    // Mark the reply as saved before listeners run, so they adopt it without
+    // starting another upload. A real edit after this still has new text.
+    lastCloudConfirmed = savedSerialized;
+    lastCloudSerialized = savedSerialized;
+    if (savedSerialized === serialized) return;
     writeProgress(saved);
-    lastCloudSerialized = JSON.stringify(saved);
   } catch (error) {
+    if (progressSyncIsCurrent(userId, generation)) releaseUnconfirmedAttempt(serialized);
     console.error("Failed to sync progress to cloud", error);
   }
 }
@@ -483,11 +506,14 @@ async function pullAndMergeCloudProgress(
       ? remote
       : mergeProgress(readProgressSnapshot(), remote);
     if (!progressSyncIsCurrent(userId, generation)) return;
-    writeProgress(next);
-    if (!replaceLocal && JSON.stringify(next) !== JSON.stringify(remote)) {
+    const nextSerialized = JSON.stringify(next);
+    if (!replaceLocal && nextSerialized !== JSON.stringify(remote)) {
+      writeProgress(next);
       await pushCloudProgress(next);
     } else {
-      lastCloudSerialized = JSON.stringify(next);
+      lastCloudConfirmed = nextSerialized;
+      lastCloudSerialized = nextSerialized;
+      writeProgress(next);
     }
   } catch (error) {
     console.error("Failed to load cloud progress", error);

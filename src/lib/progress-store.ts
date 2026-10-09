@@ -1221,6 +1221,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
       `Could not delete this account (${error.message}). Run supabase/user_progress.sql once to add the deleted_at and revoked_before columns.`,
     );
   }
+  forgetAccountAccess(userId);
 
   // A later sign-in starts locked again. Ignore a missing column so delete
   // still works before the level_access migration is applied.
@@ -1708,16 +1709,75 @@ export async function setUserTeacher(
 
 export type AccountAccess = "active" | "revoked";
 
+const ACCOUNT_ACCESS_TTL_MS = 60_000;
+const accountAccessCache = new Map<string, { access: AccountAccess; expires: number }>();
+const accountAccessInflight = new Map<string, Promise<AccountAccess>>();
+
+function accountAccessKey(userId: string, authAtSeconds: number | undefined): string {
+  return `${userId}\0${authAtSeconds ?? ""}`;
+}
+
+/** Drop a remembered check. The next request reads the tombstone again. */
+function forgetAccountAccess(userId: string): void {
+  const prefix = `${userId}\0`;
+  for (const key of accountAccessCache.keys()) {
+    if (key.startsWith(prefix)) accountAccessCache.delete(key);
+  }
+  for (const key of accountAccessInflight.keys()) {
+    if (key.startsWith(prefix)) accountAccessInflight.delete(key);
+  }
+}
+
+function rememberAccountAccess(
+  key: string,
+  access: AccountAccess,
+): void {
+  accountAccessCache.set(key, { access, expires: Date.now() + ACCOUNT_ACCESS_TTL_MS });
+  if (accountAccessCache.size <= 400) return;
+  const now = Date.now();
+  for (const [entryKey, entry] of accountAccessCache) {
+    if (entry.expires <= now) accountAccessCache.delete(entryKey);
+  }
+}
+
 /**
  * Decides whether a session may still touch its account. A sign-in that
  * happened after the deletion clears the tombstone and starts from zero.
+ * A minute of memory avoids reading the profile on every page and API call.
+ * A new sign-in has a new timestamp, so it misses the cache and can revive.
  */
 export async function resolveAccountAccess(
   userId: string,
   authAtSeconds: number | undefined,
 ): Promise<AccountAccess> {
+  const key = accountAccessKey(userId, authAtSeconds);
+  const cached = accountAccessCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.access;
+
+  const pending = accountAccessInflight.get(key);
+  if (pending) return pending;
+
+  let request!: Promise<AccountAccess>;
+  request = readAccountAccess(userId, authAtSeconds)
+    .then((result) => {
+      // A deletion dropped this attempt. Its answer is already stale.
+      if (accountAccessInflight.get(key) !== request) return result.access;
+      if (result.remember) rememberAccountAccess(key, result.access);
+      return result.access;
+    })
+    .finally(() => {
+      if (accountAccessInflight.get(key) === request) accountAccessInflight.delete(key);
+    });
+  accountAccessInflight.set(key, request);
+  return request;
+}
+
+async function readAccountAccess(
+  userId: string,
+  authAtSeconds: number | undefined,
+): Promise<{ access: AccountAccess; remember: boolean }> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return "active";
+  if (!supabase) return { access: "active", remember: false };
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -1726,13 +1786,14 @@ export async function resolveAccountAccess(
     .maybeSingle();
 
   // Pre-migration tables have neither column; keep the app usable.
-  if (error) return "active";
+  // A failed read is not remembered, so the next request tries again.
+  if (error) return { access: "active", remember: false };
 
   const row = data as {
     deleted_at?: string | null;
     revoked_before?: string | null;
   } | null;
-  if (!row) return "active";
+  if (!row) return { access: "active", remember: true };
 
   const revokedMs = row.revoked_before
     ? new Date(row.revoked_before).getTime()
@@ -1741,10 +1802,10 @@ export async function resolveAccountAccess(
     const authMs = (authAtSeconds ?? 0) * 1000;
     // The cutoff outlives the tombstone, so other devices still holding a
     // pre-deletion session can never resurrect the old progress.
-    if (authMs <= revokedMs) return "revoked";
+    if (authMs <= revokedMs) return { access: "revoked", remember: true };
   }
 
-  if (!row.deleted_at) return "active";
+  if (!row.deleted_at) return { access: "active", remember: true };
 
   const { error: reviveError } = await supabase
     .from(TABLE)
@@ -1760,10 +1821,10 @@ export async function resolveAccountAccess(
 
   if (reviveError) {
     console.error("Supabase resolveAccountAccess revive", reviveError.message);
-    return "revoked";
+    return { access: "revoked", remember: false };
   }
 
-  return "active";
+  return { access: "active", remember: true };
 }
 
 function emptyStudentRuns(status: StudentRunsPage["status"]): StudentRunsPage {
