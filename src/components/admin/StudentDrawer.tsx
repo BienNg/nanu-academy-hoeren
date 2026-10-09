@@ -312,14 +312,13 @@ function StudentSummary({
       <section className="flex flex-col gap-space-24 px-space-12 py-space-16">
         {visitLog.visits.length === 0 ? (
           <p className="px-space-8 text-admin-body-sm text-admin-ink-subtle">{visitLog.emptyMessage}</p>
-        ) : (
-          <VisitDayList
-            visits={visitLog.visits}
-            userId={userId}
-            range={range}
-            timeZone={ADMIN_RANGE_ZONE}
-          />
-        )}
+        ) : null}
+        <VisitDayList
+          visits={visitLog.visits}
+          userId={userId}
+          range={range}
+          timeZone={ADMIN_RANGE_ZONE}
+        />
       </section>
     </>
   );

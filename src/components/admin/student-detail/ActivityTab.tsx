@@ -63,6 +63,7 @@ import { visitRangeIso } from "@/lib/progress";
 import {
   describeVisitClick,
   placeUiClickGroups,
+  summarizeUiClicks,
   UI_CLICK_ICONS,
   type StudentUiClick,
   type UiClickGroup,
@@ -1520,17 +1521,39 @@ export function VisitDayList({
   const duelQuits = useDuelQuits(userId, range, timeZone);
   const clickGroups = useVisitClicks(userId, range, timeZone);
   const runs = useVisitRuns(userId, range, timeZone);
-  if (visits.length === 0 && duelFailures.length === 0 && duelQuits.length === 0) return null;
+  const tabClicks = useMemo(
+    () =>
+      summarizeUiClicks(
+        clickGroups.flatMap((group) => group.clicks.map((click) => ({ target: click.target, count: click.count }))),
+      ),
+    [clickGroups],
+  );
+  if (
+    visits.length === 0 &&
+    duelFailures.length === 0 &&
+    duelQuits.length === 0 &&
+    tabClicks.length === 0
+  ) {
+    return null;
+  }
   return (
-    <VisitFeed
-      visits={visits}
-      clickGroups={clickGroups}
-      duelFailures={duelFailures}
-      duelQuits={duelQuits}
-      runs={runs}
-      openVisitId={openVisitId}
-      onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
-    />
+    <div className="flex flex-col gap-space-16">
+      {tabClicks.length > 0 ? (
+        <div className="flex flex-col gap-space-8 px-space-8">
+          <h4 className="text-admin-body-sm font-semibold text-admin-ink">Tabs opened</h4>
+          <VisitClickLine clicks={tabClicks} className="" />
+        </div>
+      ) : null}
+      <VisitFeed
+        visits={visits}
+        clickGroups={clickGroups}
+        duelFailures={duelFailures}
+        duelQuits={duelQuits}
+        runs={runs}
+        openVisitId={openVisitId}
+        onToggle={(id) => setOpenVisitId((current) => (current === id ? null : id))}
+      />
+    </div>
   );
 }
 
