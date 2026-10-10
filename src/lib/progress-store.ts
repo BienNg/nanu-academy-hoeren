@@ -2389,6 +2389,62 @@ export async function countAdminPracticeParts(
   }
 }
 
+/** One ended practice part: passed, or out of hearts. */
+export type AdminPracticePartEvent = {
+  userId: string;
+  lessonKey: string;
+  partNumber: number;
+  passed: boolean;
+  at: string;
+};
+
+/** Every practice part these students ever ended, oldest first. */
+export async function listAdminPracticePartEvents(
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; events: AdminPracticePartEvent[] }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, events: [] };
+  if (learnerIds.size === 0) return { ready: true, events: [] };
+
+  const events: AdminPracticePartEvent[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(RUNS_TABLE)
+      .select("user_id, lesson_key, part_number, outcome, created_at")
+      .order("created_at")
+      .order("id")
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) {
+      if (!isListeningSchemaMissing(error.message)) {
+        console.error("Supabase listAdminPracticePartEvents", error.message);
+      }
+      return { ready: false, events: [] };
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      lesson_key?: unknown;
+      part_number?: unknown;
+      outcome?: unknown;
+      created_at?: unknown;
+    }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      if (typeof row.lesson_key !== "string" || typeof row.created_at !== "string") continue;
+      if (typeof row.part_number !== "number") continue;
+      events.push({
+        userId: row.user_id,
+        lessonKey: row.lesson_key,
+        partNumber: row.part_number,
+        passed: row.outcome === "success",
+        at: row.created_at,
+      });
+    }
+    if (page.length < LIST_PAGE_SIZE) return { ready: true, events };
+    from += LIST_PAGE_SIZE;
+  }
+}
+
 /** Every practice part in the window, with when it was finished. */
 export async function listAdminPracticePartStamps(
   fromIso: string,

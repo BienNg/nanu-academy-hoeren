@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminActivity } from "@/components/admin/AdminActivity";
+import { parseActivityTab } from "@/lib/admin-learning";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
-import { loadActivityWindow } from "@/app/admin/range-data";
+import { loadActivityWindow, loadLearningWindow } from "@/app/admin/range-data";
 import {
   OVERVIEW_ADMIN_RANGE,
   parseAdminRange,
@@ -30,7 +31,9 @@ export default async function AdminActivityPage({
   await connection();
   const access = await requireDashboard();
   const session = access.session;
-  const range = parseAdminRange((await searchParams).range, OVERVIEW_ADMIN_RANGE);
+  const params = await searchParams;
+  const range = parseAdminRange(params.range, OVERVIEW_ADMIN_RANGE);
+  const tab = parseActivityTab(params.tab);
 
   const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
     slug: beruf.slug,
@@ -53,7 +56,10 @@ export default async function AdminActivityPage({
     items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
     access.teacherClassKeys,
   );
-  const parts = await loadActivityWindow(range);
+  const [parts, learning] = await Promise.all([
+    loadActivityWindow(range),
+    tab === "learning" ? loadLearningWindow() : Promise.resolve(null),
+  ]);
 
   return (
     <AdminActivity
@@ -62,6 +68,8 @@ export default async function AdminActivityPage({
       range={range}
       storeConfigured={storeConfigured}
       parts={parts}
+      tab={tab}
+      learning={learning}
     />
   );
 }

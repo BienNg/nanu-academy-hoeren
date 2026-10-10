@@ -2000,6 +2000,59 @@ export async function sumAdminRangeXp(
 /** One finished study part, for charting parts over time on the activity tab. */
 export type AdminPartStamp = { userId: string; dayKey: string | null; at: string };
 
+/** One finished study part with the part it was, for the learning and pace tab. */
+export type AdminStudyPartEvent = {
+  userId: string;
+  lessonKey: string;
+  partNumber: number;
+  at: string;
+};
+
+/** Every finished study part these students ever earned XP for, oldest first. */
+export async function listAdminStudyPartEvents(
+  learnerIds: ReadonlySet<string>,
+): Promise<{ ready: boolean; events: AdminStudyPartEvent[] }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, events: [] };
+  if (learnerIds.size === 0) return { ready: true, events: [] };
+
+  const events: AdminStudyPartEvent[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(STUDY_XP_TABLE)
+      .select("user_id, lesson_key, part_number, created_at")
+      .order("created_at")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isStudyXpSchemaMissing(error.message)) {
+        console.error("Supabase listAdminStudyPartEvents", error.message);
+      }
+      return { ready: false, events: [] };
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      lesson_key?: unknown;
+      part_number?: unknown;
+      created_at?: unknown;
+    }[];
+    for (const row of page) {
+      if (typeof row.user_id !== "string" || !learnerIds.has(row.user_id)) continue;
+      if (typeof row.lesson_key !== "string" || typeof row.created_at !== "string") continue;
+      if (typeof row.part_number !== "number") continue;
+      events.push({
+        userId: row.user_id,
+        lessonKey: row.lesson_key,
+        partNumber: row.part_number,
+        at: row.created_at,
+      });
+    }
+    if (page.length < PAGE_SIZE) return { ready: true, events };
+    from += PAGE_SIZE;
+  }
+}
+
 /** Every study part in the Vietnam day window, with when it was finished. */
 export async function listAdminStudyPartStamps(
   fromDay: string,

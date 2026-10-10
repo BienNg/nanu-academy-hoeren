@@ -81,6 +81,8 @@
     "src/lib/ui-clicks.ts",
     "src/lib/ui-clicks.test.ts",
     "src/lib/outreach.ts",
-    "src/lib/outreach.test.ts"
+    "src/lib/outreach.test.ts",
+    "src/lib/admin-learning.ts",
+    "src/lib/admin-learning.test.ts"
   ]
 }

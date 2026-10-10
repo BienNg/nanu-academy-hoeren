@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   Area,
   AreaChart,
@@ -19,7 +19,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { loadActivityWindow, type ActivityWindow } from "@/app/admin/range-data";
+import {
+  loadActivityWindow,
+  loadLearningWindow,
+  type ActivityWindow,
+} from "@/app/admin/range-data";
+import { AdminLearning } from "@/components/admin/AdminLearning";
 import { AdminRetention } from "@/components/admin/AdminRetention";
 import { AdminPageHeader, MaterialIcon, useAdminWindow } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
@@ -48,6 +53,7 @@ import {
   ShareBar,
 } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
+import type { ActivityTab, LearningWindow } from "@/lib/admin-learning";
 import {
   adminRangeLabel,
   buildAdminActivityBoard,
@@ -1262,6 +1268,59 @@ function LeadersTable({
   );
 }
 
+const ACTIVITY_TABS: readonly { key: ActivityTab; label: string; icon: string }[] = [
+  { key: "engagement", label: "Engagement", icon: "timeline" },
+  { key: "learning", label: "Learning & pace", icon: "speed" },
+];
+
+/** Keeps `?tab=` in the address bar without a navigation, like the date tab. */
+function writeTabParam(tab: ActivityTab) {
+  const url = new URL(globalThis.location.href);
+  if (tab === "engagement") url.searchParams.delete("tab");
+  else url.searchParams.set("tab", tab);
+  globalThis.history.replaceState(globalThis.history.state, "", `${url.pathname}${url.search}`);
+}
+
+function ActivityTabs({
+  value,
+  onSelect,
+}: {
+  value: ActivityTab;
+  onSelect: (tab: ActivityTab) => void;
+}) {
+  return (
+    <div role="tablist" aria-label="Activity views" className="flex gap-space-4 overflow-x-auto border-b border-admin-hairline">
+      {ACTIVITY_TABS.map((tab) => {
+        const on = tab.key === value;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            id={`activity-tab-${tab.key}`}
+            aria-selected={on}
+            aria-controls="activity-tabpanel"
+            onClick={() => onSelect(tab.key)}
+            className={`relative inline-flex h-10 shrink-0 items-center gap-space-8 rounded-t-admin-control px-space-12 text-admin-body-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus ${
+              on ? "text-admin-cobalt" : "text-admin-ink-muted hover:text-admin-ink"
+            }`}
+          >
+            <MaterialIcon name={tab.icon} className="text-[18px]" filled={on} />
+            {tab.label}
+            {on ? (
+              <motion.span
+                layoutId="activity-tab-underline"
+                className="absolute inset-x-space-8 -bottom-px h-0.5 rounded-full bg-admin-cobalt"
+                transition={{ type: "spring", duration: 0.4, bounce: 0.2 }}
+              />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function learnersWith(
   leaders: readonly AdminActivityLeader[],
   pick: (leader: AdminActivityLeader) => number,
@@ -1275,6 +1334,8 @@ export function AdminActivity({
   range: serverRange,
   storeConfigured,
   parts: serverParts,
+  tab: serverTab,
+  learning: serverLearning,
 }: {
   rows: readonly AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
@@ -1282,7 +1343,42 @@ export function AdminActivity({
   storeConfigured: boolean;
   /** Finished study and practice parts, totalled and by chart bucket. */
   parts: ActivityWindow;
+  tab: ActivityTab;
+  /** Part history for the learning tab, when the page opened on it. */
+  learning: LearningWindow | null;
 }) {
+  const [tab, setTab] = useState<ActivityTab>(serverTab);
+  const [learning, setLearning] = useState<LearningWindow | null>(serverLearning);
+  const [learningFailed, setLearningFailed] = useState(false);
+  const [learningAttempt, setLearningAttempt] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    if (tab !== "learning" || learning || learningFailed) return;
+    let cancelled = false;
+    void loadLearningWindow()
+      .then((value) => {
+        if (!cancelled) setLearning(value);
+      })
+      .catch(() => {
+        if (!cancelled) setLearningFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, learning, learningFailed, learningAttempt]);
+  const selectTab = (next: ActivityTab) => {
+    setTab(next);
+    writeTabParam(next);
+  };
+  // The old numbers stay on screen until the new ones arrive.
+  const refreshLearning = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    void loadLearningWindow()
+      .then((value) => setLearning(value))
+      .catch(() => setLearningFailed(true))
+      .finally(() => setRefreshing(false));
+  };
   const loaded = useAdminWindow(serverRange, serverParts, loadActivityWindow);
   const range = loaded.range;
   const { studyPartsByUser, practicePartsByUser, studyPartBuckets, practicePartBuckets } =
@@ -1384,14 +1480,31 @@ export function AdminActivity({
         kicker="Engagement"
         title="Activity"
         subtitle={
-          hourly
-            ? `Who opened the app today${classScope}, by Vietnam hour, and who came back.`
-            : `Who opened the app ${window}${classScope}, and who came back. Each point is a Vietnam day.`
+          tab === "learning"
+            ? `Whether students${classScope} get to a first part, come back, keep moving, and keep up with the live course.`
+            : hourly
+              ? `Who opened the app today${classScope}, by Vietnam hour, and who came back.`
+              : `Who opened the app ${window}${classScope}, and who came back. Each point is a Vietnam day.`
         }
         trailing={
-          <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
+          <>
+            {tab === "learning" && learning ? (
+              <button
+                type="button"
+                onClick={refreshLearning}
+                disabled={refreshing}
+                className="inline-flex h-8 items-center gap-space-4 rounded-admin-control border border-admin-hairline bg-admin-card px-space-12 text-admin-label-md font-semibold text-admin-ink-muted transition-colors hover:border-admin-border hover:text-admin-ink disabled:opacity-60"
+              >
+                <MaterialIcon name="refresh" className={`text-[16px] ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Refreshing" : "Refresh"}
+              </button>
+            ) : null}
+            <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
+          </>
         }
       />
+
+      <ActivityTabs value={tab} onSelect={selectTab} />
 
       {classOptions.length > 0 || unassignedCount > 0 ? (
         <ScopeChips
@@ -1411,279 +1524,311 @@ export function AdminActivity({
         </div>
       ) : null}
 
-      <section aria-labelledby="activity-glance" className="flex flex-col gap-space-12">
-        <SectionHeading
-          id="activity-glance"
-          icon="grid_view"
-          title="At a glance"
-          meta={`${adminRangeLabel(range)}${classHint}`}
-        />
-        <GlanceBoard
-          grain={board.grain}
-          cards={[
-          {
-            id: "people",
-            icon: "groups",
-            title: "People",
-            hint: `Finished a card ${window}`,
-            color: PRIMARY,
-            value: formatCount(activity.activeUsers),
-            unit: `of ${formatCount(activity.users)} students`,
-            progress: activeShare,
-            progressLabel: "Share of students active",
-            progressBase: "all",
-            progressVerb: "active",
-            progressCount: [activity.activeUsers, activity.users],
-            metrics: [
-              { icon: "schedule", label: "Time in app", value: formatMinutes(timeInApp) },
-              { icon: "timer", label: "Per active", value: formatMinutes(timePerActive) },
-            ],
-            points: board.points,
-            series: [
-              {
-                key: "activeSeconds",
-                name: "Time in app",
-                label: `Time in app ${byGrain}`,
-                minutes: true,
-                overlay: {
-                  name: "Per active",
-                  value: (point) =>
-                    point.activeUsers > 0 ? point.activeSeconds / point.activeUsers : 0,
-                },
-                extras: (point) => [
-                  { name: "Active students", value: formatCount(point.activeUsers) },
-                  {
-                    name: "Per active",
-                    value:
-                      point.activeUsers > 0
-                        ? formatShortDuration(point.activeSeconds / point.activeUsers)
-                        : "—",
-                  },
-                ],
-              },
-              { key: "activeUsers", name: "Active students", label: `Active students ${byGrain}` },
-            ],
-          },
-          {
-            id: "videos",
-            icon: "play_circle",
-            title: "Videos",
-            hint: `Marked watched ${window}`,
-            color: VIDEOS,
-            value: formatCount(activity.videosWatched),
-            unit: "watched",
-            progress: shareOfActive(watchers),
-            progressLabel: "Share of active students who watched a video",
-            progressBase: "active",
-            progressVerb: "watched",
-            progressCount: [watchers, activity.activeUsers],
-            metrics: [
-              {
-                icon: "slow_motion_video",
-                label: "Play time",
-                value: formatMinutes(activity.videoSeconds),
-              },
-              {
-                icon: "timer",
-                label: "Per video",
-                value:
-                  activity.videosStarted > 0
-                    ? formatShortDuration(activity.startedVideoSeconds / activity.videosStarted)
-                    : "—",
-              },
-            ],
-            points: board.points,
-            series: [
-              {
-                key: "videoSeconds",
-                name: "Play time",
-                label: `Play time ${byGrain}`,
-                minutes: true,
-                extras: (point) => [
-                  {
-                    name: "Per video",
-                    value:
-                      point.videosStarted > 0
-                        ? formatShortDuration(point.startedVideoSeconds / point.videosStarted)
-                        : "—",
-                  },
-                  { name: "Videos started", value: formatCount(point.videosStarted) },
-                ],
-              },
-              { key: "videosWatched", name: "Videos watched", label: `Videos watched ${byGrain}` },
-            ],
-          },
-          {
-            id: "study",
-            icon: "menu_book",
-            title: "Study",
-            hint: `Runs finished ${window}`,
-            color: STUDY,
-            value: formatCount(activity.studyRuns),
-            unit: "full runs",
-            progress: shareOfActive(studiers),
-            progressLabel: "Share of active students who finished a study run",
-            progressBase: "active",
-            progressVerb: "studied",
-            progressCount: [studiers, activity.activeUsers],
-            metrics: [
-              { icon: "auto_stories", label: "Parts", value: formatCount(partTotals.studyParts) },
-              {
-                icon: "person",
-                label: "Per active",
-                value: formatPerActive(partTotals.studyParts, activity.activeUsers),
-              },
-            ],
-            points: board.points,
-            series: [
-              {
-                key: "studyParts",
-                name: "Parts",
-                label: `Study parts ${byGrain}`,
-                extras: (point) => [
-                  { name: "Per active", value: formatPerActive(point.studyParts, point.activeUsers) },
-                ],
-              },
-              hourly
-                ? { key: "clips", name: "Clips studied", label: "Clips studied by hour" }
-                : { key: "studyRuns", name: "Study runs", label: "Study runs by day" },
-            ],
-          },
-          {
-            id: "practice",
-            icon: "fitness_center",
-            title: "Practice",
-            hint: `Runs finished ${window}`,
-            color: PRACTICE,
-            value: formatCount(activity.practiceRuns),
-            unit: "runs",
-            progress: shareOfActive(practicers),
-            progressLabel: "Share of active students who finished a practice run",
-            progressBase: "active",
-            progressVerb: "practiced",
-            progressCount: [practicers, activity.activeUsers],
-            metrics: [
-              { icon: "task_alt", label: "Parts", value: formatCount(partTotals.practiceParts) },
-              {
-                icon: "person",
-                label: "Per active",
-                value: formatPerActive(partTotals.practiceParts, activity.activeUsers),
-              },
-            ],
-            points: board.points,
-            series: [
-              {
-                key: "practiceParts",
-                name: "Parts",
-                label: `Practice parts ${byGrain}`,
-                extras: (point) => [
-                  {
-                    name: "Per active",
-                    value: formatPerActive(point.practiceParts, point.activeUsers),
-                  },
-                ],
-              },
-              { key: "practiceRuns", name: "Practice runs", label: `Practice runs ${byGrain}` },
-            ],
-          },
-        ]}
-        />
-      </section>
-
-      <AdminRetention rows={filteredRows} range={range} />
-
-      <section aria-labelledby="activity-clients" className="flex flex-col gap-space-12">
-        <SectionHeading
-          id="activity-clients"
-          icon="devices"
-          title="Browsers and devices"
-          meta={
-            clients.students > 0
-              ? `${formatStudents(clients.students)} · ${formatCount(clients.visits)} ${clients.visits === 1 ? "visit" : "visits"}`
-              : undefined
-          }
-        />
-        <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
-          <ChartPanel
-            icon="smartphone"
-            title="Devices"
-            hint={`Unique students whose visit overlapped ${window}. A student on two devices is counted in both.`}
-          >
-            <ClientChart slices={clients.devices} />
-          </ChartPanel>
-          <ChartPanel
-            icon="language"
-            title="Browsers"
-            hint={`Unique students whose visit overlapped ${window}. A student on two browsers is counted in both.`}
-          >
-            <ClientChart slices={clients.browsers} />
-          </ChartPanel>
-        </div>
-      </section>
-
-      <section aria-labelledby="activity-trends" className="flex flex-col gap-space-12">
-        <SectionHeading
-          id="activity-trends"
-          icon="monitoring"
-          title={hourly ? "Hourly trends" : "Daily trends"}
-        />
-        <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
-          <ChartPanel
-            icon="groups"
-            title={hourly ? "People in the app by hour" : "Daily active people"}
-            hint={
-              hourly
-                ? "Unique students whose visit or last-seen time fell in that Vietnam hour."
-                : "Unique students seen or practicing on each Vietnam day."
-            }
-            trailing={<LegendChips items={[{ name: "Active people", color: PRIMARY }]} />}
-          >
-            <TrendChart
-              data={seriesPoints(board.points, PEOPLE_SERIES)}
-              grain={board.grain}
-              series={PEOPLE_SERIES}
-              color={PRIMARY}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          id="activity-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`activity-tab-${tab}`}
+          className="flex flex-col gap-space-24"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {tab === "learning" ? (
+            <AdminLearning
+              rows={filteredRows}
+              allRows={rows}
+              catalog={catalog}
+              range={range}
+              window={learning}
+              failed={learningFailed}
+              onRetry={() => {
+                setLearningFailed(false);
+                setLearningAttempt((attempt) => attempt + 1);
+              }}
+              onSelect={setDetailUserId}
             />
-          </ChartPanel>
-          <ChartPanel
-            icon="stacked_bar_chart"
-            title={hourly ? "Work during those hours" : "Study, practice, and videos"}
-            hint={
-              hourly
-                ? "Study clips and practice runs come from visits. Videos use the watched timestamp."
-                : "Finished study runs, practice runs, and videos marked watched."
-            }
-            trailing={<LegendChips items={workBars(board.grain)} />}
-          >
-            <WorkChart data={board.points} grain={board.grain} />
-          </ChartPanel>
-        </div>
-      </section>
+          ) : (
+            <>
+            <section aria-labelledby="activity-glance" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="activity-glance"
+                icon="grid_view"
+                title="At a glance"
+                meta={`${adminRangeLabel(range)}${classHint}`}
+              />
+              <GlanceBoard
+                grain={board.grain}
+                cards={[
+                {
+                  id: "people",
+                  icon: "groups",
+                  title: "People",
+                  hint: `Finished a card ${window}`,
+                  color: PRIMARY,
+                  value: formatCount(activity.activeUsers),
+                  unit: `of ${formatCount(activity.users)} students`,
+                  progress: activeShare,
+                  progressLabel: "Share of students active",
+                  progressBase: "all",
+                  progressVerb: "active",
+                  progressCount: [activity.activeUsers, activity.users],
+                  metrics: [
+                    { icon: "schedule", label: "Time in app", value: formatMinutes(timeInApp) },
+                    { icon: "timer", label: "Per active", value: formatMinutes(timePerActive) },
+                  ],
+                  points: board.points,
+                  series: [
+                    {
+                      key: "activeSeconds",
+                      name: "Time in app",
+                      label: `Time in app ${byGrain}`,
+                      minutes: true,
+                      overlay: {
+                        name: "Per active",
+                        value: (point) =>
+                          point.activeUsers > 0 ? point.activeSeconds / point.activeUsers : 0,
+                      },
+                      extras: (point) => [
+                        { name: "Active students", value: formatCount(point.activeUsers) },
+                        {
+                          name: "Per active",
+                          value:
+                            point.activeUsers > 0
+                              ? formatShortDuration(point.activeSeconds / point.activeUsers)
+                              : "—",
+                        },
+                      ],
+                    },
+                    { key: "activeUsers", name: "Active students", label: `Active students ${byGrain}` },
+                  ],
+                },
+                {
+                  id: "videos",
+                  icon: "play_circle",
+                  title: "Videos",
+                  hint: `Marked watched ${window}`,
+                  color: VIDEOS,
+                  value: formatCount(activity.videosWatched),
+                  unit: "watched",
+                  progress: shareOfActive(watchers),
+                  progressLabel: "Share of active students who watched a video",
+                  progressBase: "active",
+                  progressVerb: "watched",
+                  progressCount: [watchers, activity.activeUsers],
+                  metrics: [
+                    {
+                      icon: "slow_motion_video",
+                      label: "Play time",
+                      value: formatMinutes(activity.videoSeconds),
+                    },
+                    {
+                      icon: "timer",
+                      label: "Per video",
+                      value:
+                        activity.videosStarted > 0
+                          ? formatShortDuration(activity.startedVideoSeconds / activity.videosStarted)
+                          : "—",
+                    },
+                  ],
+                  points: board.points,
+                  series: [
+                    {
+                      key: "videoSeconds",
+                      name: "Play time",
+                      label: `Play time ${byGrain}`,
+                      minutes: true,
+                      extras: (point) => [
+                        {
+                          name: "Per video",
+                          value:
+                            point.videosStarted > 0
+                              ? formatShortDuration(point.startedVideoSeconds / point.videosStarted)
+                              : "—",
+                        },
+                        { name: "Videos started", value: formatCount(point.videosStarted) },
+                      ],
+                    },
+                    { key: "videosWatched", name: "Videos watched", label: `Videos watched ${byGrain}` },
+                  ],
+                },
+                {
+                  id: "study",
+                  icon: "menu_book",
+                  title: "Study",
+                  hint: `Runs finished ${window}`,
+                  color: STUDY,
+                  value: formatCount(activity.studyRuns),
+                  unit: "full runs",
+                  progress: shareOfActive(studiers),
+                  progressLabel: "Share of active students who finished a study run",
+                  progressBase: "active",
+                  progressVerb: "studied",
+                  progressCount: [studiers, activity.activeUsers],
+                  metrics: [
+                    { icon: "auto_stories", label: "Parts", value: formatCount(partTotals.studyParts) },
+                    {
+                      icon: "person",
+                      label: "Per active",
+                      value: formatPerActive(partTotals.studyParts, activity.activeUsers),
+                    },
+                  ],
+                  points: board.points,
+                  series: [
+                    {
+                      key: "studyParts",
+                      name: "Parts",
+                      label: `Study parts ${byGrain}`,
+                      extras: (point) => [
+                        { name: "Per active", value: formatPerActive(point.studyParts, point.activeUsers) },
+                      ],
+                    },
+                    hourly
+                      ? { key: "clips", name: "Clips studied", label: "Clips studied by hour" }
+                      : { key: "studyRuns", name: "Study runs", label: "Study runs by day" },
+                  ],
+                },
+                {
+                  id: "practice",
+                  icon: "fitness_center",
+                  title: "Practice",
+                  hint: `Runs finished ${window}`,
+                  color: PRACTICE,
+                  value: formatCount(activity.practiceRuns),
+                  unit: "runs",
+                  progress: shareOfActive(practicers),
+                  progressLabel: "Share of active students who finished a practice run",
+                  progressBase: "active",
+                  progressVerb: "practiced",
+                  progressCount: [practicers, activity.activeUsers],
+                  metrics: [
+                    { icon: "task_alt", label: "Parts", value: formatCount(partTotals.practiceParts) },
+                    {
+                      icon: "person",
+                      label: "Per active",
+                      value: formatPerActive(partTotals.practiceParts, activity.activeUsers),
+                    },
+                  ],
+                  points: board.points,
+                  series: [
+                    {
+                      key: "practiceParts",
+                      name: "Parts",
+                      label: `Practice parts ${byGrain}`,
+                      extras: (point) => [
+                        {
+                          name: "Per active",
+                          value: formatPerActive(point.practiceParts, point.activeUsers),
+                        },
+                      ],
+                    },
+                    { key: "practiceRuns", name: "Practice runs", label: `Practice runs ${byGrain}` },
+                  ],
+                },
+              ]}
+              />
+            </section>
 
-      <section aria-labelledby="activity-students" className="flex flex-col gap-space-12">
-        <SectionHeading
-          id="activity-students"
-          icon="leaderboard"
-          title="Students"
-          meta="Sorted by active minutes"
-        />
-        <LeadersTable
-          key={`${classFilter}:${range}`}
-          leaders={board.leaders}
-          rowsById={rowsById}
-          totalSeconds={timeInApp}
-          onSelect={setDetailUserId}
-        />
-      </section>
+            <AdminRetention rows={filteredRows} range={range} />
 
-      <section aria-labelledby="activity-breakdown" className="flex flex-col gap-space-12">
-        <SectionHeading
-          id="activity-breakdown"
-          icon="schedule"
-          title={hourly ? "Hourly breakdown" : "Daily breakdown"}
-        />
-        <TotalsTable points={board.points} grain={board.grain} />
-      </section>
+            <section aria-labelledby="activity-clients" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="activity-clients"
+                icon="devices"
+                title="Browsers and devices"
+                meta={
+                  clients.students > 0
+                    ? `${formatStudents(clients.students)} · ${formatCount(clients.visits)} ${clients.visits === 1 ? "visit" : "visits"}`
+                    : undefined
+                }
+              />
+              <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
+                <ChartPanel
+                  icon="smartphone"
+                  title="Devices"
+                  hint={`Unique students whose visit overlapped ${window}. A student on two devices is counted in both.`}
+                >
+                  <ClientChart slices={clients.devices} />
+                </ChartPanel>
+                <ChartPanel
+                  icon="language"
+                  title="Browsers"
+                  hint={`Unique students whose visit overlapped ${window}. A student on two browsers is counted in both.`}
+                >
+                  <ClientChart slices={clients.browsers} />
+                </ChartPanel>
+              </div>
+            </section>
+
+            <section aria-labelledby="activity-trends" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="activity-trends"
+                icon="monitoring"
+                title={hourly ? "Hourly trends" : "Daily trends"}
+              />
+              <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:gap-space-20">
+                <ChartPanel
+                  icon="groups"
+                  title={hourly ? "People in the app by hour" : "Daily active people"}
+                  hint={
+                    hourly
+                      ? "Unique students whose visit or last-seen time fell in that Vietnam hour."
+                      : "Unique students seen or practicing on each Vietnam day."
+                  }
+                  trailing={<LegendChips items={[{ name: "Active people", color: PRIMARY }]} />}
+                >
+                  <TrendChart
+                    data={seriesPoints(board.points, PEOPLE_SERIES)}
+                    grain={board.grain}
+                    series={PEOPLE_SERIES}
+                    color={PRIMARY}
+                  />
+                </ChartPanel>
+                <ChartPanel
+                  icon="stacked_bar_chart"
+                  title={hourly ? "Work during those hours" : "Study, practice, and videos"}
+                  hint={
+                    hourly
+                      ? "Study clips and practice runs come from visits. Videos use the watched timestamp."
+                      : "Finished study runs, practice runs, and videos marked watched."
+                  }
+                  trailing={<LegendChips items={workBars(board.grain)} />}
+                >
+                  <WorkChart data={board.points} grain={board.grain} />
+                </ChartPanel>
+              </div>
+            </section>
+
+            <section aria-labelledby="activity-students" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="activity-students"
+                icon="leaderboard"
+                title="Students"
+                meta="Sorted by active minutes"
+              />
+              <LeadersTable
+                key={`${classFilter}:${range}`}
+                leaders={board.leaders}
+                rowsById={rowsById}
+                totalSeconds={timeInApp}
+                onSelect={setDetailUserId}
+              />
+            </section>
+
+            <section aria-labelledby="activity-breakdown" className="flex flex-col gap-space-12">
+              <SectionHeading
+                id="activity-breakdown"
+                icon="schedule"
+                title={hourly ? "Hourly breakdown" : "Daily breakdown"}
+              />
+              <TotalsTable points={board.points} grain={board.grain} />
+            </section>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
       {detailRow ? (
         <StudentDetail
           row={detailRow}
