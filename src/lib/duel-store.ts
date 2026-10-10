@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAdminUser } from "@/lib/admins";
+import { shouldShowDuelOnboarding } from "@/lib/onboarding-store";
 import { getUserDashboardFlags } from "@/lib/progress-store";
 import { seedToRandom } from "@/lib/blitzrunde";
 import { scoreAttempt } from "@/lib/scoring";
@@ -32,6 +33,8 @@ import {
   DUEL_SIZE,
   dealUniqueDuelCards,
   duelCardsFromClips,
+  lessonOrderFromCatalog,
+  pickSharedDuelClips,
   MAX_ANSWER_CHARS,
   MAX_OPEN_WITH_CLASSMATE,
   awardForPoints,
@@ -49,7 +52,6 @@ import {
   matchPool,
   opponentCanSeeDuel,
   pointsFromPlays,
-  sampleItems,
   sharedStudied,
   studiedKey,
   type CatalogClip,
@@ -188,7 +190,7 @@ export type DuelActionResult =
   | { ok: false; status: number; error: string };
 
 export type DuelCreateResult =
-  | { ok: true; id: string }
+  | { ok: true; id: string; opponentName: string }
   | { ok: false; block: MatchBlock };
 
 let catalogCache: CatalogClip[] | null = null;
@@ -634,10 +636,6 @@ async function loadClassContext(user: {
   const supabase = getSupabaseAdmin();
   if (!supabase) return empty;
 
-  if ((await getUserDashboardFlags(user.id)).teacher) {
-    return { ...empty, ready: true, block: "admin", viewerIsAdmin: true };
-  }
-
   const profiles = await listProfiles(supabase);
   if (isQueryError(profiles)) {
     return { ...empty, failure: matchFailureText("Could not load class profiles", profiles.error) };
@@ -647,6 +645,10 @@ async function loadClassContext(user: {
     id: user.id,
     email: user.email ?? viewer?.email,
   });
+  // Teachers stay out of duels. The owner admin plays like a learner in their class.
+  if (!viewerIsAdmin && (await getUserDashboardFlags(user.id)).teacher) {
+    return { ...empty, ready: true, block: "admin", viewerIsAdmin: false };
+  }
   const names = new Map(
     profiles.map((profile) => [profile.userId, leaderboardDisplayName(profile.name)]),
   );
@@ -673,35 +675,37 @@ async function loadClassContext(user: {
     };
   }
   const studiedCount = studied.get(user.id)?.length ?? 0;
-  if (viewerIsAdmin) {
-    return {
-      ready: true,
-      block: "admin",
-      failure: null,
-      viewerIsAdmin,
-      studiedCount,
-      pool: [],
-      studied,
-      names,
-      viewerProgress,
-    };
-  }
 
-  const openCounts = await openDuelsByOpponent(supabase, user.id);
-  if (isQueryError(openCounts)) {
+  const openFacts = await openDuelFacts(supabase, user.id);
+  if (isQueryError(openFacts)) {
     return {
       ...empty,
       viewerIsAdmin,
       names,
       viewerProgress,
-      failure: matchFailureText("Could not load open duels", openCounts.error),
+      failure: matchFailureText("Could not load open duels", openFacts.error),
+    };
+  }
+  const finished = await usersWhoFinishedADuel(
+    supabase,
+    classmates.map((profile) => profile.userId),
+  );
+  if (isQueryError(finished)) {
+    return {
+      ...empty,
+      viewerIsAdmin,
+      names,
+      viewerProgress,
+      failure: matchFailureText("Could not load finished duels", finished.error),
     };
   }
   const mine = studied.get(user.id) ?? [];
   const candidates = classmates.map((profile) => ({
     userId: profile.userId,
     shared: sharedStudied(mine, studied.get(profile.userId) ?? []).length,
-    openDuels: openCounts.get(profile.userId) ?? 0,
+    openDuels: openFacts.counts.get(profile.userId) ?? 0,
+    pendingChallenge: openFacts.pendingOpponents.has(profile.userId),
+    finishedDuel: finished.has(profile.userId),
   }));
   const match = matchPool({ hasClass: classKey.length > 0, candidates });
   return {
@@ -717,19 +721,137 @@ async function loadClassContext(user: {
   };
 }
 
-async function openDuelsByOpponent(
+type OpenDuelFacts = {
+  counts: Map<string, number>;
+  /** Classmates you challenged who have not started that duel yet. */
+  pendingOpponents: Set<string>;
+};
+
+async function openDuelFacts(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Map<string, number> | QueryError> {
+): Promise<OpenDuelFacts | QueryError> {
   const counts = new Map<string, number>();
   const rows = await viewerDuels(supabase, userId);
   if (isQueryError(rows)) return rows;
+  const outgoing: DuelRow[] = [];
   for (const duel of rows) {
     if (duel.completed_at) continue;
     const other = duel.challenger_id === userId ? duel.opponent_id : duel.challenger_id;
     counts.set(other, (counts.get(other) ?? 0) + 1);
+    if (duel.challenger_id === userId) outgoing.push(duel);
   }
-  return counts;
+  const started = await opponentsWhoStarted(supabase, outgoing);
+  if (isQueryError(started)) return started;
+  const pendingOpponents = new Set<string>();
+  for (const duel of outgoing) {
+    if (!started.has(duel.id)) pendingOpponents.add(duel.opponent_id);
+  }
+  return { counts, pendingOpponents };
+}
+
+/** Duel ids whose opponent already has a play row. */
+async function opponentsWhoStarted(
+  supabase: SupabaseClient,
+  duels: readonly DuelRow[],
+): Promise<Set<string> | QueryError> {
+  const started = new Set<string>();
+  if (duels.length === 0) return started;
+  for (const page of chunks(duels, 80)) {
+    const ids = page.map((duel) => duel.id);
+    const { data, error } = await supabase
+      .from(PLAYS_TABLE)
+      .select("duel_id, user_id")
+      .in("duel_id", ids);
+    if (error) {
+      schemaGone(error.message);
+      return { error: error.message };
+    }
+    const opponentByDuel = new Map(page.map((duel) => [duel.id, duel.opponent_id]));
+    for (const raw of data ?? []) {
+      const row = raw as { duel_id?: unknown; user_id?: unknown };
+      if (typeof row.duel_id !== "string" || typeof row.user_id !== "string") continue;
+      if (opponentByDuel.get(row.duel_id) === row.user_id) started.add(row.duel_id);
+    }
+  }
+  return started;
+}
+
+/**
+ * Classmates who finished at least one duel. The challenger of a closed duel
+ * always played it through. An opponent who let the deadline pass did not.
+ */
+async function usersWhoFinishedADuel(
+  supabase: SupabaseClient,
+  userIds: readonly string[],
+): Promise<Set<string> | QueryError> {
+  const finished = new Set<string>();
+  const wanted = new Set(userIds);
+  for (const page of chunks(userIds, 80)) {
+    if (page.length === 0) continue;
+    const load = (column: "challenger_id" | "opponent_id") => {
+      const query = (columns: string) =>
+        supabase.from(DUELS_TABLE).select(columns).not("completed_at", "is", null).in(column, [...page]);
+      return query(duelColumns()).then(async (rows) => {
+        if (rows.error && missingExpiredColumn(rows.error.message)) {
+          rememberMissingExpiredColumn();
+          return query(DUEL_COLUMNS_BASE);
+        }
+        return rows;
+      });
+    };
+    const [asChallenger, asOpponent] = await Promise.all([load("challenger_id"), load("opponent_id")]);
+    const message = asChallenger.error?.message ?? asOpponent.error?.message;
+    if (message) {
+      schemaGone(message);
+      return { error: message };
+    }
+    for (const raw of [...(asChallenger.data ?? []), ...(asOpponent.data ?? [])]) {
+      const duel = duelFromRow(raw);
+      if (!duel?.completed_at) continue;
+      if (wanted.has(duel.challenger_id)) finished.add(duel.challenger_id);
+      if (!duel.expired && wanted.has(duel.opponent_id)) finished.add(duel.opponent_id);
+    }
+  }
+  return finished;
+}
+
+/** Open challenges this learner sent that the classmate has not started. */
+async function unacceptedOutgoingCount(
+  supabase: SupabaseClient,
+  challengerId: string,
+  opponentId: string,
+): Promise<number | QueryError> {
+  const { data, error } = await supabase
+    .from(DUELS_TABLE)
+    .select("id")
+    .is("completed_at", null)
+    .eq("challenger_id", challengerId)
+    .eq("opponent_id", opponentId);
+  if (error) {
+    schemaGone(error.message);
+    return { error: error.message };
+  }
+  const ids = (data ?? []).flatMap((row) => {
+    const id = (row as { id?: unknown }).id;
+    return typeof id === "string" ? [id] : [];
+  });
+  if (ids.length === 0) return 0;
+  const started = await opponentsWhoStarted(
+    supabase,
+    ids.map((id) => ({
+      id,
+      challenger_id: challengerId,
+      opponent_id: opponentId,
+      created_at: "",
+      completed_at: null,
+      challenger_points: null,
+      opponent_points: null,
+      expired: false,
+    })),
+  );
+  if (isQueryError(started)) return started;
+  return ids.filter((id) => !started.has(id)).length;
 }
 
 async function viewerDuels(supabase: SupabaseClient, userId: string): Promise<DuelRow[] | QueryError> {
@@ -954,6 +1076,7 @@ export async function getDuelHome(user: {
   const duels = await viewerDuels(supabase, user.id);
   if (!Array.isArray(duels)) return { ...emptyDuelHome(false), viewerIsAdmin: context.viewerIsAdmin };
 
+  const onboardingPromise = shouldShowDuelOnboarding(user.id);
   const plays = await playsForDuels(
     supabase,
     duels.map((duel) => duel.id),
@@ -965,7 +1088,8 @@ export async function getDuelHome(user: {
   const home = emptyDuelHome(true, context.block);
   home.studiedCount = context.studiedCount;
   home.viewerIsAdmin = context.viewerIsAdmin;
-  if (!context.viewerIsAdmin && context.studiedCount < DUEL_SIZE) {
+  home.rivals = context.pool.map((userId) => context.names.get(userId) ?? "Học viên");
+  if (context.studiedCount < DUEL_SIZE) {
     const access = withoutReservedAccess(await getUserLevelAccess(user.id));
     home.studyHref = firstUnlockedStudyHref(
       context.viewerProgress,
@@ -1003,6 +1127,7 @@ export async function getDuelHome(user: {
   }
   home.history.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   home.history = home.history.slice(0, 40);
+  home.onboarding = await onboardingPromise;
   return home;
 }
 
@@ -1176,6 +1301,8 @@ export async function createDuel(user: {
   const mine = context.studied.get(user.id) ?? [];
   const pool = [...context.pool];
   let blockedByCap = false;
+  let blockedByPending = false;
+  const lessonOrder = lessonOrderFromCatalog(listCatalogClips());
 
   while (pool.length > 0) {
     const index = randomInt(pool.length);
@@ -1192,10 +1319,21 @@ export async function createDuel(user: {
       blockedByCap = true;
       continue;
     }
+    const pending = await unacceptedOutgoingCount(supabase, user.id, opponentId);
+    if (isQueryError(pending)) {
+      return unavailableMatch(
+        user.id,
+        matchFailureText("Could not check an open challenge", pending.error),
+      );
+    }
+    if (pending > 0) {
+      blockedByPending = true;
+      continue;
+    }
 
     const shared = sharedStudied(mine, context.studied.get(opponentId) ?? []);
     if (shared.length < DUEL_SIZE) continue;
-    const picked = sampleItems(shared, DUEL_SIZE, () => randomInt(1_000_000) / 1_000_000);
+    const picked = pickSharedDuelClips(shared, DUEL_SIZE, lessonOrder, () => randomInt(1_000_000) / 1_000_000);
     const catalog = catalogIndex(listCatalogClips());
     const variants = duelCardsFromClips(
       picked.map((clip) => {
@@ -1257,9 +1395,16 @@ export async function createDuel(user: {
       await supabase.from(DUELS_TABLE).delete().eq("id", duelId);
       continue;
     }
-    return { ok: true, id: duelId };
+    const pendingAfter = await unacceptedOutgoingCount(supabase, user.id, opponentId);
+    if (!isQueryError(pendingAfter) && pendingAfter > 1) {
+      blockedByPending = true;
+      await supabase.from(DUELS_TABLE).delete().eq("id", duelId);
+      continue;
+    }
+    return { ok: true, id: duelId, opponentName: context.names.get(opponentId) ?? "Học viên" };
   }
 
+  if (blockedByPending && !blockedByCap) return { ok: false, block: "pending" };
   return { ok: false, block: blockedByCap ? "cap" : "no_overlap" };
 }
 
@@ -1379,17 +1524,22 @@ export async function listStudentDuelClipQuits(
   });
 }
 
+function challengeReleased(
+  plays: readonly (PlayRow & { duel_id: string })[],
+  duel: DuelRow,
+): string | null {
+  return challengeReleasedAt(
+    plays
+      .filter((play) => play.duel_id === duel.id && play.user_id === duel.challenger_id)
+      .map((play) => ({ state: play.state, finishedAt: play.finished_at })),
+  );
+}
+
 function challengeDeadline(
   plays: readonly (PlayRow & { duel_id: string })[],
   duel: DuelRow,
 ): string | null {
-  return challengeExpiresAt(
-    challengeReleasedAt(
-      plays
-        .filter((play) => play.duel_id === duel.id && play.user_id === duel.challenger_id)
-        .map((play) => ({ state: play.state, finishedAt: play.finished_at })),
-    ),
-  );
+  return challengeExpiresAt(challengeReleased(plays, duel));
 }
 
 /** Challenges the viewer has been sent and has not opened yet. Soonest deadline first. */
@@ -1445,6 +1595,7 @@ export async function listUnstartedChallenges(userId: string): Promise<IncomingC
   return open.map((duel) => ({
     id: duel.id,
     opponentName: names.get(duel.challenger_id) ?? "Học viên",
+    receivedAt: challengeReleased(plays, duel) ?? duel.created_at,
     expiresAt: challengeDeadline(plays, duel),
   }));
 }
@@ -2251,4 +2402,111 @@ export async function listAdminDuels(): Promise<{
     if (page.length < PAGE_SIZE) return { ready: true, rows };
     from += PAGE_SIZE;
   }
+}
+
+export type AdminDuelSettled = {
+  duelId: string;
+  userId: string;
+  settled: number;
+};
+
+/**
+ * How many questions each player has already answered in these duels.
+ * Used to tell a paused challenge (sender still going) from an open one.
+ */
+export async function listAdminDuelSettled(
+  duelIds: readonly string[],
+): Promise<{ ready: boolean; rows: AdminDuelSettled[] }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, rows: [] };
+  const ids = [...new Set(duelIds.filter((id) => isDuelId(id)))];
+  if (ids.length === 0) return { ready: true, rows: [] };
+
+  const counts = new Map<string, number>();
+  const chunkSize = 80;
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const chunk = ids.slice(index, index + chunkSize);
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from(PLAYS_TABLE)
+        .select("duel_id, user_id, state")
+        .in("duel_id", chunk)
+        .in("state", ["done", "forfeited"])
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) {
+        schemaGone(error.message);
+        return { ready: false, rows: [] };
+      }
+      const page = (data ?? []) as { duel_id?: unknown; user_id?: unknown }[];
+      for (const row of page) {
+        if (typeof row.duel_id !== "string" || typeof row.user_id !== "string") continue;
+        const key = `${row.duel_id}\0${row.user_id}`;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+  }
+
+  const rows: AdminDuelSettled[] = [];
+  for (const [key, settled] of counts) {
+    const split = key.indexOf("\0");
+    rows.push({ duelId: key.slice(0, split), userId: key.slice(split + 1), settled });
+  }
+  return { ready: true, rows };
+}
+
+export type AdminDuelQuestion = {
+  position: number;
+  kind: DuelCardKind;
+  script: string | null;
+  translationVi: string | null;
+};
+
+export type AdminDuelAnswerTime = {
+  userId: string;
+  position: number;
+  state: PlayState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  elapsedMs: number | null;
+};
+
+export type AdminDuelDetail = {
+  challengerId: string;
+  opponentId: string;
+  questions: AdminDuelQuestion[];
+  answers: AdminDuelAnswerTime[];
+};
+
+/** The questions in one challenge, and when each student answered them. */
+export async function getAdminDuelDetail(duelId: string): Promise<AdminDuelDetail | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !isDuelId(duelId)) return null;
+  const duel = await readDuel(supabase, duelId);
+  if (!duel) return null;
+  const [clips, plays] = await Promise.all([readClips(supabase, duelId), readPlays(supabase, duelId)]);
+  const catalog = catalogIndex(listCatalogClips());
+  return {
+    challengerId: duel.challenger_id,
+    opponentId: duel.opponent_id,
+    questions: clips.map((clip) => {
+      const known = catalog.get(studiedKey(clip.lesson_key, clip.clip_id));
+      return {
+        position: clip.position,
+        kind: clip.kind,
+        script: known?.script ?? null,
+        translationVi: known?.translationVi ?? null,
+      };
+    }),
+    answers: plays.map((play) => ({
+      userId: play.user_id,
+      position: play.position,
+      state: play.state,
+      startedAt: play.started_at,
+      finishedAt: play.finished_at,
+      elapsedMs: play.state === "done" ? play.elapsed_ms : null,
+    })),
+  };
 }

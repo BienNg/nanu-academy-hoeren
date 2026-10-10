@@ -1,10 +1,12 @@
-import { onboardingState } from "@/lib/onboarding";
+import { duelOnboardingState, onboardingState } from "@/lib/onboarding";
 import { getSupabaseAdmin } from "@/lib/progress-store";
 import { readTotalXp } from "@/lib/xp-store";
 
 const TABLE = "user_progress";
 const COLUMN = "onboarding_completed_at";
 const RESET_COLUMN = "onboarding_reset_at";
+const DUEL_COLUMN = "duel_onboarding_completed_at";
+const DUEL_PLAYS_TABLE = "duel_plays";
 
 let loggedMissingColumn = false;
 
@@ -16,7 +18,7 @@ function noteMissingColumn(message: string): void {
   if (loggedMissingColumn) return;
   loggedMissingColumn = true;
   console.error(
-    "user_progress onboarding columns are missing. Run supabase/onboarding.sql.",
+    "user_progress onboarding columns are missing. Run supabase/onboarding.sql again.",
     message,
   );
 }
@@ -116,5 +118,64 @@ export async function shouldShowOnboarding(userId: string | null | undefined): P
 
   const state = onboardingState({ readable, completedAt, resetAt, totalXp });
   if (state === "earned") await markOnboardingComplete(userId);
+  return state === "pending";
+}
+
+/** The duel how-to stamp, or readable: false when the column is missing. */
+async function readDuelOnboardingStamp(
+  userId: string,
+): Promise<{ readable: boolean; completedAt: string | null }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { readable: false, completedAt: null };
+  const { data, error } = await supabase.from(TABLE).select(DUEL_COLUMN).eq("user_id", userId).maybeSingle();
+  if (error) {
+    if (isMissingColumn(error.message, DUEL_COLUMN)) noteMissingColumn(error.message);
+    else console.error("Supabase readDuelOnboardingStamp", error.message);
+    return { readable: false, completedAt: null };
+  }
+  const row = (data ?? {}) as { duel_onboarding_completed_at?: string | null };
+  return { readable: true, completedAt: row.duel_onboarding_completed_at ?? null };
+}
+
+/** Whether the learner has begun any duel clip. Null when it cannot be read. */
+async function hasPlayedDuel(userId: string): Promise<boolean | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from(DUEL_PLAYS_TABLE)
+    .select("duel_id")
+    .eq("user_id", userId)
+    .limit(1);
+  if (error) {
+    console.error("Supabase hasPlayedDuel", error.message);
+    return null;
+  }
+  return (data ?? []).length > 0;
+}
+
+/** Stamp the duel how-to as seen. A stamp that is already there is kept. */
+export async function markDuelOnboardingComplete(userId: string, at = new Date()): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return false;
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ [DUEL_COLUMN]: at.toISOString() })
+    .eq("user_id", userId)
+    .is(DUEL_COLUMN, null);
+  if (error) {
+    if (isMissingColumn(error.message, DUEL_COLUMN)) noteMissingColumn(error.message);
+    else console.error("Supabase markDuelOnboardingComplete", error.message);
+    return false;
+  }
+  return true;
+}
+
+/** Whether a duel should open with the how-to. Call before the duel records any play. */
+export async function shouldShowDuelOnboarding(userId: string | null | undefined): Promise<boolean> {
+  if (!userId || !getSupabaseAdmin()) return false;
+  const stamp = await readDuelOnboardingStamp(userId);
+  const hasPlayed = stamp.completedAt ? null : await hasPlayedDuel(userId);
+  const state = duelOnboardingState({ ...stamp, hasPlayed });
+  if (state === "earned") await markDuelOnboardingComplete(userId);
   return state === "pending";
 }

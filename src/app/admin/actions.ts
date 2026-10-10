@@ -29,11 +29,13 @@ import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import {
   deleteUserDuelXp,
   forgetStudiedClips,
+  getAdminDuelDetail,
   listStudentDuelClipQuits,
   listStudentDuelMatchFailures,
   syncStudiedClips,
+  type AdminDuelDetail,
 } from "@/lib/duel-store";
-import type { DuelClipQuit, StudentDuelMatchFailuresPage } from "@/lib/duels";
+import { isDuelId, type DuelClipQuit, type StudentDuelMatchFailuresPage } from "@/lib/duels";
 import type { StudentJumpRunsPage } from "@/lib/lesson-jump";
 import type { StoredListeningRun, StudentRunsPage } from "@/lib/listening-runs";
 import { practiceCardCount } from "@/lib/practice-deck";
@@ -842,4 +844,34 @@ export async function setAdminUserTeacher(
   revalidateAdmin();
   revalidatePath("/account");
   return { ok: true, teacher: next, classes: next ? names : [] };
+}
+
+export type AdminDuelQuestions = Pick<AdminDuelDetail, "questions" | "answers">;
+
+/** Questions in one challenge, and when each student answered. Teachers only see their own classes. */
+export async function loadAdminDuelQuestions(
+  duelId: string,
+): Promise<{ ok: true; detail: AdminDuelQuestions } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "Sign in again to see this challenge." };
+  if (!isDuelId(duelId)) return { ok: false, error: "Unknown challenge." };
+
+  const detail = await getAdminDuelDetail(duelId);
+  if (!detail) return { ok: false, error: "This challenge is not in the database." };
+
+  if (!isAdminUser(session.user)) {
+    const flags = await getUserDashboardFlags(session.user.id);
+    if (!flags.staff) {
+      if (!flags.teacher) return { ok: false, error: "You cannot open this challenge." };
+      const keys = new Set(flags.classes.map((name) => classKey(name)).filter((key) => key.length > 0));
+      const [challengerClass, opponentClass] = await Promise.all([
+        getUserClassName(detail.challengerId),
+        getUserClassName(detail.opponentId),
+      ]);
+      const allowed = [challengerClass, opponentClass].some((name) => keys.has(classKey(name)));
+      if (!allowed) return { ok: false, error: "You cannot open this challenge." };
+    }
+  }
+
+  return { ok: true, detail: { questions: detail.questions, answers: detail.answers } };
 }

@@ -120,6 +120,14 @@ test("a visit describes each tab opening", () => {
     describeVisitClick({ target: "nav.learn", label: "Học", count: 3 }),
     "Opened the Học tab 3 times",
   );
+  assert.equal(
+    describeVisitClick({ target: "duel.challenge.accept", label: "Chấp nhận", count: 1 }),
+    "Accepted the challenge once",
+  );
+  assert.equal(
+    describeVisitClick({ target: "duel.challenge.later", label: "Để sau", count: 2 }),
+    "Left the challenge for later 2 times",
+  );
 });
 
 test("click totals sort by count", () => {

@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { BadgeUnlockSheet, markBadgesSeenRemote } from "@/components/BadgeParts";
+import { DuelChallengeIntro, requestChallengeShowdown } from "@/components/DuelChallengeIntro";
 import { badgeCheckDue, clearBadgeBoardCache, markBadgeCheck } from "@/lib/badge-unseen";
 import { readFreshBadges, type FreshBadge } from "@/lib/badges";
+import { readIncomingChallenges, type IncomingChallenge } from "@/lib/duels";
 import {
   clearQuestBoardCache,
   publishQuestBadge,
@@ -112,7 +114,7 @@ export function BottomNav() {
     flushTrackedClicks();
   }, [livePath]);
   const pathname = pendingPath ?? livePath;
-  const [challenges, setChallenges] = useState(0);
+  const [challenges, setChallenges] = useState<IncomingChallenge[]>([]);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
   const questsLeft = useSyncExternalStore(subscribeQuestBadge, readQuestBadge, () => 0);
   const [freshBadges, setFreshBadges] = useState<FreshBadge[]>([]);
@@ -174,12 +176,11 @@ export function BottomNav() {
         .then((response) => (response.ok ? response.json() : null))
         .then((data: unknown) => {
           if (cancelled || !data || typeof data !== "object") return;
-          const count = (data as { count?: unknown }).count;
-          setChallenges(typeof count === "number" && count > 0 ? count : 0);
+          setChallenges(readIncomingChallenges(data));
           writeDuelTab((data as { available?: unknown }).available !== false);
         })
         .catch(() => {
-          if (!cancelled) setChallenges(0);
+          if (!cancelled) setChallenges([]);
         });
     };
     load();
@@ -197,6 +198,7 @@ export function BottomNav() {
           <BadgeUnlockSheet key="badge-unlock" badges={freshBadges} onDone={finishBadges} />
         ) : null}
       </AnimatePresence>
+      <DuelChallengeIntro challenges={challenges} blocked={freshBadges.length > 0} />
       <nav
         aria-label="Điều hướng chính"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
@@ -205,7 +207,7 @@ export function BottomNav() {
           {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
             const active = isCurrent(pathname, item.href);
             const badge =
-              item.href === "/duel" ? challenges : item.href === "/quests" ? questsLeft : 0;
+              item.href === "/duel" ? challenges.length : item.href === "/quests" ? questsLeft : 0;
             const badgeNote =
               item.href === "/quests" ? "nhiệm vụ chưa xong" : "lời thách đấu chưa chơi";
             const label = badge > 0 ? `${item.label}, ${badge} ${badgeNote}` : item.label;
@@ -217,7 +219,10 @@ export function BottomNav() {
                 aria-label={label}
                 onClick={() => {
                   // The Đấu page records the open, with whether start was available.
-                  if (item.target === "nav.duel") return;
+                  if (item.target === "nav.duel") {
+                    if (challenges.length > 0) requestChallengeShowdown();
+                    return;
+                  }
                   trackUiClick(item.target);
                 }}
                 className={`flex min-w-0 flex-col items-center gap-px rounded-2xl border-2 px-0.5 py-1 sm:px-2 ${

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { actOnDuel } from "@/lib/duel-store";
 import { isDuelId } from "@/lib/duels";
+import { shouldShowDuelOnboarding } from "@/lib/onboarding-store";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 
 function revokedResponse() {
@@ -43,6 +44,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
+  const onboarding = action === "open" ? await shouldShowDuelOnboarding(session.user.id) : false;
   const result = await actOnDuel({
     userId: session.user.id,
     duelId,
@@ -55,5 +57,5 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
-  return NextResponse.json({ ok: true, view: result.view, feedback: result.feedback });
+  return NextResponse.json({ ok: true, view: result.view, feedback: result.feedback, onboarding });
 }

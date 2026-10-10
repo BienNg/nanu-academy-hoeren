@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { CARD, IconTile, INPUT } from "@/components/admin/AdminUi";
 import { BadgeUnlockSheet } from "@/components/BadgeParts";
+import { ShowdownOverlay } from "@/components/DuelChallengeIntro";
+import { DuelMatchmaking, type MatchedDuel } from "@/components/DuelMatchmaking";
+import { DuelOnboarding } from "@/components/DuelOnboarding";
 import { DuelEndCard, OpeningCountdown } from "@/components/DuelPlayScreen";
 import { BlitzrundeCountdown, BlitzrundeLobby } from "@/components/blitzrunde/BlitzrundeLobby";
 import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
@@ -25,7 +28,7 @@ import { LessonPathIcon, LessonStartCard } from "@/app/learn/[levelSlug]/LevelVi
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
-import { duelEndSteps, type DuelEndStep, type DuelView } from "@/lib/duels";
+import { duelEndSteps, type DuelEndStep, type DuelView, type IncomingChallenge } from "@/lib/duels";
 import type { McResult } from "@/lib/multiple-choice";
 import { planClassRankClimb, planRankClimb } from "@/lib/rank-climb";
 import type { ClassQuestView } from "@/lib/class-quests";
@@ -501,6 +504,30 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     detail: "Fill the Präteritum blanks for haben.",
   },
   {
+    id: "duel-challenge",
+    category: "duels",
+    group: "Before the clips",
+    icon: "swords",
+    title: "Challenge showdown",
+    detail: "The daily popup for the earliest open challenge, from Minh.",
+  },
+  {
+    id: "duel-matchmaking",
+    category: "duels",
+    group: "Before the clips",
+    icon: "casino",
+    title: "Opponent reel",
+    detail: "Spins through classmates after Đấu mới, then locks on Minh.",
+  },
+  {
+    id: "duel-onboarding",
+    category: "duels",
+    group: "Before the clips",
+    icon: "school",
+    title: "First-duel how-to",
+    detail: "Two steps before the first opponent reel. Shows once per account.",
+  },
+  {
     id: "duel-countdown",
     category: "duels",
     group: "Before the clips",
@@ -837,6 +864,29 @@ function OpenPreview({ id, onClose }: { id: string; onClose: () => void }) {
   if (id === "card-type") return <DictationPreview onClose={onClose} />;
   if (id === "card-number") return <NumberPreview onClose={onClose} />;
   if (id === "card-table") return <TablePreview onClose={onClose} />;
+  if (id === "duel-challenge") {
+    return (
+      <ShowdownOverlay
+        challenge={SAMPLE_CHALLENGE}
+        yourInitial="B"
+        accepting={false}
+        onLater={onClose}
+        onAccept={onClose}
+      />
+    );
+  }
+  if (id === "duel-matchmaking") return <MatchmakingPreview onClose={onClose} />;
+  if (id === "duel-onboarding") {
+    return (
+      <PreviewChrome onClose={onClose}>
+        <div className="h-full overflow-y-auto pt-[calc(env(safe-area-inset-top)+3.5rem)]">
+          <div className="mx-auto flex min-h-full w-full max-w-md flex-col px-4 pb-8">
+            <DuelOnboarding opponentName="Minh" onDone={onClose} />
+          </div>
+        </div>
+      </PreviewChrome>
+    );
+  }
   if (id === "duel-countdown") {
     return (
       <PreviewChrome onClose={onClose}>
@@ -1621,6 +1671,27 @@ function TablePreview({ onClose }: { onClose: () => void }) {
 }
 
 const DUEL_NOW = new Date("2026-10-08T12:00:00.000Z");
+
+/** Two days left from whenever the preview opens. */
+const SAMPLE_RIVALS = ["Minh", "Lan", "Hà", "Dũng", "Thảo", "Quang", "Vy", "Khoa"];
+
+/** The server answers after a beat, like a real match. */
+function MatchmakingPreview({ onClose }: { onClose: () => void }) {
+  const [match, setMatch] = useState<MatchedDuel | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMatch({ id: "preview", opponentName: "Minh" }), 900);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const enter = useCallback(() => onClose(), [onClose]);
+  return <DuelMatchmaking rivals={SAMPLE_RIVALS} yourInitial="B" match={match} onEnter={enter} />;
+}
+
+const SAMPLE_CHALLENGE: IncomingChallenge = {
+  id: "preview",
+  opponentName: "Minh",
+  receivedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+};
 
 function duelView(patch: Partial<DuelView>): DuelView {
   return {

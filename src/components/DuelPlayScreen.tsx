@@ -10,6 +10,7 @@ import { McCard } from "@/components/session/McCard";
 import { ChillPingu } from "@/components/session/Pingu";
 import { CountUp } from "@/components/QuestParts";
 import { chunkyButton } from "@/components/chunkyButton";
+import { DuelOnboarding } from "@/components/DuelOnboarding";
 import {
   DUEL_SIZE,
   MAX_ANSWER_CHARS,
@@ -29,6 +30,7 @@ import {
 import { scoreAttempt } from "@/lib/scoring";
 import { buildWordBank, checkOrder } from "@/lib/sentence-order";
 import { checkMc } from "@/lib/multiple-choice";
+import { duelOnboardingSeen, markDuelOnboardingSeen } from "@/lib/onboarding";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 
@@ -42,7 +44,7 @@ function browserPlaySessionId(): string {
   return browserPlaySession;
 }
 
-type Phase = "loading" | "countdown" | "play" | "between" | "result" | "review" | "error";
+type Phase = "loading" | "onboarding" | "countdown" | "play" | "between" | "result" | "review" | "error";
 
 type Between = {
   kind: "forfeit";
@@ -50,7 +52,9 @@ type Between = {
   hasNext: boolean;
 };
 
-function isViewPayload(value: unknown): value is { view: DuelView; feedback: DuelFeedback | null } {
+function isViewPayload(
+  value: unknown,
+): value is { view: DuelView; feedback: DuelFeedback | null; onboarding?: boolean } {
   if (!value || typeof value !== "object") return false;
   const view = (value as { view?: DuelView }).view;
   return Boolean(view && Array.isArray(view.clips) && typeof view.id === "string");
@@ -494,7 +498,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
           setPhase("result");
           return;
         }
-        setPhase("countdown");
+        setPhase(payload.onboarding === true && !duelOnboardingSeen() ? "onboarding" : "countdown");
       } catch {
         if (!alive || generationRef.current !== generation) return;
         setError("Không mở được trận đấu.");
@@ -764,7 +768,9 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
                 ? `Câu ${settledCount + 1}/${DUEL_SIZE}`
                 : phase === "between"
                   ? `${settledCount}/${DUEL_SIZE} câu`
-                  : phase === "countdown"
+                  : phase === "onboarding"
+                    ? "Cách chơi"
+                    : phase === "countdown"
                     ? "Sắp bắt đầu"
                     : phase === "result"
                       ? view?.complete
@@ -792,6 +798,25 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             </span>
             <p className="mt-4 text-[20px] font-extrabold">Đang chuẩn bị trận đấu</p>
           </section>
+        ) : null}
+
+        {phase === "onboarding" && view ? (
+          <DuelOnboarding
+            opponentName={view.opponentName}
+            onDone={() => {
+              markDuelOnboardingSeen();
+              void fetch("/api/onboarding/complete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tour: "duel" }),
+                keepalive: true,
+              }).catch(() => {
+                // Unsaved, the how-to still ends once the learner has played a clip.
+              });
+              countdownStarts.delete(duelId);
+              setPhase("countdown");
+            }}
+          />
         ) : null}
 
         {phase === "countdown" && view ? (

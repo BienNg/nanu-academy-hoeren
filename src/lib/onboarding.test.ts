@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ONBOARDING_SKIP_REASON,
   ONBOARDING_STEPS,
+  duelOnboardingState,
   onboardingSkipLine,
   onboardingSkipReasons,
   onboardingState,
@@ -236,4 +237,18 @@ test("malformed onboarding entries are dropped", () => {
   assert.deepEqual(progress.visits?.[0]?.onboarding, [
     { at: "2026-10-06T08:00:00.000Z", outcome: "completed" },
   ]);
+});
+
+test("the duel how-to shows only before a learner's first duel", () => {
+  const base = { readable: true, completedAt: null, hasPlayed: false };
+  assert.equal(duelOnboardingState(base), "pending");
+  assert.equal(duelOnboardingState({ ...base, completedAt: "2026-10-10T08:00:00.000Z" }), "done");
+  assert.equal(duelOnboardingState({ ...base, hasPlayed: true }), "earned");
+  assert.equal(duelOnboardingState({ ...base, hasPlayed: null }), "done");
+});
+
+test("without the stamp column, a played duel still ends the how-to", () => {
+  const unreadable = { readable: false, completedAt: null };
+  assert.equal(duelOnboardingState({ ...unreadable, hasPlayed: false }), "pending");
+  assert.equal(duelOnboardingState({ ...unreadable, hasPlayed: true }), "done");
 });

@@ -16,7 +16,8 @@ import type {
 import { classifyOutreach, latestStudyDay, type OutreachActivityDay } from "@/lib/outreach";
 import { dayKey, googleProfileImage } from "./xp";
 import type { AdminDuelXpRow, AdminListeningXpRow } from "@/lib/xp-store";
-import type { AdminDuelRecord } from "@/lib/duel-store";
+import type { AdminDuelRecord, AdminDuelSettled } from "@/lib/duel-store";
+import { DUEL_SIZE, adminChallengeStatus, type AdminChallengeStatus } from "@/lib/duels";
 import type { AdminListeningRunRecord } from "@/lib/listening-runs";
 
 export type { AdminDuelXpRow, AdminListeningXpRow, AdminDuelRecord, AdminListeningRunRecord };
@@ -1765,16 +1766,29 @@ export type AdminDuelMatch = {
   expired: boolean;
 };
 
+export type AdminDuelChallenge = AdminDuelMatch & {
+  challengerId: string;
+  opponentId: string;
+  status: AdminChallengeStatus;
+  challengerSettled: number;
+  opponentSettled: number;
+};
+
 export type AdminDuelBoard = {
   started: number;
   finished: number;
   expired: number;
+  /** Released and still waiting on the other student. */
   open: number;
+  /** The sender has not finished the questions, so the challenge is not out yet. */
+  paused: number;
   players: number;
   points: AdminDuelPoint[];
   leaders: AdminDuelLeader[];
   waiting: AdminDuelMatch[];
   recent: AdminDuelMatch[];
+  /** Every open or paused challenge, plus ones that ended in this window. */
+  challenges: AdminDuelChallenge[];
 };
 
 const DUEL_LEADER_LIMIT = 8;
@@ -1835,6 +1849,7 @@ export function buildAdminDuelBoard(
   duels: readonly AdminDuelRecord[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
+  settled: readonly AdminDuelSettled[] | null = null,
 ): AdminDuelBoard {
   const daysNewestFirst = adminRangeVietnamDayKeys(range, now);
   const window = new Set(daysNewestFirst);
@@ -1857,12 +1872,24 @@ export function buildAdminDuelBoard(
     return current;
   };
 
+  const settledByDuel = new Map<string, Map<string, number>>();
+  if (settled) {
+    for (const row of settled) {
+      const byUser = settledByDuel.get(row.duelId) ?? new Map<string, number>();
+      byUser.set(row.userId, row.settled);
+      settledByDuel.set(row.duelId, byUser);
+    }
+  }
+
   const players = new Set<string>();
   let started = 0;
   let finished = 0;
   let expired = 0;
+  let paused = 0;
+  let openLive = 0;
   const waiting: AdminDuelMatch[] = [];
   const recent: AdminDuelMatch[] = [];
+  const challenges: AdminDuelChallenge[] = [];
 
   for (const duel of duels) {
     const createdDay = vietnamDayOf(duel.createdAt);
@@ -1910,21 +1937,51 @@ export function buildAdminDuelBoard(
         expired: duel.expired,
       });
     }
+    const challengerSettled = settledByDuel.get(duel.id)?.get(duel.challengerId) ?? 0;
+    const opponentSettled = settledByDuel.get(duel.id)?.get(duel.opponentId) ?? 0;
+    const status: AdminChallengeStatus = duel.completedAt
+      ? "ended"
+      : settled
+        ? adminChallengeStatus({
+            completed: false,
+            challengerSettled,
+            clipCount: DUEL_SIZE,
+          })
+        : "open";
+    const match: AdminDuelMatch = {
+      id: duel.id,
+      challengerName: personLabel(names, duel.challengerId),
+      opponentName: personLabel(names, duel.opponentId),
+      createdAt: duel.createdAt,
+      completedAt: duel.completedAt,
+      result: duel.completedAt ? scoredResult(duel).label : status === "paused" ? "Paused" : "Open",
+      expired: duel.expired,
+    };
     if (!duel.completedAt) {
-      waiting.push({
-        id: duel.id,
-        challengerName: personLabel(names, duel.challengerId),
-        opponentName: personLabel(names, duel.opponentId),
-        createdAt: duel.createdAt,
-        completedAt: null,
-        result: "Waiting",
-        expired: false,
+      if (status === "paused") paused += 1;
+      else openLive += 1;
+      waiting.push(match);
+    }
+    if (status !== "ended" || completedIn) {
+      challenges.push({
+        ...match,
+        challengerId: duel.challengerId,
+        opponentId: duel.opponentId,
+        status,
+        challengerSettled,
+        opponentSettled,
       });
     }
   }
 
   waiting.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   recent.sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+  const statusRank: Record<AdminChallengeStatus, number> = { paused: 0, open: 1, ended: 2 };
+  challenges.sort((a, b) => {
+    if (a.status !== b.status) return statusRank[a.status] - statusRank[b.status];
+    if (a.status === "ended") return (b.completedAt ?? "").localeCompare(a.completedAt ?? "");
+    return a.createdAt.localeCompare(b.createdAt);
+  });
 
   const leaders: AdminDuelLeader[] = [...tallies.entries()].map(([userId, tally]) => {
     const person = names.get(userId);
@@ -1946,12 +2003,14 @@ export function buildAdminDuelBoard(
     started,
     finished,
     expired,
-    open: waiting.length,
+    open: settled ? openLive : waiting.length,
+    paused: settled ? paused : 0,
     players: players.size,
     points,
     leaders: leaders.slice(0, DUEL_LEADER_LIMIT),
     waiting: waiting.slice(0, DUEL_LIST_LIMIT),
     recent: recent.slice(0, DUEL_LIST_LIMIT),
+    challenges,
   };
 }
 

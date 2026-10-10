@@ -129,3 +129,38 @@ export function onboardingState(record: OnboardingRecord): "pending" | "done" | 
   if (record.totalXp == null) return "done";
   return record.totalXp > 0 ? "earned" : "pending";
 }
+
+export type DuelOnboardingRecord = {
+  /** False when `duel_onboarding_completed_at` could not be read, e.g. before the SQL ran. */
+  readable: boolean;
+  completedAt: string | null;
+  /** Whether the learner has a clip in any duel, or null when that could not be read. */
+  hasPlayed: boolean | null;
+};
+
+/**
+ * The short how-to before a learner's first duel. "earned" means they played
+ * a duel without a stamp, so the caller stamps it. Without a readable stamp,
+ * a played clip is what ends it, so it still shows only until the first duel.
+ */
+export function duelOnboardingState(record: DuelOnboardingRecord): "pending" | "done" | "earned" {
+  if (record.completedAt) return "done";
+  if (record.hasPlayed == null) return "done";
+  if (record.hasPlayed) return record.readable ? "earned" : "done";
+  return "pending";
+}
+
+/**
+ * This tab already finished the duel how-to. The play screen checks it so the
+ * how-to does not open again after the opponent reel, even if the stamp write
+ * has not landed yet.
+ */
+let seenThisTab = false;
+
+export function markDuelOnboardingSeen(): void {
+  seenThisTab = true;
+}
+
+export function duelOnboardingSeen(): boolean {
+  return seenThisTab;
+}

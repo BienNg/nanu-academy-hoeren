@@ -68,12 +68,28 @@ function readShownDay(key: string): string | null {
   }
 }
 
+const SHOWN_DAY_EVENT = "nanu-quest-intro-day";
+
 function writeShownDay(key: string, day: string): void {
   try {
     window.localStorage.setItem(key, day);
   } catch {
     // Storage can be blocked. The intro may then show again on the next load.
   }
+  window.dispatchEvent(new Event(SHOWN_DAY_EVENT));
+}
+
+/**
+ * The local day the quest intro was last closed, or found not needed, for
+ * this learner. Overlays that wait for it compare this with today.
+ */
+export function readQuestIntroDay(userId: string): string | null {
+  return readShownDay(questIntroKey(userId));
+}
+
+export function subscribeQuestIntroDay(onChange: () => void): () => void {
+  window.addEventListener(SHOWN_DAY_EVENT, onChange);
+  return () => window.removeEventListener(SHOWN_DAY_EVENT, onChange);
 }
 
 /** Screens that already are the learning path, so starting just closes the intro. */

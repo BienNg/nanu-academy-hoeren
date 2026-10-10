@@ -9,11 +9,14 @@ export const UI_CLICK_LABELS = {
   "duel.ready": "Đấu",
   "duel.locked.study": "Đấu",
   "duel.locked.cap": "Đấu",
+  "duel.locked.pending": "Đấu",
   "duel.locked.no_class": "Đấu",
   "duel.locked.no_overlap": "Đấu",
   "duel.locked.off": "Đấu",
   "duel.locked.admin": "Đấu",
   "duel.locked.unavailable": "Đấu",
+  "duel.challenge.accept": "Chấp nhận",
+  "duel.challenge.later": "Để sau",
 } as const;
 
 /** Same artwork as the bottom nav, so an admin row reads as that tab. */
@@ -27,11 +30,14 @@ export const UI_CLICK_ICONS: Record<UiClickTarget, string> = {
   "duel.ready": "/nav/duel.svg",
   "duel.locked.study": "/nav/duel.svg",
   "duel.locked.cap": "/nav/duel.svg",
+  "duel.locked.pending": "/nav/duel.svg",
   "duel.locked.no_class": "/nav/duel.svg",
   "duel.locked.no_overlap": "/nav/duel.svg",
   "duel.locked.off": "/nav/duel.svg",
   "duel.locked.admin": "/nav/duel.svg",
   "duel.locked.unavailable": "/nav/duel.svg",
+  "duel.challenge.accept": "/nav/duel.svg",
+  "duel.challenge.later": "/nav/duel.svg",
 };
 
 export type UiClickTarget = keyof typeof UI_CLICK_LABELS;
@@ -114,6 +120,7 @@ const DUEL_OPEN_DETAIL: Partial<Record<UiClickTarget, string>> = {
   "duel.ready": "start available",
   "duel.locked.study": "start locked, study more first",
   "duel.locked.cap": "start locked, too many open duels",
+  "duel.locked.pending": "start locked, waiting for a challenge to be accepted",
   "duel.locked.no_class": "start locked, no class",
   "duel.locked.no_overlap": "start locked, no classmate ready",
   "duel.locked.off": "start locked, duels are off",
@@ -121,9 +128,17 @@ const DUEL_OPEN_DETAIL: Partial<Record<UiClickTarget, string>> = {
   "duel.locked.unavailable": "start locked, no opponent right now",
 };
 
+/** A choice on the challenge showdown, written the way an admin reads a visit. */
+const CHALLENGE_CHOICE: Partial<Record<UiClickTarget, string>> = {
+  "duel.challenge.accept": "Accepted the challenge",
+  "duel.challenge.later": "Left the challenge for later",
+};
+
 /** One tab opening, written the way an admin reads a visit. */
 export function describeVisitClick(click: StudentUiClick): string {
   const times = click.count === 1 ? "once" : `${click.count} times`;
+  const choice = CHALLENGE_CHOICE[click.target];
+  if (choice) return `${choice} ${times}`;
   const detail = DUEL_OPEN_DETAIL[click.target];
   const state = detail ? `, ${detail}` : "";
   return `Opened the ${click.label} tab ${times}${state}`;
@@ -385,6 +400,7 @@ export type DuelStartClick =
   | "available"
   | "study"
   | "cap"
+  | "pending"
   | "no_class"
   | "no_overlap"
   | "off"
@@ -395,6 +411,7 @@ const DUEL_START_TARGET: Record<DuelStartClick, UiClickTarget> = {
   available: "duel.ready",
   study: "duel.locked.study",
   cap: "duel.locked.cap",
+  pending: "duel.locked.pending",
   no_class: "duel.locked.no_class",
   no_overlap: "duel.locked.no_overlap",
   off: "duel.locked.off",

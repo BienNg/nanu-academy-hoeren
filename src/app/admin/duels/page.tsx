@@ -8,6 +8,7 @@ import {
   withSessionIdentity,
 } from "@/lib/admin-overview";
 import { listCachedAdminDuels, listCachedUserProgress } from "@/lib/admin-list-cache";
+import { listAdminDuelSettled } from "@/lib/duel-store";
 import { requireDashboard } from "@/lib/auth-guard";
 import {
   isProgressStoreConfigured,
@@ -49,17 +50,19 @@ export default async function AdminDuelsPage({
   const duels = storeConfigured
     ? await listCachedAdminDuels()
     : { ready: false, rows: [] };
+  const visibleDuels = studentIds
+    ? duels.rows.filter((row) => studentIds.has(row.challengerId) || studentIds.has(row.opponentId))
+    : duels.rows;
+  const settled =
+    storeConfigured && duels.ready
+      ? await listAdminDuelSettled(visibleDuels.filter((row) => !row.completedAt).map((row) => row.id))
+      : { ready: false, rows: [] };
 
   return (
     <AdminDuels
       people={rows}
-      duels={
-        studentIds
-          ? duels.rows.filter(
-              (row) => studentIds.has(row.challengerId) || studentIds.has(row.opponentId),
-            )
-          : duels.rows
-      }
+      duels={visibleDuels}
+      settled={settled.ready ? settled.rows : null}
       range={range}
       storeConfigured={storeConfigured}
       duelsReady={duels.ready}

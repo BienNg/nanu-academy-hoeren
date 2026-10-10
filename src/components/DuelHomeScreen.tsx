@@ -1,9 +1,13 @@
 "use client";
 
+import { AnimatePresence } from "framer-motion";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { DuelMatchmaking, type MatchedDuel } from "@/components/DuelMatchmaking";
+import { DuelOnboarding } from "@/components/DuelOnboarding";
 import { TopBarStatus } from "@/components/TodayXpChip";
 import { ChillPingu } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
@@ -19,6 +23,7 @@ import {
   completedAgoLabel,
   duelHomeFocus,
   duelStartGate,
+  nameInitial,
   timeLeftPhrase,
   type DuelCard,
   type DuelEndPose,
@@ -26,6 +31,8 @@ import {
   type DuelHome,
   type MatchBlock,
 } from "@/lib/duels";
+import { duelOnboardingSeen, markDuelOnboardingSeen } from "@/lib/onboarding";
+import { playReelTickSound } from "@/lib/sfx";
 import { trackDuelStartSeen } from "@/lib/ui-clicks";
 
 const HISTORY_PREVIEW = 3;
@@ -55,12 +62,15 @@ function blockMessage(home: DuelHome): string {
   if (!home.ready) {
     return home.viewerIsAdmin ? DUEL_SCHEMA_HINT : "Đấu sẽ mở khi giáo viên bật tính năng này.";
   }
-  if (home.block === "admin" || home.viewerIsAdmin) return "Tài khoản giáo viên không tham gia đấu.";
+  if (home.block === "admin") return "Tài khoản giáo viên không tham gia đấu.";
   if (home.block === "no_class") {
     return "Bạn chưa có lớp. Nhờ giáo viên thêm bạn vào lớp để đấu với bạn học.";
   }
   if (home.block === "no_overlap") {
     return "Chưa có bạn cùng lớp nào đã học ít nhất 15 câu giống bạn. Hãy học thêm để mở đấu.";
+  }
+  if (home.block === "pending") {
+    return "Bạn đã gửi lời thách cho những bạn có thể đấu. Khi họ bắt đầu, bạn có thể thách tiếp.";
   }
   return "Chưa thể tìm đối thủ lúc này. Hãy thử lại sau.";
 }
@@ -100,11 +110,6 @@ function waitingDetail(card: DuelCard): string {
   const left = timeLeftPhrase(card.expiresAt, new Date());
   const prize = `Thắng +${DUEL_WIN_XP} XP`;
   return left ? `Còn ${left} · ${prize}` : prize;
-}
-
-function nameInitial(name: string | null | undefined): string {
-  const label = name?.trim() || "?";
-  return Array.from(label)[0]?.toLocaleUpperCase("vi") ?? "?";
 }
 
 function WinnerCrown({ visible }: { visible: boolean }) {
@@ -285,6 +290,15 @@ function heroContent(focus: DuelFocus, home: DuelHome): HeroContent {
       pose: "tea",
     };
   }
+  if (focus.kind === "pending") {
+    return {
+      label: "Đấu với bạn cùng lớp",
+      headline: "Đang chờ bạn nhận lời",
+      note: "Bạn đã gửi lời thách cho những bạn có thể đấu. Khi họ bắt đầu, bạn có thể thách tiếp.",
+      pill: null,
+      pose: "tea",
+    };
+  }
   return {
     label: "Đấu với bạn cùng lớp",
     headline: "Chưa thể đấu",
@@ -337,6 +351,10 @@ function Hero({
     ) : focus.kind === "cap" ? (
       <button type="button" disabled className={HERO_BUTTON_OFF}>
         Đủ {MAX_OPEN_WITH_CLASSMATE} trận đang mở
+      </button>
+    ) : focus.kind === "pending" ? (
+      <button type="button" disabled className={HERO_BUTTON_OFF}>
+        Đang chờ bạn nhận lời
       </button>
     ) : null;
 
@@ -443,8 +461,13 @@ function RecordStrip({ home }: { home: DuelHome }) {
 
 export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [home, setHome] = useState(initial);
   const [starting, setStarting] = useState(false);
+  /** The opponent reel is up. `match` is null until the server picks someone. */
+  const [matchmaking, setMatchmaking] = useState<{ match: MatchedDuel | null } | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const onboardingRef = useRef<HTMLDivElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [allHistory, setAllHistory] = useState(false);
 
@@ -454,7 +477,9 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
     void fetch("/api/duels")
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
-        if (!cancelled && isDuelHome(data)) setHome(data);
+        if (!cancelled && isDuelHome(data)) {
+          setHome(duelOnboardingSeen() ? { ...data, onboarding: false } : data);
+        }
       })
       .catch(() => {
         // Keep the page that was rendered on the server.
@@ -467,28 +492,76 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
   const focus = duelHomeFocus(home);
   const canStart = duelStartGate(home) === "available";
 
-  const start = async () => {
+  const launchReel = async () => {
     if (!canStart || starting) return;
     setStarting(true);
     setNotice(null);
+    // Unlocks audio inside the tap, so the reel can tick on iOS.
+    playReelTickSound();
+    setMatchmaking({ match: null });
     try {
       const response = await fetch("/api/duels", { method: "POST" });
-      const data = (await response.json()) as { ok?: boolean; id?: string; block?: MatchBlock };
+      const data = (await response.json()) as {
+        ok?: boolean;
+        id?: string;
+        opponentName?: string;
+        block?: MatchBlock;
+      };
       if (data.ok && typeof data.id === "string") {
-        router.push(`/duel/${data.id}`);
+        router.prefetch(`/duel/${data.id}`);
+        setMatchmaking({ match: { id: data.id, opponentName: data.opponentName || "Học viên" } });
         return;
       }
+      setMatchmaking(null);
       if (data.block) {
         setHome((current) => ({ ...current, block: data.block ?? current.block }));
       } else {
         setNotice("Không tạo được trận đấu. Hãy thử lại.");
       }
     } catch {
+      setMatchmaking(null);
       setNotice("Không tạo được trận đấu. Hãy thử lại.");
     } finally {
       setStarting(false);
     }
   };
+
+  const start = () => {
+    if (!canStart || starting || onboardingOpen) return;
+    if (home.onboarding && !duelOnboardingSeen()) {
+      setOnboardingOpen(true);
+      return;
+    }
+    void launchReel();
+  };
+
+  // The reel stays up until the duel page replaces this screen.
+  const enterDuel = useCallback((match: MatchedDuel) => router.push(`/duel/${match.id}`), [router]);
+
+  const finishOnboarding = () => {
+    markDuelOnboardingSeen();
+    setHome((current) => ({ ...current, onboarding: false }));
+    setOnboardingOpen(false);
+    void fetch("/api/onboarding/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tour: "duel" }),
+      keepalive: true,
+    }).catch(() => {
+      // Unsaved, a later duel still shows the how-to until a clip is played.
+    });
+    void launchReel();
+  };
+
+  useEffect(() => {
+    if (!onboardingOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    onboardingRef.current?.focus({ preventScroll: true });
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [onboardingOpen]);
 
   const focusedId = focus.kind === "incoming" || focus.kind === "playing" ? focus.card.id : null;
   const incoming = home.incoming.filter((card) => card.id !== focusedId);
@@ -583,6 +656,52 @@ export function DuelHomeScreen({ initial }: { initial: DuelHome }) {
       </main>
 
       <BottomNav />
+
+      {onboardingOpen ? (
+        <div
+          ref={onboardingRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="duel-onboarding-title"
+          tabIndex={-1}
+          className="fixed inset-0 z-[110] overflow-y-auto bg-[#faf8ff] text-[#131b2e] outline-none"
+        >
+          <header className="sticky top-0 z-30 border-b border-black/[0.04] bg-[#faf8ff]/90 pt-safe backdrop-blur-xl">
+            <div className="mx-auto flex h-14 w-full max-w-md items-center gap-2 px-3">
+              <button
+                type="button"
+                onClick={() => setOnboardingOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[#0284c7]"
+                aria-label="Về trang đấu"
+              >
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                  arrow_back
+                </span>
+              </button>
+              <div className="min-w-0 flex-1 text-center">
+                <p className="truncate text-[15px] font-extrabold">Đấu</p>
+                <p className="text-[12px] font-bold text-[#6e7881]">Cách chơi</p>
+              </div>
+              <span className="w-10" aria-hidden="true" />
+            </div>
+          </header>
+          <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col px-4 pb-8 pt-4">
+            <DuelOnboarding opponentName="đối thủ" onDone={finishOnboarding} />
+          </main>
+        </div>
+      ) : null}
+
+      <AnimatePresence>
+        {matchmaking ? (
+          <DuelMatchmaking
+            key="matchmaking"
+            rivals={home.rivals ?? []}
+            yourInitial={nameInitial(session?.user?.name)}
+            match={matchmaking.match}
+            onEnter={enterDuel}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

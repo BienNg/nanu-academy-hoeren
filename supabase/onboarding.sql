@@ -5,10 +5,14 @@
 -- Safe to re-run: stamped learners and learners an admin reset are left
 -- alone. The app also stamps a learner with XP the next time it finds them
 -- unstamped, unless an admin reset them.
+-- duel_onboarding_completed_at is the how-to before a learner's first duel.
+-- The app stamps it when the how-to ends, or when it finds a learner who
+-- already played a duel.
 
 alter table public.user_progress
   add column if not exists onboarding_completed_at timestamptz,
-  add column if not exists onboarding_reset_at timestamptz;
+  add column if not exists onboarding_reset_at timestamptz,
+  add column if not exists duel_onboarding_completed_at timestamptz;
 
 with totals as (
   select user_id, sum(xp) as xp

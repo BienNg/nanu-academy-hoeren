@@ -1,4 +1,4 @@
-import { Howler } from "howler";
+import { Howl, Howler } from "howler";
 
 /** Short UI sounds (success chime, etc.). Browser-only — call from user gestures. */
 
@@ -137,6 +137,85 @@ export function playSuccessSound(): void {
   for (const note of notes) {
     playMalletNote(ctx, output, note.freq, t + note.at, note.dur, note.amp);
   }
+}
+
+/**
+ * A soft wooden click for each name the opponent reel passes. Play the first
+ * one from the start click so the AudioContext can unlock on iOS.
+ */
+export function playReelTickSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  if (ctx.state === "suspended") {
+    void ctx.resume();
+  }
+
+  playMalletNote(ctx, getOutput(ctx), 1760, ctx.currentTime + 0.005, 0.06, 0.05);
+}
+
+/** Seconds between pulses of the challenger warning lights. */
+export const CHALLENGER_ALARM_STEP = 0.18;
+
+const CHALLENGER_ALARM_SRC = "/sfx/challenger-alarm.mp3";
+
+let challengerAlarm: Howl | null = null;
+
+function getChallengerAlarm(): Howl {
+  if (!challengerAlarm) {
+    challengerAlarm = new Howl({
+      src: [CHALLENGER_ALARM_SRC],
+      preload: true,
+      volume: 0.5,
+    });
+  }
+  return challengerAlarm;
+}
+
+/**
+ * The Smash Bros new-foe sting for an open challenge. Returns a stop
+ * function for when the overlay closes early.
+ */
+export function playChallengerAlarm(): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const howl = getChallengerAlarm();
+  const id = howl.play();
+  let stopped = false;
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    howl.stop(id);
+  };
+}
+
+/** The reel locking on an opponent: a low thud under a bright two-note hit. */
+export function playReelLockSound(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  if (ctx.state === "suspended") {
+    void ctx.resume();
+  }
+
+  const output = getOutput(ctx);
+  const t = ctx.currentTime + 0.01;
+
+  const thud = ctx.createOscillator();
+  const thudGain = ctx.createGain();
+  thud.type = "sine";
+  thud.frequency.setValueAtTime(150, t);
+  thud.frequency.exponentialRampToValueAtTime(55, t + 0.22);
+  thudGain.gain.setValueAtTime(0.0001, t);
+  thudGain.gain.exponentialRampToValueAtTime(0.32, t + 0.01);
+  thudGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+  thud.connect(thudGain);
+  thudGain.connect(output);
+  thud.start(t);
+  thud.stop(t + 0.28);
+
+  playMalletNote(ctx, output, 783.99, t, 0.35, 0.16);
+  playMalletNote(ctx, output, 1046.5, t + 0.07, 0.5, 0.18);
 }
 
 /**

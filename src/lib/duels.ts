@@ -28,7 +28,14 @@ const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type DuelOutcome = "win" | "loss" | "tie";
-export type MatchBlock = "ok" | "no_class" | "no_overlap" | "cap" | "admin" | "unavailable";
+export type MatchBlock =
+  | "ok"
+  | "no_class"
+  | "no_overlap"
+  | "cap"
+  | "pending"
+  | "admin"
+  | "unavailable";
 export type PlayState = "active" | "done" | "forfeited";
 export type DuelCardKind = CardKind;
 export type HomeBucket = "incoming" | "playing" | "waiting" | "history";
@@ -59,6 +66,10 @@ export type OpponentCandidate = {
   userId: string;
   shared: number;
   openDuels: number;
+  /** You already sent this classmate a challenge they have not started. */
+  pendingChallenge: boolean;
+  /** They have finished at least one duel with anyone. */
+  finishedDuel: boolean;
 };
 
 export type ClipPlay = {
@@ -205,6 +216,10 @@ export type DuelHome = {
   history: DuelCard[];
   /** Every closed duel, counted before history is capped. */
   record: DuelRecord;
+  /** Names of the classmates a new duel can pick, for the opponent reel. */
+  rivals: string[];
+  /** The how-to still has to play before this learner's first opponent reel. */
+  onboarding: boolean;
 };
 
 /** What the top card of the duel page asks for. */
@@ -215,6 +230,7 @@ export type DuelFocus =
   | { kind: "intro" }
   | { kind: "start" }
   | { kind: "cap" }
+  | { kind: "pending" }
   | { kind: "blocked" };
 
 /**
@@ -223,7 +239,7 @@ export type DuelFocus =
  * "intro" is a learner who can duel but has never had one.
  */
 export function duelHomeFocus(home: DuelHome): DuelFocus {
-  if (!home.ready || home.viewerIsAdmin || home.block === "admin") return { kind: "blocked" };
+  if (!home.ready || home.block === "admin") return { kind: "blocked" };
   const incoming = home.incoming
     .slice()
     .sort((left, right) => (left.expiresAt ?? "\uffff").localeCompare(right.expiresAt ?? "\uffff"))[0];
@@ -235,6 +251,7 @@ export function duelHomeFocus(home: DuelHome): DuelFocus {
     return home.waiting.length + home.history.length === 0 ? { kind: "intro" } : { kind: "start" };
   }
   if (home.block === "cap") return { kind: "cap" };
+  if (home.block === "pending") return { kind: "pending" };
   return { kind: "blocked" };
 }
 
@@ -247,6 +264,7 @@ export type DuelStartGate =
   | "available"
   | "study"
   | "cap"
+  | "pending"
   | "no_class"
   | "no_overlap"
   | "off"
@@ -254,15 +272,16 @@ export type DuelStartGate =
   | "unavailable";
 
 export function duelStartGate(home: DuelHome): DuelStartGate {
-  if (home.ready && home.block === "ok" && home.studiedCount >= DUEL_SIZE && !home.viewerIsAdmin) {
+  if (home.ready && home.block === "ok" && home.studiedCount >= DUEL_SIZE) {
     return "available";
   }
   if (!home.ready) return "off";
-  if (home.viewerIsAdmin || home.block === "admin") return "admin";
+  if (home.block === "admin") return "admin";
   if (home.studiedCount < DUEL_SIZE) return "study";
   if (home.block === "no_class") return "no_class";
   if (home.block === "no_overlap") return "no_overlap";
   if (home.block === "cap") return "cap";
+  if (home.block === "pending") return "pending";
   return "unavailable";
 }
 
@@ -277,8 +296,99 @@ export function addToRecord(record: DuelRecord, outcome: DuelOutcome | null): Du
 export type IncomingChallenge = {
   id: string;
   opponentName: string;
+  /** When the challenger finished their side and the challenge reached you. */
+  receivedAt: string;
   expiresAt: string | null;
 };
+
+/** Reads `challenges` from a GET /api/duels?badge=1 body. Malformed entries are dropped. */
+export function readIncomingChallenges(data: unknown): IncomingChallenge[] {
+  if (!data || typeof data !== "object") return [];
+  const list = (data as { challenges?: unknown }).challenges;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item): IncomingChallenge[] => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    if (typeof record.id !== "string" || !isDuelId(record.id)) return [];
+    if (typeof record.receivedAt !== "string") return [];
+    return [
+      {
+        id: record.id,
+        opponentName: typeof record.opponentName === "string" ? record.opponentName : "Học viên",
+        receivedAt: record.receivedAt,
+        expiresAt: typeof record.expiresAt === "string" ? record.expiresAt : null,
+      },
+    ];
+  });
+}
+
+/** The challenge that reached the learner first. */
+export function earliestChallenge(challenges: readonly IncomingChallenge[]): IncomingChallenge | null {
+  let first: IncomingChallenge | null = null;
+  let firstAt = Number.POSITIVE_INFINITY;
+  for (const challenge of challenges) {
+    const at = Date.parse(challenge.receivedAt);
+    if (!Number.isFinite(at)) continue;
+    if (at < firstAt) {
+      first = challenge;
+      firstAt = at;
+    }
+  }
+  return first ?? challenges[0] ?? null;
+}
+
+/**
+ * The showdown that announces an open challenge, once per local day. Which
+ * day it last showed is kept per learner in localStorage.
+ */
+export function challengeIntroKey(userId: string): string {
+  return `nanu-challenge-intro:${userId}`;
+}
+
+export function nameInitial(name: string | null | undefined): string {
+  const label = name?.trim() || "?";
+  return Array.from(label)[0]?.toLocaleUpperCase("vi") ?? "?";
+}
+
+/** The reel never shows fewer slots than this, so a small class still spins. */
+export const REEL_MIN_SLOTS = 6;
+
+/** Shuffled classmate names for the opponent reel, repeated until it has enough slots. */
+export function opponentReel(rivals: readonly string[], random: () => number): string[] {
+  const names = rivals.length > 0 ? [...rivals] : ["?"];
+  for (let index = names.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(random() * (index + 1));
+    [names[index], names[swap]] = [names[swap]!, names[index]!];
+  }
+  const reel = [...names];
+  while (reel.length < REEL_MIN_SLOTS) reel.push(names[reel.length % names.length]!);
+  return reel;
+}
+
+/**
+ * The slot the reel stops on for the picked opponent. A name the reel does not
+ * have yet replaces the slot farthest from the one showing, so the swap stays out of view.
+ */
+export function placeOnReel(
+  reel: readonly string[],
+  name: string,
+  showing: number,
+): { reel: string[]; index: number } {
+  const known = reel.indexOf(name);
+  if (known >= 0) return { reel: [...reel], index: known };
+  const length = reel.length;
+  const index = (((Math.round(showing) + Math.floor(length / 2)) % length) + length) % length;
+  const next = [...reel];
+  next[index] = name;
+  return { reel: next, index };
+}
+
+/** The first reel position at least `minSlots` past `position` that shows slot `index`. */
+export function reelStop(position: number, index: number, length: number, minSlots: number): number {
+  const earliest = Math.ceil(position + minSlots);
+  const offset = (((index - earliest) % length) + length) % length;
+  return earliest + offset;
+}
 
 export function isDuelId(value: string): boolean {
   return UUID.test(value);
@@ -528,9 +638,55 @@ export function matchPool(input: {
   if (!input.hasClass) return { block: "no_class", pool: [] };
   const overlapped = input.candidates.filter((candidate) => candidate.shared >= DUEL_SIZE);
   if (overlapped.length === 0) return { block: "no_overlap", pool: [] };
-  const pool = overlapped.filter((candidate) => candidate.openDuels < MAX_OPEN_WITH_CLASSMATE);
-  if (pool.length === 0) return { block: "cap", pool: [] };
+  const underCap = overlapped.filter((candidate) => candidate.openDuels < MAX_OPEN_WITH_CLASSMATE);
+  if (underCap.length === 0) return { block: "cap", pool: [] };
+  const free = underCap.filter((candidate) => !candidate.pendingChallenge);
+  if (free.length === 0) return { block: "pending", pool: [] };
+  const preferred = free.filter((candidate) => candidate.finishedDuel);
+  const pool = preferred.length > 0 ? preferred : free;
   return { block: "ok", pool: pool.map((candidate) => candidate.userId) };
+}
+
+/**
+ * Catalog order, earliest Lektion first. Later keys are the newer lessons.
+ * Built from the clip list so a duel can prefer the highest shared Lektion.
+ */
+export function lessonOrderFromCatalog(clips: readonly { lessonKey: string }[]): string[] {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  for (const clip of clips) {
+    if (seen.has(clip.lessonKey)) continue;
+    seen.add(clip.lessonKey);
+    order.push(clip.lessonKey);
+  }
+  return order;
+}
+
+/**
+ * Fill a duel from the newest shared Lektion, then the next older one, until
+ * it has `count` clips. Within one Lektion the pick is random.
+ */
+export function pickSharedDuelClips(
+  shared: readonly StudiedClip[],
+  count: number,
+  lessonOrder: readonly string[],
+  random: () => number,
+): StudiedClip[] {
+  const rank = new Map(lessonOrder.map((lessonKey, index) => [lessonKey, index]));
+  const byLesson = new Map<string, StudiedClip[]>();
+  for (const clip of shared) {
+    const list = byLesson.get(clip.lessonKey) ?? [];
+    list.push(clip);
+    byLesson.set(clip.lessonKey, list);
+  }
+  const lessons = [...byLesson.keys()].sort((left, right) => (rank.get(right) ?? -1) - (rank.get(left) ?? -1));
+  const picked: StudiedClip[] = [];
+  for (const lesson of lessons) {
+    if (picked.length >= count) break;
+    const clips = byLesson.get(lesson) ?? [];
+    picked.push(...sampleItems(clips, count - picked.length, random));
+  }
+  return picked;
 }
 
 export function clipWinner(
@@ -699,6 +855,24 @@ export function homeBucket(input: {
   if (!input.youStarted) return "incoming";
   if (!youDone) return "playing";
   return "waiting";
+}
+
+/**
+ * Where a challenge sits for the admin board.
+ * Paused: the sender has not finished every question, so the other student cannot play yet.
+ * Open: the sender is done and the other student still can answer.
+ * Ended: both sides finished, or the deadline closed it.
+ */
+export type AdminChallengeStatus = "open" | "paused" | "ended";
+
+export function adminChallengeStatus(input: {
+  completed: boolean;
+  challengerSettled: number;
+  clipCount?: number;
+}): AdminChallengeStatus {
+  if (input.completed) return "ended";
+  const clipCount = input.clipCount ?? DUEL_SIZE;
+  return input.challengerSettled >= clipCount ? "open" : "paused";
 }
 
 /**
@@ -925,5 +1099,7 @@ export function emptyDuelHome(ready: boolean, block: MatchBlock = "unavailable")
     waiting: [],
     history: [],
     record: { wins: 0, losses: 0, ties: 0 },
+    rivals: [],
+    onboarding: false,
   };
 }

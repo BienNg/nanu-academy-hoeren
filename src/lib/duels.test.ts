@@ -7,8 +7,18 @@ import {
   DUEL_SIZE,
   awardForPoints,
   challengeExpiresAt,
+  challengeIntroKey,
+  earliestChallenge,
+  nameInitial,
+  opponentReel,
+  placeOnReel,
+  REEL_MIN_SLOTS,
+  reelStop,
+  readIncomingChallenges,
+  type IncomingChallenge,
   incomingChallengeLabel,
   challengeLeftLabel,
+  adminChallengeStatus,
   challengeReleasedAt,
   completedAgoLabel,
   clipWinner,
@@ -32,7 +42,9 @@ import {
   isChallengeExpired,
   isDuelMatchFailureSchemaMissing,
   isDuelSchemaMissing,
+  lessonOrderFromCatalog,
   matchPool,
+  pickSharedDuelClips,
   opponentCanSeeDuel,
   placeDuelClipQuits,
   pointsFromPlays,
@@ -119,12 +131,27 @@ test("a sample stays inside the source list", () => {
   assert.equal(sampleItems(source, 10, () => 0).length, 4);
 });
 
+function candidate(
+  userId: string,
+  shared: number,
+  openDuels: number,
+  extra: { pendingChallenge?: boolean; finishedDuel?: boolean } = {},
+) {
+  return {
+    userId,
+    shared,
+    openDuels,
+    pendingChallenge: extra.pendingChallenge ?? false,
+    finishedDuel: extra.finishedDuel ?? false,
+  };
+}
+
 test("matchmaking drops classmates at the open-duel cap", () => {
   assert.equal(matchPool({ hasClass: false, candidates: [] }).block, "no_class");
   assert.equal(
     matchPool({
       hasClass: true,
-      candidates: [{ userId: "a", shared: 14, openDuels: 0 }],
+      candidates: [candidate("a", 14, 0)],
     }).block,
     "no_overlap",
   );
@@ -132,9 +159,9 @@ test("matchmaking drops classmates at the open-duel cap", () => {
   const mixed = matchPool({
     hasClass: true,
     candidates: [
-      { userId: "full", shared: 20, openDuels: 3 },
-      { userId: "open", shared: DUEL_SIZE, openDuels: 2 },
-      { userId: "short", shared: 10, openDuels: 0 },
+      candidate("full", 20, 3),
+      candidate("open", DUEL_SIZE, 2),
+      candidate("short", 10, 0),
     ],
   });
   assert.equal(mixed.block, "ok");
@@ -142,10 +169,68 @@ test("matchmaking drops classmates at the open-duel cap", () => {
 
   const capped = matchPool({
     hasClass: true,
-    candidates: [{ userId: "full", shared: 40, openDuels: 3 }],
+    candidates: [candidate("full", 40, 3)],
   });
   assert.equal(capped.block, "cap");
   assert.deepEqual(capped.pool, []);
+});
+
+test("matchmaking skips an unaccepted challenge and prefers someone who has finished a duel", () => {
+  const waiting = matchPool({
+    hasClass: true,
+    candidates: [
+      candidate("waiting", 20, 1, { pendingChallenge: true, finishedDuel: true }),
+      candidate("fresh", 20, 0),
+      candidate("played", 20, 0, { finishedDuel: true }),
+    ],
+  });
+  assert.equal(waiting.block, "ok");
+  assert.deepEqual(waiting.pool, ["played"]);
+
+  const onlyPending = matchPool({
+    hasClass: true,
+    candidates: [candidate("waiting", 20, 0, { pendingChallenge: true })],
+  });
+  assert.equal(onlyPending.block, "pending");
+  assert.deepEqual(onlyPending.pool, []);
+
+  const nobodyFinished = matchPool({
+    hasClass: true,
+    candidates: [candidate("fresh", 20, 0), candidate("other", 16, 1)],
+  });
+  assert.deepEqual(nobodyFinished.pool, ["fresh", "other"]);
+});
+
+test("a duel takes clips from the newest shared Lektion before older ones", () => {
+  const order = lessonOrderFromCatalog([
+    { lessonKey: "a1-1/lektion-1" },
+    { lessonKey: "a1-1/lektion-1" },
+    { lessonKey: "a1-1/lektion-2" },
+    { lessonKey: "a2-1/lektion-1" },
+  ]);
+  assert.deepEqual(order, ["a1-1/lektion-1", "a1-1/lektion-2", "a2-1/lektion-1"]);
+
+  const shared = [
+    ...Array.from({ length: 4 }, (_, index) => ({ lessonKey: "a2-1/lektion-1", clipId: `new-${index}` })),
+    ...Array.from({ length: 20 }, (_, index) => ({ lessonKey: "a1-1/lektion-1", clipId: `old-${index}` })),
+    { lessonKey: "missing/lektion", clipId: "unknown" },
+  ];
+  const picked = pickSharedDuelClips(shared, 15, order, () => 0);
+  assert.equal(picked.length, 15);
+  assert.deepEqual(
+    picked.slice(0, 4).map((clip) => clip.lessonKey),
+    ["a2-1/lektion-1", "a2-1/lektion-1", "a2-1/lektion-1", "a2-1/lektion-1"],
+  );
+  assert.equal(picked.slice(4).every((clip) => clip.lessonKey === "a1-1/lektion-1"), true);
+
+  const newestOnly = pickSharedDuelClips(
+    Array.from({ length: 20 }, (_, index) => ({ lessonKey: "a2-1/lektion-1", clipId: `new-${index}` })),
+    15,
+    order,
+    () => 0.4,
+  );
+  assert.equal(newestOnly.length, 15);
+  assert.equal(newestOnly.every((clip) => clip.lessonKey === "a2-1/lektion-1"), true);
 });
 
 test("the faster time wins a clip, a forfeit loses it, and an equal time is a draw", () => {
@@ -533,8 +618,10 @@ test("the duel page asks for study, an intro, a start, or explains the block", (
   assert.equal(duelHomeFocus(ready).kind, "intro");
   assert.equal(duelHomeFocus({ ...ready, history: [homeCard("old")] }).kind, "start");
   assert.equal(duelHomeFocus({ ...ready, block: "cap" }).kind, "cap");
+  assert.equal(duelHomeFocus({ ...ready, block: "pending" }).kind, "pending");
   assert.equal(duelHomeFocus({ ...ready, block: "no_class" }).kind, "blocked");
-  assert.equal(duelHomeFocus({ ...ready, viewerIsAdmin: true }).kind, "blocked");
+  assert.equal(duelHomeFocus({ ...ready, block: "admin" }).kind, "blocked");
+  assert.equal(duelHomeFocus({ ...ready, viewerIsAdmin: true }).kind, "intro");
   assert.equal(duelHomeFocus(emptyDuelHome(false)).kind, "blocked");
 });
 
@@ -545,10 +632,12 @@ test("the start button is available only when a new duel can begin", () => {
   assert.equal(duelStartGate({ ...ready, playing: [homeCard("mid")] }), "available");
   assert.equal(duelStartGate({ ...ready, studiedCount: 4 }), "study");
   assert.equal(duelStartGate({ ...ready, block: "cap" }), "cap");
+  assert.equal(duelStartGate({ ...ready, block: "pending" }), "pending");
   assert.equal(duelStartGate({ ...ready, block: "no_class" }), "no_class");
   assert.equal(duelStartGate({ ...ready, block: "no_overlap" }), "no_overlap");
   assert.equal(duelStartGate({ ...ready, block: "unavailable" }), "unavailable");
-  assert.equal(duelStartGate({ ...ready, viewerIsAdmin: true }), "admin");
+  assert.equal(duelStartGate({ ...ready, block: "admin" }), "admin");
+  assert.equal(duelStartGate({ ...ready, viewerIsAdmin: true }), "available");
   assert.equal(duelStartGate(emptyDuelHome(false)), "off");
   assert.equal(duelStartGate({ ...emptyDuelHome(false), studiedCount: 2, block: "no_class" }), "off");
 });
@@ -578,4 +667,87 @@ test("a started duel sentence that was left sits on the visit that was open", ()
   const later = { ...quit, id: "duel-1:4", finishedAt: "2026-10-07T10:00:00.000Z" };
   const outside = placeDuelClipQuits(visits, [later]);
   assert.deepEqual(outside.unmatched.map((item) => item.id), ["duel-1:4"]);
+});
+
+function incoming(id: string, receivedAt: string): IncomingChallenge {
+  return { id, opponentName: `Học viên ${id.slice(0, 2)}`, receivedAt, expiresAt: null };
+}
+
+const FIRST_ID = "11111111-1111-4111-8111-111111111111";
+const SECOND_ID = "22222222-2222-4222-8222-222222222222";
+
+test("the showdown picks the challenge that arrived first", () => {
+  const later = incoming(FIRST_ID, "2026-10-09T12:00:00.000Z");
+  const earlier = incoming(SECOND_ID, "2026-10-08T07:30:00.000Z");
+  assert.equal(earliestChallenge([later, earlier])?.id, SECOND_ID);
+  assert.equal(earliestChallenge([]), null);
+  assert.equal(earliestChallenge([incoming(FIRST_ID, "not a date")])?.id, FIRST_ID);
+});
+
+test("incoming challenges are read from the badge response", () => {
+  const read = readIncomingChallenges({
+    count: 3,
+    challenges: [
+      { id: FIRST_ID, opponentName: "Lan", receivedAt: "2026-10-08T07:30:00.000Z", expiresAt: null },
+      { id: "nope", opponentName: "Bad", receivedAt: "2026-10-08T07:30:00.000Z", expiresAt: null },
+      { id: SECOND_ID, opponentName: "Minh" },
+    ],
+  });
+  assert.deepEqual(read, [
+    { id: FIRST_ID, opponentName: "Lan", receivedAt: "2026-10-08T07:30:00.000Z", expiresAt: null },
+  ]);
+  assert.deepEqual(readIncomingChallenges(null), []);
+  assert.deepEqual(readIncomingChallenges({ challenges: "x" }), []);
+});
+
+test("the showdown day is kept per learner", () => {
+  assert.notEqual(challengeIntroKey("a"), challengeIntroKey("b"));
+});
+
+test("a name shows as its first letter", () => {
+  assert.equal(nameInitial("linh"), "L");
+  assert.equal(nameInitial("  "), "?");
+  assert.equal(nameInitial(null), "?");
+});
+
+test("the opponent reel keeps every classmate and pads a small class", () => {
+  const reel = opponentReel(["An", "Bình", "Chi", "Dung", "Hà", "Lan", "Minh"], () => 0.3);
+  assert.equal(reel.length, 7);
+  assert.deepEqual([...reel].sort(), ["An", "Bình", "Chi", "Dung", "Hà", "Lan", "Minh"]);
+
+  const small = opponentReel(["An", "Bình"], () => 0);
+  assert.equal(small.length, REEL_MIN_SLOTS);
+  assert.deepEqual(new Set(small), new Set(["An", "Bình"]));
+  assert.notEqual(small[0], small[1]);
+
+  assert.deepEqual(opponentReel([], () => 0), Array(REEL_MIN_SLOTS).fill("?"));
+});
+
+test("a picked opponent missing from the reel goes in out of view", () => {
+  const reel = ["An", "Bình", "Chi", "Dung", "Hà", "Lan"];
+  assert.deepEqual(placeOnReel(reel, "Chi", 0), { reel, index: 2 });
+
+  const placed = placeOnReel(reel, "Minh", 4.4);
+  assert.equal(placed.index, 1);
+  assert.equal(placed.reel[1], "Minh");
+  assert.deepEqual(reel, ["An", "Bình", "Chi", "Dung", "Hà", "Lan"]);
+});
+
+test("a challenge stays paused until the sender finishes every question", () => {
+  assert.equal(adminChallengeStatus({ completed: false, challengerSettled: 0 }), "paused");
+  assert.equal(adminChallengeStatus({ completed: false, challengerSettled: DUEL_SIZE - 1 }), "paused");
+  assert.equal(adminChallengeStatus({ completed: false, challengerSettled: DUEL_SIZE }), "open");
+  assert.equal(adminChallengeStatus({ completed: true, challengerSettled: DUEL_SIZE }), "ended");
+  assert.equal(adminChallengeStatus({ completed: true, challengerSettled: 4 }), "ended");
+});
+
+test("the reel stops on the picked slot after spinning at least the minimum", () => {
+  assert.equal(reelStop(0, 2, 6, 10), 14);
+  assert.equal(reelStop(3.6, 4, 6, 10), 16);
+  assert.equal(reelStop(12, 4, 6, 4), 16);
+  for (const position of [0, 0.5, 7.25, 31.9]) {
+    const stop = reelStop(position, 3, 7, 9);
+    assert.equal(stop % 7, 3);
+    assert.ok(stop >= position + 9 && stop < position + 9 + 7);
+  }
 });
