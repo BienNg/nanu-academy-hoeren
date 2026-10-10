@@ -6,6 +6,8 @@ import {
   onboardingSkipLine,
   onboardingSkipReasons,
   onboardingState,
+  vocabHintLessonSlug,
+  vocabListOpenedKey,
   type OnboardingRecord,
 } from "./onboarding.js";
 import {
@@ -21,7 +23,7 @@ function blank(): StoredProgress {
   return normalizeProgress({});
 }
 
-const ALL_FOUND = { course: true, video: true, study: true, practice: true, jump: true };
+const ALL_FOUND = { course: true, video: true, study: true, practice: true, words: true, jump: true };
 
 const record = (patch: Partial<OnboardingRecord>): OnboardingRecord => ({
   readable: true,
@@ -31,10 +33,10 @@ const record = (patch: Partial<OnboardingRecord>): OnboardingRecord => ({
   ...patch,
 });
 
-test("the tour walks course, video, study, practice, then jump", () => {
+test("the tour walks course, video, study, practice, vocabulary, then jump", () => {
   assert.deepEqual(
     ONBOARDING_STEPS.map((step) => step.target),
-    ["course", "video", "study", "practice", "jump"],
+    ["course", "video", "study", "practice", "words", "jump"],
   );
 });
 
@@ -74,6 +76,31 @@ test("unreadable state hides the tour instead of repeating it forever", () => {
   assert.equal(onboardingState(record({ totalXp: null })), "done");
 });
 
+test("the vocabulary hint stays on the current lesson that has a list", () => {
+  assert.equal(vocabListOpenedKey("user-1"), "nanu-vocab-list-opened:user-1");
+  assert.equal(
+    vocabHintLessonSlug([
+      { slug: "lektion-1", hasList: true, current: false },
+      { slug: "lektion-5", hasList: true, current: true },
+    ]),
+    "lektion-5",
+  );
+});
+
+test("the vocabulary hint falls back to the first open list", () => {
+  assert.equal(
+    vocabHintLessonSlug([
+      { slug: "lektion-1", hasList: false, current: true },
+      { slug: "lektion-2", hasList: true, current: false },
+    ]),
+    "lektion-2",
+  );
+  assert.equal(
+    vocabHintLessonSlug([{ slug: "lektion-1", hasList: false, current: true }]),
+    null,
+  );
+});
+
 test("a complete map has no skip reasons", () => {
   assert.deepEqual(onboardingSkipReasons(ALL_FOUND, true), []);
 });
@@ -88,7 +115,7 @@ test("each missing target is named in step order", () => {
 test("no open Lektion replaces the node reasons", () => {
   assert.deepEqual(
     onboardingSkipReasons(
-      { course: true, video: false, study: false, practice: false, jump: false },
+      { course: true, video: false, study: false, practice: false, words: false, jump: false },
       false,
     ),
     [ONBOARDING_SKIP_REASON.noOpenLesson, ONBOARDING_SKIP_REASON.jump],

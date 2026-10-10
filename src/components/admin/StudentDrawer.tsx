@@ -332,12 +332,15 @@ export function StudentDetail({
   row,
   catalog,
   onClose,
+  onDeleted,
   onAccessChange,
   focusLevelSlug,
 }: {
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
+  /** Called after the account is deleted, before the detail closes. */
+  onDeleted?: () => void;
   onAccessChange?: (patch: StudentAccessPatch) => void;
   /** Level open on the Levels path. The drawer then shows that Lektion trail. */
   focusLevelSlug?: string;
@@ -394,6 +397,7 @@ export function StudentDetail({
         row={row}
         catalog={catalog}
         onClose={onClose}
+        onDeleted={onDeleted}
         onAccessChange={onAccessChange}
         focusLevelSlug={focusLevelSlug}
         preloaded={current?.ok ? current.payload : undefined}

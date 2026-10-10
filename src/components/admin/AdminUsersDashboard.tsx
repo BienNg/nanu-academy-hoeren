@@ -1503,6 +1503,13 @@ export function AdminUsersDashboard({
           row={detailRow}
           catalog={courseCatalog}
           onClose={closeDetail}
+          onDeleted={() => {
+            const deletedId = detailRow.userId;
+            setDeletedIds((current) =>
+              current.includes(deletedId) ? current : [...current, deletedId],
+            );
+            setSelected((current) => current.filter((id) => id !== deletedId));
+          }}
           onAccessChange={(patch) => {
             if (patch.levelAccess) {
               setAccessByUser((prev) => ({ ...prev, [patch.userId]: patch.levelAccess ?? [] }));

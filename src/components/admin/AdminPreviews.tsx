@@ -392,7 +392,7 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     group: "Level map",
     icon: "route",
     title: "First-run tour",
-    detail: "The five steps over a sample map. Nothing is stored. The last step starts it again.",
+    detail: "The six steps over a sample map. Nothing is stored. The last step starts it again.",
   },
   {
     id: "card-choice",
@@ -1089,6 +1089,15 @@ function OnboardingPreview({ onClose }: { onClose: () => void }) {
               <p className="text-[13px] font-bold leading-5 text-[var(--path-accent)]">Lektion hiện tại</p>
             </div>
             <ul className="relative flex w-full flex-col items-center gap-3 py-3">
+              <li className="absolute top-3 right-0 z-10">
+                <span
+                  data-tour="words"
+                  aria-hidden="true"
+                  className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB]"
+                >
+                  <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
+                </span>
+              </li>
               <SamplePathNode tour="video" icon="smart_display" label="Video" guide="Bắt đầu" shift={-40} />
               <SamplePathNode tour="study" icon="menu_book" label="Học từ vựng" shift={-72} />
               <SamplePathNode tour="practice" icon="fitness_center" label="Luyện tập" locked shift={-40} />

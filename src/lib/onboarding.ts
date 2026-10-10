@@ -6,7 +6,7 @@
  */
 
 /** Elements the tour points at, marked with `data-tour` on the map. */
-export type OnboardingTarget = "course" | "video" | "study" | "practice" | "jump";
+export type OnboardingTarget = "course" | "video" | "study" | "practice" | "words" | "jump";
 
 export type OnboardingStep = {
   target: OnboardingTarget;
@@ -36,6 +36,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     body: "Luyện tập với những câu vừa học. Hoàn thành để nhận XP và mở bài tiếp theo.",
   },
   {
+    target: "words",
+    title: "Danh sách từ vựng",
+    body: "Mỗi bài có danh sách từ ở góc trên bên phải. Bấm vào để xem và nghe lại từ của bài.",
+  },
+  {
     target: "jump",
     title: "Nhảy bài",
     body: "Đã biết bài này rồi? Làm một bài kiểm tra ngắn để nhảy thẳng tới bài tiếp theo.",
@@ -50,6 +55,7 @@ export const ONBOARDING_SKIP_REASON = {
   video: "the first open Lektion has no video node",
   study: "the first open Lektion has no study node",
   practice: "the first open Lektion has no practice node",
+  words: "the first open Lektion has no vocabulary list",
   jump: "there is no jump node",
 } as const;
 
@@ -70,6 +76,7 @@ export function onboardingSkipReasons(
     if (!found.video) reasons.push(ONBOARDING_SKIP_REASON.video);
     if (!found.study) reasons.push(ONBOARDING_SKIP_REASON.study);
     if (!found.practice) reasons.push(ONBOARDING_SKIP_REASON.practice);
+    if (!found.words) reasons.push(ONBOARDING_SKIP_REASON.words);
   }
   if (!found.jump) reasons.push(ONBOARDING_SKIP_REASON.jump);
   return reasons;
@@ -94,6 +101,22 @@ export type OnboardingRecord = {
   /** All-time XP, or null when it could not be read. */
   totalXp: number | null;
 };
+
+/** The vocabulary-list hint stays until this learner opens the list once. */
+export function vocabListOpenedKey(userId: string): string {
+  return `nanu-vocab-list-opened:${userId}`;
+}
+
+/**
+ * One lesson carries the hint: the current open lesson that has a list, or
+ * the first open lesson that has one.
+ */
+export function vocabHintLessonSlug(
+  lessons: readonly { slug: string; hasList: boolean; current: boolean }[],
+): string | null {
+  const listed = lessons.filter((lesson) => lesson.hasList);
+  return listed.find((lesson) => lesson.current)?.slug ?? listed[0]?.slug ?? null;
+}
 
 /**
  * "pending" shows the tour. "earned" means the learner has XP but no stamp yet,

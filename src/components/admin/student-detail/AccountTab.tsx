@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { loadAdminStudentOnboarding, resetAdminStudentOnboarding } from "@/app/admin/actions";
 import { MaterialIcon, useAdminRole } from "@/components/admin/AdminShell";
 import { Button } from "@/components/admin/AdminUi";
@@ -132,11 +132,39 @@ function OnboardingSection({ userId }: { userId: string }) {
   );
 }
 
+function DangerRow({
+  title,
+  detail,
+  action,
+  bordered,
+}: {
+  title: string;
+  detail: string;
+  action: ReactNode;
+  bordered?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-space-12 px-space-20 py-space-16 ${
+        bordered ? "border-t border-admin-hairline" : ""
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-admin-body-sm font-semibold text-admin-ink">{title}</p>
+        <p className="mt-0.5 text-admin-body-sm text-admin-ink-subtle">{detail}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function AccountTab({
   userId,
   signIns,
   appUses,
   onRequestClear,
+  onRequestDeleteProgress,
+  onRequestDeleteUser,
 }: {
   userId: string;
   /** Newest first. */
@@ -145,20 +173,63 @@ export function AccountTab({
   appUses: readonly AdminUserRow["appUses"][number][];
   /** Owners only. Omitted hides the clear button. */
   onRequestClear?: () => void;
+  /** Owners only. Omitted hides delete progress. */
+  onRequestDeleteProgress?: () => void;
+  /** Owners only. Omitted hides delete user. */
+  onRequestDeleteUser?: () => void;
 }) {
+  const showDanger = Boolean(onRequestClear || onRequestDeleteProgress || onRequestDeleteUser);
   return (
     <div className="flex flex-col gap-space-16">
-      {onRequestClear ? (
-        <div className="flex justify-end">
-          <Button
-            variant="destructive"
-            icon="delete"
-            disabled={signIns.length === 0 && appUses.length === 0}
-            onClick={onRequestClear}
-          >
-            Clear sign-in history
-          </Button>
-        </div>
+      {showDanger ? (
+        <section aria-label="Account actions" className="flex flex-col gap-space-12">
+          <ColumnHeader
+            title="Account actions"
+            description="Clear history or progress and keep the account, or remove the person entirely."
+          />
+          <Panel>
+            {onRequestClear ? (
+              <DangerRow
+                title="Clear sign-in history"
+                detail="Sign-ins and app use are cleared. Progress, XP, class, and level access stay."
+                action={
+                  <Button
+                    variant="destructive"
+                    icon="delete"
+                    disabled={signIns.length === 0 && appUses.length === 0}
+                    onClick={onRequestClear}
+                  >
+                    Clear history
+                  </Button>
+                }
+              />
+            ) : null}
+            {onRequestDeleteProgress ? (
+              <DangerRow
+                bordered={Boolean(onRequestClear)}
+                title="Delete progress"
+                detail="Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay."
+                action={
+                  <Button variant="destructive" icon="delete" onClick={onRequestDeleteProgress}>
+                    Delete progress
+                  </Button>
+                }
+              />
+            ) : null}
+            {onRequestDeleteUser ? (
+              <DangerRow
+                bordered={Boolean(onRequestClear || onRequestDeleteProgress)}
+                title="Delete user"
+                detail="Removes this person from the dashboard and deletes their cloud progress. They can sign in again and start over."
+                action={
+                  <Button variant="destructive" icon="person_remove" onClick={onRequestDeleteUser}>
+                    Delete user
+                  </Button>
+                }
+              />
+            ) : null}
+          </Panel>
+        </section>
       ) : null}
       <OnboardingSection userId={userId} />
       <div className="grid items-start gap-space-24 lg:grid-cols-2">

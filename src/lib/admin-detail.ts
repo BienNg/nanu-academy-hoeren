@@ -1256,12 +1256,6 @@ function catalogLesson(
   return { lessonLabel: `${course.shortLabel} · ${lesson.label}`, lesson };
 }
 
-function clipTitle(lesson: AdminCatalogLesson | null, clipId: string): string {
-  const prompt = lesson?.clips.find((clip) => clip.id === clipId)?.prompt.trim();
-  if (!prompt) return clipId;
-  return prompt.length > 80 ? `${prompt.slice(0, 77)}…` : prompt;
-}
-
 function lessonLabels(courses: readonly AdminCatalogCourse[], visit: Visit): string[] {
   const labels: string[] = [];
   for (const lessonKey of visit.lessons) {
@@ -1289,20 +1283,6 @@ function visitDetails(
   visit: Visit,
 ): AdminVisitDetailGroup[] {
   const groups: AdminVisitDetailGroup[] = [];
-  if (visit.clips.length > 0) {
-    const items = visit.clips.map((clip): AdminVisitDetailItem => {
-      const found = catalogLesson(courses, clip.lessonKey);
-      return {
-        title: clipTitle(found.lesson, clip.clipId),
-        context: found.lessonLabel,
-        facts: [],
-        tone: "neutral",
-        percent: null,
-      };
-    });
-    groups.push({ id: "study", label: "Study", ...capItems(items) });
-  }
-
   const exerciseLessons = visit.exerciseLessons ?? [];
   if (exerciseLessons.length > 0 || visit.exercisesCompleted > 0 || visit.listeningRuns > 0) {
     const items: AdminVisitDetailItem[] =

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
@@ -49,6 +50,8 @@ import { jumpTarget } from "@/lib/lesson-jump";
 import {
   ONBOARDING_SKIP_REASON,
   onboardingSkipReasons,
+  vocabHintLessonSlug,
+  vocabListOpenedKey,
   type OnboardingTarget,
 } from "@/lib/onboarding";
 import { setOnboardingActive } from "@/lib/onboarding-gate";
@@ -466,6 +469,34 @@ function isVideoTrailNode(node: TrailNode): boolean {
 /** "Bắt đầu" before any progress, "Học tiếp" once the node is underway. */
 function continueGuideLabel(node: TrailNode): "Bắt đầu" | "Học tiếp" {
   return node.percent > 0 ? "Học tiếp" : "Bắt đầu";
+}
+
+/** A quiet nudge beside the vocabulary button, until the learner opens the list. */
+function VocabListHint({ reduceMotion }: { reduceMotion: boolean }) {
+  return (
+    <motion.span
+      aria-hidden="true"
+      className="pointer-events-none absolute top-1/2 right-[calc(100%+8px)] flex items-center"
+      animate={reduceMotion ? { y: "-50%" } : { y: ["-50%", "calc(-50% - 3px)", "-50%"] }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+      }
+    >
+      <span
+        className="flex items-center"
+        style={{ filter: "drop-shadow(0 2px 0 #dae2fd)" }}
+      >
+        <span className="rounded-2xl bg-white px-2.5 py-1 text-[13px] font-bold whitespace-nowrap text-[var(--path-accent)]">
+          Xem từ ở đây
+        </span>
+        <svg viewBox="0 0 8 14" className="-ml-px h-3.5 w-2" aria-hidden="true">
+          <path d="M0 0 L8 7 L0 14 Z" fill="#ffffff" />
+        </svg>
+      </span>
+    </motion.span>
+  );
 }
 
 function ContinueGuideBubble({
@@ -1468,10 +1499,13 @@ export default function LevelViewClient({
   /** The learner has not finished the first-run tour. Only CEFR level maps pass it. */
   onboarding?: boolean;
 }) {
+  const { data: session } = useSession();
+  const userId = session?.user?.id ?? null;
   const theme = PATH_THEMES[path.theme ?? "level"];
   const containerRef = useRef<HTMLElement>(null);
   const dictionaryRequest = useRef(0);
   const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
+  const [vocabListOpened, setVocabListOpened] = useState<boolean | null>(null);
   const [lockedBubbleId, setLockedBubbleId] = useState<string | null>(null);
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
@@ -1503,6 +1537,25 @@ export default function LevelViewClient({
     recordOnboarding,
   } = useProgress();
   const onboardingWanted = onboarding && !onboardingFinishedThisSession;
+
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      setVocabListOpened(window.localStorage.getItem(vocabListOpenedKey(userId)) === "1");
+    } catch {
+      setVocabListOpened(true);
+    }
+  }, [userId]);
+
+  const markVocabListOpened = useCallback(() => {
+    setVocabListOpened(true);
+    if (!userId) return;
+    try {
+      window.localStorage.setItem(vocabListOpenedKey(userId), "1");
+    } catch {
+      // Storage can be blocked. The hint may show again on the next visit.
+    }
+  }, [userId]);
   const [tourPhase, setTourPhase] = useState<"checking" | "running" | "over">("checking");
   const tourMarks = onboardingWanted && tourPhase !== "over" && !accessLocked;
 
@@ -1522,7 +1575,7 @@ export default function LevelViewClient({
         ? [ONBOARDING_SKIP_REASON.noCourse]
         : onboardingSkipReasons(
             Object.fromEntries(
-              (["course", "video", "study", "practice", "jump"] as const).map((target) => [
+              (["course", "video", "study", "practice", "words", "jump"] as const).map((target) => [
                 target,
                 document.querySelector(`[data-tour="${target}"]`) !== null,
               ]),
@@ -1635,6 +1688,36 @@ export default function LevelViewClient({
       return true;
     })?.slug ?? null;
 
+  const vocabHintSlug =
+    vocabListOpened === false && !accessLocked && !(onboardingWanted && tourPhase !== "over")
+      ? vocabHintLessonSlug(
+          chapters.map((chapter, index) => {
+            const isAvailable = chapter.hasAudio !== false;
+            const isCompleted = isAvailable && learnChapterCompleted(progressKeyOf(chapter));
+            const gateChapter = firstIncompletePrevious(index);
+            const isLocked =
+              !accessLocked &&
+              !unlockPath &&
+              isAvailable &&
+              !isCompleted &&
+              Boolean(gateChapter);
+            const isOpen = !accessLocked && isAvailable && !isLocked;
+            const lesson = lessonById.get(`${level.slug}-${chapter.slug}`);
+            const hasList =
+              isOpen &&
+              (lesson?.activities.some(
+                (activity) => lessonNodeFromActivityId(activity.id)?.kind === "study",
+              ) ??
+                false);
+            return {
+              slug: chapter.slug,
+              hasList,
+              current: chapter.slug === currentChapterSlug,
+            };
+          }),
+        )
+      : null;
+
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("lektion");
     setReturnSlug(requested);
@@ -1695,6 +1778,7 @@ export default function LevelViewClient({
       dictionaryRequest.current = request;
       const label = chapter.title ?? `${level.level} - ${chapter.label}`;
       const chapterKey = progressKeyOf(chapter);
+      markVocabListOpened();
       setDictionary({ label, chapterKey, clips: null, error: false });
       void loadLessonDictionary(chapter.slug)
         .then((clips) => {
@@ -1706,7 +1790,7 @@ export default function LevelViewClient({
           setDictionary({ label, chapterKey, clips: null, error: true });
         });
     },
-    [level.level, loadLessonDictionary],
+    [level.level, loadLessonDictionary, markVocabListOpened],
   );
 
   const { scrollYProgress } = useScroll({
@@ -2081,13 +2165,23 @@ export default function LevelViewClient({
                 {nodes.length > 0 ? (
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
                     {dictionaryOpen ? (
-                      <li className="absolute top-3 right-0 z-10">
+                      <li className="absolute top-3 right-0 z-20">
                         <button
                           type="button"
                           aria-label="Từ vựng"
+                          data-tour={tourLesson && tourMarks ? "words" : undefined}
                           onClick={() => openDictionary(chapter)}
-                          className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+                          className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
                         >
+                          {chapter.slug === vocabHintSlug ? (
+                            <>
+                              <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute -inset-1 rounded-full border-2 border-[var(--path-accent)]/35 motion-safe:animate-pulse"
+                              />
+                              <VocabListHint reduceMotion={shouldReduceMotion === true} />
+                            </>
+                          ) : null}
                           <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
                         </button>
                       </li>

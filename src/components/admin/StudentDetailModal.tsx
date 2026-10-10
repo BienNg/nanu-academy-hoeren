@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   clearAdminStudentSignIns,
   deleteAdminStudentProgress,
+  deleteAdminUser,
   loadAdminStudentDetail,
   loadAdminStudentXp,
   setAdminUserInterviewAccess,
@@ -123,6 +124,7 @@ export function StudentDetailModal({
   row,
   catalog,
   onClose,
+  onDeleted,
   onAccessChange,
   preloaded,
   focusLevelSlug,
@@ -130,6 +132,8 @@ export function StudentDetailModal({
   row: AdminUserRow;
   catalog: readonly AdminCatalogCourse[];
   onClose: () => void;
+  /** Called after the account is deleted, before the modal closes. */
+  onDeleted?: () => void;
   onAccessChange?: (patch: StudentAccessPatch) => void;
   /** Level open on the Levels path, so this student's trail starts there. */
   focusLevelSlug?: string;
@@ -151,6 +155,9 @@ export function StudentDetailModal({
   const [pendingHistoryClear, setPendingHistoryClear] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [pendingUserDelete, setPendingUserDelete] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [userDeleteError, setUserDeleteError] = useState<string | null>(null);
   const [payload, setPayload] = useState<StudentDetailPayload | null>(preloaded ?? null);
   const [detailError, setDetailError] = useState<string | null>(null);
   /** Null until read; reread after a delete, which can remove awards. */
@@ -248,7 +255,16 @@ export function StudentDetailModal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // The delete dialog handles its own Escape.
-      if (deleting || pendingDelete || clearingHistory || pendingHistoryClear) return;
+      if (
+        deleting ||
+        pendingDelete ||
+        clearingHistory ||
+        pendingHistoryClear ||
+        deletingUser ||
+        pendingUserDelete
+      ) {
+        return;
+      }
       onClose();
     };
     document.addEventListener("keydown", onKeyDown);
@@ -258,7 +274,15 @@ export function StudentDetailModal({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [clearingHistory, deleting, onClose, pendingDelete, pendingHistoryClear]);
+  }, [
+    clearingHistory,
+    deleting,
+    deletingUser,
+    onClose,
+    pendingDelete,
+    pendingHistoryClear,
+    pendingUserDelete,
+  ]);
 
   function requestDelete(next: PendingDelete) {
     setDeleteError(null);
@@ -301,6 +325,27 @@ export function StudentDetailModal({
     setProgressOverride({ userId: row.userId, progress: result.progress });
     setRunsRevision((current) => current + 1);
     setPendingDelete(null);
+    router.refresh();
+  }
+
+  function closeUserDelete() {
+    if (deletingUser) return;
+    setPendingUserDelete(false);
+    setUserDeleteError(null);
+  }
+
+  async function confirmUserDelete() {
+    if (deletingUser) return;
+    setDeletingUser(true);
+    setUserDeleteError(null);
+    const result = await deleteAdminUser(row.userId);
+    if (!result.ok) {
+      setUserDeleteError(result.error);
+      setDeletingUser(false);
+      return;
+    }
+    onDeleted?.();
+    onClose();
     router.refresh();
   }
 
@@ -437,7 +482,7 @@ export function StudentDetailModal({
         className="admin-fade-in fixed inset-0 z-[70] flex items-end justify-center bg-admin-ink/40 sm:items-center sm:p-4 lg:p-6"
         role="presentation"
         onClick={() => {
-          if (!deleting && !pendingDelete) onClose();
+          if (!deleting && !pendingDelete && !deletingUser && !pendingUserDelete) onClose();
         }}
       >
         <div
@@ -504,24 +549,6 @@ export function StudentDetailModal({
                   <MaterialIcon name="ios_share" className="-ml-0.5 text-[18px]" />
                   <span className="hidden sm:inline">Weekly card</span>
                 </RecapShareButton>
-                {canDelete ? (
-                  <Button
-                    variant="destructive"
-                    icon="delete"
-                    disabled={!detailReady}
-                    aria-label="Delete progress"
-                    onClick={() =>
-                      requestDelete({
-                        scope: "all",
-                        label: "all progress",
-                        detail:
-                          "Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay.",
-                      })
-                    }
-                  >
-                    <span className="hidden sm:inline">Delete progress</span>
-                  </Button>
-                ) : null}
                 <button
                   type="button"
                   onClick={onClose}
@@ -599,6 +626,25 @@ export function StudentDetailModal({
                           }
                         : undefined
                     }
+                    onRequestDeleteProgress={
+                      canDelete
+                        ? () =>
+                            requestDelete({
+                              scope: "all",
+                              label: "all progress",
+                              detail:
+                                "Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay.",
+                            })
+                        : undefined
+                    }
+                    onRequestDeleteUser={
+                      canDelete
+                        ? () => {
+                            setUserDeleteError(null);
+                            setPendingUserDelete(true);
+                          }
+                        : undefined
+                    }
                   />
                 ) : null}
               </>
@@ -646,6 +692,41 @@ export function StudentDetailModal({
         {deleteError ? (
           <p role="alert" className="text-admin-body-sm text-admin-crimson">
             {deleteError}
+          </p>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={pendingUserDelete}
+        onClose={closeUserDelete}
+        title="Delete user?"
+        description={
+          <>
+            This removes{" "}
+            <span className="font-semibold text-admin-ink">{row.email ?? row.displayName}</span>{" "}
+            from the dashboard and deletes their cloud progress. They can sign in again and start
+            over.
+          </>
+        }
+        actions={
+          <>
+            <Button disabled={deletingUser} onClick={closeUserDelete}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              icon="person_remove"
+              disabled={deletingUser}
+              onClick={() => void confirmUserDelete()}
+            >
+              {deletingUser ? "Deleting…" : "Delete user"}
+            </Button>
+          </>
+        }
+      >
+        {userDeleteError ? (
+          <p role="alert" className="text-admin-body-sm text-admin-crimson">
+            {userDeleteError}
           </p>
         ) : null}
       </Dialog>
