@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["web-push"],
   // The share cards read their fonts from disk at request time.
   outputFileTracingIncludes: {
     "/api/recap-card": ["./src/assets/fonts/*.ttf"],

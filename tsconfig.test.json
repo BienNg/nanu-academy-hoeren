@@ -83,6 +83,8 @@
     "src/lib/outreach.ts",
     "src/lib/outreach.test.ts",
     "src/lib/admin-learning.ts",
-    "src/lib/admin-learning.test.ts"
+    "src/lib/admin-learning.test.ts",
+    "src/lib/push-reminder.ts",
+    "src/lib/push-reminder.test.ts"
   ]
 }

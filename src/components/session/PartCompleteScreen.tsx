@@ -10,6 +10,11 @@ import { Flame, StreakCount } from "@/components/StreakCelebration";
 import { isCardEnter } from "@/lib/keyboard";
 import { questStepMoved, type QuestStep, type QuestUpdate } from "@/lib/quests";
 import { planClassRankClimb, planRankClimb, type ClassRankClimb, type RankClimb } from "@/lib/rank-climb";
+import {
+  canAskForStreakReminder,
+  dismissStreakReminderPrompt,
+  enableStreakReminders,
+} from "@/lib/push-client";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import {
   readQueuedStreakCelebration,
@@ -1450,7 +1455,66 @@ export function ClassRankClimbStepView({
   );
 }
 
-type Stage = "complete" | "streak" | "quests" | "ranking" | "classes";
+type Stage = "complete" | "streak" | "notify" | "quests" | "ranking" | "classes";
+
+function NotifyStepView({ streakDays, onDone }: { streakDays: number; onDone: () => void }) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function allow() {
+    setBusy(true);
+    setFailed(false);
+    const result = await enableStreakReminders();
+    if (result === "granted" || result === "denied") {
+      onDone();
+      return;
+    }
+    setBusy(false);
+    setFailed(true);
+  }
+
+  return (
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+        <Flame still={reduceMotion} />
+        <h2
+          className="mt-4 text-[26px] font-bold tracking-tight text-[#1d1d1f]"
+          style={{ letterSpacing: "-0.03em" }}
+        >
+          Chuỗi {streakDays} ngày
+        </h2>
+        <p className="mt-2 max-w-[18rem] text-[17px] font-semibold leading-6 text-[#3a3a3c]">
+          Nhắc một lần vào buổi tối nếu hôm đó bạn chưa học.
+        </p>
+        {failed ? (
+          <p className="mt-3 text-[14px] font-semibold text-[#ff3b30]">Chưa bật được. Thử lại sau.</p>
+        ) : null}
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
+        <button
+          type="button"
+          onClick={() => void allow()}
+          disabled={busy}
+          className={chunkyButton(busy ? "disabled" : "primary", "w-full")}
+        >
+          {busy ? "Đang bật" : "Bật nhắc nhở"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            dismissStreakReminderPrompt();
+            onDone();
+          }}
+          disabled={busy}
+          className={chunkyButton("secondary", "mt-3 w-full")}
+        >
+          Để sau
+        </button>
+      </div>
+    </main>
+  );
+}
 
 /**
  * The end of a part: a loader while the server counts XP, the completed
@@ -1485,11 +1549,16 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const leftRef = useRef(false);
   const [stage, setStage] = useState<Stage>("complete");
   const [streakStep, setStreakStep] = useState<StreakCelebration | null>(null);
+  const [askPush, setAskPush] = useState(false);
   const queuedStreak = useSyncExternalStore(
     subscribeStreakCelebration,
     readQueuedStreakCelebration,
     () => null,
   );
+
+  useEffect(() => {
+    setAskPush(canAskForStreakReminder());
+  }, []);
 
   useEffect(() => {
     if (minElapsed) return;
@@ -1588,6 +1657,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
 
   const following: Stage[] = [];
   if (streakAhead) following.push("streak");
+  if (askPush && streakAhead) following.push("notify");
   if (questsAhead) following.push("quests");
   if (rankingAhead) following.push("ranking");
   if (classAhead) following.push("classes");
@@ -1623,6 +1693,10 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
 
   if (stage === "streak" && streakStep) {
     return <StreakStepView step={streakStep} {...shared} />;
+  }
+
+  if (stage === "notify" && streakStep) {
+    return <NotifyStepView streakDays={streakStep.to} onDone={advance} />;
   }
 
   if (stage === "quests" && questUpdate) {
