@@ -1434,44 +1434,6 @@ function FinishTrophy({
   );
 }
 
-function AchievementMedal() {
-  const uid = useId().replace(/:/g, "");
-  const goldId = `achievement-gold-${uid}`;
-  const rimId = `achievement-rim-${uid}`;
-
-  return (
-    <span
-      className="achievement-medal inline-flex h-11 w-11 shrink-0 items-center justify-center"
-      title="Đã hoàn thành"
-    >
-      <span className="sr-only">Đã hoàn thành</span>
-      <svg
-        viewBox="0 0 48 48"
-        className="h-11 w-11 drop-shadow-[0_2px_6px_rgba(140,96,24,0.22)]"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id={rimId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F3D48A" />
-            <stop offset="100%" stopColor="#C4922A" />
-          </linearGradient>
-          <linearGradient id={goldId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFF6DC" />
-            <stop offset="48%" stopColor="#F0D48A" />
-            <stop offset="100%" stopColor="#E2BE62" />
-          </linearGradient>
-        </defs>
-        <circle cx="24" cy="24" r="20" fill={`url(#${rimId})`} />
-        <circle cx="24" cy="24" r="16" fill={`url(#${goldId})`} />
-        <path
-          d="M24 15.2 L26.1 20.2 L31.4 20.6 L27.2 24 L28.6 29.2 L24 26.2 L19.4 29.2 L20.8 24 L16.6 20.6 L21.9 20.2 Z"
-          fill="#8C5E16"
-        />
-      </svg>
-    </span>
-  );
-}
-
 export default function LevelViewClient({
   level,
   chapters,
@@ -2084,10 +2046,13 @@ export default function LevelViewClient({
                         : "open",
               path.currentLabel,
             );
-            const headerClassName = `flex w-full flex-col gap-2 rounded-2xl bg-white p-4 ${
-              isOpen && isResume
-                ? "shadow-[0_4px_0_0_var(--path-accent)]"
-                : "shadow-[0_4px_0_0_#dae2fd]"
+            const lessonDone = !accessLocked && isCompleted;
+            const headerClassName = `flex w-full flex-col gap-2 rounded-2xl p-4 ${
+              lessonDone
+                ? "bg-[var(--path-accent)] text-white shadow-[0_4px_0_0_var(--path-accent-deep)]"
+                : isOpen && isResume
+                  ? "bg-white shadow-[0_4px_0_0_var(--path-accent)]"
+                  : "bg-white shadow-[0_4px_0_0_#dae2fd]"
             }`;
             const header = (
               <>
@@ -2100,7 +2065,7 @@ export default function LevelViewClient({
                   <div className="min-w-0 flex-1">
                     <h2
                       className={`text-[20px] font-extrabold leading-7 tracking-tight ${
-                        isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
+                        lessonDone ? "text-white" : isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
                       }`}
                     >
                       {chapter.title ?? `${level.level} - ${chapter.label}`}
@@ -2108,17 +2073,19 @@ export default function LevelViewClient({
                     {topicLine ? (
                       <p
                         className={`text-[13px] leading-5 ${
-                          topicLine.current
-                            ? "font-bold text-[var(--path-accent)]"
-                            : "font-medium text-[#6e7881]"
+                          lessonDone
+                            ? "font-bold text-white/85"
+                            : topicLine.current
+                              ? "font-bold text-[var(--path-accent)]"
+                              : "font-medium text-[#6e7881]"
                         }`}
                       >
                         {topicLine.text}
                       </p>
                     ) : null}
                   </div>
-                  {!accessLocked && isCompleted ? (
-                    <AchievementMedal />
+                  {lessonDone ? (
+                    <span className="sr-only">Đã hoàn thành</span>
                   ) : !isOpen ? (
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f1f5f9] text-[#94a3b8]">
                       <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
