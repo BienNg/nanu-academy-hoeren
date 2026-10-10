@@ -18,11 +18,15 @@ import {
 import {
   lessonNodeFromActivityId,
   lessonPathNodes,
+  isLearnChapterCompleted,
+  isStudyChapterCompleted,
+  learnReviewedClipIds,
   nextListeningPart,
   nextNodePart,
   nextStudyPart,
   type LessonPathNode,
   type NextPart,
+  type StoredProgress,
 } from "@/lib/progress";
 import {
   LISTENING_FIRST_PART_XP,
@@ -81,6 +85,25 @@ type Chapter = {
 
 function progressKeyOf(chapter: Chapter): string {
   return chapter.progressKey ?? chapter.slug;
+}
+
+/** Words the learner has studied, or passed in listening practice. */
+function dictionaryPlayableIds(
+  progress: StoredProgress,
+  chapterKey: string,
+  clips: readonly { id: string }[],
+  ready: boolean,
+): Set<string> {
+  if (!ready) return new Set();
+  if (
+    isStudyChapterCompleted(progress, chapterKey) ||
+    isLearnChapterCompleted(progress, chapterKey)
+  ) {
+    return new Set(clips.map((clip) => clip.id));
+  }
+  const playable = new Set(learnReviewedClipIds(progress, chapterKey));
+  for (const id of progress.learn[chapterKey]?.completedClipIds ?? []) playable.add(id);
+  return playable;
 }
 
 /** Colors and wording that differ between a CEFR level and a Leben-in-Deutschland workplace. */
@@ -1172,6 +1195,7 @@ function PathStop({
 
 type OpenDictionary = {
   label: string;
+  chapterKey: string;
   clips: SessionClip[] | null;
   error: boolean;
 };
@@ -1184,6 +1208,7 @@ function LessonDictionaryModal({
   clips,
   error,
   slide,
+  playableIds,
   onClose,
 }: {
   title: string;
@@ -1191,6 +1216,8 @@ function LessonDictionaryModal({
   error: boolean;
   /** Phone: the sheet travels in from the right. Wider screens appear in place. */
   slide: boolean;
+  /** Clips the learner has studied or passed in practice. Null until progress is known. */
+  playableIds: ReadonlySet<string> | null;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -1323,7 +1350,7 @@ function LessonDictionaryModal({
                 Chưa có từ vựng cho Lektion này.
               </p>
             ) : (
-              <StudyClipList clips={clips} variant="tips" />
+              <StudyClipList clips={clips} variant="tips" playableIds={playableIds ?? new Set()} />
             )}
           </div>
         </div>
@@ -1667,15 +1694,16 @@ export default function LevelViewClient({
       const request = dictionaryRequest.current + 1;
       dictionaryRequest.current = request;
       const label = chapter.title ?? `${level.level} - ${chapter.label}`;
-      setDictionary({ label, clips: null, error: false });
+      const chapterKey = progressKeyOf(chapter);
+      setDictionary({ label, chapterKey, clips: null, error: false });
       void loadLessonDictionary(chapter.slug)
         .then((clips) => {
           if (dictionaryRequest.current !== request) return;
-          setDictionary({ label, clips, error: false });
+          setDictionary({ label, chapterKey, clips, error: false });
         })
         .catch(() => {
           if (dictionaryRequest.current !== request) return;
-          setDictionary({ label, clips: null, error: true });
+          setDictionary({ label, chapterKey, clips: null, error: true });
         });
     },
     [level.level, loadLessonDictionary],
@@ -2179,6 +2207,11 @@ export default function LevelViewClient({
           clips={dictionary.clips}
           error={dictionary.error}
           slide={mobileSheet && !shouldReduceMotion}
+          playableIds={
+            dictionary.clips == null
+              ? null
+              : dictionaryPlayableIds(progress, dictionary.chapterKey, dictionary.clips, progressReady)
+          }
           onClose={closeDictionary}
         />
       ) : null}
