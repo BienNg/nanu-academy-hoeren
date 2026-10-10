@@ -10,7 +10,7 @@ import {
 import { anyClassHasStartedBlitzrunde, classHasStartedBlitzrunde, listRankedResults } from "@/lib/blitzrunde-store";
 import type { ListeningRunInput } from "@/lib/listening-runs";
 import type { GrammarGap } from "@/lib/grammar-gaps";
-import { getChapterClips } from "@/lib/levels";
+import { getChapterClips, getLevelChapters } from "@/lib/levels";
 import {
   buildJumpDeck,
   decideJumpXp,
@@ -23,11 +23,16 @@ import { getLivingClipsForLessonKey, getLivingWorkplaces } from "@/lib/living";
 import { maxClipsPerPracticePart } from "@/lib/practice-deck";
 import { practiceNodeLayout } from "@/lib/practice-node";
 import {
+  cefrLearnKey,
+  classmateFinishFromStamps,
   learnRunCount,
+  lessonFinishStamp,
   listeningPartSize,
   splitStudyParts,
   studyPartCount,
   studyPartSize,
+  type ClassmateFinish,
+  type LessonFinishSide,
 } from "@/lib/progress";
 import {
   getCloudProgress,
@@ -1537,6 +1542,84 @@ export async function listClassLearners(
       },
     ];
   });
+}
+
+export type ClassmateFinishMap = {
+  ready: boolean;
+  lessons: Record<string, Partial<Record<LessonFinishSide, ClassmateFinish>>>;
+};
+
+const emptyClassmateMap = (ready: boolean): ClassmateFinishMap => ({ ready, lessons: {} });
+
+/**
+ * Classmates who have finished a Lektion side. The viewer is left out.
+ * Staff, teachers and admins are left out, the same as on the class board.
+ * Null-ready when profiles or progress cannot be read.
+ */
+export async function loadClassmateFinishes(
+  viewerId: string,
+  viewerImage: string | null | undefined,
+  request: { levelSlug: string } | { lessonKey: string; side: LessonFinishSide },
+): Promise<ClassmateFinishMap> {
+  const sides: LessonFinishSide[] = "levelSlug" in request ? ["study", "practice"] : [request.side];
+  const keys =
+    "levelSlug" in request
+      ? getLevelChapters(request.levelSlug).map((chapter) => cefrLearnKey(request.levelSlug, chapter.slug))
+      : [request.lessonKey];
+  if (keys.length === 0) return emptyClassmateMap(true);
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return emptyClassmateMap(false);
+  const className = await getUserClassName(viewerId);
+  const classKey = leaderboardClassKey(className);
+  if (!classKey) return emptyClassmateMap(true);
+  const learners = await listClassLearners(classKey, viewerId, viewerImage);
+  if (!learners) return emptyClassmateMap(false);
+  const others = learners.filter((learner) => learner.userId !== viewerId);
+  if (others.length === 0) return emptyClassmateMap(true);
+
+  const learnById = new Map<string, unknown>();
+  for (let index = 0; index < others.length; index += 80) {
+    const slice = others.slice(index, index + 80).map((learner) => learner.userId);
+    const { data, error } = await supabase
+      .from(PROFILES_TABLE)
+      .select("user_id, learn:data->learn")
+      .in("user_id", slice);
+    if (error) {
+      console.error("Supabase loadClassmateFinishes", error.message);
+      return emptyClassmateMap(false);
+    }
+    for (const row of (data ?? []) as { user_id?: string; learn?: unknown }[]) {
+      if (row.user_id) learnById.set(row.user_id, row.learn);
+    }
+  }
+
+  const buckets = new Map<string, { name: string; image: string | null; finishedAt: string }[]>();
+  for (const learner of others) {
+    const learn = learnById.get(learner.userId);
+    for (const key of keys) {
+      for (const side of sides) {
+        const stamp = lessonFinishStamp(learn, key, side);
+        if (!stamp) continue;
+        const bucketKey = `${side}\n${key}`;
+        const list = buckets.get(bucketKey) ?? [];
+        list.push({ name: learner.name, image: learner.image, finishedAt: stamp });
+        buckets.set(bucketKey, list);
+      }
+    }
+  }
+
+  const lessons: ClassmateFinishMap["lessons"] = {};
+  for (const key of keys) {
+    const entry: Partial<Record<LessonFinishSide, ClassmateFinish>> = {};
+    for (const side of sides) {
+      const rows = buckets.get(`${side}\n${key}`);
+      if (!rows || rows.length === 0) continue;
+      entry[side] = classmateFinishFromStamps(rows);
+    }
+    if (entry.study || entry.practice) lessons[key] = entry;
+  }
+  return { ready: true, lessons };
 }
 
 /** Last week's stored class podium. Null when it is not stored or unreadable. */

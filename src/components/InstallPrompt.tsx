@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { AppMark } from "@/components/Logo";
 import { logPwaPrompt } from "@/lib/useProgress";
 
 const DISMISS_KEY = "nanu-pwa-install-dismissed";

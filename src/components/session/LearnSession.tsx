@@ -925,6 +925,9 @@ export function LearnSession({
           finishRun={isLastPart && !failedRun}
           failed={failedRun}
           continueLabel="Về bài học"
+          lessonKey={chapterProgressKey}
+          finishSide="practice"
+          sideFinished={learnChapterCompleted(chapterProgressKey)}
           onContinue={continueAfterPart}
         />
       ) : !currentClip ? (

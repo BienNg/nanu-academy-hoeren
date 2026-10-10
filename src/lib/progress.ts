@@ -17,6 +17,130 @@ const BARE_LEARN_KEY_LEVEL = "a1-1";
 export function cefrLearnKey(levelSlug: string, chapterSlug: string): string {
   return levelSlug === BARE_LEARN_KEY_LEVEL ? chapterSlug : `${levelSlug}/${chapterSlug}`;
 }
+
+/** Study is the first full study pass. Practice is the first full listening pass. */
+export type LessonFinishSide = "study" | "practice";
+
+/** Faces shown in the classmate stack. The caption still counts everyone. */
+export const CLASSMATE_FACE_LIMIT = 5;
+
+export type ClassmateFace = {
+  name: string;
+  image: string | null;
+  /** First-pass stamp of the side this face finished. Missing on older payloads. */
+  finishedAt?: string;
+};
+
+export type ClassmateFinish = {
+  total: number;
+  people: ClassmateFace[];
+};
+
+/** First-pass stamp for one Lektion, or null when that side is not finished. */
+export function lessonFinishStamp(
+  learn: unknown,
+  lessonKey: string,
+  side: LessonFinishSide,
+): string | null {
+  if (!learn || typeof learn !== "object") return null;
+  const entry = (learn as Record<string, unknown>)[lessonKey];
+  if (!entry || typeof entry !== "object") return null;
+  const value = (entry as Record<string, unknown>)[side === "study" ? "studyCompletedAt" : "completedAt"];
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return null;
+  return value;
+}
+
+/**
+ * Newest finish first. `rows` are already limited to one class and one
+ * lesson side.
+ */
+export function classmateFinishFromStamps(
+  rows: readonly { name: string; image: string | null; finishedAt: string }[],
+  limit = CLASSMATE_FACE_LIMIT,
+): ClassmateFinish {
+  const ordered = rows
+    .filter((row) => row.name.trim().length > 0 && Number.isFinite(Date.parse(row.finishedAt)))
+    .slice()
+    .sort((left, right) => {
+      const byTime = right.finishedAt.localeCompare(left.finishedAt);
+      return byTime === 0 ? left.name.localeCompare(right.name, "vi") : byTime;
+    });
+  return {
+    total: ordered.length,
+    people: ordered
+      .slice(0, Math.max(0, limit))
+      .map(({ name, image, finishedAt }) => ({ name, image, finishedAt })),
+  };
+}
+
+/** Line on the lesson start card. One or two names, otherwise a count. */
+export function classmatePathCaption(finish: ClassmateFinish): string | null {
+  if (finish.total <= 0) return null;
+  const [first, second] = finish.people;
+  if (finish.total === 1 && first) return `${first.name} đã xong`;
+  if (finish.total === 2 && first && second) return `${first.name} và ${second.name} đã xong`;
+  return `${finish.total} bạn đã xong`;
+}
+
+/** Line after a part. Names the two most recent classmates, then the rest. */
+export function classmateDoneCaption(finish: ClassmateFinish): string | null {
+  if (finish.total <= 0) return null;
+  const [first, second] = finish.people;
+  if (finish.total === 1 && first) return `${first.name} vừa xong bài này.`;
+  if (finish.total === 2 && first && second) return `${first.name} và ${second.name} vừa xong bài này.`;
+  if (first && second) {
+    return `${first.name}, ${second.name} và ${finish.total - 2} bạn nữa vừa xong bài này.`;
+  }
+  return `${finish.total} bạn vừa xong bài này.`;
+}
+
+/** Line under the classmates step heading. Counts you in once you have finished too. */
+export function classmateJoinCaption(finish: ClassmateFinish, youFinished: boolean): string | null {
+  if (finish.total <= 0) return null;
+  const [first] = finish.people;
+  const others = finish.total === 1 && first ? first.name : `${finish.total} bạn cùng lớp`;
+  return youFinished ? `Bạn và ${others} đã xong bài này.` : `${others} đã xong bài này.`;
+}
+
+/** How long ago a classmate finished, e.g. "5 phút trước". Null when the stamp is unreadable. */
+export function finishedAgoLabel(finishedAt: string | undefined, now: number): string | null {
+  const at = finishedAt ? Date.parse(finishedAt) : Number.NaN;
+  if (!Number.isFinite(at)) return null;
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${Math.floor(hours / 24)} ngày trước`;
+}
+
+export function readClassmateFinish(value: unknown): ClassmateFinish | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as { total?: unknown; people?: unknown };
+  const total = record.total;
+  if (typeof total !== "number" || !Number.isInteger(total) || total <= 0 || total > 500) return null;
+  if (!Array.isArray(record.people)) return null;
+  const people: ClassmateFace[] = [];
+  for (const person of record.people) {
+    if (people.length >= CLASSMATE_FACE_LIMIT) break;
+    if (!person || typeof person !== "object") continue;
+    const name = (person as { name?: unknown }).name;
+    const image = (person as { image?: unknown }).image;
+    const finishedAt = (person as { finishedAt?: unknown }).finishedAt;
+    if (typeof name !== "string") continue;
+    const trimmed = name.trim();
+    if (trimmed.length === 0 || trimmed.length > 80) continue;
+    people.push({
+      name: trimmed,
+      image: typeof image === "string" && image.length > 0 && image.length <= 2048 ? image : null,
+      ...(typeof finishedAt === "string" && finishedAt.length <= 40 && Number.isFinite(Date.parse(finishedAt))
+        ? { finishedAt }
+        : {}),
+    });
+  }
+  if (people.length === 0) return null;
+  return { total, people };
+}
 export const LEGACY_PROGRESS_PREFIX = "nanu-progress-";
 
 /** Fallback continue target when no totals / progress are available. */

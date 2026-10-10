@@ -20,8 +20,8 @@ import { TableFillCard } from "@/components/session/grammar/TableFillCard";
 import { ClassQuestBoardView } from "@/components/ClassQuestParts";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { EarnedToast } from "@/components/QuestsScreen";
-import { ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
-import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
+import { ClassmateFinishStepView, ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
+import { LessonPathIcon, LessonStartCard } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
@@ -32,6 +32,7 @@ import type { ClassQuestView } from "@/lib/class-quests";
 import type { QuestUpdate } from "@/lib/quests";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { dropQueuedStreakCelebration, stageStreakCelebration } from "@/lib/useProgress";
+import type { ClassmateFinish } from "@/lib/progress";
 import type { ClassBoardRow, LeaderboardRow } from "@/lib/xp";
 
 type SequenceFlags = {
@@ -41,7 +42,11 @@ type SequenceFlags = {
   badge: boolean;
 };
 
-/** Every mix of the four celebrations after a finished part, except streak-only and quests-only, which already have their own cards. */
+/**
+ * Every mix of streak, quests, the weekly boards, and a badge after a finished
+ * part. Classmates is always in the list: it follows the celebration, before
+ * the streak, quests, and boards.
+ */
 const SEQUENCES: readonly {
   id: string;
   flags: SequenceFlags;
@@ -57,6 +62,7 @@ const SEQUENCES: readonly {
       badge: (mask & 8) !== 0,
     };
     const steps = [
+      "classmates",
       flags.streak ? "streak" : null,
       flags.quests ? "quests" : null,
       flags.board ? "leaderboard" : null,
@@ -89,7 +95,10 @@ type SceneId =
   | "quests"
   | "bonus"
   | "climb"
-  | "class-climb";
+  | "class-climb"
+  | "classmates"
+  | "classmates-waiting"
+  | "classmates-start";
 
 const SCENES: readonly { id: SceneId; group: string; icon: string; title: string; detail: string }[] = [
   {
@@ -196,6 +205,27 @@ const SCENES: readonly { id: SceneId; group: string; icon: string; title: string
     icon: "groups",
     title: "Class ranking climb",
     detail: "Your class passes two others. Sample numbers. Does not read the real board.",
+  },
+  {
+    id: "classmates",
+    group: "After the part card",
+    icon: "group",
+    title: "Classmates who finished",
+    detail: "Six classmates have finished this Lektion and your face joins them. Sample names. Does not read the class.",
+  },
+  {
+    id: "classmates-waiting",
+    group: "After the part card",
+    icon: "directions_run",
+    title: "Classmates who finished, you still learning",
+    detail: "After a part that does not finish the Lektion. Your seat waits beside theirs.",
+  },
+  {
+    id: "classmates-start",
+    group: "On the lesson",
+    icon: "groups",
+    title: "Start card with classmates",
+    detail: "The bubble before a study node. Same sample classmates.",
   },
 ];
 
@@ -337,6 +367,18 @@ const SAMPLE_CLIMB = planRankClimb(
   ],
   80,
 );
+
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+const SAMPLE_CLASSMATES: ClassmateFinish = {
+  total: 6,
+  people: [
+    { name: "Mai", image: null, finishedAt: minutesAgo(12) },
+    { name: "Linh", image: null, finishedAt: minutesAgo(3 * 60) },
+    { name: "Hà", image: null, finishedAt: minutesAgo(26 * 60) },
+    { name: "An", image: null, finishedAt: minutesAgo(50 * 60) },
+  ],
+};
 
 const SAMPLE_CLASS_CLIMB = planClassRankClimb(
   [
@@ -1188,11 +1230,44 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
           onContinue={onClose}
         />
       ) : null}
+      {scene === "classmates" || scene === "classmates-waiting" ? (
+        <ClassmateFinishStepView
+          finish={SAMPLE_CLASSMATES}
+          youFinished={scene === "classmates"}
+          continueLabel="Tiếp tục"
+          onContinue={onClose}
+        />
+      ) : null}
+      {scene === "classmates-start" ? (
+        <div className="fixed inset-0 bg-[#fbfbfd]" style={PATH_VARS}>
+          <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center px-6">
+            <div className="flex flex-col items-center">
+              <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
+                <LessonPathIcon name="menu_book" onWhite className="relative h-10 w-10" />
+              </span>
+              <span className="mt-1.5 text-[12px] font-bold leading-4 text-[var(--path-accent-deep)]">Học từ vựng</span>
+            </div>
+            <div className="relative mt-2 w-[min(18.5rem,calc(100vw-2rem))]">
+              <LessonStartCard
+                title="Học từ vựng"
+                exercise="Phần 1 / 2"
+                detail="Học 6 câu mới"
+                xp={20}
+                classmates={SAMPLE_CLASSMATES}
+                onStart={onClose}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
       {scene !== "badge" &&
       scene !== "badges" &&
       scene !== "tiers" &&
       scene !== "climb" &&
-      scene !== "class-climb" ? (
+      scene !== "class-climb" &&
+      scene !== "classmates" &&
+      scene !== "classmates-waiting" &&
+      scene !== "classmates-start" ? (
         <PartCompleteScreen key={scene} {...partProps(scene, onClose)} />
       ) : null}
     </div>
@@ -1215,6 +1290,7 @@ function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: ()
     if (flags.badge) setStep("badge");
     else onClose();
   };
+  const partLast = !flags.board && !flags.badge;
 
   return (
     <div className="fixed inset-0 z-[80]">
@@ -1222,10 +1298,13 @@ function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: ()
       {step === "part" ? (
         <PartCompleteScreen
           {...partProps("part", afterPart)}
+          continueLabel={partLast ? "Về bài học" : "Tiếp tục"}
           celebrateStreak={flags.streak}
           questUpdate={flags.quests ? MOVED_QUEST : null}
           streakDays={flags.streak ? 7 : 4}
           skipBoard
+          classmatePreview={SAMPLE_CLASSMATES}
+          sideFinished
         />
       ) : null}
       {step === "board" && SAMPLE_CLIMB ? (

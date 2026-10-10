@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireDashboard } from "@/lib/auth-guard";
 
-const inter = Inter({
+// Same reason as the root layout: these files are in the repo, so the build
+// does not fetch Google Fonts.
+const inter = localFont({
+  src: "../../assets/fonts/Inter-latin-vietnamese.woff2",
   variable: "--font-inter",
-  subsets: ["latin", "vietnamese"],
+  weight: "100 900",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "../../assets/fonts/JetBrainsMono-latin.woff2",
   variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: "100 800",
   display: "swap",
+  fallback: ["ui-monospace", "monospace"],
 });
 
 export const metadata: Metadata = {

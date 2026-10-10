@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { animate, motion, useReducedMotion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import { PersonAvatar, RankBadge } from "@/components/LeaderboardParts";
 import { ChillPingu, PATH_POSES, Pingu, type PathPose } from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
@@ -9,6 +10,14 @@ import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/Qu
 import { Flame, StreakCount } from "@/components/StreakCelebration";
 import { isCardEnter } from "@/lib/keyboard";
 import { questStepMoved, type QuestStep, type QuestUpdate } from "@/lib/quests";
+import {
+  classmateDoneCaption,
+  classmateJoinCaption,
+  finishedAgoLabel,
+  readClassmateFinish,
+  type ClassmateFinish,
+  type LessonFinishSide,
+} from "@/lib/progress";
 import { planClassRankClimb, planRankClimb, type ClassRankClimb, type RankClimb } from "@/lib/rank-climb";
 import {
   canAskForStreakReminder,
@@ -22,7 +31,7 @@ import {
   takeStreakCelebration,
   type StreakCelebration,
 } from "@/lib/useProgress";
-import type { LeaderboardPayload } from "@/lib/xp";
+import { googleProfileImage, type LeaderboardPayload } from "@/lib/xp";
 
 type PartCompleteScreenProps = {
   partNumber: number;
@@ -40,7 +49,7 @@ type PartCompleteScreenProps = {
   /** Quests this part moved or finished, when the server reports any. */
   questUpdate?: QuestUpdate | null;
   streakDays: number;
-  /** True when a streak step this run raised should show after the completed screen. */
+  /** True when a streak step this run raised should show after the classmates step. */
   celebrateStreak?: boolean;
   finishRun: boolean;
   failed: boolean;
@@ -59,6 +68,13 @@ type PartCompleteScreenProps = {
    * previews do this so they can show a sample climb instead.
    */
   skipBoard?: boolean;
+  /** Sample classmates for an admin sequence. Shown without reading the class. */
+  classmatePreview?: ClassmateFinish;
+  /** Progress key of this Lektion. With `finishSide`, loads classmates who have finished it. */
+  lessonKey?: string;
+  finishSide?: LessonFinishSide;
+  /** You have finished `finishSide` of this Lektion, by the same stamp classmates are counted on. */
+  sideFinished?: boolean;
 };
 
 const CONFETTI = [
@@ -1455,7 +1471,7 @@ export function ClassRankClimbStepView({
   );
 }
 
-type Stage = "complete" | "streak" | "notify" | "quests" | "ranking" | "classes";
+type Stage = "complete" | "streak" | "notify" | "quests" | "classmates" | "ranking" | "classes";
 
 function NotifyStepView({ streakDays, onDone }: { streakDays: number; onDone: () => void }) {
   const reduceMotion = useReducedMotion() ?? false;
@@ -1516,11 +1532,328 @@ function NotifyStepView({ streakDays, onDone }: { streakDays: number; onDone: ()
   );
 }
 
+/** Seconds into the classmates step when your face joins the stack. */
+const CLASSMATE_JOIN_AT = 0.6;
+const CLASSMATE_ROWS_AT = 0.35;
+const CLASSMATE_ROW_GAP = 0.06;
+
+/** The green tick on a face that finished. */
+function FinishedDot({ size, className = "absolute -right-1 -bottom-1" }: { size: number; className?: string }) {
+  return (
+    <span
+      className={`${className} flex items-center justify-center rounded-full border-[3px] border-[#fbfbfd] bg-[#34C759] text-white`}
+      style={{ width: size, height: size }}
+    >
+      <span
+        className="material-symbols-outlined"
+        style={{ fontSize: Math.round(size * 0.6), fontVariationSettings: "'FILL' 1, 'wght' 700" }}
+      >
+        check
+      </span>
+    </span>
+  );
+}
+
+function ClassmateRow({
+  name,
+  image,
+  note,
+  you,
+  done,
+  index,
+  checkAt,
+}: {
+  name: string;
+  image: string | null;
+  note: string | null;
+  you: boolean;
+  done: boolean;
+  index: number;
+  checkAt: number;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  return (
+    <motion.li
+      className={`flex items-center gap-3 px-4 py-3 ${index > 0 ? "border-t-2 border-[#f2f2f7]" : ""} ${
+        you && done ? "bg-[#e0f2fe]" : ""
+      }`}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 420, damping: 22, delay: CLASSMATE_ROWS_AT + index * CLASSMATE_ROW_GAP }
+      }
+    >
+      <PersonAvatar name={name} image={image} />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[15px] font-extrabold text-[#131b2e]">{you ? "Bạn" : name}</span>
+        </span>
+        {note ? (
+          <span className={`block text-[13px] font-bold ${you ? "text-[#0284c7]" : "text-[#86868b]"}`}>{note}</span>
+        ) : null}
+      </span>
+      {done ? (
+        <motion.span
+          className="material-symbols-outlined shrink-0 text-[28px] text-[#34C759]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+          initial={reduceMotion ? false : { scale: 0, rotate: -45 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 14, delay: checkAt }}
+          aria-hidden="true"
+        >
+          check_circle
+        </motion.span>
+      ) : (
+        <span
+          className="mr-0.5 h-6 w-6 shrink-0 rounded-full border-[3px] border-dashed border-[#c7c7cc]"
+          aria-hidden="true"
+        />
+      )}
+    </motion.li>
+  );
+}
+
+/**
+ * Classmates who have finished this Lektion's study or practice.
+ * Once you have finished it too, your face joins theirs.
+ */
+export function ClassmateFinishStepView({
+  finish,
+  youFinished,
+  continueLabel,
+  onContinue,
+  secondaryLabel,
+  onSecondary,
+}: {
+  finish: ClassmateFinish;
+  /** You have finished the same side of this Lektion. */
+  youFinished: boolean;
+  continueLabel: string;
+  onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const continueRef = useContinueShortcut(onContinue);
+  const { data: session } = useSession();
+  const youName = session?.user?.name?.trim() || "Bạn";
+  const youImage = googleProfileImage(session?.user?.image);
+  const [now] = useState(() => Date.now());
+  const caption = classmateJoinCaption(finish, youFinished);
+  const more = finish.total - finish.people.length;
+  const at = (seconds: number) => (reduceMotion ? 0 : seconds);
+  const firstClassmateRow = youFinished ? 1 : 0;
+  const youRow = youFinished ? 0 : finish.people.length + (more > 0 ? 1 : 0);
+
+  useEffect(() => {
+    if (!youFinished) return;
+    const timer = window.setTimeout(playSuccessSound, reduceMotion ? 0 : (CLASSMATE_JOIN_AT + 0.25) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [youFinished, reduceMotion]);
+
+  return (
+    <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+        <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+          <div className="relative flex h-[96px] w-full items-center justify-center" aria-hidden="true">
+            {youFinished && !reduceMotion ? (
+              <div className="pointer-events-none absolute -inset-x-6 -inset-y-12 overflow-hidden">
+                {CONFETTI.map((piece, index) => (
+                  <motion.span
+                    key={`classmate-confetti-${index}`}
+                    className="absolute top-1/2 left-1/2 block"
+                    style={{
+                      width: piece.w,
+                      height: piece.h,
+                      borderRadius: piece.w === piece.h ? 999 : 2,
+                      backgroundColor: piece.color,
+                    }}
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.4, rotate: 0 }}
+                    animate={{
+                      x: piece.x * 0.8,
+                      y: piece.y * 0.7,
+                      rotate: piece.rotate,
+                      scale: 1,
+                      opacity: [0, 1, 1, 0],
+                    }}
+                    transition={{
+                      duration: piece.duration + 0.6,
+                      delay: CLASSMATE_JOIN_AT + 0.2 + piece.delay,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="relative flex items-center">
+              {finish.people.map((person, index) => (
+                <motion.span
+                  key={`${person.name}-${index}`}
+                  className={`relative block rounded-full ring-[3px] ring-[#fbfbfd] ${index === 0 ? "" : "-ml-2.5"}`}
+                  style={{ zIndex: finish.people.length - index }}
+                  initial={reduceMotion ? false : { opacity: 0, scale: 0.4, y: 14 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 520, damping: 18, delay: 0.05 + index * 0.07 }
+                  }
+                >
+                  <PersonAvatar name={person.name} image={person.image} size={44} />
+                  <FinishedDot size={20} />
+                </motion.span>
+              ))}
+              {youFinished ? (
+                <motion.span
+                  className="relative z-10 -ml-3 block rounded-full bg-[#34C759] p-[5px] shadow-[0_4px_0_0_#249a43]"
+                  initial={reduceMotion ? false : { opacity: 0, x: 56, scale: 0.5 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 420, damping: 14, delay: CLASSMATE_JOIN_AT }
+                  }
+                >
+                  <span className="block rounded-full ring-2 ring-white">
+                    <PersonAvatar name={youName} image={youImage} size={62} />
+                  </span>
+                  <motion.span
+                    className="absolute -right-1 -bottom-1 block"
+                    initial={reduceMotion ? false : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={
+                      reduceMotion
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 520, damping: 12, delay: CLASSMATE_JOIN_AT + 0.3 }
+                    }
+                  >
+                    <FinishedDot size={28} className="" />
+                  </motion.span>
+                </motion.span>
+              ) : (
+                <motion.span
+                  className="relative ml-3 flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-dashed border-[#7dd3fc] bg-white"
+                  initial={reduceMotion ? false : { opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={reduceMotion ? { duration: 0 } : { delay: 0.45, duration: 0.3 }}
+                >
+                  <span className="block opacity-60 grayscale">
+                    <PersonAvatar name={youName} image={youImage} size={54} />
+                  </span>
+                  <motion.span
+                    className="absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-[#fbfbfd] bg-[#0284c7] text-white"
+                    animate={reduceMotion ? undefined : { y: [0, -3, 0] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                  >
+                    <span
+                      className="material-symbols-outlined text-[16px]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      directions_run
+                    </span>
+                  </motion.span>
+                </motion.span>
+              )}
+            </div>
+          </div>
+
+          <motion.h2
+            className="mt-6 text-[28px] font-bold tracking-tight text-[#1d1d1f]"
+            style={{ letterSpacing: "-0.03em" }}
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { delay: 0.12, duration: 0.25 }}
+          >
+            {youFinished ? "Bạn cũng về đích rồi!" : "Về đích cùng các bạn nhé!"}
+          </motion.h2>
+          <motion.p
+            className="mt-1.5 text-[15px] font-extrabold text-balance text-[#0284c7]"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: at(0.2), duration: 0.25 }}
+          >
+            {caption}
+          </motion.p>
+
+          <ul
+            className="mt-6 w-full overflow-hidden rounded-2xl border-2 border-b-4 border-[#e5e5ea] bg-white text-left"
+            aria-label="Bạn cùng lớp đã xong bài này"
+          >
+            {youFinished ? (
+              <ClassmateRow
+                name={youName}
+                image={youImage}
+                note="Vừa xong"
+                you
+                done
+                index={0}
+                checkAt={CLASSMATE_JOIN_AT + 0.35}
+              />
+            ) : null}
+            {finish.people.map((person, index) => (
+              <ClassmateRow
+                key={`${person.name}-${index}`}
+                name={person.name}
+                image={person.image}
+                note={finishedAgoLabel(person.finishedAt, now)}
+                you={false}
+                done
+                index={firstClassmateRow + index}
+                checkAt={CLASSMATE_ROWS_AT + (firstClassmateRow + index) * CLASSMATE_ROW_GAP + 0.15}
+              />
+            ))}
+            {more > 0 ? (
+              <motion.li
+                className="border-t-2 border-[#f2f2f7] px-4 py-3 text-center text-[14px] font-extrabold text-[#86868b]"
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{
+                  delay: at(CLASSMATE_ROWS_AT + (firstClassmateRow + finish.people.length) * CLASSMATE_ROW_GAP),
+                  duration: 0.25,
+                }}
+              >
+                +{more} bạn nữa cũng đã xong
+              </motion.li>
+            ) : null}
+            {youFinished ? null : (
+              <ClassmateRow
+                name={youName}
+                image={youImage}
+                note="Đang học bài này"
+                you
+                done={false}
+                index={youRow}
+                checkAt={0}
+              />
+            )}
+          </ul>
+        </div>
+      </div>
+      <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
+        <motion.button
+          ref={continueRef}
+          type="button"
+          onClick={onContinue}
+          className={chunkyButton("primary", "w-full")}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduceMotion ? 0 : 0.2, duration: 0.25 }}
+        >
+          {continueLabel}
+        </motion.button>
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={reduceMotion ? 0 : 0.2} />
+      </div>
+    </main>
+  );
+}
+
 /**
  * The end of a part: a loader while the server counts XP, the completed
- * screen, the streak flame when this run raised it, the daily quests
- * when this part moved one, the weekly class board when this part earned
- * XP, then the weekly ranking of classes.
+ * screen, classmates who have finished this Lektion, the streak flame when
+ * this run raised it, the daily quests when this part moved one, the weekly
+ * class board when this part earned XP, then the weekly ranking of classes.
  */
 export function PartCompleteScreen(props: PartCompleteScreenProps) {
   const {
@@ -1536,7 +1869,14 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     secondaryLabel,
     onSecondary,
     skipBoard = false,
+    lessonKey,
+    finishSide,
+    sideFinished = false,
+    classmatePreview,
   } = props;
+  const expectsClassmates = classmatePreview
+    ? !failed && classmatePreview.total > 0
+    : !skipBoard && !failed && Boolean(lessonKey) && (finishSide === "study" || finishSide === "practice");
   const [loaderShown] = useState(() => xpPending && !failed);
   const [minElapsed, setMinElapsed] = useState(!loaderShown);
   const [gaveUp, setGaveUp] = useState(false);
@@ -1546,6 +1886,10 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   /** The weekly classes board with this part counted. Undefined while loading, null when unread. */
   const [classesBoard, setClassesBoard] = useState<LeaderboardPayload | null | undefined>(undefined);
   const [classesGaveUp, setClassesGaveUp] = useState(false);
+  /** Classmates who have finished this Lektion side. Undefined while loading. */
+  const [classmates, setClassmates] = useState<ClassmateFinish | null | undefined>(
+    classmatePreview ?? (expectsClassmates ? undefined : null),
+  );
   const leftRef = useRef(false);
   const [stage, setStage] = useState<Stage>("complete");
   const [streakStep, setStreakStep] = useState<StreakCelebration | null>(null);
@@ -1624,6 +1968,30 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     return () => window.clearTimeout(timer);
   }, [skipBoard, xpPending, earnedXp, classesBoard]);
 
+  useEffect(() => {
+    if (classmatePreview || !expectsClassmates || !lessonKey || !finishSide) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ lesson: lessonKey, side: finishSide });
+    void fetch(`/api/classmates?${params}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { ready?: boolean; finish?: unknown } | null) => {
+        if (cancelled) return;
+        setClassmates(data?.ready ? readClassmateFinish(data.finish) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setClassmates(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [classmatePreview, expectsClassmates, lessonKey, finishSide]);
+
+  useEffect(() => {
+    if (!expectsClassmates || classmates !== undefined) return;
+    const timer = window.setTimeout(() => setClassmates(null), LOADER_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, [expectsClassmates, classmates]);
+
   const loading = !failed && (!minElapsed || (xpPending && !gaveUp));
   const boardPending = board === undefined && !boardGaveUp;
   const climb = board ? planRankClimb(board.rows, earnedXp) : null;
@@ -1639,6 +2007,9 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   // Any part that earned XP ends on the board. While it is still loading the
   // step stays ahead, so the learner waits for it instead of skipping it.
   const rankingAhead = !skipBoard && !xpPending && earnedXp > 0 && (boardPending || climb != null);
+  const classmatesPending = classmates === undefined;
+  const classmatesShow = classmates != null && classmates.total > 0 && classmateDoneCaption(classmates) != null;
+  const classmatesAhead = expectsClassmates && (classmatesPending || classmatesShow);
   const rankingGone = stage === "ranking" && !boardPending && climb == null && !classAhead;
   const classesGone = stage === "classes" && !classesPending && classClimb == null;
 
@@ -1656,11 +2027,44 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   }, [rankingGone, classesGone, stage, boardPending, climb, classAhead, onContinue]);
 
   const following: Stage[] = [];
+  if (classmatesAhead) following.push("classmates");
   if (streakAhead) following.push("streak");
   if (askPush && streakAhead) following.push("notify");
   if (questsAhead) following.push("quests");
   if (rankingAhead) following.push("ranking");
   if (classAhead) following.push("classes");
+  const sequenceKey = following.join(",");
+
+  // A classmate row that comes back empty is skipped. The next step is
+  // whichever celebration still follows the part card.
+  useEffect(() => {
+    if (leftRef.current || stage !== "classmates" || classmates === undefined) return;
+    if (classmates && classmates.total > 0) return;
+    const steps = sequenceKey
+      .split(",")
+      .filter((item): item is Stage => item !== "" && item !== "classmates");
+    const nextStage = steps[0];
+    if (nextStage === "streak") {
+      const step = streakStep ?? takeStreakCelebration();
+      if (!step) {
+        const after = steps[1];
+        if (after) {
+          setStage(after);
+          return;
+        }
+        leftRef.current = true;
+        onContinue();
+        return;
+      }
+      setStreakStep(step);
+    }
+    if (nextStage) {
+      setStage(nextStage);
+      return;
+    }
+    leftRef.current = true;
+    onContinue();
+  }, [stage, classmates, sequenceKey, streakStep, onContinue]);
   const next = following[following.indexOf(stage) + 1];
   const last = next == null;
 
@@ -1701,6 +2105,11 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
 
   if (stage === "quests" && questUpdate) {
     return <QuestStepView update={questUpdate} totalXp={totalXp ?? null} {...shared} />;
+  }
+
+  if (stage === "classmates") {
+    if (!classmatesShow || !classmates) return <XpLoader label="Đang xem lớp" />;
+    return <ClassmateFinishStepView finish={classmates} youFinished={sideFinished} {...shared} />;
   }
 
   if (stage === "ranking") {

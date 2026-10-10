@@ -1,28 +1,34 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Fredoka, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { auth } from "@/auth";
 import { colors } from "@/lib/tokens";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+// Files in src/assets/fonts. next/font/google downloads at build time, and a
+// Google Fonts URL with "&" in it makes Turbopack fail the production build.
+const plusJakartaSans = localFont({
+  src: "../assets/fonts/PlusJakartaSans-latin-vietnamese.woff2",
   variable: "--font-plus-jakarta-sans",
-  subsets: ["latin", "vietnamese"],
-  weight: ["500", "600", "700", "800"],
+  weight: "200 800",
   display: "swap",
 });
 
-const beVietnamPro = Be_Vietnam_Pro({
+const beVietnamPro = localFont({
+  src: [
+    { path: "../assets/fonts/BeVietnamPro-latin-vietnamese-400.woff2", weight: "400", style: "normal" },
+    { path: "../assets/fonts/BeVietnamPro-latin-vietnamese-500.woff2", weight: "500", style: "normal" },
+    { path: "../assets/fonts/BeVietnamPro-latin-vietnamese-600.woff2", weight: "600", style: "normal" },
+    { path: "../assets/fonts/BeVietnamPro-latin-vietnamese-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-be-vietnam-pro",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const fredoka = Fredoka({
+const fredoka = localFont({
+  src: "../assets/fonts/Fredoka-Bold.ttf",
   variable: "--font-fredoka",
-  subsets: ["latin"],
   weight: "700",
   display: "swap",
 });

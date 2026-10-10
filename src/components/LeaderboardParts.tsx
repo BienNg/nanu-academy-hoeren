@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { classmatePathCaption, type ClassmateFace, type ClassmateFinish } from "@/lib/progress";
 import { shortWeekday } from "@/lib/xp";
 
 const AVATAR_COLORS = ["#0284c7", "#0369a1", "#0f766e", "#b45309", "#7c3aed", "#be123c"];
@@ -53,6 +54,44 @@ export function PersonAvatar({
     >
       {initialFor(name)}
     </span>
+  );
+}
+
+export function ClassmateFaces({
+  people,
+  size = 28,
+  ringClassName,
+}: {
+  people: readonly ClassmateFace[];
+  size?: number;
+  ringClassName: string;
+}) {
+  return (
+    <span className="flex shrink-0" aria-hidden="true">
+      {people.map((person, index) => (
+        <span
+          key={`${person.name}-${index}`}
+          className={index === 0 ? "relative" : "relative -ml-2"}
+          style={{ zIndex: people.length - index }}
+        >
+          <span className={`block rounded-full ring-2 ${ringClassName}`}>
+            <PersonAvatar name={person.name} image={person.image} size={size} />
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Faces plus the short line used on a lesson start card. */
+export function ClassmateFinishLine({ finish }: { finish: ClassmateFinish }) {
+  const caption = classmatePathCaption(finish);
+  if (!caption) return null;
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <ClassmateFaces people={finish.people} size={28} ringClassName="ring-[var(--path-accent)]" />
+      <p className="min-w-0 text-left text-[13px] font-extrabold leading-4 text-white">{caption}</p>
+    </div>
   );
 }
 

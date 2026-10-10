@@ -800,6 +800,9 @@ export function StudySession({
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
           continueLabel="Về bài học"
+          lessonKey={chapterProgressKey}
+          finishSide="study"
+          sideFinished={studyFinished}
           onContinue={() => router.push(pathHref)}
           secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
           onSecondary={openedFinishedLesson ? beginReview : undefined}

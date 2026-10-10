@@ -26,6 +26,15 @@ import {
   type LeaderboardRow,
   type LessonClip,
 } from "./xp.js";
+import {
+  classmateDoneCaption,
+  classmateFinishFromStamps,
+  classmateJoinCaption,
+  classmatePathCaption,
+  finishedAgoLabel,
+  lessonFinishStamp,
+  readClassmateFinish,
+} from "./progress.js";
 const NOW = new Date("2026-09-27T13:00:00.000Z");
 
 function clips(count: number, script = "Hallo"): LessonClip[] {
@@ -640,4 +649,76 @@ test("a display name keeps letters and drops links", () => {
   assert.equal(parseDisplayName("lan@mail.com"), null);
   assert.equal(parseDisplayName("https://x.test"), null);
   assert.equal(parseDisplayName("ok!"), null);
+});
+
+test("classmate finishes name the newest first", () => {
+  const learn = {
+    "lektion-1": { studyCompletedAt: "2026-10-06T03:00:00.000Z", completedAt: "2026-09-01T00:00:00.000Z" },
+  };
+  assert.equal(lessonFinishStamp(learn, "lektion-1", "study"), "2026-10-06T03:00:00.000Z");
+  assert.equal(lessonFinishStamp(learn, "lektion-1", "practice"), "2026-09-01T00:00:00.000Z");
+  assert.equal(lessonFinishStamp(learn, "lektion-2", "study"), null);
+
+  const finish = classmateFinishFromStamps([
+    { name: "An", image: null, finishedAt: "2026-10-06T01:00:00.000Z" },
+    { name: "Mai", image: null, finishedAt: "2026-10-07T01:00:00.000Z" },
+    { name: "Linh", image: null, finishedAt: "2026-10-06T12:00:00.000Z" },
+    { name: "Hà", image: null, finishedAt: "2026-10-05T20:00:00.000Z" },
+    { name: "Bình", image: null, finishedAt: "2026-10-05T18:00:00.000Z" },
+    { name: "Chi", image: null, finishedAt: "2026-10-05T12:00:00.000Z" },
+  ]);
+  assert.equal(finish.total, 6);
+  assert.deepEqual(
+    finish.people.map((person) => person.name),
+    ["Mai", "Linh", "An", "Hà", "Bình"],
+  );
+  assert.equal(classmatePathCaption(finish), "6 bạn đã xong");
+  assert.equal(classmateDoneCaption(finish), "Mai, Linh và 4 bạn nữa vừa xong bài này.");
+  assert.equal(
+    classmatePathCaption(classmateFinishFromStamps([{ name: "Mai", image: null, finishedAt: "2026-10-06T01:00:00.000Z" }])),
+    "Mai đã xong",
+  );
+  assert.equal(
+    classmateDoneCaption(
+      classmateFinishFromStamps([
+        { name: "Mai", image: null, finishedAt: "2026-10-07T01:00:00.000Z" },
+        { name: "Linh", image: null, finishedAt: "2026-10-06T01:00:00.000Z" },
+      ]),
+    ),
+    "Mai và Linh vừa xong bài này.",
+  );
+});
+
+test("classmate step counts you in and dates each finish", () => {
+  const now = Date.parse("2026-10-07T03:00:00.000Z");
+  const finish = classmateFinishFromStamps([
+    { name: "Mai", image: null, finishedAt: "2026-10-07T02:55:00.000Z" },
+    { name: "Linh", image: null, finishedAt: "2026-10-06T23:00:00.000Z" },
+  ]);
+  assert.equal(finish.people[0]?.finishedAt, "2026-10-07T02:55:00.000Z");
+  assert.equal(classmateJoinCaption(finish, true), "Bạn và 2 bạn cùng lớp đã xong bài này.");
+  assert.equal(classmateJoinCaption(finish, false), "2 bạn cùng lớp đã xong bài này.");
+  assert.equal(
+    classmateJoinCaption(
+      classmateFinishFromStamps([{ name: "Mai", image: null, finishedAt: "2026-10-07T01:00:00.000Z" }]),
+      true,
+    ),
+    "Bạn và Mai đã xong bài này.",
+  );
+
+  assert.equal(finishedAgoLabel("2026-10-07T02:59:40.000Z", now), "Vừa xong");
+  assert.equal(finishedAgoLabel("2026-10-07T02:55:00.000Z", now), "5 phút trước");
+  assert.equal(finishedAgoLabel("2026-10-06T23:00:00.000Z", now), "4 giờ trước");
+  assert.equal(finishedAgoLabel("2026-10-05T01:00:00.000Z", now), "2 ngày trước");
+  assert.equal(finishedAgoLabel(undefined, now), null);
+
+  const read = readClassmateFinish({
+    total: 2,
+    people: [
+      { name: "Mai", image: null, finishedAt: "2026-10-07T02:55:00.000Z" },
+      { name: "Linh", image: null, finishedAt: "not a date" },
+    ],
+  });
+  assert.equal(read?.people[0]?.finishedAt, "2026-10-07T02:55:00.000Z");
+  assert.equal(read?.people[1]?.finishedAt, undefined);
 });

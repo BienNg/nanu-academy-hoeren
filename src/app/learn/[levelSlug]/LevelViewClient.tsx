@@ -7,6 +7,7 @@ import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { TodayXpChip } from "@/components/TodayXpChip";
+import { ClassmateFinishLine } from "@/components/LeaderboardParts";
 import { ChillPingu, PATH_POSES, ReadingPingu, type PathPose } from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
@@ -25,6 +26,9 @@ import {
   nextListeningPart,
   nextNodePart,
   nextStudyPart,
+  readClassmateFinish,
+  type ClassmateFinish,
+  type LessonFinishSide,
   type LessonPathNode,
   type NextPart,
   type StoredProgress,
@@ -265,6 +269,8 @@ type TrailNode = {
   secondary: string | null;
   /** Start card shown before the page opens. Null keeps a direct link. */
   start: StartOffer | null;
+  /** Which first-pass stamp this node's start card looks up. Grammar and video stay null. */
+  finishSide: LessonFinishSide | null;
   label: string;
 };
 
@@ -406,6 +412,7 @@ function lessonTrailNodes(
     primary: video.title,
     secondary: video.titleVi || null,
     start: null,
+    finishSide: null,
     label: [
       video.title,
       video.titleVi || null,
@@ -433,6 +440,7 @@ function lessonTrailNodes(
         primary: null,
         secondary: null,
         start: startFor(activity.id),
+        finishSide: null,
         label: [study ? "Ngữ pháp" : "Luyện ngữ pháp", partProgress].filter(Boolean).join(", "),
       };
     }
@@ -443,6 +451,7 @@ function lessonTrailNodes(
       ? [`Study${numbered}`, partProgress].filter(Boolean).join(", ")
       : [`Luyện tập${numbered}`, partProgress].filter(Boolean).join(", ");
     const page = isStudy ? "study" : "practice";
+    const finishSide: LessonFinishSide = page;
     return {
       key: activity.id,
       icon: isStudy ? "menu_book" : "fitness_center",
@@ -455,6 +464,7 @@ function lessonTrailNodes(
       primary: null,
       secondary: null,
       start: startFor(activity.id),
+      finishSide,
       label,
     };
   });
@@ -922,13 +932,67 @@ function lockedBubbleShift(anchor: HTMLElement): number {
   return left - idealLeft;
 }
 
+export function LessonStartCard({
+  title,
+  exercise,
+  detail,
+  xp,
+  classmates,
+  href,
+  onStart,
+  arrowShift = 0,
+}: {
+  title: string;
+  exercise: string;
+  detail: string;
+  xp: number | null;
+  classmates: ClassmateFinish | null;
+  href?: string;
+  onStart?: () => void;
+  /** Moves the tail back onto the node when the card itself is shifted. */
+  arrowShift?: number;
+}) {
+  const label = xp === null ? "BẮT ĐẦU" : `BẮT ĐẦU  +${xp} XP`;
+  const buttonClass =
+    "mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[var(--path-accent)] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5";
+  return (
+    <>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 12"
+        className="absolute -top-[11px] h-3 w-6 -translate-x-1/2"
+        style={{ left: `calc(50% - ${arrowShift}px)` }}
+      >
+        <path d="M1.2 12 L12 1.2 L22.8 12 Z" style={{ fill: "var(--path-accent)" }} />
+      </svg>
+      <div className="rounded-2xl bg-[var(--path-accent)] px-4 pt-3.5 pb-3.5 text-white">
+        <p className="text-[17px] font-extrabold leading-6">{title}</p>
+        <p className="mt-1 text-[15px] font-bold leading-5 text-white/80">{exercise}</p>
+        <p className="text-[15px] font-bold leading-5 text-white/80">{detail}</p>
+        {classmates ? <ClassmateFinishLine finish={classmates} /> : null}
+        {href ? (
+          <Link href={href} className={buttonClass}>
+            {label}
+          </Link>
+        ) : (
+          <button type="button" onClick={onStart} className={buttonClass}>
+            {label}
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
 function StartNodeBubble({
   offer,
+  classmates,
   shift,
   bubbleId,
   reduceMotion,
 }: {
   offer: StartOffer;
+  classmates: ClassmateFinish | null;
   shift: number;
   bubbleId: string;
   reduceMotion: boolean;
@@ -953,24 +1017,16 @@ function StartNodeBubble({
       }}
       className="absolute top-[calc(100%+8px)] left-1/2 z-30 w-[min(18.5rem,calc(100vw-2rem))]"
     >
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 12"
-        className="absolute -top-[11px] h-3 w-6 -translate-x-1/2"
-        style={{ left: `calc(50% - ${shift}px)` }}
-      >
-        <path d="M1.2 12 L12 1.2 L22.8 12 Z" style={{ fill: "var(--path-accent)" }} />
-      </svg>
-      <div className="rounded-2xl bg-[var(--path-accent)] px-4 pt-3.5 pb-3.5 text-white">
-        <p className="text-[17px] font-extrabold leading-6">{offer.title}</p>
-        <p className="mt-1 text-[15px] font-bold leading-5 text-white/80">{offer.exercise}</p>
-        <p className="text-[15px] font-bold leading-5 text-white/80">{offer.detail}</p>
-        <Link
+      <div className="relative w-full">
+        <LessonStartCard
+          title={offer.title}
+          exercise={offer.exercise}
+          detail={offer.detail}
+          xp={offer.xp}
+          classmates={classmates}
           href={offer.href}
-          className="mt-3 flex h-12 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold tracking-[0.08em] text-[var(--path-accent)] shadow-[0_4px_0_0_#dbe7f0] transition-transform active:translate-y-0.5"
-        >
-          {offer.xp === null ? "BẮT ĐẦU" : `BẮT ĐẦU  +${offer.xp} XP`}
-        </Link>
+          arrowShift={shift}
+        />
       </div>
     </motion.div>
   );
@@ -1039,6 +1095,7 @@ function LockedNodeBubble({
 
 function PathStop({
   node,
+  classmates,
   locked,
   lockedMessage,
   guideLabel,
@@ -1048,6 +1105,7 @@ function PathStop({
   reduceMotion,
 }: {
   node: TrailNode;
+  classmates: ClassmateFinish | null;
   locked: boolean;
   lockedMessage?: string;
   guideLabel?: "Bắt đầu" | "Học tiếp" | null;
@@ -1132,14 +1190,14 @@ function PathStop({
   useEffect(() => {
     if (!bubbleOpen || shift == null || !rootRef.current) return;
     const rect = rootRef.current.getBoundingClientRect();
-    const bubbleBottom = rect.bottom + 168;
+    const bubbleBottom = rect.bottom + (classmates ? 220 : 168);
     const limit = window.innerHeight - 96;
     if (bubbleBottom <= limit) return;
     window.scrollBy({
       top: bubbleBottom - limit,
       behavior: reduceMotion ? "auto" : "smooth",
     });
-  }, [bubbleOpen, shift, reduceMotion]);
+  }, [bubbleOpen, classmates, shift, reduceMotion]);
 
   if (!locked && node.start) {
     return (
@@ -1158,6 +1216,7 @@ function PathStop({
           {bubbleOpen && shift != null ? (
             <StartNodeBubble
               offer={node.start}
+              classmates={classmates}
               shift={shift}
               bubbleId={bubbleId}
               reduceMotion={reduceMotion}
@@ -1469,6 +1528,9 @@ export default function LevelViewClient({
   const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
   const [vocabListOpened, setVocabListOpened] = useState<boolean | null>(null);
   const [lockedBubbleId, setLockedBubbleId] = useState<string | null>(null);
+  const [classmateLessons, setClassmateLessons] = useState<
+    Record<string, { study?: ClassmateFinish; practice?: ClassmateFinish }>
+  >({});
   const [returnSlug, setReturnSlug] = useState<string | null>(null);
   const [focusReady, setFocusReady] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -1499,6 +1561,32 @@ export default function LevelViewClient({
     recordOnboarding,
   } = useProgress();
   const onboardingWanted = onboarding && !onboardingFinishedThisSession;
+
+  useEffect(() => {
+    if (accessLocked || (path.theme ?? "level") !== "level") return;
+    let cancelled = false;
+    void fetch(`/api/classmates?level=${encodeURIComponent(level.slug)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { ready?: boolean; lessons?: unknown } | null) => {
+        if (cancelled || !data?.ready || !data.lessons || typeof data.lessons !== "object") return;
+        const lessons: Record<string, { study?: ClassmateFinish; practice?: ClassmateFinish }> = {};
+        for (const [key, entry] of Object.entries(data.lessons as Record<string, unknown>)) {
+          if (!entry || typeof entry !== "object") continue;
+          const record = entry as { study?: unknown; practice?: unknown };
+          const study = readClassmateFinish(record.study);
+          const practice = readClassmateFinish(record.practice);
+          if (!study && !practice) continue;
+          lessons[key] = { ...(study ? { study } : {}), ...(practice ? { practice } : {}) };
+        }
+        setClassmateLessons(lessons);
+      })
+      .catch(() => {
+        // The path still works. The start card just has no faces.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessLocked, level.slug, path.theme]);
 
   useEffect(() => {
     if (!userId) return;
@@ -2225,6 +2313,11 @@ export default function LevelViewClient({
                           ) : null}
                           <PathStop
                             node={node}
+                            classmates={
+                              node.finishSide
+                                ? (classmateLessons[chapterKey]?.[node.finishSide] ?? null)
+                                : null
+                            }
                             locked={locked}
                             lockedMessage={accessLocked ? COURSE_ACCESS_LOCK : undefined}
                             guideLabel={guideLabel}
