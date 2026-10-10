@@ -76,9 +76,9 @@ test("messages use the address instead of the name", () => {
   assert.equal(outreachAddress(null), "em");
   assert.equal(outreachAddress("Ngọc"), "em");
   assert.equal(outreachAddress("chi"), "chị");
-  assert.match(outreachMessage1("preaccess", "em") ?? "", /^Ê em ơi!/);
+  assert.match(outreachMessage1("preaccess", "em") ?? "", /^em ơi!/);
   const heavy = outreachMessage1("heavy", "anh") ?? "";
-  assert.match(heavy, /^Ê anh ơi!/);
+  assert.match(heavy, /^anh ơi!/);
   assert.match(heavy, /Anh thấy app sao/);
   assert.match(heavy, /NaNu Go/);
   assert.doesNotMatch(heavy, /(?<![\p{L}])em(?![\p{L}])/u);
@@ -290,7 +290,7 @@ test("tin 2 comes before the quiet check-in, and mới is not a job", () => {
 
 test("the question catalog follows the group and opens on the current job", () => {
   const heavy = outreachCatalog("heavy", "chú");
-  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^Ê chú ơi!/);
+  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^chú ơi!/);
   assert.ok(heavy.some((item) => item.category === "like"));
   assert.equal(heavy.find((item) => item.id === "fit-disappointed")?.message?.includes("rất tiếc"), true);
   assert.ok(heavy.some((item) => item.id === "wish-main"));

@@ -199,13 +199,14 @@ function Reveal({ children, delay = 0, className }: { children: ReactNode; delay
 /* Shared pieces                                                       */
 /* ------------------------------------------------------------------ */
 
-/** A stat tile whose number counts up. `value` null prints a dash. */
+/** A stat tile whose number counts up. `value` null prints a dash. `tip` is how the number is worked out, shown on hover. */
 function MetricTile({
   icon,
   label,
   value,
   format,
   caption,
+  tip,
   color,
   children,
 }: {
@@ -214,9 +215,11 @@ function MetricTile({
   value: number | null;
   format: (value: number) => string;
   caption: ReactNode;
+  tip?: string;
   color: string;
   children?: ReactNode;
 }) {
+  const tipId = useId();
   return (
     <article className={`${CARD} flex flex-col gap-space-12 p-space-16 transition-colors duration-200 hover:border-admin-border 2xl:p-space-20`}>
       <div className="flex items-center gap-space-8">
@@ -227,7 +230,28 @@ function MetricTile({
         {value == null ? "—" : <CountUp value={value} format={format} />}
       </p>
       {children}
-      <p className="text-admin-body-sm text-admin-ink-subtle">{caption}</p>
+      <p className="relative text-admin-body-sm text-admin-ink-subtle">
+        {caption}
+        {tip ? (
+          <span className="group/tip">
+            <button
+              type="button"
+              aria-label="How this is calculated"
+              aria-describedby={tipId}
+              className="relative -top-px ml-0.5 inline-flex size-[13px] items-center justify-center align-middle p-0 leading-none text-admin-ink-faint transition-colors hover:text-admin-ink-muted focus-visible:text-admin-ink focus-visible:outline-none focus-visible:shadow-admin-focus"
+            >
+              <MaterialIcon name="info" className="text-[13px]! leading-none" />
+            </button>
+            <span
+              id={tipId}
+              role="tooltip"
+              className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 z-30 hidden w-max max-w-[280px] rounded-admin-control bg-admin-ink px-space-12 py-space-8 text-left text-[12px] font-medium normal-case leading-[1.35] tracking-normal text-white shadow-admin-pop group-hover/tip:block group-focus-within/tip:block"
+            >
+              {tip}
+            </span>
+          </span>
+        ) : null}
+      </p>
     </article>
   );
 }
@@ -962,6 +986,42 @@ function PaceTable({
   );
 }
 
+function paceRatioSays(ratio: number | null): string {
+  if (ratio == null) return "No student has work due on the schedule yet.";
+  if (ratio >= 1.005) return "The typical student is ahead of the schedule.";
+  if (ratio >= 0.995) return "The typical student is in sync with the schedule.";
+  const share = Math.round(ratio * 100);
+  if (share === 50) return "The typical student has done about half the work the schedule expected.";
+  return `The typical student has done about ${share}% of the work the schedule expected.`;
+}
+
+function partsBehindSays(students: number, medianParts: number | null): string {
+  if (students <= 0) return "Every course student is caught up with the schedule.";
+  const parts = Math.round(medianParts ?? 0);
+  const gap = parts === 1 ? "1 part" : `${formatCount(parts)} parts`;
+  if (students === 1) return `1 student is behind the schedule, by ${gap}.`;
+  return `${formatCount(students)} students are behind the schedule, typically by ${gap}.`;
+}
+
+function daysBehindSays(days: number | null): string {
+  if (days == null) return "Nobody is behind the schedule.";
+  return `A student who's behind is typically about ${formatDays(Math.round(days * 10) / 10)} of work short.`;
+}
+
+function catchUpSays(caught: number, stillBehind: number): string {
+  const measured = caught + stillBehind;
+  if (measured === 0) return "No fall-behind is old enough to tell yet.";
+  if (caught === 0) {
+    return `None of the ${plural(measured, "time")} a student fell behind ended back on schedule within a week.`;
+  }
+  if (caught === measured) {
+    return measured === 1
+      ? "The one time a student fell behind, they were back on schedule within a week."
+      : `Every time a student fell behind (${formatCount(measured)}), they were back on schedule within a week.`;
+  }
+  return `${formatCount(caught)} of the ${formatCount(measured)} times a student fell behind, they were back on schedule within a week.`;
+}
+
 function PaceSection({
   pace,
   trendDays,
@@ -994,7 +1054,8 @@ function PaceSection({
           value={pace.medianRatio}
           format={(value) => formatRatio(value)}
           color={ratioColor(pace.medianRatio)}
-          caption={`Median of done ÷ expected. 1.00× is in sync, 0.50× is half the pace.`}
+          caption={paceRatioSays(pace.medianRatio)}
+          tip="The middle student's finished course parts, divided by the parts the schedule expected by the end of yesterday. 1.00× is in sync, 0.50× is half the pace. Students with nothing expected yet are left out."
         />
         <MetricTile
           icon="playlist_remove"
@@ -1002,11 +1063,8 @@ function PaceSection({
           value={pace.totalBehind}
           format={(value) => formatCount(Math.round(value))}
           color={pace.totalBehind > 0 ? ALERT : PACE}
-          caption={
-            pace.behindStudents > 0
-              ? `${plural(pace.behindStudents, "student")} behind · median ${formatCount(Math.round(pace.medianBehind ?? 0))} parts each`
-              : "Nobody owes the schedule a part."
-          }
+          caption={partsBehindSays(pace.behindStudents, pace.medianBehind)}
+          tip="The number adds up every part students still owe the schedule. The line counts students who owe at least one part, and the middle size of those gaps."
         />
         <MetricTile
           icon="event_busy"
@@ -1014,7 +1072,8 @@ function PaceSection({
           value={pace.medianDaysBehind}
           format={(value) => formatDays(Math.round(value * 10) / 10)}
           color={ADMIN_COLORS.amber}
-          caption={`Median among students behind. Parts behind ÷ ${PACE_PARTS_PER_DAY}, the number to tell a student.`}
+          caption={daysBehindSays(pace.medianDaysBehind)}
+          tip={`The middle of parts behind ÷ ${PACE_PARTS_PER_DAY}, only among students who are behind. The schedule is ${PACE_PARTS_PER_DAY} parts a day, so this is how many days of work to tell a student.`}
         />
         <MetricTile
           icon="restore"
@@ -1022,11 +1081,8 @@ function PaceSection({
           value={pace.catchUp.rate == null ? null : pace.catchUp.rate * 100}
           format={(value) => `${Math.round(value)}%`}
           color={PACE}
-          caption={
-            pace.catchUp.caught + pace.catchUp.stillBehind > 0
-              ? `${formatCount(pace.catchUp.caught)} of ${formatCount(pace.catchUp.caught + pace.catchUp.stillBehind)} fall-behinds were back in sync within ${CATCH_UP_DAYS} days.`
-              : `Needs a fall-behind at least ${CATCH_UP_DAYS} days old.`
-          }
+          caption={catchUpSays(pace.catchUp.caught, pace.catchUp.stillBehind)}
+          tip={`Each time a student fell a full day behind in the last ${pace.catchUp.lookbackDays} days: were they back within a day of the schedule within ${CATCH_UP_DAYS} days? Falls still inside those ${CATCH_UP_DAYS} days are left out.`}
         />
       </Reveal>
 
