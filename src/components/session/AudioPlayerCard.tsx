@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Howl } from "howler";
+import turtleIcon from "./slow-turtle.png";
 import {
   createClipHowl,
-  formatPlaybackRate,
-  nextPlaybackRate,
+  NORMAL_PLAYBACK_RATE,
   resolveAudioUrl,
+  SLOW_PLAYBACK_RATE,
   type PlaybackRate,
 } from "@/lib/audio";
 import {
@@ -51,6 +52,29 @@ function MaterialIcon({
   );
 }
 
+function TurtleIcon({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`block bg-current ${className ?? ""}`}
+      style={{
+        aspectRatio: `${turtleIcon.width} / ${turtleIcon.height}`,
+        maskImage: `url("${turtleIcon.src}")`,
+        WebkitMaskImage: `url("${turtleIcon.src}")`,
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+        maskPosition: "center",
+        WebkitMaskPosition: "center",
+        maskSize: "contain",
+        WebkitMaskSize: "contain",
+      }}
+    />
+  );
+}
+
+const SLOW_BUTTON =
+  "flex h-12 shrink-0 items-center justify-center rounded-full bg-[#0066cc] px-3 text-white shadow-[0_4px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-1 active:shadow-none [@media(max-height:760px)]:h-10 [@media(max-height:760px)]:px-2.5 [@media(max-height:760px)]:shadow-[0_3px_0_#004c99] [@media(max-height:760px)]:active:translate-y-[3px]";
+
 /** Ctrl+Space is Duolingo's replay key; Ctrl+Enter covers macOS, where Ctrl+Space switches input source. */
 const REPLAY_KEYS = "Control+Space Control+Enter Space";
 
@@ -78,7 +102,7 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
 
   const [visualState, setVisualState] =
     useState<AudioPlayerVisualState>("idle");
-  const [rate, setRate] = useState<PlaybackRate>(1);
+  const [rate, setRate] = useState<PlaybackRate>(NORMAL_PLAYBACK_RATE);
 
   const getBars = useCallback(
     () =>
@@ -172,6 +196,19 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
     howlRef.current?.rate(rate);
   }, [rate]);
 
+  const playAt = (nextRate: PlaybackRate, fromStart: boolean) => {
+    const howl = howlRef.current;
+    if (!howl) return;
+
+    setRate(nextRate);
+    howl.rate(nextRate);
+    if (fromStart || visualState === "finished") {
+      howl.seek(0);
+      resetWaveformIdle(getBars());
+    }
+    if (!howl.playing()) howl.play();
+  };
+
   const handlePlayPause = () => {
     const howl = howlRef.current;
     if (!howl) return;
@@ -181,12 +218,19 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
       return;
     }
 
-    if (visualState === "finished") {
-      howl.seek(0);
-      resetWaveformIdle(getBars());
+    playAt(NORMAL_PLAYBACK_RATE, false);
+  };
+
+  const handleSlowPlay = () => {
+    const howl = howlRef.current;
+    if (!howl) return;
+
+    if (visualState === "playing" && rate === SLOW_PLAYBACK_RATE) {
+      howl.pause();
+      return;
     }
 
-    howl.play();
+    playAt(SLOW_PLAYBACK_RATE, true);
   };
 
   const onReplayKey = useEffectEvent(handlePlayPause);
@@ -202,11 +246,8 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
-  const handleSpeedToggle = () => {
-    setRate((current) => nextPlaybackRate(current));
-  };
-
   const isPlaying = visualState === "playing";
+  const slowPlaying = isPlaying && rate === SLOW_PLAYBACK_RATE;
 
   return (
     <section className="mt-2 flex flex-col items-center gap-3 [@media(max-height:760px)]:mt-1 [@media(max-height:760px)]:gap-2">
@@ -230,14 +271,17 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
         ))}
       </button>
 
-      <div className="relative flex w-full items-center justify-center">
+      <div className="flex items-center justify-center gap-3">
+        <span className={`invisible ${SLOW_BUTTON}`} aria-hidden="true">
+          <TurtleIcon className="h-6 w-auto [@media(max-height:760px)]:h-5" />
+        </span>
         <button
           type="button"
           aria-label={isPlaying ? "Tạm dừng âm thanh" : "Phát âm thanh"}
           aria-keyshortcuts={REPLAY_KEYS}
           title="Space · Ctrl+Space"
           onClick={handlePlayPause}
-          className={`flex h-[76px] w-[76px] select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:w-14 [@media(max-height:760px)]:shadow-[0_4px_0_#004c99] [@media(max-height:760px)]:active:translate-y-[4px] ${FOCUS_RING}`}
+          className={`flex h-[76px] w-[76px] shrink-0 select-none items-center justify-center rounded-full bg-[#0066cc] text-white shadow-[0_6px_0_#004c99] transition-[translate,box-shadow,filter] duration-100 hover:brightness-110 active:translate-y-[6px] active:shadow-none [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:w-14 [@media(max-height:760px)]:shadow-[0_4px_0_#004c99] [@media(max-height:760px)]:active:translate-y-[4px] ${FOCUS_RING}`}
         >
           <MaterialIcon
             name={isPlaying ? "pause" : "play_arrow"}
@@ -247,11 +291,13 @@ export function AudioPlayerCard({ audioPath }: AudioPlayerCardProps) {
         </button>
         <button
           type="button"
-          aria-label="Đổi tốc độ phát"
-          onClick={handleSpeedToggle}
-          className={`absolute right-0 flex h-11 min-w-[56px] select-none items-center justify-center rounded-2xl border-2 border-[#e5e5ea] bg-white px-3 text-[13px] font-extrabold text-[#86868b] shadow-[0_3px_0_#e5e5ea] transition-[translate,box-shadow] duration-100 active:translate-y-[3px] active:shadow-none ${FOCUS_RING}`}
+          aria-label={slowPlaying ? "Tạm dừng phát chậm" : "Phát chậm"}
+          aria-pressed={slowPlaying}
+          title="Phát ở 60% tốc độ"
+          onClick={handleSlowPlay}
+          className={`select-none ${SLOW_BUTTON} ${FOCUS_RING}`}
         >
-          {formatPlaybackRate(rate)}
+          <TurtleIcon className="h-6 w-auto [@media(max-height:760px)]:h-5" />
         </button>
       </div>
     </section>

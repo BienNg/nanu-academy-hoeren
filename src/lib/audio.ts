@@ -6,18 +6,11 @@ export function resolveAudioUrl(audioPath: string): string {
   return `/audio/${normalized}`;
 }
 
-export type PlaybackRate = 1 | 0.8 | 0.6;
+export const NORMAL_PLAYBACK_RATE = 1 as const;
+/** Turtle button: the same clip, played at 60% speed. */
+export const SLOW_PLAYBACK_RATE = 0.6 as const;
 
-export const PLAYBACK_RATES: PlaybackRate[] = [1, 0.8, 0.6];
-
-export function nextPlaybackRate(current: PlaybackRate): PlaybackRate {
-  const index = PLAYBACK_RATES.indexOf(current);
-  return PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length] ?? 1;
-}
-
-export function formatPlaybackRate(rate: PlaybackRate): string {
-  return `${rate.toFixed(1)}x`;
-}
+export type PlaybackRate = typeof NORMAL_PLAYBACK_RATE | typeof SLOW_PLAYBACK_RATE;
 
 export function formatAudioTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) {
