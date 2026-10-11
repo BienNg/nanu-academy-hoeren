@@ -2450,7 +2450,7 @@ export default function LevelViewClient({
           </div>
         </motion.div>
         {activeBanner ? (
-          <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-30 -mx-4 bg-[#fbfbfd] px-4 pt-3 sm:-mx-6 sm:px-6">
+          <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-30">
             <LessonStickyBanner
               kicker={activeBanner.kicker}
               title={activeBanner.title}
