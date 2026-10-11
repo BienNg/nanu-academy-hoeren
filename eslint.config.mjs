@@ -24,6 +24,8 @@ const eslintConfig = defineConfig([
     // Compiled test output and vendored design prototypes.
     ".test-dist/**",
     "design-reference/**",
+    // Remotion promo video, a separate package.
+    "promo-video/**",
   ]),
 ]);
 

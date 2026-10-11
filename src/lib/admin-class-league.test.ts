@@ -167,24 +167,57 @@ test("week results rank classes and name each class's top 3, without staff", () 
     ],
   );
   assert.deepEqual(results.classes[1]!.champions, [
-    { name: "A1", xp: 300, image: "https://lh3.googleusercontent.com/a/a1=s96-c" },
-    { name: "A2", xp: 200, image: null },
+    { name: "A1", xp: 300, image: "https://lh3.googleusercontent.com/a/a1=s96-c", newClips: 0 },
+    { name: "A2", xp: 200, image: null, newClips: 0 },
   ]);
   assert.deepEqual(results.classes[3]!.champions, []);
   // Participants are everyone with XP, best first, so a learner with 0 XP is left out.
-  assert.deepEqual(results.classes[0]!.participants, [{ name: "B1", xp: 900 }]);
+  assert.deepEqual(results.classes[0]!.participants, [{ name: "B1", xp: 900, newClips: 0 }]);
   assert.deepEqual(results.classes[1]!.participants, [
-    { name: "A1", xp: 300 },
-    { name: "A2", xp: 200 },
+    { name: "A1", xp: 300, newClips: 0 },
+    { name: "A2", xp: 200, newClips: 0 },
   ]);
   assert.deepEqual(results.classes[2]!.participants, [
-    { name: "C1", xp: 100 },
-    { name: "C2", xp: 40 },
+    { name: "C1", xp: 100, newClips: 0 },
+    { name: "C2", xp: 40, newClips: 0 },
   ]);
   assert.deepEqual(results.classes[3]!.participants, []);
+  assert.equal(results.classes[0]!.newClips, 0);
   assert.equal(results.rankedClasses, 3);
   assert.equal(results.older, "2026-09-21");
   assert.equal(results.newer, null);
+});
+
+test("new words and sentences follow the learner onto the class and its podium", () => {
+  const results = buildAdminWeekResults({
+    ...resultsFixture(),
+    newClips: new Map([
+      ["a1", 12],
+      ["a2", 6],
+      ["b1", 30],
+      ["c2", 4],
+      ["staff", 99],
+    ]),
+  });
+  assert.equal(results.classes[0]!.newClips, 30);
+  assert.equal(results.classes[0]!.champions[0]!.newClips, 30);
+  assert.equal(results.classes[1]!.newClips, 18);
+  assert.deepEqual(
+    results.classes[1]!.participants.map((person) => [person.name, person.newClips]),
+    [
+      ["A1", 12],
+      ["A2", 6],
+    ],
+  );
+  assert.equal(results.classes[2]!.newClips, 4);
+  assert.equal(results.classes[2]!.participants[0]!.newClips, 0);
+  assert.equal(results.classes[3]!.newClips, 0);
+  assert.match(results.classes[0]!.message, /🥇 B1 – 900 XP · học 30 từ\/câu/);
+  assert.match(
+    results.classes[1]!.message,
+    /🥇 A1 – 300 XP · học 12 từ\/câu\n🥈 A2 – 200 XP · học 6 từ\/câu/,
+  );
+  assert.match(results.classes[2]!.message, /🥇 C1 – 100 XP · học 0 từ\/câu\n🥈 C2 – 40 XP · học 4 từ\/câu/);
 });
 
 test("most active needs 3 learners", () => {
@@ -201,8 +234,7 @@ test("class posts celebrate the podium and the champion, without quests", () => 
   // Fewer than 5 classes took part, so the total is left out.
   assert.match(a!.message, /^🎉 Tuần 28\.09 – 04\.10 lớp mình về hạng 2 với 500 XP!/);
   assert.match(a!.message, /huy hiệu "Lớp trên bục"/);
-  assert.match(a!.message, /🌟 Quán quân tuần của lớp: A1 – 300 XP/);
-  assert.match(a!.message, /🥈 A2\n/);
+  assert.match(a!.message, /🥇 A1 – 300 XP · học 0 từ\/câu\n🥈 A2 – 200 XP · học 0 từ\/câu\n/);
   assert.match(a!.message, /Cảm ơn 2 bạn đã cùng luyện tập/);
   assert.ok(a!.message.endsWith("Tuần mới đã bắt đầu – cả lớp cùng cố gắng nhé! 💪"));
   assert.doesNotMatch(d!.message, /Quán quân|hạng/);

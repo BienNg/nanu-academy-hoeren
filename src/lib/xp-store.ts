@@ -109,6 +109,17 @@ type XpLessonClip = {
  * The lesson's clips with every field that changes how many cards a clip
  * becomes, so the part size checked here matches the one the browser dealt.
  */
+/**
+ * Clips in one study part, from the lesson catalog. Zero when the lesson or
+ * part is not in the catalog. The first finish of that part is the new words
+ * and sentences the learner mastered.
+ */
+export function studyPartClipCount(lessonKey: string, partNumber: number): number {
+  const clips = lessonClipsForXp(lessonKey);
+  if (clips.length === 0 || partNumber < 1) return 0;
+  return splitStudyParts(clips)[partNumber - 1]?.length ?? 0;
+}
+
 function lessonClipsForXp(lessonKey: string): XpLessonClip[] {
   const living = getLivingClipsForLessonKey(lessonKey);
   if (living) {

@@ -307,7 +307,7 @@ function PathGlance({
         <h2 className="text-admin-label-sm uppercase text-admin-ink-subtle">Whole path</h2>
         <p className="text-admin-body-sm text-admin-ink-subtle">Students on each Lektion</p>
       </div>
-      <ol className="flex items-end gap-0.5 overflow-x-auto">
+      <ol className="flex items-end gap-0.5 overflow-x-auto overflow-y-hidden">
         {path.lessons.map((lesson, index) => {
           const count = counts[index] ?? 0;
           const occupied = lesson.nodes

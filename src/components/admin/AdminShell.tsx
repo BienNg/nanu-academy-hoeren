@@ -29,6 +29,31 @@ const RAIL_EXPANDED = "16.25rem";
 const RAIL_COLLAPSED = "4.5rem";
 const RAIL_STORAGE_KEY = "nanu-admin-rail-collapsed";
 
+let pageScrollLocks = 0;
+let pageScrollOverflow = "";
+
+/**
+ * Hide document scrolling while an overlay is open. Locks stack, so closing
+ * the menu while a drawer is still up (or the other way around) does not
+ * leave the page stuck.
+ */
+export function lockPageScroll(): () => void {
+  if (pageScrollLocks === 0) {
+    pageScrollOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  pageScrollLocks += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    pageScrollLocks = Math.max(0, pageScrollLocks - 1);
+    if (pageScrollLocks === 0) {
+      document.body.style.overflow = pageScrollOverflow;
+    }
+  };
+}
+
 type PickedAdminRange = { pathname: string; range: AdminRange };
 
 const AdminRangeContext = createContext<{
@@ -687,11 +712,10 @@ export function AdminShell({
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockPageScroll();
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
     };
   }, [open]);
 

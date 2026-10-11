@@ -26,8 +26,8 @@ import {
 import { isAdminUser } from "@/lib/admins";
 import { getSupabaseAdmin, getUserClassName } from "@/lib/progress-store";
 import { isQuestSchemaMissing } from "@/lib/quest-store";
-import { classLearners, dayKey, leaderboardClassKey, weekEndsAt, weekKey } from "@/lib/xp";
-import { listClassLearners, listLearnerClassOptions, readWeekBoardPeople } from "@/lib/xp-store";
+import { STUDY_FIRST_PART_XP, classLearners, dayKey, leaderboardClassKey, weekEndsAt, weekKey } from "@/lib/xp";
+import { listClassLearners, listLearnerClassOptions, readWeekBoardPeople, studyPartClipCount } from "@/lib/xp-store";
 
 const CLAIMS_TABLE = "quest_claims";
 const XP_TABLE = "xp_awards";
@@ -424,18 +424,60 @@ async function readAdminClassPodiums(
   );
 }
 
+/**
+ * Clips in study parts each learner finished for the first time that week.
+ * A first finish pays `STUDY_FIRST_PART_XP`; a later pass of the same part does not.
+ * Null when those rows cannot be read.
+ */
+async function readNewStudyClips(
+  supabase: SupabaseClient,
+  userIds: readonly string[],
+  week: string,
+): Promise<Map<string, number> | null> {
+  const counts = new Map<string, number>();
+  const seen = new Set<string>();
+  for (const ids of chunks(userIds)) {
+    const rows = await readAll((from, to) =>
+      supabase
+        .from(STUDY_XP_TABLE)
+        .select("id, user_id, lesson_key, part_number")
+        .eq("week_key", week)
+        .eq("xp", STUDY_FIRST_PART_XP)
+        .in("user_id", ids)
+        .order("id")
+        .range(from, to),
+    );
+    if (!rows) {
+      console.error("Supabase new study clips", "study XP unreadable");
+      return null;
+    }
+    for (const row of rows as { user_id?: unknown; lesson_key?: unknown; part_number?: unknown }[]) {
+      if (typeof row.user_id !== "string" || typeof row.lesson_key !== "string" || typeof row.part_number !== "number") {
+        continue;
+      }
+      const key = `${row.user_id}\0${row.lesson_key}\0${row.part_number}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const clips = studyPartClipCount(row.lesson_key, row.part_number);
+      if (clips <= 0) continue;
+      counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + clips);
+    }
+  }
+  return counts;
+}
+
 /** A finished week's winners and class posts. Null when that week's XP or activity is unreadable. */
 export async function readAdminWeekResults(week: string, now = new Date()): Promise<AdminWeekResults | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
   const people = await readWeekBoardPeople(dateInWeek(week));
   if (!people) return null;
-  const activity = await readClassActivity(
-    supabase,
-    classLearners(people).map((person) => person.userId),
-    week,
-  );
-  return activity ? buildAdminWeekResults({ week, people, activity, now }) : null;
+  const userIds = classLearners(people).map((person) => person.userId);
+  const [activity, newClips] = await Promise.all([
+    readClassActivity(supabase, userIds, week),
+    readNewStudyClips(supabase, userIds, week),
+  ]);
+  return activity && newClips ? buildAdminWeekResults({ week, people, activity, newClips, now }) : null;
 }
 
 /**

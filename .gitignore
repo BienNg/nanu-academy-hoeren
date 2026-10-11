@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local design mockups
 /design-reference
+
+# Remotion promo video — a separate local package, not part of the app.
+/promo-video

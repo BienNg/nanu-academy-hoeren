@@ -7,7 +7,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
-import { MaterialIcon } from "@/components/admin/AdminShell";
+import { lockPageScroll, MaterialIcon } from "@/components/admin/AdminShell";
 import { ADMIN_COLORS, type AdminDomain } from "@/lib/admin-tokens";
 
 /**
@@ -624,7 +624,7 @@ export function ScopeChips({
   tone?: AdminDomain;
 }) {
   return (
-    <div className="-mx-space-16 flex items-center gap-space-8 overflow-x-auto px-space-16 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+    <div className="-mx-space-16 flex items-center gap-space-8 overflow-x-auto overflow-y-hidden px-space-16 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       <span className="flex shrink-0 items-center gap-space-4 text-admin-label-sm uppercase text-admin-ink-subtle">
         <MaterialIcon name={icon} className="text-[16px]" />
         {label}
@@ -1021,8 +1021,7 @@ function useOverlay(open: boolean, onClose: () => void) {
   useEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockPageScroll();
     panelRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCloseRef.current();
@@ -1030,7 +1029,7 @@ function useOverlay(open: boolean, onClose: () => void) {
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       previousFocus?.focus?.();
     };
   }, [open]);

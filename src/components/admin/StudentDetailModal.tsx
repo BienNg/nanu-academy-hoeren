@@ -14,7 +14,13 @@ import {
   setAdminUserLivingAccess,
 } from "@/app/admin/actions";
 import { workplaceFromAccessSlug } from "@/lib/living-content";
-import { MaterialIcon, StaffBadge, TeacherBadge, useAdminRole } from "@/components/admin/AdminShell";
+import {
+  lockPageScroll,
+  MaterialIcon,
+  StaffBadge,
+  TeacherBadge,
+  useAdminRole,
+} from "@/components/admin/AdminShell";
 import { Badge, Button, Dialog, buttonClass } from "@/components/admin/AdminUi";
 import { AccountTab } from "@/components/admin/student-detail/AccountTab";
 import { ActivityTab, InstalledAppBadge, PwaPromptList } from "@/components/admin/student-detail/ActivityTab";
@@ -268,11 +274,10 @@ export function StudentDetailModal({
       onClose();
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockPageScroll();
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
     };
   }, [
     clearingHistory,

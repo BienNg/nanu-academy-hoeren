@@ -40,6 +40,11 @@ export type AdminWeekChampion = {
   xp: number;
   /** Google profile photo, or null when this learner has none. */
   image: string | null;
+  /**
+   * Words and sentences in study parts this learner finished for the first
+   * time that week. A later pass of the same part does not count.
+   */
+  newClips: number;
 };
 
 export type AdminWeekClassResult = {
@@ -54,7 +59,9 @@ export type AdminWeekClassResult = {
   /** The class's top 3 learners by week XP, best first, in board order. */
   champions: AdminWeekChampion[];
   /** Every learner who earned XP that week, best first. The class league card shows the first 3. */
-  participants: { name: string; xp: number }[];
+  participants: { name: string; xp: number; newClips: number }[];
+  /** Words and sentences the class finished in a study part for the first time that week. */
+  newClips: number;
   /** Post for the class's own group chat. */
   message: string;
 };
@@ -237,11 +244,13 @@ function classResultMessage(
       ? [head, `Các bạn đã góp XP nhận huy hiệu "${row.rank === 1 ? "Lớp vô địch" : "Lớp trên bục"}" 🎖️`]
       : [head],
   ];
-  const [champion, ...rest] = row.champions;
-  if (champion) {
-    const lines = [`🌟 Quán quân tuần của lớp: ${champion.name} – ${viCount(champion.xp)} XP 👏`];
-    if (rest.length > 0) lines.push(rest.map((entry, index) => `${MEDALS[index + 1]} ${entry.name}`).join(" · "));
-    blocks.push(lines);
+  if (row.champions.length > 0) {
+    blocks.push(
+      row.champions.map(
+        (entry, index) =>
+          `${MEDALS[index]} ${entry.name} – ${viCount(entry.xp)} XP · học ${viCount(entry.newClips)} từ/câu`,
+      ),
+    );
   }
   if (row.activeLearners > 0) blocks.push([`Cảm ơn ${row.activeLearners} bạn đã cùng luyện tập! ❤️`]);
   blocks.push(["Tuần mới đã bắt đầu – cả lớp cùng cố gắng nhé! 💪"]);
@@ -286,6 +295,11 @@ export function buildAdminWeekResults(input: {
   people: readonly BoardPerson[];
   /** That week's activity of every learner in a class. */
   activity: readonly ClassActivity[];
+  /**
+   * Clips in study parts each learner finished for the first time that week.
+   * Missing learners count as zero.
+   */
+  newClips?: ReadonlyMap<string, number>;
   now: Date;
 }): AdminWeekResults {
   const learners = classLearners(input.people);
@@ -296,7 +310,13 @@ export function buildAdminWeekResults(input: {
   for (const place of classPodiums(learners)) {
     const list = champions.get(place.classKey) ?? [];
     const person = byId.get(place.userId);
-    list.push({ rank: place.rank, name: person?.name ?? place.userId, xp: place.xp, image: person?.image ?? null });
+    list.push({
+      rank: place.rank,
+      name: person?.name ?? place.userId,
+      xp: place.xp,
+      image: person?.image ?? null,
+      newClips: Math.max(0, input.newClips?.get(place.userId) ?? 0),
+    });
     champions.set(place.classKey, list);
   }
   const rosters = new Map<string, string[]>();
@@ -315,7 +335,9 @@ export function buildAdminWeekResults(input: {
       .flatMap((id) => {
         const person = byId.get(id);
         const xp = person ? Math.max(0, person.xp) : 0;
-        return person && xp > 0 ? [{ name: person.name, xp }] : [];
+        return person && xp > 0
+          ? [{ name: person.name, xp, newClips: Math.max(0, input.newClips?.get(id) ?? 0) }]
+          : [];
       })
       .sort(
         (left, right) => right.xp - left.xp || left.name.localeCompare(right.name, "vi", { sensitivity: "base" }),
@@ -329,8 +351,9 @@ export function buildAdminWeekResults(input: {
       activeLearners: new Set(activity.filter((entry) => entry.kind !== "duel").map((entry) => entry.userId)).size,
       champions: (champions.get(classKey) ?? [])
         .sort((left, right) => left.rank - right.rank)
-        .map(({ name, xp, image }) => ({ name, xp, image })),
+        .map(({ name, xp, image, newClips }) => ({ name, xp, image, newClips })),
       participants,
+      newClips: ids.reduce((sum, id) => sum + Math.max(0, input.newClips?.get(id) ?? 0), 0),
     };
     return { ...row, message: classResultMessage(row, { weekLabel, ranked: standings.size }) };
   });

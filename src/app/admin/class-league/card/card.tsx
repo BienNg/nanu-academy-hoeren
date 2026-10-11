@@ -22,6 +22,8 @@ const NAME_MAX = 26;
 export type PodiumPlace = {
   name: string;
   stat: string;
+  /** Words this student first learned that week, under the XP line. Absent on the class podium. */
+  detail?: string;
   /** A data URI. Null draws `initials` instead. */
   imageSrc: string | null;
   initials: string;
@@ -40,6 +42,11 @@ export type LeagueCardContent = {
 
 function viCount(value: number): string {
   return value.toLocaleString("vi-VN");
+}
+
+/** "học 12 từ/câu". A study clip is one new word or sentence. */
+function learnedLabel(count: number): string {
+  return `học ${viCount(count)} từ/câu`;
 }
 
 function shortName(name: string, max = NAME_MAX): string {
@@ -66,13 +73,14 @@ export function classCardContent(
     weekLabel: resultWeekLabel(results.week),
     kicker: `Quán quân tuần · ${leagueClassLabel(row.name)}`,
     headline: champion ? shortName(champion.name) : "Chưa có quán quân",
-    chips: champion ? [`${viCount(champion.xp)} XP`] : [],
+    chips: champion ? [`${viCount(champion.xp)} XP`, learnedLabel(champion.newClips)] : [],
     places: [0, 1, 2].map((index) => {
       const place = row.champions[index];
       return place
         ? {
             name: shortName(place.name),
             stat: `${viCount(place.xp)} XP`,
+            detail: learnedLabel(place.newClips),
             imageSrc: photos[index] ?? null,
             initials: initialOf(place.name),
             people: [],
@@ -181,7 +189,15 @@ function PlacePeople({ people, height }: { people: { name: string; xp: number }[
   );
 }
 
-function PodiumColumn({ place, index }: { place: PodiumPlace | null; index: 0 | 1 | 2 }) {
+function PodiumColumn({
+  place,
+  index,
+  showDetail,
+}: {
+  place: PodiumPlace | null;
+  index: 0 | 1 | 2;
+  showDetail: boolean;
+}) {
   const column = COLUMN[index];
   const color = MEDAL[index];
   return (
@@ -217,8 +233,13 @@ function PodiumColumn({ place, index }: { place: PodiumPlace | null; index: 0 | 
       >
         {place ? place.name : ""}
       </div>
-      <div style={{ display: "flex", height: 48, fontSize: 36, fontWeight: 700, opacity: 0.85 }}>
-        {place ? place.stat : ""}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", height: showDetail ? 92 : 48 }}>
+        <div style={{ display: "flex", height: 48, fontSize: 36, fontWeight: 700, opacity: 0.85 }}>
+          {place ? place.stat : ""}
+        </div>
+        {showDetail ? (
+          <div style={{ display: "flex", height: 40, fontSize: 28, fontWeight: 800 }}>{place?.detail ?? ""}</div>
+        ) : null}
       </div>
       <div
         style={{
@@ -272,6 +293,7 @@ function Chip({ children }: { children: ReactNode }) {
 }
 
 export function LeagueCard({ content }: { content: LeagueCardContent }) {
+  const showDetail = content.places.some((place) => place?.detail);
   return (
     <div
       style={{
@@ -337,9 +359,9 @@ export function LeagueCard({ content }: { content: LeagueCardContent }) {
       </div>
 
       <div style={{ display: "flex", flex: 1, alignItems: "flex-end", justifyContent: "center", gap: 6 }}>
-        <PodiumColumn place={content.places[1] ?? null} index={1} />
-        <PodiumColumn place={content.places[0] ?? null} index={0} />
-        <PodiumColumn place={content.places[2] ?? null} index={2} />
+        <PodiumColumn place={content.places[1] ?? null} index={1} showDetail={showDetail} />
+        <PodiumColumn place={content.places[0] ?? null} index={0} showDetail={showDetail} />
+        <PodiumColumn place={content.places[2] ?? null} index={2} showDetail={showDetail} />
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", marginTop: 36 }}>
