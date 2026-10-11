@@ -92,6 +92,7 @@ export function AppMark({
         width: size,
         height: size,
         flexShrink: 0,
+        overflow: "hidden",
         borderRadius: rounded ? 32 * scale : 0,
         background: BLUE,
         ...(shadow ? { boxShadow: `0 ${8 * scale}px 0 ${BLUE_EDGE}` } : {}),
