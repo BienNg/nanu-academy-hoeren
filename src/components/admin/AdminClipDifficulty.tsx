@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
+import { AdminClipBehavior } from "@/components/admin/AdminClipBehavior";
 import {
   CategoryCard,
   CountPill,
@@ -215,17 +216,70 @@ function Notice({ tone, children }: { tone: "error" | "info"; children: string }
   );
 }
 
+export type ClipDifficultyTab = "clips" | "behavior";
+
+const CLIP_TABS: readonly { key: ClipDifficultyTab; label: string; icon: string }[] = [
+  { key: "clips", label: "Clips", icon: "graphic_eq" },
+  { key: "behavior", label: "Behavior", icon: "psychology" },
+];
+
+/** Keeps `?tab=` in the address bar without a navigation. */
+function writeTabParam(tab: ClipDifficultyTab) {
+  const url = new URL(globalThis.location.href);
+  if (tab === "clips") url.searchParams.delete("tab");
+  else url.searchParams.set("tab", tab);
+  globalThis.history.replaceState(globalThis.history.state, "", `${url.pathname}${url.search}`);
+}
+
+function ClipTabs({ value, onSelect }: { value: ClipDifficultyTab; onSelect: (tab: ClipDifficultyTab) => void }) {
+  return (
+    <div role="tablist" aria-label="Clip difficulty views" className="flex gap-space-4 overflow-x-auto border-b border-admin-hairline">
+      {CLIP_TABS.map((tab) => {
+        const on = tab.key === value;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            id={`clips-tab-${tab.key}`}
+            aria-selected={on}
+            aria-controls="clips-tabpanel"
+            onClick={() => onSelect(tab.key)}
+            className={`relative inline-flex h-10 shrink-0 items-center gap-space-8 rounded-t-admin-control px-space-12 text-admin-body-md font-semibold outline-none transition-colors focus-visible:shadow-admin-focus ${
+              on ? "text-admin-cobalt" : "text-admin-ink-muted hover:text-admin-ink"
+            }`}
+          >
+            <MaterialIcon name={tab.icon} className="text-[18px]" filled={on} />
+            {tab.label}
+            {on ? <span className="absolute inset-x-space-8 -bottom-px h-0.5 rounded-full bg-admin-cobalt" /> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AdminClipDifficulty({
   catalog,
   rows,
   status,
   storeConfigured,
+  tab: serverTab,
+  cohortId,
 }: {
   catalog: readonly AdminCatalogCourse[];
   rows: readonly ClipOutcomeTotal[];
   status: ListeningReadStatus;
   storeConfigured: boolean;
+  tab: ClipDifficultyTab;
+  /** `?cohort=` for the Behavior tab. */
+  cohortId: string | null;
 }) {
+  const [tab, setTab] = useState<ClipDifficultyTab>(serverTab);
+  const selectTab = (next: ClipDifficultyTab) => {
+    setTab(next);
+    writeTabParam(next);
+  };
   const board = useMemo(() => buildAdminClipDifficultyBoard(rows), [rows]);
   const ranked = useMemo(() => rankClipOutcomes(rows), [rows]);
   const [query, setQuery] = useState("");
@@ -355,11 +409,24 @@ export function AdminClipDifficulty({
       <AdminPageHeader
         kicker="Learning"
         title="Practice clip difficulty"
-        subtitle="All-time misses and passes from finished practice parts. A miss that is later corrected counts on both sides."
+        subtitle={
+          tab === "clips"
+            ? "All-time misses and passes from finished practice parts. A miss that is later corrected counts on both sides."
+            : "How students behave on each practice part: accuracy, retries, drop-off, time, and pace. Compare parts with their neighbours."
+        }
         trailing={
           <HeaderChip icon="all_inclusive">All-time totals</HeaderChip>
         }
       />
+
+      <ClipTabs value={tab} onSelect={selectTab} />
+
+      {tab === "behavior" ? (
+        <div role="tabpanel" id="clips-tabpanel" aria-labelledby="clips-tab-behavior">
+          <AdminClipBehavior catalog={catalog} initialCohortId={cohortId} />
+        </div>
+      ) : (
+      <div role="tabpanel" id="clips-tabpanel" aria-labelledby="clips-tab-clips" className="flex flex-col gap-space-24">
 
       {!storeConfigured ? (
         <Notice tone="error">Cloud progress is not configured. Clip results live in Supabase.</Notice>
@@ -697,6 +764,8 @@ export function AdminClipDifficulty({
           </div>
         </TablePanel>
       </section>
+      </div>
+      )}
     </main>
   );
 }

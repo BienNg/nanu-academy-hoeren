@@ -39,6 +39,8 @@ import {
   clipResultsForCardDeck,
   missedAttempt,
   submitListeningRun,
+  submitPartLeft,
+  submitPartStart,
   type MissedAnswers,
   type MissedAttempt,
 } from "@/lib/listening-runs";
@@ -149,6 +151,8 @@ export function LearnSession({
   const completingRef = useRef(false);
   const failedRef = useRef(false);
   const partStartedAtRef = useRef(0);
+  /** Sent when the part opens and reused as the run id, so admin stats can see who left. */
+  const partAttemptIdRef = useRef<string | null>(null);
   const missedClipIdsRef = useRef(new Set<string>());
   const missedKindsRef = useRef(new Map<string, Set<CardKind>>());
   const missedAnswersRef = useRef(new Map<string, MissedAnswers>());
@@ -228,6 +232,14 @@ export function LearnSession({
   const practicePartKeysKey = practicePartKeys.join("\n");
   const clipKey = clips.map((clip) => `${clip.id}\t${clip.script}`).join("\n");
 
+  /** Logs the opened part for the admin difficulty stats and returns its attempt id. */
+  const logPartStart = (playPart: number, lessonParts: number, cardCount: number): string | null => {
+    if (status !== "authenticated" || cardCount <= 0 || lessonParts < playPart) return null;
+    const id = crypto.randomUUID();
+    submitPartStart({ id, lessonKey, partNumber: playPart, partCount: lessonParts, cardCount });
+    return id;
+  };
+
   // One part per visit. Ordered on the first pass, shuffled once per review run.
   // Clip progress is written only when the part ends, so leaving early restarts it.
   useEffect(() => {
@@ -302,6 +314,7 @@ export function LearnSession({
 
       initializedSourceRef.current = signature;
       partStartedAtRef.current = Date.now();
+      partAttemptIdRef.current = logPartStart(playPart, practiceNode.lessonPartCount, nextPartCards.length);
       committedRef.current = false;
       completingRef.current = false;
       leftRecordedRef.current = false;
@@ -392,8 +405,11 @@ export function LearnSession({
     ].join("~");
     if (initializedSourceRef.current === signature) return;
 
+    const nextPartClips = parts[partIndex] ?? [];
+    const nextPartCards = dealPracticePart(nextPartClips, clips);
     initializedSourceRef.current = signature;
     partStartedAtRef.current = Date.now();
+    partAttemptIdRef.current = logPartStart(partNumber, listeningPartCount, nextPartCards.length);
     leftRecordedRef.current = false;
     missedClipIdsRef.current = new Set();
     missedKindsRef.current = new Map();
@@ -406,9 +422,8 @@ export function LearnSession({
     setBreakingIndex(null);
     setCombo(0);
     setQuitOpen(false);
-    const nextPartClips = parts[partIndex] ?? [];
     setPartClips(nextPartClips);
-    setPartCards(dealPracticePart(nextPartClips, clips));
+    setPartCards(nextPartCards);
     setPartNumber(partNumber);
     setPartCount(listeningPartCount);
     setClipIndex(0);
@@ -471,6 +486,7 @@ export function LearnSession({
     clipsDone: 0,
     clipCount: 0,
     startedAt: 0,
+    attemptId: null as string | null,
   });
   useLayoutEffect(() => {
     leaveStateRef.current = {
@@ -487,6 +503,7 @@ export function LearnSession({
       clipsDone,
       clipCount: progressTotal,
       startedAt: partStartedAtRef.current,
+      attemptId: partAttemptIdRef.current,
     };
   });
   const recordLeftSessionRef = useRef(recordLeftSession);
@@ -506,6 +523,7 @@ export function LearnSession({
       clipCount: state.clipCount,
       startedAt: new Date(state.startedAt).toISOString(),
     });
+    if (state.attemptId) submitPartLeft({ id: state.attemptId, cardsDone: state.clipsDone });
   };
   const noteLeftSessionRef = useRef(noteLeftSession);
   useLayoutEffect(() => {
@@ -712,6 +730,7 @@ export function LearnSession({
     const accuracy = answered === 0 ? 0 : Math.round((firstTry / answered) * 100);
     const elapsedMs = startedAt > 0 ? Date.now() - startedAt : 0;
     const run = buildListeningRunRecord({
+      id: partAttemptIdRef.current ?? undefined,
       lessonKey,
       partNumber,
       partCount,

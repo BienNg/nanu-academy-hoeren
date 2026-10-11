@@ -35,6 +35,55 @@ export type LearningWindow = {
   loadedAt: string;
 };
 
+/**
+ * Packs finished study parts and ended practice parts into a `LearningWindow`.
+ * Users and lessons are sent once each and events point at them.
+ */
+export function encodeLearningWindow(
+  study: readonly { userId: string; lessonKey: string; partNumber: number; at: string }[],
+  practice: readonly { userId: string; lessonKey: string; partNumber: number; passed: boolean; at: string }[],
+  loadedAt = new Date().toISOString(),
+): LearningWindow {
+  const users: string[] = [];
+  const userIndex = new Map<string, number>();
+  const lessons: string[] = [];
+  const lessonIndex = new Map<string, number>();
+  const indexOf = (list: string[], index: Map<string, number>, value: string) => {
+    let found = index.get(value);
+    if (found === undefined) {
+      found = list.length;
+      list.push(value);
+      index.set(value, found);
+    }
+    return found;
+  };
+  const events: number[] = [];
+  const push = (userId: string, lessonKey: string, partNumber: number, at: string, code: number) => {
+    const ms = Date.parse(at);
+    if (Number.isNaN(ms)) return;
+    events.push(
+      indexOf(users, userIndex, userId),
+      Math.floor(ms / 60_000),
+      indexOf(lessons, lessonIndex, lessonKey),
+      partNumber,
+      code,
+    );
+  };
+  for (const event of study) {
+    push(event.userId, event.lessonKey, event.partNumber, event.at, LEARNING_STUDY_FINISHED);
+  }
+  for (const event of practice) {
+    push(
+      event.userId,
+      event.lessonKey,
+      event.partNumber,
+      event.at,
+      event.passed ? LEARNING_PRACTICE_PASSED : LEARNING_PRACTICE_FAILED,
+    );
+  }
+  return { ready: true, users, lessons, events, loadedAt };
+}
+
 /** The live course expects this many parts a day. */
 export const PACE_PARTS_PER_DAY = 4;
 /** On pace means averaging the daily pace over this many days. */

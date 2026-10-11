@@ -85,6 +85,8 @@
     "src/lib/admin-learning.ts",
     "src/lib/admin-learning.test.ts",
     "src/lib/push-reminder.ts",
-    "src/lib/push-reminder.test.ts"
+    "src/lib/push-reminder.test.ts",
+    "src/lib/part-difficulty.ts",
+    "src/lib/part-difficulty.test.ts"
   ]
 }

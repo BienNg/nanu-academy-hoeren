@@ -17,12 +17,7 @@ import {
   type AdminRange,
 } from "@/lib/admin-overview";
 import type { AdminQuestClaimRow } from "@/lib/admin-quests";
-import {
-  LEARNING_PRACTICE_FAILED,
-  LEARNING_PRACTICE_PASSED,
-  LEARNING_STUDY_FINISHED,
-  type LearningWindow,
-} from "@/lib/admin-learning";
+import { encodeLearningWindow, type LearningWindow } from "@/lib/admin-learning";
 import { requireAdmin, requireDashboard } from "@/lib/auth-guard";
 import {
   countAdminPracticeParts,
@@ -200,51 +195,7 @@ export async function loadLearningWindow(): Promise<LearningWindow> {
   ]);
   if (!study.ready && !practice.ready) return empty;
 
-  const users: string[] = [];
-  const userIndex = new Map<string, number>();
-  const lessons: string[] = [];
-  const lessonIndex = new Map<string, number>();
-  const indexOf = (list: string[], index: Map<string, number>, value: string) => {
-    let found = index.get(value);
-    if (found === undefined) {
-      found = list.length;
-      list.push(value);
-      index.set(value, found);
-    }
-    return found;
-  };
-  const events: number[] = [];
-  const push = (
-    userId: string,
-    lessonKey: string,
-    partNumber: number,
-    at: string,
-    code: number,
-  ) => {
-    const ms = Date.parse(at);
-    if (Number.isNaN(ms)) return;
-    events.push(
-      indexOf(users, userIndex, userId),
-      Math.floor(ms / 60_000),
-      indexOf(lessons, lessonIndex, lessonKey),
-      partNumber,
-      code,
-    );
-  };
-  for (const event of study.events) {
-    push(event.userId, event.lessonKey, event.partNumber, event.at, LEARNING_STUDY_FINISHED);
-  }
-  for (const event of practice.events) {
-    push(
-      event.userId,
-      event.lessonKey,
-      event.partNumber,
-      event.at,
-      event.passed ? LEARNING_PRACTICE_PASSED : LEARNING_PRACTICE_FAILED,
-    );
-  }
-
-  return { ready: true, users, lessons, events, loadedAt: new Date().toISOString() };
+  return encodeLearningWindow(study.events, practice.events);
 }
 
 /** Listening XP, duel XP, and quest claims for the XP tab. */

@@ -355,6 +355,8 @@ export function parseListeningRunInput(value: unknown): ListeningRunInput | null
 }
 
 export function buildListeningRunRecord(input: {
+  /** The id sent when the part opened, so the start and the run match. */
+  id?: string;
   lessonKey: string;
   partNumber: number;
   partCount: number;
@@ -378,7 +380,7 @@ export function buildListeningRunRecord(input: {
       input.clipIndex,
     );
   return parseListeningRunInput({
-    id: crypto.randomUUID(),
+    id: input.id ?? crypto.randomUUID(),
     lessonKey: input.lessonKey,
     partNumber: input.partNumber,
     partCount: input.partCount,
@@ -433,6 +435,39 @@ export async function submitListeningRun(
     console.error("Listening run was not saved", error);
     return null;
   }
+}
+
+/**
+ * Logs that a practice part opened. The run saved when it ends reuses `id`,
+ * so a start with no run is a part the learner left. Fire and forget.
+ */
+export function submitPartStart(input: {
+  id: string;
+  lessonKey: string;
+  partNumber: number;
+  partCount: number;
+  cardCount: number;
+}): void {
+  void fetch("/api/runs/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    keepalive: true,
+  }).catch(() => {
+    // A missed start only hides one drop-off from the admin stats.
+  });
+}
+
+/** Stamps how far into the part the learner got before leaving. */
+export function submitPartLeft(input: { id: string; cardsDone: number }): void {
+  void fetch("/api/runs/left", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    keepalive: true,
+  }).catch(() => {
+    // The start still counts as left without the card count.
+  });
 }
 
 function readCount(value: unknown): number {

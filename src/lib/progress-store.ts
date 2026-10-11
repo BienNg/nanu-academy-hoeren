@@ -2783,6 +2783,33 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     table: "push_reminders",
     column: "user_id",
   },
+  {
+    id: "practice_part_starts",
+    label: "practice_part_starts",
+    sqlFile: "supabase/part_difficulty.sql",
+    severity: "warn",
+    kind: "table",
+    table: "practice_part_starts",
+    column: "id",
+  },
+  {
+    id: "difficulty_cohorts",
+    label: "difficulty_cohorts",
+    sqlFile: "supabase/part_difficulty.sql",
+    severity: "warn",
+    kind: "table",
+    table: "difficulty_cohorts",
+    column: "id",
+  },
+  {
+    id: "part_changes",
+    label: "part_changes",
+    sqlFile: "supabase/part_difficulty.sql",
+    severity: "warn",
+    kind: "table",
+    table: "part_changes",
+    column: "id",
+  },
 ];
 
 const loggedMissingRoutine = new Set<string>();

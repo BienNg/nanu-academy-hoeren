@@ -15,9 +15,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminClipDifficultyPage() {
+export default async function AdminClipDifficultyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   await connection();
   await requireAdmin();
+  const params = await searchParams;
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+  const tab = first(params.tab) === "behavior" ? "behavior" : "clips";
+  const cohort = first(params.cohort);
 
   const berufe = getAvailableBerufe();
   const tracks: AdminTrackColumn[] = berufe.map((beruf) => ({
@@ -38,6 +46,8 @@ export default async function AdminClipDifficultyPage() {
       rows={totals.rows}
       status={totals.status}
       storeConfigured={storeConfigured}
+      tab={tab}
+      cohortId={cohort && /^[0-9a-f-]{36}$/i.test(cohort) ? cohort : null}
     />
   );
 }
