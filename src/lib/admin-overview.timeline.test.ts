@@ -9,6 +9,7 @@ import {
   buildActiveUserTimeline,
   buildAdminActivityStats,
   buildAdminClientUsage,
+  buildAdminRosterTrend,
   buildOutreachPeople,
   filterOutreachPeople,
   formatRelativeLastSeen,
@@ -381,6 +382,37 @@ test("outreach splits pre-access, light use, and a recent burst", () => {
     lightOnly.map((person) => person.email),
     ["study@school.com"],
   );
+});
+
+test("class growth leaves G01 and Ausbildung off the line", () => {
+  const trend = buildAdminRosterTrend(
+    [
+      account("g128", "g128@school.com", withActivity(60)),
+      {
+        ...account("g01", "g01@school.com", withActivity(60)),
+        className: "G01",
+        lastLoginAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        ...account("trade", "trade@school.com", withActivity(60)),
+        className: "Ausbildung",
+        lastLoginAt: "2025-06-01T00:00:00.000Z",
+      },
+      {
+        ...account("g129", "g129@school.com", withActivity(60)),
+        className: "G129",
+        lastLoginAt: "2026-10-01T00:00:00.000Z",
+      },
+    ],
+    new Date("2026-10-02T06:00:00.000Z"),
+  );
+
+  const before = trend.find((point) => point.key === "2026-09-30");
+  const after = trend.find((point) => point.key === "2026-10-01");
+  assert.equal(before?.classes, 0);
+  assert.equal(after?.classes, 2);
+  assert.equal(before?.users, 2);
+  assert.equal(after?.users, 4);
 });
 
 test("class tabs list newest created class first", () => {

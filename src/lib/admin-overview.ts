@@ -241,12 +241,16 @@ export type AdminRosterPoint = {
   classes: number;
 };
 
+/** Internal groups. They stay on the roster, and stay out of class growth and outreach. */
+const INTERNAL_CLASS_KEYS = new Set(["g01", "ausbildung"]);
+
 /**
  * Running totals for the Students chart. Each point is how many accounts
  * and classes existed by that Vietnam day. An account counts from its
  * earliest sign-in or activity. A class counts from the earliest day one
- * of its current students was first seen. Accounts with no date stay in
- * the baseline so the last point matches the roster.
+ * of its current students was first seen. G01 and Ausbildung stay off the
+ * class line. Accounts with no date stay in the baseline so the last point
+ * matches the roster.
  */
 export function buildAdminRosterTrend(
   rows: readonly AdminUserRow[],
@@ -260,7 +264,7 @@ export function buildAdminRosterTrend(
 
   const classFirst = new Map<string, string | null>();
   for (const person of people) {
-    if (!person.className) continue;
+    if (!person.className || INTERNAL_CLASS_KEYS.has(person.className)) continue;
     const current = classFirst.get(person.className);
     if (current === undefined) {
       classFirst.set(person.className, person.day);
@@ -2559,12 +2563,9 @@ function outreachLabel(person: Pick<OutreachPerson, "name" | "email">): string {
   return person.name?.trim() || person.email?.trim() || "";
 }
 
-/** Internal classes. Outreach is for the later student groups only. */
-const OUTREACH_EXCLUDED_CLASSES = new Set(["g01", "ausbildung"]);
-
 function outreachSkipped(row: Pick<AdminUserRow, "isAdmin" | "staff" | "teacher" | "className">): boolean {
   if (row.isAdmin || row.staff || row.teacher) return true;
-  return OUTREACH_EXCLUDED_CLASSES.has(classKey(row.className));
+  return INTERNAL_CLASS_KEYS.has(classKey(row.className));
 }
 
 /** Signed-up learners plus pre-unlock emails that have not created an account. */
@@ -2610,7 +2611,7 @@ export function buildOutreachPeople(
   for (const grant of pending) {
     const email = normalizeGrantEmail(grant.email);
     if (!email || signedEmails.has(email)) continue;
-    if (OUTREACH_EXCLUDED_CLASSES.has(classKey(grant.className))) continue;
+    if (INTERNAL_CLASS_KEYS.has(classKey(grant.className))) continue;
     people.push({
       id: `pending:${email}`,
       category: "preaccess",

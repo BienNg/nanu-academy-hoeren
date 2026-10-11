@@ -1247,7 +1247,7 @@ export function AdminUsersDashboard({
             hint={`${
               rosterSeries === "users"
                 ? "Users by the day each account was first seen."
-                : "Classes by the day each one first appeared."
+                : "Classes by the day each one first appeared. G01 and Ausbildung are left out."
             } Days are Vietnam time.`}
             trailing={
               <Segmented
