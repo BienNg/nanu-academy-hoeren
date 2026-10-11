@@ -273,6 +273,7 @@ export function GrammarStudySession({
                   translation={<CueText cue={screen.cue} />}
                   chips={screen.bank}
                   locked={answered !== null}
+                  correct={answered?.correct === true}
                   onSubmit={answerTranslate}
                   afterPrompt={
                     screen.hints.length > 0 ? (

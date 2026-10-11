@@ -541,6 +541,7 @@ export function JumpSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
                 locked={scoreResult !== null}
+                correct={scoreResult?.accuracy === 100}
               />
             ) : currentCard.kind === "listening-order" ? (
               <SentenceOrderCard
@@ -548,6 +549,7 @@ export function JumpSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
                 locked={scoreResult !== null}
+                correct={scoreResult?.accuracy === 100}
                 afterPrompt={
                   <div className="mt-4">
                     <AudioPlayerCard

@@ -30,7 +30,8 @@ type McCardProps = {
 };
 
 function optionTone(isSelected: boolean, isCorrect: boolean, checked: boolean): string {
-  if (checked && isSelected && isCorrect) return "border-[#34C759] bg-[#34C759]/15 text-[#248a3d]";
+  if (checked && isSelected && isCorrect)
+    return "correct-hop border-[#34C759] bg-[#34C759]/15 text-[#248a3d]";
   if (checked && isSelected) return "border-[#ff3b30] bg-[#ff3b30]/10 text-[#c4261d]";
   if (checked && isCorrect) return "border-[#34C759] bg-white text-[#248a3d]";
   if (checked) return "border-[#e5e5e5] bg-white text-[#aeaeb2]";

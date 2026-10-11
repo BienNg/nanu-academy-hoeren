@@ -200,6 +200,11 @@ const LIP_7 = lipVariants(7);
 /**
  * Breathing ring on the current stop: a soft, heavy spring swells it in and
  * lets it out, with a short rest between breaths like a sleeping animal.
+ * Peak scale stays on this spring, so a bigger breath keeps the same tempo.
+ *
+ * Closest neighbors sit 12px apart (gap-3) and 21px sideways. Their ring
+ * centers are about 110px apart, each ring 48px to the outer stroke. 1.14
+ * leaves about 7px between those strokes at the peak.
  */
 const RING_PULSE = {
   type: "spring" as const,
@@ -210,6 +215,7 @@ const RING_PULSE = {
   repeatType: "mirror" as const,
   repeatDelay: 0.4,
 };
+const RING_PULSE_SCALE = 1.14;
 
 const MotionLink = motion.create(Link);
 
@@ -1163,7 +1169,7 @@ function PathCircle({
           className="pointer-events-none absolute"
           style={RING_PLACE}
           initial={{ scale: 1 }}
-          animate={{ scale: 1.06 }}
+          animate={{ scale: RING_PULSE_SCALE }}
           transition={RING_PULSE}
         >
           {progress}

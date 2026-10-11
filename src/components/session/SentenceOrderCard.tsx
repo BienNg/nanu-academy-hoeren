@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { WordChip } from "@/lib/sentence-order";
 import { CheckBar } from "@/components/session/FeedbackSheet";
@@ -20,6 +28,8 @@ type SentenceOrderCardProps = {
   onSubmit: (selected: string[]) => void;
   /** Checked: the answer stays visible but can no longer change. */
   locked?: boolean;
+  /** Checked and right: the answer chips turn green and hop in a wave. */
+  correct?: boolean;
   /** Sits between the prompt and the chips, such as the clip player. */
   afterPrompt?: ReactNode;
   /** Small label above the card. Defaults to sentence order. */
@@ -40,7 +50,9 @@ function MaterialIcon({ name, className }: { name: string; className?: string })
 }
 
 // Chips are 44px tall with an 8px gap, so answer rows repeat every 52px.
-const CHIP_CLASS = `flex h-11 items-center rounded-xl border border-black/[0.08] border-b-[3px] bg-white px-3.5 text-[17px] font-medium text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${FOCUS_RING}`;
+const CHIP_SHAPE = `flex h-11 items-center rounded-xl border border-b-[3px] px-3.5 text-[17px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${FOCUS_RING}`;
+const CHIP_CLASS = `${CHIP_SHAPE} border-black/[0.08] bg-white text-[#1d1d1f]`;
+const CORRECT_CHIP_CLASS = `${CHIP_SHAPE} correct-hop border-[#34C759] bg-[#e3f8e8] text-[#248a3d]`;
 const ANSWER_LINES =
   "repeating-linear-gradient(to bottom, transparent 0, transparent 48px, #e8e8ed 48px, #e8e8ed 50px, transparent 50px, transparent 52px)";
 
@@ -55,6 +67,7 @@ export function SentenceOrderCard({
   chips,
   onSubmit,
   locked = false,
+  correct = false,
   afterPrompt,
   eyebrow = "Sắp xếp câu · Satzbau",
   instruction = "Dịch câu này sang tiếng Đức",
@@ -183,7 +196,7 @@ export function SentenceOrderCard({
                 Chạm vào từ theo đúng thứ tự
               </span>
             ) : null}
-            {selected.map((chip) => (
+            {selected.map((chip, index) => (
               <motion.button
                 key={chip.id}
                 layoutId={chip.id}
@@ -191,7 +204,12 @@ export function SentenceOrderCard({
                 type="button"
                 disabled={locked}
                 onClick={(event) => unpick(chip.id, event)}
-                className={`${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`}
+                className={
+                  correct
+                    ? CORRECT_CHIP_CLASS
+                    : `${CHIP_CLASS} transition-colors hover:bg-[#f5f5f7] active:translate-y-[1px] active:border-b`
+                }
+                style={correct ? ({ "--hop-i": index } as CSSProperties) : undefined}
               >
                 {chip.text}
               </motion.button>

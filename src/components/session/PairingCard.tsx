@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 import { CheckBar } from "@/components/session/FeedbackSheet";
 import {
   digitLabel,
@@ -27,6 +27,15 @@ type PairingCardProps = {
 };
 
 const MISS_MS = 720;
+/** Lets the final pair's own hop land before the board-wide wave. */
+const FINALE_DELAY = "560ms";
+
+/** Stagger for a chip's hop: a match pops left then right, the finale runs down the rows. */
+function hopStyle(row: number, column: 0 | 1, solved: boolean): CSSProperties {
+  return solved
+    ? ({ "--hop-i": row + column, "--hop-base": FINALE_DELAY } as CSSProperties)
+    : ({ "--hop-i": column } as CSSProperties);
+}
 
 function shuffleOnce<T>(items: readonly T[]): T[] {
   const next = [...items];
@@ -37,10 +46,12 @@ function shuffleOnce<T>(items: readonly T[]): T[] {
   return next;
 }
 
-function chipClass(pending: boolean, matched: boolean, wrong: boolean): string {
+function chipClass(pending: boolean, matched: boolean, wrong: boolean, solved: boolean): string {
   const base = "border-b-[3px]";
   if (wrong) return `${base} pairing-miss border-[#ff3b30] bg-[#ff3b30]/10 text-[#ff3b30]`;
-  if (matched) return `${base} pairing-hit border-[#34C759] bg-[#34C759]/15 text-[#248a3d]`;
+  // A match hops on its own; the last match sends the whole board round once more.
+  const hop = solved ? "correct-hop-again" : "correct-hop";
+  if (matched) return `${base} ${hop} border-[#34C759] bg-[#34C759]/15 text-[#248a3d]`;
   if (pending) return `${base} border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]`;
   return `${base} border-black/[0.08] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]`;
 }
@@ -220,7 +231,8 @@ export function PairingCard({
                 }}
                 className={`relative min-h-11 rounded-xl border px-3 py-2.5 text-left text-[15px] font-medium motion-reduce:animate-none disabled:cursor-default disabled:opacity-100 ${
                   item.image ? "flex items-center justify-center py-1.5" : "md:pl-10"
-                } ${chipClass(pendingVi === item.id, matched, isWrong)} ${FOCUS_RING}`}
+                } ${chipClass(pendingVi === item.id, matched, isWrong, solved)} ${FOCUS_RING}`}
+                style={matched ? hopStyle(index, 0, solved) : undefined}
               >
                 {shortcut ? <ChipKey label={shortcut} /> : null}
                 {item.image ? (
@@ -259,7 +271,9 @@ export function PairingCard({
                   pendingDe === item.id,
                   matched,
                   isWrong,
+                  solved,
                 )} ${FOCUS_RING}`}
+                style={matched ? hopStyle(index, 1, solved) : undefined}
               >
                 {shortcut ? <ChipKey label={shortcut} /> : null}
                 {item.de}

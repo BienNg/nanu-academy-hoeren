@@ -332,6 +332,7 @@ export function GrammarPracticeSession({
               translation={card.from}
               chips={card.bank}
               locked={outcome !== null}
+              correct={outcome?.correct === true}
               onSubmit={(selected) => answer({ correct: checkGrammarOrder(selected, card.script).accuracy === 100 })}
             />
           ) : card.kind === "bracket-order" ? (
@@ -341,6 +342,7 @@ export function GrammarPracticeSession({
               translation={card.translationVi}
               chips={card.bank}
               locked={outcome !== null}
+              correct={outcome?.correct === true}
               onSubmit={(selected) => answer({ correct: checkGrammarOrder(selected, card.script).accuracy === 100 })}
             />
           ) : card.kind === "table-fill" ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { CheckBar } from "@/components/session/FeedbackSheet";
 import { cardShortcutsBlocked, FOCUS_RING, isCardEnter } from "@/lib/keyboard";
 import type { GrammarTense } from "@/lib/grammar-lessons";
@@ -95,7 +95,7 @@ export function TableFillCard({ verb, tense, tenseLabel, rows, bank, onSubmit, r
             const state = result?.blanks[at];
             const border = state
               ? state.correct
-                ? "border-[#34C759] bg-[#34C759]/15 text-[#248a3d]"
+                ? "correct-hop border-[#34C759] bg-[#34C759]/15 text-[#248a3d]"
                 : "border-[#ff3b30] bg-[#ff3b30]/10 text-[#c4261d]"
               : chipId
                 ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
@@ -110,6 +110,7 @@ export function TableFillCard({ verb, tense, tenseLabel, rows, bank, onSubmit, r
                     onClick={() => clear(at)}
                     aria-label={chipId ? `Bỏ “${chipById.get(chipId)?.text}”` : `Ô trống cho ${row.personLabel}`}
                     className={`flex h-11 min-w-[120px] items-center rounded-xl border-2 px-3 text-[17px] font-bold ${border} ${FOCUS_RING}`}
+                    style={{ "--hop-i": at } as CSSProperties}
                   >
                     {chipId ? chipById.get(chipId)?.text : "____"}
                   </button>

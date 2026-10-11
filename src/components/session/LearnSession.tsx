@@ -978,6 +978,7 @@ export function LearnSession({
                   chips={currentCard.bank ?? []}
                   onSubmit={handleOrderSubmit}
                   locked={scoreResult !== null}
+                  correct={scoreResult?.accuracy === 100}
                 />
               </>
             ) : currentCard?.kind === "listening-order" ? (
@@ -986,6 +987,7 @@ export function LearnSession({
                 chips={currentCard.bank ?? []}
                 onSubmit={handleOrderSubmit}
                 locked={scoreResult !== null}
+                correct={scoreResult?.accuracy === 100}
                 afterPrompt={
                   <div className="mt-4">
                     <AudioPlayerCard
