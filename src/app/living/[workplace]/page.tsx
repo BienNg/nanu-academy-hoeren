@@ -76,7 +76,6 @@ export default async function LivingWorkplacePage({ params }: LivingWorkplacePag
         title: workplace.label,
         description: `${place} · ${scenes.length} tình huống thực tế tại nơi làm việc. Học từng tình huống, rồi luyện tập và phản xạ.`,
         watermarkIcon: workplace.icon ?? "storefront",
-        currentLabel: "Tình huống hiện tại",
         courseHref: `/living/${workplace.slug}`,
         showBlitzrunde: false,
         finish: {

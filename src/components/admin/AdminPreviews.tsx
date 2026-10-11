@@ -1192,30 +1192,33 @@ function OnboardingPreview({ onClose }: { onClose: () => void }) {
             <p className="text-[12px] font-bold tracking-wide text-sky-100 uppercase">A1</p>
             <h2 className="mt-1 text-[22px] font-extrabold leading-7">Luyện nghe</h2>
           </div>
-          <section className="flex flex-col items-center">
-            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_var(--path-accent)]">
-              <h3 className="text-[20px] font-extrabold leading-7 tracking-tight text-[#131b2e]">A1 - Lektion 1</h3>
-              <p className="text-[13px] font-bold leading-5 text-[var(--path-accent)]">Lektion hiện tại</p>
+          <div className="sticky top-14 z-30 flex min-h-[4.75rem] rounded-2xl bg-[var(--path-accent-light)] text-white shadow-[0_4px_0_0_var(--path-accent)]">
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-4 py-3">
+              <p className="text-[11px] font-extrabold tracking-wider text-white/80 uppercase">A1 · Lektion 1</p>
+              <p className="text-[17px] font-extrabold leading-5 tracking-tight">Giới thiệu bản thân</p>
             </div>
+            <span
+              data-tour="words"
+              className="flex w-[4.75rem] shrink-0 items-center justify-center border-l-2 border-white/35"
+            >
+              <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
+                <rect x="7" y="4.5" width="18" height="23" rx="3" fill="none" stroke="white" strokeWidth="2.2" />
+                <path d="M11.5 11.5 H20.5 M11.5 16 H20.5 M11.5 20.5 H17" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+              </svg>
+            </span>
+          </div>
+          <section className="flex flex-col items-center">
             <ul className="relative flex w-full flex-col items-center gap-3 py-3">
-              <li className="absolute top-3 right-0 z-10">
-                <span
-                  data-tour="words"
-                  aria-hidden="true"
-                  className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB]"
-                >
-                  <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
-                </span>
-              </li>
               <SamplePathNode tour="video" icon="smart_display" label="Video" guide="Bắt đầu" shift={-40} />
               <SamplePathNode tour="study" icon="menu_book" label="Học từ vựng" shift={-72} />
               <SamplePathNode tour="practice" icon="fitness_center" label="Luyện tập" locked shift={-40} />
             </ul>
           </section>
           <section className="flex flex-col items-center">
-            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
-              <h3 className="text-[20px] font-extrabold leading-7 tracking-tight text-[#6e7881]">A1 - Lektion 2</h3>
-              <p className="text-[13px] font-medium leading-5 text-[#6e7881]">Xong Lektion 1 trước đã</p>
+            <div className="flex w-full items-center gap-4 px-1 py-6">
+              <span className="h-px flex-1 bg-[#d4d4d8]" aria-hidden="true" />
+              <h3 className="text-center text-[15px] font-bold leading-5 text-[#afafaf]">Lektion 2</h3>
+              <span className="h-px flex-1 bg-[#d4d4d8]" aria-hidden="true" />
             </div>
             <ul className="relative flex w-full flex-col items-center py-3">
               <li data-tour="jump" className="relative pt-14" style={{ transform: "translateX(0px)" }}>

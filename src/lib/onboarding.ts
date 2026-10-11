@@ -38,7 +38,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     target: "words",
     title: "Danh sách từ vựng",
-    body: "Mỗi bài có danh sách từ ở góc trên bên phải. Bấm vào để xem và nghe lại từ của bài.",
+    body: "Danh sách từ nằm ở góc phải của thanh bài học. Bấm vào để xem và nghe lại từ của bài.",
   },
   {
     target: "jump",

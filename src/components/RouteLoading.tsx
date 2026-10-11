@@ -388,12 +388,28 @@ export function LevelScreenSkeleton({
           <span className="mt-1.5 block h-4 w-4/5 animate-pulse rounded-full bg-white/30" />
           <span className="mt-4 block h-3 w-full animate-pulse rounded-full bg-white/25" />
         </div>
+        <div
+          className={`flex min-h-[4.75rem] rounded-2xl text-white ${
+            living
+              ? "bg-[#f97316] shadow-[0_4px_0_0_#e11d48]"
+              : "bg-[#0ea5e9] shadow-[0_4px_0_0_#0284c7]"
+          }`}
+        >
+          <span className="flex min-w-0 flex-1 flex-col justify-center gap-2 px-4 py-3">
+            <span className="h-3 w-28 animate-pulse rounded-full bg-white/50" />
+            <span className="h-5 w-4/5 animate-pulse rounded-full bg-white/70" />
+          </span>
+          <span className="w-[4.75rem] shrink-0 border-l-2 border-white/35" />
+        </div>
         {Array.from({ length: 2 }, (_, lesson) => (
           <div key={lesson} className="flex w-full flex-col items-center gap-3">
-            <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_4px_0_0_#dae2fd]">
-              <span className="h-7 w-2/3 animate-pulse rounded-full bg-[#e8e8ed]" />
-              <span className="h-4 w-1/2 animate-pulse rounded-full bg-[#e8e8ed]" />
-            </div>
+            {lesson > 0 ? (
+              <div className="flex w-full items-center gap-4 px-1 py-6">
+                <span className="h-px flex-1 bg-[#d4d4d8]" />
+                <span className="h-4 w-36 animate-pulse rounded-full bg-[#e8e8ed]" />
+                <span className="h-px flex-1 bg-[#d4d4d8]" />
+              </div>
+            ) : null}
             <ul className="flex w-full flex-col items-center gap-3 py-3">
               {LEVEL_PATH_SHIFTS.map((shift, index) => (
                 <li key={index} style={{ transform: `translateX(${shift}px)` }}>

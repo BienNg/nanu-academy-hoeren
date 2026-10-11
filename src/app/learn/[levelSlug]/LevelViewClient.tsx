@@ -129,8 +129,6 @@ export type PathOptions = {
   title?: string;
   description?: string;
   watermarkIcon?: string;
-  /** "Lektion hiện tại" by default. */
-  currentLabel?: string;
   /** Course menu entry this page belongs to. Defaults to /learn/<level>. */
   courseHref?: string;
   showBlitzrunde?: boolean;
@@ -367,22 +365,27 @@ function lessonTopic(lesson: AdminLessonDetail | undefined): string | null {
   return titles.length > 0 ? titles.join(" & ") : null;
 }
 
-function lessonTopicCaption(
-  topic: string | null,
-  state: "soon" | "completed" | "locked" | "current" | "open",
-  currentLabel = "Lektion hiện tại",
-): { text: string; current: boolean } | null {
-  if (state === "current") {
-    return {
-      text: topic ? `${currentLabel} • ${topic}` : currentLabel,
-      current: true,
-    };
+/** Kicker and title for the sticky lesson bar and the in-path section label. */
+function lessonBannerCopy(
+  levelLabel: string,
+  chapter: Chapter,
+  lesson: AdminLessonDetail | undefined,
+): { kicker: string; title: string } {
+  const name = chapter.title ?? `${levelLabel} - ${chapter.label}`;
+  const topic = chapter.topic ?? lessonTopic(lesson);
+  if (chapter.hasAudio === false) return { kicker: "Coming soon", title: name };
+  if (topic) {
+    return { kicker: `${levelLabel} · ${chapter.label}`.toUpperCase(), title: topic };
   }
-  if (!topic || state === "soon" || state === "completed") {
-    return topic ? { text: topic, current: false } : null;
-  }
-  if (state === "locked") return { text: `${topic} • Đã khóa`, current: false };
-  return { text: topic, current: false };
+  return { kicker: levelLabel.toUpperCase(), title: name };
+}
+
+function lessonHasVocab(lesson: AdminLessonDetail | undefined, open: boolean): boolean {
+  return (
+    open &&
+    (lesson?.activities.some((activity) => lessonNodeFromActivityId(activity.id)?.kind === "study") ??
+      false)
+  );
 }
 
 /**
@@ -527,6 +530,88 @@ function isVideoTrailNode(node: TrailNode): boolean {
 /** "Bắt đầu" before any progress, "Học tiếp" once the node is underway. */
 function continueGuideLabel(node: TrailNode): "Bắt đầu" | "Học tiếp" {
   return node.percent > 0 ? "Học tiếp" : "Bắt đầu";
+}
+
+/** White guidebook, drawn to sit on the colored lesson bar. */
+function GuidebookIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
+      <rect
+        x="7"
+        y="4.5"
+        width="18"
+        height="23"
+        rx="3"
+        fill="none"
+        stroke="white"
+        strokeWidth="2.2"
+      />
+      <path
+        d="M11.5 11.5 H20.5 M11.5 16 H20.5 M11.5 20.5 H17"
+        stroke="white"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Sticky lesson bar: section kicker and title on the left, vocabulary on the right.
+ * Matches the unit header that stays under the stats row while its path is on screen.
+ */
+function LessonStickyBanner({
+  kicker,
+  title,
+  showVocab,
+  showHint,
+  tourWords,
+  reduceMotion,
+  onVocab,
+}: {
+  kicker: string;
+  title: string;
+  showVocab: boolean;
+  showHint: boolean;
+  tourWords: boolean;
+  reduceMotion: boolean;
+  onVocab: () => void;
+}) {
+  return (
+    <div className="flex min-h-[4.75rem] rounded-2xl bg-[var(--path-accent-light)] text-white shadow-[0_4px_0_0_var(--path-accent)]">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-4 py-3">
+        <p className="text-[11px] font-extrabold tracking-wider text-white/80 uppercase">{kicker}</p>
+        <p className="line-clamp-2 text-left text-[17px] font-extrabold leading-5 tracking-tight">
+          {title}
+        </p>
+      </div>
+      {showVocab ? (
+        <button
+          type="button"
+          aria-label="Từ vựng"
+          data-tour={tourWords ? "words" : undefined}
+          onClick={onVocab}
+          className="relative flex w-[4.75rem] shrink-0 items-center justify-center rounded-r-2xl border-l-2 border-white/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:bg-black/10"
+        >
+          {showHint ? <VocabListHint reduceMotion={reduceMotion} /> : null}
+          <GuidebookIcon />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Section label between Lektionen: a title held between two rules. */
+function LessonSectionTitle({ title }: { title: string }) {
+  return (
+    <div className="flex w-full items-center gap-4 px-1 py-6">
+      <span className="h-px flex-1 bg-[#d4d4d8]" aria-hidden="true" />
+      <h2 className="max-w-[70%] text-center text-[15px] font-bold leading-5 text-[#afafaf]">
+        {title}
+      </h2>
+      <span className="h-px flex-1 bg-[#d4d4d8]" aria-hidden="true" />
+    </div>
+  );
 }
 
 /** A quiet nudge beside the vocabulary button, until the learner opens the list. */
@@ -1807,6 +1892,7 @@ export default function LevelViewClient({
   const userId = session?.user?.id ?? null;
   const theme = PATH_THEMES[path.theme ?? "level"];
   const containerRef = useRef<HTMLElement>(null);
+  const [stuckLessonSlug, setStuckLessonSlug] = useState<string | null>(null);
   const dictionaryRequest = useRef(0);
   const [dictionary, setDictionary] = useState<OpenDictionary | null>(null);
   const [vocabListOpened, setVocabListOpened] = useState<boolean | null>(null);
@@ -1826,6 +1912,12 @@ export default function LevelViewClient({
     return () => query.removeEventListener("change", update);
   }, []);
   const sheetSlides = Boolean(dictionary) && mobileSheet && !shouldReduceMotion;
+  // A transform on this wrapper makes the lesson bar stick to the wrapper
+  // instead of the viewport. Keep the transform only while the sheet slides.
+  const [pathShifted, setPathShifted] = useState(false);
+  useEffect(() => {
+    if (sheetSlides) setPathShifted(true);
+  }, [sheetSlides]);
   const {
     progress,
     progressReady,
@@ -2051,6 +2143,33 @@ export default function LevelViewClient({
         )
       : null;
 
+  const lessonBanners = chapters.map((chapter, index) => {
+    const isAvailable = chapter.hasAudio !== false;
+    const isCompleted = isAvailable && learnChapterCompleted(progressKeyOf(chapter));
+    const gateChapter = firstIncompletePrevious(index);
+    const isLocked =
+      !accessLocked && !unlockPath && isAvailable && !isCompleted && Boolean(gateChapter);
+    const isOpen = !accessLocked && isAvailable && !isLocked;
+    const lesson = lessonById.get(`${level.slug}-${chapter.slug}`);
+    const copy = lessonBannerCopy(level.level, chapter, lesson);
+    return {
+      slug: chapter.slug,
+      chapter,
+      kicker: copy.kicker,
+      title: copy.title,
+      vocab: lessonHasVocab(lesson, isOpen),
+      tourWords: tourMarks && index === tourLessonIndex,
+      hint: chapter.slug === vocabHintSlug,
+    };
+  });
+  const tourBanner =
+    tourMarks && tourLessonIndex >= 0 ? lessonBanners[tourLessonIndex] : undefined;
+  const activeBanner =
+    tourBanner ??
+    lessonBanners.find((entry) => entry.slug === stuckLessonSlug) ??
+    lessonBanners[0] ??
+    null;
+
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("lektion");
     setReturnSlug(requested);
@@ -2091,6 +2210,35 @@ export default function LevelViewClient({
       window.cancelAnimationFrame(frame);
     };
   }, [progressReady, focusReady, focusSlug, shouldReduceMotion]);
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const nav = containerRef.current?.querySelector("header");
+      const navBottom = nav?.getBoundingClientRect().bottom ?? 0;
+      const line = navBottom + 92;
+      let slug: string | null = null;
+      for (const chapter of chapters) {
+        const el = document.getElementById(`lesson-${chapter.slug}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= line) slug = chapter.slug;
+      }
+      setStuckLessonSlug((current) => (current === slug ? current : slug));
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [chapters]);
 
   const closeDictionary = useCallback(() => {
     dictionaryRequest.current += 1;
@@ -2165,13 +2313,17 @@ export default function LevelViewClient({
     <motion.div
       className={`flex min-h-dvh w-full flex-1 flex-col ${dictionary ? "pointer-events-none" : ""}`}
       initial={false}
-      animate={{ x: sheetSlides ? "-30%" : "0%" }}
+      animate={pathShifted ? { x: sheetSlides ? "-30%" : "0%" } : undefined}
+      style={pathShifted ? undefined : { transform: "none" }}
       transition={sheetSlides || mobileSheet ? SHEET_SLIDE : { duration: 0 }}
+      onAnimationComplete={() => {
+        if (!sheetSlides) setPathShifted(false);
+      }}
     >
     <main 
       ref={containerRef}
       data-layout="wide"
-      className="relative flex w-full max-w-none flex-1 flex-col items-center bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-hidden"
+      className="relative flex w-full max-w-none flex-1 flex-col items-center bg-[#fbfbfd] min-h-dvh selection:bg-[#0066cc] selection:text-white overflow-x-clip"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       {/* Navigation Bar */}
@@ -2275,12 +2427,25 @@ export default function LevelViewClient({
             </span>
           </div>
         </motion.div>
+        {activeBanner ? (
+          <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-30 -mx-4 bg-[#fbfbfd] px-4 pt-3 sm:-mx-6 sm:px-6">
+            <LessonStickyBanner
+              kicker={activeBanner.kicker}
+              title={activeBanner.title}
+              showVocab={activeBanner.vocab}
+              showHint={activeBanner.hint}
+              tourWords={activeBanner.tourWords}
+              reduceMotion={shouldReduceMotion === true}
+              onVocab={() => openDictionary(activeBanner.chapter)}
+            />
+          </div>
+        ) : null}
         <motion.ul
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="flex flex-col gap-8"
+          className="flex flex-col gap-2"
         >
           {(() => {
             let continueGuideClaimed = false;
@@ -2315,7 +2480,6 @@ export default function LevelViewClient({
             const isOpen = !accessLocked && isAvailable && !isLocked;
             const tourLesson = index === tourLessonIndex;
             const tourClaimed = new Set<OnboardingTarget>();
-            const isResume = chapter.slug === resumeChapterSlug;
             const lessonDetail = lessonById.get(`${level.slug}-${chapter.slug}`);
             const lessonHref = chapter.href ?? `/learn/${level.slug}/${chapter.slug}`;
             const practiceClips = chapter.practiceClips ?? [];
@@ -2402,94 +2566,14 @@ export default function LevelViewClient({
             );
             const pathStart = pathStep;
             pathStep += nodes.length;
-            const topicLine = lessonTopicCaption(
-              chapter.topic ?? lessonTopic(lessonDetail),
-              !isAvailable
-                ? "soon"
-                : accessLocked
-                  ? "locked"
-                  : isCompleted
-                    ? "completed"
-                    : isLocked
-                      ? "locked"
-                      : chapter.slug === currentChapterSlug
-                        ? "current"
-                        : "open",
-              path.currentLabel,
-            );
-            const lessonDone = !accessLocked && isCompleted;
-            const headerClassName = `flex w-full flex-col gap-2 rounded-2xl p-4 ${
-              lessonDone
-                ? "bg-[var(--path-accent)] text-white shadow-[0_4px_0_0_var(--path-accent-deep)]"
-                : isOpen && isResume
-                  ? "bg-white shadow-[0_4px_0_0_var(--path-accent)]"
-                  : "bg-white shadow-[0_4px_0_0_#dae2fd]"
-            }`;
-            const header = (
-              <>
-                {!isAvailable ? (
-                  <span className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-[#f5f5f7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
-                    Coming soon
-                  </span>
-                ) : null}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h2
-                      className={`text-[20px] font-extrabold leading-7 tracking-tight ${
-                        lessonDone ? "text-white" : isOpen ? "text-[#131b2e]" : "text-[#6e7881]"
-                      }`}
-                    >
-                      {chapter.title ?? `${level.level} - ${chapter.label}`}
-                    </h2>
-                    {topicLine ? (
-                      <p
-                        className={`text-[13px] leading-5 ${
-                          lessonDone
-                            ? "font-bold text-white/85"
-                            : topicLine.current
-                              ? "font-bold text-[var(--path-accent)]"
-                              : "font-medium text-[#6e7881]"
-                        }`}
-                      >
-                        {topicLine.text}
-                      </p>
-                    ) : null}
-                  </div>
-                  {lessonDone ? (
-                    <span className="sr-only">Đã hoàn thành</span>
-                  ) : !isOpen ? (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f1f5f9] text-[#94a3b8]">
-                      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                        lock
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-                {!accessLocked && isLocked && gateChapter ? (
-                  <div className="flex items-start gap-2 text-[14px] font-medium leading-5 text-[#6e7881]">
-                    <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--path-accent)]" aria-hidden="true">
-                      flag
-                    </span>
-                    <span>Xong {gateChapter.label} trước đã — rồi tới lượt này.</span>
-                  </div>
-                ) : null}
-              </>
-            );
+            const sectionTitle = lessonBanners[index]?.title ?? chapter.label;
 
             const lessonBubbleOpen = lockedBubbleId?.startsWith(`${chapter.slug}:`) ?? false;
             const pose = poses[index] ?? "tea";
             const pepTalk =
               isOpen && !isCompleted ? PEP_TALKS[`${level.slug}/${chapter.slug}`] : undefined;
             const bay = nodes.length > 0 ? pathWhiteSpace(nodes.length, pathStart) : null;
-            const dictionaryOpen = isOpen && nodes.some((node) => node.icon === "menu_book");
-            const mascot =
-              bay == null
-                ? null
-                : {
-                    index: bay.index,
-                    side:
-                      dictionaryOpen && bay.index === 0 && bay.side === "right" ? "left" : bay.side,
-                  };
+            const mascot = bay == null ? null : { index: bay.index, side: bay.side };
 
             return (
               <motion.li
@@ -2497,39 +2581,13 @@ export default function LevelViewClient({
                 id={`lesson-${chapter.slug}`}
                 data-tour-lesson={tourLesson ? "" : undefined}
                 variants={itemVariants}
-                className={`flex scroll-mt-[calc(5rem+env(safe-area-inset-top,0px))] flex-col items-center ${
+                className={`flex scroll-mt-[calc(8.75rem+env(safe-area-inset-top,0px))] flex-col items-center ${
                   lessonBubbleOpen ? "relative z-40" : ""
                 }`}
               >
-                <div className={headerClassName}>{header}</div>
+                {index > 0 ? <LessonSectionTitle title={sectionTitle} /> : null}
                 {nodes.length > 0 ? (
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
-                    {dictionaryOpen ? (
-                      <li className="absolute top-3 right-0 z-20">
-                        <motion.button
-                          type="button"
-                          aria-label="Từ vựng"
-                          data-tour={tourLesson && tourMarks ? "words" : undefined}
-                          onClick={() => openDictionary(chapter)}
-                          className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_var(--lip,5px)_0_0_#C5CEDB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
-                          initial={false}
-                          animate={{ y: 0, "--lip": "5px" }}
-                          whileTap={shouldReduceMotion ? undefined : { y: 4, "--lip": "0px" }}
-                          transition={CHUNKY_PRESS_SPRING}
-                        >
-                          {chapter.slug === vocabHintSlug ? (
-                            <>
-                              <span
-                                aria-hidden="true"
-                                className="pointer-events-none absolute -inset-1 rounded-full border-2 border-[var(--path-accent)]/35 motion-safe:animate-pulse"
-                              />
-                              <VocabListHint reduceMotion={shouldReduceMotion === true} />
-                            </>
-                          ) : null}
-                          <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
-                        </motion.button>
-                      </li>
-                    ) : null}
                     {jumpFrom && jump?.targetIndex === index ? (
                       <li
                         className="relative pt-14"
