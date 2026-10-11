@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   emptyReminderState,
   planStreakReminder,
+  returnReminderCopy,
   shiftIsoDate,
   streakReminderCopy,
   type ReminderState,
@@ -12,7 +13,13 @@ const today = "2026-10-10";
 
 function plan(
   state: ReminderState,
-  options: { streakDays?: number; practicedToday?: boolean; practiced?: string[] } = {},
+  options: {
+    streakDays?: number;
+    practicedToday?: boolean;
+    practicedYesterday?: boolean;
+    hasEarlierPractice?: boolean;
+    practiced?: string[];
+  } = {},
 ) {
   const practiced = new Set(options.practiced ?? []);
   return planStreakReminder({
@@ -20,6 +27,8 @@ function plan(
     today,
     streakDays: options.streakDays ?? 6,
     practicedToday: options.practicedToday ?? false,
+    practicedYesterday: options.practicedYesterday ?? false,
+    hasEarlierPractice: options.hasEarlierPractice ?? false,
     practicedOn: (day) => practiced.has(day),
   });
 }
@@ -86,10 +95,31 @@ test("an ignored send is counted once", () => {
   assert.equal(again.changed, false);
 });
 
+test("a quiet today and yesterday gets one motivational reminder", () => {
+  const result = plan(emptyReminderState(), { streakDays: 0, hasEarlierPractice: true });
+  assert.equal(result.send, true);
+  assert.equal(result.kind, "return");
+  assert.equal(result.next.lastSentOn, today);
+});
+
+test("yesterday's practice keeps the streak reminder", () => {
+  const result = plan(emptyReminderState(), { practicedYesterday: true, hasEarlierPractice: true });
+  assert.equal(result.kind, "streak");
+});
+
+test("a first-day learner with no earlier practice is left alone", () => {
+  assert.equal(plan(emptyReminderState(), { streakDays: 0 }).send, false);
+});
+
 test("copy names the streak and opens home", () => {
   assert.deepEqual(streakReminderCopy(6), {
     title: "Chuỗi 6 ngày sắp mất",
     body: "Một phần nữa là giữ được.",
+    url: "/",
+  });
+  assert.deepEqual(returnReminderCopy(), {
+    title: "Hai ngày chưa luyện",
+    body: "Một phần ngắn hôm nay là đủ để bắt đầu lại.",
     url: "/",
   });
 });

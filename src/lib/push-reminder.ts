@@ -1,4 +1,4 @@
-/** Evening streak reminder. One send per local day, then a pause after ignored ones. */
+/** Evening reminders. One send per local day, then a pause after ignored ones. */
 
 export const REMINDER_ZONE = "Asia/Ho_Chi_Minh";
 export const IGNORE_BEFORE_PAUSE = 3;
@@ -69,17 +69,49 @@ export function shouldSendStreakReminder(input: {
   return true;
 }
 
+/** A learner who already practiced, then skipped yesterday and today. */
+export function shouldSendReturnReminder(input: {
+  state: ReminderState;
+  today: string;
+  practicedToday: boolean;
+  practicedYesterday: boolean;
+  hasEarlierPractice: boolean;
+}): boolean {
+  const { state, today, practicedToday, practicedYesterday, hasEarlierPractice } = input;
+  if (practicedToday || practicedYesterday || !hasEarlierPractice) return false;
+  if (state.pausedUntil && today < state.pausedUntil) return false;
+  if (state.lastSentOn === today) return false;
+  return true;
+}
+
 export function planStreakReminder(input: {
   state: ReminderState;
   today: string;
   streakDays: number;
   practicedToday: boolean;
+  practicedYesterday?: boolean;
+  hasEarlierPractice?: boolean;
   practicedOn: (day: string) => boolean;
-}): { send: boolean; next: ReminderState; changed: boolean } {
+}): { send: boolean; kind: "streak" | "return" | null; next: ReminderState; changed: boolean } {
   const judged = judgeReminder(input.state, input.today, input.practicedOn);
-  const send = shouldSendStreakReminder({ ...input, state: judged });
+  const streak = shouldSendStreakReminder({ ...input, state: judged });
+  const back =
+    !streak &&
+    shouldSendReturnReminder({
+      state: judged,
+      today: input.today,
+      practicedToday: input.practicedToday,
+      practicedYesterday: input.practicedYesterday ?? false,
+      hasEarlierPractice: input.hasEarlierPractice ?? false,
+    });
+  const send = streak || back;
   const next = send ? { ...judged, lastSentOn: input.today } : judged;
-  return { send, next, changed: send || !sameState(input.state, next) };
+  return {
+    send,
+    kind: streak ? "streak" : back ? "return" : null,
+    next,
+    changed: send || !sameState(input.state, next),
+  };
 }
 
 export function streakReminderCopy(streakDays: number): { title: string; body: string; url: string } {
@@ -87,6 +119,14 @@ export function streakReminderCopy(streakDays: number): { title: string; body: s
   return {
     title: `Chuỗi ${days} ngày sắp mất`,
     body: "Một phần nữa là giữ được.",
+    url: "/",
+  };
+}
+
+export function returnReminderCopy(): { title: string; body: string; url: string } {
+  return {
+    title: "Hai ngày chưa luyện",
+    body: "Một phần ngắn hôm nay là đủ để bắt đầu lại.",
     url: "/",
   };
 }

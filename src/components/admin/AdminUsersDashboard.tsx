@@ -36,6 +36,7 @@ import {
   useAdminRole,
 } from "@/components/admin/AdminShell";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
+import { InstalledAppBadge } from "@/components/admin/student-detail/ActivityTab";
 import {
   Badge,
   Button,
@@ -47,6 +48,7 @@ import {
   INPUT,
   PanelHeader,
   Pager,
+  ScopeChips,
   Segmented,
   TH,
   THEAD,
@@ -78,6 +80,12 @@ import { ADMIN_COLORS } from "@/lib/admin-tokens";
 const STUDENTS_PAGE_SIZE = 15;
 
 type RosterSeries = "users" | "classes";
+type PeopleFilter = "all" | "students" | "staff" | "teachers";
+type AppFilter = "all" | "installed";
+
+function installedApp(row: AdminUserRow): boolean {
+  return Boolean(row.progress.pwaInstalledAt);
+}
 
 function formatAbsoluteTime(iso: string | null): string | null {
   return formatAdminTimestamp(iso);
@@ -676,6 +684,8 @@ export function AdminUsersDashboard({
   const [, startTransition] = useTransition();
   const [rosterSeries, setRosterSeries] = useState<RosterSeries>("users");
   const [query, setQuery] = useState("");
+  const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>("all");
+  const [appFilter, setAppFilter] = useState<AppFilter>("all");
   const [sort, setSort] = useState<AdminSortKey>("lastLogin");
   const [dir, setDir] = useState<AdminSortDir>("desc");
   const [page, setPage] = useState(1);
@@ -882,10 +892,57 @@ export function AdminUsersDashboard({
     };
   }, [visibleRows, detailUserId, displayClass, accessByUser, interviewByUser, staffByUser]);
 
-  const filtered = useMemo(
-    () => filterAdminUsers(visibleRows, query),
-    [visibleRows, query],
+  const rosterKind = useMemo(() => {
+    return visibleRows.map((row) => {
+      const staff = row.isAdmin
+        ? false
+        : Object.hasOwn(staffByUser, row.userId)
+          ? staffByUser[row.userId]
+          : row.staff;
+      const teacher = row.isAdmin
+        ? false
+        : Object.hasOwn(teacherByUser, row.userId)
+          ? teacherByUser[row.userId]
+          : row.teacher;
+      return {
+        row,
+        student: !row.isAdmin && !staff && !teacher,
+        staff,
+        teacher,
+        installed: installedApp(row),
+      };
+    });
+  }, [visibleRows, staffByUser, teacherByUser]);
+
+  const peopleCounts = useMemo(
+    () => ({
+      all: rosterKind.length,
+      students: rosterKind.filter((item) => item.student).length,
+      staff: rosterKind.filter((item) => item.staff).length,
+      teachers: rosterKind.filter((item) => item.teacher).length,
+    }),
+    [rosterKind],
   );
+  const installedCount = useMemo(
+    () => rosterKind.filter((item) => item.installed).length,
+    [rosterKind],
+  );
+
+  const filtered = useMemo(() => {
+    const searched = filterAdminUsers(
+      rosterKind
+        .filter((item) => {
+          if (peopleFilter === "students") return item.student;
+          if (peopleFilter === "staff") return item.staff;
+          if (peopleFilter === "teachers") return item.teacher;
+          return true;
+        })
+        .filter((item) => (appFilter === "installed" ? item.installed : true))
+        .map((item) => item.row),
+      query,
+    );
+    return searched;
+  }, [rosterKind, peopleFilter, appFilter, query]);
   const sorted = useMemo(
     () => sortAdminUsers(filtered, sort, dir),
     [filtered, sort, dir],
@@ -908,6 +965,16 @@ export function AdminUsersDashboard({
 
   function handleQueryChange(value: string) {
     setQuery(value);
+    setPage(1);
+  }
+
+  function handlePeopleFilter(key: string) {
+    setPeopleFilter(key as PeopleFilter);
+    setPage(1);
+  }
+
+  function handleAppFilter(key: string) {
+    setAppFilter(key as AppFilter);
     setPage(1);
   }
 
@@ -1149,7 +1216,9 @@ export function AdminUsersDashboard({
       ? readOnly
         ? "No students in your classes yet."
         : "No users have synced progress yet."
-      : "No users match your search.";
+      : peopleFilter !== "all" || appFilter !== "all"
+        ? "No users match this filter."
+        : "No users match your search.";
 
   return (
     <>
@@ -1234,6 +1303,34 @@ export function AdminUsersDashboard({
             progress to Supabase.
           </Notice>
         ) : null}
+
+        <div className="flex flex-col gap-space-8">
+          <ScopeChips
+            label="People"
+            icon="group"
+            ariaLabel="People"
+            value={peopleFilter}
+            onSelect={handlePeopleFilter}
+            options={[
+              { key: "all", label: "All", count: formatCount(peopleCounts.all) },
+              { key: "students", label: "Students", count: formatCount(peopleCounts.students) },
+              { key: "staff", label: "Staff", count: formatCount(peopleCounts.staff) },
+              { key: "teachers", label: "Teachers", count: formatCount(peopleCounts.teachers) },
+            ]}
+          />
+          <ScopeChips
+            label="App"
+            icon="install_mobile"
+            ariaLabel="Installed app"
+            tone="emerald"
+            value={appFilter}
+            onSelect={handleAppFilter}
+            options={[
+              { key: "all", label: "All", count: formatCount(peopleCounts.all) },
+              { key: "installed", label: "Installed", count: formatCount(installedCount) },
+            ]}
+          />
+        </div>
 
         <label className="relative flex w-full max-w-md items-center">
           <span className="sr-only">Search by name, email, or class</span>
@@ -1377,6 +1474,7 @@ export function AdminUsersDashboard({
                                 </span>
                                 {staffFor(row) ? <StaffBadge /> : null}
                                 {teacherFor(row) ? <TeacherBadge /> : null}
+                                {installedApp(row) ? <InstalledAppBadge /> : null}
                               </span>
                               {row.email && row.email !== row.displayName ? (
                                 <span className="truncate text-admin-body-sm text-admin-ink-subtle">
@@ -1459,6 +1557,7 @@ export function AdminUsersDashboard({
                               <span className="font-semibold text-admin-ink">{row.displayName}</span>
                               {staffFor(row) ? <StaffBadge /> : null}
                               {teacherFor(row) ? <TeacherBadge /> : null}
+                              {installedApp(row) ? <InstalledAppBadge /> : null}
                             </span>
                             {row.email && row.email !== row.displayName ? (
                               <span className="block truncate text-admin-body-sm text-admin-ink-subtle">

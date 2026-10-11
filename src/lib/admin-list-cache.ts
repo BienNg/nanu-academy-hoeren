@@ -20,7 +20,7 @@ export const ADMIN_LISTENING_RUNS_TAG = "admin-listening-runs";
  */
 const cachedUserProgress = unstable_cache(
   async (slice: AdminListSlice) => listAllUserProgress(slice),
-  ["admin-user-progress"],
+  ["admin-user-progress", "pwa"],
   { revalidate: ADMIN_LIST_CACHE_SECONDS, tags: [ADMIN_USER_PROGRESS_TAG] },
 );
 

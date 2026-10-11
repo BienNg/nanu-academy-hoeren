@@ -13,6 +13,8 @@ import {
   emptyReminderState,
   planStreakReminder,
   REMINDER_ZONE,
+  returnReminderCopy,
+  shiftIsoDate,
   streakReminderCopy,
   type ReminderState,
 } from "@/lib/push-reminder";
@@ -270,12 +272,15 @@ export async function sendDueStreakReminders(now = new Date()): Promise<Reminder
     const zone = validTimeZone(stored.streakTimeZone) ?? REMINDER_ZONE;
     const stamped = stored.streakTimeZone ? stored : { ...stored, streakTimeZone: zone };
     const today = localCalendarDay(now, zone);
+    const yesterday = shiftIsoDate(today, -1);
     const dates = new Set(collectPracticeDates(stamped));
     const planned = planStreakReminder({
       state,
       today,
       streakDays: activeStreakDays(stamped, now),
       practicedToday: dates.has(today),
+      practicedYesterday: dates.has(yesterday),
+      hasEarlierPractice: [...dates].some((day) => day < yesterday),
       practicedOn: (day) => dates.has(day),
     });
     if (!planned.send) {
@@ -284,7 +289,8 @@ export async function sendDueStreakReminders(now = new Date()): Promise<Reminder
       continue;
     }
 
-    const payload = streakReminderCopy(activeStreakDays(stamped, now));
+    const payload =
+      planned.kind === "return" ? returnReminderCopy() : streakReminderCopy(activeStreakDays(stamped, now));
     let delivered = false;
     for (const device of devices) {
       const outcome = await deliver(device, payload);

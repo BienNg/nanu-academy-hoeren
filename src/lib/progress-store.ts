@@ -443,6 +443,7 @@ type RawProgressRow = {
   videos?: unknown;
   learn?: unknown;
   interview?: unknown;
+  pwaInstalledAt?: unknown;
 };
 
 /** Accepts a JS array or a Postgres array literal such as `{a1-1,a1-2}`. */
@@ -539,7 +540,8 @@ function progressSource(row: RawProgressRow): Partial<StoredProgress> {
     row.visits !== undefined ||
     row.videos !== undefined ||
     row.learn !== undefined ||
-    row.interview !== undefined;
+    row.interview !== undefined ||
+    row.pwaInstalledAt !== undefined;
   if (!sliced) return (row.data ?? {}) as Partial<StoredProgress>;
   return {
     practiceDates: row.practiceDates as StoredProgress["practiceDates"],
@@ -552,6 +554,8 @@ function progressSource(row: RawProgressRow): Partial<StoredProgress> {
     videos: row.videos as StoredProgress["videos"],
     learn: row.learn as StoredProgress["learn"],
     interview: row.interview as StoredProgress["interview"],
+    pwaInstalledAt:
+      typeof row.pwaInstalledAt === "string" ? row.pwaInstalledAt : undefined,
   };
 }
 
@@ -1072,7 +1076,7 @@ async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
 
 /**
  * How much of each progress document an admin screen needs.
- * `account` is identity plus the small streak fields.
+ * `account` is identity, the small streak fields, and whether the app is installed.
  * `activity` adds visits, daily activity, video watch state, and app-use clients.
  * `videos` is the watch map plus visits (per-video playback seconds) for the videos board.
  * `levels` adds lesson and interview progress for the level paths.
@@ -1110,6 +1114,7 @@ function sliceProgressColumns(slice: AdminListSlice): string {
     "lastPracticeDate:data->lastPracticeDate",
     "streakTimeZone:data->streakTimeZone",
     "activity:data->activity",
+    "pwaInstalledAt:data->pwaInstalledAt",
   ];
   if (slice === "activity" || slice === "videos" || slice === "levels") {
     keys.push("videos:data->videos");
