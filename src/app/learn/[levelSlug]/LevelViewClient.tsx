@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
+import { CHUNKY_PRESS_SPRING } from "@/components/chunkyButton";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { TodayXpChip } from "@/components/TodayXpChip";
@@ -171,6 +172,41 @@ const springTransition = {
 };
 
 /** Peak sideways swing of the path, in px. */
+/**
+ * Path taps share the chunky button spring: the stop sinks 4px while the
+ * face's lip (`--lip`) collapses, then both spring back.
+ */
+const PATH_TAP = {
+  rest: { y: 0, transition: CHUNKY_PRESS_SPRING },
+  pressed: { y: 4, transition: CHUNKY_PRESS_SPRING },
+};
+
+function lipVariants(px: number) {
+  return {
+    rest: { "--lip": `${px}px`, transition: CHUNKY_PRESS_SPRING },
+    pressed: { "--lip": "0px", transition: CHUNKY_PRESS_SPRING },
+  };
+}
+
+const LIP_6 = lipVariants(6);
+const LIP_7 = lipVariants(7);
+
+/**
+ * Breathing ring on the current stop: a soft, heavy spring swells it in and
+ * lets it out, with a short rest between breaths like a sleeping animal.
+ */
+const RING_PULSE = {
+  type: "spring" as const,
+  stiffness: 8,
+  damping: 5,
+  mass: 1.5,
+  repeat: Infinity,
+  repeatType: "mirror" as const,
+  repeatDelay: 0.4,
+};
+
+const MotionLink = motion.create(Link);
+
 const PATH_AMPLITUDE_PX = 72;
 /** Nodes per full left-right-left swing. */
 const PATH_PERIOD = 8;
@@ -547,14 +583,29 @@ function ContinueGuideBubble({
  * First stop on the next locked Lektion: a fast-forward node that opens the
  * jump test for the Lektion before it.
  */
-function JumpNode({ href, label }: { href: string; label: string }) {
+function JumpNode({
+  href,
+  label,
+  reduceMotion,
+}: {
+  href: string;
+  label: string;
+  reduceMotion: boolean;
+}) {
   return (
-    <Link
+    <MotionLink
       href={href}
       aria-label={label}
-      className="flex flex-col items-center rounded-full transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+      className="flex flex-col items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+      variants={PATH_TAP}
+      initial={false}
+      animate="rest"
+      whileTap={reduceMotion ? undefined : "pressed"}
     >
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
+      <motion.span
+        variants={LIP_7}
+        className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_var(--lip,7px)_0_0_var(--path-node-lip)]"
+      >
         <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
           <path
             d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
@@ -564,8 +615,8 @@ function JumpNode({ href, label }: { href: string; label: string }) {
             strokeLinejoin="round"
           />
         </svg>
-      </span>
-    </Link>
+      </motion.span>
+    </MotionLink>
   );
 }
 
@@ -598,6 +649,26 @@ function trailNodeLocked(
     .some((earlier) => !isVideoTrailNode(earlier) && !earlier.complete);
 }
 
+/**
+ * The ring circles the face and its 6px lip together: its center drops by
+ * half the lip, so a 3px gap clears both the top edge and the lip below.
+ */
+const RING_STROKE = 7;
+const RING_DROP = 3;
+const RING_RADIUS = 35 + RING_DROP + 3 + RING_STROKE / 2;
+const RING_BOX = 2 * (RING_RADIUS + RING_STROKE / 2);
+const RING_PLACE = {
+  width: RING_BOX,
+  height: RING_BOX,
+  left: 35 - RING_BOX / 2,
+  top: 35 + RING_DROP - RING_BOX / 2,
+};
+/** Layout room for the ring so it never covers the label or the next stop. */
+const RING_ROOM = {
+  marginTop: -RING_PLACE.top,
+  marginBottom: RING_PLACE.top + RING_BOX - 70,
+};
+
 function ProgressRing({
   percent,
   parts,
@@ -612,30 +683,30 @@ function ProgressRing({
   track: string;
   stroke: string;
 }) {
-  const radius = 26;
+  const radius = RING_RADIUS;
   const circumference = 2 * Math.PI * radius;
   const count = Math.max(0, Math.round(parts));
   const done = Math.min(count, Math.max(0, Math.round(partsDone)));
 
   if (count > 1) {
     const slot = circumference / count;
-    const gap = Math.min(10, slot * 0.18);
+    const gap = Math.min(10, slot * 0.18) + (RING_STROKE - 5);
     const segment = slot - gap;
     return (
       <svg
-        className="absolute inset-1 -rotate-90"
-        viewBox="0 0 64 64"
+        className="h-full w-full -rotate-90 overflow-visible"
+        viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
         aria-hidden="true"
       >
         {Array.from({ length: count }, (_, index) => (
           <circle
             key={index}
-            cx="32"
-            cy="32"
+            cx={RING_BOX / 2}
+            cy={RING_BOX / 2}
             r={radius}
             fill="none"
             style={{ stroke: index < done ? stroke : track }}
-            strokeWidth="5"
+            strokeWidth={RING_STROKE}
             strokeLinecap="round"
             strokeDasharray={`${segment} ${circumference - segment}`}
             strokeDashoffset={-index * (segment + gap)}
@@ -650,19 +721,19 @@ function ProgressRing({
 
   return (
     <svg
-      className="absolute inset-1 -rotate-90"
-      viewBox="0 0 64 64"
+      className="h-full w-full -rotate-90 overflow-visible"
+      viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
       aria-hidden="true"
     >
-      <circle cx="32" cy="32" r={radius} fill="none" style={{ stroke: track }} strokeWidth="5" />
+      <circle cx={RING_BOX / 2} cy={RING_BOX / 2} r={radius} fill="none" style={{ stroke: track }} strokeWidth={RING_STROKE} />
       {clamped > 0 ? (
         <circle
-          cx="32"
-          cy="32"
+          cx={RING_BOX / 2}
+          cy={RING_BOX / 2}
           r={radius}
           fill="none"
           style={{ stroke }}
-          strokeWidth="5"
+          strokeWidth={RING_STROKE}
           strokeLinecap={clamped >= 100 ? "butt" : "round"}
           strokeDasharray={circumference}
           strokeDashoffset={clamped >= 100 ? 0 : dashOffset}
@@ -863,6 +934,7 @@ function PathCircle({
   complete,
   locked,
   struggling,
+  pulse,
 }: {
   icon: string;
   percent: number;
@@ -871,6 +943,8 @@ function PathCircle({
   complete: boolean;
   locked: boolean;
   struggling: boolean;
+  /** The current open stop breathes its outer ring. */
+  pulse: boolean;
 }) {
   const ring = struggling ? "#ff9500" : "var(--path-node)";
   const glyph = (
@@ -879,7 +953,10 @@ function PathCircle({
 
   if (locked) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
+      <motion.span
+        variants={LIP_6}
+        className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_var(--lip,6px)_0_0_#cbd5e1]"
+      >
         <span className="opacity-45 grayscale">{glyph}</span>
         <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#94a3b8] shadow-[0_2px_0_0_#cbd5e1]">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
@@ -889,28 +966,57 @@ function PathCircle({
             />
           </svg>
         </span>
-      </span>
+      </motion.span>
     );
   }
 
   if (complete) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
+      <motion.span
+        variants={LIP_7}
+        className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_var(--lip,7px)_0_0_var(--path-node-lip)]"
+      >
         {glyph}
-      </span>
+      </motion.span>
     );
   }
 
+  const progress = (
+    <ProgressRing
+      percent={percent}
+      parts={partCount}
+      partsDone={partsDone}
+      track="#e2e8f0"
+      stroke={ring}
+    />
+  );
+
   return (
-    <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-      <ProgressRing
-        percent={percent}
-        parts={partCount}
-        partsDone={partsDone}
-        track="#e2e8f0"
-        stroke={ring}
-      />
-      {glyph}
+    <span
+      className="relative flex h-[70px] w-[70px] items-center justify-center"
+      style={RING_ROOM}
+    >
+      {pulse ? (
+        <motion.span
+          className="pointer-events-none absolute"
+          style={RING_PLACE}
+          initial={{ scale: 1 }}
+          animate={{ scale: 1.06 }}
+          transition={RING_PULSE}
+        >
+          {progress}
+        </motion.span>
+      ) : (
+        <span className="pointer-events-none absolute" style={RING_PLACE}>
+          {progress}
+        </span>
+      )}
+      <motion.span
+        variants={LIP_6}
+        className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_var(--lip,6px)_0_0_#bec8d2]"
+      >
+        {glyph}
+      </motion.span>
     </span>
   );
 }
@@ -1119,7 +1225,13 @@ function PathStop({
   const [wiggle, setWiggle] = useState(0);
   const [shift, setShift] = useState<number | null>(null);
   const className =
-    "flex max-w-[10.5rem] flex-col items-center rounded-full text-center transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]";
+    "flex max-w-[10.5rem] flex-col items-center rounded-full text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]";
+  const press = {
+    variants: PATH_TAP,
+    initial: false,
+    animate: "rest",
+    whileTap: reduceMotion ? undefined : "pressed",
+  } as const;
   const body = (
     <>
       <PathCircle
@@ -1130,6 +1242,7 @@ function PathStop({
         complete={node.complete}
         locked={locked}
         struggling={node.struggling}
+        pulse={!reduceMotion && guideLabel != null && !locked && !node.complete}
       />
       {node.primary ? (
         <span
@@ -1202,16 +1315,17 @@ function PathStop({
   if (!locked && node.start) {
     return (
       <div ref={rootRef} className="relative">
-        <button
+        <motion.button
           type="button"
           aria-label={label}
           aria-expanded={bubbleOpen}
           aria-controls={bubbleOpen ? bubbleId : undefined}
           onClick={onLockedPress}
           className={className}
+          {...press}
         >
           {body}
-        </button>
+        </motion.button>
         <AnimatePresence>
           {bubbleOpen && shift != null ? (
             <StartNodeBubble
@@ -1229,9 +1343,9 @@ function PathStop({
 
   if (!locked && node.href) {
     return (
-      <Link href={node.href} aria-label={label} className={className}>
+      <MotionLink href={node.href} aria-label={label} className={className} {...press}>
         {body}
-      </Link>
+      </MotionLink>
     );
   }
 
@@ -1245,7 +1359,7 @@ function PathStop({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
+      <motion.button
         type="button"
         aria-label={label}
         aria-expanded={bubbleOpen}
@@ -1255,6 +1369,7 @@ function PathStop({
           onLockedPress();
         }}
         className={className}
+        {...press}
       >
         <motion.span
           key={wiggle}
@@ -1267,7 +1382,7 @@ function PathStop({
         >
           {body}
         </motion.span>
-      </button>
+      </motion.button>
       <AnimatePresence>
         {bubbleOpen && shift != null ? (
           <LockedNodeBubble
@@ -2221,12 +2336,16 @@ export default function LevelViewClient({
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
                     {dictionaryOpen ? (
                       <li className="absolute top-3 right-0 z-20">
-                        <button
+                        <motion.button
                           type="button"
                           aria-label="Từ vựng"
                           data-tour={tourLesson && tourMarks ? "words" : undefined}
                           onClick={() => openDictionary(chapter)}
-                          className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_5px_0_0_#C5CEDB] transition-transform active:translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+                          className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-[#E5E5EA] bg-white shadow-[0_var(--lip,5px)_0_0_#C5CEDB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--path-accent)]"
+                          initial={false}
+                          animate={{ y: 0, "--lip": "5px" }}
+                          whileTap={shouldReduceMotion ? undefined : { y: 4, "--lip": "0px" }}
+                          transition={CHUNKY_PRESS_SPRING}
                         >
                           {chapter.slug === vocabHintSlug ? (
                             <>
@@ -2238,7 +2357,7 @@ export default function LevelViewClient({
                             </>
                           ) : null}
                           <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
-                        </button>
+                        </motion.button>
                       </li>
                     ) : null}
                     {jumpFrom && jump?.targetIndex === index ? (
@@ -2254,6 +2373,7 @@ export default function LevelViewClient({
                         <JumpNode
                           href={`/learn/${level.slug}/${jumpFrom.slug}/jump`}
                           label={`Nhảy tới ${chapter.label}: làm bài kiểm tra ${jumpFrom.label}`}
+                          reduceMotion={shouldReduceMotion === true}
                         />
                       </li>
                     ) : null}
