@@ -11,6 +11,7 @@ import {
   buildLevelPath,
   projectStudentDetail,
   type AdminCatalogCourse,
+  type AdminLevelPath,
   type AdminLevelPathLesson,
   type AdminLevelPathNode,
   type AdminLevelPathPerson,
@@ -277,6 +278,106 @@ function PathNode({
   );
 }
 
+function lessonOccupancy(lesson: AdminLevelPathLesson): number {
+  return lesson.nodes.reduce((sum, node) => sum + node.here.length, 0);
+}
+
+function barHeight(count: number, peak: number): number {
+  if (count <= 0) return 4;
+  return Math.round(10 + (count / peak) * 26);
+}
+
+/** One row of the whole level: how many students sit on each Lektion. */
+function PathGlance({
+  path,
+  onFocus,
+}: {
+  path: AdminLevelPath;
+  onFocus: (targetId: string) => void;
+}) {
+  const counts = path.lessons.map(lessonOccupancy);
+  const peak = Math.max(1, ...counts, path.finished.length);
+
+  return (
+    <section
+      aria-label={`Where students sit on ${path.label}`}
+      className={`${CARD} flex flex-col gap-space-12 p-space-16 lg:max-w-2xl`}
+    >
+      <div className="flex items-baseline justify-between gap-space-12">
+        <h2 className="text-admin-label-sm uppercase text-admin-ink-subtle">Whole path</h2>
+        <p className="text-admin-body-sm text-admin-ink-subtle">Students on each Lektion</p>
+      </div>
+      <ol className="flex items-end gap-0.5 overflow-x-auto">
+        {path.lessons.map((lesson, index) => {
+          const count = counts[index] ?? 0;
+          const occupied = lesson.nodes
+            .filter((node) => node.here.length > 0)
+            .map((node) => `${node.label} ${node.here.length}`)
+            .join(", ");
+          return (
+            <li key={lesson.id} className="flex w-7 shrink-0 sm:w-auto sm:min-w-0 sm:flex-1">
+              <button
+                type="button"
+                onClick={() => onFocus(`level-lesson-${lesson.id}`)}
+                title={occupied || `${lesson.label}, nobody here`}
+                aria-label={`${lesson.label}, ${count} ${count === 1 ? "student" : "students"}`}
+                className="flex w-full flex-col items-center gap-1 rounded-admin-badge px-0.5 py-1 outline-none hover:bg-admin-subtle focus-visible:shadow-admin-focus"
+              >
+                <span
+                  className={`text-[11px] font-semibold tabular-nums leading-none ${
+                    count > 0 ? "text-admin-ink" : "text-admin-ink-faint"
+                  }`}
+                >
+                  {count}
+                </span>
+                <span
+                  className={`w-full max-w-7 rounded-sm ${count > 0 ? "bg-admin-amber" : "bg-admin-hairline"}`}
+                  style={{ height: barHeight(count, peak) }}
+                />
+                <span className="flex h-4 items-center text-[11px] font-medium tabular-nums leading-none text-admin-ink-subtle">
+                  {index + 1}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+        <li className="flex w-7 shrink-0 sm:w-auto sm:min-w-0 sm:flex-1">
+          <button
+            type="button"
+            onClick={() => onFocus("level-finished")}
+            title={
+              path.finished.length > 0
+                ? path.finished.map((person) => person.displayName).join(", ")
+                : `Nobody has finished ${path.label}`
+            }
+            aria-label={`Finished ${path.label}, ${path.finished.length} ${
+              path.finished.length === 1 ? "student" : "students"
+            }`}
+            className="flex w-full flex-col items-center gap-1 rounded-admin-badge px-0.5 py-1 outline-none hover:bg-admin-subtle focus-visible:shadow-admin-focus"
+          >
+            <span
+              className={`text-[11px] font-semibold tabular-nums leading-none ${
+                path.finished.length > 0 ? "text-admin-ink" : "text-admin-ink-faint"
+              }`}
+            >
+              {path.finished.length}
+            </span>
+            <span
+              className={`w-full max-w-7 rounded-sm ${
+                path.finished.length > 0 ? "bg-admin-emerald" : "bg-admin-hairline"
+              }`}
+              style={{ height: barHeight(path.finished.length, peak) }}
+            />
+            <span className="flex h-4 items-center">
+              <MaterialIcon name="flag" className="text-[14px] leading-none text-admin-ink-subtle" />
+            </span>
+          </button>
+        </li>
+      </ol>
+    </section>
+  );
+}
+
 function LessonTrail({
   levelLabel,
   lesson,
@@ -298,7 +399,10 @@ function LessonTrail({
   const raised = lesson.nodes.some((node) => selectedId === `${lesson.id}:${node.id}`);
 
   return (
-    <li className={`flex flex-col items-center ${raised ? "relative z-20" : ""}`}>
+    <li
+      id={`level-lesson-${lesson.id}`}
+      className={`flex scroll-mt-24 flex-col items-center ${raised ? "relative z-20" : ""}`}
+    >
       <div
         className={`w-full rounded-admin-card border px-space-16 py-space-12 ${
           empty ? "border-dashed border-admin-border bg-admin-subtle" : "border-admin-hairline bg-admin-card shadow-admin-card"
@@ -405,6 +509,9 @@ export function AdminLevels({
   );
 
   const openStudent = useCallback((userId: string) => setDetailUserId(userId), []);
+  const focusTarget = useCallback((targetId: string) => {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
   const closeNode = useCallback(() => setSelectedNodeId(null), []);
   const toggleNode = useCallback((nodeId: string) => {
     setSelectedNodeId((current) => (current === nodeId ? null : nodeId));
@@ -486,6 +593,8 @@ export function AdminLevels({
         </p>
       ) : (
         <>
+          <PathGlance path={path} onFocus={focusTarget} />
+
           <section aria-label="Level totals" className="grid grid-cols-2 gap-space-16 lg:max-w-2xl">
             <KpiTile
               icon="group"
@@ -531,7 +640,8 @@ export function AdminLevels({
 
             {path.finished.length > 0 ? (
               <div
-                className={`${CARD} flex w-full flex-col gap-space-12 border-t-2 p-space-16 lg:max-w-2xl`}
+                id="level-finished"
+                className={`${CARD} flex w-full scroll-mt-24 flex-col gap-space-12 border-t-2 p-space-16 lg:max-w-2xl`}
                 style={{ borderTopColor: ADMIN_COLORS.emerald }}
               >
                 <div className="flex items-center gap-space-8">
