@@ -1,13 +1,15 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type Ref } from "react";
 import {
   dismissStreakCelebration,
   readStreakCelebration,
   subscribeStreakCelebration,
 } from "@/lib/useProgress";
 import { chunkyButton } from "@/components/chunkyButton";
+import { StreakPingu } from "@/components/session/Pingu";
+import { FOCUS_RING } from "@/lib/keyboard";
 
 const EMBERS = [
   { x: -54, delay: 0.15, size: 8 },
@@ -16,6 +18,19 @@ const EMBERS = [
   { x: 24, delay: 0.08, size: 7 },
   { x: 6, delay: 0.5, size: 4 },
 ];
+
+/** When the counter ticks from yesterday's streak to today's. */
+const STREAK_TICK_MS = 720;
+/** Today's circle fills just after the counter lands. */
+const TODAY_CHECK_AT = 0.82;
+const BUTTONS_AT = 1.05;
+const WEEK_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"] as const;
+
+/** Monday is 0 and Sunday is 6. `today` fills in; earlier `practiced` days are already checked. */
+export type StreakWeekSample = {
+  today: number;
+  practiced: readonly number[];
+};
 
 export function StreakCelebration() {
   const celebration = useSyncExternalStore(
@@ -46,39 +61,186 @@ export function StreakCelebration() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="streak-celebration-title"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#fbfbfd] px-6 pb-safe pt-safe"
+      className="fixed inset-0 z-[100] bg-[#ff9500] pb-safe pt-safe"
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <Flame still={reduceMotion} />
-        <StreakCount
-          from={celebration.from}
-          to={celebration.to}
-          still={reduceMotion}
-        />
-        <p
-          id="streak-celebration-title"
-          className="mt-2 text-[20px] font-semibold tracking-tight text-[#1d1d1f]"
+      <StreakScreen
+        from={celebration.from}
+        to={celebration.to}
+        titleId="streak-celebration-title"
+        continueLabel="Tiếp tục"
+        onContinue={dismissStreakCelebration}
+        autoFocus
+      />
+    </motion.div>
+  );
+}
+
+/**
+ * The orange streak day: Pingu in shades inside a flame, the counter ticking
+ * up, this week's circles with today filling in, then the continue button.
+ */
+export function StreakScreen({
+  from,
+  to,
+  titleId,
+  continueLabel,
+  onContinue,
+  continueRef,
+  autoFocus = false,
+  secondaryLabel,
+  onSecondary,
+  week,
+}: {
+  from: number;
+  to: number;
+  titleId?: string;
+  continueLabel: string;
+  onContinue: () => void;
+  continueRef?: Ref<HTMLButtonElement>;
+  autoFocus?: boolean;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  /** A fixed week, used by previews. The live card uses today and the streak length. */
+  week?: StreakWeekSample;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const appear = (delay: number) => ({
+    initial: reduceMotion ? false : { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: reduceMotion ? 0 : delay, duration: 0.25 },
+  });
+
+  return (
+    <div className="flex h-full flex-col bg-[#ff9500] text-white">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 text-center">
+        <motion.div
+          initial={reduceMotion ? false : { scale: 0.2, opacity: 0, rotate: -10 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 14 }}
         >
+          <StreakPingu className="h-[min(28dvh,250px)]" />
+        </motion.div>
+        <StreakCount from={from} to={to} still={reduceMotion} />
+        <p id={titleId} className="text-[26px] font-extrabold tracking-tight text-white">
           ngày liên tiếp
         </p>
+        <StreakWeek days={to} still={reduceMotion} week={week} />
       </div>
-      <div className="w-full max-w-md pb-6">
+      <div className="mx-auto w-full max-w-md shrink-0 px-6 pt-2 pb-6">
         <motion.button
+          ref={continueRef}
           type="button"
-          autoFocus
-          onClick={dismissStreakCelebration}
-          className={chunkyButton("primary", "w-full")}
-          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.85, duration: 0.25 }}
+          autoFocus={autoFocus}
+          onClick={onContinue}
+          className={chunkyButton("inverse", "w-full")}
+          {...appear(BUTTONS_AT)}
         >
-          Tiếp tục
+          {continueLabel}
         </motion.button>
+        {secondaryLabel && onSecondary ? (
+          <motion.button type="button" onClick={onSecondary} className={`${TEXT_BUTTON} mt-3`} {...appear(BUTTONS_AT)}>
+            {secondaryLabel}
+          </motion.button>
+        ) : null}
       </div>
-    </motion.div>
+    </div>
+  );
+}
+
+const TEXT_BUTTON = `flex h-[52px] w-full items-center justify-center rounded-2xl text-[15px] font-extrabold uppercase tracking-[0.08em] text-white transition-colors hover:bg-white/10 ${FOCUS_RING}`;
+
+/**
+ * Monday through Sunday of the current week. The streak runs unbroken up to
+ * today, so each earlier day still inside that count is checked. A sample week
+ * marks the practiced days itself, including a day before a gap.
+ */
+function StreakWeek({ days, still, week }: { days: number; still: boolean; week?: StreakWeekSample }) {
+  const [today] = useState(() => new Date());
+  const weekday = today.getDay();
+  const daysSinceMonday = week ? week.today : weekday === 0 ? 6 : weekday - 1;
+  const practiced = week ? new Set(week.practiced) : null;
+  const slots = WEEK_LABELS.map((label, index) => {
+    const fromToday = index - daysSinceMonday;
+    return {
+      label,
+      fromToday,
+      done: practiced ? practiced.has(index) : fromToday < 0 && fromToday > -days,
+    };
+  });
+
+  return (
+    <ol className="mt-[clamp(16px,4dvh,32px)] flex w-full max-w-[360px] justify-between gap-1" aria-label={`Chuỗi ${days} ngày`}>
+      {slots.map((slot, index) => (
+        <li key={slot.label} className="flex flex-1 flex-col items-center gap-2" aria-hidden="true">
+          <span className={`text-[15px] font-extrabold ${slot.fromToday === 0 ? "text-white" : "text-[#fff1c9]"}`}>
+            {slot.label}
+          </span>
+          {slot.fromToday === 0 ? (
+            <TodayCircle still={still} />
+          ) : slot.done ? (
+            <motion.span
+              className="flex size-[min(10vw,40px)] items-center justify-center rounded-full bg-[#ffe066] text-[#ff9500]"
+              initial={still ? false : { scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={still ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 18, delay: 0.3 + index * 0.05 }}
+            >
+              <Check />
+            </motion.span>
+          ) : (
+            <span className="size-[min(10vw,40px)] rounded-full bg-[#c96f00]/45" />
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Starts empty like tomorrow, then pops white with a ring once the counter lands. */
+function TodayCircle({ still }: { still: boolean }) {
+  const [landed, setLanded] = useState(false);
+  const checked = still || landed;
+
+  useEffect(() => {
+    if (still) return;
+    const tick = window.setTimeout(() => setLanded(true), TODAY_CHECK_AT * 1000);
+    return () => window.clearTimeout(tick);
+  }, [still]);
+
+  return (
+    <span className="relative flex size-[min(10vw,40px)] items-center justify-center">
+      <span className="absolute inset-0 rounded-full bg-[#c96f00]/45" />
+      {checked ? (
+        <>
+          {still ? null : (
+            <motion.span
+              className="absolute inset-0 rounded-full border-4 border-white"
+              initial={{ scale: 1, opacity: 0.9 }}
+              animate={{ scale: 1.9, opacity: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut" }}
+            />
+          )}
+          <motion.span
+            className="absolute inset-0 flex items-center justify-center rounded-full bg-white text-[#ff9500] shadow-[0_3px_0_#e88400]"
+            initial={still ? false : { scale: 0.3 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 520, damping: 14 }}
+          >
+            <Check />
+          </motion.span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+function Check() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+      <path d="M5 12.5 L10 17 L19 7.5" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -99,14 +261,14 @@ export function StreakCount({
       return;
     }
     setShown(from);
-    const tick = window.setTimeout(() => setShown(to), 720);
+    const tick = window.setTimeout(() => setShown(to), STREAK_TICK_MS);
     return () => window.clearTimeout(tick);
   }, [from, still, to]);
 
   return (
     <motion.p
       key={shown}
-      className="mt-2 text-[88px] font-bold leading-none tracking-tight text-[#1d1d1f] tabular-nums"
+      className="mt-[min(1.5dvh,12px)] bg-gradient-to-b from-[#fffbe0] to-[#ffe066] bg-clip-text pb-1 text-[clamp(72px,12dvh,104px)] font-extrabold leading-none tracking-tight text-transparent tabular-nums"
       initial={still || shown === from ? false : { scale: 0.55, y: 16, opacity: 0.4 }}
       animate={{ scale: 1, y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 420, damping: 18 }}

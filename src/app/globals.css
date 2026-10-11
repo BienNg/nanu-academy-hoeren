@@ -1324,6 +1324,435 @@ html[data-splash="seen"] .pingu-splash {
   }
 }
 
+/* Streak day. Pingu grooves in shades inside a flickering flame. */
+.pingu-streak-flame {
+  transform-origin: 50% 100%;
+  animation: pingu-streak-flame 1.2s ease-in-out infinite;
+}
+
+.pingu-streak-core {
+  transform-origin: 50% 100%;
+  animation: pingu-streak-flame 0.9s ease-in-out 0.3s infinite reverse;
+}
+
+@keyframes pingu-streak-flame {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  25% {
+    transform: scale(1.015, 1.04) skewX(-1.5deg);
+  }
+  50% {
+    transform: scale(0.99, 0.97) skewX(1deg);
+  }
+  75% {
+    transform: scale(1.01, 1.03) skewX(-0.5deg);
+  }
+}
+
+.pingu-streak-tongue {
+  transform-origin: 50% 100%;
+  animation: pingu-streak-tongue 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-streak-tongue {
+  from {
+    transform: scaleY(0.88) rotate(-4deg);
+  }
+  to {
+    transform: scaleY(1.1) rotate(4deg);
+  }
+}
+
+.pingu-streak-groove {
+  transform-origin: 50% 100%;
+  animation: pingu-streak-groove 1s ease-in-out infinite;
+}
+
+@keyframes pingu-streak-groove {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg) scale(1.03, 0.97);
+  }
+  25% {
+    transform: translateY(-10px) rotate(0deg) scale(0.99, 1.02);
+  }
+  50% {
+    transform: translateY(0) rotate(3deg) scale(1.03, 0.97);
+  }
+  75% {
+    transform: translateY(-10px) rotate(0deg) scale(0.99, 1.02);
+  }
+}
+
+.pingu-streak-wave {
+  transform: rotate(110deg);
+  animation: pingu-streak-wave 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-streak-wave {
+  from {
+    transform: rotate(96deg);
+  }
+  to {
+    transform: rotate(122deg);
+  }
+}
+
+.pingu-streak-hip {
+  transform: rotate(-18deg);
+}
+
+.pingu-streak-sheen {
+  animation: pingu-streak-sheen 2.6s ease-in-out 0.8s infinite;
+}
+
+@keyframes pingu-streak-sheen {
+  0% {
+    transform: translateX(-70px);
+  }
+  30%,
+  100% {
+    transform: translateX(110px);
+  }
+}
+
+.pingu-streak-ember {
+  opacity: 0;
+  animation: pingu-streak-ember 1.8s ease-out infinite;
+}
+
+@keyframes pingu-streak-ember {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-56px) scale(0.4);
+  }
+}
+
+/* Finished Lektion. Pingu pops up and hops, holding the level bar's sparkle high. */
+.pingu-done-pop {
+  transform-origin: 50% 100%;
+  animation: pingu-done-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes pingu-done-pop {
+  0% {
+    transform: translateY(220px) scale(0.7);
+  }
+  60% {
+    transform: translateY(-16px) scale(1.04, 0.97);
+  }
+  80% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pingu-done-hop {
+  transform-origin: 50% 100%;
+  animation: pingu-done-hop 0.9s ease-in-out 0.6s infinite;
+}
+
+@keyframes pingu-done-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(0) scale(1.05, 0.94);
+  }
+  50% {
+    transform: translateY(-18px) scale(0.98, 1.03);
+  }
+  85% {
+    transform: translateY(0) scale(1.04, 0.96);
+  }
+}
+
+.pingu-done-shadow {
+  transform-origin: 50% 50%;
+  animation: pingu-done-shadow 0.9s ease-in-out 0.6s infinite;
+}
+
+@keyframes pingu-done-shadow {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.8);
+  }
+}
+
+.pingu-done-raise {
+  transform: rotate(132deg);
+  animation: pingu-done-raise 0.45s ease-in-out 0.6s infinite alternate;
+}
+
+@keyframes pingu-done-raise {
+  from {
+    transform: rotate(124deg);
+  }
+  to {
+    transform: rotate(142deg);
+  }
+}
+
+.pingu-done-flap {
+  transform: rotate(-110deg);
+  animation: pingu-done-flap 0.3s ease-in-out 0.6s infinite alternate;
+}
+
+@keyframes pingu-done-flap {
+  from {
+    transform: rotate(-96deg);
+  }
+  to {
+    transform: rotate(-128deg);
+  }
+}
+
+.pingu-done-star {
+  transform-origin: 50% 50%;
+  animation: pingu-done-star 1.2s ease-in-out infinite;
+}
+
+@keyframes pingu-done-star {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.18) rotate(45deg);
+  }
+}
+
+.pingu-done-twinkle {
+  transform-origin: 50% 50%;
+  animation: pingu-done-twinkle 1.4s ease-in-out infinite both;
+}
+
+@keyframes pingu-done-twinkle {
+  0%,
+  100% {
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    transform: scale(1) rotate(90deg);
+  }
+}
+
+/* Finished level. Pingu backflips in with a trophy, then fireworks and
+   confetti start as the level bar fills (about 1.4s in). */
+.pingu-level-rays {
+  transform-origin: 50% 50%;
+  animation:
+    pingu-level-rays-in 0.6s ease-out both,
+    pingu-level-rays 10s linear 0.6s infinite;
+}
+
+@keyframes pingu-level-rays-in {
+  from {
+    transform: scale(0) rotate(-60deg);
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes pingu-level-rays {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pingu-level-flip {
+  transform-origin: 50% 60%;
+  animation: pingu-level-flip 1.1s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+@keyframes pingu-level-flip {
+  0% {
+    transform: translateY(260px) rotate(0deg);
+  }
+  40% {
+    transform: translateY(-120px) rotate(-200deg);
+  }
+  68% {
+    transform: translateY(0) rotate(-360deg) scale(1.12, 0.86);
+  }
+  84% {
+    transform: translateY(-14px) rotate(-360deg) scale(0.96, 1.05);
+  }
+  100% {
+    transform: translateY(0) rotate(-360deg) scale(1);
+  }
+}
+
+.pingu-level-hop {
+  transform-origin: 50% 100%;
+  animation: pingu-level-hop 0.6s ease-in-out 1.1s infinite;
+}
+
+@keyframes pingu-level-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1.06, 0.93);
+  }
+  25% {
+    transform: translateY(-26px) rotate(-4deg) scale(0.97, 1.04);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg) scale(1.06, 0.93);
+  }
+  75% {
+    transform: translateY(-26px) rotate(4deg) scale(0.97, 1.04);
+  }
+}
+
+.pingu-level-shadow {
+  transform-origin: 50% 50%;
+  animation: pingu-level-shadow 0.3s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes pingu-level-shadow {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(0.72);
+  }
+}
+
+/* The trophy turns on the same shoulder as the raised flipper, so it stays in his grip. */
+.pingu-level-lift-l {
+  transform: rotate(132deg);
+  animation: pingu-level-lift-l 0.3s ease-in-out 1.1s infinite alternate;
+}
+
+.pingu .pingu-level-hold {
+  transform-box: view-box;
+  transform-origin: 54px 126px;
+  transform: rotate(132deg);
+  animation: pingu-level-lift-l 0.3s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes pingu-level-lift-l {
+  from {
+    transform: rotate(124deg);
+  }
+  to {
+    transform: rotate(140deg);
+  }
+}
+
+.pingu-level-lift-r {
+  transform: rotate(-120deg);
+  animation: pingu-level-lift-r 0.15s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes pingu-level-lift-r {
+  from {
+    transform: rotate(-104deg);
+  }
+  to {
+    transform: rotate(-150deg);
+  }
+}
+
+.pingu-level-trophy {
+  transform-origin: 50% 100%;
+  animation: pingu-level-trophy 1.2s ease-in-out 1.1s infinite;
+}
+
+@keyframes pingu-level-trophy {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.pingu-level-gleam {
+  transform-origin: 50% 50%;
+  animation: pingu-done-twinkle 1.1s ease-in-out 1.1s infinite both;
+}
+
+.pingu-level-eyes {
+  transform-origin: 50% 50%;
+  animation: pingu-level-eyes 0.6s ease-in-out 1.1s infinite;
+}
+
+@keyframes pingu-level-eyes {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.15) rotate(12deg);
+  }
+}
+
+.pingu-level-firework {
+  transform-origin: 50% 50%;
+  opacity: 0;
+  animation: pingu-level-firework 1.6s ease-out infinite both;
+}
+
+@keyframes pingu-level-firework {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  6% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  65%,
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+.pingu-level-conf {
+  transform-origin: 50% 50%;
+  opacity: 0;
+  animation: pingu-level-conf 2.4s linear infinite both;
+}
+
+@keyframes pingu-level-conf {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(330px) rotate(540deg);
+  }
+}
+
 /* Badge unlock. One pose per tier, from the celebration sheet: he arrives,
    celebrates, and leaves, then the earned medal pops in and stays. */
 .pingu-cele * {

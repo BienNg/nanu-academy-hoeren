@@ -908,6 +908,7 @@ export function LearnSession({
         <SessionContentSkeleton kind="practice" />
       ) : phase === "complete" && summary ? (
         <PartCompleteScreen
+          levelPath={course}
           partNumber={nodeRange ? partNumber - nodeRange.first + 1 : partNumber}
           partCount={nodeRange ? nodeRange.last - nodeRange.first + 1 : partCount}
           levelLabel={course.groupLabel}

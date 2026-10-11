@@ -200,6 +200,7 @@ export function GrammarStudySession({
     return (
       <GrammarPage>
         <PartCompleteScreen
+          levelPath={course}
           partNumber={shownPart}
           partCount={parts.length}
           levelLabel={course.groupLabel}

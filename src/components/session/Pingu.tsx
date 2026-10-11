@@ -1330,3 +1330,329 @@ function CelebratePinguArt({ tier }: { tier: number }) {
     </svg>
   );
 }
+
+const STREAK_FLAME = "#FFD51F";
+
+/**
+ * Pingu on a streak day: shades on, one flipper waving, the other on his hip,
+ * grooving inside a flickering flame. Sized by `className`; the frame is 320×350.
+ */
+export function StreakPingu({ className = "h-[250px]" }: { className?: string }) {
+  return (
+    <PinguStage artboard="streak" className={`block aspect-[320/350] ${className}`}>
+      <StreakPinguArt />
+    </PinguStage>
+  );
+}
+
+function StreakPinguArt() {
+  const id = `pingu-streak-${useId().replace(/[^\w-]/g, "")}`;
+  const glow = `${id}-glow`;
+  const lenses = `${id}-lenses`;
+  const lensL = "M74 106 Q92 102 112 104 L110 117 Q106 129 97 130 Q81 131 76 119 Z";
+  const lensR = "M166 106 Q148 102 128 104 L130 117 Q134 129 143 130 Q159 131 164 119 Z";
+  return (
+    <svg
+      className="pingu block h-full w-full"
+      viewBox="-40 -70 320 350"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Pingu đeo kính râm trong ngọn lửa"
+    >
+      <defs>
+        <radialGradient id={glow} cx="50%" cy="45%" r="50%">
+          <stop offset="0%" stopColor="#FFFBE0" />
+          <stop offset="55%" stopColor="#FFF08A" />
+          <stop offset="100%" stopColor="#FFF08A" stopOpacity="0" />
+        </radialGradient>
+        <clipPath id={lenses}>
+          <path d={lensL} />
+          <path d={lensR} />
+        </clipPath>
+      </defs>
+      <g className="pingu-streak-flame">
+        <g className="pingu-streak-tongue" style={{ animationDelay: "-0.2s" }}>
+          <path d="M-6 120 C-14 74 -4 30 22 -4 C26 30 44 50 72 60 Z" fill={STREAK_FLAME} />
+        </g>
+        <g className="pingu-streak-tongue" style={{ animationDelay: "-0.5s" }}>
+          <path d="M50 60 C58 10 92 -30 140 -58 C126 -24 138 2 170 16 C140 30 100 40 50 60 Z" fill={STREAK_FLAME} />
+        </g>
+        <g className="pingu-streak-tongue">
+          <path d="M150 40 C176 8 206 -10 238 -14 C222 18 232 56 254 110 Z" fill={STREAK_FLAME} />
+        </g>
+        <path
+          d="M120 272 C46 272 -12 216 -12 146 C-12 92 14 52 52 30 C76 16 98 12 120 12 C142 12 164 16 188 30 C226 52 252 92 252 146 C252 216 194 272 120 272 Z"
+          fill={STREAK_FLAME}
+        />
+      </g>
+      <g className="pingu-streak-core">
+        <ellipse cx="120" cy="150" rx="104" ry="110" fill={`url(#${glow})`} />
+      </g>
+      <circle className="pingu-streak-ember" cx="214" cy="-30" r="5" fill="#FFE45C" style={{ animationDelay: "0.1s" }} />
+      <circle className="pingu-streak-ember" cx="20" cy="0" r="4" fill="#FFFBE0" style={{ animationDelay: "0.7s" }} />
+      <circle className="pingu-streak-ember" cx="140" cy="-62" r="4.5" fill="#FFE45C" style={{ animationDelay: "1.1s" }} />
+      <circle className="pingu-streak-ember" cx="236" cy="60" r="3.5" fill="#FFFBE0" style={{ animationDelay: "1.4s" }} />
+      <ellipse cx="120" cy="244" rx="64" ry="8" fill="#C25E00" opacity="0.25" />
+      <g className="pingu-streak-groove">
+        <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <g className="pingu-fl-l pingu-streak-wave">
+          <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+        </g>
+        <g className="pingu-fl-r pingu-streak-hip">
+          <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+        </g>
+        <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+        <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+        <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+        <ellipse cx="74" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+        <ellipse cx="166" cy="142" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+        <path
+          d="M62 101 Q120 91 178 101 L173 119 Q165 139 141 137 Q125 135 122 121 L118 121 Q115 135 99 137 Q75 139 67 119 Z"
+          fill="#7A2A0C"
+        />
+        <path d={lensL} fill="#FFF1C9" />
+        <path d={lensR} fill="#FFF1C9" />
+        <g clipPath={`url(#${lenses})`}>
+          <path d="M88 98 L100 98 L88 134 L76 134 Z M146 98 L158 98 L146 134 L134 134 Z" fill="#7A2A0C" />
+          <path className="pingu-streak-sheen" d="M50 98 L60 98 L48 134 L38 134 Z" fill="#FFFFFF" opacity="0.9" />
+        </g>
+        <path d="M110 150 Q120 164 130 150 Z" fill="#D9423A" />
+        <ellipse cx="120" cy="153" rx="9" ry="7" fill="#D9423A" />
+        <path d="M107 134 Q120 124 133 134 Q131 147 120 148 Q109 147 107 134 Z" fill="#FF9500" />
+        <path d="M113 136 Q120 131 127 136" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      </g>
+    </svg>
+  );
+}
+
+/** A four-point sparkle centered on (cx, cy), like the tip of the level bar. */
+function sparklePath(cx: number, cy: number, r: number): string {
+  const k = r * 0.14;
+  return `M${cx} ${cy - r} Q${cx + k} ${cy - k} ${cx + r} ${cy} Q${cx + k} ${cy + k} ${cx} ${cy + r} Q${cx - k} ${cy + k} ${cx - r} ${cy} Q${cx - k} ${cy - k} ${cx} ${cy - r} Z`;
+}
+
+/** A five-point star centered on (cx, cy). */
+function starPath(cx: number, cy: number, outer: number, inner: number): string {
+  const points = Array.from({ length: 10 }, (_, index) => {
+    const radius = index % 2 === 0 ? outer : inner;
+    const angle = (Math.PI / 5) * index - Math.PI / 2;
+    return `${(cx + radius * Math.cos(angle)).toFixed(1)} ${(cy + radius * Math.sin(angle)).toFixed(1)}`;
+  });
+  return `M${points.join(" L")} Z`;
+}
+
+const LESSON_DONE_TWINKLES = [
+  { cx: 214, cy: 36, r: 13, fill: "#B7E34E", delay: "0.7s" },
+  { cx: 232, cy: 120, r: 9, fill: "#FFE14D", delay: "1.1s" },
+  { cx: 8, cy: 150, r: 10, fill: "#8FD13F", delay: "0.9s" },
+  { cx: 176, cy: -6, r: 7, fill: "#FFE14D", delay: "1.4s" },
+] as const;
+
+/**
+ * Pingu on a finished Lektion: he pops up and hops, holding the level bar's
+ * sparkle high in one flipper. Sized by `className`; the frame is 320×350.
+ */
+export function LessonDonePingu({ className = "h-[210px]" }: { className?: string }) {
+  return (
+    <PinguStage artboard="lesson-done" className={`block aspect-[320/350] ${className}`}>
+      <LessonDonePinguArt />
+    </PinguStage>
+  );
+}
+
+function LessonDonePinguArt() {
+  const glow = `pingu-lesson-${useId().replace(/[^\w-]/g, "")}-glow`;
+  return (
+    <svg
+      className="pingu block h-full w-full"
+      viewBox="-40 -70 320 350"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Pingu giơ ngôi sao nhảy mừng"
+    >
+      <defs>
+        <radialGradient id={glow}>
+          <stop offset="0%" stopColor="#FFEC4D" stopOpacity="0.9" />
+          <stop offset="45%" stopColor="#FFEC4D" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#FFEC4D" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {LESSON_DONE_TWINKLES.map((twinkle) => (
+        <path
+          key={`${twinkle.cx}-${twinkle.cy}`}
+          className="pingu-done-twinkle"
+          d={sparklePath(twinkle.cx, twinkle.cy, twinkle.r)}
+          fill={twinkle.fill}
+          style={{ animationDelay: twinkle.delay }}
+        />
+      ))}
+      <ellipse className="pingu-done-shadow" cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+      <g className="pingu-done-pop">
+        <g className="pingu-done-hop">
+          <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <g className="pingu-fl-l pingu-done-raise">
+            <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+            <g className="pingu-done-star">
+              <circle cx="18" cy="222" r="34" fill={`url(#${glow})`} />
+              <path d={sparklePath(18, 222, 26)} fill="#FFE14D" stroke="#F5B800" strokeWidth="2.5" strokeLinejoin="round" />
+              <path d={sparklePath(18, 222, 10)} fill="#FFFFFF" />
+            </g>
+          </g>
+          <g className="pingu-fl-r pingu-done-flap">
+            <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+          </g>
+          <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+          <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+          <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+          <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <ellipse cx="76" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+          <ellipse cx="164" cy="138" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+          <path d="M82 122 Q92 106 102 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <path d="M138 122 Q148 106 158 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <ellipse cx="120" cy="150" rx="9" ry="7" fill="#D9423A" />
+          <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+          <path d="M113 134 Q120 129 127 134" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Wedges of the sunburst behind the level trophy, around (120, 110). */
+const LEVEL_RAYS = Array.from({ length: 12 }, (_, index) => {
+  const at = (index * Math.PI) / 6;
+  const half = Math.PI / 30;
+  const reach = 200;
+  const x1 = 120 + reach * Math.cos(at - half);
+  const y1 = 110 + reach * Math.sin(at - half);
+  const x2 = 120 + reach * Math.cos(at + half);
+  const y2 = 110 + reach * Math.sin(at + half);
+  return `M120 110 L${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)} Z`;
+}).join(" ");
+
+const LEVEL_FIREWORKS = [
+  { cx: 6, cy: -20, color: "#FFC83D", delay: "1.35s" },
+  { cx: 236, cy: -6, color: "#34C759", delay: "1.75s" },
+  { cx: 214, cy: 150, color: "#FF8FA3", delay: "2.15s" },
+  { cx: 22, cy: 120, color: "#0071E3", delay: "2.55s" },
+] as const;
+
+const LEVEL_CONFETTI = [
+  { x: -24, fill: "#FFC83D", delay: "1.4s", duration: "2.4s" },
+  { x: 18, fill: "#34C759", delay: "1.9s", duration: "2.1s" },
+  { x: 58, fill: "#0071E3", delay: "1.55s", duration: "2.6s" },
+  { x: 96, fill: "#FF8FA3", delay: "2.2s", duration: "2.2s" },
+  { x: 140, fill: "#FFE14D", delay: "1.45s", duration: "2.5s" },
+  { x: 178, fill: "#8FD13F", delay: "2s", duration: "2.3s" },
+  { x: 214, fill: "#FF9500", delay: "1.7s", duration: "2.7s" },
+  { x: 252, fill: "#0071E3", delay: "2.35s", duration: "2.2s" },
+] as const;
+
+function Firework({ cx, cy, color, delay }: { cx: number; cy: number; color: string; delay: string }) {
+  return (
+    <g className="pingu-level-firework" style={{ animationDelay: delay }}>
+      {Array.from({ length: 8 }, (_, index) => {
+        const at = (index * Math.PI) / 4;
+        return (
+          <path
+            key={index}
+            d={`M${(cx + 10 * Math.cos(at)).toFixed(1)} ${(cy + 10 * Math.sin(at)).toFixed(1)} L${(cx + 30 * Math.cos(at)).toFixed(1)} ${(cy + 30 * Math.sin(at)).toFixed(1)}`}
+            stroke={color}
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+        );
+      })}
+      <circle cx={cx} cy={cy} r="5" fill={color} />
+    </g>
+  );
+}
+
+/**
+ * Pingu on the last Lektion of a level: he backflips in and bounces with a
+ * gold trophy overhead and stars for eyes, in front of spinning rays. When the
+ * level bar fills, fireworks burst and confetti rains. The frame is 320×350.
+ */
+export function LevelDonePingu({ className = "h-[250px]" }: { className?: string }) {
+  return (
+    <PinguStage artboard="level-done" className={`block aspect-[320/350] ${className}`}>
+      <LevelDonePinguArt />
+    </PinguStage>
+  );
+}
+
+function LevelDonePinguArt() {
+  return (
+    <svg
+      className="pingu block h-full w-full"
+      viewBox="-40 -70 320 350"
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Pingu nâng cúp vàng nhảy mừng"
+    >
+      <g className="pingu-level-rays">
+        <path d={LEVEL_RAYS} fill="#FFE14D" opacity="0.28" />
+      </g>
+      {LEVEL_FIREWORKS.map((firework) => (
+        <Firework key={`${firework.cx}-${firework.cy}`} {...firework} />
+      ))}
+      {LEVEL_CONFETTI.map((bit) => (
+        <rect
+          key={bit.x}
+          className="pingu-level-conf"
+          x={bit.x}
+          y={-70}
+          width="9"
+          height="14"
+          rx="2"
+          fill={bit.fill}
+          style={{ animationDelay: bit.delay, animationDuration: bit.duration }}
+        />
+      ))}
+      <ellipse className="pingu-level-shadow" cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.12" />
+      <g className="pingu-level-flip">
+        <g className="pingu-level-hop">
+          <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+          <g className="pingu-fl-l pingu-level-lift-l">
+            <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+          </g>
+          <g className="pingu-fl-r pingu-level-lift-r">
+            <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+          </g>
+          <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+          <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+          <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+          <ellipse cx="74" cy="142" rx="11" ry="8" fill="#FF8FA3" opacity="0.75" />
+          <ellipse cx="166" cy="142" rx="11" ry="8" fill="#FF8FA3" opacity="0.75" />
+          <g className="pingu-level-eyes">
+            <path d={starPath(92, 117, 17, 7.5)} fill="#FFC83D" stroke="#141B2E" strokeWidth="3.5" strokeLinejoin="round" />
+            <path d={starPath(148, 117, 17, 7.5)} fill="#FFC83D" stroke="#141B2E" strokeWidth="3.5" strokeLinejoin="round" />
+          </g>
+          <path d="M106 144 Q120 176 134 144 Z" fill="#D9423A" />
+          <ellipse cx="120" cy="160" rx="7" ry="5" fill="#FF8FA3" />
+          <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+          <path d="M113 134 Q120 129 127 134" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          {/* Drawn over the body, turning on the left shoulder with the raised flipper. */}
+          <g className="pingu-level-hold">
+            <g transform="rotate(-132 18 226) translate(18 226)">
+              <g className="pingu-level-trophy">
+                <path d="M-26 -26 Q-46 -26 -44 -8 Q-42 8 -20 10" stroke="#D99A00" strokeWidth="7" strokeLinecap="round" fill="none" />
+                <path d="M26 -26 Q46 -26 44 -8 Q42 8 20 10" stroke="#D99A00" strokeWidth="7" strokeLinecap="round" fill="none" />
+                <path d="M-30 -34 H30 Q30 8 0 16 Q-30 8 -30 -34 Z" fill="#FFC83D" stroke="#D99A00" strokeWidth="3.5" strokeLinejoin="round" />
+                <path d="M-19 -26 Q-19 0 -6 10" stroke="#FFE9A6" strokeWidth="5" strokeLinecap="round" fill="none" />
+                <path d={starPath(4, -12, 11, 5)} fill="#FFF6D6" />
+                <rect x="-6" y="14" width="12" height="10" fill="#E5AC12" />
+                <rect x="-20" y="22" width="40" height="11" rx="4" fill="#FFC83D" stroke="#D99A00" strokeWidth="3.5" />
+              </g>
+              <path className="pingu-level-gleam" d={sparklePath(30, -44, 11)} fill="#FFE14D" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}

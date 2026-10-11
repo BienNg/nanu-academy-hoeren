@@ -772,6 +772,7 @@ export function StudySession({
         <SessionContentSkeleton kind="study" />
       ) : visitPart === "done" || complete ? (
         <PartCompleteScreen
+          levelPath={course}
           partNumber={
             nodeMode
               ? (summary?.partNumber ?? activePart) - nodeFirstPart + 1

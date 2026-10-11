@@ -4,10 +4,18 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { animate, motion, useReducedMotion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { PersonAvatar, RankBadge } from "@/components/LeaderboardParts";
-import { ChillPingu, PATH_POSES, Pingu, type PathPose } from "@/components/session/Pingu";
+import {
+  ChillPingu,
+  LessonDonePingu,
+  LevelDonePingu,
+  PATH_POSES,
+  Pingu,
+  type PathPose,
+} from "@/components/session/Pingu";
 import { chunkyButton } from "@/components/chunkyButton";
 import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
-import { Flame, StreakCount } from "@/components/StreakCelebration";
+import { LEVEL_FILL_DELAY, LEVEL_FILL_DURATION, LevelProgressBar } from "@/components/LevelProgressBar";
+import { Flame, StreakScreen } from "@/components/StreakCelebration";
 import { isCardEnter } from "@/lib/keyboard";
 import { questStepMoved, type QuestStep, type QuestUpdate } from "@/lib/quests";
 import {
@@ -24,11 +32,16 @@ import {
   dismissStreakReminderPrompt,
   enableStreakReminders,
 } from "@/lib/push-client";
+import type { SessionCourse } from "@/lib/session-course";
 import { playCelebrationSound, playSuccessSound } from "@/lib/sfx";
 import {
+  readLessonFinish,
   readQueuedStreakCelebration,
+  subscribeLessonFinish,
   subscribeStreakCelebration,
+  takeLessonFinish,
   takeStreakCelebration,
+  type LessonFinish,
   type StreakCelebration,
 } from "@/lib/useProgress";
 import { googleProfileImage, type LeaderboardPayload } from "@/lib/xp";
@@ -75,7 +88,25 @@ type PartCompleteScreenProps = {
   finishSide?: LessonFinishSide;
   /** You have finished `finishSide` of this Lektion, by the same stamp classmates are counted on. */
   sideFinished?: boolean;
+  /** This Lektion and its level. A run that finishes the Lektion fills the level bar. */
+  levelPath?: Pick<SessionCourse, "progressKey" | "levelProgressKeys">;
+  /** Sample level bar for an admin sequence. Shown without a finished Lektion. */
+  levelFillPreview?: LevelFill;
 };
+
+/** Lektionen of the level finished before and after this run. */
+type LevelFill = { from: number; to: number; total: number };
+
+function levelFillOf(
+  finish: LessonFinish | null,
+  progressKey: string | undefined,
+  levelKeys: readonly string[] | undefined,
+): LevelFill | null {
+  if (!finish || !progressKey || !levelKeys) return null;
+  if (finish.progressKey !== progressKey || !levelKeys.includes(progressKey)) return null;
+  const from = levelKeys.filter((key) => finish.finishedBefore.includes(key)).length;
+  return { from, to: Math.min(levelKeys.length, from + 1), total: levelKeys.length };
+}
 
 const CONFETTI = [
   { delay: 0, duration: 1.15, x: -168, y: -36, rotate: 40, color: "#34C759", w: 10, h: 16 },
@@ -887,7 +918,7 @@ function SecondaryButton({
   );
 }
 
-/** The flame and the day counter ticking up, after the completed screen. */
+/** The orange streak day with Pingu in his flame, after the completed screen. */
 function StreakStepView({
   step,
   continueLabel,
@@ -901,17 +932,76 @@ function StreakStepView({
   secondaryLabel?: string;
   onSecondary?: () => void;
 }) {
-  const reduceMotion = useReducedMotion() ?? false;
   const continueRef = useContinueShortcut(onContinue);
 
   return (
+    <main className="fixed inset-0 z-10 bg-[#ff9500] pb-safe pt-safe">
+      <StreakScreen
+        from={step.from}
+        to={step.to}
+        continueLabel={continueLabel}
+        onContinue={onContinue}
+        continueRef={continueRef}
+        secondaryLabel={secondaryLabel}
+        onSecondary={onSecondary}
+      />
+    </main>
+  );
+}
+
+/** The level bar filling by the Lektion this run finished, after the completed screen. */
+function LevelFillStepView({
+  fill,
+  levelLabel,
+  chapterLabel,
+  continueLabel,
+  onContinue,
+  secondaryLabel,
+  onSecondary,
+}: {
+  fill: LevelFill;
+  levelLabel: string;
+  chapterLabel: string;
+  continueLabel: string;
+  onContinue: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const continueRef = useContinueShortcut(onContinue);
+  const levelDone = fill.to >= fill.total;
+  const buttonDelay = reduceMotion ? 0 : LEVEL_FILL_DELAY + LEVEL_FILL_DURATION;
+
+  useEffect(() => {
+    if (!reduceMotion) return;
+    if (levelDone) playCelebrationSound();
+    else playSuccessSound();
+  }, [reduceMotion, levelDone]);
+
+  return (
     <main className="fixed inset-0 z-10 flex flex-col bg-[#fbfbfd]">
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
-        <Flame still={reduceMotion} />
-        <StreakCount from={step.from} to={step.to} still={reduceMotion} />
-        <p className="mt-2 text-[20px] font-semibold tracking-tight text-[#1d1d1f]">
-          ngày liên tiếp
+      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+        {levelDone ? <LevelDonePingu className="h-[250px]" /> : <LessonDonePingu className="h-[210px]" />}
+        <h2
+          className="relative mt-4 text-[30px] font-bold tracking-tight text-[#1d1d1f]"
+          style={{ letterSpacing: "-0.03em" }}
+        >
+          {levelDone ? `Xong ${levelLabel}!` : `Xong ${chapterLabel}!`}
+        </h2>
+        <p className="mt-2 text-[17px] text-[#6e6e73]">
+          {levelDone
+            ? `Bạn đã học xong cả ${fill.total} Lektion của ${levelLabel}.`
+            : `${fill.to}/${fill.total} Lektion của ${levelLabel}`}
         </p>
+        <div className="mt-10 w-full">
+          <LevelProgressBar
+            from={fill.from}
+            to={fill.to}
+            total={fill.total}
+            still={reduceMotion}
+            onFilled={levelDone ? playCelebrationSound : playSuccessSound}
+          />
+        </div>
       </div>
       <div className="relative z-20 mx-auto w-full max-w-md shrink-0 bg-[#fbfbfd] px-6 pt-2 pb-6">
         <motion.button
@@ -921,11 +1011,11 @@ function StreakStepView({
           className={chunkyButton("primary", "w-full")}
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.85, duration: 0.25 }}
+          transition={{ delay: buttonDelay, duration: 0.25 }}
         >
           {continueLabel}
         </motion.button>
-        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={reduceMotion ? 0 : 0.85} />
+        <SecondaryButton label={secondaryLabel} onClick={onSecondary} delay={buttonDelay} />
       </div>
     </main>
   );
@@ -1471,7 +1561,7 @@ export function ClassRankClimbStepView({
   );
 }
 
-type Stage = "complete" | "streak" | "notify" | "quests" | "classmates" | "ranking" | "classes";
+type Stage = "complete" | "lesson" | "streak" | "notify" | "quests" | "classmates" | "ranking" | "classes";
 
 function NotifyStepView({ streakDays, onDone }: { streakDays: number; onDone: () => void }) {
   const reduceMotion = useReducedMotion() ?? false;
@@ -1873,6 +1963,8 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     finishSide,
     sideFinished = false,
     classmatePreview,
+    levelPath,
+    levelFillPreview,
   } = props;
   const expectsClassmates = classmatePreview
     ? !failed && classmatePreview.total > 0
@@ -1900,9 +1992,26 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
     () => null,
   );
 
+  const pathKey = levelPath?.progressKey;
+  const levelKeys = levelPath?.levelProgressKeys;
+  const [levelFill, setLevelFill] = useState<LevelFill | null>(
+    () => levelFillPreview ?? levelFillOf(readLessonFinish(), pathKey, levelKeys),
+  );
+
   useEffect(() => {
     setAskPush(canAskForStreakReminder());
   }, []);
+
+  // A finish noted before mount is already in state. The run may also stamp
+  // the Lektion after this screen mounts, so keep listening for it.
+  useEffect(() => {
+    if (!pathKey || !levelKeys) return;
+    takeLessonFinish(pathKey);
+    return subscribeLessonFinish(() => {
+      const fill = levelFillOf(takeLessonFinish(pathKey), pathKey, levelKeys);
+      if (fill) setLevelFill(fill);
+    });
+  }, [pathKey, levelKeys]);
 
   useEffect(() => {
     if (minElapsed) return;
@@ -2027,6 +2136,7 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   }, [rankingGone, classesGone, stage, boardPending, climb, classAhead, onContinue]);
 
   const following: Stage[] = [];
+  if (!failed && levelFill) following.push("lesson");
   if (classmatesAhead) following.push("classmates");
   if (streakAhead) following.push("streak");
   if (askPush && streakAhead) following.push("notify");
@@ -2040,9 +2150,8 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   useEffect(() => {
     if (leftRef.current || stage !== "classmates" || classmates === undefined) return;
     if (classmates && classmates.total > 0) return;
-    const steps = sequenceKey
-      .split(",")
-      .filter((item): item is Stage => item !== "" && item !== "classmates");
+    const sequence = sequenceKey.split(",").filter((item): item is Stage => item !== "");
+    const steps = sequence.slice(sequence.indexOf("classmates") + 1);
     const nextStage = steps[0];
     if (nextStage === "streak") {
       const step = streakStep ?? takeStreakCelebration();
@@ -2094,6 +2203,17 @@ export function PartCompleteScreen(props: PartCompleteScreenProps) {
   };
 
   if (loading) return <XpLoader />;
+
+  if (stage === "lesson" && levelFill) {
+    return (
+      <LevelFillStepView
+        fill={levelFill}
+        levelLabel={props.levelLabel}
+        chapterLabel={props.chapterLabel}
+        {...shared}
+      />
+    );
+  }
 
   if (stage === "streak" && streakStep) {
     return <StreakStepView step={streakStep} {...shared} />;

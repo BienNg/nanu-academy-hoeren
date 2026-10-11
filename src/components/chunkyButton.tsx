@@ -17,6 +17,7 @@ export type ChunkyVariant =
   | "secondary"
   | "success"
   | "danger"
+  | "inverse"
   | "disabled";
 
 const BASE =
@@ -34,6 +35,8 @@ const VARIANTS: Record<ChunkyVariant, string> = {
   secondary: "border-2 border-[#e5e5ea] bg-white text-[#0066cc] shadow-[0_var(--lip,4px)_0_#e5e5ea] hover:bg-[#f7f7f9]",
   success: "bg-[#34C759] text-white shadow-[0_var(--lip,4px)_0_#248a3d] hover:brightness-105",
   danger: "bg-[#ff3b30] text-white shadow-[0_var(--lip,4px)_0_#c4261d] hover:brightness-105",
+  /** White on a colored screen, such as the orange streak day. */
+  inverse: "bg-white text-[#ff9500] shadow-[0_var(--lip,4px)_0_#ffd59a] hover:bg-[#fffaf2]",
   disabled: "cursor-not-allowed bg-[#e5e5ea] text-[#aeaeb2]",
 };
 

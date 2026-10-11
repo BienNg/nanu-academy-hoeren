@@ -224,6 +224,7 @@ export function GrammarPracticeSession({
     return (
       <GrammarPage>
         <PartCompleteScreen
+          levelPath={course}
           key="complete"
           partNumber={partNumber}
           partCount={parts.length}

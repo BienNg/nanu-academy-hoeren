@@ -676,6 +676,47 @@ export function useStreakCelebrationPending(): boolean {
 }
 
 /**
+ * A Lektion this run stamped completed, with every Lektion that was already
+ * completed before it. The part-complete screen fills the level bar from it.
+ */
+export type LessonFinish = { progressKey: string; finishedBefore: readonly string[] };
+
+let lessonFinish: LessonFinish | null = null;
+const lessonFinishListeners = new Set<() => void>();
+
+function noteLessonFinish(before: StoredProgress, after: StoredProgress): void {
+  for (const [key, entry] of Object.entries(after.learn)) {
+    if (!entry?.completedAt || before.learn[key]?.completedAt) continue;
+    lessonFinish = {
+      progressKey: key,
+      finishedBefore: Object.keys(before.learn).filter((other) => before.learn[other]?.completedAt),
+    };
+    for (const listener of lessonFinishListeners) listener();
+    return;
+  }
+}
+
+export function subscribeLessonFinish(onStoreChange: () => void): () => void {
+  lessonFinishListeners.add(onStoreChange);
+  return () => {
+    lessonFinishListeners.delete(onStoreChange);
+  };
+}
+
+export function readLessonFinish(): LessonFinish | null {
+  return lessonFinish;
+}
+
+/** Forget a noted finish once a screen has taken it, so a replay stays quiet. */
+export function takeLessonFinish(progressKey: string): LessonFinish | null {
+  if (lessonFinish?.progressKey !== progressKey) return null;
+  const finish = lessonFinish;
+  lessonFinish = null;
+  for (const listener of lessonFinishListeners) listener();
+  return finish;
+}
+
+/**
  * Unified localStorage + cloud-synced learning progress (requires login).
  * Pass `totalsBySlug` so continue-learning and per-beruf cards get correct totals.
  */
@@ -724,7 +765,9 @@ export function useProgress(
 
   const persist = useCallback(
     (next: StoredProgress, syncCloud: boolean) => {
-      noteStreakIncrease(readProgressSnapshot(), next);
+      const before = readProgressSnapshot();
+      noteStreakIncrease(before, next);
+      noteLessonFinish(before, next);
       writeProgress(next);
       if (syncCloud && status === "authenticated") {
         void pushCloudProgress(next);

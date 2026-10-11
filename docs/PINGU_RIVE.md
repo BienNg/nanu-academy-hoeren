@@ -21,8 +21,11 @@ One `.riv` file. Every artboard plays a state machine named **`Pingu`** and has 
 | `hello` | Sign-in screen (the "Hallo!" bubble stays HTML) | 360 × 370 |
 | `splash` | Launch splash, over brand blue `#129BE0` | 360 × 370 |
 | `celebrate-1` … `celebrate-4` | Badge unlock, one per tier (Đồng, Bạc, Vàng, Kim cương) | 280 × 300 |
+| `lesson-done` | Level bar after a finished Lektion: hops holding the bar's sparkle up | 320 × 350 |
+| `level-done` | Level bar after the last Lektion of a level: backflips in, trophy up, star eyes, rays, fireworks and confetti from about 1.4 s, when the bar fills | 320 × 350 |
+| `streak` | Streak day, in shades inside his flame over orange `#FF9500` | 320 × 350 |
 
-**Framing.** The 360 × 370 artboards hold the 240 × 250 pose from the mascot sheet with 60 px of room on each side, so the pose's (0, 0) sits at (60, 60). Balloons, balls, notes, and confetti can use that room. The celebrate artboards match the badge sheet's `-20 -50 280 300` frame exactly, so its (0, 0) sits at (20, 50). Draw the ring and confetti, but not the medal: the unlock screen draws the medal on top and expects Pingu's entrance to keep the timing of the `pingu-cele-*` keyframes in `globals.css`.
+**Framing.** The 360 × 370 artboards hold the 240 × 250 pose from the mascot sheet with 60 px of room on each side, so the pose's (0, 0) sits at (60, 60). Balloons, balls, notes, and confetti can use that room. The celebrate artboards match the badge sheet's `-20 -50 280 300` frame exactly, so its (0, 0) sits at (20, 50). The streak artboard matches its `-40 -70 320 350` frame, so the pose's (0, 0) sits at (40, 70); draw the flame and embers too. Draw the ring and confetti, but not the medal: the unlock screen draws the medal on top and expects Pingu's entrance to keep the timing of the `pingu-cele-*` keyframes in `globals.css`. The `lesson-done` and `level-done` artboards match the streak pose's `-40 -70 320 350` frame, so the pose's (0, 0) sits at (40, 70).
 
 The art references are in `design-reference/Penguin mascot sheet-html-fix`, `Chilling and cute poses-html`, `Hobby poses-html` and `Unlock celebration-html`.
 

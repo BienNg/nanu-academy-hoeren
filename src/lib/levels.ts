@@ -457,6 +457,23 @@ export function buildLevelPathChapters(levelSlug: string) {
   });
 }
 
+/**
+ * Progress keys of the Lektionen a learner can finish in this level, in path
+ * order. Matches the open stops of `buildLevelPathChapters`.
+ */
+export function getLevelProgressKeys(levelSlug: string): string[] {
+  const availableSlugs = new Set(
+    getAvailableChapters(levelSlug).map((chapter) => chapter.slug),
+  );
+  return getLevelChapters(levelSlug)
+    .filter(
+      (chapter) =>
+        availableSlugs.has(chapter.slug) ||
+        getChapterGrammar(levelSlug, chapter.slug).length > 0,
+    )
+    .map((chapter) => cefrLearnKey(levelSlug, chapter.slug));
+}
+
 /** Catalog used to pick the CEFR level a learner should land on. */
 export function getContinueLevelCatalog(): ContinueLevelCatalogEntry[] {
   return getCefrLevels().map((level) => ({

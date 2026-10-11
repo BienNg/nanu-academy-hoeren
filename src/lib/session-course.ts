@@ -1,4 +1,4 @@
-import type { CefrLevel, LevelChapterMeta } from "@/lib/levels";
+import { getLevelProgressKeys, type CefrLevel, type LevelChapterMeta } from "@/lib/levels";
 import { cefrLearnKey } from "@/lib/progress";
 
 /**
@@ -21,6 +21,11 @@ export type SessionCourse = {
   nextLessonLabel: string;
   /** Exit label after the last part of the last lesson. */
   finishLabel: string;
+  /**
+   * Progress keys of every Lektion in this lesson's level. When set, finishing
+   * the lesson fills the level bar on the part-complete screen.
+   */
+  levelProgressKeys?: readonly string[];
 };
 
 export function levelSessionCourse(level: CefrLevel, chapter: LevelChapterMeta): SessionCourse {
@@ -33,6 +38,7 @@ export function levelSessionCourse(level: CefrLevel, chapter: LevelChapterMeta):
     lessonLabel: chapter.label,
     nextLessonLabel: "Lektion tiếp theo",
     finishLabel: "Về trình độ",
+    levelProgressKeys: getLevelProgressKeys(level.slug),
   };
 }
 

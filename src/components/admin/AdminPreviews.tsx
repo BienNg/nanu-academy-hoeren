@@ -24,7 +24,8 @@ import { ClassQuestBoardView } from "@/components/ClassQuestParts";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { EarnedToast } from "@/components/QuestsScreen";
 import { ClassmateFinishStepView, ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
-import { LessonPathIcon, LessonStartCard } from "@/app/learn/[levelSlug]/LevelViewClient";
+import { StreakScreen } from "@/components/StreakCelebration";
+import { LessonPathIcon, LessonStartCard, NodeGlass } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
@@ -90,11 +91,13 @@ type SceneId =
   | "fail"
   | "part"
   | "lesson"
+  | "level-done"
   | "repeat"
   | "rejected"
   | "jump"
   | "jump-fail"
   | "streak"
+  | "streak-gap"
   | "quests"
   | "bonus"
   | "climb"
@@ -144,7 +147,14 @@ const SCENES: readonly { id: SceneId; group: string; icon: string; title: string
     group: "End of a part",
     icon: "school",
     title: "Lesson complete",
-    detail: "100% and the lesson's XP.",
+    detail: "100% and the lesson's XP, then the level bar fills 4 → 5 of 12.",
+  },
+  {
+    id: "level-done",
+    group: "End of a part",
+    icon: "flag",
+    title: "Level complete",
+    detail: "The last Lektion fills the level bar to 12 of 12, with a burst.",
   },
   {
     id: "repeat",
@@ -180,6 +190,13 @@ const SCENES: readonly { id: SceneId; group: string; icon: string; title: string
     icon: "local_fire_department",
     title: "Then the streak flame",
     detail: "The count goes from 6 to 7. No practice day is stored.",
+  },
+  {
+    id: "streak-gap",
+    group: "After the part card",
+    icon: "local_fire_department",
+    title: "Streak with a missed Tuesday",
+    detail: "Monday practiced, Tuesday missed, then Wednesday through Friday. The streak is 3, and Friday is today.",
   },
   {
     id: "quests",
@@ -1123,13 +1140,15 @@ function SamplePathNode({
       <div className="flex max-w-[10.5rem] flex-col items-center text-center">
         {locked ? (
           <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
+            <NodeGlass soft />
             <span className="opacity-45 grayscale">
-              <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
+              <LessonPathIcon name={icon} onWhite className="relative z-[1] h-10 w-10" />
             </span>
           </span>
         ) : (
           <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-            <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
+            <NodeGlass soft />
+            <LessonPathIcon name={icon} onWhite className="relative z-[1] h-10 w-10" />
           </span>
         )}
         <span
@@ -1204,7 +1223,8 @@ function OnboardingPreview({ onClose }: { onClose: () => void }) {
               <li data-tour="jump" className="relative pt-14" style={{ transform: "translateX(0px)" }}>
                 <GuideBubble label="Nhảy tới đây?" />
                 <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
-                  <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
+                  <NodeGlass />
+                  <svg viewBox="0 0 64 64" className="relative z-[1] h-10 w-10" aria-hidden="true">
                     <path
                       d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
                       fill="#FFFFFF"
@@ -1288,12 +1308,24 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
           onContinue={onClose}
         />
       ) : null}
+      {scene === "streak-gap" ? (
+        <main className="fixed inset-0 bg-[#ff9500] pb-safe pt-safe">
+          <StreakScreen
+            from={2}
+            to={3}
+            continueLabel="Về bài học"
+            onContinue={onClose}
+            week={{ today: 4, practiced: [0, 2, 3] }}
+          />
+        </main>
+      ) : null}
       {scene === "classmates-start" ? (
         <div className="fixed inset-0 bg-[#fbfbfd]" style={PATH_VARS}>
           <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center px-6">
             <div className="flex flex-col items-center">
               <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-                <LessonPathIcon name="menu_book" onWhite className="relative h-10 w-10" />
+                <NodeGlass soft />
+                <LessonPathIcon name="menu_book" onWhite className="relative z-[1] h-10 w-10" />
               </span>
               <span className="mt-1.5 text-[12px] font-bold leading-4 text-[var(--path-accent-deep)]">Học từ vựng</span>
             </div>
@@ -1317,7 +1349,8 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
       scene !== "class-climb" &&
       scene !== "classmates" &&
       scene !== "classmates-waiting" &&
-      scene !== "classmates-start" ? (
+      scene !== "classmates-start" &&
+      scene !== "streak-gap" ? (
         <PartCompleteScreen key={scene} {...partProps(scene, onClose)} />
       ) : null}
     </div>
@@ -1383,18 +1416,18 @@ function SequencePreview({ flags, onClose }: { flags: SequenceFlags; onClose: ()
 
 function partProps(scene: SceneId, onClose: () => void) {
   const failed = scene === "fail" || scene === "jump-fail";
-  const finishRun = scene === "lesson" || scene === "jump";
+  const finishRun = scene === "lesson" || scene === "level-done" || scene === "jump";
   const questUpdate = scene === "quests" ? MOVED_QUEST : scene === "bonus" ? BONUS_QUEST : null;
   const earned = !failed && scene !== "repeat" && scene !== "rejected";
   return {
-    partNumber: scene === "lesson" ? 3 : 2,
+    partNumber: finishRun && scene !== "jump" ? 3 : 2,
     partCount: 3,
     levelLabel: "A1.1",
     chapterLabel: "Lektion 5",
     questionCount: 8,
-    accuracy: scene === "lesson" || scene === "jump" ? 100 : failed ? 40 : 75,
+    accuracy: finishRun ? 100 : failed ? 40 : 75,
     elapsedMs: 154_000,
-    xp: earned ? (scene === "lesson" ? 40 : 15) : 0,
+    xp: earned ? (finishRun && scene !== "jump" ? 40 : 15) : 0,
     xpKind: scene === "repeat" ? "repeat" : scene === "rejected" ? "rejected" : earned ? "first" : null,
     xpPending: false,
     totalXp: earned ? 732 : null,
@@ -1412,6 +1445,12 @@ function partProps(scene: SceneId, onClose: () => void) {
           : undefined,
     continueLabel: "Về bài học",
     onContinue: onClose,
+    levelFillPreview:
+      scene === "level-done"
+        ? { from: 11, to: 12, total: 12 }
+        : finishRun
+          ? { from: 4, to: 5, total: 12 }
+          : undefined,
   };
 }
 

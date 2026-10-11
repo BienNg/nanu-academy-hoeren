@@ -606,7 +606,8 @@ function JumpNode({
         variants={LIP_7}
         className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_var(--lip,7px)_0_0_var(--path-node-lip)]"
       >
-        <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
+        <NodeGlass />
+        <svg viewBox="0 0 64 64" className="relative z-[1] h-10 w-10" aria-hidden="true">
           <path
             d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
             fill="#FFFFFF"
@@ -926,6 +927,31 @@ export function LessonPathIcon({
   );
 }
 
+/**
+ * Flat glass stripes. They run across the face and stop on one inset circle,
+ * so both ends meet the same inner edge.
+ */
+export function NodeGlass({ soft = false }: { soft?: boolean }) {
+  const band = soft ? "rgba(0,0,0,0.045)" : "rgba(255,255,255,0.32)";
+  const band2 = soft ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.22)";
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute overflow-hidden rounded-full"
+      style={{ inset: "11%" }}
+    >
+      <span
+        className="absolute rounded-full"
+        style={{ top: "-50%", left: "22%", width: "20%", height: "200%", background: band, transform: "rotate(38deg)" }}
+      />
+      <span
+        className="absolute rounded-full"
+        style={{ top: "-50%", left: "52%", width: "16%", height: "200%", background: band2, transform: "rotate(38deg)" }}
+      />
+    </span>
+  );
+}
+
 function PathCircle({
   icon,
   percent,
@@ -948,7 +974,7 @@ function PathCircle({
 }) {
   const ring = struggling ? "#ff9500" : "var(--path-node)";
   const glyph = (
-    <LessonPathIcon name={icon} onWhite={!complete} className="relative h-10 w-10" />
+    <LessonPathIcon name={icon} onWhite={!complete} className="relative z-[1] h-10 w-10" />
   );
 
   if (locked) {
@@ -957,8 +983,9 @@ function PathCircle({
         variants={LIP_6}
         className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_var(--lip,6px)_0_0_#cbd5e1]"
       >
+        <NodeGlass soft />
         <span className="opacity-45 grayscale">{glyph}</span>
-        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#94a3b8] shadow-[0_2px_0_0_#cbd5e1]">
+        <span className="absolute -top-1 -right-1 z-[3] flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e2e8f0] bg-white text-[#94a3b8] shadow-[0_2px_0_0_#cbd5e1]">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
             <path
               fill="currentColor"
@@ -976,6 +1003,7 @@ function PathCircle({
         variants={LIP_7}
         className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_var(--lip,7px)_0_0_var(--path-node-lip)]"
       >
+        <NodeGlass />
         {glyph}
       </motion.span>
     );
@@ -1015,6 +1043,7 @@ function PathCircle({
         variants={LIP_6}
         className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_var(--lip,6px)_0_0_#bec8d2]"
       >
+        <NodeGlass soft />
         {glyph}
       </motion.span>
     </span>
@@ -1588,8 +1617,9 @@ function FinishTrophy({
             : "border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_7px_0_0_#cbd5e1]"
         }`}
       >
+        <NodeGlass soft={!earned} />
         <span
-          className="material-symbols-outlined text-[44px]"
+          className="material-symbols-outlined relative z-[1] text-[44px]"
           style={{ fontVariationSettings: "'FILL' 1" }}
           aria-hidden="true"
         >
@@ -2347,6 +2377,7 @@ export default function LevelViewClient({
                           whileTap={shouldReduceMotion ? undefined : { y: 4, "--lip": "0px" }}
                           transition={CHUNKY_PRESS_SPRING}
                         >
+                          <NodeGlass soft />
                           {chapter.slug === vocabHintSlug ? (
                             <>
                               <span
@@ -2356,7 +2387,7 @@ export default function LevelViewClient({
                               <VocabListHint reduceMotion={shouldReduceMotion === true} />
                             </>
                           ) : null}
-                          <LessonPathIcon name="dictionary" className="h-[30px] w-[30px]" />
+                          <LessonPathIcon name="dictionary" className="relative z-[1] h-[30px] w-[30px]" />
                         </motion.button>
                       </li>
                     ) : null}

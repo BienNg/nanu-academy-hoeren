@@ -503,6 +503,7 @@ export function JumpSession({
         </main>
       ) : phase === "complete" && summary ? (
         <PartCompleteScreen
+          levelPath={course}
           key={`complete-${attemptCount}`}
           partNumber={1}
           partCount={1}
