@@ -648,6 +648,20 @@ const PEP_TALKS: Record<string, string> = {
     "Lektion này rất quan trọng và hơi khó vì phần chia động từ. Đừng bỏ cuộc nhé, bạn làm được mà!",
 };
 
+const PEP_TALK_EMPHASIS = "rất quan trọng";
+
+function pepTalkCopy(text: string) {
+  const at = text.indexOf(PEP_TALK_EMPHASIS);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <strong className="font-extrabold text-[#1c1c1e]">{PEP_TALK_EMPHASIS}</strong>
+      {text.slice(at + PEP_TALK_EMPHASIS.length)}
+    </>
+  );
+}
+
 /** Clearance kept around trail stops (their progress ring overhangs the li) and between Pingu and his bubble. */
 const PEP_TALK_RING_PX = 40;
 const PEP_TALK_GAP_PX = 8;
@@ -762,31 +776,39 @@ function PepTalk({
   return (
     <li
       ref={selfRef}
-      className={`pointer-events-none absolute z-10 flex flex-col ${
-        fromLeft ? "left-0 items-start" : "right-0 items-end"
+      className={`pointer-events-none absolute z-10 flex flex-col items-center ${
+        fromLeft ? "left-0" : "right-0"
       } ${spot ? "" : "invisible"}`}
       style={{ top: spot?.top ?? 0 }}
     >
       <motion.div
         ref={bubbleRef}
         role="note"
-        className={`relative rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.1),0_4px_12px_-2px_rgba(0,0,0,0.04)] ${
+        className={`relative rounded-2xl border-2 border-[#e5e5e5] bg-white px-3.5 py-3 ${
           spot && spot.width == null ? "invisible absolute" : ""
         }`}
-        style={{ transformOrigin: fromLeft ? "15% 100%" : "85% 100%" }}
+        style={{ transformOrigin: "50% 100%" }}
         initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, amount: 0.6 }}
         transition={reduceMotion ? { duration: 0 } : { ...PEP_TALK_POP, delay: 0.2 }}
       >
-        <div
-          className={`absolute -bottom-[6px] h-3.5 w-3.5 rotate-45 rounded-[3px] bg-white ${
-            fromLeft ? "left-8" : "right-8"
-          }`}
+        <svg
+          viewBox="0 0 22 11"
+          className="absolute top-full left-1/2 h-[11px] w-[22px] -translate-x-1/2 -translate-y-[2px]"
           aria-hidden="true"
-        />
-        <p className="relative text-[13px] leading-[18px] font-medium text-balance text-[#3a3a3c]">
-          {text}
+        >
+          <path
+            d="M1 1.2 L11 10.2 L21 1.2"
+            fill="white"
+            stroke="#e5e5e5"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <path d="M2.5 1.2 H19.5" stroke="white" strokeWidth="3" />
+        </svg>
+        <p className="relative text-left text-[13px] leading-[18px] font-medium text-balance text-[#4a4a4c]">
+          {pepTalkCopy(text)}
         </p>
       </motion.div>
       <div className="mt-2" aria-hidden="true">
