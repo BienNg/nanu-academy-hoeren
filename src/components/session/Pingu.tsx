@@ -321,6 +321,76 @@ function ReadingPinguArt({ width, height }: { width: number; height: number }) {
   );
 }
 
+/** Headband on, brows set, flipper pumping: the pep talk before a hard Lektion. */
+export function FightingPingu({ size = 84 }: { size?: number }) {
+  const height = Math.round(size * (250 / 240));
+  return (
+    <PinguStage artboard="fighting" size={{ width: size, height }}>
+      <FightingPinguArt width={size} height={height} />
+    </PinguStage>
+  );
+}
+
+function FightingPinguArt({ width, height }: { width: number; height: number }) {
+  return (
+    <svg
+      className="pingu"
+      viewBox="0 0 240 250"
+      width={width}
+      height={height}
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label="Pingu đeo băng đô, giơ tay cổ vũ"
+    >
+      <ellipse className="pingu-fight-shadow" cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+      <g className="pingu-fight-spark">
+        <path d={sparklePath(226, 34, 13)} fill="#FFC83D" />
+      </g>
+      <g className="pingu-fight-spark" style={{ animationDelay: "0.6s" }}>
+        <path d={sparklePath(250, 84, 8)} fill="#FF9500" />
+      </g>
+      <g className="pingu-fight-spark" style={{ animationDelay: "1.1s" }}>
+        <path d={sparklePath(186, 6, 7)} fill="#0071E3" />
+      </g>
+      <g className="pingu-fight-bounce">
+        <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+        <g className="pingu-fl-l" style={{ transform: "rotate(14deg)" }}>
+          <path d="M52 126 C26 132 14 160 26 188 C32 196 44 190 50 178 C56 160 56 140 52 126 Z" fill="#232F4B" />
+        </g>
+        <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+        <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+        <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+        <path d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32" stroke="#232F4B" strokeWidth="6" strokeLinecap="round" fill="none" />
+        <g className="pingu-fight-tails">
+          <path d="M52 84 Q30 70 10 76 Q24 86 48 96 Z" fill="#D9423A" />
+          <path d="M50 94 Q32 104 16 116 Q36 114 54 100 Z" fill="#E5484D" />
+        </g>
+        <path d="M44 80 Q120 54 196 80 L194 98 Q120 74 46 98 Z" fill="#E5484D" />
+        <path d="M58 81 Q120 62 182 81" stroke="#FF8A8E" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        <circle cx="50" cy="90" r="9" fill="#D9423A" />
+        <ellipse cx="74" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+        <ellipse cx="166" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity="0.6" />
+        <path d="M79 100 L103 108 M161 100 L137 108" stroke="#232F4B" strokeWidth="5.5" strokeLinecap="round" />
+        <g className="pingu-blink">
+          <ellipse cx="92" cy="121" rx="8.5" ry="10" fill="#141B2E" />
+          <ellipse cx="148" cy="121" rx="8.5" ry="10" fill="#141B2E" />
+          <circle cx="95" cy="117" r="3.2" fill="#FFFFFF" />
+          <circle cx="151" cy="117" r="3.2" fill="#FFFFFF" />
+        </g>
+        <path d="M110 145 Q120 160 130 145 Z" fill="#D9423A" stroke="#D9423A" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M107 134 Q120 124 133 134 Q131 146 120 147 Q109 146 107 134 Z" fill="#FF9500" />
+        <path d="M113 136 Q120 131 127 136" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        <g transform="translate(10 6)">
+          <g className="pingu-fl-r pingu-fight-pump">
+            <path d="M188 126 C214 132 226 160 214 188 C208 196 196 190 190 178 C184 160 184 140 188 126 Z" fill="#232F4B" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 /**
  * Waving hello from the mascot sheet, with its "Hallo!" bubble. Width comes from
  * `className`; the bubble scales with it.

@@ -16,6 +16,7 @@ One `.riv` file. Every artboard plays a state machine named **`Pingu`** and has 
 | --- | --- | --- |
 | `tea`, `balloon`, `pickleball`, `pingpong`, `cups`, `pen`, `cube`, `music`, `pool`, `peekaboo` | Beside each Lektion on the path, quests, duels, part complete | 360 × 370 |
 | `reading` | Vocabulary sheet on the level page | 360 × 370 |
+| `fighting` | In the open space beside a hard Lektion on the path, in place of the chill pose, under a pep talk bubble (A1.1 Lektion 3): headband on, flipper pumping (the bubble stays HTML) | 360 × 370 |
 | `cheering` | Passed run, jump test intro | 360 × 370 |
 | `oops` | Practice run out of hearts, quit dialog | 360 × 370 |
 | `hello` | Sign-in screen (the "Hallo!" bubble stays HTML) | 360 × 370 |

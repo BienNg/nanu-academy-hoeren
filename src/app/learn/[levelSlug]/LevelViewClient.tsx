@@ -9,7 +9,13 @@ import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { ClassmateFinishLine } from "@/components/LeaderboardParts";
-import { ChillPingu, PATH_POSES, ReadingPingu, type PathPose } from "@/components/session/Pingu";
+import {
+  ChillPingu,
+  FightingPingu,
+  PATH_POSES,
+  ReadingPingu,
+  type PathPose,
+} from "@/components/session/Pingu";
 import { StudyClipList } from "@/components/session/StudyClipList";
 import { AnimatePresence, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -544,6 +550,162 @@ function VocabListHint({ reduceMotion }: { reduceMotion: boolean }) {
     </motion.span>
   );
 }
+
+/** Lektionen where Pingu cheers the student on until they finish it, keyed by level/chapter slug. */
+const PEP_TALKS: Record<string, string> = {
+  "a1-1/lektion-3":
+    "Lektion này rất quan trọng và hơi khó vì phần chia động từ. Đừng bỏ cuộc nhé, bạn làm được mà!",
+};
+
+/** Clearance kept around trail stops (their progress ring overhangs the li) and between Pingu and his bubble. */
+const PEP_TALK_RING_PX = 40;
+const PEP_TALK_GAP_PX = 8;
+const PEP_TALK_PINGU_PX = 78;
+const PEP_TALK_MIN_WIDTH_PX = 112;
+const PEP_TALK_MAX_WIDTH_PX = 156;
+
+/** Where the pep talk goes. A null width means no gap fits the bubble, so Pingu stands alone. */
+type PepTalkSpot = { top: number; width: number | null };
+
+/**
+ * Finds the open column on `side` of the trail tall enough for the bubble with
+ * Pingu under it, as close to the anchor stop as it can, without touching any stop.
+ */
+function pepTalkSpot(
+  list: HTMLElement,
+  self: HTMLElement,
+  bubble: HTMLElement,
+  side: "left" | "right",
+): PepTalkSpot {
+  const box = list.getBoundingClientRect();
+  const stops = [...list.children]
+    .filter((child): child is HTMLElement => child !== self && child instanceof HTMLElement)
+    .map((child) => {
+      const rect = child.getBoundingClientRect();
+      return {
+        top: rect.top - box.top - PEP_TALK_GAP_PX,
+        bottom: rect.bottom - box.top + PEP_TALK_GAP_PX,
+        left: rect.left - box.left - PEP_TALK_RING_PX,
+        right: rect.right - box.left + PEP_TALK_RING_PX,
+        anchor: child.hasAttribute("data-pep-anchor"),
+      };
+    });
+  const anchor = stops.find((stop) => stop.anchor);
+  const target = anchor ? (anchor.top + anchor.bottom) / 2 : box.height / 2;
+  const heightAt = new Map<number, number>();
+  const bubbleHeight = (width: number) => {
+    let height = heightAt.get(width);
+    if (height == null) {
+      bubble.style.width = `${width}px`;
+      height = bubble.offsetHeight;
+      heightAt.set(width, height);
+    }
+    return height;
+  };
+  const freeWidth = (top: number, bottom: number) => {
+    let width = box.width;
+    for (const stop of stops) {
+      if (stop.bottom <= top || stop.top >= bottom) continue;
+      width = Math.min(width, side === "left" ? stop.left : box.width - stop.right);
+    }
+    return Math.min(Math.floor(width), PEP_TALK_MAX_WIDTH_PX);
+  };
+  let best: (PepTalkSpot & { miss: number }) | null = null;
+  for (let top = 0; top < box.height; top += 4) {
+    // Width depends on the stops beside the spot, and height on the width, so settle both together.
+    let width = PEP_TALK_MAX_WIDTH_PX;
+    let height = 0;
+    for (let pass = 0; pass < 4; pass++) {
+      height = bubbleHeight(width) + PEP_TALK_GAP_PX + PEP_TALK_PINGU_PX;
+      const fits = freeWidth(top, top + height);
+      if (fits === width) break;
+      width = fits;
+      if (width < PEP_TALK_MIN_WIDTH_PX) break;
+    }
+    if (width < PEP_TALK_MIN_WIDTH_PX || top + height > box.height) continue;
+    if (freeWidth(top, top + bubbleHeight(width) + PEP_TALK_GAP_PX + PEP_TALK_PINGU_PX) < width) {
+      continue;
+    }
+    const miss = Math.abs(top + height - PEP_TALK_PINGU_PX / 2 - target);
+    if (!best || miss < best.miss) best = { top, width, miss };
+  }
+  if (best) return { top: best.top, width: best.width };
+  return { top: anchor ? anchor.top + PEP_TALK_GAP_PX : 0, width: null };
+}
+
+/**
+ * The motivating Pingu with his bubble over him, placed in the open space
+ * beside the trail on the mascot's side. The stops keep their places; if no
+ * gap is big enough, he stands alone in the mascot's spot instead.
+ */
+function PepTalk({
+  text,
+  side,
+  reduceMotion,
+}: {
+  text: string;
+  side: "left" | "right";
+  reduceMotion: boolean;
+}) {
+  const selfRef = useRef<HTMLLIElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<PepTalkSpot | null>(null);
+  const fromLeft = side === "left";
+
+  useLayoutEffect(() => {
+    const self = selfRef.current;
+    const list = self?.parentElement;
+    const bubble = bubbleRef.current;
+    if (!self || !list || !bubble) return;
+    const place = () => {
+      const next = pepTalkSpot(list, self, bubble, side);
+      bubble.style.width = next.width == null ? "" : `${next.width}px`;
+      setSpot(next);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [side, text]);
+
+  return (
+    <li
+      ref={selfRef}
+      className={`pointer-events-none absolute z-10 flex flex-col ${
+        fromLeft ? "left-0 items-start" : "right-0 items-end"
+      } ${spot ? "" : "invisible"}`}
+      style={{ top: spot?.top ?? 0 }}
+    >
+      <motion.div
+        ref={bubbleRef}
+        role="note"
+        className={`relative rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.1),0_4px_12px_-2px_rgba(0,0,0,0.04)] ${
+          spot && spot.width == null ? "invisible absolute" : ""
+        }`}
+        style={{ transformOrigin: fromLeft ? "15% 100%" : "85% 100%" }}
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, amount: 0.6 }}
+        transition={reduceMotion ? { duration: 0 } : { ...PEP_TALK_POP, delay: 0.2 }}
+      >
+        <div
+          className={`absolute -bottom-[6px] h-3.5 w-3.5 rotate-45 rounded-[3px] bg-white ${
+            fromLeft ? "left-8" : "right-8"
+          }`}
+          aria-hidden="true"
+        />
+        <p className="relative text-[13px] leading-[18px] font-medium text-balance text-[#3a3a3c]">
+          {text}
+        </p>
+      </motion.div>
+      <div className="mt-2" aria-hidden="true">
+        <FightingPingu size={PEP_TALK_PINGU_PX} />
+      </div>
+    </li>
+  );
+}
+
+const PEP_TALK_POP = { type: "spring" as const, stiffness: 460, damping: 18, mass: 0.72 };
 
 function ContinueGuideBubble({
   label,
@@ -2310,6 +2472,8 @@ export default function LevelViewClient({
 
             const lessonBubbleOpen = lockedBubbleId?.startsWith(`${chapter.slug}:`) ?? false;
             const pose = poses[index] ?? "tea";
+            const pepTalk =
+              isOpen && !isCompleted ? PEP_TALKS[`${level.slug}/${chapter.slug}`] : undefined;
             const bay = nodes.length > 0 ? pathWhiteSpace(nodes.length, pathStart) : null;
             const dictionaryOpen = isOpen && nodes.some((node) => node.icon === "menu_book");
             const mascot =
@@ -2377,6 +2541,13 @@ export default function LevelViewClient({
                         />
                       </li>
                     ) : null}
+                    {pepTalk && mascot ? (
+                      <PepTalk
+                        text={pepTalk}
+                        side={mascot.side}
+                        reduceMotion={shouldReduceMotion === true}
+                      />
+                    ) : null}
                     {nodes.map((node, nodeIndex) => {
                       const bubbleId = `${chapter.slug}:${node.key}`;
                       const locked =
@@ -2405,12 +2576,13 @@ export default function LevelViewClient({
                           key={node.key}
                           id={guideLabel ? "path-continue" : undefined}
                           data-tour={tourTarget ?? undefined}
+                          data-pep-anchor={showMascot && pepTalk ? "" : undefined}
                           className={`${
                             lockedBubbleId === bubbleId ? "relative z-30" : "relative"
                           } ${guideLabel ? "pt-14" : ""}`}
                           style={{ transform: `translateX(${pathShiftPx(pathStart + nodeIndex)}px)` }}
                         >
-                          {showMascot && mascot ? (
+                          {showMascot && mascot && !pepTalk ? (
                             <div
                               className="pointer-events-none absolute left-1/2 z-[-1]"
                               style={{

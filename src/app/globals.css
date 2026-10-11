@@ -1147,6 +1147,100 @@ body[data-admin-preview] [data-session-dock] {
   }
 }
 
+/* Pep talk before a hard Lektion: two fist pumps, a hold, headband tails in the wind. */
+.pingu-fight-pump {
+  transform: rotate(-140deg);
+  animation: pingu-fight-pump 1.8s ease-in-out infinite;
+}
+
+@keyframes pingu-fight-pump {
+  0% {
+    transform: rotate(-122deg);
+  }
+  12%,
+  36% {
+    transform: rotate(-162deg);
+  }
+  24% {
+    transform: rotate(-130deg);
+  }
+  52%,
+  100% {
+    transform: rotate(-140deg);
+  }
+}
+
+.pingu-fight-bounce {
+  transform-origin: 50% 100%;
+  animation: pingu-fight-bounce 1.8s ease-in-out infinite;
+}
+
+@keyframes pingu-fight-bounce {
+  0%,
+  24%,
+  52%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  12%,
+  36% {
+    transform: translateY(-6px) scale(0.98, 1.02);
+  }
+}
+
+.pingu-fight-shadow {
+  transform-origin: 50% 50%;
+  animation: pingu-fight-shadow 1.8s ease-in-out infinite;
+}
+
+@keyframes pingu-fight-shadow {
+  0%,
+  24%,
+  52%,
+  100% {
+    transform: scale(1);
+  }
+  12%,
+  36% {
+    transform: scale(0.88);
+  }
+}
+
+.pingu-fight-tails {
+  transform-origin: 100% 50%;
+  animation: pingu-fight-tails 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes pingu-fight-tails {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(8deg);
+  }
+}
+
+.pingu-fight-spark {
+  transform-origin: 50% 50%;
+  animation: pingu-fight-spark 1.8s ease-in-out infinite;
+}
+
+@keyframes pingu-fight-spark {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  60% {
+    opacity: 0;
+    transform: scale(0.5) rotate(90deg);
+  }
+}
+
 /* Waving hello, from the mascot sheet. The bubble shows while he waves. */
 .pingu-hello-tap-a {
   animation: pingu-chill-step 1.6s ease-in-out infinite;
@@ -1304,7 +1398,8 @@ html[data-splash="seen"] .pingu-splash {
 
 /* Hearts and notes rest invisible between loops; show them when nothing moves. */
 .pingu-locked .pingu-chill-heart,
-.pingu-locked .pingu-chill-note {
+.pingu-locked .pingu-chill-note,
+.pingu-locked .pingu-fight-spark {
   opacity: 1;
 }
 
@@ -1319,6 +1414,7 @@ html[data-splash="seen"] .pingu-splash {
 
   .pingu .pingu-chill-heart,
   .pingu .pingu-chill-note,
+  .pingu .pingu-fight-spark,
   .pingu-hello-bubble {
     opacity: 1;
   }
