@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { Badge, CARD, KpiTile, ScopeChips } from "@/components/admin/AdminUi";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
-import { LessonPathIcon, NodeGlass } from "@/app/learn/[levelSlug]/LevelViewClient";
+import { LessonPathIcon } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { StudentDetail } from "@/components/admin/StudentDrawer";
 import {
   buildLevelPath,
@@ -131,9 +131,8 @@ function PartsRing({ parts }: { parts: number }) {
 function NodeCircle({ icon, parts }: { icon: string; parts: number }) {
   return (
     <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-admin-card shadow-[0_6px_0_0_#bec8d2]">
-      <NodeGlass soft />
       {parts > 1 ? <PartsRing parts={parts} /> : null}
-      <LessonPathIcon name={icon} onWhite className="relative z-[1] h-10 w-10" />
+      <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
     </span>
   );
 }

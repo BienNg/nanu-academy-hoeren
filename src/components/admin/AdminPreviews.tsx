@@ -25,7 +25,7 @@ import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { EarnedToast } from "@/components/QuestsScreen";
 import { ClassmateFinishStepView, ClassRankClimbStepView, PartCompleteScreen, RankClimbStepView } from "@/components/session/PartCompleteScreen";
 import { StreakScreen } from "@/components/StreakCelebration";
-import { LessonPathIcon, LessonStartCard, NodeGlass } from "@/app/learn/[levelSlug]/LevelViewClient";
+import { LessonPathIcon, LessonStartCard } from "@/app/learn/[levelSlug]/LevelViewClient";
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
@@ -1140,15 +1140,13 @@ function SamplePathNode({
       <div className="flex max-w-[10.5rem] flex-col items-center text-center">
         {locked ? (
           <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e2e8f0] text-[#94a3b8] shadow-[0_6px_0_0_#cbd5e1]">
-            <NodeGlass soft />
             <span className="opacity-45 grayscale">
-              <LessonPathIcon name={icon} onWhite className="relative z-[1] h-10 w-10" />
+              <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
             </span>
           </span>
         ) : (
           <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-            <NodeGlass soft />
-            <LessonPathIcon name={icon} onWhite className="relative z-[1] h-10 w-10" />
+            <LessonPathIcon name={icon} onWhite className="relative h-10 w-10" />
           </span>
         )}
         <span
@@ -1223,8 +1221,7 @@ function OnboardingPreview({ onClose }: { onClose: () => void }) {
               <li data-tour="jump" className="relative pt-14" style={{ transform: "translateX(0px)" }}>
                 <GuideBubble label="Nhảy tới đây?" />
                 <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/40 bg-[var(--path-node)] text-white shadow-[0_7px_0_0_var(--path-node-lip)]">
-                  <NodeGlass />
-                  <svg viewBox="0 0 64 64" className="relative z-[1] h-10 w-10" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" className="h-10 w-10" aria-hidden="true">
                     <path
                       d="M12 18 L31 32 L12 46 Z M33 18 L52 32 L33 46 Z"
                       fill="#FFFFFF"
@@ -1324,8 +1321,7 @@ function PreviewStage({ scene, onClose }: { scene: SceneId; onClose: () => void 
           <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center px-6">
             <div className="flex flex-col items-center">
               <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#bec8d2]">
-                <NodeGlass soft />
-                <LessonPathIcon name="menu_book" onWhite className="relative z-[1] h-10 w-10" />
+                <LessonPathIcon name="menu_book" onWhite className="relative h-10 w-10" />
               </span>
               <span className="mt-1.5 text-[12px] font-bold leading-4 text-[var(--path-accent-deep)]">Học từ vựng</span>
             </div>
