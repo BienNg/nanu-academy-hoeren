@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { saveOutreachCase } from "@/app/admin/outreach/actions";
 import { MaterialIcon } from "@/components/admin/AdminShell";
 import { Badge, Button, Drawer, INPUT, Segmented, type BadgeTone } from "@/components/admin/AdminUi";
-import { formatAdminTimestamp } from "@/lib/admin-overview";
 import { formatActiveDuration } from "@/lib/progress";
 import {
   OUTREACH_ADDRESSES,
@@ -19,11 +18,10 @@ import {
   outreachAddress,
   outreachCatalog,
   outreachCatalogStart,
-  outreachDayAfter,
   outreachMessage2,
   outreachAnswerCompletesTin1,
   outreachPrimarySend,
-  outreachRelativeDay,
+  outreachQueueStatus,
   outreachRequiredMessageId,
   OUTREACH_SCRIPT_IDS,
   type OutreachCase,
@@ -52,14 +50,11 @@ export const OUTREACH_STATUS_TONE: Record<OutreachStatus, BadgeTone> = {
   da_dung: "emerald",
 };
 
-const FOLLOW_UP_PRESETS = [
-  { days: 1, label: "Ngày mai" },
-  { days: 3, label: "3 ngày" },
-  { days: 7, label: "1 tuần" },
-] as const;
-
-/** A decline reason is usually known once they replied or went silent. */
 const REASON_STATUSES: ReadonlySet<OutreachStatus> = new Set(["da_tra_loi", "khong_tra_loi"]);
+
+const VISIBLE_OUTREACH_STATUSES = OUTREACH_STATUSES.filter(
+  (status) => status !== "da_gui_tin_1" && status !== "da_gui_tin_2",
+);
 
 const FIELD = "flex flex-col gap-space-4";
 const LABEL = "text-admin-label-sm uppercase text-admin-ink-subtle";
@@ -72,8 +67,6 @@ type FormState = {
   greetingName: string;
   groupOverride: OutreachGroup | "";
   status: OutreachStatus;
-  followUp: boolean;
-  followUpOn: string;
   reason: OutreachReason | "";
   feedback: string;
   featureRequest: string;
@@ -86,8 +79,6 @@ function formFrom(row: OutreachRow): FormState {
     greetingName: outreachAddress(outreachCase?.greetingName),
     groupOverride: outreachCase?.groupOverride ?? "",
     status: row.status,
-    followUp: outreachCase?.followUp ?? false,
-    followUpOn: outreachCase?.followUpOn ?? "",
     reason: outreachCase?.reason ?? "",
     feedback: outreachCase?.feedback ?? "",
     featureRequest: outreachCase?.featureRequest ?? "",
@@ -100,8 +91,6 @@ function sameForm(left: FormState, right: FormState): boolean {
     left.greetingName === right.greetingName &&
     left.groupOverride === right.groupOverride &&
     left.status === right.status &&
-    left.followUp === right.followUp &&
-    left.followUpOn === right.followUpOn &&
     left.reason === right.reason &&
     left.feedback === right.feedback &&
     left.featureRequest === right.featureRequest &&
@@ -114,8 +103,6 @@ function formFromCase(outreachCase: OutreachCase): FormState {
     greetingName: outreachAddress(outreachCase.greetingName),
     groupOverride: outreachCase.groupOverride ?? "",
     status: outreachCase.status,
-    followUp: outreachCase.followUp,
-    followUpOn: outreachCase.followUpOn ?? "",
     reason: outreachCase.reason ?? "",
     feedback: outreachCase.feedback,
     featureRequest: outreachCase.featureRequest,
@@ -185,11 +172,10 @@ function Chip({
   );
 }
 
-const SEND_LABEL: Record<"1" | "2" | "checkin" | "followup", string> = {
+const SEND_LABEL: Record<"1" | "2" | "checkin", string> = {
   "1": "Đã gửi tin 1",
   "2": "Đã gửi tin 2",
   checkin: "Đã nhắn hỏi thăm",
-  followup: "Đã nhắn follow-up",
 };
 
 function isTyping(target: EventTarget | null): boolean {
@@ -200,7 +186,6 @@ function isTyping(target: EventTarget | null): boolean {
 export function AdminOutreachCase({
   row,
   job,
-  today,
   casesReady,
   position,
   onPrev,
@@ -211,7 +196,6 @@ export function AdminOutreachCase({
 }: {
   row: OutreachRow;
   job: OutreachJobId | null;
-  today: string;
   casesReady: boolean;
   /** Place in the open queue, or null when the person has left it. */
   position: { index: number; total: number } | null;
@@ -244,8 +228,11 @@ export function AdminOutreachCase({
 
   const category: OutreachGroup = form.groupOverride || row.computedCategory;
   const address = outreachAddress(form.greetingName);
+  const scriptStatus = outreachQueueStatus({ status: form.status, outreachCase: row.outreachCase });
+  const badgeStatus =
+    scriptStatus === "da_gui_tin_1" || scriptStatus === "da_gui_tin_2" ? null : scriptStatus;
   const fullCatalog = outreachCatalog(category, address);
-  const requiredId = outreachRequiredMessageId(job, form.status, category);
+  const requiredId = outreachRequiredMessageId(job, scriptStatus, category);
   const required = requiredId ? (fullCatalog.find((item) => item.id === requiredId) ?? null) : null;
   const catalog = required ? fullCatalog.filter((item) => !OUTREACH_SCRIPT_IDS.has(item.id)) : fullCatalog;
   const [moreOpen, setMoreOpen] = useState(() => required == null);
@@ -260,7 +247,6 @@ export function AdminOutreachCase({
   const visibleQuestions =
     shownCategory === "all" ? catalog : catalog.filter((question) => question.category === shownCategory);
   const askedCount = catalog.filter((question) => asked.has(question.id)).length;
-  const sentLabel = row.outreachCase?.sentAt ? formatAdminTimestamp(row.outreachCase.sentAt) : null;
   const dirty = !sameForm(form, baseline);
 
   function toggleAsked(id: string, reason: OutreachReason | null, on: boolean) {
@@ -277,7 +263,6 @@ export function AdminOutreachCase({
     markSent?: 1 | 2 | "checkin";
     claim?: boolean;
     status?: OutreachStatus;
-    clearFollowUp?: boolean;
     advance?: boolean;
   }): Promise<boolean> {
     if (!row.email) {
@@ -286,9 +271,13 @@ export function AdminOutreachCase({
     }
     const snapshot = formRef.current;
     const categoryNow = snapshot.groupOverride || row.computedCategory;
+    const scriptStatus = outreachQueueStatus({
+      status: snapshot.status,
+      outreachCase: row.outreachCase,
+    });
     const markSent =
       extra.markSent ??
-      (outreachAnswerCompletesTin1(job, snapshot.status, categoryNow, snapshot.feedback, snapshot.featureRequest)
+      (outreachAnswerCompletesTin1(job, scriptStatus, categoryNow, snapshot.feedback, snapshot.featureRequest)
         ? 1
         : null);
     const key = markSent ? `sent-${markSent}` : extra.claim ? "claim" : "save";
@@ -299,15 +288,15 @@ export function AdminOutreachCase({
       greetingName: snapshot.greetingName,
       groupOverride: snapshot.groupOverride || null,
       status: extra.status ?? snapshot.status,
-      followUp: extra.clearFollowUp ? false : snapshot.followUp,
-      followUpOn: extra.clearFollowUp ? null : snapshot.followUpOn || null,
+      followUp: false,
+      followUpOn: null,
       reason: snapshot.reason || null,
       feedback: snapshot.feedback,
       featureRequest: snapshot.featureRequest,
       notes: snapshot.notes,
       category: categoryNow,
       markSent,
-      clearFollowUp: extra.clearFollowUp === true,
+      clearFollowUp: true,
       claim: extra.claim === true,
       hadAccount: row.hasAccount,
       parts: row.parts,
@@ -364,9 +353,8 @@ export function AdminOutreachCase({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const send = outreachPrimarySend(job, form.status, category);
-  const sendLabel =
-    send == null ? null : job === "followup" && send === "checkin" ? SEND_LABEL.followup : SEND_LABEL[`${send}`];
+  const send = outreachPrimarySend(job, scriptStatus, category);
+  const sendLabel = send == null ? null : SEND_LABEL[`${send}`];
   const showReason = reasonOpen || form.reason !== "" || REASON_STATUSES.has(form.status);
   const showFeedback = feedbackOpen || form.feedback !== "";
   const showWish = wishOpen || form.featureRequest !== "";
@@ -431,9 +419,11 @@ export function AdminOutreachCase({
           </div>
           <div className="flex flex-wrap items-center gap-space-4">
             <Badge tone={OUTREACH_GROUP_TONE[category]}>{OUTREACH_GROUP_LABEL[category]}</Badge>
-            <Badge tone={OUTREACH_STATUS_TONE[form.status]} dot>
-              {OUTREACH_STATUS_LABEL[form.status]}
-            </Badge>
+            {badgeStatus ? (
+              <Badge tone={OUTREACH_STATUS_TONE[badgeStatus]} dot>
+                {OUTREACH_STATUS_LABEL[badgeStatus]}
+              </Badge>
+            ) : null}
             {row.className?.trim() ? <Badge>Lớp {row.className.trim()}</Badge> : null}
             {row.parts != null ? <Badge>{row.parts} phần</Badge> : null}
             {row.activeSeconds != null ? <Badge>{formatActiveDuration(row.activeSeconds)}</Badge> : null}
@@ -463,7 +453,6 @@ export function AdminOutreachCase({
               onClick={() =>
                 void persist({
                   markSent: send,
-                  clearFollowUp: job === "followup",
                   advance: true,
                 })
               }
@@ -503,20 +492,6 @@ export function AdminOutreachCase({
               {error}
             </p>
           ) : null}
-          {row.conversionHint ? (
-            <div className="flex flex-col gap-space-8 rounded-admin-control border border-admin-emerald bg-admin-emerald-wash px-space-12 py-space-12">
-              <p className="text-admin-body-sm text-admin-emerald-ink">
-                Có dấu hiệu đã đăng ký hoặc đã dùng sau khi nhắn.
-              </p>
-              <Button
-                variant="secondary"
-                disabled={saving !== null || !casesReady}
-                onClick={() => void persist({ status: "da_dung" })}
-              >
-                Đánh dấu đã dùng
-              </Button>
-            </div>
-          ) : null}
 
           <label className={FIELD}>
             <span className={LABEL}>Xưng hô</span>
@@ -543,78 +518,6 @@ export function AdminOutreachCase({
               {message2.text}
             </p>
           ) : null}
-
-          <div className="flex items-center justify-between gap-space-8">
-            <div className="min-w-0 text-admin-body-sm text-admin-ink-muted">
-              <p>Phụ trách: {row.outreachCase?.ownerName || "chưa có"}</p>
-              {sentLabel ? <p>Gửi lần cuối {sentLabel}</p> : null}
-            </div>
-            <Button
-              variant="ghost"
-              disabled={saving !== null || !casesReady}
-              onClick={() => void persist({ claim: true })}
-            >
-              {saving === "claim" ? "Đang lưu" : "Tôi phụ trách"}
-            </Button>
-          </div>
-
-          <div className={FIELD}>
-            <span className={LABEL}>Hẹn follow-up</span>
-            <div className="flex flex-wrap items-center gap-space-4">
-              {FOLLOW_UP_PRESETS.map((preset) => {
-                const day = outreachDayAfter(today, preset.days);
-                return (
-                  <Chip
-                    key={preset.days}
-                    label={preset.label}
-                    pressed={form.followUp && form.followUpOn === day}
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        followUp: true,
-                        followUpOn: day,
-                      }))
-                    }
-                  />
-                );
-              })}
-              <input
-                type="date"
-                aria-label="Ngày follow-up"
-                min={today}
-                className={`${INPUT} h-8 w-auto`}
-                value={form.followUpOn}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    followUp: event.target.value !== "",
-                    followUpOn: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            {form.followUp ? (
-              <div className="flex items-center justify-between gap-space-8 text-admin-body-sm text-admin-ink-muted">
-                <span>
-                  {form.followUpOn
-                    ? `Hẹn ${form.followUpOn} (${outreachRelativeDay(form.followUpOn, today)})`
-                    : "Cần follow-up, chưa chọn ngày"}
-                </span>
-                <Button
-                  variant="ghost"
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      followUp: false,
-                      followUpOn: "",
-                    }))
-                  }
-                >
-                  Bỏ hẹn
-                </Button>
-              </div>
-            ) : null}
-          </div>
 
           {showReason ? (
             <label className={FIELD}>
@@ -734,15 +637,22 @@ export function AdminOutreachCase({
                 <span className={LABEL}>Trạng thái</span>
                 <select
                   className={INPUT}
-                  value={form.status}
-                  onChange={(event) =>
+                  value={VISIBLE_OUTREACH_STATUSES.includes(form.status) ? form.status : badgeStatus ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!VISIBLE_OUTREACH_STATUSES.includes(value as OutreachStatus)) return;
                     setForm((current) => ({
                       ...current,
-                      status: event.target.value as OutreachStatus,
-                    }))
-                  }
+                      status: value as OutreachStatus,
+                    }));
+                  }}
                 >
-                  {OUTREACH_STATUSES.map((status) => (
+                  {form.status === "da_gui_tin_1" || form.status === "da_gui_tin_2" ? (
+                    badgeStatus == null ? (
+                      <option value="">—</option>
+                    ) : null
+                  ) : null}
+                  {VISIBLE_OUTREACH_STATUSES.map((status) => (
                     <option key={status} value={status}>
                       {OUTREACH_STATUS_LABEL[status]}
                     </option>
@@ -803,23 +713,6 @@ export function AdminOutreachCase({
                 <div>
                   <CopyButton variant="primary" text={required.message} label="Chép tin nhắn" />
                 </div>
-              </div>
-            ) : job === "followup" ? (
-              <div className="flex flex-col gap-space-12 rounded-admin-card border-2 border-admin-amber bg-admin-card p-space-16 shadow-admin-card">
-                <div className="flex flex-wrap items-center gap-space-8">
-                  <Badge tone="amber" solid>
-                    Bắt buộc
-                  </Badge>
-                  <h3 className="font-admin-display text-admin-headline-sm text-admin-ink">Follow-up: tự viết tin</h3>
-                </div>
-                <ol className="flex list-decimal flex-col gap-1 pl-space-20 text-admin-body-sm text-admin-ink-muted">
-                  <li>Đọc ghi chú lần trước bên dưới.</li>
-                  <li>Viết một tin riêng cho {recipient}. Có thể dùng câu hỏi thêm ở dưới.</li>
-                  <li>
-                    Bấm <span className="font-semibold text-admin-ink">{sendLabel} &amp; tiếp</span> ở cuối khung.
-                  </li>
-                </ol>
-                <p className={MESSAGE}>{form.notes.trim() || "Chưa có ghi chú."}</p>
               </div>
             ) : message2.kind === "warning" ? (
               <p className="text-admin-body-sm text-admin-amber-ink">{message2.text}</p>

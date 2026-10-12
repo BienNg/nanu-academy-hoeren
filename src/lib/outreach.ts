@@ -33,7 +33,7 @@ export const OUTREACH_REASONS = [
 
 export type OutreachReason = (typeof OUTREACH_REASONS)[number];
 
-export const OUTREACH_QUEUES = ["all", "tin1", "tin2", "followup", "mine", "wishes"] as const;
+export const OUTREACH_QUEUES = ["all", "tin1", "tin2", "mine", "wishes"] as const;
 
 export type OutreachQueue = (typeof OUTREACH_QUEUES)[number];
 
@@ -49,6 +49,11 @@ export const OUTREACH_BURST_DAYS = 7;
 export const OUTREACH_HEAVY_SECONDS = 90 * 60;
 /** Below this, with no finished part, they have not tried the app. */
 export const OUTREACH_TRIED_SECONDS = 5 * 60;
+/**
+ * Message-sent statuses recorded before this instant do not place someone in
+ * a later job. A send from the case after this instant still does.
+ */
+export const OUTREACH_SENT_COUNTS_FROM = "2026-10-12T15:00:00.000Z";
 
 export const OUTREACH_GROUP_LABEL: Record<OutreachGroup, string> = {
   heavy: "Dùng nhiều",
@@ -81,7 +86,6 @@ export const OUTREACH_QUEUE_LABEL: Record<OutreachQueue, string> = {
   all: "Tất cả",
   tin1: "Cần tin 1",
   tin2: "Cần tin 2",
-  followup: "Follow-up hôm nay",
   mine: "Của tôi",
   wishes: "Yêu cầu tính năng",
 };
@@ -461,7 +465,6 @@ export function outreachRequiredMessageId(
 export function outreachCatalogStart(job: OutreachJobId | null, group: OutreachGroup): OutreachQuestionCategory {
   if (job === "quiet") return "checkin";
   if (job === "tin2") return "wish";
-  if (job === "followup") return group === "preaccess" ? "signup" : "stop";
   return "open";
 }
 
@@ -506,6 +509,33 @@ function atLeast(status: OutreachStatus, floor: OutreachStatus): OutreachStatus 
   return STATUS_RANK[status] >= STATUS_RANK[floor] ? status : floor;
 }
 
+function sentCounts(sentAt: string | null): boolean {
+  if (!sentAt) return false;
+  const time = Date.parse(sentAt);
+  return !Number.isNaN(time) && time >= Date.parse(OUTREACH_SENT_COUNTS_FROM);
+}
+
+/**
+ * Message 1 sent / message 2 sent from before the reset read as not sent.
+ * A later status, or a send recorded after the reset, is kept.
+ */
+export function outreachQueueStatus(row: {
+  status: OutreachStatus;
+  outreachCase: { sentAt: string | null } | null;
+}): OutreachStatus {
+  if (row.status !== "da_gui_tin_1" && row.status !== "da_gui_tin_2") return row.status;
+  if (sentCounts(row.outreachCase?.sentAt ?? null)) return row.status;
+  return "chua_gui";
+}
+
+/** The status a save should start from. An echoed pre-reset send is not sent. */
+function echoedLegacyStatus(base: OutreachCase, status: OutreachStatus): OutreachStatus {
+  if (status !== base.status) return status;
+  if (status !== "da_gui_tin_1" && status !== "da_gui_tin_2") return status;
+  if (sentCounts(base.sentAt)) return status;
+  return "chua_gui";
+}
+
 /**
  * Apply a support edit. A later status is kept when a message is marked sent,
  * so recording a reply is not wiped by tin 2. The usage snapshot is taken the
@@ -521,26 +551,27 @@ export function applyOutreachPatch(
   if (!email) return { ok: false, error: "This student has no email." };
 
   const base = existing ?? emptyOutreachCase(email);
+  const incoming = echoedLegacyStatus(base, patch.status);
   if (patch.markSent === 2 && (patch.category === "preaccess" || patch.category === "fresh")) {
     return { ok: false, error: "Nhóm này không có tin 2." };
   }
-  if (patch.markSent === 2 && STATUS_RANK[atLeast(base.status, patch.status)] < STATUS_RANK.da_gui_tin_1) {
+  if (patch.markSent === 2 && STATUS_RANK[atLeast(incoming, "chua_gui")] < STATUS_RANK.da_gui_tin_1) {
     return { ok: false, error: "Gửi tin 1 trước." };
   }
-  if (patch.markSent === "checkin" && STATUS_RANK[atLeast(base.status, patch.status)] < STATUS_RANK.da_gui_tin_1) {
+  if (patch.markSent === "checkin" && STATUS_RANK[atLeast(incoming, "chua_gui")] < STATUS_RANK.da_gui_tin_1) {
     return { ok: false, error: "Gửi tin 1 trước." };
   }
   if (patch.followUpOn && !isDay(patch.followUpOn)) {
     return { ok: false, error: "Ngày follow-up không hợp lệ." };
   }
 
-  let status = patch.status;
+  let status = incoming;
   if (patch.markSent === 1) status = atLeast(status, "da_gui_tin_1");
   if (patch.markSent === 2) status = atLeast(status, "da_gui_tin_2");
 
   const contacting = patch.markSent != null || status !== "chua_gui";
   const snapshotMissing = base.hadAccountAtContact == null;
-  const claim = patch.claim || patch.markSent != null;
+  const claim = patch.claim;
   const sentAt =
     patch.markSent != null
       ? now.toISOString()
@@ -616,19 +647,16 @@ export function joinOutreach(
 }
 
 export function outreachNeedsTin2(row: OutreachRow): boolean {
-  return row.status === "da_gui_tin_1" && row.category !== "preaccess";
-}
-
-export function outreachFollowUpDue(row: OutreachRow, today: string): boolean {
-  const outreachCase = row.outreachCase;
-  if (!outreachCase?.followUp || !outreachCase.followUpOn) return false;
-  return outreachCase.followUpOn <= today;
+  return outreachQueueStatus(row) === "da_gui_tin_1" && row.category !== "preaccess";
 }
 
 /** Case-insensitive match on name, email, class, owner, notes, status and group. */
 export function outreachMatchesQuery(row: OutreachRow, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
+  const shown = outreachQueueStatus(row);
+  const statusLabel =
+    shown === "da_gui_tin_1" || shown === "da_gui_tin_2" ? "" : OUTREACH_STATUS_LABEL[shown];
   const haystack = [
     row.name,
     row.email,
@@ -637,7 +665,7 @@ export function outreachMatchesQuery(row: OutreachRow, query: string): boolean {
     row.outreachCase?.feedback,
     row.outreachCase?.featureRequest,
     row.outreachCase?.notes,
-    OUTREACH_STATUS_LABEL[row.status],
+    statusLabel,
     OUTREACH_GROUP_LABEL[row.category],
   ]
     .filter(Boolean)
@@ -675,9 +703,8 @@ export function filterOutreachRows(
 ): OutreachRow[] {
   return rows.filter((row) => {
     if (filter.category !== "all" && row.category !== filter.category) return false;
-    if (filter.queue === "tin1" && row.status !== "chua_gui") return false;
+    if (filter.queue === "tin1" && outreachQueueStatus(row) !== "chua_gui") return false;
     if (filter.queue === "tin2" && !outreachNeedsTin2(row)) return false;
-    if (filter.queue === "followup" && !outreachFollowUpDue(row, filter.today)) return false;
     if (filter.queue === "mine" && !outreachOwnerMatches(row, "mine", filter.viewerId)) return false;
     if (filter.queue === "wishes" && !row.outreachCase?.featureRequest.trim()) return false;
     return outreachMatchesQuery(row, filter.query);
@@ -692,9 +719,16 @@ export type OutreachWish = {
   text: string;
 };
 
+export type OutreachFeedback = OutreachWish & {
+  className: string | null;
+  updatedAt: string | null;
+};
+
 export function summarizeOutreach(rows: readonly OutreachRow[]): {
   reasons: { reason: OutreachReason; count: number }[];
   wishes: OutreachWish[];
+  /** Students with a saved general feedback, newest first. */
+  feedbacks: OutreachFeedback[];
   statuses: { status: OutreachStatus; count: number }[];
   /** Cases per owner, most first. */
   owners: { name: string; count: number }[];
@@ -705,10 +739,12 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
   for (const status of OUTREACH_STATUSES) statusCounts.set(status, 0);
   const ownerCounts = new Map<string, number>();
   const wishes: OutreachWish[] = [];
+  const feedbacks: OutreachFeedback[] = [];
 
   for (const row of rows) {
-    if (row.category !== "fresh" || row.status !== "chua_gui") {
-      statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
+    const status = outreachQueueStatus(row);
+    if (row.category !== "fresh" || status !== "chua_gui") {
+      statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
     }
     const outreachCase = row.outreachCase;
     if (!outreachCase) continue;
@@ -719,17 +755,35 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
     if (outreachCase.reason) {
       reasonCounts.set(outreachCase.reason, (reasonCounts.get(outreachCase.reason) ?? 0) + 1);
     }
+    const name = row.name?.trim() || row.email || "Học viên";
     const wish = outreachCase.featureRequest.trim();
     if (wish) {
       wishes.push({
         id: row.id,
-        name: row.name?.trim() || row.email || "Học viên",
+        name,
         email: row.email,
         category: row.category,
         text: wish,
       });
     }
+    const feedback = outreachCase.feedback.trim();
+    if (feedback) {
+      feedbacks.push({
+        id: row.id,
+        name,
+        email: row.email,
+        className: row.className,
+        category: row.category,
+        text: feedback,
+        updatedAt: outreachCase.updatedAt,
+      });
+    }
   }
+
+  feedbacks.sort(
+    (left, right) =>
+      (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "") || left.name.localeCompare(right.name),
+  );
 
   return {
     reasons: OUTREACH_REASONS.map((reason) => ({
@@ -737,6 +791,7 @@ export function summarizeOutreach(rows: readonly OutreachRow[]): {
       count: reasonCounts.get(reason) ?? 0,
     })),
     wishes,
+    feedbacks,
     statuses: OUTREACH_STATUSES.map((status) => ({ status, count: statusCounts.get(status) ?? 0 })),
     owners: [...ownerCounts]
       .map(([name, count]) => ({ name, count }))
@@ -825,7 +880,6 @@ export function latestStudyDay(days: readonly OutreachActivityDay[]): string | n
 }
 
 export const OUTREACH_JOBS = [
-  "followup",
   "quiet",
   "tin2",
   "tin1-heavy",
@@ -837,7 +891,6 @@ export const OUTREACH_JOBS = [
 export type OutreachJobId = (typeof OUTREACH_JOBS)[number];
 
 export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
-  followup: "Follow-up đến hạn",
   quiet: "Im một tuần",
   tin2: "Tin 2",
   "tin1-heavy": "Tin 1 · Dùng nhiều",
@@ -847,7 +900,6 @@ export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
 };
 
 export const OUTREACH_JOB_HINT: Record<OutreachJobId, string> = {
-  followup: "Mỗi người một ghi chú. Mở hàng, nhắn, rồi đánh dấu.",
   quiet: "Một lời hỏi thăm. Chỉ người đã nhận tin 2 và im một tuần.",
   tin2: "Hỏi học viên muốn app có thêm gì. Làm hết nhóm này trước lời hỏi thăm.",
   "tin1-heavy": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
@@ -872,28 +924,26 @@ function sentOn(sentAt: string | null): string | null {
 }
 
 /**
- * The one job this person sits in. Follow-up wins. Tin 2 wins over the quiet
- * check-in. Mới is never a job.
+ * The one job this person sits in. Tin 2 wins over the quiet check-in.
+ * Mới is never a job. A saved follow-up date is ignored.
  */
 export function outreachJobFor(row: OutreachRow, today: string): OutreachJobId | null {
   const outreachCase = row.outreachCase;
-  if (outreachCase?.followUp && outreachCase.followUpOn && outreachCase.followUpOn <= today) {
-    return "followup";
-  }
-  if (row.status === "da_gui_tin_1" && TIN2_GROUPS.has(row.category)) return "tin2";
+  const status = outreachQueueStatus(row);
+  if (status === "da_gui_tin_1" && TIN2_GROUPS.has(row.category)) return "tin2";
   const quietLine = outreachDayBefore(today, OUTREACH_QUIET_DAYS);
   const studiedRecently = row.lastStudyOn != null && row.lastStudyOn > quietLine;
   const messagedOn = sentOn(outreachCase?.sentAt ?? null);
   const messagedRecently = messagedOn != null && messagedOn > quietLine;
   if (
     QUIET_GROUPS.has(row.category) &&
-    QUIET_STATUSES.has(row.status) &&
+    QUIET_STATUSES.has(status) &&
     !studiedRecently &&
     !messagedRecently
   ) {
     return "quiet";
   }
-  if (row.status !== "chua_gui") return null;
+  if (status !== "chua_gui") return null;
   if (row.category === "heavy") return "tin1-heavy";
   if (row.category === "light") return "tin1-light";
   if (row.category === "never") return "tin1-never";
@@ -906,29 +956,20 @@ export function outreachLastSentOn(row: OutreachRow): string | null {
   return sentOn(row.outreachCase?.sentAt ?? null);
 }
 
-/** Why this person is in the job, in relative days. Overdue follow-ups read as alerts. */
+/** Why this person is in the job. */
 export function outreachJobWhy(
   row: OutreachRow,
   job: OutreachJobId,
   today: string,
 ): { text: string; overdue: boolean } {
-  if (job === "followup") {
-    const due = row.outreachCase?.followUpOn;
-    if (!due) return { text: "Đã hẹn", overdue: false };
-    const late = outreachDaysBetween(due, today);
-    return late > 0 ? { text: `Quá hạn ${late} ngày`, overdue: true } : { text: "Hẹn hôm nay", overdue: false };
-  }
   if (job === "quiet") {
     return {
       text: row.lastStudyOn ? `Học lần cuối ${outreachRelativeDay(row.lastStudyOn, today)}` : "Chưa thấy học",
       overdue: false,
     };
   }
-  if (job === "tin2") {
-    const sent = outreachLastSentOn(row);
-    return { text: sent ? `Tin 1 gửi ${outreachRelativeDay(sent, today)}` : "Đã gửi tin 1", overdue: false };
-  }
-  return { text: "Chưa nhắn", overdue: false };
+  if (job === "tin2") return { text: "", overdue: false };
+  return { text: "Chưa có feedback", overdue: false };
 }
 
 /**
@@ -953,17 +994,12 @@ export function outreachDoneTodayJob(row: OutreachRow, today: string): OutreachJ
 /** The one send that finishes this job. Null when there is no job. */
 export function outreachPrimarySend(
   job: OutreachJobId | null,
-  status: OutreachStatus,
-  group: OutreachGroup,
+  _status: OutreachStatus,
+  _group: OutreachGroup,
 ): 1 | 2 | "checkin" | null {
   if (job == null) return null;
   if (job === "tin2") return 2;
   if (job === "quiet") return "checkin";
-  if (job === "followup") {
-    if (status === "chua_gui") return 1;
-    if (status === "da_gui_tin_1" && TIN2_GROUPS.has(group)) return 2;
-    return "checkin";
-  }
   return 1;
 }
 

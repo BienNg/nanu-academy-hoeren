@@ -104,7 +104,7 @@ test("marking tin 2 keeps a reply and blocks the unsigned group", () => {
   assert.equal(sent.ok, true);
   if (!sent.ok) return;
   assert.equal(sent.value.status, "da_gui_tin_1");
-  assert.equal(sent.value.ownerUserId, "staff-1");
+  assert.equal(sent.value.ownerUserId, null);
   assert.equal(sent.value.hadAccountAtContact, true);
   assert.equal(sent.value.partsAtContact, 1);
 
@@ -145,6 +145,8 @@ test("queues, override, follow-up, and conversion use the case", () => {
     hadAccountAtContact: true,
     partsAtContact: 0,
     featureRequest: "thêm bài nghe ngắn",
+    feedback: "app hay",
+    updatedAt: "2026-10-07T00:00:00.000Z",
   };
   const rows = joinOutreach(
     [
@@ -177,12 +179,9 @@ test("queues, override, follow-up, and conversion use the case", () => {
     filterOutreachRows(rows, { category: "all", queue: "tin2", query: "", viewerId: "staff-1", today }).map(
       (row) => row.email,
     ).length,
-    1,
+    0,
   );
-  assert.equal(
-    filterOutreachRows(rows, { category: "all", queue: "followup", query: "", viewerId: "staff-1", today })[0]?.email,
-    "Ngoc@School.com",
-  );
+  assert.equal(outreachJobFor(rows[0]!, today), "tin1-heavy");
   assert.equal(
     filterOutreachRows(rows, { category: "all", queue: "mine", query: "", viewerId: "staff-2", today }).length,
     0,
@@ -191,7 +190,10 @@ test("queues, override, follow-up, and conversion use the case", () => {
     filterOutreachRows(rows, { category: "all", queue: "wishes", query: "nghe", viewerId: "staff-1", today }).length,
     1,
   );
-  assert.equal(summarizeOutreach(rows).wishes[0]?.text, "thêm bài nghe ngắn");
+  const summary = summarizeOutreach(rows);
+  assert.equal(summary.wishes[0]?.text, "thêm bài nghe ngắn");
+  assert.equal(summary.feedbacks[0]?.text, "app hay");
+  assert.equal(summary.feedbacks[0]?.name, "Quế Ngọc");
 });
 
 const TODAY = "2026-10-08";
@@ -268,24 +270,40 @@ test("a recent burst is dùng nhiều, a month of 1.5 hours is not", () => {
   );
 });
 
-test("tin 2 comes before the quiet check-in, and mới is not a job", () => {
+test("a message sent before the reset goes back to tin 1", () => {
   const quiet = joinOutreach(
     [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_2", sentAt: "2026-09-20T00:00:00.000Z" }],
   );
-  assert.equal(outreachJobFor(quiet[0]!, TODAY), "quiet");
+  assert.equal(outreachJobFor(quiet[0]!, TODAY), "tin1-heavy");
 
   const needsTin2 = joinOutreach(
     [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", sentAt: "2026-09-20T00:00:00.000Z" }],
   );
-  assert.equal(outreachJobFor(needsTin2[0]!, TODAY), "tin2");
+  assert.equal(outreachJobFor(needsTin2[0]!, TODAY), "tin1-heavy");
 
   const fresh = joinOutreach(
     [contact({ computedCategory: "fresh", parts: 0, activeSeconds: 0, lastStudyOn: null })],
     [],
   );
   assert.equal(outreachJobFor(fresh[0]!, TODAY), null);
+});
+
+test("a send after the reset still opens tin 2, then the quiet check-in", () => {
+  const later = "2026-10-20";
+  const sentAt = "2026-10-12T16:00:00.000Z";
+  const needsTin2 = joinOutreach(
+    [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
+    [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", sentAt }],
+  );
+  assert.equal(outreachJobFor(needsTin2[0]!, later), "tin2");
+
+  const quiet = joinOutreach(
+    [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
+    [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_2", sentAt }],
+  );
+  assert.equal(outreachJobFor(quiet[0]!, later), "quiet");
 });
 
 test("the question catalog follows the group and opens on the current job", () => {
@@ -308,7 +326,7 @@ test("the question catalog follows the group and opens on the current job", () =
   assert.equal(outreachCatalog("fresh", "em").length, 0);
 });
 
-test("due dates read in relative days and overdue follow-ups are flagged", () => {
+test("a saved follow-up date does not change the job", () => {
   assert.equal(outreachDaysBetween("2026-10-05", TODAY), 3);
   assert.equal(outreachDayAfter(TODAY, 7), "2026-10-15");
   assert.equal(outreachRelativeDay("2026-10-07", TODAY), "hôm qua");
@@ -318,9 +336,8 @@ test("due dates read in relative days and overdue follow-ups are flagged", () =>
     [contact()],
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", followUp: true, followUpOn: "2026-10-06" }],
   );
-  assert.deepEqual(outreachJobWhy(late!, "followup", TODAY), { text: "Quá hạn 2 ngày", overdue: true });
-  assert.equal(outreachPrimarySend("followup", "da_gui_tin_1", "light"), 2);
-  assert.equal(outreachPrimarySend("followup", "da_gui_tin_2", "light"), "checkin");
+  assert.equal(outreachJobFor(late!, TODAY), "tin1-light");
+  assert.deepEqual(outreachJobWhy(late!, "tin1-light", TODAY), { text: "Chưa có feedback", overdue: false });
   assert.equal(outreachPrimarySend("tin1-preaccess", "chua_gui", "preaccess"), 1);
   assert.equal(outreachAnswerCompletesTin1("tin1-light", "chua_gui", "light", "app hơi khó", ""), true);
   assert.equal(outreachAnswerCompletesTin1("tin1-heavy", "chua_gui", "heavy", "  ", "thêm bài ngắn"), true);
@@ -331,7 +348,6 @@ test("due dates read in relative days and overdue follow-ups are flagged", () =>
   assert.equal(outreachRequiredMessageId("tin1-light", "chua_gui", "light"), "open");
   assert.equal(outreachRequiredMessageId("tin2", "da_gui_tin_1", "heavy"), "wish-main");
   assert.equal(outreachRequiredMessageId("quiet", "da_gui_tin_2", "heavy"), "checkin");
-  assert.equal(outreachRequiredMessageId("followup", "da_gui_tin_2", "light"), null);
 });
 
 test("sends today count toward the job they cleared, and owners filter", () => {
@@ -350,5 +366,6 @@ test("sends today count toward the job they cleared, and owners filter", () => {
 
   const summary = summarizeOutreach(rows);
   assert.deepEqual(summary.owners, [{ name: "Lan", count: 1 }]);
-  assert.equal(summary.statuses.find((item) => item.status === "da_gui_tin_2")?.count, 1);
+  assert.equal(summary.statuses.find((item) => item.status === "da_gui_tin_2")?.count, 0);
+  assert.equal(summary.statuses.find((item) => item.status === "chua_gui")?.count, 2);
 });
