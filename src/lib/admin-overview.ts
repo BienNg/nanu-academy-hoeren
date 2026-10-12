@@ -1340,33 +1340,34 @@ function isDateOnly(value: string): boolean {
  * An earlier date-only day still counts when no sign-in was stored then.
  */
 export function signedUpAt(row: AdminUserRow): string | null {
+  const values: (string | null | undefined)[] = [];
+  for (const signIn of row.signIns ?? []) values.push(signIn.at);
+  values.push(row.lastSignInAt, row.lastLoginAt);
+  const progress = row.progress;
+  if (progress) {
+    values.push(progress.lastPracticeDate);
+    for (const day of progress.practiceDates ?? []) values.push(day);
+    for (const day of Object.keys(progress.activity ?? {})) values.push(day);
+    for (const visit of progress.visits ?? []) values.push(visit.startedAt);
+  }
+
   let bestTimedMs = Infinity;
   let bestTimed: string | null = null;
   let bestDayMs = Infinity;
   let bestDay: string | null = null;
-  const consider = (value: string | null | undefined) => {
-    if (!value) return;
+  for (const value of values) {
+    if (!value) continue;
     const ms = timestampMs(value);
-    if (ms == null) return;
+    if (ms == null) continue;
     if (isDateOnly(value)) {
-      if (ms >= bestDayMs) return;
+      if (ms >= bestDayMs) continue;
       bestDayMs = ms;
       bestDay = value;
-      return;
+      continue;
     }
-    if (ms >= bestTimedMs) return;
+    if (ms >= bestTimedMs) continue;
     bestTimedMs = ms;
     bestTimed = value;
-  };
-  for (const signIn of row.signIns ?? []) consider(signIn.at);
-  consider(row.lastSignInAt);
-  consider(row.lastLoginAt);
-  const progress = row.progress;
-  if (progress) {
-    consider(progress.lastPracticeDate);
-    for (const day of progress.practiceDates ?? []) consider(day);
-    for (const day of Object.keys(progress.activity ?? {})) consider(day);
-    for (const visit of progress.visits ?? []) consider(visit.startedAt);
   }
   if (bestDay && bestTimed) {
     const timedDay = calendarDay(bestTimed);
