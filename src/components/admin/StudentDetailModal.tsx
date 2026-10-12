@@ -25,6 +25,30 @@ import { Badge, Button, Dialog, buttonClass } from "@/components/admin/AdminUi";
 import { AccountTab } from "@/components/admin/student-detail/AccountTab";
 import { ActivityTab, InstalledAppBadge, PwaPromptList } from "@/components/admin/student-detail/ActivityTab";
 import { CoursesTab, type PendingDelete } from "@/components/admin/student-detail/CoursesTab";
+
+function progressDeleteTarget(pending: PendingDelete): StudentProgressTarget {
+  switch (pending.scope) {
+    case "all":
+      return { scope: "all" };
+    case "grammar-world":
+      return { scope: "grammar-world" };
+    case "grammar-area":
+      return { scope: "grammar-area", areaId: pending.areaId };
+    case "grammar-stage":
+      return { scope: "grammar-stage", topicId: pending.topicId };
+    case "course":
+      return { scope: "course", courseId: pending.courseId };
+    case "lesson":
+      return { scope: "lesson", courseId: pending.courseId, lessonId: pending.lessonId };
+    case "part":
+      return {
+        scope: "part",
+        courseId: pending.courseId,
+        lessonId: pending.lessonId,
+        part: pending.part,
+      };
+  }
+}
 import { visibleLessons } from "@/components/admin/student-detail/meters";
 import { OverviewTab } from "@/components/admin/student-detail/OverviewTab";
 import { useNow, type DetailTab } from "@/components/admin/student-detail/shared";
@@ -302,23 +326,7 @@ export function StudentDetailModal({
 
   async function confirmDelete() {
     if (!pendingDelete || deleting) return;
-    const target: StudentProgressTarget =
-      pendingDelete.scope === "all"
-        ? { scope: "all" }
-        : pendingDelete.scope === "course"
-          ? { scope: "course", courseId: pendingDelete.courseId }
-          : pendingDelete.scope === "lesson"
-            ? {
-                scope: "lesson",
-                courseId: pendingDelete.courseId,
-                lessonId: pendingDelete.lessonId,
-              }
-            : {
-                scope: "part",
-                courseId: pendingDelete.courseId,
-                lessonId: pendingDelete.lessonId,
-                part: pendingDelete.part,
-              };
+    const target = progressDeleteTarget(pendingDelete);
     setDeleting(true);
     setDeleteError(null);
     const result = await deleteAdminStudentProgress(row.userId, target);
@@ -638,7 +646,7 @@ export function StudentDetailModal({
                               scope: "all",
                               label: "all progress",
                               detail:
-                                "Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay.",
+                                "Courses, Lektionen, the grammar world, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay.",
                             })
                         : undefined
                     }

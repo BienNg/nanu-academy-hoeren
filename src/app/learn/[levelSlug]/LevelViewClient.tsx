@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
+import { GrammarPortal } from "@/components/grammar-world/GrammarPortal";
+import { useGrammarWorld } from "@/components/grammar-world/useGrammarWorld";
+import type { WorldTopic } from "@/lib/grammar-world";
+import type { GrammarWorldData } from "@/lib/grammar-world-content";
 import { CHUNKY_PRESS_SPRING } from "@/components/chunkyButton";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
@@ -912,6 +916,8 @@ function trailNodeLocked(
   if (!lessonOpen) return true;
   const node = nodes[index];
   if (!node || isVideoTrailNode(node)) return false;
+  // The grammar world node only exists once its stage is open.
+  if (node.icon === "grammar_world") return false;
   // A finished node stays open for replay, even after an earlier gap.
   if (node.complete) return false;
 
@@ -1105,6 +1111,19 @@ export function LessonPathIcon({
           strokeLinecap="round"
         />
         <path d="M40 10 H48 V27 L44 23.5 L40 27 Z" fill="#FFC83D" />
+      </svg>
+    );
+  }
+
+  if (name === "grammar_world") {
+    return (
+      <svg {...svg}>
+        <path d="M4 52 L24 16 L33 32 L40 23 L60 52 Z" fill={onWhite ? "#7c3aed" : "#FFFFFF"} />
+        <path d="M24 16 L30 26 L26 24 L22 27.5 L19.5 23.5 Z" fill={onWhite ? "#ddd0fb" : "#c4b5fd"} />
+        <path
+          d="M49 4 L51.2 9.8 L57.4 10.4 L52.8 14.4 L54.2 20.4 L49 17.2 L43.8 20.4 L45.2 14.4 L40.6 10.4 L46.8 9.8 Z"
+          fill={onWhite ? "#FF9500" : "#FFC83D"}
+        />
       </svg>
     );
   }
@@ -1894,6 +1913,7 @@ export default function LevelViewClient({
   path = {},
   liveRound = null,
   onboarding = false,
+  grammarWorld = null,
 }: {
   level: Level;
   chapters: Chapter[];
@@ -1909,6 +1929,8 @@ export default function LevelViewClient({
   liveRound?: LiveRound | null;
   /** The learner has not finished the first-run tour. Only CEFR level maps pass it. */
   onboarding?: boolean;
+  /** The grammar world, for the portal button. Only CEFR level maps pass it. */
+  grammarWorld?: GrammarWorldData | null;
 }) {
   const { data: session } = useSession();
   const userId = session?.user?.id ?? null;
@@ -2060,6 +2082,18 @@ export default function LevelViewClient({
       ),
     [cefrCatalog, level.slug],
   );
+  // Open stages with no finished part, by the progress key of the Lektion that opened them.
+  const worldView = useGrammarWorld(grammarWorld);
+  const worldNodeTopics = useMemo(() => {
+    const byLesson = new Map<string, WorldTopic[]>();
+    if (!grammarWorld || accessLocked || !worldView.progressReady) return byLesson;
+    for (const stage of worldView.views.flatMap((view) => view.stages)) {
+      const gate = grammarWorld.gates[stage.topic.id];
+      if (!gate || !stage.open || stage.practised) continue;
+      byLesson.set(gate.progressKey, [...(byLesson.get(gate.progressKey) ?? []), stage.topic]);
+    }
+    return byLesson;
+  }, [accessLocked, grammarWorld, worldView]);
   /** Grammar topics of every Lektion of this level, by lesson id. */
   const grammarLayouts = useMemo(
     () =>
@@ -2586,6 +2620,24 @@ export default function LevelViewClient({
                 );
               },
             );
+            // A stage that just opened shows up here until its first part is done.
+            for (const topic of worldNodeTopics.get(chapterKey) ?? []) {
+              nodes.push({
+                key: `grammar-world-${topic.id}`,
+                icon: "grammar_world",
+                href: `/grammar?intro=${encodeURIComponent(topic.id)}&from=${encodeURIComponent(`/learn/${level.slug}`)}`,
+                percent: 0,
+                partCount: 0,
+                partsDone: 0,
+                complete: false,
+                struggling: false,
+                primary: null,
+                secondary: null,
+                start: null,
+                finishSide: null,
+                label: `Núi ngữ pháp, ${topic.titleVi}`,
+              });
+            }
             const pathStart = pathStep;
             pathStep += nodes.length;
             const sectionTitle = lessonBanners[index]?.title ?? chapter.label;
@@ -2727,6 +2779,12 @@ export default function LevelViewClient({
       </section>
     </main>
     <BottomNav />
+    {grammarWorld && !accessLocked ? (
+      <GrammarPortal
+        data={grammarWorld}
+        from={`/learn/${level.slug}`}
+      />
+    ) : null}
     </motion.div>
     {tourPhase === "running" && tourMarks ? (
       <OnboardingTour onFinish={finishOnboarding} />

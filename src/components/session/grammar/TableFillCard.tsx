@@ -10,6 +10,8 @@ import { TENSE_TONE } from "@/components/session/grammar/grammar-ui";
 
 type TableFillCardProps = {
   verb: string;
+  /** Vietnamese gloss of the infinitive. */
+  translation?: string | null;
   tense: GrammarTense;
   tenseLabel: string;
   rows: TableFillRow[];
@@ -24,7 +26,16 @@ type TableFillCardProps = {
  * empty blank; tapping a filled blank gives its chip back. Remount via parent
  * `key` for each new card.
  */
-export function TableFillCard({ verb, tense, tenseLabel, rows, bank, onSubmit, result = null }: TableFillCardProps) {
+export function TableFillCard({
+  verb,
+  translation = null,
+  tense,
+  tenseLabel,
+  rows,
+  bank,
+  onSubmit,
+  result = null,
+}: TableFillCardProps) {
   const checked = result !== null;
   const blankCount = rows.filter((row) => row.text === null).length;
   /** Chip id in each blank, in row order. */
@@ -75,10 +86,13 @@ export function TableFillCard({ verb, tense, tenseLabel, rows, bank, onSubmit, r
   return (
     <>
       <section className="flex flex-col gap-4 rounded-[24px] border border-white/20 bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:p-6">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">Điền bảng · Tabelle</span>
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">Điền bảng · Tabelle</span>
+          <span className={`shrink-0 rounded-lg px-2 py-0.5 text-[13px] font-bold ${tone.head}`}>{tenseLabel}</span>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-[20px] font-semibold tracking-tight text-[#1d1d1f]">{verb}</span>
-          <span className={`rounded-lg px-2 py-0.5 text-[13px] font-bold ${tone.head}`}>{tenseLabel}</span>
+          {translation ? <span className="text-[15px] font-medium text-[#86868b] italic">“{translation}”</span> : null}
         </div>
         <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
           {rows.map((row, rowAt) => {

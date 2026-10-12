@@ -39,7 +39,7 @@ test("Perfekt joins the aux's Präsens form and the Partizip", () => {
     text: "sind … gewesen",
     words: ["sind", "gewesen"],
   });
-  assert.equal(verbForm(tables, "gehen", "perfekt", "ich"), null);
+  assert.equal(verbForm(tables, "laufen", "perfekt", "ich"), null);
 });
 
 test("the haben table matches the class slide", () => {

@@ -38,6 +38,8 @@ export type TenseVerb = {
   praeteritum: Record<string, string>;
   partizip: string;
   aux: string;
+  /** Vietnamese gloss of the infinitive, e.g. kommen → "đến". */
+  vi: string;
 };
 
 export type TenseTables = {
@@ -267,9 +269,31 @@ function stripExtension(filename: string): string {
   return dot <= 0 ? filename : filename.slice(0, dot);
 }
 
+/** A verb id as a folder name: "hören" → "hoeren", so paths stay ASCII. */
+export function verbAudioDir(verb: string): string {
+  return verb.replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss");
+}
+
 /** Row audio of one table cell, shared by every Lektion. */
 export function conjugationAudioPath(verb: string, tense: GrammarTense, personId: string): string {
-  return `grammar/${verb}/${tense}-${personId}.mp3`;
+  return `grammar/${verbAudioDir(verb)}/${tense}-${personId}.mp3`;
+}
+
+/**
+ * The tables cut down to `verbs` and their aux verbs, in table order. Cards
+ * that draw traps from every verb then only see the topic's own verbs, so
+ * adding a verb for another topic never changes this topic's cards or keys.
+ */
+export function scopeTables(tables: TenseTables, verbs: readonly string[]): TenseTables {
+  const keep = new Set(verbs);
+  for (const verb of verbs) {
+    const aux = tables.verbs[verb]?.aux;
+    if (aux) keep.add(aux);
+  }
+  return {
+    ...tables,
+    verbs: Object.fromEntries(Object.entries(tables.verbs).filter(([id]) => keep.has(id))),
+  };
 }
 
 /** What `form` adds after the shortest shared start with `base`: "st" for hattest vs hatte. */
@@ -277,6 +301,12 @@ export function endingAfter(form: string, base: string): string {
   let shared = 0;
   while (shared < form.length && shared < base.length && form[shared] === base[shared]) shared += 1;
   return form.slice(shared);
+}
+
+/** Vietnamese gloss of an infinitive, when the tables have one. */
+export function verbGloss(tables: TenseTables, verbId: string): string | null {
+  const vi = tables.verbs[verbId]?.vi?.trim();
+  return vi ? vi : null;
 }
 
 function storedForm(verb: TenseVerb, tense: StoredTense, personId: string): string {

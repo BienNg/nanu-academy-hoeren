@@ -208,7 +208,7 @@ export function AccountTab({
               <DangerRow
                 bordered={Boolean(onRequestClear)}
                 title="Delete progress"
-                detail="Courses, Lektionen, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay."
+                detail="Courses, Lektionen, the grammar world, videos, practice, visit history, and all XP are cleared. The account, class, and level access stay."
                 action={
                   <Button variant="destructive" icon="delete" onClick={onRequestDeleteProgress}>
                     Delete progress

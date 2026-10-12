@@ -1,22 +1,35 @@
 "use client";
 
+import { useMemo } from "react";
+import worldFile from "@/data/grammar/world.json";
+import tensesFile from "@/data/grammar/tenses.json";
 import { Badge, Button } from "@/components/admin/AdminUi";
 import { LessonTimingPath } from "@/components/admin/student-detail/LessonTimingPath";
 import { LessonBlock } from "@/components/admin/student-detail/meters";
 import {
   AccessSwitch,
   ColumnHeader,
+  DeleteProgressButton,
   EmptyPanel,
   Panel,
+  formatAbsoluteTime,
 } from "@/components/admin/student-detail/shared";
-import type {
-  AdminCatalogCourse,
-  AdminCourseDetail,
-  AdminLessonDetail,
-  LessonStartSignal,
-  StudentProgressTarget,
+import {
+  projectGrammarWorld,
+  type AdminCatalogCourse,
+  type AdminCourseDetail,
+  type AdminGrammarArea,
+  type AdminGrammarStage,
+  type AdminLessonDetail,
+  type LessonStartSignal,
+  type StudentProgressTarget,
 } from "@/lib/admin-detail";
+import { resolveWorld, type StoredWorldArea } from "@/lib/grammar-world";
+import type { TenseTables } from "@/lib/grammar-lessons";
 import type { StoredProgress } from "@/lib/progress";
+
+const grammarAreas = resolveWorld((worldFile as { areas: StoredWorldArea[] }).areas);
+const grammarTables = tensesFile as TenseTables;
 
 export type PendingDelete = StudentProgressTarget & { label: string; detail: string };
 
@@ -133,6 +146,10 @@ export function CoursesTab({
   onRequestDelete: (pending: PendingDelete) => void;
 }) {
   const done = lessons.filter((lesson) => lesson.status === "completed").length;
+  const grammar = useMemo(
+    () => projectGrammarWorld(progress, grammarAreas, grammarTables),
+    [progress],
+  );
 
   return (
     <div className="flex flex-col gap-space-16">
@@ -298,6 +315,158 @@ export function CoursesTab({
           )}
         </section>
       </div>
+      {grammar.areas.length > 0 ? (
+        <GrammarWorldPanel
+          world={grammar}
+          canDelete={canDelete}
+          onRequestDelete={onRequestDelete}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function GrammarWorldPanel({
+  world,
+  canDelete,
+  onRequestDelete,
+}: {
+  world: ReturnType<typeof projectGrammarWorld>;
+  canDelete: boolean;
+  onRequestDelete: (pending: PendingDelete) => void;
+}) {
+  return (
+    <section aria-label="Grammar world" className="flex flex-col gap-space-12">
+      <ColumnHeader
+        title="Grammar world"
+        description={
+          world.hasProgress
+            ? `${world.stars}/${world.starsTotal} stars`
+            : "Not started"
+        }
+        action={
+          canDelete && world.hasProgress ? (
+            <Button
+              variant="destructive"
+              icon="delete"
+              onClick={() =>
+                onRequestDelete({
+                  scope: "grammar-world",
+                  label: "grammar world",
+                  detail: "Every grammar world stage and flag is cleared. Lektionen stay.",
+                })
+              }
+            >
+              Clear
+            </Button>
+          ) : null
+        }
+      />
+      <div className="flex flex-col gap-space-12">
+        {world.areas.filter((area) => area.stages.length > 0).map((area) => (
+          <GrammarAreaBlock
+            key={area.id}
+            area={area}
+            canDelete={canDelete}
+            onRequestDelete={onRequestDelete}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GrammarAreaBlock({
+  area,
+  canDelete,
+  onRequestDelete,
+}: {
+  area: AdminGrammarArea;
+  canDelete: boolean;
+  onRequestDelete: (pending: PendingDelete) => void;
+}) {
+  const summit = area.summitAt ? formatAbsoluteTime(area.summitAt) : null;
+  return (
+    <div className="overflow-hidden rounded-admin-card border border-admin-hairline bg-admin-card shadow-admin-card">
+      <div className="flex items-center justify-between gap-space-8 border-b border-admin-hairline bg-admin-canvas px-space-16 py-space-8">
+        <div className="flex min-w-0 items-center gap-space-8">
+          <h4 className="truncate text-admin-body-md font-semibold text-admin-ink">{area.titleDe}</h4>
+          <span className="truncate text-admin-body-sm text-admin-ink-subtle">{area.titleVi}</span>
+          {summit ? <Badge tone="emerald">Flag {summit}</Badge> : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-space-8">
+          <span className="text-[12px] leading-4 tabular-nums text-admin-ink-subtle">
+            {area.hasProgress ? `${area.stars}/${area.starsTotal}` : "Not started"}
+          </span>
+          {canDelete && area.hasProgress ? (
+            <DeleteProgressButton
+              label={`Delete ${area.titleDe} progress`}
+              onClick={() =>
+                onRequestDelete({
+                  scope: "grammar-area",
+                  areaId: area.id,
+                  label: area.titleDe,
+                  detail: `Stages and the flag on ${area.titleDe} are cleared. Other areas stay.`,
+                })
+              }
+            />
+          ) : null}
+        </div>
+      </div>
+      <ul className="divide-y divide-admin-hairline">
+        {area.stages.map((stage) => (
+          <GrammarStageRow
+            key={stage.id}
+            stage={stage}
+            canDelete={canDelete}
+            onRequestDelete={onRequestDelete}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function GrammarStageRow({
+  stage,
+  canDelete,
+  onRequestDelete,
+}: {
+  stage: AdminGrammarStage;
+  canDelete: boolean;
+  onRequestDelete: (pending: PendingDelete) => void;
+}) {
+  const detail = stage.hasProgress
+    ? [
+        `${stage.stars}/${stage.starsTotal} stars`,
+        stage.reviewRuns > 0 ? `Review ×${stage.reviewRuns}` : null,
+        stage.done ? "Done" : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(" · ")
+    : "Not started";
+  return (
+    <li className="flex items-center justify-between gap-space-12 px-space-16 py-space-12">
+      <div className="min-w-0">
+        <p className="truncate text-admin-body-md font-medium text-admin-ink">{stage.titleDe}</p>
+        <p className="truncate text-admin-body-sm text-admin-ink-subtle">{stage.titleVi}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-space-8">
+        <span className="text-admin-body-sm tabular-nums text-admin-ink-muted">{detail}</span>
+        {canDelete && stage.hasProgress ? (
+          <DeleteProgressButton
+            label={`Delete ${stage.titleDe} progress`}
+            onClick={() =>
+              onRequestDelete({
+                scope: "grammar-stage",
+                topicId: stage.id,
+                label: stage.titleDe,
+                detail: `${stage.titleDe} is cleared. Other stages stay.`,
+              })
+            }
+          />
+        ) : null}
+      </div>
+    </li>
   );
 }

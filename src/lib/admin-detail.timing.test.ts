@@ -1,13 +1,31 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import {
   buildLessonTimingTrail,
   formatLessonGap,
+  projectGrammarWorld,
   projectStudentVisits,
+  studentProgressClear,
   type AdminCatalogCourse,
   type LessonStartSignal,
 } from "./admin-detail.js";
-import { DEFAULT_PROGRESS, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
+import { resolveWorld, type StoredWorldArea } from "./grammar-world.js";
+import type { TenseTables } from "./grammar-lessons.js";
+import { DEFAULT_PROGRESS, normalizeProgress, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
+
+const grammarTables = JSON.parse(
+  readFileSync(join(process.cwd(), "src/data/grammar/tenses.json"), "utf8"),
+) as TenseTables;
+const grammarAreas = resolveWorld(
+  (JSON.parse(readFileSync(join(process.cwd(), "src/data/grammar/world.json"), "utf8")) as { areas: StoredWorldArea[] })
+    .areas,
+);
+const grammarCatalog = grammarAreas.map((area) => ({
+  id: area.id,
+  topicIds: area.topics.map((topic) => topic.id),
+}));
 
 const course: AdminCatalogCourse = {
   id: "a1-1",
@@ -247,4 +265,53 @@ test("wrong answers alone are a visit, not an open with no study", () => {
   assert.equal(visit?.idle, false);
   assert.equal(visit?.stats.wrongAttempts, 9);
   assert.deepEqual(visit?.lines, ["9 wrong answers"]);
+});
+
+test("grammar world projection lists stages and a planted flag", () => {
+  const empty = projectGrammarWorld(DEFAULT_PROGRESS, grammarAreas, grammarTables);
+  assert.equal(empty.hasProgress, false);
+  const area = empty.areas.find((entry) => entry.id === "dong-tu");
+  assert.ok(area);
+  assert.equal(area.stages.some((stage) => stage.id === "verbkonjugation"), true);
+
+  const played = projectGrammarWorld(
+    normalizeProgress({
+      grammarWorld: {
+        stages: { verbkonjugation: { partKeys: [], nodeEnds: [], reviewRuns: 2 } },
+        summits: { "dong-tu": "2026-10-01T00:00:00.000Z" },
+      },
+    }),
+    grammarAreas,
+    grammarTables,
+  );
+  const stage = played.areas.find((entry) => entry.id === "dong-tu")?.stages.find((entry) => entry.id === "verbkonjugation");
+  assert.equal(stage?.reviewRuns, 2);
+  assert.equal(stage?.hasProgress, true);
+  assert.equal(played.areas.find((entry) => entry.id === "dong-tu")?.summitAt, "2026-10-01T00:00:00.000Z");
+  assert.equal(played.hasProgress, true);
+});
+
+test("grammar world deletes name real stages and areas", () => {
+  const at = "2026-10-12T00:00:00.000Z";
+  const all = studentProgressClear([], { scope: "grammar-world" }, "clear-grammar-world-1", at, grammarCatalog);
+  assert.equal(all?.clear.grammarWorld, true);
+  const stage = studentProgressClear(
+    [],
+    { scope: "grammar-stage", topicId: "verbkonjugation" },
+    "clear-grammar-stage1",
+    at,
+    grammarCatalog,
+  );
+  assert.deepEqual(stage?.clear.grammarTopics, ["verbkonjugation"]);
+  const missing = studentProgressClear(
+    [],
+    { scope: "grammar-stage", topicId: "no-such-stage" },
+    "clear-grammar-missing",
+    at,
+    grammarCatalog,
+  );
+  assert.equal(missing, null);
+  const area = studentProgressClear([], { scope: "grammar-area", areaId: "dong-tu" }, "clear-grammar-area01", at, grammarCatalog);
+  assert.equal(area?.clear.grammarTopics?.includes("verbkonjugation"), true);
+  assert.deepEqual(area?.clear.grammarAreas, ["dong-tu"]);
 });

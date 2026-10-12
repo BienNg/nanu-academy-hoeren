@@ -245,3 +245,69 @@ test("deleting one Ausbildung lesson keeps the other lesson's clips", () => {
   assert.deepEqual(next.interview.koch?.completedClipIds, ["shared"]);
   assert.equal(next.interview.koch?.completedAt, undefined);
 });
+
+function grammarProgress(): StoredProgress {
+  return normalizeProgress({
+    grammarWorld: {
+      stages: {
+        verbkonjugation: { partKeys: ["part-a"], nodeEnds: [12], reviewRuns: 1 },
+        artikel: { partKeys: ["part-b"], nodeEnds: [], reviewRuns: 0 },
+      },
+      summits: { "dong-tu": AT },
+    },
+    visits: [
+      {
+        id: "visit-grammar",
+        startedAt: AT,
+        endedAt: AT,
+        activeSeconds: 90,
+        lessons: ["grammar-world/verbkonjugation", "grammar-world/artikel"],
+        clips: [],
+        exercisesCompleted: 4,
+        listeningRuns: 0,
+        videos: [],
+        exerciseLessons: [
+          { lessonKey: "grammar-world/verbkonjugation", completed: 3, fullRuns: 0 },
+          { lessonKey: "grammar-world/artikel", completed: 1, fullRuns: 0 },
+        ],
+      },
+    ],
+  });
+}
+
+test("deleting one grammar world stage keeps the other stage and the flag", () => {
+  const next = commitAdminProgressClear(grammarProgress(), {
+    id: "clear-grammar-stage",
+    at: AT,
+    scope: "scoped",
+    grammarTopics: ["verbkonjugation"],
+  });
+  assert.equal(next.grammarWorld?.stages.verbkonjugation, undefined);
+  assert.deepEqual(next.grammarWorld?.stages.artikel?.partKeys, ["part-b"]);
+  assert.equal(next.grammarWorld?.summits?.["dong-tu"], AT);
+  const visit = next.visits?.[0];
+  assert.equal(
+    visit?.exerciseLessons?.some((lesson) => lesson.lessonKey === "grammar-world/verbkonjugation"),
+    false,
+  );
+  assert.equal(visit?.exercisesCompleted, 1);
+  assert.equal(visit?.lessons.includes("grammar-world/verbkonjugation"), false);
+
+  const restored = mergeProgress(grammarProgress(), next);
+  assert.equal(restored.grammarWorld?.stages.verbkonjugation, undefined);
+  assert.ok(restored.grammarWorld?.stages.artikel);
+});
+
+test("deleting the grammar world removes stages, flags, and their exercises", () => {
+  const next = commitAdminProgressClear(grammarProgress(), {
+    id: "clear-grammar-world",
+    at: AT,
+    scope: "scoped",
+    grammarWorld: true,
+  });
+  assert.equal(next.grammarWorld, undefined);
+  const visit = next.visits?.[0];
+  assert.equal(visit?.exerciseLessons, undefined);
+  assert.equal(visit?.exercisesCompleted, 0);
+  assert.equal(visit?.lessons.includes("grammar-world/verbkonjugation"), false);
+});

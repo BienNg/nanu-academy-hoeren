@@ -39,6 +39,8 @@
     "src/lib/grammar-lessons.test.ts",
     "src/lib/grammar-node.ts",
     "src/lib/grammar-node.test.ts",
+    "src/lib/grammar-world.ts",
+    "src/lib/grammar-world.test.ts",
     "src/lib/multiple-choice.ts",
     "src/lib/multiple-choice.test.ts",
     "src/lib/pairing.ts",

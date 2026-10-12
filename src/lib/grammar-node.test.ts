@@ -20,6 +20,7 @@ import {
   grammarPracticeParts,
   checkStudyTranslate,
   grammarStudyParts,
+  pickTableFillBlanks,
   ruleFor,
   TABLE_STEPS,
   spreadSentences,
@@ -287,15 +288,31 @@ test("practice: table-fill bank holds every blank's answer", () => {
   for (const card of allCards()) {
     if (card.kind !== "table-fill") continue;
     const answers = card.rows.filter((row) => row.text === null).map((row) => row.answer);
-    assert.equal(answers.length, 2, card.key);
+    assert.ok(answers.length >= 3 && answers.length <= 5, card.key);
     const bank = card.bank.map((chip) => chip.text);
-    for (const answer of answers) assert.ok(bank.includes(answer), card.key);
-    // A blank's form is never shown in another row.
-    const shown = card.rows.filter((row) => row.text !== null).map((row) => row.text);
-    for (const answer of answers) assert.ok(!shown.includes(answer), `${card.key}: ${answer} is shown`);
+    for (const answer of answers) {
+      const at = bank.findIndex((text) => text.toLowerCase() === answer.toLowerCase());
+      assert.ok(at >= 0, card.key);
+      bank.splice(at, 1);
+    }
     assert.equal(checkTableFill(card.rows, answers).accuracy, 100);
     assert.ok(checkTableFill(card.rows, [answers[0]!, "x"]).accuracy < 100);
   }
+});
+
+test("table-fill blanks any person, and the count varies from 3 to 5", () => {
+  const forms = ["ich", "du", "er", "ihr", "wir", "sie"].map((personId) => ({ personId }));
+  const counts = new Set<number>();
+  const persons = new Set<string>();
+  for (let i = 0; i < 40; i += 1) {
+    const blanks = pickTableFillBlanks(forms, seedToRandom(`blank-${i}`));
+    assert.ok(blanks);
+    assert.ok(blanks.size >= 3 && blanks.size <= 5);
+    counts.add(blanks.size);
+    for (const id of blanks) persons.add(id);
+  }
+  assert.deepEqual([...counts].sort(), [3, 4, 5]);
+  for (const id of forms) assert.ok(persons.has(id.personId));
 });
 
 test("practice: pairing forms are distinct", () => {

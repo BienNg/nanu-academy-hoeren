@@ -9,6 +9,7 @@ import {
   getLevelChapters,
   loadLearnerCourseMenu,
 } from "@/lib/levels";
+import { loadGrammarWorld } from "@/lib/grammar-world-content";
 import { shouldShowOnboarding } from "@/lib/onboarding-store";
 import { notFound } from "next/navigation";
 import LevelViewClient from "../LevelViewClient";
@@ -47,10 +48,11 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     }
   }
 
-  const [courses, liveRound, onboarding] = await Promise.all([
+  const [courses, liveRound, onboarding, grammarWorld] = await Promise.all([
     loadLearnerCourseMenu(session.user),
     session.user.id ? getLiveRoundForUser(session.user.id) : null,
     shouldShowOnboarding(session.user.id),
+    loadGrammarWorld(session.user),
   ]);
 
   return (
@@ -63,6 +65,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       loadLessonDictionary={loadLessonDictionary}
       liveRound={liveRound}
       onboarding={onboarding}
+      grammarWorld={grammarWorld}
     />
   );
 }

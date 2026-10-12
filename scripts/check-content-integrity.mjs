@@ -12,6 +12,7 @@ const livingAudioRoot = join(repoRoot, "public/audio/living");
 const livingImageRoot = join(repoRoot, "public/images/living");
 const grammarDataDir = join(repoRoot, "src/data/grammar");
 const grammarAudioRoot = join(repoRoot, "public/audio/grammar");
+const worldAudioRoot = join(repoRoot, "public/audio/grammar-world");
 const chaptersPath = join(repoRoot, "src/data/chapters.json");
 const publicDir = join(repoRoot, "public");
 const mediaListPath = join(repoRoot, "src/data/media-files.json");
@@ -302,8 +303,8 @@ const taughtVerbs = new Set();
 
 /**
  * tenses.json: persons with id/label/say, the three tenses, and per verb a
- * Präsens and Präteritum form for every person, a one-word Partizip and an
- * aux that is itself in the table.
+ * Präsens and Präteritum form for every person, a one-word Partizip, a
+ * Vietnamese gloss, and an aux that is itself in the table.
  */
 function checkTenses() {
   const tensesPath = join(grammarDataDir, "tenses.json");
@@ -353,6 +354,9 @@ function checkTenses() {
     }
     if (typeof verb.partizip !== "string" || verb.partizip.trim() === "" || /\s/.test(verb.partizip.trim())) {
       errors.push(`${verbWhere} needs a one-word "partizip"`);
+    }
+    if (typeof verb.vi !== "string" || verb.vi.trim() === "") {
+      errors.push(`${verbWhere} needs a Vietnamese gloss in "vi"`);
     }
     if (typeof verb.aux !== "string" || !isRecord(file.verbs[verb.aux])) {
       errors.push(`${verbWhere} "aux" must be a verb in ${where}, like "haben"`);
@@ -707,6 +711,137 @@ function checkLessonStudy(study, topicWhere, verbs, audioDir, listedFilenames) {
   });
 }
 
+/** Same as verbAudioDir in grammar-lessons.ts: "hören" → "hoeren". */
+function verbAudioDir(verb) {
+  return verb.replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss");
+}
+
+/**
+ * src/data/grammar/world.json: the grammar world (see docs/GRAMMAR_WORLD.md).
+ * Areas and topics with unique ids, a real opening Lektion, known verbs and
+ * tenses, and clips whose verb form is in the script. Clip audio lives in
+ * public/audio/grammar-world/<topic>/; files no clip lists are orphans.
+ */
+function checkWorld() {
+  const worldPath = join(grammarDataDir, "world.json");
+  const where = rel(worldPath);
+  if (!existsSync(worldPath)) return;
+  let file;
+  try {
+    file = JSON.parse(readFileSync(worldPath, "utf8"));
+  } catch (error) {
+    errors.push(`Could not parse ${where}: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+  if (!isRecord(file) || !Array.isArray(file.areas)) {
+    errors.push(`${where} must have "areas"`);
+    return;
+  }
+  const areaIds = new Set();
+  const topicIds = new Set();
+  const listed = new Set();
+  file.areas.forEach((area, areaIndex) => {
+    const areaWhere = `${where} areas[${areaIndex}]`;
+    if (!isRecord(area) || typeof area.id !== "string" || !SLUG.test(area.id)) {
+      errors.push(`${areaWhere} needs a lowercase "id" like "dong-tu"`);
+      return;
+    }
+    if (areaIds.has(area.id)) errors.push(`${areaWhere} repeats area id "${area.id}"`);
+    areaIds.add(area.id);
+    for (const key of ["titleVi", "titleDe", "icon"]) {
+      if (typeof area[key] !== "string" || area[key].trim() === "") errors.push(`${areaWhere} is missing "${key}"`);
+    }
+    if (!Array.isArray(area.topics)) {
+      errors.push(`${areaWhere} "topics" must be a list`);
+      return;
+    }
+    area.topics.forEach((topic, topicIndex) => {
+      const topicWhere = `${areaWhere} topics[${topicIndex}]`;
+      if (!isRecord(topic) || typeof topic.id !== "string" || !SLUG.test(topic.id)) {
+        errors.push(`${topicWhere} needs a lowercase "id" like "verbkonjugation"`);
+        return;
+      }
+      if (topicIds.has(topic.id)) errors.push(`${topicWhere} repeats topic id "${topic.id}"`);
+      topicIds.add(topic.id);
+      for (const key of ["titleVi", "titleDe"]) {
+        if (typeof topic[key] !== "string" || topic[key].trim() === "") errors.push(`${topicWhere} is missing "${key}"`);
+      }
+      const [levelSlug, chapterSlug, extra] = typeof topic.opensWith === "string" ? topic.opensWith.split("/") : [];
+      if (!levelSlug || !chapterSlug || extra !== undefined || !existsSync(join(levelsDataDir, levelSlug, `${chapterSlug}.json`))) {
+        errors.push(`${topicWhere} "opensWith" must name a Lektion file, like "a1-1/lektion-3"`);
+      }
+      const tenses = Array.isArray(topic.tenses) ? topic.tenses : [];
+      if (tenses.length === 0 || !tenses.every((tense) => GRAMMAR_TENSES.includes(tense))) {
+        errors.push(`${topicWhere} "tenses" must list some of ${GRAMMAR_TENSES.join(", ")}`);
+      }
+      const verbs = Array.isArray(topic.verbs) ? topic.verbs : [];
+      const knownVerb = (verb) => Boolean(tenseTables && isRecord(tenseTables.verbs[verb]));
+      if (verbs.length === 0) errors.push(`${topicWhere} "verbs" must list at least one verb`);
+      for (const verb of verbs) {
+        if (!knownVerb(verb)) errors.push(`${topicWhere} verb "${verb}" is not in src/data/grammar/tenses.json`);
+      }
+      if (!Array.isArray(topic.tips)) errors.push(`${topicWhere} "tips" must be a list`);
+      if (!Array.isArray(topic.clips)) {
+        errors.push(`${topicWhere} "clips" must be a list`);
+        return;
+      }
+      const clipIds = new Set();
+      const audioDir = join(worldAudioRoot, topic.id);
+      topic.clips.forEach((clip, clipIndex) => {
+        const clipWhere = `${topicWhere} clips[${clipIndex}]`;
+        if (!isRecord(clip) || typeof clip.id !== "string" || !SLUG.test(clip.id)) {
+          errors.push(`${clipWhere} needs a stable lowercase "id" like "vk-01"`);
+          return;
+        }
+        if (clipIds.has(clip.id)) errors.push(`${clipWhere} repeats clip id "${clip.id}"`);
+        clipIds.add(clip.id);
+        for (const key of ["filename", "script", "translationVi", "verb", "tense", "person"]) {
+          if (typeof clip[key] !== "string" || clip[key].trim() === "") errors.push(`${clipWhere} is missing "${key}"`);
+        }
+        if (typeof clip.filename === "string") {
+          if (!clip.filename.endsWith(".mp3")) errors.push(`${clipWhere} "filename" must be an .mp3`);
+          listed.add(join(audioDir, clip.filename));
+          if (!existsSync(join(audioDir, clip.filename))) {
+            skippedMissingAudio.push(`${rel(join(audioDir, clip.filename))} (listed in ${clipWhere})`);
+          }
+        }
+        if (!knownVerb(clip.verb)) errors.push(`${clipWhere} verb "${clip.verb}" is not in src/data/grammar/tenses.json`);
+        if (!tenses.includes(clip.tense)) errors.push(`${clipWhere} "tense" "${clip.tense}" is not in the topic's "tenses"`);
+        if (tenseTables && !tenseTables.personIds.includes(clip.person)) {
+          errors.push(`${clipWhere} "person" "${clip.person}" is not a person in tenses.json`);
+        }
+        const verb = tenseTables?.verbs[clip.verb];
+        const form = clip.tense === "perfekt" ? verb?.praesens?.[clip.person] : verb?.[clip.tense]?.[clip.person];
+        if (form && typeof clip.script === "string" && !scriptWords(clip.script).includes(scriptWords(form)[0] ?? "")) {
+          errors.push(`${clipWhere} "script" does not contain "${form}", the ${clip.tense} form for "${clip.person}"`);
+        }
+        if (clip.from !== undefined && (typeof clip.from !== "string" || clip.from.trim() === "")) {
+          errors.push(`${clipWhere} "from" must be a sentence`);
+        }
+        if (
+          clip.wrong !== undefined &&
+          (!isRecord(clip.wrong) || typeof clip.wrong.script !== "string" || typeof clip.wrong.whyVi !== "string")
+        ) {
+          errors.push(`${clipWhere} "wrong" needs "script" and "whyVi"`);
+        } else if (clip.wrong && clip.wrong.script.trim() === clip.script?.trim()) {
+          errors.push(`${clipWhere} "wrong.script" is the same as "script"`);
+        }
+        if (clip.tip !== undefined && (typeof clip.tip !== "string" || clip.tip.trim() === "")) {
+          errors.push(`${clipWhere} "tip" must be a sentence`);
+        }
+      });
+    });
+  });
+  for (const topicDir of listDirs(worldAudioRoot)) {
+    const dir = join(worldAudioRoot, topicDir);
+    for (const name of readdirSync(dir).filter((entry) => entry.endsWith(".mp3"))) {
+      if (!listed.has(join(dir, nfc(name)))) {
+        errors.push(`Orphaned audio file: ${rel(join(dir, name))} (no clip in ${where} lists it)`);
+      }
+    }
+  }
+}
+
 /**
  * public/audio/grammar/<verb>/<tense>-<person>.mp3: table rows of verbs a
  * Lektion teaches. Missing rows are skipped; files no row needs are orphans.
@@ -717,7 +852,7 @@ function checkGrammarAudio() {
   for (const verb of taughtVerbs) {
     for (const tense of GRAMMAR_TENSES) {
       for (const personId of tenseTables.personIds) {
-        const path = join(grammarAudioRoot, verb, `${tense}-${personId}.mp3`);
+        const path = join(grammarAudioRoot, verbAudioDir(verb), `${tense}-${personId}.mp3`);
         expected.add(path);
         if (!existsSync(path)) skippedMissingAudio.push(`${rel(path)} (table row)`);
       }
@@ -811,7 +946,7 @@ function checkLevels() {
 
   // Audio sitting under a level with no matching Lektion JSON.
   for (const levelSlug of listDirs(levelsAudioRoot).filter(
-    (name) => name !== "ausbildung" && name !== "living" && name !== "grammar",
+    (name) => name !== "ausbildung" && name !== "living" && name !== "grammar" && name !== "grammar-world",
   )) {
     const levelAudioDir = join(levelsAudioRoot, levelSlug);
     for (const chapterSlug of listDirs(levelAudioDir)) {
@@ -1000,6 +1135,7 @@ const ausbildungCount = checkAusbildung();
 const levelCount = checkLevels();
 const livingCount = checkLiving();
 checkGrammarAudio();
+checkWorld();
 
 if (errors.length > 0) {
   console.error("Content integrity check failed:\n");

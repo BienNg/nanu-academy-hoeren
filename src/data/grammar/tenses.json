@@ -14,16 +14,60 @@
   ],
   "verbs": {
     "haben": {
+      "vi": "có",
       "praesens": { "ich": "habe", "du": "hast", "er": "hat", "ihr": "habt", "wir": "haben", "sie": "haben" },
       "praeteritum": { "ich": "hatte", "du": "hattest", "er": "hatte", "ihr": "hattet", "wir": "hatten", "sie": "hatten" },
       "partizip": "gehabt",
       "aux": "haben"
     },
     "sein": {
+      "vi": "là",
       "praesens": { "ich": "bin", "du": "bist", "er": "ist", "ihr": "seid", "wir": "sind", "sie": "sind" },
       "praeteritum": { "ich": "war", "du": "warst", "er": "war", "ihr": "wart", "wir": "waren", "sie": "waren" },
       "partizip": "gewesen",
       "aux": "sein"
+    },
+    "machen": {
+      "vi": "làm",
+      "praesens": { "ich": "mache", "du": "machst", "er": "macht", "ihr": "macht", "wir": "machen", "sie": "machen" },
+      "praeteritum": { "ich": "machte", "du": "machtest", "er": "machte", "ihr": "machtet", "wir": "machten", "sie": "machten" },
+      "partizip": "gemacht",
+      "aux": "haben"
+    },
+    "kommen": {
+      "vi": "đến",
+      "praesens": { "ich": "komme", "du": "kommst", "er": "kommt", "ihr": "kommt", "wir": "kommen", "sie": "kommen" },
+      "praeteritum": { "ich": "kam", "du": "kamst", "er": "kam", "ihr": "kamt", "wir": "kamen", "sie": "kamen" },
+      "partizip": "gekommen",
+      "aux": "sein"
+    },
+    "gehen": {
+      "vi": "đi",
+      "praesens": { "ich": "gehe", "du": "gehst", "er": "geht", "ihr": "geht", "wir": "gehen", "sie": "gehen" },
+      "praeteritum": { "ich": "ging", "du": "gingst", "er": "ging", "ihr": "gingt", "wir": "gingen", "sie": "gingen" },
+      "partizip": "gegangen",
+      "aux": "sein"
+    },
+    "wohnen": {
+      "vi": "sống",
+      "praesens": { "ich": "wohne", "du": "wohnst", "er": "wohnt", "ihr": "wohnt", "wir": "wohnen", "sie": "wohnen" },
+      "praeteritum": { "ich": "wohnte", "du": "wohntest", "er": "wohnte", "ihr": "wohntet", "wir": "wohnten", "sie": "wohnten" },
+      "partizip": "gewohnt",
+      "aux": "haben"
+    },
+    "fragen": {
+      "vi": "hỏi",
+      "praesens": { "ich": "frage", "du": "fragst", "er": "fragt", "ihr": "fragt", "wir": "fragen", "sie": "fragen" },
+      "praeteritum": { "ich": "fragte", "du": "fragtest", "er": "fragte", "ihr": "fragtet", "wir": "fragten", "sie": "fragten" },
+      "partizip": "gefragt",
+      "aux": "haben"
+    },
+    "hören": {
+      "vi": "nghe",
+      "praesens": { "ich": "höre", "du": "hörst", "er": "hört", "ihr": "hört", "wir": "hören", "sie": "hören" },
+      "praeteritum": { "ich": "hörte", "du": "hörtest", "er": "hörte", "ihr": "hörtet", "wir": "hörten", "sie": "hörten" },
+      "partizip": "gehört",
+      "aux": "haben"
     }
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CheckBar } from "@/components/session/FeedbackSheet";
 import {
   digitLabel,
@@ -24,6 +24,10 @@ type PairingCardProps = {
   nextLabel?: string;
   /** A checked miss: chips stay, and no further pair can be made until retry. */
   locked?: boolean;
+  /** Shown under the eyebrow. Grammar pairing names the verb and its gloss here. */
+  heading?: ReactNode;
+  /** Sits in the top-right of the instruction card, beside the eyebrow. */
+  badge?: ReactNode;
 };
 
 const MISS_MS = 720;
@@ -85,6 +89,8 @@ export function PairingCard({
   onNext,
   nextLabel = "Tiếp theo",
   locked = false,
+  heading = null,
+  badge = null,
 }: PairingCardProps) {
   const [viIds] = useState(() => shuffleOnce(items.map((item) => item.id)));
   const [deIds] = useState(() => shuffleOnce(items.map((item) => item.id)));
@@ -200,9 +206,13 @@ export function PairingCard({
   return (
     <>
       <section className="flex flex-col gap-2 rounded-[24px] bg-white/80 backdrop-blur-xl border border-white/20 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-6">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
-          Ghép từ · Wörter zuordnen
-        </span>
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#86868b]">
+            Ghép từ · Wörter zuordnen
+          </span>
+          {badge}
+        </div>
+        {heading}
         <p className="text-[15px] font-medium text-[#86868b]">
           {items.some((item) => item.image)
             ? "Chạm một hình và một từ. Đúng thì xanh ngay, sai thì thử lại."

@@ -28,3 +28,7 @@ A second authored script, longer than Study, of examples and checks written one 
 Add further examples and checks only as written items in that script. A wrong answer shows that item's `whyVi`. Each line has its own audio.
 
 Do not generate practice with `VERB_PART_MIX`, `grammarPracticeParts`, or a hash part key. Part keys are stable authored ids.
+
+## Grammar world is different
+
+Stages of the grammar world (`src/data/grammar/world.json`, see `docs/GRAMMAR_WORLD.md`) are not Lektion trail nodes. Their practice is dealt from authored clips into nodes and parts, as that doc describes. The rules above apply to Lektion grammar nodes only.

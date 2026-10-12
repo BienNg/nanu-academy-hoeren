@@ -2,6 +2,12 @@
 
 import { maxClipsPerPracticePart, MAX_PRACTICE_CARDS } from "./practice-deck";
 import type { OrderSourceClip } from "./sentence-order";
+import {
+  mergeWorldProgress,
+  normalizeWorldProgress,
+  type WorldProgress,
+  type WorldStageProgress,
+} from "./grammar-world-progress";
 
 export const STORAGE_KEY = "nanu-horen-progress";
 
@@ -416,6 +422,12 @@ export type AdminProgressClear = {
   visitStudy?: boolean;
   visitListening?: boolean;
   visitVideo?: boolean;
+  /** Removes every grammar world stage and summit. */
+  grammarWorld?: boolean;
+  /** Topic ids whose stages are removed. */
+  grammarTopics?: string[];
+  /** Area ids whose summit flags are removed. */
+  grammarAreas?: string[];
 };
 
 export type StoredProgress = {
@@ -437,6 +449,8 @@ export type StoredProgress = {
   visits?: Visit[];
   /** First time we saw the installed app, or Chrome reported an accepted install. */
   pwaInstalledAt?: string;
+  /** Grammar world stages and summits. See grammar-world.ts. */
+  grammarWorld?: WorldProgress;
   /** Admin deletions. The learner app cannot add or remove these. */
   adminClears?: AdminProgressClear[];
   /** Clear ids already applied on this snapshot. */
@@ -750,6 +764,8 @@ function normalizeOneClear(value: unknown): AdminProgressClear | null {
   const videoKeys = clearIdList(record.videoKeys, 80);
   const videoPrefixes = clearIdList(record.videoPrefixes, 40).filter((prefix) => prefix.endsWith("/"));
   const visitLessons = clearIdList(record.visitLessons, 80);
+  const grammarTopics = clearIdList(record.grammarTopics, 80);
+  const grammarAreas = clearIdList(record.grammarAreas, 40);
   const clear: AdminProgressClear = {
     id,
     at,
@@ -762,13 +778,19 @@ function normalizeOneClear(value: unknown): AdminProgressClear | null {
     ...(record.visitStudy === true ? { visitStudy: true } : {}),
     ...(record.visitListening === true ? { visitListening: true } : {}),
     ...(record.visitVideo === true ? { visitVideo: true } : {}),
+    ...(record.grammarWorld === true ? { grammarWorld: true } : {}),
+    ...(grammarTopics.length ? { grammarTopics } : {}),
+    ...(grammarAreas.length ? { grammarAreas } : {}),
   };
   if (
     !clear.learn &&
     !clear.videoKeys &&
     !clear.videoPrefixes &&
     !clear.interview &&
-    !clear.visitLessons
+    !clear.visitLessons &&
+    !clear.grammarWorld &&
+    !clear.grammarTopics &&
+    !clear.grammarAreas
   ) {
     return null;
   }
@@ -811,6 +833,7 @@ export function normalizeProgress(
   );
   const adminClears = normalizeAdminClears(parsed?.adminClears);
   const adminClearAck = normalizeAdminClearAck(parsed?.adminClearAck, adminClears);
+  const grammarWorld = normalizeWorldProgress(parsed?.grammarWorld);
 
   return applyVisitRetention(
     {
@@ -834,6 +857,7 @@ export function normalizeProgress(
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
       ...(pwaInstalledAt ? { pwaInstalledAt } : {}),
+      ...(grammarWorld ? { grammarWorld } : {}),
       ...(adminClears.length ? { adminClears } : {}),
       ...(adminClearAck.length ? { adminClearAck } : {}),
     },
@@ -1050,6 +1074,7 @@ export function mergeProgress(
     earlierIso(readPwaInstalledAt(a.pwaInstalledAt), readPwaInstalledAt(b.pwaInstalledAt)),
     installedAtFromVisits(visits),
   );
+  const grammarWorld = mergeWorldProgress(a.grammarWorld, b.grammarWorld);
 
   const merged = applyVisitRetention(
     {
@@ -1065,6 +1090,7 @@ export function mergeProgress(
       ...(activity ? { activity } : {}),
       ...(visits.length > 0 ? { visits } : {}),
       ...(pwaInstalledAt ? { pwaInstalledAt } : {}),
+      ...(grammarWorld ? { grammarWorld } : {}),
     },
     new Date(),
   );
@@ -1200,20 +1226,59 @@ function uniqueVisitKeys(values: readonly (string | null | undefined)[]): string
   return result;
 }
 
+function grammarLessonDropped(lessonKey: string, clear: AdminProgressClear): boolean {
+  if (!lessonKey.startsWith("grammar-world/")) return false;
+  if (clear.grammarWorld) return true;
+  const topicId = lessonKey.slice("grammar-world/".length);
+  return clear.grammarTopics?.includes(topicId) ?? false;
+}
+
+function eraseGrammarWorld(progress: StoredProgress, clear: AdminProgressClear): StoredProgress {
+  if (!progress.grammarWorld) return progress;
+  if (clear.grammarWorld) {
+    const next = { ...progress };
+    delete next.grammarWorld;
+    return next;
+  }
+  const topics = new Set(clear.grammarTopics ?? []);
+  const areas = new Set(clear.grammarAreas ?? []);
+  if (topics.size === 0 && areas.size === 0) return progress;
+  const stages = { ...progress.grammarWorld.stages };
+  for (const id of topics) delete stages[id];
+  const summits = { ...progress.grammarWorld.summits };
+  for (const id of areas) delete summits[id];
+  if (Object.keys(stages).length === 0 && Object.keys(summits).length === 0) {
+    const next = { ...progress };
+    delete next.grammarWorld;
+    return next;
+  }
+  return {
+    ...progress,
+    grammarWorld: {
+      stages,
+      ...(Object.keys(summits).length > 0 ? { summits } : {}),
+    },
+  };
+}
+
 function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
   const lessons = new Set(clear.visitLessons ?? []);
-  const clips =
-    clear.visitStudy && lessons.size > 0
-      ? visit.clips.filter((clip) => !lessons.has(clip.lessonKey))
-      : visit.clips;
+  const dropGrammar = (lessonKey: string) => grammarLessonDropped(lessonKey, clear);
+  const clips = visit.clips.filter((clip) => {
+    if (dropGrammar(clip.lessonKey)) return false;
+    if (clear.visitStudy && lessons.has(clip.lessonKey)) return false;
+    return true;
+  });
   const videos = clear.visitVideo
     ? visit.videos.filter((video) => !videoMatchesClear(video.key, clear))
     : visit.videos;
-  const exerciseLessons =
-    clear.visitListening && lessons.size > 0
-      ? (visit.exerciseLessons ?? []).filter((lesson) => !lessons.has(lesson.lessonKey))
-      : (visit.exerciseLessons ?? []);
+  const exerciseLessons = (visit.exerciseLessons ?? []).filter((lesson) => {
+    if (dropGrammar(lesson.lessonKey)) return false;
+    if (clear.visitListening && lessons.has(lesson.lessonKey)) return false;
+    return true;
+  });
   const leftSessions = (visit.leftSessions ?? []).filter((session) => {
+    if (dropGrammar(session.lessonKey)) return false;
     if (!lessons.has(session.lessonKey)) return true;
     if (session.kind === "study" && clear.visitStudy) return false;
     if (session.kind === "practice" && clear.visitListening) return false;
@@ -1243,7 +1308,8 @@ function stripVisit(visit: Visit, clear: AdminProgressClear): Visit {
 
 function eraseVisits(progress: StoredProgress, clear: AdminProgressClear): StoredProgress {
   if (!progress.visits?.length) return progress;
-  if (!clear.visitStudy && !clear.visitListening && !clear.visitVideo) return progress;
+  const touchesGrammar = clear.grammarWorld === true || (clear.grammarTopics?.length ?? 0) > 0;
+  if (!clear.visitStudy && !clear.visitListening && !clear.visitVideo && !touchesGrammar) return progress;
   return {
     ...progress,
     visits: progress.visits.map((visit) => stripVisit(visit, clear)),
@@ -1259,6 +1325,7 @@ function applyAdminProgressClear(
   for (const slice of clear.learn ?? []) next = eraseLearnSlice(next, slice);
   for (const slice of clear.interview ?? []) next = eraseInterviewSlice(next, slice);
   next = eraseVideos(next, clear);
+  next = eraseGrammarWorld(next, clear);
   next = eraseVisits(next, clear);
   return next;
 }
@@ -3382,6 +3449,28 @@ export function commitGrammarPart(
   );
   if (options?.lessonComplete) next = markLearnChapterCompleted(next, chapterSlug, now.toISOString());
   return next;
+}
+
+/** Stores one grammar world stage. A finished part or review also counts as a practice day. */
+export function commitWorldStage(
+  progress: StoredProgress,
+  topicId: string,
+  stage: WorldStageProgress,
+  options?: { now?: Date; practised?: boolean },
+): StoredProgress {
+  const world = progress.grammarWorld ?? { stages: {} };
+  const next: StoredProgress = {
+    ...progress,
+    grammarWorld: { ...world, stages: { ...world.stages, [topicId]: stage } },
+  };
+  return options?.practised ? bumpStreak(next, options.now ?? new Date()) : next;
+}
+
+/** Remembers that Pingu planted the flag on an area, so the scene plays once. */
+export function commitWorldSummit(progress: StoredProgress, areaId: string, at: string): StoredProgress {
+  const world = progress.grammarWorld ?? { stages: {} };
+  if (world.summits?.[areaId]) return progress;
+  return { ...progress, grammarWorld: { ...world, summits: { ...world.summits, [areaId]: at } } };
 }
 
 /**

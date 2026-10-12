@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import worldFile from "@/data/grammar/world.json";
 import {
   ADMIN_DUELS_TAG,
   ADMIN_LISTENING_RUNS_TAG,
@@ -11,6 +12,7 @@ import { isAdminUser } from "@/lib/admins";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import {
   studentProgressClear,
+  type AdminGrammarCatalogArea,
   type AdminXpEvent,
   type LessonStartSignal,
   type StudentProgressTarget,
@@ -119,6 +121,13 @@ async function requireStudentRead(userId: string): Promise<boolean> {
   return key.length > 0 && flags.classes.some((name) => classKey(name) === key);
 }
 
+function adminGrammarCatalog(): AdminGrammarCatalogArea[] {
+  return (worldFile as { areas: { id: string; topics: { id: string }[] }[] }).areas.map((area) => ({
+    id: area.id,
+    topicIds: area.topics.map((topic) => topic.id),
+  }));
+}
+
 function adminCourseCatalog() {
   const tracks: AdminTrackColumn[] = getAvailableBerufe().map((beruf) => ({
     slug: beruf.slug,
@@ -132,6 +141,17 @@ function adminCourseCatalog() {
 function readProgressTarget(value: StudentProgressTarget): StudentProgressTarget | null {
   if (!value || typeof value !== "object") return null;
   if (value.scope === "all") return { scope: "all" };
+  if (value.scope === "grammar-world") return { scope: "grammar-world" };
+  if (value.scope === "grammar-area") {
+    const areaId = typeof value.areaId === "string" ? value.areaId.trim() : "";
+    if (!areaId) return null;
+    return { scope: "grammar-area", areaId };
+  }
+  if (value.scope === "grammar-stage") {
+    const topicId = typeof value.topicId === "string" ? value.topicId.trim() : "";
+    if (!topicId) return null;
+    return { scope: "grammar-stage", topicId };
+  }
   if (typeof value.courseId !== "string" || !value.courseId.trim()) return null;
   const courseId = value.courseId.trim();
   if (value.scope === "course") return { scope: "course", courseId };
@@ -170,6 +190,7 @@ export async function deleteAdminStudentProgress(
     parsed,
     crypto.randomUUID(),
     new Date().toISOString(),
+    adminGrammarCatalog(),
   );
   if (!built) return { ok: false, error: "That progress is not in the catalog" };
 

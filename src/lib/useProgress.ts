@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExtern
 import { signOut, useSession } from "next-auth/react";
 import { clearBadgeBoardCache } from "@/lib/badge-unseen";
 import { clearQuestBoardCache } from "@/lib/quest-badge";
+import { EMPTY_STAGE, type WorldStageProgress } from "@/lib/grammar-world-progress";
 import {
   CONTINUE_BERUF_SLUG,
   DEFAULT_PROGRESS,
@@ -18,6 +19,8 @@ import {
   shouldReplaceLocalWithCloud,
   absorbAddedLessonClips,
   commitGrammarPart,
+  commitWorldStage,
+  commitWorldSummit,
   commitLearnPart,
   completeLessonByJump,
   dropStreakForUnfinishedSession,
@@ -920,6 +923,51 @@ export function useProgress(
     [persist],
   );
 
+  /**
+   * Stores a grammar world stage. A finished part or review counts as
+   * exercises in today's visit, under the stage's own key.
+   */
+  const commitWorldStageDone = useCallback(
+    (topicId: string, stage: WorldStageProgress, exercises: number) => {
+      const now = new Date();
+      const current = readProgressSnapshot();
+      let next = commitWorldStage(current, topicId, stage, { now, practised: true });
+      const exercised = recordVisitExercise(next, now, readVisitId(), `grammar-world/${topicId}`, exercises, 1);
+      next = exercised.progress;
+      if (exercised.visitId) writeVisitId(exercised.visitId);
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  /** Marks stages whose "new stage" screen was shown, so it shows once. */
+  const markWorldStagesAnnounced = useCallback(
+    (topicIds: readonly string[]) => {
+      const current = readProgressSnapshot();
+      const at = new Date().toISOString();
+      let next = current;
+      for (const topicId of topicIds) {
+        const stage = next.grammarWorld?.stages[topicId] ?? EMPTY_STAGE;
+        if (stage.announcedAt) continue;
+        next = commitWorldStage(next, topicId, { ...stage, announcedAt: at });
+      }
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
+  const markWorldSummit = useCallback(
+    (areaId: string) => {
+      const current = readProgressSnapshot();
+      const next = commitWorldSummit(current, areaId, new Date().toISOString());
+      if (next === current) return;
+      persist(next, true);
+    },
+    [persist],
+  );
+
   const recordLessonJump = useCallback(
     (lessonKey: string, passed: boolean) => {
       const now = new Date();
@@ -1206,6 +1254,9 @@ export function useProgress(
     setLearnRunOrder: setLearnRunOrderFn,
     commitLearnListeningPart,
     commitGrammarPartDone,
+    commitWorldStageDone,
+    markWorldStagesAnnounced,
+    markWorldSummit,
     completeLessonJump,
     recordLessonJump,
     recordOnboarding,

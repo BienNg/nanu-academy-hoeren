@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SessionCourse } from "@/lib/session-course";
-import type { GrammarTense, GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
+import { verbGloss, type GrammarTense, type GrammarTopicContent, type TenseTables } from "@/lib/grammar-lessons";
 import {
   checkErrorCheck,
   checkGrammarOrder,
@@ -13,7 +13,7 @@ import {
 } from "@/lib/grammar-node";
 import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
-import { playSuccessSound } from "@/lib/sfx";
+import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
@@ -25,6 +25,7 @@ import { QuitDialog } from "@/components/session/QuitDialog";
 import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { GrammarHeader, GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
+import { TENSE_TONE } from "@/components/session/grammar/grammar-ui";
 import { TableFillCard } from "@/components/session/grammar/TableFillCard";
 
 type GrammarPracticeSessionProps = {
@@ -49,7 +50,12 @@ type Summary = {
   questionCount: number;
   accuracy: number;
   elapsedMs: number;
+  /** The part ended because the hearts ran out. It is not saved. */
+  failed: boolean;
 };
+
+/** Same budget as a listening practice part. */
+const GRAMMAR_HEARTS = 3;
 
 const ERROR_OK = "ok";
 const ERROR_BAD = "bad";
@@ -131,49 +137,73 @@ function FeedbackBody({
   }
 }
 
-/**
- * One practice part of a grammar topic. A wrong answer stays on the card
- * until the student gives the right one. There are no hearts.
- */
-export function GrammarPracticeSession({
-  course,
-  topic,
-  tables,
-  partNumber,
-  grammarHref,
-  lessonGrammar,
-}: GrammarPracticeSessionProps) {
-  const router = useRouter();
-  const { recordWrongAttempt } = useProgress();
-  const { finishPart, streakDays } = useGrammarProgress(course, lessonGrammar);
-  const parts = useMemo(
-    () => grammarPracticeParts(course.lessonKey, topic, tables),
-    [course.lessonKey, topic, tables],
-  );
-  const part = parts[partNumber - 1];
+/** What a finished deck reports. */
+export type GrammarDeckSummary = Summary;
 
-  const [queue] = useState<GrammarCard[]>(() => part?.cards ?? []);
+/**
+ * The cards of one practice part, one at a time. A wrong answer stays on the
+ * card until the student gives the right one. The first miss on a card costs
+ * a heart; running out ends the part. Shared by the Lektion grammar node and
+ * the grammar world.
+ */
+export function GrammarCardDeck({
+  cards,
+  tables,
+  onFinish,
+  onLeave,
+}: {
+  cards: readonly GrammarCard[];
+  tables: TenseTables;
+  onFinish: (summary: GrammarDeckSummary) => void;
+  /** Leaves the session. Asked only before the first answer, or after the quit dialog. */
+  onLeave: () => void;
+}) {
+  const { recordWrongAttempt } = useProgress();
+  const [queue] = useState<readonly GrammarCard[]>(() => cards);
   const [index, setIndex] = useState(0);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [tally, setTally] = useState({ answered: 0, right: 0 });
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const [quitOpen, setQuitOpen] = useState(false);
+  const [heartsLeft, setHeartsLeft] = useState(GRAMMAR_HEARTS);
+  const [breakingIndex, setBreakingIndex] = useState<number | null>(null);
   const startedAtRef = useRef(0);
+  /** Card keys that already spent a heart, so a retry of the same card is free. */
+  const spentHeartKeys = useRef(new Set<string>());
 
   useEffect(() => {
     startedAtRef.current = Date.now();
   }, []);
 
+  useEffect(() => {
+    if (breakingIndex === null) return;
+    const timeout = window.setTimeout(() => setBreakingIndex(null), 560);
+    return () => window.clearTimeout(timeout);
+  }, [breakingIndex]);
+
   const card = queue[index];
   const tenseLabel = (tense: GrammarTense) => tables.tenses.find((entry) => entry.id === tense)?.label ?? tense;
+  const verbTranslation = card?.verb ? verbGloss(tables, card.verb) : null;
   const progress = queue.length === 0 ? 0 : (index + (outcome?.correct ? 1 : 0)) / queue.length;
-  const isLastPart = partNumber >= parts.length;
 
-  const leave = (href: string) => {
-    setPhase("leaving");
-    router.push(href);
+  const report = (failed: boolean) => {
+    const answered = tally.answered;
+    onFinish({
+      questionCount: answered,
+      accuracy: answered === 0 ? 0 : Math.round((tally.right / answered) * 100),
+      elapsedMs: Date.now() - startedAtRef.current,
+      failed,
+    });
+  };
+
+  /** The first miss on this card costs one heart. Later tries of the same card do not. */
+  const spendHeart = (cardKey: string) => {
+    if (spentHeartKeys.current.has(cardKey)) return;
+    spentHeartKeys.current.add(cardKey);
+    const nextHearts = heartsLeft - 1;
+    setHeartsLeft(Math.max(0, nextHearts));
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setBreakingIndex(nextHearts);
+    playHeartLostSound();
   };
 
   /** Scores this try. A miss stays on the card until the answer is right. */
@@ -182,77 +212,31 @@ export function GrammarPracticeSession({
     setOutcome(result);
     setTally((current) => ({ answered: current.answered + 1, right: current.right + (result.correct ? 1 : 0) }));
     if (result.correct) playSuccessSound();
-    else recordWrongAttempt();
+    else {
+      recordWrongAttempt();
+      spendHeart(card.key);
+    }
   };
 
   const retry = () => {
+    if (heartsLeft <= 0) {
+      report(true);
+      return;
+    }
     setOutcome(null);
     setAttempt((current) => current + 1);
-  };
-
-  const finish = () => {
-    const answered = tally.answered;
-    if (part) finishPart(topic.id, part.key, answered);
-    setSummary({
-      questionCount: answered,
-      accuracy: answered === 0 ? 0 : Math.round((tally.right / answered) * 100),
-      elapsedMs: Date.now() - startedAtRef.current,
-    });
-    setPhase("complete");
   };
 
   const next = () => {
     if (!outcome?.correct) return;
     if (index + 1 >= queue.length) {
-      finish();
+      report(false);
       return;
     }
     setOutcome(null);
     setAttempt(0);
     setIndex(index + 1);
   };
-
-  if (phase === "leaving" || !part) {
-    return (
-      <GrammarPage>
-        <SessionContentSkeleton kind="practice" />
-      </GrammarPage>
-    );
-  }
-
-  if (phase === "complete" && summary) {
-    return (
-      <GrammarPage>
-        <PartCompleteScreen
-          levelPath={course}
-          key="complete"
-          partNumber={partNumber}
-          partCount={parts.length}
-          levelLabel={course.groupLabel}
-          chapterLabel={course.lessonLabel}
-          questionCount={summary.questionCount}
-          accuracy={summary.accuracy}
-          elapsedMs={summary.elapsedMs}
-          xp={null}
-          xpKind={null}
-          xpPending={false}
-          streakDays={streakDays}
-          finishRun={isLastPart}
-          failed={false}
-          // A replay starts at part 1 too, so the next part is always one tap away.
-          {...(!isLastPart
-            ? {
-                continueLabel: "Phần tiếp theo",
-                onContinue: () =>
-                  leave(`${grammarHref}/practice?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
-                secondaryLabel: "Về bài học",
-                onSecondary: () => leave(course.pathHref),
-              }
-            : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
-        />
-      </GrammarPage>
-    );
-  }
 
   const cardKey = `${index}-${card?.key ?? ""}-${attempt}`;
   const mcResult = outcome?.mc ?? null;
@@ -262,7 +246,8 @@ export function GrammarPracticeSession({
       header={
         <GrammarHeader
           progress={progress}
-          onClose={() => (tally.answered === 0 ? leave(course.pathHref) : setQuitOpen(true))}
+          hearts={{ remaining: heartsLeft, total: GRAMMAR_HEARTS, breakingIndex }}
+          onClose={() => (tally.answered === 0 ? onLeave() : setQuitOpen(true))}
         />
       }
     >
@@ -270,7 +255,7 @@ export function GrammarPracticeSession({
         <QuitDialog
           message="Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."
           onStay={() => setQuitOpen(false)}
-          onQuit={() => leave(course.pathHref)}
+          onQuit={onLeave}
         />
       ) : null}
 
@@ -296,7 +281,7 @@ export function GrammarPracticeSession({
               key={cardKey}
               eyebrow="Nghe · Hören"
               icon="hearing"
-              prompt="Câu này ở thì nào?"
+              prompt={card.promptVi ?? "Câu này ở thì nào?"}
               options={card.options}
               result={mcResult}
               afterPrompt={
@@ -327,9 +312,18 @@ export function GrammarPracticeSession({
           ) : card.kind === "tense-transform" ? (
             <SentenceOrderCard
               key={cardKey}
-              eyebrow="Đổi thì · Zeitform"
-              instruction={`Chuyển sang ${tenseLabel(card.tense)}`}
-              translation={card.from}
+              eyebrow={card.changeVi ? "Đổi câu · Umformen" : "Đổi thì · Zeitform"}
+              instruction={card.changeVi ?? `Chuyển sang ${tenseLabel(card.tense)}`}
+              translation={
+                card.changeVi ? (
+                  <>
+                    {card.from}
+                    <span className="mt-1 block text-[15px] font-semibold opacity-70">→ {card.translationVi}</span>
+                  </>
+                ) : (
+                  card.from
+                )
+              }
               chips={card.bank}
               locked={outcome !== null}
               correct={outcome?.correct === true}
@@ -349,6 +343,7 @@ export function GrammarPracticeSession({
             <TableFillCard
               key={cardKey}
               verb={card.verb ?? ""}
+              translation={verbTranslation}
               tense={card.tense}
               tenseLabel={tenseLabel(card.tense)}
               rows={card.rows}
@@ -362,6 +357,19 @@ export function GrammarPracticeSession({
           ) : (
             <PairingCard
               key={cardKey}
+              heading={
+                <div className="flex items-center gap-2">
+                  <span className="text-[20px] font-semibold tracking-tight text-[#1d1d1f]">{card.verb}</span>
+                  {verbTranslation ? (
+                    <span className="text-[15px] font-medium text-[#86868b] italic">“{verbTranslation}”</span>
+                  ) : null}
+                </div>
+              }
+              badge={
+                <span className={`shrink-0 rounded-lg px-2 py-0.5 text-[13px] font-bold ${TENSE_TONE[card.tense].head}`}>
+                  {tenseLabel(card.tense)}
+                </span>
+              }
               items={card.items.map((item) => ({ id: item.id, vi: item.person, de: item.form }))}
               locked={outcome !== null}
               onMistake={() => answer({ correct: false })}
@@ -375,7 +383,7 @@ export function GrammarPracticeSession({
             <FeedbackSheet
               tone={outcome.correct ? "correct" : "wrong"}
               title={outcome.correct ? praiseFor(cardKey) : "Chưa đúng"}
-              actionLabel={outcome.correct ? "Tiếp theo" : "Thử lại"}
+              actionLabel={outcome.correct || heartsLeft <= 0 ? "Tiếp theo" : "Thử lại"}
               onAction={outcome.correct ? next : retry}
             >
               <FeedbackBody card={card} outcome={outcome} tenseLabel={tenseLabel} />
@@ -384,5 +392,86 @@ export function GrammarPracticeSession({
         </div>
       </main>
     </GrammarPage>
+  );
+}
+
+/** One practice part of a grammar topic in a Lektion. */
+export function GrammarPracticeSession({
+  course,
+  topic,
+  tables,
+  partNumber,
+  grammarHref,
+  lessonGrammar,
+}: GrammarPracticeSessionProps) {
+  const router = useRouter();
+  const { finishPart, streakDays } = useGrammarProgress(course, lessonGrammar);
+  const parts = useMemo(
+    () => grammarPracticeParts(course.lessonKey, topic, tables),
+    [course.lessonKey, topic, tables],
+  );
+  const part = parts[partNumber - 1];
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
+  const isLastPart = partNumber >= parts.length;
+
+  const leave = (href: string) => {
+    setPhase("leaving");
+    router.push(href);
+  };
+
+  if (phase === "leaving" || !part) {
+    return (
+      <GrammarPage>
+        <SessionContentSkeleton kind="practice" />
+      </GrammarPage>
+    );
+  }
+
+  if (phase === "complete" && summary) {
+    return (
+      <GrammarPage>
+        <PartCompleteScreen
+          levelPath={course}
+          key="complete"
+          partNumber={partNumber}
+          partCount={parts.length}
+          levelLabel={course.groupLabel}
+          chapterLabel={course.lessonLabel}
+          questionCount={summary.questionCount}
+          accuracy={summary.accuracy}
+          elapsedMs={summary.elapsedMs}
+          xp={null}
+          xpKind={null}
+          xpPending={false}
+          streakDays={streakDays}
+          finishRun={isLastPart}
+          failed={summary.failed}
+          // A replay starts at part 1 too, so the next part is always one tap away.
+          {...(!summary.failed && !isLastPart
+            ? {
+                continueLabel: "Phần tiếp theo",
+                onContinue: () =>
+                  leave(`${grammarHref}/practice?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
+                secondaryLabel: "Về bài học",
+                onSecondary: () => leave(course.pathHref),
+              }
+            : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
+        />
+      </GrammarPage>
+    );
+  }
+
+  return (
+    <GrammarCardDeck
+      cards={part.cards}
+      tables={tables}
+      onLeave={() => leave(course.pathHref)}
+      onFinish={(result) => {
+        if (!result.failed) finishPart(topic.id, part.key, result.questionCount);
+        setSummary(result);
+        setPhase("complete");
+      }}
+    />
   );
 }

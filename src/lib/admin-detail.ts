@@ -9,6 +9,8 @@ import type {
   VisitPwaPrompt,
   VisitSummary,
 } from "./progress";
+import { worldAreaViews, type WorldArea } from "./grammar-world";
+import type { TenseTables } from "./grammar-lessons";
 import {
   daysBetweenUtc,
   describeVisitSignal,
@@ -1961,7 +1963,97 @@ export type StudentProgressTarget =
   | { scope: "all" }
   | { scope: "course"; courseId: string }
   | { scope: "lesson"; courseId: string; lessonId: string }
-  | { scope: "part"; courseId: string; lessonId: string; part: StudentProgressPart };
+  | { scope: "part"; courseId: string; lessonId: string; part: StudentProgressPart }
+  | { scope: "grammar-world" }
+  | { scope: "grammar-area"; areaId: string }
+  | { scope: "grammar-stage"; topicId: string };
+
+export type AdminGrammarCatalogArea = {
+  id: string;
+  topicIds: readonly string[];
+};
+
+export type AdminGrammarStage = {
+  id: string;
+  titleDe: string;
+  titleVi: string;
+  stars: number;
+  starsTotal: number;
+  reviewRuns: number;
+  done: boolean;
+  /** A part, a review, or the new-stage screen. */
+  hasProgress: boolean;
+};
+
+export type AdminGrammarArea = {
+  id: string;
+  titleDe: string;
+  titleVi: string;
+  stars: number;
+  starsTotal: number;
+  summitAt: string | null;
+  stages: AdminGrammarStage[];
+  hasProgress: boolean;
+};
+
+export type AdminGrammarWorld = {
+  areas: AdminGrammarArea[];
+  stars: number;
+  starsTotal: number;
+  hasProgress: boolean;
+};
+
+/** Stages and flags for the student detail. Stars match the mountain. */
+export function projectGrammarWorld(
+  progress: StoredProgress,
+  areas: readonly WorldArea[],
+  tables: TenseTables,
+): AdminGrammarWorld {
+  const views = worldAreaViews(tables, areas, progress.grammarWorld, () => true);
+  const projected = views.map((view): AdminGrammarArea => {
+    const stages = view.stages.map((stage): AdminGrammarStage => {
+      const stored = progress.grammarWorld?.stages[stage.topic.id];
+      const hasProgress = stage.practised || Boolean(stored?.announcedAt);
+      return {
+        id: stage.topic.id,
+        titleDe: stage.topic.titleDe,
+        titleVi: stage.topic.titleVi,
+        stars: stage.stars,
+        starsTotal: stage.starsTotal,
+        reviewRuns: stage.review.runs,
+        done: stage.done,
+        hasProgress,
+      };
+    });
+    const summitAt = progress.grammarWorld?.summits?.[view.area.id] ?? null;
+    return {
+      id: view.area.id,
+      titleDe: view.area.titleDe,
+      titleVi: view.area.titleVi,
+      stars: view.stars,
+      starsTotal: view.starsTotal,
+      summitAt,
+      stages,
+      hasProgress: Boolean(summitAt) || stages.some((stage) => stage.hasProgress),
+    };
+  });
+  return {
+    areas: projected,
+    stars: projected.reduce((sum, area) => sum + area.stars, 0),
+    starsTotal: projected.reduce((sum, area) => sum + area.starsTotal, 0),
+    hasProgress: projected.some((area) => area.hasProgress),
+  };
+}
+
+function grammarTopicIds(areas: readonly AdminGrammarCatalogArea[], areaId: string): string[] | null {
+  const area = areas.find((entry) => entry.id === areaId);
+  if (!area) return null;
+  return [...area.topicIds];
+}
+
+function knownGrammarTopic(areas: readonly AdminGrammarCatalogArea[], topicId: string): boolean {
+  return areas.some((area) => area.topicIds.includes(topicId));
+}
 
 export type ProgressHistoryWipe = {
   /** Listening-run lesson keys, or every run this student has stored. */
@@ -2134,11 +2226,38 @@ export function studentProgressClear(
   target: StudentProgressTarget,
   id: string,
   at: string,
+  grammar: readonly AdminGrammarCatalogArea[] = [],
 ): { clear: AdminProgressClear; history: ProgressHistoryWipe } | null {
   if (target.scope === "all") {
     return {
       clear: { id, at, scope: "all" },
       history: { runs: "all", studied: "all", studyXp: "all" },
+    };
+  }
+
+  const noHistory: ProgressHistoryWipe = { runs: [], studied: [], studyXp: [] };
+  if (target.scope === "grammar-world") {
+    return { clear: { id, at, scope: "scoped", grammarWorld: true }, history: noHistory };
+  }
+  if (target.scope === "grammar-area") {
+    const topics = grammarTopicIds(grammar, target.areaId);
+    if (!topics) return null;
+    return {
+      clear: {
+        id,
+        at,
+        scope: "scoped",
+        ...(topics.length > 0 ? { grammarTopics: topics } : {}),
+        grammarAreas: [target.areaId],
+      },
+      history: noHistory,
+    };
+  }
+  if (target.scope === "grammar-stage") {
+    if (!knownGrammarTopic(grammar, target.topicId)) return null;
+    return {
+      clear: { id, at, scope: "scoped", grammarTopics: [target.topicId] },
+      history: noHistory,
     };
   }
 

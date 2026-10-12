@@ -22,6 +22,7 @@ import {
   type GrammarTip,
   type GrammarTopicContent,
   type GrammarTransformDrill,
+  scopeTables,
   type PrepTone,
   type StudyExample,
   type TenseTables,
@@ -82,8 +83,23 @@ export const MIXED_PART_MIX: Record<GrammarCardKind, number> = {
 /** Warm-up kinds open a practice part in this order; the rest are shuffled after them. */
 const WARM_UP_KINDS: readonly GrammarCardKind[] = ["table-fill", "pronoun-pairing"];
 
-/** Blanks on a table-fill card. */
-export const TABLE_FILL_BLANKS = 2;
+/** Inclusive range of blank rows on a table-fill card. */
+export const TABLE_FILL_BLANK_MIN = 3;
+export const TABLE_FILL_BLANK_MAX = 5;
+
+/**
+ * Which persons to blank. The count is random inside the range, and any row
+ * can be blank, including a form another row still shows.
+ */
+export function pickTableFillBlanks(
+  forms: readonly { personId: string }[],
+  random: () => number,
+): Set<string> | null {
+  if (forms.length < TABLE_FILL_BLANK_MIN) return null;
+  const max = Math.min(TABLE_FILL_BLANK_MAX, forms.length);
+  const count = TABLE_FILL_BLANK_MIN + Math.floor(random() * (max - TABLE_FILL_BLANK_MIN + 1));
+  return new Set(shuffle(forms, random).slice(0, count).map((entry) => entry.personId));
+}
 
 /** Persons on a pairing card. Fewer when a tense has fewer distinct forms. */
 export const GRAMMAR_PAIRING_MAX = 5;
@@ -97,7 +113,7 @@ const TENSE_LABEL: Record<GrammarTense, string> = {
 
 // ---------------------------------------------------------------- helpers
 
-function shuffle<T>(items: readonly T[], random: () => number): T[] {
+export function shuffle<T>(items: readonly T[], random: () => number): T[] {
   const next = [...items];
   for (let i = next.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1));
@@ -121,7 +137,7 @@ function caseLike(form: string, like: string): string {
 }
 
 /** FNV-1a, so a part key is short and changes with its cards. */
-function hashText(text: string): string {
+export function hashText(text: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i += 1) {
     hash ^= text.charCodeAt(i);
@@ -135,14 +151,14 @@ function grammarSeed(lessonKey: string, topicId: string, node: "study" | "practi
 }
 
 /** Forms of one verb and tense for every person, in table order. Perfekt gives the aux. */
-function tenseForms(tables: TenseTables, verbId: string, tense: GrammarTense): { personId: string; form: string }[] {
+export function tenseForms(tables: TenseTables, verbId: string, tense: GrammarTense): { personId: string; form: string }[] {
   return tables.persons.flatMap((person) => {
     const form = verbForm(tables, verbId, tense, person.id);
     return form ? [{ personId: person.id, form: form.words[0]! }] : [];
   });
 }
 
-function personLabel(tables: TenseTables, personId: string): string {
+export function personLabel(tables: TenseTables, personId: string): string {
   return tables.persons.find((person) => person.id === personId)?.label ?? personId;
 }
 
@@ -535,9 +551,26 @@ type CardBase = {
 export type GrammarCard =
   | (CardBase & { kind: "form-choice"; question: GrammarChoiceQuestion; audioPath: string | null })
   | (CardBase & { kind: "table-fill"; tense: GrammarTense; rows: TableFillRow[]; bank: WordChip[] })
-  | (CardBase & { kind: "tense-transform"; from: string; tense: GrammarTense; script: string; translationVi: string; bank: WordChip[] })
+  | (CardBase & {
+      kind: "tense-transform";
+      from: string;
+      tense: GrammarTense;
+      script: string;
+      translationVi: string;
+      bank: WordChip[];
+      /** Asks for a change other than the tense, e.g. another person. Shows `translationVi` as the goal. */
+      changeVi?: string;
+    })
   | (CardBase & { kind: "bracket-order"; script: string; translationVi: string; bank: WordChip[] })
-  | (CardBase & { kind: "tense-spot"; script: string; translationVi: string; audioPath: string; options: McOption[] })
+  | (CardBase & {
+      kind: "tense-spot";
+      script: string;
+      translationVi: string;
+      audioPath: string;
+      options: McOption[];
+      /** Replaces "which tense is this?" when the options are verb forms. */
+      promptVi?: string;
+    })
   | (CardBase & { kind: "pronoun-pairing"; tense: GrammarTense; items: GrammarPairingItem[] })
   | (CardBase & { kind: "error-check"; script: string; fix: string | null });
 
@@ -602,7 +635,7 @@ function formChoiceCards(
   });
 }
 
-/** A Präsens or Präteritum table of one verb with TABLE_FILL_BLANKS rows blanked. */
+/** A Präsens or Präteritum table of one verb with 3–5 rows blanked. */
 function tableFillCard(
   tables: TenseTables,
   topic: GrammarTopicContent,
@@ -612,14 +645,8 @@ function tableFillCard(
 ): GrammarCard | null {
   if (tense === "perfekt") return null;
   const forms = tenseForms(tables, verbId, tense);
-  if (forms.length <= TABLE_FILL_BLANKS) return null;
-  // A form two persons share (ich hatte, er hatte) would be shown in the other row, so those go last.
-  const shared = (form: string) => forms.filter((entry) => entry.form === form).length > 1;
-  const order = [
-    ...shuffle(forms.filter((entry) => !shared(entry.form)), random),
-    ...shuffle(forms.filter((entry) => shared(entry.form)), random),
-  ];
-  const blanks = new Set(order.slice(0, TABLE_FILL_BLANKS).map((entry) => entry.personId));
+  const blanks = pickTableFillBlanks(forms, random);
+  if (!blanks) return null;
   const rows = forms.map((entry) => ({
     personLabel: personLabel(tables, entry.personId),
     text: blanks.has(entry.personId) ? null : entry.form,
@@ -681,9 +708,9 @@ function pairingCard(
   return null;
 }
 
-function transformCard(
+export function transformCard(
   tables: TenseTables,
-  topic: GrammarTopicContent,
+  topic: Pick<GrammarTopicContent, "id" | "tips">,
   drill: GrammarTransformDrill,
   index: number,
   random: () => number,
@@ -710,9 +737,9 @@ function transformCard(
 }
 
 /** Perfekt sentence from Vietnamese, with the other verb's Partizip and aux as traps. */
-function bracketCard(
+export function bracketCard(
   tables: TenseTables,
-  topic: GrammarTopicContent,
+  topic: Pick<GrammarTopicContent, "id" | "tips">,
   source: { id: string; verb: string; person: string | null; script: string; translationVi: string },
   random: () => number,
 ): GrammarCard | null {
@@ -891,8 +918,9 @@ function dealPart(
 export function grammarPracticeParts(
   lessonKey: string,
   topic: GrammarTopicContent,
-  tables: TenseTables,
+  allTables: TenseTables,
 ): GrammarPracticePart[] {
+  const tables = scopeTables(allTables, topic.verbs);
   const random = seedToRandom(grammarSeed(lessonKey, topic.id, "practice"));
   const plans: { verb: string | null; verbs: string[]; mix: Record<GrammarCardKind, number> }[] = topic.verbs.map(
     (verb) => ({ verb, verbs: [verb], mix: VERB_PART_MIX }),

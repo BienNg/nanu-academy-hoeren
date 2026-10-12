@@ -1,0 +1,150 @@
+{
+  "areas": [
+    {
+      "id": "dong-tu",
+      "titleVi": "Động từ",
+      "titleDe": "Verben",
+      "icon": "bolt",
+      "topics": [
+        {
+          "id": "verbkonjugation",
+          "titleVi": "Chia động từ",
+          "titleDe": "Verbkonjugation",
+          "opensWith": "a1-1/lektion-3",
+          "tenses": ["praesens"],
+          "verbs": ["machen", "kommen", "gehen", "wohnen", "fragen", "hören"],
+          "tips": [
+            {
+              "id": "endungen",
+              "tense": "praesens",
+              "titleVi": "Đuôi động từ ở Präsens",
+              "textVi": "ich -e · du -st · er/sie/es -t · ihr -t · wir -en · sie/Sie -en. Nhìn chủ ngữ để chọn đuôi."
+            }
+          ],
+          "clips": [
+            {
+              "id": "vk-01",
+              "filename": "vk-01-ich-komme-aus-vietnam.mp3",
+              "script": "Ich komme aus Vietnam.",
+              "translationVi": "Tôi đến từ Việt Nam.",
+              "verb": "kommen",
+              "tense": "praesens",
+              "person": "ich",
+              "wrong": { "script": "Ich kommst aus Vietnam.", "whyVi": "Với ich, động từ có đuôi -e: ich komme." }
+            },
+            {
+              "id": "vk-02",
+              "filename": "vk-02-du-kommst-aus-deutschland.mp3",
+              "script": "Du kommst aus Deutschland.",
+              "translationVi": "Bạn đến từ Đức.",
+              "verb": "kommen",
+              "tense": "praesens",
+              "person": "du",
+              "from": "Ich komme aus Deutschland."
+            },
+            {
+              "id": "vk-03",
+              "filename": "vk-03-er-wohnt-in-berlin.mp3",
+              "script": "Er wohnt in Berlin.",
+              "translationVi": "Anh ấy sống ở Berlin.",
+              "verb": "wohnen",
+              "tense": "praesens",
+              "person": "er",
+              "wrong": { "script": "Er wohnen in Berlin.", "whyVi": "Với er/sie/es, động từ có đuôi -t: er wohnt." }
+            },
+            {
+              "id": "vk-04",
+              "filename": "vk-04-wir-wohnen-in-hanoi.mp3",
+              "script": "Wir wohnen in Hanoi.",
+              "translationVi": "Chúng tôi sống ở Hà Nội.",
+              "verb": "wohnen",
+              "tense": "praesens",
+              "person": "wir"
+            },
+            {
+              "id": "vk-05",
+              "filename": "vk-05-was-machst-du.mp3",
+              "script": "Was machst du?",
+              "translationVi": "Bạn đang làm gì vậy?",
+              "verb": "machen",
+              "tense": "praesens",
+              "person": "du",
+              "wrong": { "script": "Was macht du?", "whyVi": "Với du, động từ có đuôi -st: du machst." }
+            },
+            {
+              "id": "vk-06",
+              "filename": "vk-06-ihr-macht-hausaufgaben.mp3",
+              "script": "Ihr macht Hausaufgaben.",
+              "translationVi": "Các bạn làm bài tập về nhà.",
+              "verb": "machen",
+              "tense": "praesens",
+              "person": "ihr",
+              "from": "Wir machen Hausaufgaben."
+            },
+            {
+              "id": "vk-07",
+              "filename": "vk-07-ich-gehe-nach-hause.mp3",
+              "script": "Ich gehe nach Hause.",
+              "translationVi": "Tôi đi về nhà.",
+              "verb": "gehen",
+              "tense": "praesens",
+              "person": "ich"
+            },
+            {
+              "id": "vk-08",
+              "filename": "vk-08-sie-geht-in-die-schule.mp3",
+              "script": "Sie geht in die Schule.",
+              "translationVi": "Cô ấy đi học.",
+              "verb": "gehen",
+              "tense": "praesens",
+              "person": "er",
+              "wrong": { "script": "Sie gehst in die Schule.", "whyVi": "sie (cô ấy) chia giống er: đuôi -t, nên là sie geht." }
+            },
+            {
+              "id": "vk-09",
+              "filename": "vk-09-wir-fragen-die-lehrerin.mp3",
+              "script": "Wir fragen die Lehrerin.",
+              "translationVi": "Chúng tôi hỏi cô giáo.",
+              "verb": "fragen",
+              "tense": "praesens",
+              "person": "wir"
+            },
+            {
+              "id": "vk-10",
+              "filename": "vk-10-du-fragst-anna.mp3",
+              "script": "Du fragst Anna.",
+              "translationVi": "Bạn hỏi Anna.",
+              "verb": "fragen",
+              "tense": "praesens",
+              "person": "du",
+              "from": "Ich frage Anna."
+            },
+            {
+              "id": "vk-11",
+              "filename": "vk-11-hoerst-du-musik.mp3",
+              "script": "Hörst du Musik?",
+              "translationVi": "Bạn có nghe nhạc không?",
+              "verb": "hören",
+              "tense": "praesens",
+              "person": "du",
+              "wrong": { "script": "Hört du Musik?", "whyVi": "Với du, đuôi luôn là -st, kể cả trong câu hỏi: Hörst du …?" }
+            },
+            {
+              "id": "vk-12",
+              "filename": "vk-12-sie-hoeren-radio.mp3",
+              "script": "Sie hören Radio.",
+              "translationVi": "Họ nghe radio.",
+              "verb": "hören",
+              "tense": "praesens",
+              "person": "sie",
+              "tip": "sie (họ) và Sie (ngài) chia giống wir: đuôi -en."
+            }
+          ]
+        }
+      ]
+    },
+    { "id": "mao-tu", "titleVi": "Mạo từ", "titleDe": "Artikel", "icon": "category", "topics": [] },
+    { "id": "cau-hoi", "titleVi": "Câu hỏi", "titleDe": "Fragen", "icon": "help", "topics": [] },
+    { "id": "gioi-tu", "titleVi": "Giới từ", "titleDe": "Präpositionen", "icon": "place", "topics": [] }
+  ]
+}
