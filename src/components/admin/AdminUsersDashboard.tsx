@@ -69,6 +69,7 @@ import {
   normalizeClassName,
   formatAdminTimestamp,
   paginateAdminUsers,
+  signedUpAt,
   sortAdminUsers,
   type AdminLevelOption,
   type AdminSortDir,
@@ -109,6 +110,29 @@ function Streak({ days }: { days: number }) {
       <span className="text-admin-body-sm text-admin-ink-subtle">{days === 1 ? "day" : "days"}</span>
     </span>
   );
+}
+
+function SignedUp({ iso }: { iso: string | null }) {
+  if (!iso) {
+    return <span className="text-admin-body-sm text-admin-ink-subtle">Unknown</span>;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const date = new Date(`${iso}T00:00:00.000Z`);
+    const label = Number.isNaN(date.getTime())
+      ? iso
+      : new Intl.DateTimeFormat("en-GB", {
+          timeZone: "UTC",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }).format(date);
+    return (
+      <time dateTime={iso} className="whitespace-nowrap text-admin-body-sm text-admin-ink">
+        {label}
+      </time>
+    );
+  }
+  return <LastSeen iso={iso} />;
 }
 
 function LastSeen({ iso }: { iso: string | null }) {
@@ -686,7 +710,7 @@ export function AdminUsersDashboard({
   const [query, setQuery] = useState("");
   const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>("all");
   const [appFilter, setAppFilter] = useState<AppFilter>("all");
-  const [sort, setSort] = useState<AdminSortKey>("lastLogin");
+  const [sort, setSort] = useState<AdminSortKey>("signedUp");
   const [dir, setDir] = useState<AdminSortDir>("desc");
   const [page, setPage] = useState(1);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
@@ -1402,6 +1426,7 @@ export function AdminUsersDashboard({
                       />
                     )}
                   </SortHeader>
+                  <SortHeader label="Signed up" column="signedUp" sort={sort} dir={dir} onSort={handleSort} />
                   <SortHeader
                     label="Class"
                     column="class"
@@ -1426,7 +1451,7 @@ export function AdminUsersDashboard({
                 {paged.pageRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={canAssignTeacher ? 6 : 5}
+                      colSpan={canAssignTeacher ? 7 : 6}
                       className="px-space-16 py-space-48 text-center text-admin-body-md text-admin-ink-muted"
                     >
                       {emptyMessage}
@@ -1483,6 +1508,9 @@ export function AdminUsersDashboard({
                               ) : null}
                             </div>
                           </div>
+                        </td>
+                        <td className="px-space-16 py-space-8">
+                          <SignedUp iso={signedUpAt(row)} />
                         </td>
                         <ClassCell {...classEditor(row)} />
                         <td className="px-space-16 py-space-8">
@@ -1571,6 +1599,7 @@ export function AdminUsersDashboard({
                           className={`flex flex-wrap items-center gap-x-space-16 gap-y-space-8 ${readOnly ? "" : "pl-7"}`}
                         >
                           <ClassEditor {...classEditor(row)} />
+                          <SignedUp iso={signedUpAt(row)} />
                           <Streak days={row.streakDays} />
                           <LastSeen iso={row.lastLoginAt} />
                         </div>

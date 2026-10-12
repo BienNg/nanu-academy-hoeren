@@ -16,6 +16,8 @@ import {
   listAdminClasses,
   partsByUser,
   rowsForClassScope,
+  signedUpAt,
+  sortAdminUsers,
   type AdminUserRow,
 } from "./admin-overview.js";
 import {
@@ -514,4 +516,31 @@ test("client usage counts students once per browser and device in the window", (
   );
   assert.equal(usage.students, 4);
   assert.equal(usage.visits, 6);
+});
+
+test("signed up sort puts the newest account first", () => {
+  const signIn = (at: string) => ({ at, device: null, browser: null, location: null });
+  const older = {
+    ...row("older", "2026-10-02T06:00:00.000Z", "Older"),
+    signIns: [signIn("2026-09-01T01:00:00.000Z"), signIn("2026-10-02T06:00:00.000Z")],
+  };
+  const newer = {
+    ...row("newer", "2026-10-03T08:00:00.000Z", "Newer"),
+    signIns: [signIn("2026-10-03T08:00:00.000Z")],
+  };
+  const unknown = row("unknown", null, "Unknown");
+  const sorted = sortAdminUsers([older, unknown, newer], "signedUp", "desc");
+  assert.deepEqual(
+    sorted.map((item) => item.userId),
+    ["newer", "older", "unknown"],
+  );
+  assert.equal(signedUpAt(older), "2026-09-01T01:00:00.000Z");
+  assert.equal(signedUpAt(newer), "2026-10-03T08:00:00.000Z");
+
+  const sameDay = {
+    ...row("same-day", "2026-10-12T10:33:00.000Z", "Same day"),
+    signIns: [{ at: "2026-10-12T10:33:00.000Z", device: null, browser: null, location: null }],
+    progress: { ...DEFAULT_PROGRESS, practiceDates: ["2026-10-12"] },
+  };
+  assert.equal(signedUpAt(sameDay), "2026-10-12T10:33:00.000Z");
 });

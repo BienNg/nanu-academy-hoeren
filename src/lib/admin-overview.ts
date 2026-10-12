@@ -26,7 +26,7 @@ export const ADMIN_PAGE_SIZE = 25;
 
 export const CLASS_NAME_MAX_LENGTH = 64;
 
-export type AdminSortKey = "lastLogin" | "name" | "streak" | "class";
+export type AdminSortKey = "lastLogin" | "name" | "streak" | "class" | "signedUp";
 export type AdminSortDir = "asc" | "desc";
 
 export type AdminTrackColumn = {
@@ -162,6 +162,9 @@ function compareRows(
     if (a.lastLoginMs !== b.lastLoginMs) {
       return (a.lastLoginMs - b.lastLoginMs) * sign;
     }
+  } else if (sort === "signedUp") {
+    const signedUp = signedUpMs(a) - signedUpMs(b);
+    if (signedUp !== 0) return signedUp * sign;
   } else if (sort === "streak") {
     if (a.streakDays !== b.streakDays) {
       return (a.streakDays - b.streakDays) * sign;
@@ -1319,6 +1322,64 @@ function utcDayDiff(later: string, earlier: string): number {
 
 function isActiveOn(row: AdminUserRow, day: string): boolean {
   return completedCardOnDay(row.progress, day);
+}
+
+function timestampMs(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  const ms = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function isDateOnly(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/**
+ * When this account first appeared. A full timestamp wins over a date-only
+ * mark on the same Vietnam day, because that mark is the day rounded down.
+ * An earlier date-only day still counts when no sign-in was stored then.
+ */
+export function signedUpAt(row: AdminUserRow): string | null {
+  let bestTimedMs = Infinity;
+  let bestTimed: string | null = null;
+  let bestDayMs = Infinity;
+  let bestDay: string | null = null;
+  const consider = (value: string | null | undefined) => {
+    if (!value) return;
+    const ms = timestampMs(value);
+    if (ms == null) return;
+    if (isDateOnly(value)) {
+      if (ms >= bestDayMs) return;
+      bestDayMs = ms;
+      bestDay = value;
+      return;
+    }
+    if (ms >= bestTimedMs) return;
+    bestTimedMs = ms;
+    bestTimed = value;
+  };
+  for (const signIn of row.signIns ?? []) consider(signIn.at);
+  consider(row.lastSignInAt);
+  consider(row.lastLoginAt);
+  const progress = row.progress;
+  if (progress) {
+    consider(progress.lastPracticeDate);
+    for (const day of progress.practiceDates ?? []) consider(day);
+    for (const day of Object.keys(progress.activity ?? {})) consider(day);
+    for (const visit of progress.visits ?? []) consider(visit.startedAt);
+  }
+  if (bestDay && bestTimed) {
+    const timedDay = calendarDay(bestTimed);
+    if (timedDay && bestDay < timedDay) return bestDay;
+    return bestTimed;
+  }
+  return bestTimed ?? bestDay;
+}
+
+function signedUpMs(row: AdminUserRow): number {
+  const at = signedUpAt(row);
+  if (!at) return 0;
+  return timestampMs(at) ?? 0;
 }
 
 function firstSeenDay(row: AdminUserRow): string | null {
