@@ -100,3 +100,31 @@ revoke all on table public.blitzrunde_answers from anon, authenticated;
 grant select, insert, update, delete on table public.blitzrunde_sessions to service_role;
 grant select, insert, update, delete on table public.blitzrunde_participants to service_role;
 grant select, insert, update, delete on table public.blitzrunde_answers to service_role;
+
+-- Card totals beside the deck. The polls (heartbeat, lobby, results, admin)
+-- show "N thẻ" from these and never read the 8–100 KB deck itself. Generated
+-- columns: adding them fills every existing round, and Postgres keeps new
+-- rounds in step, so the app never writes them.
+create or replace function public.blitzrunde_deck_counts(deck jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'order', count(*) filter (where card->>'kind' = 'order'),
+    'multiple-choice', count(*) filter (where card->>'kind' = 'multiple-choice'),
+    'vi-choice', count(*) filter (where card->>'kind' = 'vi-choice'),
+    'vi-input', count(*) filter (where card->>'kind' = 'vi-input'),
+    'pairing', count(*) filter (where card->>'kind' = 'pairing')
+  )
+  from jsonb_array_elements(deck) as card;
+$$;
+
+alter table public.blitzrunde_sessions
+  add column if not exists deck_size integer
+  generated always as (jsonb_array_length(deck)) stored;
+
+alter table public.blitzrunde_sessions
+  add column if not exists deck_counts jsonb
+  generated always as (public.blitzrunde_deck_counts(deck)) stored;

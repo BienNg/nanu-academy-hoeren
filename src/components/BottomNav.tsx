@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { BadgeUnlockSheet, markBadgesSeenRemote } from "@/components/BadgeParts";
 import { DuelChallengeIntro, requestChallengeShowdown } from "@/components/DuelChallengeIntro";
 import { badgeCheckDue, clearBadgeBoardCache, markBadgeCheck } from "@/lib/badge-unseen";
@@ -81,6 +81,47 @@ function subscribeDuelTab(onChange: () => void): () => void {
   return () => window.removeEventListener(DUEL_TAB_EVENT, onChange);
 }
 
+const NAV_FRESH_MS = 60_000;
+
+let questsCheckedAt = 0;
+let questsInflight = false;
+let duelsCheckedAt = 0;
+let duelBadgeSnapshot: IncomingChallenge[] | null = null;
+let duelBadgeRequest: Promise<IncomingChallenge[] | null> | null = null;
+
+/** One duel-badge read, shared by a nav that remounts while it is still running. */
+function requestDuelBadge(force: boolean): Promise<IncomingChallenge[] | null> | "fresh" {
+  if (duelBadgeRequest) return duelBadgeRequest;
+  if (!force && !navCheckDue(duelsCheckedAt)) return "fresh";
+  const started = Date.now();
+  duelsCheckedAt = started;
+  duelBadgeRequest = fetch("/api/duels?badge=1")
+    .then((response) => {
+      if (!response.ok) throw new Error("duels");
+      return response.json();
+    })
+    .then((data: unknown) => {
+      if (!data || typeof data !== "object") throw new Error("duels");
+      const next = readIncomingChallenges(data);
+      duelBadgeSnapshot = next;
+      writeDuelTab((data as { available?: unknown }).available !== false);
+      return next;
+    })
+    .catch(() => {
+      if (duelsCheckedAt === started) duelsCheckedAt = 0;
+      duelBadgeSnapshot = [];
+      return null;
+    })
+    .finally(() => {
+      duelBadgeRequest = null;
+    });
+  return duelBadgeRequest;
+}
+
+function navCheckDue(checkedAt: number, now = Date.now()): boolean {
+  return checkedAt === 0 || now - checkedAt >= NAV_FRESH_MS;
+}
+
 let freshBadgesRequest: Promise<FreshBadge[]> | null = null;
 
 /**
@@ -138,15 +179,26 @@ export function BottomNav() {
     markBadgesSeenRemote(ids);
   }, []);
 
+  useLayoutEffect(() => {
+    if (duelBadgeSnapshot) setChallenges(duelBadgeSnapshot);
+  }, []);
+
   useEffect(() => {
     // The quests screen publishes its own count, so it needs no second request.
+    // Other screens keep that count for a minute. Focusing the tab asks again.
     if (pathname.startsWith("/quests")) return;
-    let cancelled = false;
-    const load = () => {
+    const load = (force: boolean) => {
+      if (questsInflight) return;
+      if (!force && !navCheckDue(questsCheckedAt)) return;
+      const started = Date.now();
+      questsCheckedAt = started;
+      questsInflight = true;
       void fetch("/api/quests", { headers: questZoneHeaders() })
-        .then((response) => (response.ok ? response.json() : null))
+        .then((response) => {
+          if (!response.ok) throw new Error("quests");
+          return response.json();
+        })
         .then((data: unknown) => {
-          if (cancelled) return;
           const board = readQuestBoard(data);
           if (!board) {
             publishQuestBadge(0);
@@ -158,36 +210,49 @@ export function BottomNav() {
           else rememberQuestBoard({ ...board, update: null });
         })
         .catch(() => {
-          // The tab still works. The badge appears after the next check.
+          if (questsCheckedAt === started) questsCheckedAt = 0;
+        })
+        .finally(() => {
+          questsInflight = false;
         });
     };
-    load();
-    window.addEventListener("focus", load);
+    load(false);
+    const onFocus = () => load(true);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load(true);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      cancelled = true;
-      window.removeEventListener("focus", load);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => {
-      void fetch("/api/duels?badge=1")
-        .then((response) => (response.ok ? response.json() : null))
-        .then((data: unknown) => {
-          if (cancelled || !data || typeof data !== "object") return;
-          setChallenges(readIncomingChallenges(data));
-          writeDuelTab((data as { available?: unknown }).available !== false);
-        })
-        .catch(() => {
-          if (!cancelled) setChallenges([]);
-        });
+    const load = (force: boolean) => {
+      const result = requestDuelBadge(force);
+      if (result === "fresh") {
+        if (duelBadgeSnapshot) setChallenges(duelBadgeSnapshot);
+        return;
+      }
+      void result.then((next) => {
+        if (cancelled) return;
+        setChallenges(next ?? []);
+      });
     };
-    load();
-    window.addEventListener("focus", load);
+    load(false);
+    const onFocus = () => load(true);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load(true);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", load);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [pathname]);
 

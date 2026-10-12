@@ -264,6 +264,9 @@ function handleRevokedAccount(): void {
 const VISIT_ID_KEY = "nanu-horen-visit-id";
 /** Local visit clock. The full progress document uploads on hide, and once per visit while the tab stays open. */
 const VISIT_TICK_MS = 60_000;
+/** Each upload sends the full progress document and gets it back, so keep them rare. */
+const PLAYBACK_CLOUD_SYNC_MS = 60_000;
+const CLOUD_SYNC_DEBOUNCE_MS = 1200;
 
 let visitTracking = false;
 let visitCleanup: (() => void) | null = null;
@@ -777,6 +780,7 @@ export function useProgress(
   );
 
   const cloudSyncTimer = useRef<number | null>(null);
+  const cloudSyncDueAt = useRef(0);
 
   const flushCloudSync = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -789,16 +793,26 @@ export function useProgress(
     }
   }, [status]);
 
-  const queueCloudSync = useCallback(() => {
-    if (typeof window === "undefined" || status !== "authenticated") return;
-    if (cloudSyncTimer.current !== null) {
-      window.clearTimeout(cloudSyncTimer.current);
-    }
-    cloudSyncTimer.current = window.setTimeout(() => {
-      cloudSyncTimer.current = null;
-      void pushCloudProgress(readProgressSnapshot());
-    }, 1200);
-  }, [status]);
+  /**
+   * Upload the whole document within `delayMs`. A pending upload due sooner
+   * already carries this save (it reads the snapshot when it fires), so it stays.
+   */
+  const queueCloudSync = useCallback(
+    (delayMs: number) => {
+      if (typeof window === "undefined" || status !== "authenticated") return;
+      const dueAt = Date.now() + delayMs;
+      if (cloudSyncTimer.current !== null) {
+        if (cloudSyncDueAt.current <= dueAt) return;
+        window.clearTimeout(cloudSyncTimer.current);
+      }
+      cloudSyncDueAt.current = dueAt;
+      cloudSyncTimer.current = window.setTimeout(() => {
+        cloudSyncTimer.current = null;
+        void pushCloudProgress(readProgressSnapshot());
+      }, delayMs);
+    },
+    [status],
+  );
 
   useEffect(() => {
     const flushCloud = () => {
@@ -1139,9 +1153,13 @@ export function useProgress(
       }
       if (next === current) return;
       persist(next, false);
-      queueCloudSync();
+      // Playback saves this every 5 s; the cloud copy only needs it about once a minute.
+      // Pause, seek and leaving the tab (force) upload right away.
+      if (!force) queueCloudSync(PLAYBACK_CLOUD_SYNC_MS);
+      else if (document.visibilityState === "hidden") flushCloudSync();
+      else queueCloudSync(CLOUD_SYNC_DEBOUNCE_MS);
     },
-    [persist, queueCloudSync],
+    [persist, queueCloudSync, flushCloudSync],
   );
 
   const recordPracticeDay = useCallback(() => {

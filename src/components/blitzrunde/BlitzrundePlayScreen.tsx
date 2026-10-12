@@ -198,6 +198,8 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
   const joinTriedRef = useRef(false);
   const endsAtRef = useRef<string | null>(null);
   const deckLengthRef = useRef(0);
+  /** The cards arrive once; later polls leave them out. */
+  const deckRef = useRef<BlitzrundeCard[] | null>(null);
   const aliveRef = useRef(true);
   const sawLobbyRef = useRef(false);
   const countdownRef = useRef(false);
@@ -213,7 +215,7 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(base, { cache: "no-store" });
+      const response = await fetch(deckRef.current ? base : `${base}?deck=1`, { cache: "no-store" });
       if (!aliveRef.current) return;
       if (!response.ok) {
         setLoadError(
@@ -228,7 +230,8 @@ export function BlitzrundePlayScreen({ sessionId }: { sessionId: string }) {
       const parsed = readRound(await response.json());
       if (!parsed || !aliveRef.current) return;
       if (parsed.serverNow != null) skewRef.current = parsed.serverNow - Date.now();
-      const next = parsed.round;
+      if (parsed.round.deck) deckRef.current = parsed.round.deck;
+      const next = { ...parsed.round, deck: deckRef.current };
       endsAtRef.current = next.meta.endsAt;
       deckLengthRef.current = next.deck?.length ?? 0;
       setRound(next);

@@ -12,7 +12,7 @@ import {
   previewDeck,
   startSession,
   type AdminRoundSummary,
-  type AdminRoundView,
+  type AdminRoundUpdate,
   type DeckPreview,
   type StoreError,
 } from "@/lib/blitzrunde-store";
@@ -123,10 +123,17 @@ export async function cancelBlitzrunde(id: string): Promise<ActionResult<null>> 
   return result.ok ? result : failure(result);
 }
 
-export async function getBlitzrundeAdminRound(id: string): Promise<ActionResult<AdminRoundView>> {
+/** `deck` once per opened round; `haveAnswersFor` lists the students whose answers the dashboard already holds. */
+export async function getBlitzrundeAdminRound(
+  id: string,
+  options: { deck?: boolean; haveAnswersFor?: string[] } = {},
+): Promise<ActionResult<AdminRoundUpdate>> {
   if (!(await requireTeacher())) return DENIED;
   if (!isBlitzrundeId(id)) return BAD_ID;
-  const result = await getAdminRound(id);
+  const haveAnswersFor = Array.isArray(options?.haveAnswersFor)
+    ? options.haveAnswersFor.filter((value): value is string => typeof value === "string").slice(0, 500)
+    : [];
+  const result = await getAdminRound(id, { includeDeck: options?.deck === true, haveAnswersFor });
   return result.ok ? result : failure(result);
 }
 
