@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { loadAdminStudentDetail, loadAdminStudentXp } from "@/app/admin/actions";
 import {
@@ -27,10 +29,12 @@ import {
   type AdminXpSource,
 } from "@/lib/admin-detail";
 import {
+  adminClassPageHref,
   adminRangeLabel,
   adminRangeVietnamDayKeys,
   formatAdminTimestamp,
   formatRelativeLastSeen,
+  openAdminClass,
   type AdminRange,
   type AdminUserRow,
 } from "@/lib/admin-overview";
@@ -345,6 +349,7 @@ export function StudentDetail({
   /** Level open on the Levels path. The drawer then shows that Lektion trail. */
   focusLevelSlug?: string;
 }) {
+  const router = useRouter();
   const [load, setLoad] = useState<LoadState | null>(null);
   const [xpLoad, setXpLoad] = useState<XpLoadState | null>(null);
   const [fullUserId, setFullUserId] = useState<string | null>(null);
@@ -449,10 +454,27 @@ export function StudentDetail({
           {row.isAdmin ? <Badge tone="cobalt">Admin</Badge> : null}
           {row.staff && !row.isAdmin ? <StaffBadge /> : null}
           {row.teacher && !row.isAdmin ? <TeacherBadge /> : null}
-          <Badge tone={row.className ? "cobalt" : "neutral"}>
-            <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
-            {row.className ?? "No class"}
-          </Badge>
+          {row.className ? (
+            <Link
+              href={adminClassPageHref(row.className)}
+              title={`Open class ${row.className}`}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                openAdminClass(row.className ?? "", (href) => router.push(href));
+                onClose();
+              }}
+              className="inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 tabular-nums text-admin-cobalt-ink ring-1 ring-inset bg-admin-cobalt-wash ring-admin-cobalt/20 outline-none transition-colors hover:bg-admin-cobalt-hover focus-visible:shadow-admin-focus"
+            >
+              <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
+              {row.className}
+            </Link>
+          ) : (
+            <Badge tone="neutral">
+              <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
+              No class
+            </Badge>
+          )}
           <Badge tone={streakDays > 0 ? "ember" : "neutral"}>
             <MaterialIcon
               name="local_fire_department"

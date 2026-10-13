@@ -12,7 +12,11 @@ import {
   useTransition,
 } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
-import { loadOverviewWindow } from "@/app/admin/range-data";
+import {
+  loadOverviewWindow,
+  refreshOverviewWindow,
+  type OverviewWindow,
+} from "@/app/admin/range-data";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import {
   AdminPageHeader,
@@ -311,7 +315,7 @@ function StudentAvatar({
 }
 
 const TIMELINE_AVATAR = 20;
-/** Avatar plus a gap wide enough that the card-colored rings never touch. */
+/** Avatar plus a gap wide enough that the cobalt rings never touch. */
 const TIMELINE_STEP_SPACED = TIMELINE_AVATAR + 4;
 /** Tightest overlap a crowded column squeezes to before it may overflow. */
 const TIMELINE_STEP_MIN = 8;
@@ -416,10 +420,10 @@ function TimelineStudentButton({
         onMouseLeave={hideTip}
         onFocus={placeTip}
         onBlur={hideTip}
-        className={`inline-flex rounded-full ring-2 outline-none transition-transform hover:scale-110 hover:ring-admin-cobalt focus-visible:ring-admin-cobalt ${
+        className={`inline-flex rounded-full ring-2 outline-none transition-transform hover:scale-110 focus-visible:ring-admin-cobalt-strong ${
           seen
-            ? "opacity-80 ring-admin-border hover:opacity-100"
-            : "ring-admin-card"
+            ? "opacity-80 ring-admin-border hover:opacity-100 hover:ring-admin-cobalt"
+            : "ring-admin-cobalt hover:ring-admin-cobalt-strong"
         }`}
       >
         <StudentAvatar
@@ -556,7 +560,7 @@ function ActiveUsersTimeline({
           <ul className="flex flex-wrap items-center gap-space-12 text-admin-label-md text-admin-ink-muted">
             <li className="flex items-center gap-space-4">
               <span
-                className="h-2.5 w-2.5 rounded-full"
+                className="h-2.5 w-2.5 rounded-full ring-2 ring-admin-cobalt"
                 style={{ backgroundColor: ADMIN_COLORS.ember }}
                 aria-hidden="true"
               />
@@ -740,12 +744,18 @@ function ActiveUsersTimeline({
                     onClick={() => onSelect(student.userId)}
                     className="flex w-full items-center gap-space-8 rounded-admin-control px-space-8 py-1.5 text-left outline-none hover:bg-admin-subtle focus-visible:shadow-admin-focus"
                   >
-                    <StudentAvatar
-                      name={student.displayName}
-                      image={student.image}
-                      size={24}
-                      muted={seen}
-                    />
+                    <span
+                      className={`inline-flex rounded-full ring-2 ${
+                        seen ? "ring-admin-border" : "ring-admin-cobalt"
+                      }`}
+                    >
+                      <StudentAvatar
+                        name={student.displayName}
+                        image={student.image}
+                        size={24}
+                        muted={seen}
+                      />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-admin-label-md font-semibold text-admin-ink">
                         {student.displayName}
@@ -1232,7 +1242,18 @@ export function AdminOverview({
     },
     loadOverviewWindow,
   );
-  const range = windowData.range;
+  const [freshWindow, setFreshWindow] = useState<{
+    range: AdminRange;
+    value: OverviewWindow;
+  } | null>(null);
+  useEffect(() => {
+    setFreshWindow((current) =>
+      current && current.range !== windowData.range ? null : current,
+    );
+  }, [windowData.range]);
+  const shownWindow =
+    freshWindow && freshWindow.range === windowData.range ? freshWindow : null;
+  const range = shownWindow?.range ?? windowData.range;
   const {
     rangeXp: earnedXp,
     rangeXpReady: earnedReady,
@@ -1241,9 +1262,28 @@ export function AdminOverview({
     practiceParts: practicePartCount,
     practicePartsByUser: practiceByUser,
     cardUserIds: activeCardIds,
-  } = windowData.value;
+  } = shownWindow?.value ?? windowData.value;
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [rowRefreshPending, startRowRefresh] = useTransition();
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshBusy = refreshing || rowRefreshPending;
+
+  async function refreshOverview() {
+    if (refreshBusy) return;
+    setRefreshing(true);
+    try {
+      const value = await refreshOverviewWindow(range);
+      setFreshWindow({ range, value });
+      startRowRefresh(() => {
+        router.refresh();
+      });
+    } catch {
+      // Keep the numbers already on the page.
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const window =
     range === "today"
       ? "today"
@@ -1334,7 +1374,23 @@ export function AdminOverview({
           kicker="Admin"
           title="Overview"
           subtitle={`Platform activity ${window}.`}
-          trailing={<HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>}
+          trailing={
+            <>
+              <button
+                type="button"
+                onClick={() => void refreshOverview()}
+                disabled={refreshBusy}
+                className="inline-flex h-8 items-center gap-space-4 rounded-admin-control border border-admin-hairline bg-admin-card px-space-12 text-admin-label-md font-semibold text-admin-ink-muted transition-colors hover:border-admin-border hover:text-admin-ink disabled:opacity-60"
+              >
+                <MaterialIcon
+                  name="refresh"
+                  className={`text-[16px] ${refreshBusy ? "animate-spin" : ""}`}
+                />
+                {refreshBusy ? "Refreshing" : "Refresh"}
+              </button>
+              <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
+            </>
+          }
         />
 
         {!storeConfigured ? (

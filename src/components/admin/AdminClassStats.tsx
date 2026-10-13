@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
+import { AdminClassSchedule, type ScheduleLevel } from "@/components/admin/AdminClassSchedule";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
   CARD,
   HeaderChip,
   KpiTile,
-  Badge,
   Mono,
   ScopeChips,
   SearchField,
@@ -26,9 +26,10 @@ import {
   type AdminCatalogCourse,
   type ClassMemberStat,
 } from "@/lib/admin-detail";
-import type { AdminClassLeagueRow, AdminClassQuestStatus } from "@/lib/admin-class-league";
 import type { AdminClassLeagueData } from "@/lib/class-quest-store";
+import type { ClassSchedule } from "@/lib/class-schedule";
 import {
+  ADMIN_CLASS_SELECT_EVENT,
   classKey,
   formatAdminTimestamp,
   listAdminClasses,
@@ -103,73 +104,45 @@ type WaitingClassMember = {
 };
 
 type AdminClassStatsProps = {
+  /** Class tab to open, from `?class=`. Empty when the URL has no class. */
+  initialClassKey?: string | null;
   rows: AdminUserRow[];
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   pending?: readonly WaitingClassMember[];
   classLeague?: AdminClassLeagueData;
+  schedules?: readonly ClassSchedule[];
+  schedulesReady?: boolean;
+  scheduleLevels?: readonly ScheduleLevel[];
+  canEditSchedule?: boolean;
+  /** Server time, so "today" matches between server and client render. */
+  now: string;
 };
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function weekdayOf(day: string): string {
-  return WEEKDAY[new Date(`${day}T00:00:00Z`).getUTCDay()] ?? day;
-}
-
-function shortDate(day: string): string {
-  const [, month, date] = day.split("-");
-  return `${date}.${month}.`;
-}
-
-function DayDots({ days }: { days: AdminClassLeagueRow["days"] }) {
-  return (
-    <span className="flex items-center gap-1">
-      {days.map((day) => {
-        const color =
-          day.done >= day.total && day.total > 0
-            ? ADMIN_COLORS.emerald
-            : day.done > 0
-              ? ADMIN_COLORS.amber
-              : ADMIN_COLORS.hairline;
-        return (
-          <span
-            key={day.day}
-            className="h-3.5 w-3.5 rounded-[3px]"
-            style={{ backgroundColor: color }}
-            title={`${weekdayOf(day.day)} ${shortDate(day.day)}: ${day.done}/${day.total} daily quests`}
-            aria-label={`${weekdayOf(day.day)}: ${day.done} of ${day.total} daily quests`}
-          />
-        );
-      })}
-    </span>
-  );
-}
-
-function QuestLine({ quest }: { quest: AdminClassQuestStatus }) {
-  return (
-    <li className="flex flex-col gap-1 py-space-8">
-      <div className="flex items-start justify-between gap-space-8">
-        <p className="text-admin-body-sm font-semibold text-admin-ink">{quest.title}</p>
-        <span className="flex shrink-0 items-center gap-1">
-          <Badge tone={quest.done ? "emerald" : "neutral"} dot>
-            {quest.progress}/{quest.target}
-          </Badge>
-          {quest.claimed > 0 ? <Badge tone="amber">{quest.claimed} claimed</Badge> : null}
-        </span>
-      </div>
-      <p className="text-admin-body-sm text-admin-ink-subtle">
-        {quest.contributors.length > 0 ? quest.contributors.join(", ") : "No one yet"}
-      </p>
-    </li>
-  );
+/** Keeps `?class=` in the address bar without refetching the class list. */
+function writeClassParam(key: string) {
+  const url = new URL(globalThis.location.href);
+  if (key) url.searchParams.set("class", key);
+  else url.searchParams.delete("class");
+  const next = `${url.pathname}${url.search}`;
+  const current = `${globalThis.location.pathname}${globalThis.location.search}`;
+  if (next !== current) {
+    globalThis.history.replaceState(globalThis.history.state, "", next);
+  }
 }
 
 export function AdminClassStats({
+  initialClassKey = null,
   rows,
   courseCatalog,
   storeConfigured,
   pending = [],
   classLeague,
+  schedules = [],
+  schedulesReady = true,
+  scheduleLevels = [],
+  canEditSchedule = false,
+  now,
 }: AdminClassStatsProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -177,11 +150,13 @@ export function AdminClassStats({
   const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
   const [classError, setClassError] = useState<string | null>(null);
   const savingClassRef = useRef(new Set<string>());
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(initialClassKey);
+  const appliedClassKey = useRef(initialClassKey);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<MemberSortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [savedSchedules, setSavedSchedules] = useState<Record<string, ClassSchedule>>({});
 
   const liveRows = useMemo(
     () =>
@@ -224,6 +199,16 @@ export function AdminClassStats({
     [league],
   );
   const activeLeague = useMemo(() => leagueByClass.get(activeKey) ?? null, [leagueByClass, activeKey]);
+  const activeSchedule = useMemo(
+    () =>
+      savedSchedules[activeKey] ??
+      schedules.find((schedule) => schedule.classKey === activeKey) ??
+      null,
+    [savedSchedules, schedules, activeKey],
+  );
+  const saveSchedule = useCallback((schedule: ClassSchedule) => {
+    setSavedSchedules((current) => ({ ...current, [schedule.classKey]: schedule }));
+  }, []);
   const stats = useMemo(
     () => buildClassStats(classRows, courseCatalog),
     [classRows, courseCatalog],
@@ -296,9 +281,32 @@ export function AdminClassStats({
     }
   }
 
+  useEffect(() => {
+    if (initialClassKey === appliedClassKey.current) return;
+    appliedClassKey.current = initialClassKey;
+    if (initialClassKey) {
+      setSelectedKey(initialClassKey);
+      setQuery("");
+    }
+  }, [initialClassKey]);
+
+  useEffect(() => {
+    function onSelect(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (!key) return;
+      appliedClassKey.current = key;
+      setSelectedKey(key);
+      setQuery("");
+    }
+    window.addEventListener(ADMIN_CLASS_SELECT_EVENT, onSelect);
+    return () => window.removeEventListener(ADMIN_CLASS_SELECT_EVENT, onSelect);
+  }, []);
+
   function selectClass(key: string) {
+    appliedClassKey.current = key || null;
     setSelectedKey(key);
     setQuery("");
+    writeClassParam(key);
   }
 
   function handleSort(column: MemberSortKey) {
@@ -378,17 +386,24 @@ export function AdminClassStats({
                 </p>
               </div>
 
-              {storeConfigured ? (
-                !classLeague?.ready ? (
-                  <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
-                    Class league data could not be read. Check that `supabase/xp_awards.sql` and
-                    `supabase/quest_claims.sql` are installed.
-                  </div>
-                ) : classLeague.podiumsReady === false ? (
-                  <div className="rounded-admin-card border border-admin-amber bg-admin-amber-wash px-space-16 py-space-12 text-admin-body-sm text-admin-amber-ink">
-                    Class podiums are missing. Run `supabase/class_podiums.sql` once in Supabase.
-                  </div>
-                ) : null
+              {storeConfigured && activeKey ? (
+                <AdminClassSchedule
+                  key={activeKey}
+                  className={activeLabel}
+                  schedule={activeSchedule}
+                  levels={scheduleLevels}
+                  now={now}
+                  canEdit={canEditSchedule}
+                  ready={schedulesReady}
+                  onSaved={saveSchedule}
+                />
+              ) : null}
+
+              {storeConfigured && classLeague && !classLeague.ready ? (
+                <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
+                  Class league data could not be read. Check that `supabase/xp_awards.sql` and
+                  `supabase/quest_claims.sql` are installed.
+                </div>
               ) : null}
 
               {activeLeague ? (
@@ -470,167 +485,6 @@ export function AdminClassStats({
                   color={ADMIN_COLORS.violet}
                 />
               </div>
-
-              {league ? (
-                <TablePanel
-                  icon="emoji_events"
-                  title="Class league ranking"
-                  hint="Same ranking learners see in the class tab: ordered by this week's XP. Squares are daily quest completion by day (green both, amber one, grey none)."
-                  color={ADMIN_COLORS.cobalt}
-                >
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[52rem] border-collapse text-left">
-                      <thead className={THEAD}>
-                        <tr>
-                          <th className={`${TH} w-14`}>Rank</th>
-                          <th className={TH}>Class</th>
-                          <th className={`${TH} text-right`}>Week XP</th>
-                          <th className={`${TH} text-right`}>XP / learner</th>
-                          <th className={TH}>Daily quests</th>
-                          <th className={TH}>Weekly quest</th>
-                          <th className={`${TH} text-right`}>Claims</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {league.classes.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="px-space-16 py-space-24 text-center text-admin-body-sm text-admin-ink-muted"
-                            >
-                              No learner has a class yet.
-                            </td>
-                          </tr>
-                        ) : (
-                          league.classes.map((entry) => (
-                            <tr key={entry.classKey} className={TR}>
-                              <td className="px-space-16 py-space-12 text-admin-body-md font-semibold tabular-nums text-admin-ink">
-                                {entry.rank ?? "—"}
-                              </td>
-                              <td className="px-space-16 py-space-12">
-                                <p className="text-admin-body-md font-semibold text-admin-ink">
-                                  {entry.name}
-                                </p>
-                                <p className="text-admin-body-sm text-admin-ink-subtle">
-                                  {entry.activeLearners} / {entry.learners} active
-                                </p>
-                              </td>
-                              <td className="px-space-16 py-space-12 text-right text-admin-body-md font-semibold tabular-nums text-admin-ink">
-                                {formatCount(entry.weekXp)}
-                              </td>
-                              <td className="px-space-16 py-space-12 text-right text-admin-body-md tabular-nums text-admin-ink-muted">
-                                {formatCount(entry.xpPerLearner)}
-                              </td>
-                              <td className="px-space-16 py-space-12">
-                                <DayDots days={entry.days} />
-                              </td>
-                              <td className="px-space-16 py-space-12">
-                                <p className="text-admin-body-sm text-admin-ink">
-                                  {entry.weekly.title}
-                                </p>
-                                <Badge tone={entry.weekly.done ? "emerald" : "neutral"} dot>
-                                  {entry.weekly.progress}/{entry.weekly.target}
-                                </Badge>
-                              </td>
-                              <td className="px-space-16 py-space-12 text-right text-admin-body-sm tabular-nums text-admin-ink-muted">
-                                {entry.claims} · {formatCount(entry.claimXp)} XP
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </TablePanel>
-              ) : null}
-
-              {activeLeague ? (
-                <TablePanel
-                  icon="flag"
-                  title="Quest progress in this class"
-                  hint={`Today (${weekdayOf(league?.today ?? "")} ${league ? shortDate(league.today) : ""}) and this week's quest, including contributors and claims.`}
-                  color={ADMIN_COLORS.emerald}
-                >
-                  <div className="grid grid-cols-1 gap-space-16 p-space-16 lg:grid-cols-2">
-                    <article className={`${CARD} flex flex-col p-space-16`}>
-                      <h3 className="text-admin-body-md font-semibold text-admin-ink">Daily quests</h3>
-                      <ul className="divide-y divide-admin-hairline">
-                        {activeLeague.today.map((quest) => (
-                          <QuestLine key={quest.id} quest={quest} />
-                        ))}
-                      </ul>
-                    </article>
-                    <article className={`${CARD} flex flex-col p-space-16`}>
-                      <h3 className="text-admin-body-md font-semibold text-admin-ink">Weekly quest</h3>
-                      <ul className="divide-y divide-admin-hairline">
-                        <QuestLine quest={activeLeague.weekly} />
-                      </ul>
-                    </article>
-                  </div>
-                </TablePanel>
-              ) : null}
-
-              {league ? (
-                <TablePanel
-                  icon="emoji_events"
-                  title="Class podium history"
-                  hint="Top 3 classes of each finished week, as stored for class badges."
-                  color={ADMIN_COLORS.amber}
-                >
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[40rem] border-collapse text-left">
-                      <thead className={THEAD}>
-                        <tr>
-                          <th className={TH}>Week of</th>
-                          <th className={TH}>1st</th>
-                          <th className={TH}>2nd</th>
-                          <th className={TH}>3rd</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {league.podiums.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={4}
-                              className="px-space-16 py-space-24 text-center text-admin-body-sm text-admin-ink-muted"
-                            >
-                              No finished week is ranked yet. Weeks are ranked the first time a learner opens badges after Monday.
-                            </td>
-                          </tr>
-                        ) : (
-                          league.podiums.map((week) => (
-                            <tr key={week.week} className={TR}>
-                              <td className="px-space-16 py-space-12 text-admin-body-md tabular-nums text-admin-ink">
-                                {shortDate(week.week)}
-                              </td>
-                              {[1, 2, 3].map((rank) => {
-                                const place = week.places.find((entry) => entry.rank === rank);
-                                return (
-                                  <td key={rank} className="px-space-16 py-space-12">
-                                    {place ? (
-                                      <>
-                                        <p className="text-admin-body-md font-semibold text-admin-ink">
-                                          {place.name}
-                                        </p>
-                                        <p className="text-admin-body-sm text-admin-ink-subtle">
-                                          {formatCount(place.classXp)} XP · {place.learners} badge{" "}
-                                          {place.learners === 1 ? "holder" : "holders"}
-                                        </p>
-                                      </>
-                                    ) : (
-                                      <span className="text-admin-body-sm text-admin-ink-faint">—</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </TablePanel>
-              ) : null}
 
               {waitingHere.length > 0 ? (
                 <TablePanel

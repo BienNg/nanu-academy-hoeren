@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -281,6 +282,7 @@ function noteMissingNameCustomColumn(message: string): void {
 export async function rejectCopiedInitialProgress(
   userId: string,
   incoming: StoredProgress,
+  knownOwn?: StoredProgress,
 ): Promise<StoredProgress | null> {
   const incomingStamps = completedChapterStamps(incoming);
   if (incomingStamps.length === 0) return null;
@@ -288,16 +290,21 @@ export async function rejectCopiedInitialProgress(
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
 
-  const { data: own, error: ownError } = await supabase
-    .from(TABLE)
-    .select("data")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (ownError) {
-    console.error("Supabase rejectCopiedInitialProgress", ownError.message);
-    return null;
+  let ownProgress: StoredProgress;
+  if (knownOwn) {
+    ownProgress = knownOwn;
+  } else {
+    const { data: own, error: ownError } = await supabase
+      .from(TABLE)
+      .select("data")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (ownError) {
+      console.error("Supabase rejectCopiedInitialProgress", ownError.message);
+      return null;
+    }
+    ownProgress = normalizeProgress(asProgressData(own?.data));
   }
-  const ownProgress = normalizeProgress(asProgressData(own?.data));
   const ownStamps = new Set(completedChapterStamps(ownProgress));
   if (incomingStamps.every((stamp) => ownStamps.has(stamp))) return null;
 
@@ -382,6 +389,267 @@ export async function setCloudProgress(
   if (fallbackError) {
     throw new Error(`Supabase setCloudProgress: ${fallbackError.message}`);
   }
+}
+
+export type LearnerProgressRow = {
+  progress: StoredProgress;
+  appUses: unknown;
+  nameCustom: boolean;
+  exists: boolean;
+};
+
+/**
+ * The progress document, visit log, and chosen-name flag in one read.
+ * Null when the store is down, so the caller can still save the old way.
+ */
+export async function readLearnerProgressRow(userId: string): Promise<LearnerProgressRow | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return null;
+
+  let includeUses = !appUseWritesPaused();
+  let includeName = !nameCustomColumnMissing;
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const columns = ["data"];
+    if (includeUses) columns.push("app_uses");
+    if (includeName) columns.push("name_custom");
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select(columns.join(", "))
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!error) {
+      const row = data as { data?: unknown; app_uses?: unknown; name_custom?: unknown } | null;
+      return {
+        progress: normalizeProgress(asProgressData(row?.data)),
+        appUses: row?.app_uses,
+        nameCustom: row?.name_custom === true,
+        exists: Boolean(row),
+      };
+    }
+    if (includeUses && isMissingAppUsesColumn(error.message)) {
+      noteMissingAppUsesColumn(error.message);
+      includeUses = false;
+      continue;
+    }
+    if (includeName && isMissingNameCustomColumn(error.message)) {
+      noteMissingNameCustomColumn(error.message);
+      includeName = false;
+      continue;
+    }
+    console.error("Supabase readLearnerProgressRow", error.message);
+    return null;
+  }
+  return null;
+}
+
+function learnerIdentityPatch(
+  profile: UserProfileTouch,
+  nameCustom: boolean,
+  now: string,
+): {
+  last_login_at: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string;
+} {
+  const image = imageWritesPaused() ? null : googleProfileImage(profile.image);
+  const patch: {
+    last_login_at: string;
+    email?: string | null;
+    name?: string | null;
+    image?: string;
+  } = { last_login_at: now };
+  if (profile.email !== undefined) patch.email = profile.email;
+  if (profile.name !== undefined && !nameCustom) patch.name = profile.name;
+  if (image) patch.image = image;
+  return patch;
+}
+
+function learnerVisitPatch(
+  existing: unknown,
+  context: SignInContext | null,
+  at: Date,
+): { app_uses: AppUseRecord[] } | null {
+  if (!context || appUseWritesPaused()) return null;
+  const next = nextAppUseLog(
+    existing,
+    {
+      at: at.toISOString(),
+      device: context.device,
+      browser: context.browser,
+      location: context.location,
+    },
+    at.getTime(),
+  );
+  if (!next.changed) return null;
+  return { app_uses: next.records };
+}
+
+/**
+ * Last-seen and the visit, without rewriting the progress document.
+ * One write. A missing visit column is skipped, same as a separate visit save.
+ */
+export async function noteLearnerVisit(
+  userId: string,
+  profile: UserProfileTouch,
+  row: Pick<LearnerProgressRow, "appUses" | "nameCustom" | "exists">,
+  context: SignInContext | null,
+  at = new Date(),
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !userId) return;
+
+  const now = at.toISOString();
+  const identity = learnerIdentityPatch(profile, row.nameCustom, now);
+  const visit = learnerVisitPatch(row.appUses, context, at);
+  const patch = { ...identity, ...visit };
+
+  if (!row.exists) {
+    const inserted = await insertLearnerRow(supabase, userId, structuredClone(DEFAULT_PROGRESS), patch, now);
+    if (!inserted) console.error("Supabase noteLearnerVisit insert failed");
+    return;
+  }
+
+  const saved = await updateLearnerRow(supabase, userId, patch);
+  if (!saved) console.error("Supabase noteLearnerVisit update failed");
+}
+
+/**
+ * Progress, last-seen, and the visit in one write.
+ * Throws when the progress itself cannot be stored.
+ */
+export async function writeLearnerProgress(
+  userId: string,
+  progress: StoredProgress,
+  profile: UserProfileTouch,
+  row: Pick<LearnerProgressRow, "appUses" | "nameCustom">,
+  context: SignInContext | null,
+  at = new Date(),
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Progress store is not configured");
+
+  const now = at.toISOString();
+  const identity = learnerIdentityPatch(profile, row.nameCustom, now);
+  const visit = learnerVisitPatch(row.appUses, context, at);
+  const saved = await upsertLearnerRow(supabase, userId, normalizeProgress(progress), {
+    ...identity,
+    ...visit,
+    updated_at: now,
+  });
+  if (!saved) throw new Error("Supabase writeLearnerProgress failed");
+}
+
+async function insertLearnerRow(
+  supabase: SupabaseClient,
+  userId: string,
+  progress: StoredProgress,
+  patch: Record<string, unknown>,
+  now: string,
+): Promise<boolean> {
+  let next: Record<string, unknown> = {
+    user_id: userId,
+    data: progress,
+    updated_at: now,
+    level_access: [],
+    ...patch,
+  };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { error } = await supabase.from(TABLE).insert(next);
+    if (!error) return true;
+    if (isDuplicateLearnerRow(error.message)) {
+      return updateLearnerRow(supabase, userId, learnerTouch(next));
+    }
+    const stripped = stripOptionalLearnerColumns(next, error.message);
+    if (!stripped) break;
+    next = stripped;
+  }
+
+  const { error: fallbackError } = await supabase.from(TABLE).insert({
+    user_id: userId,
+    data: progress,
+    updated_at: now,
+  });
+  if (!fallbackError) return updateLearnerRow(supabase, userId, learnerTouch(next));
+  if (isDuplicateLearnerRow(fallbackError.message)) {
+    return updateLearnerRow(supabase, userId, learnerTouch(next));
+  }
+  console.error("Supabase learner insert", fallbackError.message);
+  return false;
+}
+
+function isDuplicateLearnerRow(message: string): boolean {
+  return /duplicate key|unique constraint/i.test(message);
+}
+
+function learnerTouch(row: Record<string, unknown>): Record<string, unknown> {
+  const touch = { ...row };
+  delete touch.user_id;
+  delete touch.data;
+  delete touch.updated_at;
+  delete touch.level_access;
+  return touch;
+}
+
+async function updateLearnerRow(
+  supabase: SupabaseClient,
+  userId: string,
+  patch: Record<string, unknown>,
+): Promise<boolean> {
+  let next = { ...patch };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { error } = await supabase.from(TABLE).update(next).eq("user_id", userId);
+    if (!error) return true;
+    const stripped = stripOptionalLearnerColumns(next, error.message);
+    if (!stripped) {
+      console.error("Supabase learner touch", error.message);
+      return false;
+    }
+    next = stripped;
+  }
+  return false;
+}
+
+async function upsertLearnerRow(
+  supabase: SupabaseClient,
+  userId: string,
+  progress: StoredProgress,
+  patch: Record<string, unknown>,
+): Promise<boolean> {
+  let next: Record<string, unknown> = { user_id: userId, data: progress, ...patch };
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { error } = await supabase.from(TABLE).upsert(next, { onConflict: "user_id" });
+    if (!error) return true;
+    const stripped = stripOptionalLearnerColumns(next, error.message);
+    if (!stripped) {
+      const { error: fallbackError } = await supabase.from(TABLE).upsert(
+        { user_id: userId, data: progress, updated_at: patch.updated_at ?? new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (fallbackError) console.error("Supabase learner progress", fallbackError.message);
+      return !fallbackError;
+    }
+    next = stripped;
+  }
+  return false;
+}
+
+function stripOptionalLearnerColumns(
+  patch: Record<string, unknown>,
+  message: string,
+): Record<string, unknown> | null {
+  if ("app_uses" in patch && isMissingAppUsesColumn(message)) {
+    noteMissingAppUsesColumn(message);
+    const { app_uses: _uses, ...rest } = patch;
+    return rest;
+  }
+  if ("image" in patch && isMissingImageColumn(message)) {
+    noteMissingImageColumn(message);
+    const { image: _image, ...rest } = patch;
+    return rest;
+  }
+  return null;
 }
 
 export type UserProgressListItem = {
@@ -1731,33 +1999,42 @@ function forgetAccountAccess(userId: string): void {
   for (const key of accountAccessInflight.keys()) {
     if (key.startsWith(prefix)) accountAccessInflight.delete(key);
   }
+  void clearAccountAccessNote(userId);
 }
 
-function rememberAccountAccess(
-  key: string,
-  access: AccountAccess,
-): void {
-  accountAccessCache.set(key, { access, expires: Date.now() + ACCOUNT_ACCESS_TTL_MS });
-  if (accountAccessCache.size <= 400) return;
-  const now = Date.now();
-  for (const [entryKey, entry] of accountAccessCache) {
-    if (entry.expires <= now) accountAccessCache.delete(entryKey);
+function rememberAccountAccess(key: string, access: AccountAccess): number {
+  const expires = Date.now() + ACCOUNT_ACCESS_TTL_MS;
+  accountAccessCache.set(key, { access, expires });
+  if (accountAccessCache.size > 400) {
+    const now = Date.now();
+    for (const [entryKey, entry] of accountAccessCache) {
+      if (entry.expires <= now) accountAccessCache.delete(entryKey);
+    }
   }
+  return expires;
 }
 
 /**
  * Decides whether a session may still touch its account. A sign-in that
  * happened after the deletion clears the tombstone and starts from zero.
  * A minute of memory avoids reading the profile on every page and API call.
- * A new sign-in has a new timestamp, so it misses the cache and can revive.
+ * The same minute is also kept in the browser, so a different server can
+ * skip the read. A new sign-in has a new timestamp, so it misses both and
+ * can revive. The minute does not slide forward on later clicks.
  */
 export async function resolveAccountAccess(
   userId: string,
   authAtSeconds: number | undefined,
 ): Promise<AccountAccess> {
+  const noted = await readAccountAccessNote(userId, authAtSeconds);
+  if (noted) return noted;
+
   const key = accountAccessKey(userId, authAtSeconds);
   const cached = accountAccessCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.access;
+  if (cached && cached.expires > Date.now()) {
+    void plantAccountAccessNote(userId, authAtSeconds, cached.access, cached.expires);
+    return cached.access;
+  }
 
   const pending = accountAccessInflight.get(key);
   if (pending) return pending;
@@ -1767,7 +2044,10 @@ export async function resolveAccountAccess(
     .then((result) => {
       // A deletion dropped this attempt. Its answer is already stale.
       if (accountAccessInflight.get(key) !== request) return result.access;
-      if (result.remember) rememberAccountAccess(key, result.access);
+      if (result.remember) {
+        const expires = rememberAccountAccess(key, result.access);
+        void plantAccountAccessNote(userId, authAtSeconds, result.access, expires);
+      }
       return result.access;
     })
     .finally(() => {
@@ -1775,6 +2055,125 @@ export async function resolveAccountAccess(
     });
   accountAccessInflight.set(key, request);
   return request;
+}
+
+const ACCOUNT_ACCESS_COOKIE = "nanu_access";
+
+type AccountAccessNote = {
+  u: string;
+  a: number | null;
+  s: AccountAccess;
+  e: number;
+};
+
+function accountAccessSecret(): string | null {
+  const secret = process.env.AUTH_SECRET;
+  return secret && secret.length > 0 ? secret : null;
+}
+
+function sealAccountAccessNote(note: AccountAccessNote, secret: string): string {
+  const body = Buffer.from(JSON.stringify(note), "utf8").toString("base64url");
+  const mac = createHmac("sha256", secret).update(body).digest("base64url");
+  return `${body}.${mac}`;
+}
+
+function openAccountAccessNote(value: string, secret: string, now: number): AccountAccessNote | null {
+  const dot = value.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const body = value.slice(0, dot);
+  const mac = value.slice(dot + 1);
+  const expected = createHmac("sha256", secret).update(body).digest("base64url");
+  const given = Buffer.from(mac);
+  const wanted = Buffer.from(expected);
+  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Partial<AccountAccessNote>;
+    if (typeof parsed.u !== "string" || (parsed.s !== "active" && parsed.s !== "revoked")) return null;
+    if (typeof parsed.e !== "number" || parsed.e <= now) return null;
+    if (parsed.a !== null && typeof parsed.a !== "number") return null;
+    return { u: parsed.u, a: parsed.a ?? null, s: parsed.s, e: parsed.e };
+  } catch {
+    return null;
+  }
+}
+
+async function accountCookieJar() {
+  try {
+    const { cookies } = await import("next/headers");
+    return await cookies();
+  } catch {
+    return null;
+  }
+}
+
+async function readAccountAccessNote(
+  userId: string,
+  authAtSeconds: number | undefined,
+): Promise<AccountAccess | null> {
+  const secret = accountAccessSecret();
+  if (!secret) return null;
+  try {
+    const jar = await accountCookieJar();
+    const value = jar?.get(ACCOUNT_ACCESS_COOKIE)?.value;
+    if (!value) return null;
+    const note = openAccountAccessNote(value, secret, Date.now());
+    if (!note || note.u !== userId || note.a !== (authAtSeconds ?? null)) return null;
+    return note.s;
+  } catch {
+    return null;
+  }
+}
+
+async function plantAccountAccessNote(
+  userId: string,
+  authAtSeconds: number | undefined,
+  access: AccountAccess,
+  expires: number,
+): Promise<void> {
+  const secret = accountAccessSecret();
+  if (!secret) return;
+  const now = Date.now();
+  const maxAge = Math.ceil((expires - now) / 1000);
+  if (maxAge < 1) return;
+  try {
+    const jar = await accountCookieJar();
+    if (!jar) return;
+    const current = jar.get(ACCOUNT_ACCESS_COOKIE)?.value;
+    if (current) {
+      const note = openAccountAccessNote(current, secret, now);
+      const authAt = authAtSeconds ?? null;
+      if (note && note.u === userId && note.a === authAt && note.s === access) return;
+    }
+    const value = sealAccountAccessNote(
+      { u: userId, a: authAtSeconds ?? null, s: access, e: expires },
+      secret,
+    );
+    jar.set(ACCOUNT_ACCESS_COOKIE, value, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge,
+    });
+  } catch {
+    // A page render cannot always set a cookie. The next API call can.
+  }
+}
+
+async function clearAccountAccessNote(userId: string): Promise<void> {
+  const secret = accountAccessSecret();
+  if (!secret) return;
+  try {
+    const jar = await accountCookieJar();
+    if (!jar) return;
+    const value = jar.get(ACCOUNT_ACCESS_COOKIE)?.value;
+    if (!value) return;
+    const note = openAccountAccessNote(value, secret, Date.now());
+    if (!note || note.u !== userId) return;
+    jar.delete(ACCOUNT_ACCESS_COOKIE);
+  } catch {
+    // The note expires on its own within a minute.
+  }
 }
 
 async function readAccountAccess(

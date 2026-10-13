@@ -15,11 +15,14 @@ import { syncStudiedClips } from "@/lib/duel-store";
 import {
   getCloudProgress,
   isProgressStoreConfigured,
+  noteLearnerVisit,
+  readLearnerProgressRow,
   recordAppUse,
   rejectCopiedInitialProgress,
   resolveAccountAccess,
   setCloudProgress,
   touchUserProfile,
+  writeLearnerProgress,
 } from "@/lib/progress-store";
 
 function revokedResponse() {
@@ -70,19 +73,39 @@ export async function GET() {
   );
   if (access === "revoked") return revokedResponse();
 
-  const stored = await getCloudProgress(session.user.id);
-  const progress = absorbAddedLessonClips(stored, [...listLessonClipCatalog(), ...listLivingClipCatalog()]);
-  if (JSON.stringify(progress) !== JSON.stringify(stored)) {
+  const profile = sessionProfile(session);
+  const context = signInContextFromHeaders(await headers());
+  const row = await readLearnerProgressRow(session.user.id);
+  if (!row) {
+    const stored = await getCloudProgress(session.user.id);
+    const progress = absorbAddedLessonClips(stored, [...listLessonClipCatalog(), ...listLivingClipCatalog()]);
+    if (JSON.stringify(progress) !== JSON.stringify(stored)) {
+      try {
+        await setCloudProgress(session.user.id, progress, profile);
+        await syncStudiedClips(session.user.id, progress);
+      } catch (error) {
+        console.error("absorbAddedLessonClips", error);
+      }
+    } else {
+      await touchUserProfile(session.user.id, profile);
+    }
+    await noteAppUse(session.user.id);
+    return NextResponse.json({ progress, configured: true });
+  }
+
+  const catalog = [...listLessonClipCatalog(), ...listLivingClipCatalog()];
+  const progress = absorbAddedLessonClips(row.progress, catalog);
+  if (JSON.stringify(progress) !== JSON.stringify(row.progress)) {
     try {
-      await setCloudProgress(session.user.id, progress, sessionProfile(session));
+      await writeLearnerProgress(session.user.id, progress, profile, row, context);
       await syncStudiedClips(session.user.id, progress);
     } catch (error) {
       console.error("absorbAddedLessonClips", error);
+      await noteLearnerVisit(session.user.id, profile, row, context);
     }
   } else {
-    await touchUserProfile(session.user.id, sessionProfile(session));
+    await noteLearnerVisit(session.user.id, profile, row, context);
   }
-  await noteAppUse(session.user.id);
   return NextResponse.json({ progress, configured: true });
 }
 
@@ -113,22 +136,44 @@ export async function PUT(request: Request) {
   }
 
   const uploaded = normalizeProgress(body as Partial<StoredProgress>);
-  const existing = await rejectCopiedInitialProgress(session.user.id, uploaded);
-  if (existing) {
+  const profile = sessionProfile(session);
+  const context = signInContextFromHeaders(await headers());
+  const row = await readLearnerProgressRow(session.user.id);
+  if (!row) {
+    const existing = await rejectCopiedInitialProgress(session.user.id, uploaded);
+    if (existing) {
+      await noteAppUse(session.user.id);
+      return NextResponse.json({ progress: existing, ok: true, copied: true });
+    }
+    const stored = await getCloudProgress(session.user.id);
+    const progress = absorbAddedLessonClips(
+      mergeProgress(stored, progressKeepingServerClears(uploaded, stored)),
+      [...listLessonClipCatalog(), ...listLivingClipCatalog()],
+    );
+    await setCloudProgress(session.user.id, progress, profile);
+    try {
+      await syncStudiedClips(session.user.id, progress);
+    } catch (error) {
+      console.error("syncStudiedClips", error);
+    }
     await noteAppUse(session.user.id);
+    return NextResponse.json({ progress, ok: true });
+  }
+
+  const existing = await rejectCopiedInitialProgress(session.user.id, uploaded, row.progress);
+  if (existing) {
+    await noteLearnerVisit(session.user.id, profile, row, context);
     return NextResponse.json({ progress: existing, ok: true, copied: true });
   }
-  const stored = await getCloudProgress(session.user.id);
   const progress = absorbAddedLessonClips(
-    mergeProgress(stored, progressKeepingServerClears(uploaded, stored)),
+    mergeProgress(row.progress, progressKeepingServerClears(uploaded, row.progress)),
     [...listLessonClipCatalog(), ...listLivingClipCatalog()],
   );
-  await setCloudProgress(session.user.id, progress, sessionProfile(session));
+  await writeLearnerProgress(session.user.id, progress, profile, row, context);
   try {
     await syncStudiedClips(session.user.id, progress);
   } catch (error) {
     console.error("syncStudiedClips", error);
   }
-  await noteAppUse(session.user.id);
   return NextResponse.json({ progress, ok: true });
 }

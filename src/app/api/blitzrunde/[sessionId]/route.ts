@@ -37,10 +37,12 @@ function failed(result: { error: StoreError; message?: string }) {
   return NextResponse.json({ error: result.error, message: result.message }, { status: STATUS[result.error] });
 }
 
-export async function GET(_request: Request, context: Context) {
+/** `?deck=1` asks for the cards. The play screen asks until it has them, then polls without. */
+export async function GET(request: Request, context: Context) {
   const who = await viewer(context);
   if (who instanceof NextResponse) return who;
-  const result = await getStudentRound(who.sessionId, who.userId);
+  const includeDeck = new URL(request.url).searchParams.get("deck") === "1";
+  const result = await getStudentRound(who.sessionId, who.userId, { includeDeck });
   if (!result.ok) return failed(result);
   return NextResponse.json(
     { round: result.value, serverNow: new Date().toISOString() },

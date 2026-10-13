@@ -89,6 +89,34 @@ export function classKey(value: string | null | undefined): string {
   return normalizeClassName(value ?? "").toLocaleLowerCase("vi");
 }
 
+/** Classes page with this class's tab selected. */
+export function adminClassPageHref(className: string): string {
+  const key = classKey(className);
+  return key ? `/admin/classes?class=${encodeURIComponent(key)}` : "/admin/classes";
+}
+
+/** Fired when a class badge is opened while the classes page is already mounted. */
+export const ADMIN_CLASS_SELECT_EVENT = "admin-class-select";
+
+/**
+ * Opens the classes page on this class's tab. On the classes page itself this
+ * only updates the tab and the address bar, so the class list is not refetched.
+ */
+export function openAdminClass(className: string, navigate: (href: string) => void) {
+  const key = classKey(className);
+  if (!key || typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<string>(ADMIN_CLASS_SELECT_EVENT, { detail: key }));
+  if (window.location.pathname === "/admin/classes") {
+    const url = new URL(window.location.href);
+    url.searchParams.set("class", key);
+    const next = `${url.pathname}${url.search}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (next !== current) window.history.replaceState(window.history.state, "", next);
+    return;
+  }
+  navigate(adminClassPageHref(className));
+}
+
 export function shortBerufLabel(label: string): string {
   return label.split(" / ")[0]?.trim() || label;
 }
@@ -1340,33 +1368,34 @@ function isDateOnly(value: string): boolean {
  * An earlier date-only day still counts when no sign-in was stored then.
  */
 export function signedUpAt(row: AdminUserRow): string | null {
+  const values: (string | null | undefined)[] = [];
+  for (const signIn of row.signIns ?? []) values.push(signIn.at);
+  values.push(row.lastSignInAt, row.lastLoginAt);
+  const progress = row.progress;
+  if (progress) {
+    values.push(progress.lastPracticeDate);
+    for (const day of progress.practiceDates ?? []) values.push(day);
+    for (const day of Object.keys(progress.activity ?? {})) values.push(day);
+    for (const visit of progress.visits ?? []) values.push(visit.startedAt);
+  }
+
   let bestTimedMs = Infinity;
   let bestTimed: string | null = null;
   let bestDayMs = Infinity;
   let bestDay: string | null = null;
-  const consider = (value: string | null | undefined) => {
-    if (!value) return;
+  for (const value of values) {
+    if (!value) continue;
     const ms = timestampMs(value);
-    if (ms == null) return;
+    if (ms == null) continue;
     if (isDateOnly(value)) {
-      if (ms >= bestDayMs) return;
+      if (ms >= bestDayMs) continue;
       bestDayMs = ms;
       bestDay = value;
-      return;
+      continue;
     }
-    if (ms >= bestTimedMs) return;
+    if (ms >= bestTimedMs) continue;
     bestTimedMs = ms;
     bestTimed = value;
-  };
-  for (const signIn of row.signIns ?? []) consider(signIn.at);
-  consider(row.lastSignInAt);
-  consider(row.lastLoginAt);
-  const progress = row.progress;
-  if (progress) {
-    consider(progress.lastPracticeDate);
-    for (const day of progress.practiceDates ?? []) consider(day);
-    for (const day of Object.keys(progress.activity ?? {})) consider(day);
-    for (const visit of progress.visits ?? []) consider(visit.startedAt);
   }
   if (bestDay && bestTimed) {
     const timedDay = calendarDay(bestTimed);

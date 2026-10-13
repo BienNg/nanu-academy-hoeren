@@ -1,8 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
-import { saveOutreachCase } from "@/app/admin/outreach/actions";
-import { AdminPageHeader, MaterialIcon, StaffBadge } from "@/components/admin/AdminShell";
+import { AdminPageHeader, StaffBadge } from "@/components/admin/AdminShell";
 import {
   AdminOutreachCase,
   CopyButton,
@@ -35,31 +34,22 @@ import {
   OUTREACH_JOBS,
   OUTREACH_JOB_HINT,
   OUTREACH_JOB_LABEL,
-  OUTREACH_OWNER_FILTERS,
-  OUTREACH_OWNER_FILTER_LABEL,
   OUTREACH_REASON_LABEL,
   OUTREACH_STATUS_LABEL,
   joinOutreach,
   outreachAddress,
-  outreachCheckIn,
-  outreachDoneTodayJob,
+  outreachHasFeedback,
   outreachJobFor,
   outreachJobWhy,
-  outreachLastSentOn,
   outreachMatchesQuery,
   outreachMessage1,
-  outreachMessage2,
-  outreachOwnerMatches,
-  outreachPrimarySend,
-  outreachRelativeDay,
   summarizeOutreach,
   type OutreachCase,
   type OutreachJobId,
-  type OutreachOwnerFilter,
   type OutreachRow,
 } from "@/lib/outreach";
 
-type View = "queue" | "picture";
+type View = "queue" | "picture" | "feedback";
 type JobPick = OutreachJobId | "all";
 
 function isJobPick(value: string | null): value is JobPick {
@@ -87,49 +77,15 @@ function syncUrl(view: View, job: JobPick | null) {
   window.history.replaceState(window.history.state, "", url);
 }
 
-/** The template for this job, when one message fits the whole group. */
-function quickMessage(row: OutreachRow, job: OutreachJobId): string | null {
-  const address = outreachAddress(row.outreachCase?.greetingName);
-  if (job === "followup") return null;
-  if (job === "quiet") return outreachCheckIn(address);
-  if (job === "tin2") {
-    const message = outreachMessage2(row.category, address);
-    return message.kind === "message" ? message.text : null;
-  }
-  return outreachMessage1(row.category, address);
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(-2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-}
-
-function OwnerChip({ row, viewerId }: { row: OutreachRow; viewerId: string }) {
-  const outreachCase = row.outreachCase;
-  if (!outreachCase?.ownerUserId) return <span className="text-admin-body-sm text-admin-ink-faint">—</span>;
-  const mine = outreachCase.ownerUserId === viewerId;
-  const name = outreachCase.ownerName?.trim() || "Không tên";
-  return (
-    <span className="inline-flex max-w-40 items-center gap-space-8" title={name}>
-      <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-          mine ? "bg-admin-cobalt text-white" : "bg-admin-subtle text-admin-ink-muted"
-        }`}
-        aria-hidden="true"
-      >
-        {initials(name) || "?"}
-      </span>
-      <span className="truncate text-admin-body-sm text-admin-ink">{mine ? "Bạn" : name}</span>
-    </span>
-  );
+/** The tin 1 template for this student's group. */
+function quickMessage(row: OutreachRow, _job: OutreachJobId): string | null {
+  return outreachMessage1(row.category, outreachAddress(row.outreachCase?.greetingName));
 }
 
 function WhyText({ row, job, today }: { row: OutreachRow; job: OutreachJobId; today: string }) {
   const why = outreachJobWhy(row, job, today);
+  if (!why.text) return null;
+  if (outreachHasFeedback(row)) return <Badge tone="emerald">{why.text}</Badge>;
   if (why.overdue) {
     return (
       <Badge tone="crimson" dot>
@@ -143,34 +99,21 @@ function WhyText({ row, job, today }: { row: OutreachRow; job: OutreachJobId; to
 function RowActions({
   row,
   job,
-  busy,
-  canSave,
-  onSend,
   className,
 }: {
   row: OutreachRow;
   job: OutreachJobId;
-  busy: boolean;
-  canSave: boolean;
-  onSend: () => void;
   className?: string;
 }) {
   const text = quickMessage(row, job);
-  const send = job === "followup" ? null : outreachPrimarySend(job, row.status, row.category);
-  const canSend = send != null && canSave && row.email != null;
-  if (!text && !canSend) return null;
+  if (!text) return null;
   return (
     <div
       className={`flex items-center gap-space-4 ${className ?? ""}`}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      {text ? <CopyButton variant="ghost" text={text} label="Chép tin" /> : null}
-      {canSend ? (
-        <Button variant="ghost" icon="done" disabled={busy} onClick={onSend}>
-          {busy ? "Đang lưu" : "Đã gửi"}
-        </Button>
-      ) : null}
+      <CopyButton variant="ghost" text={text} label="Chép tin" />
     </div>
   );
 }
@@ -178,14 +121,12 @@ function RowActions({
 function RailItem({
   label,
   count,
-  done,
   alert,
   on,
   onClick,
 }: {
   label: string;
   count: number;
-  done: number;
   alert: boolean;
   on: boolean;
   onClick: () => void;
@@ -204,15 +145,6 @@ function RailItem({
     >
       {alert ? <span className="h-2 w-2 shrink-0 rounded-full bg-admin-crimson" aria-label="Có việc quá hạn" /> : null}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {done > 0 ? (
-        <span
-          className="inline-flex items-center text-admin-label-md tabular-nums text-admin-emerald-ink"
-          title="Xong hôm nay"
-        >
-          <MaterialIcon name="check" className="text-[14px]" />
-          {formatCount(done)}
-        </span>
-      ) : null}
       <CountPill value={count} tone={alert ? "alert" : on ? "peak" : "neutral"} />
     </button>
   );
@@ -298,7 +230,6 @@ export function AdminOutreach({
   cases,
   casesReady,
   today,
-  viewerId,
   catalog,
   storeConfigured,
   pendingReady,
@@ -309,7 +240,6 @@ export function AdminOutreach({
   cases: readonly OutreachCase[];
   casesReady: boolean;
   today: string;
-  viewerId: string;
   catalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
   pendingReady: boolean;
@@ -319,13 +249,11 @@ export function AdminOutreach({
   const [savedCases, setSavedCases] = useState<readonly OutreachCase[]>(cases);
   const [view, setView] = useState<View>(initialView);
   const [pickedJob, setPickedJob] = useState<JobPick | null>(isJobPick(initialJob) ? initialJob : null);
-  const [owner, setOwner] = useState<OutreachOwnerFilter>("all");
   const [query, setQuery] = useState("");
   const [wishQuery, setWishQuery] = useState("");
+  const [feedbackQuery, setFeedbackQuery] = useState("");
   const [caseId, setCaseId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [quickError, setQuickError] = useState<string | null>(null);
   const canSave = casesReady && storeConfigured;
 
   const rows = useMemo(() => {
@@ -351,50 +279,39 @@ export function AdminOutreach({
     () => new Map(rows.map((row) => [row.id, outreachJobFor(row, today)] as const)),
     [rows, today],
   );
-  const openTotal = useMemo(() => [...jobById.values()].filter((job) => job != null).length, [jobById]);
-
-  const ownedRows = useMemo(
-    () => rows.filter((row) => outreachOwnerMatches(row, owner, viewerId)),
-    [rows, owner, viewerId],
+  const openTotal = useMemo(
+    () => rows.filter((row) => jobById.get(row.id) != null && !outreachHasFeedback(row)).length,
+    [rows, jobById],
   );
-
-  const doneToday = useMemo(() => {
-    const byJob: Partial<Record<OutreachJobId, number>> = {};
-    let total = 0;
-    for (const row of ownedRows) {
-      if (outreachLastSentOn(row) !== today) continue;
-      total += 1;
-      const job = outreachDoneTodayJob(row, today);
-      if (job) byJob[job] = (byJob[job] ?? 0) + 1;
-    }
-    return { byJob, total };
-  }, [ownedRows, today]);
 
   const jobs = useMemo(() => {
     const buckets = new Map<OutreachJobId, OutreachRow[]>(OUTREACH_JOBS.map((id) => [id, []]));
-    for (const row of ownedRows) {
+    for (const row of rows) {
       const job = jobById.get(row.id);
       if (job && outreachMatchesQuery(row, query)) buckets.get(job)?.push(row);
     }
     return OUTREACH_JOBS.map((id) => {
       const members = buckets.get(id) ?? [];
-      const overdue = id === "followup" && members.some((row) => outreachJobWhy(row, id, today).overdue);
-      return { id, members, overdue };
+      return { id, members, overdue: false };
     });
-  }, [ownedRows, jobById, query, today]);
+  }, [rows, jobById, query]);
 
-  const filtering = owner !== "all" || query.trim() !== "";
-  const allMembers = jobs.flatMap((job) => job.members);
-  const firstOpen = jobs.find((job) => job.members.length > 0)?.id ?? null;
+  const filtering = query.trim() !== "";
+  const allOpen = jobs.reduce(
+    (sum, job) => sum + job.members.filter((row) => !outreachHasFeedback(row)).length,
+    0,
+  );
+  const firstOpen =
+    jobs.find((job) => job.members.some((row) => !outreachHasFeedback(row)))?.id ??
+    jobs.find((job) => job.members.length > 0)?.id ??
+    null;
   const activeId: JobPick = pickedJob ?? firstOpen ?? "all";
   const groups =
     activeId === "all"
       ? jobs.filter((job) => job.members.length > 0)
       : jobs.filter((job) => job.id === activeId && job.members.length > 0);
   const queue = groups.flatMap((group) => group.members);
-  const done = activeId === "all" ? doneToday.total : (doneToday.byJob[activeId] ?? 0);
-  const total = done + queue.length;
-  const nextJob = jobs.find((job) => job.id !== activeId && job.members.length > 0) ?? null;
+  const nextJob = jobs.find((job) => job.id !== activeId && job.members.some((row) => !outreachHasFeedback(row))) ?? null;
 
   const summary = useMemo(() => summarizeOutreach(rows), [rows]);
   const groupCounts = useMemo(() => {
@@ -427,38 +344,6 @@ export function AdminOutreach({
     });
   }
 
-  async function quickSend(row: OutreachRow, job: OutreachJobId) {
-    const markSent = outreachPrimarySend(job, row.status, row.category);
-    if (!row.email || markSent == null) return;
-    const outreachCase = row.outreachCase;
-    setBusyId(row.id);
-    setQuickError(null);
-    const result = await saveOutreachCase({
-      email: row.email,
-      greetingName: outreachCase?.greetingName ?? null,
-      groupOverride: outreachCase?.groupOverride ?? null,
-      status: row.status,
-      followUp: outreachCase?.followUp ?? false,
-      followUpOn: outreachCase?.followUpOn ?? null,
-      reason: outreachCase?.reason ?? null,
-      feedback: outreachCase?.feedback ?? "",
-      featureRequest: outreachCase?.featureRequest ?? "",
-      notes: outreachCase?.notes ?? "",
-      category: row.category,
-      markSent,
-      clearFollowUp: false,
-      claim: false,
-      hadAccount: row.hasAccount,
-      parts: row.parts,
-    });
-    setBusyId(null);
-    if (!result.ok) {
-      setQuickError(`${displayName(row.name, row.email)}: ${result.error}`);
-      return;
-    }
-    remember(result.value);
-  }
-
   const statusCount = (status: (typeof summary.statuses)[number]["status"]) =>
     summary.statuses.find((item) => item.status === status)?.count ?? 0;
   const statusTotal = summary.statuses.reduce((sum, item) => sum + item.count, 0);
@@ -468,6 +353,13 @@ export function AdminOutreach({
     (wish) =>
       !wishQuery.trim() ||
       `${wish.name} ${wish.email ?? ""} ${wish.text}`.toLowerCase().includes(wishQuery.trim().toLowerCase()),
+  );
+  const feedbacks = summary.feedbacks.filter(
+    (item) =>
+      !feedbackQuery.trim() ||
+      `${item.name} ${item.email ?? ""} ${item.className ?? ""} ${item.text}`
+        .toLowerCase()
+        .includes(feedbackQuery.trim().toLowerCase()),
   );
 
   let queueBody: ReactNode;
@@ -479,12 +371,10 @@ export function AdminOutreach({
             <Fragment key={group.id}>
               {activeId === "all" ? (
                 <li className="bg-admin-canvas px-space-16 py-space-8 text-admin-label-sm uppercase text-admin-ink-subtle">
-                  {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.length)}
+                  {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.filter((row) => !outreachHasFeedback(row)).length)}
                 </li>
               ) : null}
-              {group.members.map((row) => {
-                const lastSent = outreachLastSentOn(row);
-                return (
+              {group.members.map((row) => (
                   <li key={row.id}>
                     <div
                       data-outreach-row
@@ -500,25 +390,15 @@ export function AdminOutreach({
                           <span className="truncate">{displayName(row.name, row.email)}</span>
                           {row.staff ? <StaffBadge /> : null}
                         </span>
-                        <OwnerChip row={row} viewerId={viewerId} />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-space-8 gap-y-space-4 text-admin-body-sm text-admin-ink-muted">
                         <WhyText row={row} job={group.id} today={today} />
                         {row.className?.trim() ? <span>Lớp {row.className.trim()}</span> : null}
-                        {lastSent ? <span>Nhắn {outreachRelativeDay(lastSent, today)}</span> : null}
                       </div>
-                      <RowActions
-                        row={row}
-                        job={group.id}
-                        busy={busyId === row.id}
-                        canSave={canSave}
-                        onSend={() => void quickSend(row, group.id)}
-                        className="-ml-space-12"
-                      />
+                      <RowActions row={row} job={group.id} className="-ml-space-12" />
                     </div>
                   </li>
-                );
-              })}
+                ))}
             </Fragment>
           ))}
         </ul>
@@ -529,8 +409,6 @@ export function AdminOutreach({
                 <th className={TH}>Học viên</th>
                 <th className={TH}>Lớp</th>
                 <th className={TH}>Vì sao</th>
-                <th className={`${TH} whitespace-nowrap`}>Nhắn lần cuối</th>
-                <th className={TH}>Phụ trách</th>
                 <th className={TH}>
                   <span className="sr-only">Thao tác</span>
                 </th>
@@ -542,16 +420,15 @@ export function AdminOutreach({
                   {activeId === "all" ? (
                     <tr className="border-t border-admin-hairline bg-admin-canvas">
                       <th
-                        colSpan={6}
+                        colSpan={4}
                         scope="colgroup"
                         className="px-space-16 py-space-8 text-left text-admin-label-sm uppercase text-admin-ink-subtle"
                       >
-                        {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.length)}
+                        {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.filter((row) => !outreachHasFeedback(row)).length)}
                       </th>
                     </tr>
                   ) : null}
                   {group.members.map((row) => {
-                    const lastSent = outreachLastSentOn(row);
                     const named = row.name?.trim();
                     return (
                       <tr
@@ -579,21 +456,8 @@ export function AdminOutreach({
                         <td className="px-space-16 py-space-8">
                           <WhyText row={row} job={group.id} today={today} />
                         </td>
-                        <td className="whitespace-nowrap px-space-16 py-space-8 text-admin-body-sm text-admin-ink-muted">
-                          {lastSent ? outreachRelativeDay(lastSent, today) : "—"}
-                        </td>
                         <td className="px-space-16 py-space-8">
-                          <OwnerChip row={row} viewerId={viewerId} />
-                        </td>
-                        <td className="px-space-16 py-space-8">
-                          <RowActions
-                            row={row}
-                            job={group.id}
-                            busy={busyId === row.id}
-                            canSave={canSave}
-                            onSend={() => void quickSend(row, group.id)}
-                            className="justify-end"
-                          />
+                          <RowActions row={row} job={group.id} className="justify-end" />
                         </td>
                       </tr>
                     );
@@ -607,13 +471,12 @@ export function AdminOutreach({
     );
   } else if (filtering) {
     queueBody = (
-      <EmptyState icon="filter_alt_off" title="Không ai khớp bộ lọc" text="Thử bỏ tìm kiếm hoặc chọn Tất cả người phụ trách.">
+      <EmptyState icon="filter_alt_off" title="Không ai khớp bộ lọc" text="Thử bỏ tìm kiếm.">
         <Button
           variant="secondary"
           onClick={() => {
             setQuery("");
-            setOwner("all");
-          }}
+        }}
         >
           Xoá bộ lọc
         </Button>
@@ -624,7 +487,7 @@ export function AdminOutreach({
       <EmptyState
         icon="check_circle"
         title={`Xong ${OUTREACH_JOB_LABEL[activeId]}`}
-        text={done > 0 ? `Hôm nay đã nhắn ${formatCount(done)} người trong việc này.` : "Việc này đang trống."}
+        text="Việc này đang trống."
       >
         <Button variant="primary" icon="arrow_forward" onClick={() => pickJob(nextJob.id)}>
           Tiếp theo: {OUTREACH_JOB_LABEL[nextJob.id]} ({formatCount(nextJob.members.length)})
@@ -636,11 +499,7 @@ export function AdminOutreach({
       <EmptyState
         icon="task_alt"
         title="Hết việc hôm nay"
-        text={
-          doneToday.total > 0
-            ? `Hôm nay đã nhắn ${formatCount(doneToday.total)} người. Cảm ơn bạn!`
-            : "Không ai cần nhắn lúc này."
-        }
+        text="Không ai cần nhắn lúc này."
       />
     );
   }
@@ -657,6 +516,7 @@ export function AdminOutreach({
             value={view}
             options={[
               { key: "queue", label: `Hàng đợi · ${formatCount(openTotal)}`, icon: "inbox" },
+              { key: "feedback", label: `Feedback · ${formatCount(summary.feedbacks.length)}`, icon: "forum" },
               { key: "picture", label: "Tình hình", icon: "insights" },
             ]}
             onSelect={pickView}
@@ -681,8 +541,7 @@ export function AdminOutreach({
               <li>
                 <RailItem
                   label="Tất cả việc"
-                  count={allMembers.length}
-                  done={doneToday.total}
+                  count={allOpen}
                   alert={false}
                   on={activeId === "all"}
                   onClick={() => pickJob("all")}
@@ -692,8 +551,7 @@ export function AdminOutreach({
                 <li key={job.id}>
                   <RailItem
                     label={OUTREACH_JOB_LABEL[job.id]}
-                    count={job.members.length}
-                    done={doneToday.byJob[job.id] ?? 0}
+                    count={job.members.filter((row) => !outreachHasFeedback(row)).length}
                     alert={job.overdue}
                     on={job.id === activeId}
                     onClick={() => pickJob(job.id)}
@@ -705,55 +563,93 @@ export function AdminOutreach({
 
           <div className="min-w-0 flex-1">
             <TablePanel
-              icon={activeId === "followup" ? "event" : "support_agent"}
+              icon="support_agent"
               title={activeId === "all" ? "Tất cả việc" : OUTREACH_JOB_LABEL[activeId]}
               hint={
                 activeId === "all"
-                  ? "Theo thứ tự làm: follow-up, hỏi thăm, tin 2, rồi tin 1."
+                  ? "Chỉ tin 1. Người đã có feedback vẫn hiện ở Vì sao, và không tính vào số việc."
                   : OUTREACH_JOB_HINT[activeId]
-              }
-              trailing={
-                <span className="text-admin-body-md font-semibold tabular-nums text-admin-ink">
-                  Xong {formatCount(done)}/{formatCount(total)} hôm nay
-                </span>
               }
               footer="Phím tắt: J/K hoặc mũi tên để di chuyển, Enter để mở. Trong hồ sơ, J/K sang người sau hoặc trước."
             >
               <div className="flex flex-col gap-space-12 border-b border-admin-hairline px-space-16 py-space-12 sm:px-space-20">
-                <div className="flex flex-col gap-space-8 sm:flex-row sm:items-center sm:justify-between">
-                  <SearchField
-                    value={query}
-                    onChange={setQuery}
-                    placeholder="Tìm tên, email, lớp, ghi chú"
-                    label="Tìm học viên"
-                  />
-                  <Segmented
-                    ariaLabel="Người phụ trách"
-                    value={owner}
-                    options={OUTREACH_OWNER_FILTERS.map((key) => ({ key, label: OUTREACH_OWNER_FILTER_LABEL[key] }))}
-                    onSelect={setOwner}
-                  />
-                </div>
-                <ShareBar
-                  share={total === 0 ? 0 : done / total}
-                  color={ADMIN_COLORS.cobalt}
-                  label="Tiến độ hôm nay"
+                <SearchField
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Tìm tên, email, lớp, ghi chú"
+                  label="Tìm học viên"
                 />
               </div>
-              {quickError ? (
-                <p className="border-b border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-8 text-admin-body-sm text-admin-crimson sm:px-space-20">
-                  {quickError}
-                </p>
-              ) : null}
               {queueBody}
             </TablePanel>
           </div>
         </div>
       ) : null}
 
+      {view === "feedback" ? (
+        <TablePanel
+          icon="forum"
+          title="Feedback"
+          hint="Học viên đã có feedback chung. Bấm một dòng để mở hồ sơ."
+          trailing={
+            <SearchField
+              value={feedbackQuery}
+              onChange={setFeedbackQuery}
+              placeholder="Tìm học viên hoặc feedback"
+              label="Tìm feedback"
+            />
+          }
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-left">
+              <thead className={THEAD}>
+                <tr>
+                  <th className={TH}>Học viên</th>
+                  <th className={TH}>Lớp</th>
+                  <th className={TH}>Feedback</th>
+                </tr>
+              </thead>
+              <tbody data-outreach-list className="text-admin-body-md text-admin-ink">
+                {feedbacks.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-space-16 py-space-32 text-center text-admin-body-md text-admin-ink-muted">
+                      {summary.feedbacks.length === 0 ? "Chưa có feedback nào." : "Không có feedback khớp."}
+                    </td>
+                  </tr>
+                ) : (
+                  feedbacks.map((item) => (
+                    <tr
+                      key={item.id}
+                      data-outreach-row
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Mở ${item.name}`}
+                      onClick={() => setCaseId(item.id)}
+                      onKeyDown={(event) => rowKeyDown(event, () => setCaseId(item.id))}
+                      className={`${TR} cursor-pointer outline-none focus-visible:bg-admin-cobalt-wash/50`}
+                    >
+                      <td className="px-space-16 py-space-8">
+                        <span className="font-semibold">{item.name}</span>
+                        {item.email && item.email !== item.name ? (
+                          <span className="block max-w-64 truncate text-admin-body-sm text-admin-ink-subtle">
+                            {item.email}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-space-16 py-space-8">{item.className?.trim() || "—"}</td>
+                      <td className="max-w-xl px-space-16 py-space-8 text-admin-body-sm whitespace-pre-wrap">{item.text}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TablePanel>
+      ) : null}
+
       {view === "picture" ? (
         <>
-          <div className="grid gap-space-12 sm:grid-cols-3">
+          <div className="grid gap-space-12 sm:grid-cols-2">
             <KpiTile
               icon="send"
               label="Đã nhắn"
@@ -768,20 +664,15 @@ export function AdminOutreach({
               caption={`${formatCount(replied)} người trả lời hoặc đã dùng`}
               color={ADMIN_COLORS.emerald}
             />
-            <KpiTile
-              icon="how_to_reg"
-              label="Dùng sau khi nhắn"
-              value={formatCount(statusCount("da_dung"))}
-              caption="Đã đăng ký hoặc học sau tin nhắn"
-              color={ADMIN_COLORS.emerald}
-            />
           </div>
 
           <div className="grid gap-space-12 lg:grid-cols-2">
             <BarList
               title="Trạng thái"
               hint="Không tính nhóm Mới chưa nhắn."
-              items={summary.statuses.map((item) => ({ label: OUTREACH_STATUS_LABEL[item.status], count: item.count }))}
+              items={summary.statuses
+                .filter((item) => item.status !== "da_gui_tin_1" && item.status !== "da_gui_tin_2")
+                .map((item) => ({ label: OUTREACH_STATUS_LABEL[item.status], count: item.count }))}
               color={ADMIN_COLORS.cobalt}
               empty="Chưa có ai."
             />
@@ -808,12 +699,6 @@ export function AdminOutreach({
                 ))}
               </ul>
             </section>
-            <BarList
-              title="Người phụ trách"
-              items={summary.owners.map((item) => ({ label: item.name, count: item.count }))}
-              color={ADMIN_COLORS.violet}
-              empty="Chưa ai nhận học viên nào."
-            />
           </div>
 
           <TablePanel
@@ -863,7 +748,6 @@ export function AdminOutreach({
           key={openRow.id}
           row={openRow}
           job={jobById.get(openRow.id) ?? null}
-          today={today}
           casesReady={canSave}
           position={openIndex >= 0 ? { index: openIndex, total: queue.length } : null}
           onPrev={openIndex > 0 ? () => setCaseId(queue[openIndex - 1]!.id) : null}

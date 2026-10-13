@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -64,7 +65,13 @@ import {
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
 import { activeStreakDays, type StoredProgress } from "@/lib/progress";
-import { formatAdminTimestamp, formatRelativeLastSeen, type AdminUserRow } from "@/lib/admin-overview";
+import {
+  adminClassPageHref,
+  formatAdminTimestamp,
+  formatRelativeLastSeen,
+  openAdminClass,
+  type AdminUserRow,
+} from "@/lib/admin-overview";
 
 export { LessonContentMeters } from "@/components/admin/student-detail/meters";
 
@@ -516,10 +523,20 @@ export function StudentDetailModal({
                     {row.staff && !row.isAdmin ? <StaffBadge /> : null}
                     {row.teacher && !row.isAdmin ? <TeacherBadge /> : null}
                     {row.className ? (
-                      <Badge tone="cobalt">
+                      <Link
+                        href={adminClassPageHref(row.className)}
+                        title={`Open class ${row.className}`}
+                        onClick={(event) => {
+                          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                          event.preventDefault();
+                          openAdminClass(row.className ?? "", (href) => router.push(href));
+                          onClose();
+                        }}
+                        className="inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-admin-badge px-1.5 text-[12px] font-semibold leading-4 tabular-nums text-admin-cobalt-ink ring-1 ring-inset bg-admin-cobalt-wash ring-admin-cobalt/20 outline-none transition-colors hover:bg-admin-cobalt-hover focus-visible:shadow-admin-focus"
+                      >
                         <MaterialIcon name="school" className="-mx-0.5 text-[14px]" />
                         {row.className}
-                      </Badge>
+                      </Link>
                     ) : null}
                     <Badge tone={streakDays > 0 ? "ember" : "neutral"}>
                       <MaterialIcon

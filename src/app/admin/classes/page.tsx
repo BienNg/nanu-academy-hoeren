@@ -4,6 +4,7 @@ import { AdminClassStats } from "@/components/admin/AdminClassStats";
 import { buildAdminCourseCatalog } from "@/lib/admin-catalog";
 import { limitAdminClassLeague } from "@/lib/admin-class-league";
 import { readAdminClassLeague } from "@/lib/class-quest-store";
+import { listClassSchedules } from "@/lib/class-schedule-store";
 import {
   classKey,
   rowsForClassScope,
@@ -15,6 +16,7 @@ import {
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
 import { requireDashboard } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
+import { getCefrLevels } from "@/lib/levels";
 import {
   isProgressStoreConfigured,
   listPendingLevelGrants,
@@ -26,8 +28,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminClassesPage() {
+export default async function AdminClassesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ class?: string | string[] }>;
+}) {
   await connection();
+  const requestedClass = (await searchParams).class;
+  const initialClassKey = classKey(
+    Array.isArray(requestedClass) ? requestedClass[0] : requestedClass,
+  );
   const access = await requireDashboard();
   const session = access.session;
 
@@ -54,6 +64,15 @@ export default async function AdminClassesPage() {
   const classLeague = storeConfigured
     ? await readAdminClassLeague()
     : { ready: false, podiumsReady: false, league: null };
+  const allSchedules = storeConfigured ? await listClassSchedules() : [];
+  const schedules = (allSchedules ?? []).filter(
+    (schedule) => !access.teacherClassKeys || access.teacherClassKeys.has(schedule.classKey),
+  );
+  const scheduleLevels = getCefrLevels().map((level) => ({
+    slug: level.slug,
+    label: level.level,
+    lektionen: level.chapters.length,
+  }));
   const rows = rowsForClassScope(
     items.map((item) => toAdminUserRow(withSessionIdentity(item, session.user))),
     access.teacherClassKeys,
@@ -64,10 +83,16 @@ export default async function AdminClassesPage() {
 
   return (
     <AdminClassStats
+      initialClassKey={initialClassKey || null}
       rows={rows}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}
       classLeague={{ ...classLeague, league }}
+      schedules={schedules}
+      schedulesReady={allSchedules !== null}
+      scheduleLevels={scheduleLevels}
+      canEditSchedule={access.role !== "teacher"}
+      now={new Date().toISOString()}
       pending={(pending ?? [])
         .filter(
           (grant) =>

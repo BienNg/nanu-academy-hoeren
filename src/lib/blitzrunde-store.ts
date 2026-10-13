@@ -31,8 +31,15 @@ const SESSIONS_TABLE = "blitzrunde_sessions";
 const PARTICIPANTS_TABLE = "blitzrunde_participants";
 const ANSWERS_TABLE = "blitzrunde_answers";
 const PROFILES_TABLE = "user_progress";
-const SESSION_COLUMNS =
-  "id, created_by, class_key, class_label, level_slug, chapter_slug, seed, deck, status, ranked, created_at, starts_at, ends_at, ended_at, ended_reason";
+const SESSION_FIELDS =
+  "id, created_by, class_key, class_label, level_slug, chapter_slug, seed, status, ranked, created_at, starts_at, ends_at, ended_at, ended_reason";
+/**
+ * Everything a poll needs, a few hundred bytes. The deck itself (8–100 KB of
+ * JSON) is read only by readDeck, where the cards are actually used.
+ */
+const SESSION_COLUMNS = `${SESSION_FIELDS}, deck_size, deck_counts`;
+/** Until supabase/blitzrunde.sql adds deck_size and deck_counts: count the deck itself. */
+const LEGACY_SESSION_COLUMNS = `${SESSION_FIELDS}, deck`;
 const PARTICIPANT_COLUMNS =
   "session_id, user_id, joined_at, last_seen_at, last_seen_index, final_score, answered, correct, completed_deck, avg_ms, longest_streak, finish_reason, submitted_at";
 
@@ -47,7 +54,8 @@ type SessionRow = {
   level_slug: string;
   chapter_slug: string;
   seed: string;
-  deck: BlitzrundeCard[];
+  deck_size: number;
+  deck_counts: Record<BlitzrundeKind, number>;
   status: BlitzrundeStatus;
   ranked: boolean;
   created_at: string;
@@ -102,12 +110,24 @@ function int(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "vi-choice", "vi-input", "pairing"];
+
+function countsFromRow(value: unknown): Record<BlitzrundeKind, number> | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(KINDS.map((kind) => [kind, int(record[kind]) ?? 0])) as Record<BlitzrundeKind, number>;
+}
+
 function sessionFromRow(raw: unknown): SessionRow | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
   const status = STATUSES.find((value) => value === row.status);
   const id = str(row.id);
-  if (!id || !status || !Array.isArray(row.deck)) return null;
+  // The legacy read carries the deck; count it here instead.
+  const legacyDeck = Array.isArray(row.deck) ? (row.deck as BlitzrundeCard[]) : null;
+  const deckSize = legacyDeck ? legacyDeck.length : int(row.deck_size);
+  const deckCounts = legacyDeck ? deckKindCounts(legacyDeck) : countsFromRow(row.deck_counts);
+  if (!id || !status || deckSize == null || !deckCounts) return null;
   const endedReason = row.ended_reason === "time_up" || row.ended_reason === "teacher_ended" ? row.ended_reason : null;
   return {
     id,
@@ -117,7 +137,8 @@ function sessionFromRow(raw: unknown): SessionRow | null {
     level_slug: str(row.level_slug) ?? "",
     chapter_slug: str(row.chapter_slug) ?? "",
     seed: str(row.seed) ?? "",
-    deck: row.deck as BlitzrundeCard[],
+    deck_size: deckSize,
+    deck_counts: deckCounts,
     status,
     ranked: row.ranked === true,
     created_at: str(row.created_at) ?? "",
@@ -153,8 +174,6 @@ function participantFromRow(raw: unknown): ParticipantRow | null {
   };
 }
 
-const KINDS: readonly BlitzrundeKind[] = ["order", "multiple-choice", "vi-choice", "vi-input", "pairing"];
-
 function answerFromRow(raw: unknown): AnswerRow | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
@@ -178,11 +197,49 @@ function answerFromRow(raw: unknown): AnswerRow | null {
   };
 }
 
+let deckColumnsRetryAt = 0;
+let loggedMissingDeckColumns = false;
+
+function isMissingDeckColumns(message: string): boolean {
+  return /deck_(size|counts)/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+/**
+ * Session rows without the deck. Before the deck_size / deck_counts columns
+ * exist, falls back to reading the deck and retries the lean read a minute later.
+ */
+async function selectSessions(
+  query: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  if (Date.now() < deckColumnsRetryAt) return query(LEGACY_SESSION_COLUMNS);
+  const result = await query(SESSION_COLUMNS);
+  if (!result.error || !isMissingDeckColumns(result.error.message)) return result;
+  deckColumnsRetryAt = Date.now() + 60_000;
+  if (!loggedMissingDeckColumns) {
+    loggedMissingDeckColumns = true;
+    console.error(
+      "blitzrunde_sessions.deck_size is missing. Re-run supabase/blitzrunde.sql so polls stop reading the whole deck.",
+      result.error.message,
+    );
+  }
+  return query(LEGACY_SESSION_COLUMNS);
+}
+
 async function readSession(supabase: SupabaseClient, id: string): Promise<StoreResult<SessionRow>> {
-  const { data, error } = await supabase.from(SESSIONS_TABLE).select(SESSION_COLUMNS).eq("id", id).maybeSingle();
+  const { data, error } = await selectSessions((columns) =>
+    supabase.from(SESSIONS_TABLE).select(columns).eq("id", id).maybeSingle(),
+  );
   if (error) return unavailable(error.message);
   const session = sessionFromRow(data);
   return session ? { ok: true, value: session } : { ok: false, error: "not_found" };
+}
+
+/** The cards themselves. Only for building play, scoring a submit, and opening a round in the admin. */
+async function readDeck(supabase: SupabaseClient, id: string): Promise<StoreResult<BlitzrundeCard[]>> {
+  const { data, error } = await supabase.from(SESSIONS_TABLE).select("deck").eq("id", id).maybeSingle();
+  if (error) return unavailable(error.message);
+  const deck = (data as { deck?: unknown } | null)?.deck;
+  return Array.isArray(deck) ? { ok: true, value: deck as BlitzrundeCard[] } : { ok: false, error: "not_found" };
 }
 
 async function readParticipants(supabase: SupabaseClient, sessionId: string): Promise<ParticipantRow[] | null> {
@@ -286,12 +343,10 @@ export async function createSession(input: {
   // A round that ran out of time but was never read again would still block
   // this class through the one-live-round index.
   const now = input.now ?? new Date();
-  const { data: stale } = await supabase
-    .from(SESSIONS_TABLE)
-    .select(SESSION_COLUMNS)
-    .eq("class_key", classKey)
-    .eq("status", "active");
-  for (const raw of stale ?? []) {
+  const { data: stale } = await selectSessions((columns) =>
+    supabase.from(SESSIONS_TABLE).select(columns).eq("class_key", classKey).eq("status", "active"),
+  );
+  for (const raw of Array.isArray(stale) ? stale : []) {
     const session = sessionFromRow(raw);
     if (session) await expireIfDue(supabase, session, now);
   }
@@ -545,7 +600,7 @@ export async function recordHeartbeat(
   const found = await readSession(supabase, sessionId);
   if (!found.ok) return found;
   const session = await expireIfDue(supabase, found.value, now);
-  const index = parseHeartbeatIndex(body, session.deck.length);
+  const index = parseHeartbeatIndex(body, session.deck_size);
   if (index == null) return { ok: false, error: "invalid" };
   if (session.status === "active") {
     const { error } = await supabase
@@ -591,10 +646,12 @@ export async function submitResult(
     return { ok: true, value: { finalScore: participant.final_score ?? 0 } };
   }
 
-  const bundle = parseSubmitBundle(body, session.deck.length);
+  const bundle = parseSubmitBundle(body, session.deck_size);
   if (!bundle) return { ok: false, error: "invalid" };
+  const deck = await readDeck(supabase, sessionId);
+  if (!deck.ok) return deck;
   for (const answer of bundle.answers) {
-    if (session.deck[answer.position]?.kind !== answer.kind) return { ok: false, error: "invalid" };
+    if (deck.value[answer.position]?.kind !== answer.kind) return { ok: false, error: "invalid" };
   }
 
   if (bundle.answers.length > 0) {
@@ -624,7 +681,7 @@ export async function submitResult(
       correct: summary.correct,
       avg_ms: summary.avgMs,
       longest_streak: summary.longestStreak,
-      completed_deck: bundle.answers.length === session.deck.length,
+      completed_deck: bundle.answers.length === session.deck_size,
       finish_reason: bundle.finishReason,
       submitted_at: now.toISOString(),
       week_key: weekKey(now),
@@ -691,8 +748,8 @@ function toMeta(session: SessionRow): RoundMeta {
     endsAt: session.ends_at,
     endedAt: session.ended_at,
     endedReason: session.ended_reason,
-    deckSize: session.deck.length,
-    counts: deckKindCounts(session.deck),
+    deckSize: session.deck_size,
+    counts: session.deck_counts,
   };
 }
 
@@ -740,7 +797,7 @@ export type StudentRoundView = {
   meta: RoundMeta;
   joined: boolean;
   classMatches: boolean;
-  /** Only once the round runs and only for someone who joined. */
+  /** Only once the round runs, only for someone who joined, and only when asked for: the browser keeps it after the first time. */
   deck: BlitzrundeCard[] | null;
   you: ParticipantView | null;
   joinedCount: number;
@@ -755,7 +812,7 @@ export type LobbyPlayer = { name: string; isYou: boolean; joinedAt: string };
 export async function getStudentRound(
   sessionId: string,
   userId: string,
-  now: Date = new Date(),
+  { includeDeck = false, now = new Date() }: { includeDeck?: boolean; now?: Date } = {},
 ): Promise<StoreResult<StudentRoundView>> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return unavailable();
@@ -773,13 +830,19 @@ export async function getStudentRound(
     over || inLobby ? participants.map((row) => row.user_id) : mine ? [userId] : [],
   );
   const views = toParticipantViews(session, participants, names, now);
+  let deck: BlitzrundeCard[] | null = null;
+  if (includeDeck && mine && (session.status === "active" || session.status === "ended")) {
+    const read = await readDeck(supabase, sessionId);
+    if (!read.ok) return read;
+    deck = read.value;
+  }
   return {
     ok: true,
     value: {
       meta: toMeta(session),
       joined: Boolean(mine),
       classMatches: mine ? true : await classMatches(userId, session),
-      deck: mine && (session.status === "active" || session.status === "ended") ? session.deck : null,
+      deck,
       you: views.find((view) => view.userId === userId) ?? null,
       joinedCount: participants.length,
       standings: over ? views : null,
@@ -801,7 +864,21 @@ export type AdminRoundView = {
   answers: Record<string, AnswerRecord[]>;
 };
 
-export async function getAdminRound(sessionId: string, now: Date = new Date()): Promise<StoreResult<AdminRoundView>> {
+/**
+ * One admin poll. The deck comes only when asked for, and answers only for
+ * students who submitted since the last poll: both never change afterwards,
+ * so the dashboard keeps them and merges.
+ */
+export type AdminRoundUpdate = Omit<AdminRoundView, "deck"> & { deck: BlitzrundeCard[] | null };
+
+export async function getAdminRound(
+  sessionId: string,
+  {
+    includeDeck = false,
+    haveAnswersFor = [],
+    now = new Date(),
+  }: { includeDeck?: boolean; haveAnswersFor?: readonly string[]; now?: Date } = {},
+): Promise<StoreResult<AdminRoundUpdate>> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return unavailable();
   const found = await readSession(supabase, sessionId);
@@ -810,18 +887,33 @@ export async function getAdminRound(sessionId: string, now: Date = new Date()): 
   const participants = await readParticipants(supabase, sessionId);
   if (!participants) return unavailable();
 
-  const { data, error } = await supabase
-    .from(ANSWERS_TABLE)
-    .select("user_id, position, kind, accuracy, time_ms, points, streak, answer")
-    .eq("session_id", sessionId)
-    .order("position", { ascending: true });
-  if (error) return unavailable(error.message);
+  let deck: BlitzrundeCard[] | null = null;
+  if (includeDeck) {
+    const read = await readDeck(supabase, sessionId);
+    if (!read.ok) return read;
+    deck = read.value;
+  }
+
+  // Answers are written before submitted_at, so a submitted student's answers are complete.
+  const known = new Set(haveAnswersFor);
+  const missing = participants
+    .filter((row) => row.submitted_at && !known.has(row.user_id))
+    .map((row) => row.user_id);
   const answers: Record<string, AnswerRecord[]> = {};
-  for (const raw of data ?? []) {
-    const answer = answerFromRow(raw);
-    if (!answer) continue;
-    const { userId, ...record } = answer;
-    (answers[userId] ??= []).push(record);
+  if (missing.length > 0) {
+    const { data, error } = await supabase
+      .from(ANSWERS_TABLE)
+      .select("user_id, position, kind, accuracy, time_ms, points, streak, answer")
+      .eq("session_id", sessionId)
+      .in("user_id", missing)
+      .order("position", { ascending: true });
+    if (error) return unavailable(error.message);
+    for (const raw of data ?? []) {
+      const answer = answerFromRow(raw);
+      if (!answer) continue;
+      const { userId, ...record } = answer;
+      (answers[userId] ??= []).push(record);
+    }
   }
 
   const names = await namesFor(supabase, participants.map((row) => row.user_id));
@@ -829,7 +921,7 @@ export async function getAdminRound(sessionId: string, now: Date = new Date()): 
     ok: true,
     value: {
       meta: toMeta(session),
-      deck: session.deck,
+      deck,
       participants: toParticipantViews(session, participants, names, now),
       answers,
     },
@@ -849,11 +941,9 @@ export async function listAdminRounds(
 ): Promise<{ ready: boolean; hint?: string; rounds: AdminRoundSummary[] }> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return { ready: false, rounds: [] };
-  const { data, error } = await supabase
-    .from(SESSIONS_TABLE)
-    .select(SESSION_COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const { data, error } = await selectSessions((columns) =>
+    supabase.from(SESSIONS_TABLE).select(columns).order("created_at", { ascending: false }).limit(limit),
+  );
   if (error) {
     logBlitz(error.message);
     return {
@@ -863,7 +953,7 @@ export async function listAdminRounds(
     };
   }
   const sessions: SessionRow[] = [];
-  for (const raw of data ?? []) {
+  for (const raw of Array.isArray(data) ? data : []) {
     const session = sessionFromRow(raw);
     if (session) sessions.push(await expireIfDue(supabase, session, now));
   }

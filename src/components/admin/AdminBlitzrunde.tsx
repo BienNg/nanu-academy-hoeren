@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import { CARD, INPUT, buttonClass } from "@/components/admin/AdminUi";
 import { BlitzrundeProgressChart } from "@/components/blitzrunde/BlitzrundeProgressChart";
@@ -710,14 +710,32 @@ export function AdminBlitzrunde({
       ? round.participants.filter((participant) => participant.submittedAt).length
       : 0;
 
+  // The deck and a submitted student's answers never change: fetch them once per round and merge each poll in.
+  const heldRef = useRef<{ id: string; deck: BlitzrundeCard[] | null; answers: Record<string, AnswerRecord[]> } | null>(
+    null,
+  );
+
   useEffect(() => {
     if (!selectedId) return;
     let cancelled = false;
     const load = () => {
-      void getBlitzrundeAdminRound(selectedId).then((result) => {
+      const held = heldRef.current?.id === selectedId ? heldRef.current : null;
+      void getBlitzrundeAdminRound(selectedId, {
+        deck: !held?.deck,
+        haveAnswersFor: held ? Object.keys(held.answers) : [],
+      }).then((result) => {
         if (cancelled) return;
         if (result.ok) {
-          setRound(result.value);
+          const update = result.value;
+          const current = heldRef.current?.id === selectedId ? heldRef.current : null;
+          const deck = update.deck ?? current?.deck ?? null;
+          const answers = { ...current?.answers, ...update.answers };
+          // A submitted student with no answer rows still counts as held, so they are not asked for again.
+          for (const participant of update.participants) {
+            if (participant.submittedAt) answers[participant.userId] ??= [];
+          }
+          heldRef.current = { id: selectedId, deck, answers };
+          setRound({ ...update, deck: deck ?? [], answers });
           setLoadError(null);
         } else {
           setLoadError(result.error);

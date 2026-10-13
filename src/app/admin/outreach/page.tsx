@@ -73,11 +73,10 @@ export default async function AdminOutreachPage({
       cases={cases ?? []}
       casesReady={cases !== null}
       today={dayKey(new Date())}
-      viewerId={session.user.id ?? ""}
       catalog={catalog}
       storeConfigured={storeConfigured}
       pendingReady={pending !== null}
-      initialView={query.view === "picture" ? "picture" : "queue"}
+      initialView={query.view === "picture" || query.view === "feedback" ? query.view : "queue"}
       initialJob={typeof query.job === "string" ? query.job : null}
     />
   );
