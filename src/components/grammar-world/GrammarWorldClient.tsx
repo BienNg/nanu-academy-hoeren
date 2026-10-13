@@ -702,27 +702,33 @@ export function GrammarWorldClient({
       </div>
 
       <header className="fixed top-0 left-0 z-50 w-full border-b border-[#e9defd] bg-[#f6f1ff]/85 pt-safe backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-md items-center gap-2 px-3">
-          <Link
-            href={backHref}
-            aria-label="Về lộ trình"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-[#6d28d9] active:bg-[#ede5fe]"
-          >
-            <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
-              arrow_back
+        <div className="mx-auto flex w-full max-w-md flex-col sm:max-w-3xl lg:h-16 lg:max-w-5xl lg:flex-row lg:items-center lg:gap-4 lg:px-8">
+          <div className="flex h-14 items-center gap-2 px-3 sm:px-6 lg:contents">
+            <Link
+              href={backHref}
+              aria-label="Về lộ trình"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6d28d9] active:bg-[#ede5fe] lg:order-1"
+            >
+              <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
+                arrow_back
+              </span>
+            </Link>
+            <h1 className="min-w-0 flex-1 truncate text-[17px] font-extrabold text-[#2e1065] lg:order-2 lg:flex-none">
+              Núi ngữ pháp
+            </h1>
+            <span
+              className="flex shrink-0 items-center gap-1 rounded-full border border-[#e9defd] bg-white px-2.5 py-1 text-[13px] font-extrabold text-[#2e1065] shadow-sm lg:order-4"
+              aria-label={`${world.stars} sao`}
+            >
+              <StarGlyph className="h-4 w-4" />
+              {world.stars}
             </span>
-          </Link>
-          <h1 className="min-w-0 flex-1 truncate text-[17px] font-extrabold text-[#2e1065]">Núi ngữ pháp</h1>
-          <span
-            className="flex items-center gap-1 rounded-full border border-[#e9defd] bg-white px-2.5 py-1 text-[13px] font-extrabold text-[#2e1065] shadow-sm"
-            aria-label={`${world.stars} sao`}
+          </div>
+          <nav
+            aria-label="Chủ đề ngữ pháp"
+            className="overflow-x-auto [scrollbar-width:none] lg:order-3 lg:min-w-0 lg:flex-1 [&::-webkit-scrollbar]:hidden"
           >
-            <StarGlyph className="h-4 w-4" />
-            {world.stars}
-          </span>
-        </div>
-        <nav aria-label="Chủ đề ngữ pháp" className="mx-auto max-w-md">
-          <ul className="flex gap-2 overflow-x-auto px-3 pb-2.5 [scrollbar-width:none]">
+            <ul className="flex w-max min-w-full gap-2 px-3 pb-2.5 sm:justify-center sm:px-6 lg:px-1 lg:pb-0">
             {world.views.map((entry) => {
               const selected = entry.area.id === areaId;
               return (
@@ -786,9 +792,10 @@ export function GrammarWorldClient({
             })}
           </ul>
         </nav>
+        </div>
       </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-[calc(7rem+env(safe-area-inset-top,0px))]">
+      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-[calc(7rem+env(safe-area-inset-top,0px))] lg:pt-[calc(4.5rem+env(safe-area-inset-top,0px))]">
         {!world.progressReady || !view ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 py-24" aria-busy="true">
             {[0, 1, 2].map((index) => (
