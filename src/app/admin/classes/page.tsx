@@ -28,8 +28,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminClassesPage() {
+export default async function AdminClassesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ class?: string | string[] }>;
+}) {
   await connection();
+  const requestedClass = (await searchParams).class;
+  const initialClassKey = classKey(
+    Array.isArray(requestedClass) ? requestedClass[0] : requestedClass,
+  );
   const access = await requireDashboard();
   const session = access.session;
 
@@ -75,6 +83,7 @@ export default async function AdminClassesPage() {
 
   return (
     <AdminClassStats
+      initialClassKey={initialClassKey || null}
       rows={rows}
       courseCatalog={courseCatalog}
       storeConfigured={storeConfigured}

@@ -89,6 +89,34 @@ export function classKey(value: string | null | undefined): string {
   return normalizeClassName(value ?? "").toLocaleLowerCase("vi");
 }
 
+/** Classes page with this class's tab selected. */
+export function adminClassPageHref(className: string): string {
+  const key = classKey(className);
+  return key ? `/admin/classes?class=${encodeURIComponent(key)}` : "/admin/classes";
+}
+
+/** Fired when a class badge is opened while the classes page is already mounted. */
+export const ADMIN_CLASS_SELECT_EVENT = "admin-class-select";
+
+/**
+ * Opens the classes page on this class's tab. On the classes page itself this
+ * only updates the tab and the address bar, so the class list is not refetched.
+ */
+export function openAdminClass(className: string, navigate: (href: string) => void) {
+  const key = classKey(className);
+  if (!key || typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<string>(ADMIN_CLASS_SELECT_EVENT, { detail: key }));
+  if (window.location.pathname === "/admin/classes") {
+    const url = new URL(window.location.href);
+    url.searchParams.set("class", key);
+    const next = `${url.pathname}${url.search}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (next !== current) window.history.replaceState(window.history.state, "", next);
+    return;
+  }
+  navigate(adminClassPageHref(className));
+}
+
 export function shortBerufLabel(label: string): string {
   return label.split(" / ")[0]?.trim() || label;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
 import { AdminClassSchedule, type ScheduleLevel } from "@/components/admin/AdminClassSchedule";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
@@ -29,6 +29,7 @@ import {
 import type { AdminClassLeagueData } from "@/lib/class-quest-store";
 import type { ClassSchedule } from "@/lib/class-schedule";
 import {
+  ADMIN_CLASS_SELECT_EVENT,
   classKey,
   formatAdminTimestamp,
   listAdminClasses,
@@ -103,6 +104,8 @@ type WaitingClassMember = {
 };
 
 type AdminClassStatsProps = {
+  /** Class tab to open, from `?class=`. Empty when the URL has no class. */
+  initialClassKey?: string | null;
   rows: AdminUserRow[];
   courseCatalog: readonly AdminCatalogCourse[];
   storeConfigured: boolean;
@@ -116,7 +119,20 @@ type AdminClassStatsProps = {
   now: string;
 };
 
+/** Keeps `?class=` in the address bar without refetching the class list. */
+function writeClassParam(key: string) {
+  const url = new URL(globalThis.location.href);
+  if (key) url.searchParams.set("class", key);
+  else url.searchParams.delete("class");
+  const next = `${url.pathname}${url.search}`;
+  const current = `${globalThis.location.pathname}${globalThis.location.search}`;
+  if (next !== current) {
+    globalThis.history.replaceState(globalThis.history.state, "", next);
+  }
+}
+
 export function AdminClassStats({
+  initialClassKey = null,
   rows,
   courseCatalog,
   storeConfigured,
@@ -134,7 +150,8 @@ export function AdminClassStats({
   const [savingClassIds, setSavingClassIds] = useState<string[]>([]);
   const [classError, setClassError] = useState<string | null>(null);
   const savingClassRef = useRef(new Set<string>());
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(initialClassKey);
+  const appliedClassKey = useRef(initialClassKey);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<MemberSortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
@@ -264,9 +281,32 @@ export function AdminClassStats({
     }
   }
 
+  useEffect(() => {
+    if (initialClassKey === appliedClassKey.current) return;
+    appliedClassKey.current = initialClassKey;
+    if (initialClassKey) {
+      setSelectedKey(initialClassKey);
+      setQuery("");
+    }
+  }, [initialClassKey]);
+
+  useEffect(() => {
+    function onSelect(event: Event) {
+      const key = (event as CustomEvent<string>).detail;
+      if (!key) return;
+      appliedClassKey.current = key;
+      setSelectedKey(key);
+      setQuery("");
+    }
+    window.addEventListener(ADMIN_CLASS_SELECT_EVENT, onSelect);
+    return () => window.removeEventListener(ADMIN_CLASS_SELECT_EVENT, onSelect);
+  }, []);
+
   function selectClass(key: string) {
+    appliedClassKey.current = key || null;
     setSelectedKey(key);
     setQuery("");
+    writeClassParam(key);
   }
 
   function handleSort(column: MemberSortKey) {
