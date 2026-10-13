@@ -42,8 +42,6 @@ export const OUTREACH_NAME_MAX = 80;
 
 /** Under this many days since the first sign-in, and not already Dùng nhiều. */
 export const OUTREACH_FRESH_DAYS = 3;
-/** Last study this many days ago, or older, counts as quiet. */
-export const OUTREACH_QUIET_DAYS = 7;
 /** A burst of active time inside this window counts as Dùng nhiều. */
 export const OUTREACH_BURST_DAYS = 7;
 export const OUTREACH_HEAVY_SECONDS = 90 * 60;
@@ -231,14 +229,6 @@ export type OutreachFollowUp =
   | { kind: "warning"; text: string };
 
 /** Tin nhắn 2, or the warning for students who have not signed up. */
-/** Quiet-week check-in. One script for anyone who already finished tin 2. */
-export function outreachCheckIn(address: OutreachAddress = "em"): string {
-  return withOutreachAddress(
-    `em ơi! 😊 Tuần này mình chưa thấy em vào app NaNu Go. Mọi thứ ổn không? Em bận hay có gì vướng thì nói mình nha.`,
-    address,
-  );
-}
-
 export function outreachMessage2(group: OutreachGroup, address: OutreachAddress = "em"): OutreachFollowUp {
   const followUp: OutreachFollowUp =
     group === "fresh"
@@ -315,7 +305,7 @@ export function outreachObjectionReply(
   return { ...reply, text: withOutreachAddress(reply.text, address) };
 }
 
-export const OUTREACH_QUESTION_CATEGORIES = ["open", "like", "fit", "stop", "signup", "wish", "checkin"] as const;
+export const OUTREACH_QUESTION_CATEGORIES = ["open", "like", "fit", "stop", "signup", "wish"] as const;
 
 export type OutreachQuestionCategory = (typeof OUTREACH_QUESTION_CATEGORIES)[number];
 
@@ -326,7 +316,6 @@ export const OUTREACH_QUESTION_CATEGORY_LABEL: Record<OutreachQuestionCategory, 
   stop: "Trả lời từ chối",
   signup: "Chưa đăng ký",
   wish: "Muốn thêm gì",
-  checkin: "Hỏi thăm",
 };
 
 export type OutreachCatalogItem = {
@@ -407,17 +396,6 @@ export function outreachCatalog(group: OutreachGroup, address: OutreachAddress =
       reason: seed.reason ?? null,
     });
   }
-  const followUp = outreachMessage2(group, address);
-  if (followUp.kind === "message") {
-    items.push({
-      id: "wish-main",
-      category: "wish",
-      label: "Tin nhắn 2",
-      message: followUp.text,
-      reply: null,
-      reason: null,
-    });
-  }
   for (const seed of ASKED_BY) {
     if (seed.category !== "wish" || !seed.groups.includes(group)) continue;
     items.push({
@@ -429,42 +407,27 @@ export function outreachCatalog(group: OutreachGroup, address: OutreachAddress =
       reason: null,
     });
   }
-  if (group === "heavy" || group === "light") {
-    items.push({
-      id: "checkin",
-      category: "checkin",
-      label: "Im một tuần",
-      message: outreachCheckIn(address),
-      reply: null,
-      reason: null,
-    });
-  }
   return items;
 }
 
 /** Catalog ids of the scripted messages. Every other item is an optional question. */
-export const OUTREACH_SCRIPT_IDS: ReadonlySet<string> = new Set(["open", "wish-main", "checkin"]);
+export const OUTREACH_SCRIPT_IDS: ReadonlySet<string> = new Set(["open"]);
 
 /**
- * Catalog id of the script this job must send. Null when the message is
- * personal (a follow-up after tin 2) or there is no job.
+ * Catalog id of the script this job must send. Null when there is no job.
  */
 export function outreachRequiredMessageId(
   job: OutreachJobId | null,
   status: OutreachStatus,
   group: OutreachGroup,
-): "open" | "wish-main" | "checkin" | null {
+): "open" | null {
   const send = outreachPrimarySend(job, status, group);
   if (send === 1) return "open";
-  if (send === 2) return "wish-main";
-  if (send === "checkin" && job === "quiet") return "checkin";
   return null;
 }
 
 /** Category to open first for the job support is doing. */
-export function outreachCatalogStart(job: OutreachJobId | null, group: OutreachGroup): OutreachQuestionCategory {
-  if (job === "quiet") return "checkin";
-  if (job === "tin2") return "wish";
+export function outreachCatalogStart(_job: OutreachJobId | null, _group: OutreachGroup): OutreachQuestionCategory {
   return "open";
 }
 
@@ -880,8 +843,6 @@ export function latestStudyDay(days: readonly OutreachActivityDay[]): string | n
 }
 
 export const OUTREACH_JOBS = [
-  "quiet",
-  "tin2",
   "tin1-heavy",
   "tin1-light",
   "tin1-never",
@@ -891,8 +852,6 @@ export const OUTREACH_JOBS = [
 export type OutreachJobId = (typeof OUTREACH_JOBS)[number];
 
 export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
-  quiet: "Im một tuần",
-  tin2: "Tin 2",
   "tin1-heavy": "Tin 1 · Dùng nhiều",
   "tin1-light": "Tin 1 · Dùng ít",
   "tin1-never": "Tin 1 · Chưa làm gì",
@@ -900,21 +859,11 @@ export const OUTREACH_JOB_LABEL: Record<OutreachJobId, string> = {
 };
 
 export const OUTREACH_JOB_HINT: Record<OutreachJobId, string> = {
-  quiet: "Một lời hỏi thăm. Chỉ người đã nhận tin 2 và im một tuần.",
-  tin2: "Hỏi học viên muốn app có thêm gì. Làm hết nhóm này trước lời hỏi thăm.",
   "tin1-heavy": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
   "tin1-light": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
   "tin1-never": "Một mẫu cho cả nhóm. Xưng hô đổi theo từng học viên.",
   "tin1-preaccess": "Một mẫu. Không gửi link trong tin này.",
 };
-
-const TIN2_GROUPS: ReadonlySet<OutreachGroup> = new Set(["heavy", "light", "never"]);
-const QUIET_GROUPS: ReadonlySet<OutreachGroup> = new Set(["heavy", "light"]);
-const QUIET_STATUSES: ReadonlySet<OutreachStatus> = new Set([
-  "da_gui_tin_2",
-  "da_tra_loi",
-  "khong_tra_loi",
-]);
 
 function sentOn(sentAt: string | null): string | null {
   if (!sentAt) return null;
@@ -923,26 +872,18 @@ function sentOn(sentAt: string | null): string | null {
   return dayKey(date);
 }
 
+/** Saved general feedback. These students stay visible, but they are not open work. */
+export function outreachHasFeedback(row: Pick<OutreachRow, "outreachCase">): boolean {
+  return Boolean(row.outreachCase?.feedback.trim());
+}
+
 /**
- * The one job this person sits in. Tin 2 wins over the quiet check-in.
- * Mới is never a job. A saved follow-up date is ignored.
+ * The one job this person sits in. Only tin 1. Mới is never a job.
+ * A saved follow-up date is ignored. Someone with feedback still sits here
+ * so the queue can mark them, and the count leaves them out.
  */
-export function outreachJobFor(row: OutreachRow, today: string): OutreachJobId | null {
-  const outreachCase = row.outreachCase;
+export function outreachJobFor(row: OutreachRow, _today: string): OutreachJobId | null {
   const status = outreachQueueStatus(row);
-  if (status === "da_gui_tin_1" && TIN2_GROUPS.has(row.category)) return "tin2";
-  const quietLine = outreachDayBefore(today, OUTREACH_QUIET_DAYS);
-  const studiedRecently = row.lastStudyOn != null && row.lastStudyOn > quietLine;
-  const messagedOn = sentOn(outreachCase?.sentAt ?? null);
-  const messagedRecently = messagedOn != null && messagedOn > quietLine;
-  if (
-    QUIET_GROUPS.has(row.category) &&
-    QUIET_STATUSES.has(status) &&
-    !studiedRecently &&
-    !messagedRecently
-  ) {
-    return "quiet";
-  }
   if (status !== "chua_gui") return null;
   if (row.category === "heavy") return "tin1-heavy";
   if (row.category === "light") return "tin1-light";
@@ -959,16 +900,10 @@ export function outreachLastSentOn(row: OutreachRow): string | null {
 /** Why this person is in the job. */
 export function outreachJobWhy(
   row: OutreachRow,
-  job: OutreachJobId,
-  today: string,
+  _job: OutreachJobId,
+  _today: string,
 ): { text: string; overdue: boolean } {
-  if (job === "quiet") {
-    return {
-      text: row.lastStudyOn ? `Học lần cuối ${outreachRelativeDay(row.lastStudyOn, today)}` : "Chưa thấy học",
-      overdue: false,
-    };
-  }
-  if (job === "tin2") return { text: "", overdue: false };
+  if (outreachHasFeedback(row)) return { text: "Đã có feedback", overdue: false };
   return { text: "Chưa có feedback", overdue: false };
 }
 
@@ -986,8 +921,6 @@ export function outreachDoneTodayJob(row: OutreachRow, today: string): OutreachJ
     if (row.category === "preaccess") return "tin1-preaccess";
     return null;
   }
-  if (row.status === "da_gui_tin_2") return "tin2";
-  if (QUIET_GROUPS.has(row.category) && QUIET_STATUSES.has(row.status)) return "quiet";
   return null;
 }
 
@@ -998,8 +931,6 @@ export function outreachPrimarySend(
   _group: OutreachGroup,
 ): 1 | 2 | "checkin" | null {
   if (job == null) return null;
-  if (job === "tin2") return 2;
-  if (job === "quiet") return "checkin";
   return 1;
 }
 

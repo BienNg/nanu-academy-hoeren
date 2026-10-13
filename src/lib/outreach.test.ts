@@ -14,6 +14,7 @@ import {
   outreachDayAfter,
   outreachDaysBetween,
   outreachDoneTodayJob,
+  outreachHasFeedback,
   outreachJobFor,
   outreachJobWhy,
   outreachMatchesQuery,
@@ -290,20 +291,20 @@ test("a message sent before the reset goes back to tin 1", () => {
   assert.equal(outreachJobFor(fresh[0]!, TODAY), null);
 });
 
-test("a send after the reset still opens tin 2, then the quiet check-in", () => {
+test("a send after the reset is not a new job", () => {
   const later = "2026-10-20";
   const sentAt = "2026-10-12T16:00:00.000Z";
-  const needsTin2 = joinOutreach(
+  const sentTin1 = joinOutreach(
     [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", sentAt }],
   );
-  assert.equal(outreachJobFor(needsTin2[0]!, later), "tin2");
+  assert.equal(outreachJobFor(sentTin1[0]!, later), null);
 
-  const quiet = joinOutreach(
+  const sentTin2 = joinOutreach(
     [contact({ computedCategory: "heavy", lastStudyOn: "2026-09-20" })],
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_2", sentAt }],
   );
-  assert.equal(outreachJobFor(quiet[0]!, later), "quiet");
+  assert.equal(outreachJobFor(sentTin2[0]!, later), null);
 });
 
 test("the question catalog follows the group and opens on the current job", () => {
@@ -311,10 +312,10 @@ test("the question catalog follows the group and opens on the current job", () =
   assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^chú ơi!/);
   assert.ok(heavy.some((item) => item.category === "like"));
   assert.equal(heavy.find((item) => item.id === "fit-disappointed")?.message?.includes("rất tiếc"), true);
-  assert.ok(heavy.some((item) => item.id === "wish-main"));
+  assert.equal(heavy.some((item) => item.id === "wish-main"), false);
+  assert.equal(heavy.some((item) => item.id === "checkin"), false);
   assert.equal(heavy.some((item) => item.category === "signup"), false);
-  assert.equal(outreachCatalogStart("tin2", "heavy"), "wish");
-  assert.equal(outreachCatalogStart("quiet", "heavy"), "checkin");
+  assert.equal(outreachCatalogStart("tin1-heavy", "heavy"), "open");
 
   const unsigned = outreachCatalog("preaccess", "em");
   assert.equal(unsigned.some((item) => item.id === "wish-main"), false);
@@ -337,17 +338,25 @@ test("a saved follow-up date does not change the job", () => {
     [{ ...emptyOutreachCase("ngoc@school.com"), status: "da_gui_tin_1", followUp: true, followUpOn: "2026-10-06" }],
   );
   assert.equal(outreachJobFor(late!, TODAY), "tin1-light");
+  assert.equal(outreachHasFeedback(late!), false);
   assert.deepEqual(outreachJobWhy(late!, "tin1-light", TODAY), { text: "Chưa có feedback", overdue: false });
+
+  const [saved] = joinOutreach(
+    [contact()],
+    [{ ...emptyOutreachCase("ngoc@school.com"), feedback: "app hay" }],
+  );
+  assert.equal(outreachJobFor(saved!, TODAY), "tin1-light");
+  assert.equal(outreachHasFeedback(saved!), true);
+  assert.deepEqual(outreachJobWhy(saved!, "tin1-light", TODAY), { text: "Đã có feedback", overdue: false });
+
   assert.equal(outreachPrimarySend("tin1-preaccess", "chua_gui", "preaccess"), 1);
   assert.equal(outreachAnswerCompletesTin1("tin1-light", "chua_gui", "light", "app hơi khó", ""), true);
   assert.equal(outreachAnswerCompletesTin1("tin1-heavy", "chua_gui", "heavy", "  ", "thêm bài ngắn"), true);
   assert.equal(outreachAnswerCompletesTin1("tin1-never", "chua_gui", "never", "", ""), false);
   assert.equal(outreachAnswerCompletesTin1("tin1-light", "da_gui_tin_1", "light", "đã nói", ""), false);
-  assert.equal(outreachAnswerCompletesTin1("tin2", "da_gui_tin_1", "light", "đã nói", ""), false);
   assert.equal(outreachPrimarySend(null, "chua_gui", "light"), null);
   assert.equal(outreachRequiredMessageId("tin1-light", "chua_gui", "light"), "open");
-  assert.equal(outreachRequiredMessageId("tin2", "da_gui_tin_1", "heavy"), "wish-main");
-  assert.equal(outreachRequiredMessageId("quiet", "da_gui_tin_2", "heavy"), "checkin");
+  assert.equal(outreachRequiredMessageId(null, "da_gui_tin_1", "heavy"), null);
 });
 
 test("sends today count toward the job they cleared, and owners filter", () => {

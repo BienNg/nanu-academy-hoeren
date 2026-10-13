@@ -38,12 +38,11 @@ import {
   OUTREACH_STATUS_LABEL,
   joinOutreach,
   outreachAddress,
-  outreachCheckIn,
+  outreachHasFeedback,
   outreachJobFor,
   outreachJobWhy,
   outreachMatchesQuery,
   outreachMessage1,
-  outreachMessage2,
   summarizeOutreach,
   type OutreachCase,
   type OutreachJobId,
@@ -78,20 +77,15 @@ function syncUrl(view: View, job: JobPick | null) {
   window.history.replaceState(window.history.state, "", url);
 }
 
-/** The template for this job, when one message fits the whole group. */
-function quickMessage(row: OutreachRow, job: OutreachJobId): string | null {
-  const address = outreachAddress(row.outreachCase?.greetingName);
-  if (job === "quiet") return outreachCheckIn(address);
-  if (job === "tin2") {
-    const message = outreachMessage2(row.category, address);
-    return message.kind === "message" ? message.text : null;
-  }
-  return outreachMessage1(row.category, address);
+/** The tin 1 template for this student's group. */
+function quickMessage(row: OutreachRow, _job: OutreachJobId): string | null {
+  return outreachMessage1(row.category, outreachAddress(row.outreachCase?.greetingName));
 }
 
 function WhyText({ row, job, today }: { row: OutreachRow; job: OutreachJobId; today: string }) {
   const why = outreachJobWhy(row, job, today);
   if (!why.text) return null;
+  if (outreachHasFeedback(row)) return <Badge tone="emerald">{why.text}</Badge>;
   if (why.overdue) {
     return (
       <Badge tone="crimson" dot>
@@ -285,7 +279,10 @@ export function AdminOutreach({
     () => new Map(rows.map((row) => [row.id, outreachJobFor(row, today)] as const)),
     [rows, today],
   );
-  const openTotal = useMemo(() => [...jobById.values()].filter((job) => job != null).length, [jobById]);
+  const openTotal = useMemo(
+    () => rows.filter((row) => jobById.get(row.id) != null && !outreachHasFeedback(row)).length,
+    [rows, jobById],
+  );
 
   const jobs = useMemo(() => {
     const buckets = new Map<OutreachJobId, OutreachRow[]>(OUTREACH_JOBS.map((id) => [id, []]));
@@ -300,15 +297,21 @@ export function AdminOutreach({
   }, [rows, jobById, query]);
 
   const filtering = query.trim() !== "";
-  const allMembers = jobs.flatMap((job) => job.members);
-  const firstOpen = jobs.find((job) => job.members.length > 0)?.id ?? null;
+  const allOpen = jobs.reduce(
+    (sum, job) => sum + job.members.filter((row) => !outreachHasFeedback(row)).length,
+    0,
+  );
+  const firstOpen =
+    jobs.find((job) => job.members.some((row) => !outreachHasFeedback(row)))?.id ??
+    jobs.find((job) => job.members.length > 0)?.id ??
+    null;
   const activeId: JobPick = pickedJob ?? firstOpen ?? "all";
   const groups =
     activeId === "all"
       ? jobs.filter((job) => job.members.length > 0)
       : jobs.filter((job) => job.id === activeId && job.members.length > 0);
   const queue = groups.flatMap((group) => group.members);
-  const nextJob = jobs.find((job) => job.id !== activeId && job.members.length > 0) ?? null;
+  const nextJob = jobs.find((job) => job.id !== activeId && job.members.some((row) => !outreachHasFeedback(row))) ?? null;
 
   const summary = useMemo(() => summarizeOutreach(rows), [rows]);
   const groupCounts = useMemo(() => {
@@ -368,7 +371,7 @@ export function AdminOutreach({
             <Fragment key={group.id}>
               {activeId === "all" ? (
                 <li className="bg-admin-canvas px-space-16 py-space-8 text-admin-label-sm uppercase text-admin-ink-subtle">
-                  {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.length)}
+                  {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.filter((row) => !outreachHasFeedback(row)).length)}
                 </li>
               ) : null}
               {group.members.map((row) => (
@@ -421,7 +424,7 @@ export function AdminOutreach({
                         scope="colgroup"
                         className="px-space-16 py-space-8 text-left text-admin-label-sm uppercase text-admin-ink-subtle"
                       >
-                        {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.length)}
+                        {OUTREACH_JOB_LABEL[group.id]} · {formatCount(group.members.filter((row) => !outreachHasFeedback(row)).length)}
                       </th>
                     </tr>
                   ) : null}
@@ -538,7 +541,7 @@ export function AdminOutreach({
               <li>
                 <RailItem
                   label="Tất cả việc"
-                  count={allMembers.length}
+                  count={allOpen}
                   alert={false}
                   on={activeId === "all"}
                   onClick={() => pickJob("all")}
@@ -548,7 +551,7 @@ export function AdminOutreach({
                 <li key={job.id}>
                   <RailItem
                     label={OUTREACH_JOB_LABEL[job.id]}
-                    count={job.members.length}
+                    count={job.members.filter((row) => !outreachHasFeedback(row)).length}
                     alert={job.overdue}
                     on={job.id === activeId}
                     onClick={() => pickJob(job.id)}
@@ -564,7 +567,7 @@ export function AdminOutreach({
               title={activeId === "all" ? "Tất cả việc" : OUTREACH_JOB_LABEL[activeId]}
               hint={
                 activeId === "all"
-                  ? "Theo thứ tự làm: hỏi thăm, tin 2, rồi tin 1."
+                  ? "Chỉ tin 1. Người đã có feedback vẫn hiện ở Vì sao, và không tính vào số việc."
                   : OUTREACH_JOB_HINT[activeId]
               }
               footer="Phím tắt: J/K hoặc mũi tên để di chuyển, Enter để mở. Trong hồ sơ, J/K sang người sau hoặc trước."
