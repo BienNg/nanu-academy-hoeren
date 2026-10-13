@@ -717,31 +717,61 @@ function verbAudioDir(verb) {
 }
 
 /**
- * src/data/grammar/world.json: the grammar world (see docs/GRAMMAR_WORLD.md).
- * Areas and topics with unique ids, a real opening Lektion, known verbs and
- * tenses, and clips whose verb form is in the script. Clip audio lives in
+ * src/data/grammar/world/: one JSON file per tab, listed left to right in
+ * order.json and imported from index.ts (see docs/GRAMMAR_WORLD.md).
+ * Topics have unique ids, a real opening Lektion, known verbs and tenses,
+ * and clips whose verb form is in the script. Clip audio lives in
  * public/audio/grammar-world/<topic>/; files no clip lists are orphans.
  */
 function checkWorld() {
-  const worldPath = join(grammarDataDir, "world.json");
-  const where = rel(worldPath);
-  if (!existsSync(worldPath)) return;
-  let file;
+  const worldDir = join(grammarDataDir, "world");
+  const where = rel(worldDir);
+  if (!existsSync(worldDir)) return;
+  const orderPath = join(worldDir, "order.json");
+  let order;
   try {
-    file = JSON.parse(readFileSync(worldPath, "utf8"));
+    order = JSON.parse(readFileSync(orderPath, "utf8"));
   } catch (error) {
-    errors.push(`Could not parse ${where}: ${error instanceof Error ? error.message : String(error)}`);
+    errors.push(`Could not parse ${rel(orderPath)}: ${error instanceof Error ? error.message : String(error)}`);
     return;
   }
-  if (!isRecord(file) || !Array.isArray(file.areas)) {
-    errors.push(`${where} must have "areas"`);
+  if (!Array.isArray(order) || !order.every((id) => typeof id === "string" && SLUG.test(id))) {
+    errors.push(`${rel(orderPath)} must list tab ids like "dong-tu", left to right`);
     return;
+  }
+  const files = readdirSync(worldDir).filter((name) => name.endsWith(".json") && name !== "order.json");
+  const fileIds = new Set(files.map((name) => name.slice(0, -".json".length)));
+  for (const id of order) {
+    if (!fileIds.has(id)) errors.push(`${where} lists "${id}" in order.json but has no ${id}.json`);
+  }
+  for (const id of fileIds) {
+    if (!order.includes(id)) errors.push(`${where}/${id}.json is not listed in order.json`);
+  }
+  const indexPath = join(worldDir, "index.ts");
+  const indexSrc = existsSync(indexPath) ? readFileSync(indexPath, "utf8") : "";
+  if (!indexSrc) errors.push(`${rel(indexPath)} must import every tab`);
+  for (const id of order) {
+    if (!indexSrc.includes(`./${id}.json`)) errors.push(`${rel(indexPath)} must import ./${id}.json`);
+  }
+  const areas = [];
+  for (const id of order) {
+    if (!fileIds.has(id)) continue;
+    const areaPath = join(worldDir, `${id}.json`);
+    try {
+      const area = JSON.parse(readFileSync(areaPath, "utf8"));
+      if (isRecord(area) && area.id !== undefined && area.id !== id) {
+        errors.push(`${rel(areaPath)} "id" is "${area.id}" but the file is named ${id}.json`);
+      }
+      areas.push(area);
+    } catch (error) {
+      errors.push(`Could not parse ${rel(areaPath)}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   const areaIds = new Set();
   const topicIds = new Set();
   const listed = new Set();
-  file.areas.forEach((area, areaIndex) => {
-    const areaWhere = `${where} areas[${areaIndex}]`;
+  areas.forEach((area) => {
+    const areaWhere = `${where}/${isRecord(area) && typeof area.id === "string" ? area.id : "unknown"}.json`;
     if (!isRecord(area) || typeof area.id !== "string" || !SLUG.test(area.id)) {
       errors.push(`${areaWhere} needs a lowercase "id" like "dong-tu"`);
       return;
@@ -773,6 +803,9 @@ function checkWorld() {
       const tenses = Array.isArray(topic.tenses) ? topic.tenses : [];
       if (tenses.length === 0 || !tenses.every((tense) => GRAMMAR_TENSES.includes(tense))) {
         errors.push(`${topicWhere} "tenses" must list some of ${GRAMMAR_TENSES.join(", ")}`);
+      }
+      if (topic.drill !== undefined && topic.drill !== "verb" && topic.drill !== "word") {
+        errors.push(`${topicWhere} "drill" must be "verb" or "word"`);
       }
       const verbs = Array.isArray(topic.verbs) ? topic.verbs : [];
       const knownVerb = (verb) => Boolean(tenseTables && isRecord(tenseTables.verbs[verb]));
@@ -811,9 +844,50 @@ function checkWorld() {
           errors.push(`${clipWhere} "person" "${clip.person}" is not a person in tenses.json`);
         }
         const verb = tenseTables?.verbs[clip.verb];
-        const form = clip.tense === "perfekt" ? verb?.praesens?.[clip.person] : verb?.[clip.tense]?.[clip.person];
-        if (form && typeof clip.script === "string" && !scriptWords(clip.script).includes(scriptWords(form)[0] ?? "")) {
-          errors.push(`${clipWhere} "script" does not contain "${form}", the ${clip.tense} form for "${clip.person}"`);
+        const words = typeof clip.script === "string" ? scriptWords(clip.script) : [];
+        if (clip.tense === "perfekt") {
+          const auxId = verb?.aux;
+          const aux = auxId ? tenseTables?.verbs[auxId]?.praesens?.[clip.person] : "";
+          const partizip = verb?.partizip ?? "";
+          if (aux && !words.includes(scriptWords(aux)[0] ?? "")) {
+            errors.push(`${clipWhere} "script" does not contain "${aux}", the Perfekt auxiliary for "${clip.person}"`);
+          }
+          if (partizip && !words.includes(scriptWords(partizip)[0] ?? "")) {
+            errors.push(`${clipWhere} "script" does not contain "${partizip}", the Partizip of "${clip.verb}"`);
+          }
+        } else {
+          const form = verb?.[clip.tense]?.[clip.person];
+          if (form && !words.includes(scriptWords(form)[0] ?? "")) {
+            errors.push(`${clipWhere} "script" does not contain "${form}", the ${clip.tense} form for "${clip.person}"`);
+          }
+        }
+        if (topic.drill === "word") {
+          if (typeof clip.focus !== "string" || clip.focus.trim() === "") {
+            errors.push(`${clipWhere} needs "focus": the word this clip blanks`);
+          }
+          if (!Array.isArray(clip.choices) || clip.choices.length < 2 || !clip.choices.every((choice) => typeof choice === "string" && choice.trim() !== "")) {
+            errors.push(`${clipWhere} "choices" must list the competing forms, including the right one`);
+          }
+        }
+        if (clip.focus !== undefined) {
+          if (typeof clip.focus !== "string" || clip.focus.trim() === "") {
+            errors.push(`${clipWhere} "focus" must be a word`);
+          } else {
+            const occurrence = clip.occurrence === undefined ? 1 : clip.occurrence;
+            if (typeof occurrence !== "number" || !Number.isInteger(occurrence) || occurrence < 1) {
+              errors.push(`${clipWhere} "occurrence" must be a whole number from 1`);
+            } else if (words.filter((word) => word === scriptWords(clip.focus)[0]).length < occurrence) {
+              errors.push(`${clipWhere} "script" does not contain occurrence ${occurrence} of "${clip.focus}"`);
+            }
+          }
+          const focus = typeof clip.focus === "string" ? scriptWords(clip.focus)[0] : "";
+          if (
+            Array.isArray(clip.choices) &&
+            focus &&
+            !clip.choices.some((choice) => typeof choice === "string" && scriptWords(choice)[0] === focus)
+          ) {
+            errors.push(`${clipWhere} "choices" must include "${clip.focus}"`);
+          }
         }
         if (clip.from !== undefined && (typeof clip.from !== "string" || clip.from.trim() === "")) {
           errors.push(`${clipWhere} "from" must be a sentence`);

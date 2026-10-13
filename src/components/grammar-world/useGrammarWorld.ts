@@ -33,8 +33,12 @@ export function useGrammarWorld(data: GrammarWorldData | null): GrammarWorldStat
     if (!data) {
       return { views: [], anyOpen: false, unpractised: [], unannounced: [], stars: 0, starsTotal: 0, progressReady };
     }
-    const views = worldAreaViews(data.tables, data.areas, progress.grammarWorld, (topic) =>
-      worldStageOpen(data.gates[topic.id], progress),
+    const views = worldAreaViews(
+      data.tables,
+      data.areas,
+      progress.grammarWorld,
+      (topic) => worldStageOpen(data.gates[topic.id], progress),
+      { freePlay: data.freePlay },
     );
     const openStages = views.flatMap((view) => view.stages.filter((stage) => stage.open));
     return {

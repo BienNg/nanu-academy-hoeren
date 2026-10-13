@@ -2094,7 +2094,22 @@ export default function LevelViewClient({
     }
     return byLesson;
   }, [accessLocked, grammarWorld, worldView]);
-  const worldButtonOnThisPath = chapters.some((chapter) => openWorldByLesson.has(progressKeyOf(chapter)));
+  const worldAnchors = useMemo(
+    () =>
+      chapters.flatMap((chapter) => {
+        const topics = openWorldByLesson.get(progressKeyOf(chapter));
+        if (!topics?.length) return [];
+        const firstId = worldView.views
+          .flatMap((view) => view.stages)
+          .find((stage) => stage.open)?.topic.id;
+        const intro =
+          worldView.progressReady && worldView.stars === 0
+            ? topics.find((topic) => topic.id === firstId)
+            : undefined;
+        return [{ domId: `lesson-${chapter.slug}`, introTopicId: intro?.id ?? null }];
+      }),
+    [chapters, openWorldByLesson, worldView.unpractised],
+  );
   /** Grammar topics of every Lektion of this level, by lesson id. */
   const grammarLayouts = useMemo(
     () =>
@@ -2621,10 +2636,6 @@ export default function LevelViewClient({
                 );
               },
             );
-            const lessonWorld = openWorldByLesson.get(chapterKey) ?? [];
-            const worldIntro = lessonWorld.find((topic) =>
-              worldView.unpractised.some((entry) => entry.id === topic.id),
-            );
             const pathStart = pathStep;
             pathStep += nodes.length;
             const sectionTitle = lessonBanners[index]?.title ?? chapter.label;
@@ -2649,23 +2660,6 @@ export default function LevelViewClient({
                 {index > 0 ? <LessonSectionTitle title={sectionTitle} /> : null}
                 {nodes.length > 0 ? (
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
-                    {lessonWorld.length > 0 && grammarWorld ? (
-                      <li
-                        className="pointer-events-none sticky z-40 h-0 w-full self-stretch"
-                        style={{
-                          top: "calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px) - 60px)",
-                        }}
-                      >
-                        <div className="pointer-events-auto absolute top-0 right-0">
-                          <GrammarPortal
-                            data={grammarWorld}
-                            from={`/learn/${level.slug}`}
-                            placement="lesson"
-                            introTopicId={worldIntro?.id ?? null}
-                          />
-                        </div>
-                      </li>
-                    ) : null}
                     {jumpFrom && jump?.targetIndex === index ? (
                       <li
                         className="relative pt-14"
@@ -2783,10 +2777,11 @@ export default function LevelViewClient({
       </section>
     </main>
     <BottomNav />
-    {grammarWorld && !accessLocked && openWorldByLesson.size > 0 && !worldButtonOnThisPath ? (
+    {grammarWorld && !accessLocked && openWorldByLesson.size > 0 ? (
       <GrammarPortal
         data={grammarWorld}
         from={`/learn/${level.slug}`}
+        anchors={worldAnchors}
       />
     ) : null}
     </motion.div>

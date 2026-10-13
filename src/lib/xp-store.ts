@@ -540,7 +540,11 @@ export async function grantGrammarWorldXp(
   const gate = topic ? world.gates[topic.id] : undefined;
   const open = Boolean(topic && gate?.access && worldStageOpen(gate, stored));
   const cardCount =
-    open && topic ? worldPracticeCardCount(world.tables, topic, stored.grammarWorld?.stages[topic.id], input) : null;
+    open && topic
+      ? worldPracticeCardCount(world.tables, topic, stored.grammarWorld?.stages[topic.id], input, {
+          freePlay: world.freePlay,
+        })
+      : null;
   const decision = decideGrammarWorldXp({ elapsedMs: input.elapsedMs, cardCount, now });
   if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };
 

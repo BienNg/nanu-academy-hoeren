@@ -1,0 +1,939 @@
+{
+  "id": "gioi-tu",
+  "titleVi": "Giới từ",
+  "titleDe": "Präpositionen",
+  "icon": "place",
+  "topics": [
+    {
+      "id": "temporale-praepositionen",
+      "titleVi": "Giới từ chỉ thời gian",
+      "titleDe": "Temporale Präpositionen",
+      "opensWith": "a1-2/lektion-1",
+      "drill": "word",
+      "tenses": [
+        "praesens",
+        "perfekt"
+      ],
+      "verbs": [
+        "sein",
+        "haben",
+        "wohnen",
+        "kommen",
+        "gehen",
+        "machen",
+        "fragen",
+        "hören"
+      ],
+      "tips": [
+        {
+          "id": "zeit",
+          "tense": "praesens",
+          "titleVi": "seit, vor, in, für",
+          "textVi": "seit: kể từ… đến nay, động từ ở hiện tại. vor: một khoảng đã kết thúc, động từ ở Perfekt. in: trong vòng / nữa. für: cho một khoảng ở tương lai."
+        },
+        {
+          "id": "zeit-perfekt",
+          "tense": "perfekt",
+          "titleVi": "vor",
+          "textVi": "vor đi với Perfekt: khoảng thời gian đã bắt đầu và đã kết thúc trong quá khứ."
+        }
+      ],
+      "clips": [
+        {
+          "id": "tp-01",
+          "filename": "tp-01-ich-wohne-seit-einem-monat-in-berlin.mp3",
+          "script": "Ich wohne seit einem Monat in Berlin.",
+          "translationVi": "Tôi sống ở Berlin kể từ một tháng nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Ich wohne vor einem Monat in Berlin.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-02",
+          "filename": "tp-02-sie-wohnt-seit-einer-woche-in-hanoi.mp3",
+          "script": "Sie wohnt seit einer Woche in Hanoi.",
+          "translationVi": "Cô ấy sống ở Hà Nội kể từ một tuần nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Sie wohnt in Hanoi."
+        },
+        {
+          "id": "tp-03",
+          "filename": "tp-03-wir-wohnen-seit-zwei-jahren-in-deutschland.mp3",
+          "script": "Wir wohnen seit zwei Jahren in Deutschland.",
+          "translationVi": "Chúng tôi sống ở Đức kể từ hai năm nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Wir wohnen vor zwei Jahren in Deutschland.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-04",
+          "filename": "tp-04-vor-einem-monat-bin-ich-nach-berlin-gekommen.mp3",
+          "script": "Vor einem Monat bin ich nach Berlin gekommen.",
+          "translationVi": "Một tháng trước tôi đã đến Berlin.",
+          "verb": "kommen",
+          "tense": "perfekt",
+          "person": "ich",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Seit einem Monat bin ich nach Berlin gekommen.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        },
+        {
+          "id": "tp-05",
+          "filename": "tp-05-vor-einer-woche-hat-er-eine-pause-gemacht.mp3",
+          "script": "Vor einer Woche hat er eine Pause gemacht.",
+          "translationVi": "Một tuần trước anh ấy đã nghỉ.",
+          "verb": "machen",
+          "tense": "perfekt",
+          "person": "er",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Er macht eine Pause."
+        },
+        {
+          "id": "tp-06",
+          "filename": "tp-06-vor-zwei-jahren-sind-wir-nach-hanoi-gekommen.mp3",
+          "script": "Vor zwei Jahren sind wir nach Hanoi gekommen.",
+          "translationVi": "Hai năm trước chúng tôi đã đến Hà Nội.",
+          "verb": "kommen",
+          "tense": "perfekt",
+          "person": "wir",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "In zwei Jahren sind wir nach Hanoi gekommen.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        },
+        {
+          "id": "tp-07",
+          "filename": "tp-07-in-zehn-minuten-komme-ich.mp3",
+          "script": "In zehn Minuten komme ich.",
+          "translationVi": "Trong mười phút nữa tôi đến.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor zehn Minuten komme ich.",
+            "whyVi": "in: trong vòng / nữa, tính từ bây giờ về tương lai."
+          }
+        },
+        {
+          "id": "tp-08",
+          "filename": "tp-08-in-einer-woche-gehen-wir-nach-hause.mp3",
+          "script": "In einer Woche gehen wir nach Hause.",
+          "translationVi": "Một tuần nữa chúng tôi đi về nhà.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir gehen nach Hause."
+        },
+        {
+          "id": "tp-09",
+          "filename": "tp-09-in-einem-monat-kommt-er-nach-berlin.mp3",
+          "script": "In einem Monat kommt er nach Berlin.",
+          "translationVi": "Một tháng nữa anh ấy đến Berlin.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Für einem Monat kommt er nach Berlin.",
+            "whyVi": "in: trong vòng / nữa, tính từ bây giờ về tương lai."
+          }
+        },
+        {
+          "id": "tp-10",
+          "filename": "tp-10-ich-komme-fuer-eine-woche-nach-berlin.mp3",
+          "script": "Ich komme für eine Woche nach Berlin.",
+          "translationVi": "Tôi đến Berlin một tuần.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Ich komme seit eine Woche nach Berlin.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-11",
+          "filename": "tp-11-wir-wohnen-fuer-einen-monat-in-hamburg.mp3",
+          "script": "Wir wohnen für einen Monat in Hamburg.",
+          "translationVi": "Chúng tôi sống ở Hamburg một tháng.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir wohnen in Hamburg."
+        },
+        {
+          "id": "tp-12",
+          "filename": "tp-12-du-gehst-fuer-eine-woche-nach-hause.mp3",
+          "script": "Du gehst für eine Woche nach Hause.",
+          "translationVi": "Bạn về nhà một tuần.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Du gehst seit eine Woche nach Hause.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-13",
+          "filename": "tp-13-er-wohnt-seit-einem-jahr-in-muenchen.mp3",
+          "script": "Er wohnt seit einem Jahr in München.",
+          "translationVi": "Anh ấy sống ở München kể từ một năm nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Er wohnt in München."
+        },
+        {
+          "id": "tp-14",
+          "filename": "tp-14-ich-mache-seit-einer-woche-sport.mp3",
+          "script": "Ich mache seit einer Woche Sport.",
+          "translationVi": "Tôi chơi thể thao từ một tuần nay.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Ich mache vor einer Woche Sport.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-15",
+          "filename": "tp-15-vor-einem-jahr-habe-ich-in-berlin-gewohnt.mp3",
+          "script": "Vor einem Jahr habe ich in Berlin gewohnt.",
+          "translationVi": "Một năm trước tôi đã sống ở Berlin.",
+          "verb": "wohnen",
+          "tense": "perfekt",
+          "person": "ich",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor einem Jahr wohne ich in Berlin.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        },
+        {
+          "id": "tp-16",
+          "filename": "tp-16-in-fuenf-minuten-macht-ihr-pause.mp3",
+          "script": "In fünf Minuten macht ihr Pause.",
+          "translationVi": "Năm phút nữa các bạn nghỉ.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ihr macht Pause."
+        },
+        {
+          "id": "tp-17",
+          "filename": "tp-17-sie-kommen-fuer-zwei-wochen-nach-hanoi.mp3",
+          "script": "Sie kommen für zwei Wochen nach Hanoi.",
+          "translationVi": "Họ đến Hà Nội hai tuần.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "sie",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Sie kommen nach Hanoi."
+        },
+        {
+          "id": "tp-18",
+          "filename": "tp-18-seit-einem-monat-hoeren-wir-deutsch.mp3",
+          "script": "Seit einem Monat hören wir Deutsch.",
+          "translationVi": "Kể từ một tháng nay chúng tôi nghe tiếng Đức.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "Seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor einem Monat hören wir Deutsch.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-19",
+          "filename": "tp-19-vor-einer-woche-bin-ich-gekommen.mp3",
+          "script": "Vor einer Woche bin ich gekommen.",
+          "translationVi": "Một tuần trước tôi đã đến.",
+          "verb": "kommen",
+          "tense": "perfekt",
+          "person": "ich",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich komme."
+        },
+        {
+          "id": "tp-20",
+          "filename": "tp-20-in-einem-jahr-geht-ihr-nach-deutschland.mp3",
+          "script": "In einem Jahr geht ihr nach Deutschland.",
+          "translationVi": "Một năm nữa các bạn đi Đức.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor einem Jahr geht ihr nach Deutschland.",
+            "whyVi": "in: trong vòng / nữa, tính từ bây giờ về tương lai."
+          }
+        },
+        {
+          "id": "tp-21",
+          "filename": "tp-21-wir-fragen-seit-einem-monat-nach-dem-weg.mp3",
+          "script": "Wir fragen seit einem Monat nach dem Weg.",
+          "translationVi": "Từ một tháng nay chúng tôi hỏi đường.",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir fragen nach dem Weg."
+        },
+        {
+          "id": "tp-22",
+          "filename": "tp-22-fuer-eine-woche-macht-er-eine-pause.mp3",
+          "script": "Für eine Woche macht er eine Pause.",
+          "translationVi": "Anh ấy nghỉ một tuần.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "In eine Woche macht er eine Pause.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-23",
+          "filename": "tp-23-du-wohnst-seit-zwei-monaten-hier.mp3",
+          "script": "Du wohnst seit zwei Monaten hier.",
+          "translationVi": "Bạn sống ở đây từ hai tháng nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Du wohnst vor zwei Monaten hier.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-24",
+          "filename": "tp-24-vor-zehn-minuten-hat-er-gefragt.mp3",
+          "script": "Vor zehn Minuten hat er gefragt.",
+          "translationVi": "Mười phút trước anh ấy đã hỏi.",
+          "verb": "fragen",
+          "tense": "perfekt",
+          "person": "er",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Er fragt."
+        },
+        {
+          "id": "tp-25",
+          "filename": "tp-25-in-einer-stunde-komme-ich.mp3",
+          "script": "In einer Stunde komme ich.",
+          "translationVi": "Một tiếng nữa tôi đến.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich komme."
+        },
+        {
+          "id": "tp-26",
+          "filename": "tp-26-wir-gehen-fuer-einen-tag-nach-berlin.mp3",
+          "script": "Wir gehen für einen Tag nach Berlin.",
+          "translationVi": "Chúng tôi đi Berlin một ngày.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Wir gehen seit einen Tag nach Berlin.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-27",
+          "filename": "tp-27-sie-wohnt-seit-einem-monat-bei-anna.mp3",
+          "script": "Sie wohnt seit einem Monat bei Anna.",
+          "translationVi": "Cô ấy ở với Anna từ một tháng nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Sie wohnt für einem Monat bei Anna.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-28",
+          "filename": "tp-28-vor-einem-monat-haben-wir-ein-haus-gehabt.mp3",
+          "script": "Vor einem Monat haben wir ein Haus gehabt.",
+          "translationVi": "Một tháng trước chúng tôi đã có một ngôi nhà.",
+          "verb": "haben",
+          "tense": "perfekt",
+          "person": "wir",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir haben ein Haus."
+        },
+        {
+          "id": "tp-29",
+          "filename": "tp-29-in-zwei-wochen-kommt-die-mutter.mp3",
+          "script": "In zwei Wochen kommt die Mutter.",
+          "translationVi": "Hai tuần nữa mẹ đến.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor zwei Wochen kommt die Mutter.",
+            "whyVi": "in: trong vòng / nữa, tính từ bây giờ về tương lai."
+          }
+        },
+        {
+          "id": "tp-30",
+          "filename": "tp-30-ich-hoere-fuer-eine-woche-musik.mp3",
+          "script": "Ich höre für eine Woche Musik.",
+          "translationVi": "Tôi nghe nhạc một tuần.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich höre Musik."
+        },
+        {
+          "id": "tp-31",
+          "filename": "tp-31-er-kommt-seit-einer-woche-spaet.mp3",
+          "script": "Er kommt seit einer Woche spät.",
+          "translationVi": "Anh ấy đến muộn từ một tuần nay.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Er kommt vor einer Woche spät.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-32",
+          "filename": "tp-32-vor-zwei-wochen-ist-sie-nach-hause-gegangen.mp3",
+          "script": "Vor zwei Wochen ist sie nach Hause gegangen.",
+          "translationVi": "Hai tuần trước cô ấy đã đi về nhà.",
+          "verb": "gehen",
+          "tense": "perfekt",
+          "person": "er",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Für zwei Wochen ist sie nach Hause gegangen.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        },
+        {
+          "id": "tp-33",
+          "filename": "tp-33-in-einem-monat-machen-wir-ein-foto.mp3",
+          "script": "In einem Monat machen wir ein Foto.",
+          "translationVi": "Một tháng nữa chúng tôi chụp ảnh.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir machen ein Foto."
+        },
+        {
+          "id": "tp-34",
+          "filename": "tp-34-ihr-wohnt-fuer-ein-jahr-in-wien.mp3",
+          "script": "Ihr wohnt für ein Jahr in Wien.",
+          "translationVi": "Các bạn sống ở Viên một năm.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Ihr wohnt seit ein Jahr in Wien.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-35",
+          "filename": "tp-35-seit-einer-woche-geht-er-in-die-schule.mp3",
+          "script": "Seit einer Woche geht er in die Schule.",
+          "translationVi": "Từ một tuần nay anh ấy đi học.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Er geht in die Schule."
+        },
+        {
+          "id": "tp-36",
+          "filename": "tp-36-vor-einem-monat-seid-ihr-gekommen.mp3",
+          "script": "Vor einem Monat seid ihr gekommen.",
+          "translationVi": "Một tháng trước các bạn đã đến.",
+          "verb": "kommen",
+          "tense": "perfekt",
+          "person": "ihr",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "In einem Monat seid ihr gekommen.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        },
+        {
+          "id": "tp-37",
+          "filename": "tp-37-in-zehn-minuten-hoert-ihr-die-antwort.mp3",
+          "script": "In zehn Minuten hört ihr die Antwort.",
+          "translationVi": "Mười phút nữa các bạn nghe câu trả lời.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ihr hört die Antwort."
+        },
+        {
+          "id": "tp-38",
+          "filename": "tp-38-wir-kommen-fuer-eine-woche.mp3",
+          "script": "Wir kommen für eine Woche.",
+          "translationVi": "Chúng tôi đến một tuần.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Wir kommen seit eine Woche.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-39",
+          "filename": "tp-39-ich-wohne-seit-einem-jahr-hier.mp3",
+          "script": "Ich wohne seit einem Jahr hier.",
+          "translationVi": "Tôi sống ở đây từ một năm nay.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich wohne hier."
+        },
+        {
+          "id": "tp-40",
+          "filename": "tp-40-vor-einer-woche-habe-ich-anna-gefragt.mp3",
+          "script": "Vor einer Woche habe ich Anna gefragt.",
+          "translationVi": "Một tuần trước tôi đã hỏi Anna.",
+          "verb": "fragen",
+          "tense": "perfekt",
+          "person": "ich",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich frage Anna."
+        },
+        {
+          "id": "tp-41",
+          "filename": "tp-41-seit-zwei-wochen-macht-ihr-sport.mp3",
+          "script": "Seit zwei Wochen macht ihr Sport.",
+          "translationVi": "Từ hai tuần nay các bạn chơi thể thao.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor zwei Wochen macht ihr Sport.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-42",
+          "filename": "tp-42-in-einem-monat-kommt-das-kind.mp3",
+          "script": "In einem Monat kommt das Kind.",
+          "translationVi": "Một tháng nữa đứa trẻ đến.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Das Kind kommt."
+        },
+        {
+          "id": "tp-43",
+          "filename": "tp-43-sie-hoeren-fuer-eine-woche-ein-hoerbuch.mp3",
+          "script": "Sie hören für eine Woche ein Hörbuch.",
+          "translationVi": "Họ nghe sách nói một tuần.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "sie",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Sie hören seit eine Woche ein Hörbuch.",
+            "whyVi": "für: cho một khoảng ở tương lai. für eine Woche, für einen Monat."
+          }
+        },
+        {
+          "id": "tp-44",
+          "filename": "tp-44-vor-einem-jahr-sind-sie-nach-berlin-gegangen.mp3",
+          "script": "Vor einem Jahr sind sie nach Berlin gegangen.",
+          "translationVi": "Một năm trước họ đã đi Berlin.",
+          "verb": "gehen",
+          "tense": "perfekt",
+          "person": "sie",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Sie gehen nach Berlin."
+        },
+        {
+          "id": "tp-45",
+          "filename": "tp-45-du-kommst-seit-einem-monat-zu-spaet.mp3",
+          "script": "Du kommst seit einem Monat zu spät.",
+          "translationVi": "Bạn đến muộn từ một tháng nay.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "seit",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Du kommst für einem Monat zu spät.",
+            "whyVi": "Kể từ… đến nay dùng seit, và động từ ở hiện tại."
+          }
+        },
+        {
+          "id": "tp-46",
+          "filename": "tp-46-in-einer-woche-fragen-wir-anna.mp3",
+          "script": "In einer Woche fragen wir Anna.",
+          "translationVi": "Một tuần nữa chúng tôi hỏi Anna.",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "In",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Wir fragen Anna."
+        },
+        {
+          "id": "tp-47",
+          "filename": "tp-47-ich-mache-fuer-einen-monat-pause.mp3",
+          "script": "Ich mache für einen Monat Pause.",
+          "translationVi": "Tôi nghỉ một tháng.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "für",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "from": "Ich mache Pause."
+        },
+        {
+          "id": "tp-48",
+          "filename": "tp-48-vor-zwei-jahren-hat-er-in-hamburg-gewohnt.mp3",
+          "script": "Vor zwei Jahren hat er in Hamburg gewohnt.",
+          "translationVi": "Hai năm trước anh ấy đã sống ở Hamburg.",
+          "verb": "wohnen",
+          "tense": "perfekt",
+          "person": "er",
+          "focus": "Vor",
+          "choices": [
+            "seit",
+            "vor",
+            "in",
+            "für"
+          ],
+          "wrong": {
+            "script": "Vor zwei Jahren wohnt er in Hamburg.",
+            "whyVi": "vor là một khoảng đã kết thúc trong quá khứ. Động từ đứng ở Perfekt."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import worldFile from "@/data/grammar/world.json";
+import { worldAreas } from "@/data/grammar/world";
 import {
   ADMIN_DUELS_TAG,
   ADMIN_LISTENING_RUNS_TAG,
@@ -124,7 +124,7 @@ async function requireStudentRead(userId: string): Promise<boolean> {
 }
 
 function adminGrammarCatalog(): AdminGrammarCatalogArea[] {
-  return (worldFile as { areas: { id: string; topics: { id: string }[] }[] }).areas.map((area) => ({
+  return worldAreas.map((area) => ({
     id: area.id,
     topicIds: area.topics.map((topic) => topic.id),
   }));

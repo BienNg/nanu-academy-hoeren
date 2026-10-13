@@ -4,28 +4,28 @@ Status: first build. One tab with content (Động từ), one stage (Verbkonjuga
 
 ## What the learner sees
 
-- **Lesson button**: when a stage opens, a purple mountain button sticks to the bottom right of that Lektion's path, above the tab bar. It is not a node on the path. Until the first part of that stage is finished, a hint centered on the button says "Luyện ngữ pháp của nút này". The hint may extend past the path. The first tap opens `/grammar?intro=<topic>&from=<path>`: a short tour, then *Bắt đầu phần 1*. After a part of that stage is finished, the same button opens the mountain and the hint is gone.
-- **Portal**: the same button, fixed at the bottom right above the tab bar, on CEFR level paths that do not contain the opening Lektion. A red badge counts open stages with nothing practised; otherwise a thin gold ring shows the stars collected.
+- **Lesson button**: when a stage opens, one purple mountain button stays fixed at the bottom right, above the tab bar. It is not a node on the path. On a path with several opening Lektionen it stays in that spot and the address it opens changes as the next Lektion reaches it. The welcome tour and the hint "Luyện ngữ pháp của nút này" show only for the first unlocked stage, and only while no part in the grammar world is finished. The hint may extend past the path. That first tap opens `/grammar?intro=<topic>&from=<path>`: a short tour, then *Bắt đầu phần 1*. Any later stage, or any finished part, opens the mountain with no tour and no hint.
+- **Portal**: the same fixed button, on CEFR level paths that do not contain an opening Lektion. A red badge counts open stages with nothing practised; otherwise a thin gold ring shows the stars collected.
 - **Mountain** (`/grammar?tab=<area>&from=<path>`): tabs are areas, each with its stars, a check when done, or a lock. It opens on the tab of the newest open stage, scrolled to the next unfinished stop. Stops climb bottom to top: practice nodes, then one review node per stage. A locked stage waits in fog with a button to its Lektion. The current stage's banner is the ground at the bottom. The first time a tab is finished, Pingu plants a flag; after that the banner says "Ôn lại để giữ đỉnh".
 - **Practice** (`/grammar/practice?topic=&node=&part=` or `&review=1`): the same session as a Lektion grammar node, with three hearts. The first miss on a card costs one; the card stays until the answer is right. Running out ends the part without saving it. A finished part goes back to the mountain, where a star is added to the tab and the next stop lights up. Every finished part and every review pays 20 XP, including a replay. Running out of hearts pays nothing.
 
-## Authoring: `src/data/grammar/world.json`
+## Authoring: `src/data/grammar/world/`
 
-Everything is written by hand. Nothing is collected or sorted across levels or Lektionen.
+One file per tab, named with the tab id: `dong-tu.json`, `mao-tu.json`. `order.json` lists those ids left to right. A new tab is that file, one id in `order.json`, and an import in `index.ts`. Everything is written by hand. Nothing is collected or sorted across levels or Lektionen.
 
 ```jsonc
+// dong-tu.json — one tab. Stages climb from the foot of the mountain up.
 {
-  "areas": [                                   // tabs, left to right
-    {
-      "id": "dong-tu", "titleVi": "Động từ", "titleDe": "Verben",
-      "icon": "bolt",                          // Material Symbols name
-      "topics": [                              // stages, from the foot of the mountain up
+  "id": "dong-tu", "titleVi": "Động từ", "titleDe": "Verben",
+  "icon": "bolt",                            // Material Symbols name
+  "topics": [
         {
           "id": "verbkonjugation",             // stable: progress is saved under it
           "titleVi": "Chia động từ", "titleDe": "Verbkonjugation",
           "opensWith": "a1-1/lektion-3",       // first practice node of this Lektion opens the stage
+          "drill": "verb",                     // or "word": blank each clip's focus, no verb-table warm-ups
           "tenses": ["praesens"],              // warm-ups and listening stay inside these
-          "verbs": ["machen", "kommen"],       // warm-up tables; must be in tenses.json
+          "verbs": ["machen", "kommen"],       // warm-up tables; a word stage still lists the verbs it uses
           "tips": [{ "id": "endungen", "tense": "praesens", "titleVi": "…", "textVi": "…" }],
           "clips": [
             {
@@ -33,14 +33,13 @@ Everything is written by hand. Nothing is collected or sorted across levels or L
               "filename": "vk-01-ich-komme-aus-vietnam.mp3",
               "script": "Ich komme aus Vietnam.", "translationVi": "Tôi đến từ Việt Nam.",
               "verb": "kommen", "tense": "praesens", "person": "ich",
+              // word drill only: "focus": "der", "choices": ["der", "die", "das"]
               "from": "Wir kommen aus Vietnam.",                         // optional → tense-transform
               "wrong": { "script": "Ich kommst aus Vietnam.", "whyVi": "…" }, // optional → error-check
               "tip": "…"                                                  // optional, after a mistake
             }
           ]
         }
-      ]
-    }
   ]
 }
 ```
@@ -66,7 +65,7 @@ flowchart TD
 
 `error-check` shows the wrong line for about half the clips and the right line for the rest, so "Sai" is never a sure answer. The listening slot keeps the key `tense-spot` before the MP3 exists, so adding audio later keeps every saved part.
 
-Each part opens with two warm-ups from the verb tables, then the clip cards of that slice:
+A verb stage opens each part with two warm-ups from the verb tables, then the clip cards of that slice. A word stage (`"drill": "word"`) skips those warm-ups: every card blanks the clip's `focus` (the article, question word, or preposition), and the listening card asks which word was heard. The part is still 10 cards in the first two nodes and 15 from the third on.
 
 ```mermaid
 flowchart LR
@@ -208,7 +207,7 @@ A finished part or review counts as a practice day (streak) and as exercises in 
 
 - `src/lib/grammar-world.ts`: cards, nodes, review, stage and area views, opening. Tests in `grammar-world.test.ts`.
 - `src/lib/grammar-world-progress.ts`: stored shape, merge, normalize.
-- `src/lib/grammar-world-content.ts`: loads world.json, resolves audio and each topic's gate on the server.
+- `src/lib/grammar-world-content.ts`: loads the tab files, resolves audio and each topic's gate on the server.
 - `src/components/grammar-world/`: `GrammarPortal` (button, new stage screen, star flight), `GrammarWorldClient` (mountain), `GrammarWorldSession` (practice), `WorldArt` (icons and drawings).
 - Lektion practice now scopes the verb tables to its own verbs (`scopeTables`), so new verbs in `tenses.json` never change a Lektion's cards or part keys.
 

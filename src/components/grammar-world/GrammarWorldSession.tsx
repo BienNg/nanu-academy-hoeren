@@ -34,6 +34,7 @@ export function GrammarWorldSession({
   node,
   part,
   review,
+  freePlay = false,
   returnHref = null,
 }: {
   topic: WorldTopic;
@@ -43,6 +44,8 @@ export function GrammarWorldSession({
   node: number;
   part: number;
   review: boolean;
+  /** Admins may play a node before its audio is recorded. */
+  freePlay?: boolean;
   /** Where the learner came from on their first part: the path, not the mountain. */
   returnHref?: string | null;
 }) {
@@ -72,10 +75,12 @@ export function GrammarWorldSession({
     if (review) {
       return { cards: worldReviewCards(tables, topic, stage.reviewRuns), key: null, partCount: 1, run: stage.reviewRuns };
     }
-    const found = worldNodes(tables, topic, stage.nodeEnds).find((entry) => entry.node === node && entry.ready);
+    const found = worldNodes(tables, topic, stage.nodeEnds).find(
+      (entry) => entry.node === node && (entry.ready || freePlay),
+    );
     const target = found?.parts.find((entry) => entry.part === part);
     return target ? { cards: target.cards, key: target.key, partCount: found!.parts.length, run: 0 } : null;
-  }, [gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
+  }, [freePlay, gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
   if (!deal && ready) setDeal(ready);
   const missing = progressReady && !ready && !deal;
 

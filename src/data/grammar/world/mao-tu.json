@@ -1,0 +1,876 @@
+{
+  "id": "mao-tu",
+  "titleVi": "Mạo từ",
+  "titleDe": "Artikel",
+  "icon": "category",
+  "topics": [
+    {
+      "id": "artikel",
+      "titleVi": "Der, die, das",
+      "titleDe": "Artikel",
+      "opensWith": "a1-1/lektion-4",
+      "drill": "word",
+      "tenses": [
+        "praesens"
+      ],
+      "verbs": [
+        "sein",
+        "haben",
+        "wohnen",
+        "kommen",
+        "gehen",
+        "machen",
+        "fragen",
+        "hören"
+      ],
+      "tips": [
+        {
+          "id": "genus",
+          "tense": "praesens",
+          "titleVi": "Mạo từ",
+          "textVi": "der = giống đực, die = giống cái và số nhiều, das = giống trung. ein đi với der và das, eine đi với die."
+        }
+      ],
+      "clips": [
+        {
+          "id": "ar-01",
+          "filename": "ar-01-der-mann-wohnt-in-berlin.mp3",
+          "script": "Der Mann wohnt in Berlin.",
+          "translationVi": "Người đàn ông sống ở Berlin.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Mann wohnt in Berlin.",
+            "whyVi": "Mann là giống đực: der Mann."
+          }
+        },
+        {
+          "id": "ar-02",
+          "filename": "ar-02-die-frau-kommt-aus-hanoi.mp3",
+          "script": "Die Frau kommt aus Hanoi.",
+          "translationVi": "Người phụ nữ đến từ Hà Nội.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Der Mann kommt aus Hanoi."
+        },
+        {
+          "id": "ar-03",
+          "filename": "ar-03-das-kind-hoert-musik.mp3",
+          "script": "Das Kind hört Musik.",
+          "translationVi": "Đứa trẻ nghe nhạc.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Kind hört Musik.",
+            "whyVi": "Kind là giống trung: das Kind."
+          }
+        },
+        {
+          "id": "ar-04",
+          "filename": "ar-04-ein-vater-fragt-anna.mp3",
+          "script": "Ein Vater fragt Anna.",
+          "translationVi": "Một người cha hỏi Anna.",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Eine Vater fragt Anna.",
+            "whyVi": "Vater là giống đực: ein Vater."
+          }
+        },
+        {
+          "id": "ar-05",
+          "filename": "ar-05-eine-mutter-wohnt-in-hanoi.mp3",
+          "script": "Eine Mutter wohnt in Hanoi.",
+          "translationVi": "Một người mẹ sống ở Hà Nội.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ein Vater wohnt in Hanoi."
+        },
+        {
+          "id": "ar-06",
+          "filename": "ar-06-ich-habe-eine-frage.mp3",
+          "script": "Ich habe eine Frage.",
+          "translationVi": "Tôi có một câu hỏi.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Ich habe ein Frage.",
+            "whyVi": "Frage là giống cái: eine Frage."
+          }
+        },
+        {
+          "id": "ar-07",
+          "filename": "ar-07-das-ist-der-lehrer.mp3",
+          "script": "Das ist der Lehrer.",
+          "translationVi": "Đó là thầy giáo.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Das ist die Lehrer.",
+            "whyVi": "Lehrer là giống đực: der Lehrer."
+          }
+        },
+        {
+          "id": "ar-08",
+          "filename": "ar-08-das-ist-die-lehrerin.mp3",
+          "script": "Das ist die Lehrerin.",
+          "translationVi": "Đó là cô giáo.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Das ist der Lehrer."
+        },
+        {
+          "id": "ar-09",
+          "filename": "ar-09-das-ist-das-haus.mp3",
+          "script": "Das ist das Haus.",
+          "translationVi": "Đó là ngôi nhà.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "das",
+          "occurrence": 2,
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Das ist die Haus.",
+            "whyVi": "Haus là giống trung: das Haus."
+          }
+        },
+        {
+          "id": "ar-10",
+          "filename": "ar-10-der-sohn-kommt-aus-vietnam.mp3",
+          "script": "Der Sohn kommt aus Vietnam.",
+          "translationVi": "Con trai đến từ Việt Nam.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Die Tochter kommt aus Vietnam."
+        },
+        {
+          "id": "ar-11",
+          "filename": "ar-11-die-tochter-geht-in-die-schule.mp3",
+          "script": "Die Tochter geht in die Schule.",
+          "translationVi": "Con gái đi học.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "occurrence": 1,
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Der Tochter geht in die Schule.",
+            "whyVi": "Tochter là giống cái: die Tochter."
+          }
+        },
+        {
+          "id": "ar-12",
+          "filename": "ar-12-das-buch-ist-neu.mp3",
+          "script": "Das Buch ist neu.",
+          "translationVi": "Cuốn sách mới.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Die Idee ist neu."
+        },
+        {
+          "id": "ar-13",
+          "filename": "ar-13-wir-haben-ein-haus.mp3",
+          "script": "Wir haben ein Haus.",
+          "translationVi": "Chúng tôi có một ngôi nhà.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Wir haben eine Haus.",
+            "whyVi": "Haus là giống trung: ein Haus."
+          }
+        },
+        {
+          "id": "ar-14",
+          "filename": "ar-14-ihr-habt-eine-freundin.mp3",
+          "script": "Ihr habt eine Freundin.",
+          "translationVi": "Các bạn có một người bạn nữ.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ihr habt ein Kind."
+        },
+        {
+          "id": "ar-15",
+          "filename": "ar-15-der-bruder-hoert-radio.mp3",
+          "script": "Der Bruder hört Radio.",
+          "translationVi": "Anh trai nghe radio.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Bruder hört Radio.",
+            "whyVi": "Bruder là giống đực: der Bruder."
+          }
+        },
+        {
+          "id": "ar-16",
+          "filename": "ar-16-die-schwester-macht-hausaufgaben.mp3",
+          "script": "Die Schwester macht Hausaufgaben.",
+          "translationVi": "Chị gái làm bài tập về nhà.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Der Bruder macht Hausaufgaben."
+        },
+        {
+          "id": "ar-17",
+          "filename": "ar-17-ich-mache-eine-pause.mp3",
+          "script": "Ich mache eine Pause.",
+          "translationVi": "Tôi nghỉ một lát.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Ich mache ein Pause.",
+            "whyVi": "Pause là giống cái: eine Pause."
+          }
+        },
+        {
+          "id": "ar-18",
+          "filename": "ar-18-er-hat-ein-foto.mp3",
+          "script": "Er hat ein Foto.",
+          "translationVi": "Anh ấy có một bức ảnh.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Er hat eine Idee."
+        },
+        {
+          "id": "ar-19",
+          "filename": "ar-19-sie-hoeren-die-musik.mp3",
+          "script": "Sie hören die Musik.",
+          "translationVi": "Họ nghe nhạc.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "sie",
+          "focus": "die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Sie hören das Musik.",
+            "whyVi": "Musik là giống cái: die Musik."
+          }
+        },
+        {
+          "id": "ar-20",
+          "filename": "ar-20-der-arzt-wohnt-in-muenchen.mp3",
+          "script": "Der Arzt wohnt in München.",
+          "translationVi": "Bác sĩ sống ở München.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Die Lehrerin wohnt in München."
+        },
+        {
+          "id": "ar-21",
+          "filename": "ar-21-die-frau-geht-nach-hause.mp3",
+          "script": "Die Frau geht nach Hause.",
+          "translationVi": "Người phụ nữ đi về nhà.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Der Frau geht nach Hause.",
+            "whyVi": "Frau là giống cái: die Frau."
+          }
+        },
+        {
+          "id": "ar-22",
+          "filename": "ar-22-das-kind-kommt-aus-deutschland.mp3",
+          "script": "Das Kind kommt aus Deutschland.",
+          "translationVi": "Đứa trẻ đến từ Đức.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Der Sohn kommt aus Deutschland."
+        },
+        {
+          "id": "ar-23",
+          "filename": "ar-23-ein-mann-geht-ins-kino.mp3",
+          "script": "Ein Mann geht ins Kino.",
+          "translationVi": "Một người đàn ông đi xem phim.",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Eine Mann geht ins Kino.",
+            "whyVi": "Mann là giống đực: ein Mann."
+          }
+        },
+        {
+          "id": "ar-24",
+          "filename": "ar-24-eine-frau-fragt-die-lehrerin.mp3",
+          "script": "Eine Frau fragt die Lehrerin.",
+          "translationVi": "Một người phụ nữ hỏi cô giáo.",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ein Mann fragt die Lehrerin."
+        },
+        {
+          "id": "ar-25",
+          "filename": "ar-25-der-vater-macht-das-essen.mp3",
+          "script": "Der Vater macht das Essen.",
+          "translationVi": "Bố nấu ăn.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Vater macht das Essen.",
+            "whyVi": "Vater là giống đực: der Vater."
+          }
+        },
+        {
+          "id": "ar-26",
+          "filename": "ar-26-die-mutter-kommt-heute.mp3",
+          "script": "Die Mutter kommt heute.",
+          "translationVi": "Mẹ đến hôm nay.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Der Vater kommt heute."
+        },
+        {
+          "id": "ar-27",
+          "filename": "ar-27-das-foto-ist-schoen.mp3",
+          "script": "Das Foto ist schön.",
+          "translationVi": "Bức ảnh đẹp.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Foto ist schön.",
+            "whyVi": "Foto là giống trung: das Foto."
+          }
+        },
+        {
+          "id": "ar-28",
+          "filename": "ar-28-ich-habe-ein-kind.mp3",
+          "script": "Ich habe ein Kind.",
+          "translationVi": "Tôi có một đứa con.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ich habe eine Tochter."
+        },
+        {
+          "id": "ar-29",
+          "filename": "ar-29-du-hast-eine-idee.mp3",
+          "script": "Du hast eine Idee.",
+          "translationVi": "Bạn có một ý tưởng.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Du hast ein Idee.",
+            "whyVi": "Idee là giống cái: eine Idee."
+          }
+        },
+        {
+          "id": "ar-30",
+          "filename": "ar-30-der-lehrer-wohnt-hier.mp3",
+          "script": "Der Lehrer wohnt hier.",
+          "translationVi": "Thầy giáo sống ở đây.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Lehrer wohnt hier.",
+            "whyVi": "Lehrer là giống đực: der Lehrer."
+          }
+        },
+        {
+          "id": "ar-31",
+          "filename": "ar-31-die-idee-kommt-von-anna.mp3",
+          "script": "Die Idee kommt von Anna.",
+          "translationVi": "Ý tưởng đến từ Anna.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Das Idee kommt von Anna.",
+            "whyVi": "Idee là giống cái: die Idee."
+          }
+        },
+        {
+          "id": "ar-32",
+          "filename": "ar-32-ein-kind-hoert-ein-lied.mp3",
+          "script": "Ein Kind hört ein Lied.",
+          "translationVi": "Một đứa trẻ nghe một bài hát.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Ein",
+          "occurrence": 1,
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Eine Frau hört ein Lied."
+        },
+        {
+          "id": "ar-33",
+          "filename": "ar-33-der-opa-kommt-aus-hanoi.mp3",
+          "script": "Der Opa kommt aus Hanoi.",
+          "translationVi": "Ông đến từ Hà Nội.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Die Oma kommt aus Hanoi."
+        },
+        {
+          "id": "ar-34",
+          "filename": "ar-34-die-oma-wohnt-in-berlin.mp3",
+          "script": "Die Oma wohnt in Berlin.",
+          "translationVi": "Bà sống ở Berlin.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Der Oma wohnt in Berlin.",
+            "whyVi": "Oma là giống cái: die Oma."
+          }
+        },
+        {
+          "id": "ar-35",
+          "filename": "ar-35-das-geschenk-ist-da.mp3",
+          "script": "Das Geschenk ist da.",
+          "translationVi": "Món quà ở đây.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Geschenk ist da.",
+            "whyVi": "Geschenk là giống trung: das Geschenk."
+          }
+        },
+        {
+          "id": "ar-36",
+          "filename": "ar-36-sie-haben-eine-wohnung.mp3",
+          "script": "Sie haben eine Wohnung.",
+          "translationVi": "Họ có một căn hộ.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "sie",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Sie haben ein Haus."
+        },
+        {
+          "id": "ar-37",
+          "filename": "ar-37-der-park-ist-schoen.mp3",
+          "script": "Der Park ist schön.",
+          "translationVi": "Công viên đẹp.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Park ist schön.",
+            "whyVi": "Park là giống đực: der Park."
+          }
+        },
+        {
+          "id": "ar-38",
+          "filename": "ar-38-die-stadt-ist-gross.mp3",
+          "script": "Die Stadt ist groß.",
+          "translationVi": "Thành phố lớn.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Das Haus ist groß."
+        },
+        {
+          "id": "ar-39",
+          "filename": "ar-39-das-cafe-ist-offen.mp3",
+          "script": "Das Café ist offen.",
+          "translationVi": "Quán cà phê đang mở.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Café ist offen.",
+            "whyVi": "Café là giống trung: das Café."
+          }
+        },
+        {
+          "id": "ar-40",
+          "filename": "ar-40-ein-arzt-kommt-morgen.mp3",
+          "script": "Ein Arzt kommt morgen.",
+          "translationVi": "Một bác sĩ đến ngày mai.",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Eine Arzt kommt morgen.",
+            "whyVi": "Arzt là giống đực: ein Arzt."
+          }
+        },
+        {
+          "id": "ar-41",
+          "filename": "ar-41-eine-schwester-wohnt-in-hamburg.mp3",
+          "script": "Eine Schwester wohnt in Hamburg.",
+          "translationVi": "Một người chị sống ở Hamburg.",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ein Bruder wohnt in Hamburg."
+        },
+        {
+          "id": "ar-42",
+          "filename": "ar-42-der-tag-ist-lang.mp3",
+          "script": "Der Tag ist lang.",
+          "translationVi": "Ngày hôm nay dài.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Der",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Tag ist lang.",
+            "whyVi": "Tag là giống đực: der Tag."
+          }
+        },
+        {
+          "id": "ar-43",
+          "filename": "ar-43-die-party-ist-heute.mp3",
+          "script": "Die Party ist heute.",
+          "translationVi": "Bữa tiệc là hôm nay.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "from": "Das Wochenende ist heute."
+        },
+        {
+          "id": "ar-44",
+          "filename": "ar-44-das-wochenende-ist-schoen.mp3",
+          "script": "Das Wochenende ist schön.",
+          "translationVi": "Cuối tuần đẹp.",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Die Wochenende ist schön.",
+            "whyVi": "Wochenende là giống trung: das Wochenende."
+          }
+        },
+        {
+          "id": "ar-45",
+          "filename": "ar-45-wir-machen-ein-foto.mp3",
+          "script": "Wir machen ein Foto.",
+          "translationVi": "Chúng tôi chụp một bức ảnh.",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "ein",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "wrong": {
+            "script": "Wir machen eine Foto.",
+            "whyVi": "Foto là giống trung: ein Foto."
+          }
+        },
+        {
+          "id": "ar-46",
+          "filename": "ar-46-ihr-hoert-eine-lehrerin.mp3",
+          "script": "Ihr hört eine Lehrerin.",
+          "translationVi": "Các bạn nghe một cô giáo.",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "eine",
+          "choices": [
+            "ein",
+            "eine"
+          ],
+          "from": "Ihr hört ein Kind."
+        },
+        {
+          "id": "ar-47",
+          "filename": "ar-47-ich-frage-die-frau.mp3",
+          "script": "Ich frage die Frau.",
+          "translationVi": "Tôi hỏi người phụ nữ.",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "ich",
+          "focus": "die",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Ich frage das Frau.",
+            "whyVi": "Frau là giống cái: die Frau."
+          }
+        },
+        {
+          "id": "ar-48",
+          "filename": "ar-48-du-hast-das-buch.mp3",
+          "script": "Du hast das Buch.",
+          "translationVi": "Bạn có cuốn sách.",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "das",
+          "choices": [
+            "der",
+            "die",
+            "das"
+          ],
+          "wrong": {
+            "script": "Du hast die Buch.",
+            "whyVi": "Buch là giống trung: das Buch."
+          }
+        }
+      ]
+    }
+  ]
+}

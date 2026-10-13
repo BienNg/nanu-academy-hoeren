@@ -48,6 +48,7 @@ export default async function GrammarWorldPracticePage({ searchParams }: Grammar
       node={node}
       part={part}
       review={review}
+      freePlay={data.freePlay}
       returnHref={returnHref}
     />
   );

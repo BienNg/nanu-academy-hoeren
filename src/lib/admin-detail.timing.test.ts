@@ -11,17 +11,15 @@ import {
   type AdminCatalogCourse,
   type LessonStartSignal,
 } from "./admin-detail.js";
-import { resolveWorld, type StoredWorldArea } from "./grammar-world.js";
+import { readWorldAreas } from "./grammar-world-files.js";
+import { resolveWorld } from "./grammar-world.js";
 import type { TenseTables } from "./grammar-lessons.js";
 import { DEFAULT_PROGRESS, normalizeProgress, type LearnProgress, type StoredProgress, type Visit } from "./progress.js";
 
 const grammarTables = JSON.parse(
   readFileSync(join(process.cwd(), "src/data/grammar/tenses.json"), "utf8"),
 ) as TenseTables;
-const grammarAreas = resolveWorld(
-  (JSON.parse(readFileSync(join(process.cwd(), "src/data/grammar/world.json"), "utf8")) as { areas: StoredWorldArea[] })
-    .areas,
-);
+const grammarAreas = resolveWorld(readWorldAreas());
 const grammarCatalog = grammarAreas.map((area) => ({
   id: area.id,
   topicIds: area.topics.map((topic) => topic.id),

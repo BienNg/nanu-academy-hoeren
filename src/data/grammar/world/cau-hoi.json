@@ -1,0 +1,941 @@
+{
+  "id": "cau-hoi",
+  "titleVi": "Câu hỏi",
+  "titleDe": "Fragen",
+  "icon": "help",
+  "topics": [
+    {
+      "id": "w-fragen",
+      "titleVi": "Từ để hỏi",
+      "titleDe": "W-Fragen",
+      "opensWith": "a1-1/lektion-4",
+      "drill": "word",
+      "tenses": [
+        "praesens"
+      ],
+      "verbs": [
+        "sein",
+        "haben",
+        "wohnen",
+        "kommen",
+        "gehen",
+        "machen",
+        "fragen",
+        "hören"
+      ],
+      "tips": [
+        {
+          "id": "w-wort",
+          "tense": "praesens",
+          "titleVi": "Từ để hỏi",
+          "textVi": "Wer = ai · Was = cái gì · Wie = thế nào · Wann = khi nào · Warum = tại sao. Wo = ở đâu · Woher = từ đâu · Wohin = đi đâu."
+        }
+      ],
+      "clips": [
+        {
+          "id": "wf-01",
+          "filename": "wf-01-wo-wohnst-du.mp3",
+          "script": "Wo wohnst du?",
+          "translationVi": "Bạn sống ở đâu?",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Wohin wohnst du?",
+            "whyVi": "Hỏi chỗ ở dùng Wo. Wohin là đi đâu."
+          }
+        },
+        {
+          "id": "wf-02",
+          "filename": "wf-02-woher-kommst-du.mp3",
+          "script": "Woher kommst du?",
+          "translationVi": "Bạn đến từ đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Wo wohnst du?"
+        },
+        {
+          "id": "wf-03",
+          "filename": "wf-03-wohin-gehst-du.mp3",
+          "script": "Wohin gehst du?",
+          "translationVi": "Bạn đi đâu?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Woher gehst du?",
+            "whyVi": "Hỏi hướng đi dùng Wohin. Woher là từ đâu."
+          }
+        },
+        {
+          "id": "wf-04",
+          "filename": "wf-04-wer-ist-das.mp3",
+          "script": "Wer ist das?",
+          "translationVi": "Đó là ai?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer sind das?",
+            "whyVi": "Với das, động từ là ist: Wer ist das?"
+          }
+        },
+        {
+          "id": "wf-05",
+          "filename": "wf-05-was-machst-du.mp3",
+          "script": "Was machst du?",
+          "translationVi": "Bạn đang làm gì?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wer kommt heute?"
+        },
+        {
+          "id": "wf-06",
+          "filename": "wf-06-wie-geht-es-dir.mp3",
+          "script": "Wie geht es dir?",
+          "translationVi": "Bạn khỏe không?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was geht es dir?",
+            "whyVi": "Hỏi sức khỏe dùng Wie: Wie geht es dir?"
+          }
+        },
+        {
+          "id": "wf-07",
+          "filename": "wf-07-wann-kommt-er.mp3",
+          "script": "Wann kommt er?",
+          "translationVi": "Khi nào anh ấy đến?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wo kommt er?"
+        },
+        {
+          "id": "wf-08",
+          "filename": "wf-08-warum-kommst-du-spaet.mp3",
+          "script": "Warum kommst du spät?",
+          "translationVi": "Tại sao bạn đến muộn?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was kommst du spät?",
+            "whyVi": "Hỏi lý do dùng Warum. Was không đứng được ở câu này."
+          }
+        },
+        {
+          "id": "wf-09",
+          "filename": "wf-09-wo-wohnt-ihr.mp3",
+          "script": "Wo wohnt ihr?",
+          "translationVi": "Các bạn sống ở đâu?",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Woher kommt ihr?"
+        },
+        {
+          "id": "wf-10",
+          "filename": "wf-10-was-hoert-ihr.mp3",
+          "script": "Was hört ihr?",
+          "translationVi": "Các bạn nghe gì?",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer hört ihr?",
+            "whyVi": "Hỏi vật dùng Was. Wer hỏi người."
+          }
+        },
+        {
+          "id": "wf-11",
+          "filename": "wf-11-wer-fragt-anna.mp3",
+          "script": "Wer fragt Anna?",
+          "translationVi": "Ai hỏi Anna?",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Was fragst du?"
+        },
+        {
+          "id": "wf-12",
+          "filename": "wf-12-wohin-geht-ihr.mp3",
+          "script": "Wohin geht ihr?",
+          "translationVi": "Các bạn đi đâu?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Woher geht ihr?",
+            "whyVi": "Hỏi hướng đi dùng Wohin. Woher là từ đâu."
+          }
+        },
+        {
+          "id": "wf-13",
+          "filename": "wf-13-woher-kommt-sie.mp3",
+          "script": "Woher kommt sie?",
+          "translationVi": "Cô ấy đến từ đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Was kommt sie?",
+            "whyVi": "Hỏi nguồn gốc dùng Woher."
+          }
+        },
+        {
+          "id": "wf-14",
+          "filename": "wf-14-wie-macht-ihr-das.mp3",
+          "script": "Wie macht ihr das?",
+          "translationVi": "Các bạn làm việc đó thế nào?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Was macht ihr?"
+        },
+        {
+          "id": "wf-15",
+          "filename": "wf-15-wann-macht-ihr-eine-pause.mp3",
+          "script": "Wann macht ihr eine Pause?",
+          "translationVi": "Khi nào các bạn nghỉ?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was macht ihr eine Pause?",
+            "whyVi": "Hỏi thời điểm dùng Wann."
+          }
+        },
+        {
+          "id": "wf-16",
+          "filename": "wf-16-warum-wohnst-du-in-berlin.mp3",
+          "script": "Warum wohnst du in Berlin?",
+          "translationVi": "Tại sao bạn sống ở Berlin?",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wo wohnst du?"
+        },
+        {
+          "id": "wf-17",
+          "filename": "wf-17-wo-ist-das-buch.mp3",
+          "script": "Wo ist das Buch?",
+          "translationVi": "Cuốn sách ở đâu?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Woher kommt das Buch?"
+        },
+        {
+          "id": "wf-18",
+          "filename": "wf-18-was-ist-das.mp3",
+          "script": "Was ist das?",
+          "translationVi": "Đó là cái gì?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was sind das?",
+            "whyVi": "Với das, động từ là ist: Was ist das?"
+          }
+        },
+        {
+          "id": "wf-19",
+          "filename": "wf-19-wer-kommt-heute.mp3",
+          "script": "Wer kommt heute?",
+          "translationVi": "Ai đến hôm nay?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer kommen heute?",
+            "whyVi": "Với wer, động từ có đuôi -t: Wer kommt?"
+          }
+        },
+        {
+          "id": "wf-20",
+          "filename": "wf-20-wohin-kommt-ihr.mp3",
+          "script": "Wohin kommt ihr?",
+          "translationVi": "Các bạn đến đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Wo wohnt ihr?"
+        },
+        {
+          "id": "wf-21",
+          "filename": "wf-21-woher-kommt-die-idee.mp3",
+          "script": "Woher kommt die Idee?",
+          "translationVi": "Ý tưởng từ đâu ra?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Was kommt die Idee?",
+            "whyVi": "Hỏi nguồn gốc dùng Woher."
+          }
+        },
+        {
+          "id": "wf-22",
+          "filename": "wf-22-wann-hoeren-wir-musik.mp3",
+          "script": "Wann hören wir Musik?",
+          "translationVi": "Khi nào chúng ta nghe nhạc?",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Was hören wir?"
+        },
+        {
+          "id": "wf-23",
+          "filename": "wf-23-warum-fragst-du-anna.mp3",
+          "script": "Warum fragst du Anna?",
+          "translationVi": "Tại sao bạn hỏi Anna?",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer fragst du Anna?",
+            "whyVi": "Hỏi lý do dùng Warum."
+          }
+        },
+        {
+          "id": "wf-24",
+          "filename": "wf-24-wie-kommt-ihr.mp3",
+          "script": "Wie kommt ihr?",
+          "translationVi": "Các bạn đến bằng cách nào?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wann kommt ihr?"
+        },
+        {
+          "id": "wf-25",
+          "filename": "wf-25-wo-macht-ihr-hausaufgaben.mp3",
+          "script": "Wo macht ihr Hausaufgaben?",
+          "translationVi": "Các bạn làm bài tập ở đâu?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Wohin macht ihr Hausaufgaben?",
+            "whyVi": "Hỏi chỗ làm dùng Wo."
+          }
+        },
+        {
+          "id": "wf-26",
+          "filename": "wf-26-was-fragst-du.mp3",
+          "script": "Was fragst du?",
+          "translationVi": "Bạn hỏi gì?",
+          "verb": "fragen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wer fragt Anna?"
+        },
+        {
+          "id": "wf-27",
+          "filename": "wf-27-wer-wohnt-in-berlin.mp3",
+          "script": "Wer wohnt in Berlin?",
+          "translationVi": "Ai sống ở Berlin?",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wo wohnt er?"
+        },
+        {
+          "id": "wf-28",
+          "filename": "wf-28-wohin-gehen-wir.mp3",
+          "script": "Wohin gehen wir?",
+          "translationVi": "Chúng ta đi đâu?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "wir",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Woher gehen wir?",
+            "whyVi": "Hỏi hướng đi dùng Wohin. Woher là từ đâu."
+          }
+        },
+        {
+          "id": "wf-29",
+          "filename": "wf-29-woher-kommt-er.mp3",
+          "script": "Woher kommt er?",
+          "translationVi": "Anh ấy đến từ đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Wo wohnt er?"
+        },
+        {
+          "id": "wf-30",
+          "filename": "wf-30-wann-gehst-du-nach-hause.mp3",
+          "script": "Wann gehst du nach Hause?",
+          "translationVi": "Khi nào bạn đi về nhà?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was gehst du nach Hause?",
+            "whyVi": "Hỏi thời điểm dùng Wann."
+          }
+        },
+        {
+          "id": "wf-31",
+          "filename": "wf-31-warum-hoerst-du-musik.mp3",
+          "script": "Warum hörst du Musik?",
+          "translationVi": "Tại sao bạn nghe nhạc?",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Was hörst du?"
+        },
+        {
+          "id": "wf-32",
+          "filename": "wf-32-wie-ist-der-tag.mp3",
+          "script": "Wie ist der Tag?",
+          "translationVi": "Ngày hôm nay thế nào?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer ist der Tag?",
+            "whyVi": "Hỏi thế nào dùng Wie."
+          }
+        },
+        {
+          "id": "wf-33",
+          "filename": "wf-33-wo-ist-die-frau.mp3",
+          "script": "Wo ist die Frau?",
+          "translationVi": "Người phụ nữ ở đâu?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Wer ist die Frau?"
+        },
+        {
+          "id": "wf-34",
+          "filename": "wf-34-was-macht-das-kind.mp3",
+          "script": "Was macht das Kind?",
+          "translationVi": "Đứa trẻ đang làm gì?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was machen das Kind?",
+            "whyVi": "Với das Kind, động từ có đuôi -t: Was macht das Kind?"
+          }
+        },
+        {
+          "id": "wf-35",
+          "filename": "wf-35-wer-hat-eine-frage.mp3",
+          "script": "Wer hat eine Frage?",
+          "translationVi": "Ai có một câu hỏi?",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Was hast du?"
+        },
+        {
+          "id": "wf-36",
+          "filename": "wf-36-wohin-geht-die-frau.mp3",
+          "script": "Wohin geht die Frau?",
+          "translationVi": "Người phụ nữ đi đâu?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Woher geht die Frau?",
+            "whyVi": "Hỏi hướng đi dùng Wohin."
+          }
+        },
+        {
+          "id": "wf-37",
+          "filename": "wf-37-woher-kommt-ihr.mp3",
+          "script": "Woher kommt ihr?",
+          "translationVi": "Các bạn đến từ đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Was kommt ihr?",
+            "whyVi": "Hỏi nguồn gốc dùng Woher."
+          }
+        },
+        {
+          "id": "wf-38",
+          "filename": "wf-38-wann-kommt-der-vater.mp3",
+          "script": "Wann kommt der Vater?",
+          "translationVi": "Khi nào bố đến?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wer kommt heute?"
+        },
+        {
+          "id": "wf-39",
+          "filename": "wf-39-warum-geht-ihr.mp3",
+          "script": "Warum geht ihr?",
+          "translationVi": "Tại sao các bạn đi?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "ihr",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wohin geht ihr?"
+        },
+        {
+          "id": "wf-40",
+          "filename": "wf-40-wie-hoerst-du-das.mp3",
+          "script": "Wie hörst du das?",
+          "translationVi": "Bạn nghe thấy điều đó thế nào?",
+          "verb": "hören",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was hörst du das?",
+            "whyVi": "Hỏi cách thức dùng Wie."
+          }
+        },
+        {
+          "id": "wf-41",
+          "filename": "wf-41-wo-wohnen-sie.mp3",
+          "script": "Wo wohnen Sie?",
+          "translationVi": "Anh/Chị sống ở đâu?",
+          "verb": "wohnen",
+          "tense": "praesens",
+          "person": "sie",
+          "focus": "Wo",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Woher kommen Sie?"
+        },
+        {
+          "id": "wf-42",
+          "filename": "wf-42-was-hast-du.mp3",
+          "script": "Was hast du?",
+          "translationVi": "Bạn có gì?",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Was",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wer hast du?",
+            "whyVi": "Hỏi vật dùng Was."
+          }
+        },
+        {
+          "id": "wf-43",
+          "filename": "wf-43-wer-macht-das-essen.mp3",
+          "script": "Wer macht das Essen?",
+          "translationVi": "Ai nấu ăn?",
+          "verb": "machen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wer",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Wann macht das Essen?",
+            "whyVi": "Hỏi người dùng Wer."
+          }
+        },
+        {
+          "id": "wf-44",
+          "filename": "wf-44-wohin-kommt-anna.mp3",
+          "script": "Wohin kommt Anna?",
+          "translationVi": "Anna đến đâu?",
+          "verb": "kommen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wohin",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "from": "Woher kommt Anna?"
+        },
+        {
+          "id": "wf-45",
+          "filename": "wf-45-woher-hast-du-das-buch.mp3",
+          "script": "Woher hast du das Buch?",
+          "translationVi": "Bạn có cuốn sách từ đâu?",
+          "verb": "haben",
+          "tense": "praesens",
+          "person": "du",
+          "focus": "Woher",
+          "choices": [
+            "wo",
+            "woher",
+            "wohin"
+          ],
+          "wrong": {
+            "script": "Wohin hast du das Buch?",
+            "whyVi": "Hỏi nguồn gốc dùng Woher."
+          }
+        },
+        {
+          "id": "wf-46",
+          "filename": "wf-46-wann-ist-die-party.mp3",
+          "script": "Wann ist die Party?",
+          "translationVi": "Bữa tiệc khi nào?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wann",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wo ist die Party?"
+        },
+        {
+          "id": "wf-47",
+          "filename": "wf-47-warum-ist-er-hier.mp3",
+          "script": "Warum ist er hier?",
+          "translationVi": "Tại sao anh ấy ở đây?",
+          "verb": "sein",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Warum",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "wrong": {
+            "script": "Was ist er hier?",
+            "whyVi": "Hỏi lý do dùng Warum."
+          }
+        },
+        {
+          "id": "wf-48",
+          "filename": "wf-48-wie-geht-es-anna.mp3",
+          "script": "Wie geht es Anna?",
+          "translationVi": "Anna khỏe không?",
+          "verb": "gehen",
+          "tense": "praesens",
+          "person": "er",
+          "focus": "Wie",
+          "choices": [
+            "wer",
+            "was",
+            "wie",
+            "wann",
+            "warum"
+          ],
+          "from": "Wo ist Anna?"
+        }
+      ]
+    }
+  ]
+}

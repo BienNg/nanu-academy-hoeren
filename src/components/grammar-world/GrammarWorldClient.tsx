@@ -64,8 +64,8 @@ function reviewHref(topicId: string): string {
   return `/grammar/practice?topic=${encodeURIComponent(topicId)}&review=1`;
 }
 
-/** Stops of the open stages, from the foot up. */
-function buildStops(view: WorldAreaView): Stop[] {
+/** Stops of the open stages, from the foot up. Admins skip the climb and open every ready stop. */
+function buildStops(view: WorldAreaView, freePlay: boolean): Stop[] {
   const stops: Stop[] = [];
   view.stages.forEach((stage, stageIndex) => {
     if (!stage.open) return;
@@ -73,7 +73,7 @@ function buildStops(view: WorldAreaView): Stop[] {
     stage.nodes.forEach((node, nodeIndex) => {
       const previousDone = nodeIndex === 0 || stage.nodes[nodeIndex - 1]!.done;
       const soon = !node.ready;
-      const locked = soon || (!node.done && !previousDone);
+      const locked = !freePlay && (soon || (!node.done && !previousDone));
       const nextPart = node.partDone.findIndex((done) => !done) + 1;
       const playPart = node.done || nextPart === 0 ? 1 : nextPart;
       stops.push({
@@ -169,7 +169,7 @@ function StopRing({ parts, done }: { parts: number; done: number }) {
           cy={RING_BOX / 2}
           r={RING_RADIUS}
           fill="none"
-          stroke={index < filled ? "var(--path-node)" : "#a78bfa"}
+          stroke={index < filled ? "#FFC83D" : "#ddd6fe"}
           strokeWidth={RING_STROKE}
           strokeLinecap="round"
           strokeDasharray={`${segment} ${circumference - segment}`}
@@ -630,7 +630,7 @@ export function GrammarWorldClient({
   const introTopic = intro ? (data.areas.flatMap((area) => area.topics).find((topic) => topic.id === intro) ?? null) : null;
   const introArea = introTopic ? data.areas.find((area) => area.topics.some((topic) => topic.id === introTopic.id))?.id : null;
   const [picked, setPicked] = useState<string | null>(initialTab ?? introArea ?? null);
-  const [introOpen, setIntroOpen] = useState(introTopic != null);
+  const [introDismissed, setIntroDismissed] = useState(false);
   const [openStop, setOpenStop] = useState<string | null>(null);
   const [litTopic, setLitTopic] = useState<string | null>(lit);
   const scrolledFor = useRef<string | null>(null);
@@ -639,7 +639,7 @@ export function GrammarWorldClient({
   const areaId =
     picked && world.views.some((view) => view.area.id === picked) ? picked : (landing ?? world.views[0]?.area.id ?? null);
   const view = world.views.find((entry) => entry.area.id === areaId) ?? null;
-  const stops = useMemo(() => (view ? buildStops(view) : []), [view]);
+  const stops = useMemo(() => (view ? buildStops(view, data.freePlay) : []), [data.freePlay, view]);
   const currentId = currentStopId(stops);
   const summitDue = Boolean(view?.done && !progress.grammarWorld?.summits?.[view.area.id]);
   const flagPlanted = Boolean(view && progress.grammarWorld?.summits?.[view.area.id]);
@@ -664,6 +664,13 @@ export function GrammarWorldClient({
   }, [areaId, currentId, view?.done, world.progressReady]);
 
   const dismiss = useCallback(() => setOpenStop(null), []);
+  const firstOpenId = world.views.flatMap((entry) => entry.stages).find((stage) => stage.open)?.topic.id ?? null;
+  const introOpen =
+    !introDismissed &&
+    world.progressReady &&
+    world.stars === 0 &&
+    introTopic != null &&
+    introTopic.id === firstOpenId;
   const introStage = introTopic
     ? world.views.flatMap((entry) => entry.stages).find((stage) => stage.topic.id === introTopic.id)
     : undefined;
@@ -728,7 +735,7 @@ export function GrammarWorldClient({
             aria-label="Chủ đề ngữ pháp"
             className="overflow-x-auto [scrollbar-width:none] lg:order-3 lg:min-w-0 lg:flex-1 [&::-webkit-scrollbar]:hidden"
           >
-            <ul className="flex w-max min-w-full gap-2 px-3 pb-2.5 sm:justify-center sm:px-6 lg:px-1 lg:pb-0">
+            <ul className="flex w-max min-w-full gap-2 px-3 pt-1 pb-1.5 sm:justify-center sm:px-6 lg:px-1">
             {world.views.map((entry) => {
               const selected = entry.area.id === areaId;
               return (
@@ -889,7 +896,7 @@ export function GrammarWorldClient({
             topic={introTopic}
             reduceMotion={reduceMotion}
             playHref={introPlayHref}
-            onSkip={() => setIntroOpen(false)}
+            onSkip={() => setIntroDismissed(true)}
           />
         ) : null}
       </AnimatePresence>

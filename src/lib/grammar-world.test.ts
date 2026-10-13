@@ -5,12 +5,14 @@ import test from "node:test";
 import { grammarTopicContent, type StoredGrammarTopic, type TenseTables } from "./grammar-lessons.js";
 import { grammarNodeLayout } from "./grammar-node.js";
 import { DEFAULT_PROGRESS, type LearnProgress } from "./progress.js";
+import { readWorldAreas } from "./grammar-world-files.js";
 import {
   firstPracticeNodeDone,
   landingArea,
   mergeWorldProgress,
   normalizeWorldProgress,
   resolveWorld,
+  firstOpenStage,
   unpractisedStages,
   withWorldPartDone,
   withWorldReviewDone,
@@ -22,7 +24,6 @@ import {
   worldStageView,
   worldStageOpen,
   WORLD_REVIEW_CARDS,
-  type StoredWorldArea,
   type StoredWorldClip,
   type WorldGate,
   type WorldTopic,
@@ -30,8 +31,7 @@ import {
 
 const root = process.cwd();
 const tables = JSON.parse(readFileSync(join(root, "src/data/grammar/tenses.json"), "utf8")) as TenseTables;
-const world = JSON.parse(readFileSync(join(root, "src/data/grammar/world.json"), "utf8")) as { areas: StoredWorldArea[] };
-const areas = resolveWorld(world.areas);
+const areas = resolveWorld(readWorldAreas());
 const konjugation = areas[0]!.topics[0]!;
 
 function withClips(topic: WorldTopic, extra: StoredWorldClip[]): WorldTopic {
@@ -240,6 +240,22 @@ test("a practice part and a review report the cards that pay XP", () => {
   assert.equal(worldPracticeCardCount(tables, konjugation, played, { review: true, node: 0, part: 0, run: 5 }), null);
 });
 
+test("free play opens the review before any node is done, and that review still pays XP", () => {
+  const view = worldStageView(tables, konjugation, undefined, { freePlay: true });
+  assert.equal(view.review.unlocked, true);
+  assert.equal(view.done, false);
+  assert.equal(
+    worldPracticeCardCount(tables, konjugation, undefined, { review: true, node: 0, part: 0, run: 0 }, { freePlay: true }),
+    WORLD_REVIEW_CARDS,
+  );
+  assert.equal(worldPracticeCardCount(tables, konjugation, undefined, { review: true, node: 0, part: 0, run: 0 }), null);
+  const silent = { ...konjugation, clips: konjugation.clips.map((clip) => ({ ...clip, audioPath: null })) };
+  assert.ok(
+    worldPracticeCardCount(tables, silent, undefined, { review: false, node: 1, part: 1, run: 0 }, { freePlay: true }),
+  );
+  assert.equal(worldPracticeCardCount(tables, silent, undefined, { review: false, node: 1, part: 1, run: 0 }), null);
+});
+
 test("stage view: review unlocks after every node, done after the review", () => {
   let stage = undefined as ReturnType<typeof withWorldPartDone> | undefined;
   for (const node of worldNodes(tables, konjugation)) {
@@ -287,11 +303,52 @@ test("a stage opens when the Lektion's first practice node is finished", () => {
   assert.equal(worldStageOpen({ ...gate, unlocked: true }, DEFAULT_PROGRESS), true);
 });
 
+test("a word drill blanks the focus word and skips the verb warm-ups", () => {
+  const topic: WorldTopic = {
+    id: "artikel-probe",
+    titleVi: "Mạo từ",
+    titleDe: "Artikel",
+    opensWith: "a1-1/lektion-4",
+    drill: "word",
+    tenses: ["praesens"],
+    verbs: ["sein"],
+    tips: [],
+    clips: [
+      {
+        id: "ar-01",
+        audioPath: null,
+        script: "Das ist der Mann.",
+        translationVi: "Đó là người đàn ông.",
+        verb: "sein",
+        tense: "praesens",
+        person: "er",
+        focus: "der",
+        choices: ["der", "die", "das"],
+      },
+    ],
+  };
+  const [card] = worldCardStream(tables, topic);
+  assert.equal(card?.kind, "form-choice");
+  if (card?.kind === "form-choice") {
+    assert.equal(card.question.prompt, "Das ist ____ Mann.");
+    assert.equal(card.question.options.find((option) => option.correct)?.text, "der");
+  }
+  const nodes = worldNodes(tables, topic);
+  assert.equal(nodes[0]?.parts[0]?.cards[0]?.kind, "form-choice");
+});
+
 test("areas: badge for open unpractised stages, landing on the newest open stage", () => {
   const views = worldAreaViews(tables, areas, undefined, () => true);
-  assert.deepEqual(unpractisedStages(views).map((topic) => topic.id), ["verbkonjugation"]);
-  assert.equal(landingArea(views), "dong-tu");
+  assert.deepEqual(unpractisedStages(views).map((topic) => topic.id), [
+    "verbkonjugation",
+    "artikel",
+    "w-fragen",
+    "temporale-praepositionen",
+  ]);
+  assert.equal(landingArea(views), "gioi-tu");
+  assert.equal(firstOpenStage(views)?.id, "verbkonjugation");
   const closed = worldAreaViews(tables, areas, undefined, () => false);
+  assert.equal(firstOpenStage(closed), null);
   assert.equal(closed[0]!.open, false);
   assert.equal(closed[1]!.open, false);
 });

@@ -3,9 +3,11 @@
  * one stage per authored topic, climbed bottom to top.
  *
  * Every topic, its area and its place are written by hand in
- * src/data/grammar/world.json. A topic's clips become one card stream; the
- * stream is cut into nodes of 4 parts on clip boundaries, and each part opens with two warm-ups
- * from the verb tables. Every clip deals its cards from its own seed, so
+ * src/data/grammar/world/, one file per tab. A topic's clips become one card stream; the
+ * stream is cut into nodes of 4 parts on clip boundaries. A verb stage opens each
+ * part with two warm-ups from the verb tables. A word stage (`drill: "word"`)
+ * blanks each clip's `focus` instead, and has no verb-table warm-ups. Every
+ * clip deals its cards from its own seed, so
  * adding clips only adds cards at the end of the stream: finished parts keep
  * their keys, and finished nodes keep their place.
  *
@@ -13,6 +15,7 @@
  */
 
 import { seedToRandom } from "./blitzrunde";
+import { blankScript, findWordIndex } from "./grammar-gaps";
 import {
   scopeTables,
   verbForm,
@@ -34,8 +37,10 @@ import {
   tenseForms,
   transformCard,
   type GrammarCard,
+  type GrammarChoiceQuestion,
   type GrammarPairingItem,
 } from "./grammar-node";
+import { chipText, tokenizeSentence } from "./sentence-order";
 import { EMPTY_STAGE, type WorldProgress, type WorldStageProgress } from "./grammar-world-progress";
 import { type LearnProgress, type StoredProgress } from "./progress";
 
@@ -64,6 +69,15 @@ export type StoredWorldClip = {
   wrong?: { script: string; whyVi: string };
   /** Shown after a mistake on this clip's cards. */
   tip?: string;
+  /**
+   * Word the cards blank: an article, a question word, a preposition.
+   * Absent on a verb stage, which blanks the verb form.
+   */
+  focus?: string;
+  /** Which occurrence of `focus` to blank, from 1. Default 1. */
+  occurrence?: number;
+  /** Competing forms, including `focus`. The card shows up to three wrong ones. */
+  choices?: string[];
 };
 
 export type StoredWorldTopic = {
@@ -74,7 +88,12 @@ export type StoredWorldTopic = {
   opensWith: string;
   /** Tenses the stage practises. Warm-ups and listening options stay inside them. */
   tenses: GrammarTense[];
-  /** Verbs of the warm-up tables. */
+  /**
+   * "word": cards blank `focus` and parts have no verb-table warm-ups.
+   * Absent: a verb stage, as Verbkonjugation.
+   */
+  drill?: "verb" | "word";
+  /** Verbs of the warm-up tables. A word stage still names the verbs its sentences use. */
   verbs: string[];
   tips: GrammarTip[];
   clips: StoredWorldClip[];
@@ -149,6 +168,48 @@ function clipRule(topic: WorldTopic, clip: WorldClip): string | undefined {
   return clip.tip ?? ruleFor(topic.tips, clip.verb, clip.tense);
 }
 
+/** `form` cased like the word written in the sentence. */
+function matchCase(form: string, like: string): string {
+  const lower = form.toLocaleLowerCase("de-DE");
+  if (!lower) return lower;
+  return /^\p{Lu}/u.test(like) ? lower[0]!.toLocaleUpperCase("de-DE") + lower.slice(1) : lower;
+}
+
+/**
+ * The sentence with `focus` blanked. Options are the clip's `choices`.
+ * A verb stage leaves this unused and blanks the verb form instead.
+ */
+function wordQuestion(clip: WorldClip, random: () => number, rule?: string): GrammarChoiceQuestion | null {
+  if (!clip.focus || !clip.choices?.length) return null;
+  const words = tokenizeSentence(clip.script).map(chipText);
+  const index = findWordIndex(words, clip.focus, clip.occurrence ?? 1);
+  if (index < 0) return null;
+  const written = words[index]!;
+  const focus = clip.focus.toLocaleLowerCase("de-DE");
+  const wrong = shuffle(
+    clip.choices.filter((choice) => choice.toLocaleLowerCase("de-DE") !== focus),
+    random,
+  ).slice(0, 3);
+  if (wrong.length === 0) return null;
+  return {
+    prompt: blankScript(clip.script, index),
+    hintVi: clip.translationVi,
+    options: shuffle(
+      [
+        { id: "correct", text: matchCase(clip.focus, written), correct: true },
+        ...wrong.map((text, index) => ({
+          id: `d${index}`,
+          text: matchCase(text, written),
+          correct: false,
+          ...(rule ? { explanation: rule } : {}),
+        })),
+      ],
+      random,
+    ),
+    ...(rule ? { ruleVi: rule } : {}),
+  };
+}
+
 /** Tense labels, for listening cards of a stage with several tenses. */
 const TENSE_LABEL: Record<GrammarTense, string> = {
   praesens: "Präsens",
@@ -173,7 +234,8 @@ export function worldClipCards(
   const key = (kind: string) => `${topic.id}:${clip.id}:${kind}`;
   const cards: GrammarCard[] = [];
 
-  const question = exampleQuestion(scoped, asExample(clip), random, rule);
+  const focused = Boolean(clip.focus);
+  const question = focused ? wordQuestion(clip, random, rule) : exampleQuestion(scoped, asExample(clip), random, rule);
   if (question) {
     cards.push({
       kind: "form-choice",
@@ -189,8 +251,9 @@ export function worldClipCards(
   // The listening slot is always dealt, so adding an MP3 later keeps every
   // card key, and with it every saved part. Until the audio exists it is a
   // second form-choice on the same sentence.
-  const listening =
-    topic.tenses.length > 1
+  const listening = focused
+    ? (wordQuestion(clip, random, rule)?.options ?? null)
+    : topic.tenses.length > 1
       ? shuffle(
           topic.tenses.map((tense) => ({ id: tense, text: TENSE_LABEL[tense], correct: tense === clip.tense })),
           random,
@@ -198,6 +261,7 @@ export function worldClipCards(
       : (exampleQuestion(scoped, asExample(clip), random)?.options ?? null);
   if (clip.audioPath && listening) {
     // One tense: hear the sentence and pick the verb form. Several: pick the tense.
+    // A word stage always asks for the blanked word.
     cards.push({
       kind: "tense-spot",
       key: key("tense-spot"),
@@ -207,7 +271,11 @@ export function worldClipCards(
       translationVi: clip.translationVi,
       audioPath: clip.audioPath,
       options: listening,
-      ...(topic.tenses.length > 1 ? {} : { promptVi: "Bạn nghe thấy động từ nào?" }),
+      ...(focused
+        ? { promptVi: "Bạn nghe thấy từ nào?" }
+        : topic.tenses.length > 1
+          ? {}
+          : { promptVi: "Bạn nghe thấy động từ nào?" }),
     });
   } else if (question && listening) {
     cards.push({
@@ -338,8 +406,19 @@ function worldPairing(
   return null;
 }
 
+/** A word stage practises the blanked word, so its parts do not open on a verb table. */
+function usesWarmUps(topic: WorldTopic): boolean {
+  return topic.drill !== "word";
+}
+
+/** Clip cards in one part. Verb stages leave two slots for the warm-ups. */
+function streamSlots(topic: WorldTopic, node: number): number {
+  return worldPartSize(node) - (usesWarmUps(topic) ? WORLD_WARM_UPS : 0);
+}
+
 /** Table-fill on the part's first verb, pairing on its second (or the first again). */
 function warmUps(tables: TenseTables, topic: WorldTopic, cards: readonly GrammarCard[], random: () => number): GrammarCard[] {
+  if (!usesWarmUps(topic)) return [];
   const scoped = topicTables(tables, topic);
   const verbs = [...new Set(cards.flatMap((card) => (card.verb ? [card.verb] : [])))];
   const fallback = topic.verbs[0];
@@ -444,7 +523,7 @@ export function worldNodes(tables: TenseTables, topic: WorldTopic, nodeEnds: rea
   let cursor = 0;
   const addNode = (end: number, sealed: boolean) => {
     const node = nodes.length + 1;
-    const per = worldPartSize(node) - WORLD_WARM_UPS;
+    const per = streamSlots(topic, node);
     const cards = stream.slice(cursor, end);
     const parts = cutParts(cards, per).map((partCards, index) => buildPart(tables, topic, partCards, index + 1));
     nodes.push({
@@ -459,7 +538,7 @@ export function worldNodes(tables: TenseTables, topic: WorldTopic, nodeEnds: rea
   };
   for (const end of nodeEnds) addNode(Math.min(Math.max(end, cursor), stream.length), true);
   while (cursor < stream.length) {
-    const per = worldPartSize(nodes.length + 1) - WORLD_WARM_UPS;
+    const per = streamSlots(topic, nodes.length + 1);
     addNode(practiceNodeEnd(stream, cursor, per * WORLD_PARTS_PER_NODE), false);
   }
   return nodes;
@@ -514,6 +593,7 @@ export function worldStageView(
   tables: TenseTables,
   topic: WorldTopic,
   progress: WorldStageProgress = EMPTY_STAGE,
+  options?: { freePlay?: boolean },
 ): WorldStageView {
   const done = new Set(progress.partKeys);
   const nodes = worldNodes(tables, topic, progress.nodeEnds).map((node): WorldNodeView => {
@@ -531,7 +611,7 @@ export function worldStageView(
   return {
     topic,
     nodes,
-    review: { unlocked: allNodesDone && topic.clips.length > 0, done: reviewDone, runs },
+    review: { unlocked: (Boolean(options?.freePlay) || allNodesDone) && topic.clips.length > 0, done: reviewDone, runs },
     stars: partStars + (reviewDone ? 1 : 0),
     starsTotal: partTotal + 1,
     practised: partStars > 0 || reviewDone || progress.nodeEnds.length > 0,
@@ -576,11 +656,12 @@ export function worldPracticeCardCount(
   topic: WorldTopic,
   progress: WorldStageProgress | undefined,
   target: { review: boolean; node: number; part: number; run: number },
+  options?: { freePlay?: boolean },
 ): number | null {
   const stage = progress ?? EMPTY_STAGE;
   if (target.review) {
     if (topic.clips.length === 0 || target.run < 0 || target.run > stage.reviewRuns) return null;
-    const view = worldStageView(tables, topic, stage);
+    const view = worldStageView(tables, topic, stage, options);
     if (!view.review.unlocked && stage.reviewRuns === 0) return null;
     const count = worldReviewCards(tables, topic, target.run).length;
     return count > 0 ? count : null;
@@ -593,7 +674,10 @@ export function worldPracticeCardCount(
     if (seen.has(key)) continue;
     seen.add(key);
     const node = worldNodes(tables, topic, ends).find((entry) => entry.node === target.node);
-    const part = node?.ready ? node.parts.find((entry) => entry.part === target.part) : undefined;
+    const part =
+      node && (node.ready || options?.freePlay)
+        ? node.parts.find((entry) => entry.part === target.part)
+        : undefined;
     if (part && part.cards.length > 0) return part.cards.length;
   }
   return null;
@@ -612,16 +696,17 @@ export type WorldAreaView = {
   done: boolean;
 };
 
-/** `isOpen` says whether a topic's stage is open for this learner. */
+/** `isOpen` says whether a topic's stage is open for this learner. `freePlay` opens every review. */
 export function worldAreaViews(
   tables: TenseTables,
   areas: readonly WorldArea[],
   progress: WorldProgress | undefined,
   isOpen: (topic: WorldTopic) => boolean,
+  options?: { freePlay?: boolean },
 ): WorldAreaView[] {
   return areas.map((area) => {
     const stages = area.topics.map((topic) => ({
-      ...worldStageView(tables, topic, progress?.stages[topic.id]),
+      ...worldStageView(tables, topic, progress?.stages[topic.id], options),
       open: isOpen(topic),
     }));
     return {
@@ -633,6 +718,15 @@ export function worldAreaViews(
       done: stages.length > 0 && stages.every((stage) => stage.open && stage.done),
     };
   });
+}
+
+/** The first open stage in authored order: the only one that gets the welcome tour. */
+export function firstOpenStage(views: readonly WorldAreaView[]): WorldTopic | null {
+  for (const view of views) {
+    const stage = view.stages.find((entry) => entry.open);
+    if (stage) return stage.topic;
+  }
+  return null;
 }
 
 /** Open stages with nothing finished yet: the portal's badge. */

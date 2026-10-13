@@ -1,7 +1,7 @@
-import worldFile from "@/data/grammar/world.json";
+import { worldAreas } from "@/data/grammar/world";
 import { isAdminUser } from "@/lib/admins";
 import { publicMediaExists } from "@/lib/content";
-import { resolveWorld, type StoredWorldArea, type WorldArea, type WorldGate } from "@/lib/grammar-world";
+import { resolveWorld, type WorldArea, type WorldGate } from "@/lib/grammar-world";
 import type { TenseTables } from "@/lib/grammar-lessons";
 import {
   getCefrLevel,
@@ -19,9 +19,11 @@ export type GrammarWorldData = {
   tables: TenseTables;
   /** What opens each topic's stage, by topic id. */
   gates: Record<string, WorldGate>;
+  /** Admins may open every node and every review, including a node whose audio is not recorded yet. */
+  freePlay: boolean;
 };
 
-const storedAreas = (worldFile as { areas: StoredWorldArea[] }).areas;
+const storedAreas = worldAreas;
 
 /** The authored world with clip audio resolved. */
 export function getWorldAreas(): WorldArea[] {
@@ -60,8 +62,10 @@ function gateFor(opensWith: string, levelAccess: ReadonlySet<string> | null, unl
 }
 
 /**
- * The world for one learner. Admins see every stage open; a teacher sees the
- * stages of courses they were granted open, as on the Lektion path.
+ * The world for one learner. Admins see every stage open and may play any
+ * stop, even one whose audio is not recorded yet. A teacher sees the stages
+ * of courses they were granted open, as on the Lektion path, and still climbs
+ * them in order.
  */
 export async function loadGrammarWorld(user: { id?: string | null; email?: string | null }): Promise<GrammarWorldData> {
   const admin = isAdminUser(user);
@@ -73,5 +77,5 @@ export async function loadGrammarWorld(user: { id?: string | null; email?: strin
     const gate = gateFor(topic.opensWith, levelAccess, unlockAll);
     if (gate) gates[topic.id] = gate;
   }
-  return { areas, tables: getGrammarTenses(), gates };
+  return { areas, tables: getGrammarTenses(), gates, freePlay: admin };
 }

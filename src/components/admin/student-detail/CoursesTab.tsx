@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import worldFile from "@/data/grammar/world.json";
+import { worldAreas } from "@/data/grammar/world";
 import tensesFile from "@/data/grammar/tenses.json";
 import { Badge, Button } from "@/components/admin/AdminUi";
 import { LessonTimingPath } from "@/components/admin/student-detail/LessonTimingPath";
@@ -24,11 +24,11 @@ import {
   type LessonStartSignal,
   type StudentProgressTarget,
 } from "@/lib/admin-detail";
-import { resolveWorld, type StoredWorldArea } from "@/lib/grammar-world";
+import { resolveWorld } from "@/lib/grammar-world";
 import type { TenseTables } from "@/lib/grammar-lessons";
 import type { StoredProgress } from "@/lib/progress";
 
-const grammarAreas = resolveWorld((worldFile as { areas: StoredWorldArea[] }).areas);
+const grammarAreas = resolveWorld(worldAreas);
 const grammarTables = tensesFile as TenseTables;
 
 export type PendingDelete = StudentProgressTarget & { label: string; detail: string };

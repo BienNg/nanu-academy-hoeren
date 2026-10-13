@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useState, useRef } from "react";
 import type { GrammarWorldData } from "@/lib/grammar-world-content";
 import { PortalMountain, WORLD_ACCENT, WORLD_ACCENT_DEEP } from "./WorldArt";
 import { useGrammarWorld } from "./useGrammarWorld";
@@ -18,29 +18,35 @@ export function worldHref(from: string, tab?: string): string {
   return `/grammar?${query.toString()}`;
 }
 
+export type PortalAnchor = {
+  /** Element id of the Lektion section this stage belongs to. */
+  domId: string;
+  /** Set while that stage's first part is still unfinished. */
+  introTopicId: string | null;
+};
+
 /**
- * The floating purple button for the grammar world. On the Lektion that
- * opened a stage it sticks to the bottom right of that lesson's path. On
- * other level paths it stays fixed above the tab bar. A badge counts open
- * stages not practised yet; otherwise a thin ring shows the stars collected.
+ * The floating purple button for the grammar world. It stays fixed at the
+ * bottom right, above the tab bar. On a path with several opening Lektionen
+ * the address it opens changes as the next Lektion reaches the button.
+ * A badge counts open stages not practised yet; otherwise a thin ring shows
+ * the stars collected.
  */
 export function GrammarPortal({
   data,
   from,
-  placement = "fixed",
-  introTopicId = null,
+  anchors = [],
 }: {
   data: GrammarWorldData;
   from: string;
-  /** `lesson` sits in the lesson path; `fixed` floats above the tab bar. */
-  placement?: "fixed" | "lesson";
-  /** First tap of a new stage: the short tour, then its first part. */
-  introTopicId?: string | null;
+  /** Opening Lektionen on this path, in path order. Empty on other level paths. */
+  anchors?: PortalAnchor[];
 }) {
   const router = useRouter();
   const reduceMotion = useReducedMotion() === true;
   const world = useGrammarWorld(data);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const introTopicId = useScrolledIntro(anchors);
   const [zooming, setZooming] = useState(false);
   const [zoomFrom, setZoomFrom] = useState<{ right: number; bottom: number } | null>(null);
 
@@ -48,8 +54,8 @@ export function GrammarPortal({
 
   const badge = world.unpractised.length;
   const ratio = world.starsTotal === 0 ? 0 : world.stars / world.starsTotal;
-  // The lesson button, while its first part is still unfinished.
-  const showHint = placement === "lesson" && introTopicId != null;
+  // Only before any grammar-world part is finished, and only for a stage that still needs its first part.
+  const showHint = anchors.length > 0 && introTopicId != null && world.progressReady && world.stars === 0;
   const href = introTopicId
     ? `/grammar?intro=${encodeURIComponent(introTopicId)}&from=${encodeURIComponent(from)}`
     : worldHref(from);
@@ -73,7 +79,8 @@ export function GrammarPortal({
 
   return (
     <>
-      <div className={placement === "fixed" ? "contents" : "relative"}>
+      <div className="pointer-events-none fixed inset-x-0 z-40 mx-auto flex w-full max-w-md justify-end px-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:px-6">
+      <div className="pointer-events-auto relative">
       {showHint ? (
         <motion.div
           className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 flex -translate-x-1/2 flex-col items-center"
@@ -105,11 +112,7 @@ export function GrammarPortal({
               ? `Thế giới ngữ pháp, ${badge} chặng mới chưa luyện`
               : "Thế giới ngữ pháp"
         }
-        className={`${
-          placement === "fixed"
-            ? "fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]"
-            : "relative"
-        } z-40 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7c3aed]`}
+        className="relative z-40 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7c3aed]"
         style={{ width: PORTAL_PX, height: PORTAL_PX }}
         initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -117,29 +120,42 @@ export function GrammarPortal({
         transition={{ type: "spring", stiffness: 420, damping: 20 }}
       >
         <motion.span
-          className="absolute inset-0 rounded-full"
-          style={{
-            background: `radial-gradient(circle at 35% 30%, #a78bfa, ${WORLD_ACCENT} 60%, ${WORLD_ACCENT_DEEP})`,
-            boxShadow: `0 4px 0 0 ${WORLD_ACCENT_DEEP}, 0 10px 24px -6px rgba(91,33,182,0.55)`,
-          }}
-        />
-        {badge === 0 ? (
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 60 60" aria-hidden="true">
-            <circle cx="30" cy="30" r={RING_R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
-            <circle
-              cx="30"
-              cy="30"
-              r={RING_R}
-              fill="none"
-              stroke="#FFC83D"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeDasharray={RING_C}
-              strokeDashoffset={RING_C * (1 - ratio)}
-            />
-          </svg>
-        ) : null}
-        <PortalMountain className="relative h-8 w-8" />
+          className="absolute inset-0"
+          initial={false}
+          animate={reduceMotion ? { scale: 1 } : { scale: [1, 1.05, 1] }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { type: "tween", duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+          }
+        >
+          <span
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: `radial-gradient(circle at 35% 30%, #a78bfa, ${WORLD_ACCENT} 60%, ${WORLD_ACCENT_DEEP})`,
+              boxShadow: `0 4px 0 0 ${WORLD_ACCENT_DEEP}, 0 10px 24px -6px rgba(91,33,182,0.55)`,
+            }}
+          />
+          {badge === 0 ? (
+            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 60 60" aria-hidden="true">
+              <circle cx="30" cy="30" r={RING_R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
+              <circle
+                cx="30"
+                cy="30"
+                r={RING_R}
+                fill="none"
+                stroke="#FFC83D"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={RING_C}
+                strokeDashoffset={RING_C * (1 - ratio)}
+              />
+            </svg>
+          ) : null}
+          <span className="absolute inset-0 flex items-center justify-center">
+            <PortalMountain className="h-8 w-8" />
+          </span>
+        </motion.span>
         {badge > 0 ? (
           <motion.span
             className="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-[#e11d48] px-1 text-[12px] font-extrabold text-white"
@@ -151,6 +167,7 @@ export function GrammarPortal({
           </motion.span>
         ) : null}
       </motion.button>
+      </div>
       </div>
 
       {/* The zoom into the world: the button's purple grows over the screen. */}
@@ -174,4 +191,42 @@ export function GrammarPortal({
       </AnimatePresence>
     </>
   );
+}
+
+/** The intro for whichever opening Lektion has reached the fixed button. */
+function useScrolledIntro(anchors: PortalAnchor[]): string | null {
+  const [intro, setIntro] = useState<string | null>(anchors[0]?.introTopicId ?? null);
+
+  useLayoutEffect(() => {
+    if (anchors.length === 0) return;
+    let frame = 0;
+    const pick = () => {
+      const line = window.innerHeight - 80 - PORTAL_PX / 2;
+      let current = anchors[0];
+      for (const anchor of anchors) {
+        const top = document.getElementById(anchor.domId)?.getBoundingClientRect().top;
+        if (top !== undefined && top <= line) current = anchor;
+      }
+      setIntro((prev) => (prev === current.introTopicId ? prev : current.introTopicId));
+    };
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        pick();
+      });
+    };
+    pick();
+    document.addEventListener("scroll", schedule, { passive: true, capture: true });
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      document.removeEventListener("scroll", schedule, { capture: true });
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [anchors]);
+
+  return anchors.length === 0 ? null : intro;
 }
