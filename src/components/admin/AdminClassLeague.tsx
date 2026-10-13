@@ -476,8 +476,8 @@ export function AdminClassLeague({
 
           <TablePanel
             icon="leaderboard"
-            title="Classes this week"
-            hint="Ranked by total week XP, like the Lớp tab. Squares show each day's daily quests: green both, amber one, grey none."
+            title="Class league ranking"
+            hint="Same ranking learners see in the class tab: ordered by this week's XP. Squares are daily quest completion by day (green both, amber one, grey none)."
             color={ADMIN_COLORS.cobalt}
           >
             <div className="overflow-x-auto">
@@ -541,9 +541,9 @@ export function AdminClassLeague({
           </TablePanel>
 
           {league.classes.length > 0 ? (
-            <section aria-label="Today's class quests" className="flex flex-col gap-space-12">
+            <section aria-label="Quest progress" className="flex flex-col gap-space-12">
               <h2 className="font-admin-display text-admin-headline-sm text-admin-ink">
-                Today&apos;s class quests · {weekdayOf(league.today)} {shortDate(league.today)}
+                Quest progress · {weekdayOf(league.today)} {shortDate(league.today)}
               </h2>
               <div className="grid grid-cols-1 gap-space-16 lg:grid-cols-2 2xl:grid-cols-3">
                 {league.classes.map((row) => (
@@ -552,10 +552,15 @@ export function AdminClassLeague({
                       <h3 className="truncate text-admin-body-md font-semibold text-admin-ink">{row.name}</h3>
                       <Mono>{row.learners} learners</Mono>
                     </div>
+                    <p className="mt-space-8 text-admin-label-sm uppercase text-admin-ink-subtle">Daily</p>
                     <ul className="divide-y divide-admin-hairline">
                       {row.today.map((quest) => (
                         <QuestLine key={quest.id} quest={quest} />
                       ))}
+                    </ul>
+                    <p className="mt-space-8 text-admin-label-sm uppercase text-admin-ink-subtle">Weekly</p>
+                    <ul className="divide-y divide-admin-hairline">
+                      <QuestLine quest={row.weekly} />
                     </ul>
                   </article>
                 ))}
@@ -565,7 +570,7 @@ export function AdminClassLeague({
 
           <TablePanel
             icon="emoji_events"
-            title="Class podiums"
+            title="Class podium history"
             hint="Top 3 classes of each finished week, as stored for the class badges. Learners are those who earned XP that week."
             color={ADMIN_COLORS.amber}
           >
