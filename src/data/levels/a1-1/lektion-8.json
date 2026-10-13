@@ -1,3 +1,349 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag8-01-kaufen.mp3",
+      "script": "kaufen",
+      "translationVi": "mua"
+    },
+    {
+      "filename": "a11-tag8-02-einkaufen.mp3",
+      "script": "einkaufen",
+      "translationVi": "đi mua sắm (mua đồ lặt vặt ở siêu thị...)"
+    },
+    {
+      "filename": "a11-tag8-03-ich-gehe-einkaufen.mp3",
+      "script": "Ich gehe einkaufen.",
+      "translationVi": "Tôi đi chợ."
+    },
+    {
+      "filename": "a11-tag8-04-die-bananen.mp3",
+      "script": "die Bananen",
+      "translationVi": "những quả chuối"
+    },
+    {
+      "filename": "a11-tag8-05-die-pfanne.mp3",
+      "script": "die Pfanne",
+      "translationVi": "cái chảo"
+    },
+    {
+      "filename": "a11-tag8-06-der-kuchen.mp3",
+      "script": "der Kuchen",
+      "translationVi": "bánh ngọt"
+    },
+    {
+      "filename": "a11-tag8-07-der-bananenpfannkuchen.mp3",
+      "script": "der Bananenpfannkuchen",
+      "translationVi": "bánh chuối chảo (bánh pancake chuối)"
+    },
+    {
+      "filename": "a11-tag8-08-die-frau-heisst-lara.mp3",
+      "script": "Die Frau heißt Lara.",
+      "translationVi": "Người phụ nữ tên là Lara."
+    },
+    {
+      "filename": "a11-tag8-12-die-butter.mp3",
+      "script": "die Butter",
+      "translationVi": "bơ"
+    },
+    {
+      "filename": "a11-tag8-13-das-ei.mp3",
+      "script": "das Ei",
+      "translationVi": "một quả trứng"
+    },
+    {
+      "filename": "a11-tag8-14-die-eier.mp3",
+      "script": "die Eier",
+      "translationVi": "nhiều quả trứng"
+    },
+    {
+      "filename": "a11-tag8-15-das-mehl.mp3",
+      "script": "das Mehl",
+      "translationVi": "bột mì"
+    },
+    {
+      "filename": "a11-tag8-16-die-milch.mp3",
+      "script": "die Milch",
+      "translationVi": "sữa"
+    },
+    {
+      "filename": "a11-tag8-17-der-zucker.mp3",
+      "script": "der Zucker",
+      "translationVi": "đường"
+    },
+    {
+      "filename": "a11-tag8-18-der-pfannkuchen.mp3",
+      "script": "der Pfannkuchen",
+      "translationVi": "bánh chiên trên chảo (bánh pancake)"
+    },
+    {
+      "filename": "a11-tag8-19-moechtest-du-pfannkuchen.mp3",
+      "script": "Möchtest du Pfannkuchen?",
+      "translationVi": "Bạn có muốn ăn bánh pancake không?"
+    },
+    {
+      "filename": "a11-tag8-20-nein-wir-haben-kein-ei.mp3",
+      "script": "Nein, wir haben kein Ei.",
+      "translationVi": "Không, chúng ta không có trứng."
+    },
+    {
+      "filename": "a11-tag8-21-ich-habe-hunger.mp3",
+      "script": "Ich habe Hunger.",
+      "translationVi": "Tôi đói."
+    },
+    {
+      "filename": "a11-tag8-22-superlecker.mp3",
+      "script": "superlecker",
+      "translationVi": "siêu ngon"
+    },
+    {
+      "filename": "a11-tag8-24-kaufst-du-bitte-zehn-eier.mp3",
+      "script": "Kaufst du bitte zehn Eier?",
+      "translationVi": "Bạn mua giúp mười quả trứng nhé?"
+    },
+    {
+      "filename": "a11-tag8-25-das-ist-ein-schokoladenei.mp3",
+      "script": "Das ist ein Schokoladenei.",
+      "translationVi": "Đây là một quả trứng sô-cô-la."
+    },
+    {
+      "filename": "a11-tag8-26-zusammen.mp3",
+      "script": "zusammen",
+      "translationVi": "tổng cộng, cùng nhau"
+    },
+    {
+      "filename": "a11-tag8-28-kann-ich-dir-helfen.mp3",
+      "script": "Kann ich dir helfen?",
+      "translationVi": "Tôi có thể giúp bạn không?"
+    },
+    {
+      "filename": "a11-tag8-29-eine-flasche.mp3",
+      "script": "eine Flasche",
+      "translationVi": "một chai"
+    },
+    {
+      "filename": "a11-tag8-30-eine-packung.mp3",
+      "script": "eine Packung",
+      "translationVi": "một gói, một hộp"
+    },
+    {
+      "filename": "a11-tag8-31-eine-dose.mp3",
+      "script": "eine Dose",
+      "translationVi": "một lon, một hộp (đồ hộp)"
+    },
+    {
+      "filename": "a11-tag8-32-ein-becher.mp3",
+      "script": "ein Becher",
+      "translationVi": "một cốc, một hũ"
+    },
+    {
+      "filename": "a11-tag8-33-ein-pfund.mp3",
+      "script": "ein Pfund",
+      "translationVi": "nửa cân (500 gram)"
+    },
+    {
+      "filename": "a11-tag8-34-das-hackfleisch.mp3",
+      "script": "das Hackfleisch",
+      "translationVi": "thịt xay"
+    },
+    {
+      "filename": "a11-tag8-35-was-kostet-ein-kilo-hackfleisch.mp3",
+      "script": "Was kostet ein Kilo Hackfleisch?",
+      "translationVi": "Một ký thịt xay giá bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag8-37-zweihundert-gramm.mp3",
+      "script": "zweihundert Gramm",
+      "translationVi": "hai trăm gram"
+    },
+    {
+      "filename": "a11-tag8-38-was-kosten-zweihundert-gramm-wurst.mp3",
+      "script": "Was kosten zweihundert Gramm Wurst?",
+      "translationVi": "Hai trăm gram xúc xích giá bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag8-40-die-verkaeuferin.mp3",
+      "script": "die Verkäuferin",
+      "translationVi": "cô bán hàng"
+    },
+    {
+      "filename": "a11-tag8-41-der-verkaeufer.mp3",
+      "script": "der Verkäufer",
+      "translationVi": "anh bán hàng"
+    },
+    {
+      "filename": "a11-tag8-42-die-kundin.mp3",
+      "script": "die Kundin",
+      "translationVi": "cô mua hàng (khách hàng nữ)"
+    },
+    {
+      "filename": "a11-tag8-43-der-kunde.mp3",
+      "script": "der Kunde",
+      "translationVi": "anh mua hàng (khách hàng nam)"
+    },
+    {
+      "filename": "a11-tag8-44-bitte-schoen.mp3",
+      "script": "Bitte schön?",
+      "translationVi": "Quý khách cần gì ạ?"
+    },
+    {
+      "filename": "a11-tag8-45-kann-ich-ihnen-helfen.mp3",
+      "script": "Kann ich Ihnen helfen?",
+      "translationVi": "Tôi có thể giúp Ngài không?"
+    },
+    {
+      "filename": "a11-tag8-46-moechten.mp3",
+      "script": "möchten",
+      "translationVi": "muốn"
+    },
+    {
+      "filename": "a11-tag8-47-die-birnen.mp3",
+      "script": "die Birnen",
+      "translationVi": "những quả lê"
+    },
+    {
+      "filename": "a11-tag8-48-ich-moechte-birnen.mp3",
+      "script": "Ich möchte Birnen.",
+      "translationVi": "Tôi muốn mua lê."
+    },
+    {
+      "filename": "a11-tag8-49-ich-haette-gern.mp3",
+      "script": "Ich hätte gern",
+      "translationVi": "Tôi muốn ... (cách nói lịch sự)"
+    },
+    {
+      "filename": "a11-tag8-50-der-spinat.mp3",
+      "script": "der Spinat",
+      "translationVi": "rau chân vịt (cải bó xôi)"
+    },
+    {
+      "filename": "a11-tag8-51-ich-haette-gern-spinat.mp3",
+      "script": "Ich hätte gern Spinat.",
+      "translationVi": "Tôi muốn mua rau chân vịt."
+    },
+    {
+      "filename": "a11-tag8-52-das-brot.mp3",
+      "script": "das Brot",
+      "translationVi": "bánh mì (ổ lớn)"
+    },
+    {
+      "filename": "a11-tag8-53-das-broetchen.mp3",
+      "script": "das Brötchen",
+      "translationVi": "bánh mì nhỏ (bánh mì tròn)"
+    },
+    {
+      "filename": "a11-tag8-54-ich-brauche-broetchen.mp3",
+      "script": "Ich brauche Brötchen.",
+      "translationVi": "Tôi cần bánh mì nhỏ."
+    },
+    {
+      "filename": "a11-tag8-55-wo-finde-ich-brot.mp3",
+      "script": "Wo finde ich Brot?",
+      "translationVi": "Tôi tìm bánh mì ở đâu?"
+    },
+    {
+      "filename": "a11-tag8-56-haben-sie-spinat.mp3",
+      "script": "Haben Sie Spinat?",
+      "translationVi": "Ngài có rau chân vịt không?"
+    },
+    {
+      "filename": "a11-tag8-57-wie-viel-brauchen-sie-denn.mp3",
+      "script": "Wie viel brauchen Sie denn?",
+      "translationVi": "Ngài cần bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag8-58-wie-viel-moechten-sie-denn.mp3",
+      "script": "Wie viel möchten Sie denn?",
+      "translationVi": "Ngài muốn bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag8-59-ein-pfund-brot.mp3",
+      "script": "Ein Pfund Brot.",
+      "translationVi": "Nửa cân bánh mì."
+    },
+    {
+      "filename": "a11-tag8-60-der-lauch.mp3",
+      "script": "der Lauch",
+      "translationVi": "tỏi tây"
+    },
+    {
+      "filename": "a11-tag8-61-ein-kilo-lauch.mp3",
+      "script": "Ein Kilo Lauch.",
+      "translationVi": "Một ký tỏi tây."
+    },
+    {
+      "filename": "a11-tag8-62-drei-birnen.mp3",
+      "script": "Drei Birnen.",
+      "translationVi": "Ba quả lê."
+    },
+    {
+      "filename": "a11-tag8-63-der-speck.mp3",
+      "script": "der Speck",
+      "translationVi": "thịt lợn bụng xông khói"
+    },
+    {
+      "filename": "a11-tag8-64-hundert-gramm-speck.mp3",
+      "script": "Hundert Gramm Speck.",
+      "translationVi": "Một trăm gram thịt lợn bụng xông khói."
+    },
+    {
+      "filename": "a11-tag8-66-sonst-noch-etwas.mp3",
+      "script": "Sonst noch etwas?",
+      "translationVi": "Còn gì nữa không?"
+    },
+    {
+      "filename": "a11-tag8-67-moechten-sie-sonst-noch-etwas.mp3",
+      "script": "Möchten Sie sonst noch etwas?",
+      "translationVi": "Ngài còn muốn gì nữa không?"
+    },
+    {
+      "filename": "a11-tag8-68-das-ist-alles.mp3",
+      "script": "Das ist alles.",
+      "translationVi": "Thế thôi. / Hết rồi."
+    },
+    {
+      "filename": "a11-tag8-69-nein-danke-das-ist-alles.mp3",
+      "script": "Nein, danke. Das ist alles.",
+      "translationVi": "Không, cảm ơn. Thế thôi."
+    },
+    {
+      "filename": "a11-tag8-70-das-macht-dann-zwoelf-euro-bitte.mp3",
+      "script": "Das macht dann zwölf Euro, bitte.",
+      "translationVi": "Vậy tổng cộng hết 12 euro ạ."
+    },
+    {
+      "filename": "a11-tag8-71-das-kostet-dann-zwoelf-euro-bitte.mp3",
+      "script": "Das kostet dann zwölf Euro, bitte.",
+      "translationVi": "Vậy tổng cộng hết 12 euro ạ."
+    },
+    {
+      "filename": "a11-tag8-72-was-kostet-eine-packung-eier.mp3",
+      "script": "Was kostet eine Packung Eier?",
+      "translationVi": "Một hộp trứng giá bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag8-73-was-moechten-sie-kaufen.mp3",
+      "script": "Was möchten Sie kaufen?",
+      "translationVi": "Ngài muốn mua gì?"
+    },
+    {
+      "filename": "a11-tag8-74-ich-haette-gern-ein-kilo-fleisch.mp3",
+      "script": "Ich hätte gern ein Kilo Fleisch.",
+      "translationVi": "Tôi muốn mua một ký thịt."
+    },
+    {
+      "filename": "a11-tag8-75-verkaufen.mp3",
+      "script": "verkaufen",
+      "translationVi": "bán"
+    },
+    {
+      "filename": "a11-tag8-76-verkaufen-sie-hier-auch-wasser.mp3",
+      "script": "Verkaufen Sie hier auch Wasser?",
+      "translationVi": "Ở đây Ngài có bán cả nước không?"
+    },
+    {
+      "filename": "a11-tag8-77-uebung-sonst-noch-etwas.mp3",
+      "script": "Sonst noch etwas?",
+      "translationVi": "Còn gì nữa không?"
+    }
+  ]
 }
