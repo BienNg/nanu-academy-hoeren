@@ -15,7 +15,6 @@ export const WORLD_VARS = {
 
 export const WORLD_ACCENT = "#7c3aed";
 export const WORLD_ACCENT_DEEP = "#5b21b6";
-export const WORLD_TRACK = "#e4dcf7";
 
 /**
  * Practice node glyph: two puzzle pieces clicking together, the way a subject

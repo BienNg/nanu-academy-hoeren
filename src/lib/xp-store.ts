@@ -46,16 +46,20 @@ import {
 import { isDuelSchemaMissing } from "@/lib/duels";
 import type { AdminXpEvent, AdminXpSource } from "@/lib/admin-detail";
 import { isQuestSchemaMissing, listQuestClaimRows } from "@/lib/quest-store";
+import { loadGrammarWorld } from "@/lib/grammar-world-content";
+import { worldPracticeCardCount, worldStageOpen } from "@/lib/grammar-world";
 import {
   assembleLeaderboard,
   dayKey,
   recentDayKeys,
+  decideGrammarWorldXp,
   decidePartXp,
   decideStudyPartXp,
   nodePracticeRunSize,
   passesAlreadyFinished,
   emptyLeaderboard,
   googleProfileImage,
+  isGrammarWorldSchemaMissing,
   isStudyXpSchemaMissing,
   isXpSchemaMissing,
   boardClassFor,
@@ -76,6 +80,7 @@ import {
   type LeaderboardPayload,
   type LeaderboardRange,
   type LeaderboardScope,
+  type GrammarWorldXpInput,
   type StudyXpInput,
 } from "@/lib/xp";
 
@@ -83,6 +88,7 @@ const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
 const JUMP_XP_TABLE = "lesson_jump_awards";
+const GRAMMAR_WORLD_TABLE = "grammar_world_awards";
 const QUEST_CLAIMS_TABLE = "quest_claims";
 const RUNS_TABLE = "listening_runs";
 const PROFILES_TABLE = "user_progress";
@@ -505,6 +511,67 @@ export async function grantStudyPartXp(
 }
 
 /**
+ * Score one finished grammar-world part or review. Every finish pays 20,
+ * including a replay. A missing grammar_world_awards table leaves progress
+ * saved and reports ready: false.
+ */
+export async function grantGrammarWorldXp(
+  user: { id: string; email?: string | null },
+  input: GrammarWorldXpInput,
+  now = new Date(),
+): Promise<XpGrant> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { ready: false, xp: null, kind: null };
+
+  const existing = await supabase.from(GRAMMAR_WORLD_TABLE).select("xp").eq("id", input.id).maybeSingle();
+  if (existing.error) {
+    if (!isGrammarWorldSchemaMissing(existing.error.message)) {
+      console.error("Supabase grantGrammarWorldXp lookup", existing.error.message);
+    }
+    return { ready: false, xp: null, kind: null };
+  }
+  if (existing.data) {
+    const row = existing.data as { xp?: unknown };
+    return { ready: true, xp: typeof row.xp === "number" ? row.xp : 0, kind: "new" };
+  }
+
+  const [world, stored] = await Promise.all([loadGrammarWorld(user), getCloudProgress(user.id)]);
+  const topic = world.areas.flatMap((area) => area.topics).find((entry) => entry.id === input.topicId);
+  const gate = topic ? world.gates[topic.id] : undefined;
+  const open = Boolean(topic && gate?.access && worldStageOpen(gate, stored));
+  const cardCount =
+    open && topic ? worldPracticeCardCount(world.tables, topic, stored.grammarWorld?.stages[topic.id], input) : null;
+  const decision = decideGrammarWorldXp({ elapsedMs: input.elapsedMs, cardCount, now });
+  if (!decision.store) return { ready: true, xp: decision.xp, kind: decision.kind };
+
+  const { error } = await supabase.from(GRAMMAR_WORLD_TABLE).insert({
+    id: input.id,
+    user_id: user.id,
+    topic_id: input.topicId,
+    node: input.node,
+    part: input.part,
+    review: input.review,
+    xp: decision.xp,
+    week_key: decision.weekKey,
+    day_key: decision.dayKey,
+  });
+  if (!error) return { ready: true, xp: decision.xp, kind: decision.kind };
+
+  if (error.code === "23505") {
+    const raced = await supabase.from(GRAMMAR_WORLD_TABLE).select("xp").eq("id", input.id).maybeSingle();
+    if (raced.data) {
+      const row = raced.data as { xp?: unknown };
+      return { ready: true, xp: typeof row.xp === "number" ? row.xp : 0, kind: "new" };
+    }
+    return { ready: true, xp: 0, kind: "repeat" };
+  }
+  if (!isGrammarWorldSchemaMissing(error.message)) {
+    console.error("Supabase grantGrammarWorldXp insert", error.message);
+  }
+  return { ready: false, xp: null, kind: null };
+}
+
+/**
  * Grade one jump test and store its 35 XP. The server deals the same seeded
  * deck, so only answers that pass it are paid. A missing lesson_jump_awards
  * table leaves progress saved and reports ready: false.
@@ -679,6 +746,37 @@ async function listUserStudyXp(
   }
 }
 
+async function listUserGrammarWorldXp(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ xp: number; day_key: string; week_key: string }[]> {
+  const rows: { xp: number; day_key: string; week_key: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(GRAMMAR_WORLD_TABLE)
+      .select("xp, day_key, week_key")
+      .eq("user_id", userId)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (!isGrammarWorldSchemaMissing(error.message)) {
+        console.error("Supabase listUserGrammarWorldXp", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as { xp?: unknown; day_key?: unknown; week_key?: unknown }[];
+    for (const row of page) {
+      if (typeof row.xp !== "number" || typeof row.day_key !== "string" || typeof row.week_key !== "string") {
+        continue;
+      }
+      rows.push({ xp: row.xp, day_key: row.day_key, week_key: row.week_key });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
 async function listStudyAwardRows(
   supabase: SupabaseClient,
   range: LeaderboardRange,
@@ -697,6 +795,57 @@ async function listStudyAwardRows(
     if (error) {
       if (!isStudyXpSchemaMissing(error.message)) {
         console.error("Supabase listStudyAwardRows", error.message);
+      }
+      return rows;
+    }
+    const page = (data ?? []) as {
+      user_id?: unknown;
+      xp?: unknown;
+      created_at?: unknown;
+      day_key?: unknown;
+      week_key?: unknown;
+    }[];
+    for (const row of page) {
+      if (
+        typeof row.user_id !== "string" ||
+        typeof row.xp !== "number" ||
+        typeof row.created_at !== "string" ||
+        typeof row.day_key !== "string" ||
+        typeof row.week_key !== "string"
+      ) {
+        continue;
+      }
+      rows.push({
+        user_id: row.user_id,
+        xp: row.xp,
+        created_at: row.created_at,
+        day_key: row.day_key,
+        week_key: row.week_key,
+      });
+    }
+    if (page.length < PAGE_SIZE) return rows;
+    from += PAGE_SIZE;
+  }
+}
+
+async function listGrammarWorldAwardRows(
+  supabase: SupabaseClient,
+  range: LeaderboardRange,
+  now: Date,
+): Promise<StudyAwardRow[]> {
+  const rows: StudyAwardRow[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from(GRAMMAR_WORLD_TABLE)
+      .select("user_id, xp, created_at, day_key, week_key")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (range === "week") query = query.eq("week_key", weekKey(now));
+    const { data, error } = await query;
+    if (error) {
+      if (!isGrammarWorldSchemaMissing(error.message)) {
+        console.error("Supabase listGrammarWorldAwardRows", error.message);
       }
       return rows;
     }
@@ -804,18 +953,19 @@ export async function getUserXpTotals(userId: string, now = new Date()): Promise
   }
   if (summed.error) noteRpcFallback(USER_TOTALS_RPC, summed.error.message);
 
-  const [rows, duelRows, studyRows, jumpRows, claimRows] = await Promise.all([
+  const [rows, duelRows, studyRows, jumpRows, grammarRows, claimRows] = await Promise.all([
     listUserListeningXp(supabase, userId),
     listUserDuelXp(supabase, userId),
     listUserStudyXp(supabase, userId),
     listUserJumpXp(supabase, userId),
+    listUserGrammarWorldXp(supabase, userId),
     listQuestClaimRows(supabase, null, userId),
   ]);
   if (!rows) return empty;
   let today = 0;
   let week = 0;
   let total = 0;
-  for (const row of [...rows, ...duelRows, ...studyRows, ...jumpRows, ...claimRows]) {
+  for (const row of [...rows, ...duelRows, ...studyRows, ...jumpRows, ...grammarRows, ...claimRows]) {
     total += row.xp;
     if (row.day_key === todayKey) today += row.xp;
     if (row.week_key === currentWeek) week += row.xp;
@@ -836,6 +986,7 @@ const DAILY_XP_TABLES: readonly {
   { table: STUDY_XP_TABLE, missing: isStudyXpSchemaMissing },
   { table: DUEL_XP_TABLE, missing: isDuelSchemaMissing },
   { table: JUMP_XP_TABLE, missing: isJumpXpSchemaMissing },
+  { table: GRAMMAR_WORLD_TABLE, missing: isGrammarWorldSchemaMissing },
   { table: QUEST_CLAIMS_TABLE, missing: isQuestSchemaMissing },
 ];
 
@@ -936,6 +1087,13 @@ const USER_XP_SOURCES: readonly {
     order: ["id"],
     missing: isJumpXpSchemaMissing,
     source: () => "jump",
+  },
+  {
+    table: GRAMMAR_WORLD_TABLE,
+    columns: "xp, created_at, day_key, week_key",
+    order: ["id"],
+    missing: isGrammarWorldSchemaMissing,
+    source: () => "grammar",
   },
   {
     table: QUEST_CLAIMS_TABLE,
@@ -1285,15 +1443,17 @@ async function readXpTotals(
     return totals;
   }
 
-  const [totals, study, jumps, claims] = await Promise.all([
+  const [totals, study, jumps, grammar, claims] = await Promise.all([
     readListeningTotals(supabase, range, now),
     listStudyAwardRows(supabase, range, now),
     listJumpAwardRows(supabase, range, now),
+    listGrammarWorldAwardRows(supabase, range, now),
     listQuestClaimRows(supabase, week),
   ]);
   if (!totals) return null;
   mergeStudyAwards(totals, study);
   mergeStudyAwards(totals, jumps);
+  mergeStudyAwards(totals, grammar);
   mergeStudyAwards(totals, claims);
   return totals;
 }
@@ -2040,8 +2200,8 @@ function listAdminUserXp(
 
 /**
  * Every XP source in `[fromDay, toDay]`, summed per learner: listening, study,
- * duels, lesson jumps, and quest claims. Jumps and quests are optional until
- * their tables exist.
+ * duels, lesson jumps, grammar world, and quest claims. Jumps, grammar world
+ * and quests are optional until their tables exist.
  */
 export async function sumAdminRangeXp(
   fromDay: string,
@@ -2061,11 +2221,18 @@ export async function sumAdminRangeXp(
     return { ready: true, byUser };
   }
 
-  const [listening, study, duels, jumps, quests] = await Promise.all([
+  const [listening, study, duels, jumps, grammar, quests] = await Promise.all([
     listAdminListeningXp(fromDay, toDay),
     listAdminUserXp(STUDY_XP_TABLE, fromDay, toDay, isStudyXpSchemaMissing, "Supabase listAdminStudyXp"),
     listAdminDuelXp(fromDay, toDay),
     listAdminUserXp(JUMP_XP_TABLE, fromDay, toDay, isJumpXpSchemaMissing, "Supabase listAdminJumpXp"),
+    listAdminUserXp(
+      GRAMMAR_WORLD_TABLE,
+      fromDay,
+      toDay,
+      isGrammarWorldSchemaMissing,
+      "Supabase listAdminGrammarWorldXp",
+    ),
     listAdminUserXp(
       QUEST_CLAIMS_TABLE,
       fromDay,
@@ -2075,7 +2242,11 @@ export async function sumAdminRangeXp(
     ),
   ]);
   if (!listening.ready || !study.ready || !duels.ready) return { ready: false, byUser };
-  if ((!jumps.ready && !jumps.missing) || (!quests.ready && !quests.missing)) {
+  if (
+    (!jumps.ready && !jumps.missing) ||
+    (!grammar.ready && !grammar.missing) ||
+    (!quests.ready && !quests.missing)
+  ) {
     return { ready: false, byUser };
   }
   for (const row of [
@@ -2083,6 +2254,7 @@ export async function sumAdminRangeXp(
     ...study.rows,
     ...duels.rows,
     ...jumps.rows,
+    ...grammar.rows,
     ...quests.rows,
   ]) {
     byUser[row.userId] = (byUser[row.userId] ?? 0) + row.xp;

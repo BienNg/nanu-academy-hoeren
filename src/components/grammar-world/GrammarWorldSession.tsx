@@ -17,6 +17,8 @@ import {
   type WorldGate,
   type WorldTopic,
 } from "@/lib/grammar-world";
+import { clearQuestBoardCache } from "@/lib/quest-badge";
+import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { useProgress } from "@/lib/useProgress";
 
 /**
@@ -48,24 +50,36 @@ export function GrammarWorldSession({
   const { progress, progressReady, commitWorldStageDone, streakDays } = useProgress();
   const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const [summary, setSummary] = useState<(GrammarDeckSummary & { nodeDone: boolean }) | null>(null);
+  const [xpGrant, setXpGrant] = useState<{
+    xp: number | null;
+    kind: string | null;
+    pending: boolean;
+    quests: QuestUpdate | null;
+    total: number | null;
+  } | null>(null);
   const stage = progress.grammarWorld?.stages[topic.id] ?? EMPTY_STAGE;
   const mountainHref = returnHref ?? `/grammar?tab=${encodeURIComponent(areaId)}`;
 
   // Cards are fixed once progress has loaded, so a sync mid-session cannot reshuffle them.
-  const [deal, setDeal] = useState<{ cards: ReturnType<typeof worldReviewCards>; key: string | null; partCount: number } | null>(
-    null,
-  );
+  const [deal, setDeal] = useState<{
+    cards: ReturnType<typeof worldReviewCards>;
+    key: string | null;
+    partCount: number;
+    run: number;
+  } | null>(null);
   const ready = useMemo(() => {
     if (!progressReady || !worldStageOpen(gate, progress)) return null;
-    if (review) return { cards: worldReviewCards(tables, topic, stage.reviewRuns), key: null, partCount: 1 };
-    const found = worldNodes(tables, topic, stage.nodeEnds).find((entry) => entry.node === node);
+    if (review) {
+      return { cards: worldReviewCards(tables, topic, stage.reviewRuns), key: null, partCount: 1, run: stage.reviewRuns };
+    }
+    const found = worldNodes(tables, topic, stage.nodeEnds).find((entry) => entry.node === node && entry.ready);
     const target = found?.parts.find((entry) => entry.part === part);
-    return target ? { cards: target.cards, key: target.key, partCount: found!.parts.length } : null;
+    return target ? { cards: target.cards, key: target.key, partCount: found!.parts.length, run: 0 } : null;
   }, [gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
   if (!deal && ready) setDeal(ready);
   const missing = progressReady && !ready && !deal;
 
-  // A part that no longer exists (or is not open yet) goes back to the mountain.
+  // A part that no longer exists, is not open yet or lacks its audio goes back to the mountain.
   useEffect(() => {
     if (missing) router.replace(mountainHref);
   }, [missing, mountainHref, router]);
@@ -95,9 +109,11 @@ export function GrammarWorldSession({
           questionCount={summary.questionCount}
           accuracy={summary.accuracy}
           elapsedMs={summary.elapsedMs}
-          xp={null}
-          xpKind={null}
-          xpPending={false}
+          xp={summary.failed ? null : (xpGrant?.xp ?? null)}
+          xpKind={summary.failed ? null : (xpGrant?.kind ?? null)}
+          xpPending={!summary.failed && (xpGrant?.pending ?? false)}
+          totalXp={summary.failed ? null : (xpGrant?.total ?? null)}
+          questUpdate={summary.failed ? null : (xpGrant?.quests ?? null)}
           streakDays={streakDays}
           finishRun={false}
           failed={summary.failed}
@@ -130,7 +146,36 @@ export function GrammarWorldSession({
           : withWorldReviewDone(stage);
         commitWorldStageDone(topic.id, next, result.questionCount);
         setSummary({ ...result, nodeDone: next.nodeEnds.length > stage.nodeEnds.length });
+        setXpGrant({ xp: null, kind: null, pending: true, quests: null, total: null });
         setPhase("complete");
+        void fetch("/api/grammar-world-xp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...questZoneHeaders() },
+          body: JSON.stringify({
+            id: crypto.randomUUID(),
+            topicId: topic.id,
+            review,
+            node: review ? 0 : node,
+            part: review ? 0 : part,
+            run: deal.run,
+            elapsedMs: result.elapsedMs,
+          }),
+        })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data: { xp?: unknown; kind?: unknown; quests?: unknown; total?: unknown } | null) => {
+            const quests = data ? readQuestUpdate(data.quests) : null;
+            if (quests) clearQuestBoardCache();
+            setXpGrant({
+              xp: data && typeof data.xp === "number" ? data.xp : null,
+              kind: data && typeof data.kind === "string" ? data.kind : null,
+              pending: false,
+              quests,
+              total: data && typeof data.total === "number" ? data.total : null,
+            });
+          })
+          .catch(() => {
+            setXpGrant({ xp: null, kind: null, pending: false, quests: null, total: null });
+          });
       }}
     />
   );

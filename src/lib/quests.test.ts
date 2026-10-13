@@ -174,6 +174,11 @@ test("eventsBefore takes back exactly the part that triggered the sync", () => {
     baseXp: 70,
   });
   assert.equal(eventsBefore(events, { kind: "study", xp: 0 }), events);
+  assert.deepEqual(eventsBefore(events, { kind: "grammar", xp: 20 }), {
+    listeningAccuracies: [80, 95, 80],
+    studyParts: 2,
+    baseXp: 70,
+  });
   assert.equal(eventsBefore(events, null), events);
 });
 

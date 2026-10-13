@@ -1,5 +1,5 @@
 -- Run once in Supabase → SQL Editor, after xp_awards.sql, study_xp_awards.sql,
--- duels.sql, lesson_jump_awards.sql and quest_claims.sql.
+-- duels.sql, lesson_jump_awards.sql, grammar_world_awards.sql and quest_claims.sql.
 -- XP sums done in Postgres, so the API reads a few rows instead of every
 -- award ever given. The app falls back to summing rows itself until these
 -- functions exist.
@@ -29,6 +29,8 @@ as $$
     select xp, day_key, week_key from public.duel_xp_awards where user_id = p_user_id
     union all
     select xp, day_key, week_key from public.lesson_jump_awards where user_id = p_user_id
+    union all
+    select xp, day_key, week_key from public.grammar_world_awards where user_id = p_user_id
     union all
     select xp, day_key, week_key from public.quest_claims where user_id = p_user_id
   )
@@ -67,6 +69,8 @@ as $$
     select user_id, xp, created_at, week_key from public.study_xp_awards
     union all
     select user_id, xp, created_at, week_key from public.lesson_jump_awards
+    union all
+    select user_id, xp, created_at, week_key from public.grammar_world_awards
     union all
     select user_id, xp, created_at, week_key from public.quest_claims
   ) awards

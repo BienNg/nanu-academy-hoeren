@@ -3,9 +3,8 @@
 -- per learner instead of every award and listening run in the range.
 -- Until this is applied, the app adds those rows up itself.
 
--- Listening, study, duels, lesson jumps and quest claims.
--- Replaces admin_xp_by_user, which counted only listening and duels.
-drop function if exists public.admin_xp_by_user(text, text);
+-- Listening, study, duels, lesson jumps, grammar world and quest claims.
+-- create or replace only: re-running this does not drop tables or award rows.
 
 create or replace function public.admin_range_xp_by_user(p_from text, p_to text)
 returns table (user_id text, xp bigint)
@@ -30,6 +29,10 @@ as $$
     union all
     select user_id, xp
     from public.lesson_jump_awards
+    where day_key >= p_from and day_key <= p_to
+    union all
+    select user_id, xp
+    from public.grammar_world_awards
     where day_key >= p_from and day_key <= p_to
     union all
     select user_id, xp

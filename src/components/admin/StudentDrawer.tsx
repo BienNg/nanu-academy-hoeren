@@ -51,6 +51,7 @@ const XP_SOURCE_COLOR: Record<AdminXpSource, string> = {
   jump: ADMIN_COLORS.violet,
   duel: ADMIN_COLORS.cobalt,
   quest: ADMIN_COLORS.ember,
+  grammar: ADMIN_COLORS.violetSoft,
 };
 
 type LoadState =

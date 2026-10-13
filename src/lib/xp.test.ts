@@ -9,7 +9,11 @@ import {
   recentDayKeys,
   shortWeekday,
   decidePartXp,
+  decideGrammarWorldXp,
   decideStudyPartXp,
+  GRAMMAR_WORLD_PART_XP,
+  MIN_MS_PER_GRAMMAR_CARD,
+  parseGrammarWorldXpInput,
   nodePracticeRunSize,
   passesAlreadyFinished,
   formatWeekCountdown,
@@ -254,6 +258,52 @@ test("a study part pays 20 on the first pass and 10 after that", () => {
     now: NOW,
   });
   assert.equal(unknown.kind, "rejected");
+});
+
+test("a grammar world part always pays 20, including a replay", () => {
+  const first = decideGrammarWorldXp({ elapsedMs: 10 * MIN_MS_PER_GRAMMAR_CARD, cardCount: 10, now: NOW });
+  const replay = decideGrammarWorldXp({ elapsedMs: 10 * MIN_MS_PER_GRAMMAR_CARD, cardCount: 10, now: NOW });
+  assert.equal(first.xp, GRAMMAR_WORLD_PART_XP);
+  assert.equal(first.kind, "new");
+  assert.equal(first.store, true);
+  assert.equal(replay.xp, GRAMMAR_WORLD_PART_XP);
+  assert.equal(replay.kind, "new");
+
+  const rushed = decideGrammarWorldXp({ elapsedMs: 100, cardCount: 10, now: NOW });
+  assert.equal(rushed.xp, 0);
+  assert.equal(rushed.kind, "rejected");
+  assert.equal(rushed.store, false);
+  assert.equal(decideGrammarWorldXp({ elapsedMs: 60_000, cardCount: null, now: NOW }).kind, "rejected");
+});
+
+test("a grammar world XP body is a real part, never an XP total", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  assert.deepEqual(
+    parseGrammarWorldXpInput({
+      id,
+      topicId: "verbkonjugation",
+      review: false,
+      node: 2,
+      part: 3,
+      run: 4,
+      elapsedMs: 12000,
+      xp: 999,
+    }),
+    { id, topicId: "verbkonjugation", review: false, node: 2, part: 3, run: 0, elapsedMs: 12000 },
+  );
+  assert.equal(
+    parseGrammarWorldXpInput({
+      id,
+      topicId: "verbkonjugation",
+      review: true,
+      node: 1,
+      part: 1,
+      run: 2,
+      elapsedMs: 8000,
+    })?.review,
+    true,
+  );
+  assert.equal(parseGrammarWorldXpInput({ id, topicId: "../x", review: false, node: 1, part: 1, run: 0, elapsedMs: 1 }), null);
 });
 
 function person(

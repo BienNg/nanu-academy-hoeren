@@ -1113,7 +1113,7 @@ export type AdminVisitChartPoint = {
   xp: number;
 };
 
-export type AdminXpSource = "practice" | "review" | "study" | "jump" | "duel" | "quest";
+export type AdminXpSource = "practice" | "review" | "study" | "jump" | "duel" | "quest" | "grammar";
 
 /** One XP award from any source, with when it was given. Keys are Vietnam day and week. */
 export type AdminXpEvent = {
@@ -1132,6 +1132,7 @@ export const ADMIN_XP_SOURCE_LABEL: Record<AdminXpSource, string> = {
   jump: "Lesson jump",
   duel: "Duels",
   quest: "Daily quests",
+  grammar: "Grammar world",
 };
 
 export type AdminXpSourceTotal = { source: AdminXpSource; label: string; xp: number; awards: number };

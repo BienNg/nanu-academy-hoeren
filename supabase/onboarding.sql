@@ -25,6 +25,8 @@ with totals as (
     union all
     select user_id, xp from public.lesson_jump_awards
     union all
+    select user_id, xp from public.grammar_world_awards
+    union all
     select user_id, xp from public.quest_claims
   ) awards
   group by user_id

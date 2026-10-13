@@ -17,6 +17,7 @@ import {
   worldAreaViews,
   worldCardStream,
   worldNodes,
+  worldPracticeCardCount,
   worldReviewCards,
   worldStageView,
   worldStageOpen,
@@ -46,16 +47,45 @@ const moreClips: StoredWorldClip[] = [
   { id: "x-03", filename: "x3.mp3", script: "Er fragt Anna.", translationVi: "Anh ấy hỏi Anna.", verb: "fragen", tense: "praesens", person: "er", wrong: { script: "Er fragst Anna.", whyVi: "er: -t" } },
 ];
 
-test("Verbkonjugation fills one node of four 10-card parts, warm-ups first", () => {
-  assert.equal(worldCardStream(tables, konjugation).length, 32);
+test("Verbkonjugation fills six nodes, the last five from the added clips", () => {
+  assert.equal(worldCardStream(tables, konjugation).length, 272);
   const nodes = worldNodes(tables, konjugation);
-  assert.equal(nodes.length, 1);
-  assert.deepEqual(nodes[0]!.parts.map((part) => part.cards.length), [10, 10, 10, 10]);
-  for (const part of nodes[0]!.parts) {
-    assert.equal(part.cards[0]!.kind, "table-fill");
-    assert.equal(part.cards[1]!.kind, "pronoun-pairing");
+  assert.equal(nodes.length, 6);
+  assert.deepEqual(
+    nodes.map((node) => node.parts.map((part) => part.cards.length)),
+    [
+      [10, 10, 10, 10],
+      [10, 10, 10, 11],
+      [15, 15, 15, 17],
+      [15, 15, 15, 17],
+      [15, 15, 15, 17],
+      [15, 15, 15, 8],
+    ],
+  );
+  for (const node of nodes) {
+    for (const part of node.parts) {
+      assert.equal(part.cards[0]!.kind, "table-fill");
+      assert.equal(part.cards[1]!.kind, "pronoun-pairing");
+    }
   }
-  assert.equal(new Set(nodes[0]!.parts.map((part) => part.key)).size, 4);
+  assert.equal(new Set(nodes.flatMap((node) => node.parts.map((part) => part.key))).size, 24);
+});
+
+test("a clip stays in one practice node, and the next node starts on a new clip", () => {
+  const stream = worldCardStream(tables, konjugation);
+  const nodes = worldNodes(tables, konjugation);
+  const owner = new Map<string, number>();
+  for (const node of nodes) {
+    assert.ok(node.parts.length <= 4);
+    if (node.start > 0) {
+      assert.notEqual(stream[node.start - 1]!.key.split(":")[1], stream[node.start]!.key.split(":")[1]);
+    }
+    for (const id of new Set(node.parts.flatMap((part) => part.clipIds))) {
+      assert.equal(owner.has(id), false, id);
+      owner.set(id, node.node);
+    }
+  }
+  assert.equal(owner.size, konjugation.clips.length);
 });
 
 test("card keys do not depend on audio, so adding MP3s keeps saved parts", () => {
@@ -65,6 +95,27 @@ test("card keys do not depend on audio, so adding MP3s keeps saved parts", () =>
     worldNodes(tables, konjugation)[0]!.parts.map((part) => part.key),
   );
   assert.ok(worldCardStream(tables, silent).every((card) => card.kind !== "tense-spot"));
+});
+
+test("a node opens only once every clip in it has its MP3", () => {
+  const voiced = { ...konjugation, clips: konjugation.clips.map((clip, index) => (index < 23 ? clip : { ...clip, audioPath: null })) };
+  const nodes = worldNodes(tables, voiced);
+  assert.deepEqual(nodes.map((node) => node.ready), [true, true, false, false, false, false]);
+
+  let stage = undefined as ReturnType<typeof withWorldPartDone> | undefined;
+  for (const node of nodes.slice(0, 2)) {
+    for (const part of node.parts) stage = withWorldPartDone(tables, voiced, stage, part.key);
+  }
+  const view = worldStageView(tables, voiced, stage);
+  assert.equal(view.current, null);
+  assert.equal(view.review.unlocked, false);
+  const target = { review: false, node: 3, part: 1, run: 0 };
+  assert.equal(worldPracticeCardCount(tables, voiced, stage, target), null);
+  assert.ok(worldPracticeCardCount(tables, konjugation, stage, target));
+
+  // One missing MP3 is enough to hold back its node.
+  const gap = { ...konjugation, clips: konjugation.clips.map((clip) => (clip.id === "vk-15" ? { ...clip, audioPath: null } : clip)) };
+  assert.deepEqual(worldNodes(tables, gap).map((node) => node.ready), [true, false, true, true, true, true]);
 });
 
 test("every clip gives 2–4 cards with one right form, never a form the pronoun allows", () => {
@@ -100,12 +151,30 @@ test("finishing every part of a node seals it; added clips grow new nodes above"
 
   const grown = withClips(konjugation, moreClips);
   const view = worldStageView(tables, grown, stage);
-  assert.equal(view.nodes.length, 2);
+  assert.equal(view.nodes.length, nodes.length);
   assert.equal(view.nodes[0]!.done, true);
   assert.deepEqual(view.nodes[0]!.parts.map((part) => part.key), nodes[0]!.parts.map((part) => part.key));
+  assert.ok(view.nodes.at(-1)!.parts.some((part) => part.clipIds.includes("x-01")));
   assert.equal(view.nodes[1]!.done, false);
   assert.deepEqual(view.current, { node: 2, part: 1 });
   assert.equal(view.review.unlocked, false);
+
+  const packed = withClips(
+    konjugation,
+    Array.from({ length: 8 }, (_, index) => ({
+      id: `y-0${index}`,
+      filename: `y${index}.mp3`,
+      script: "Ich wohne in Hamburg.",
+      translationVi: "Tôi sống ở Hamburg.",
+      verb: "wohnen",
+      tense: "praesens" as const,
+      person: "ich",
+    })),
+  );
+  const above = worldNodes(tables, packed);
+  assert.ok(above.length > nodes.length);
+  assert.equal(above[0]!.end, nodes[0]!.end);
+  assert.ok(above.at(-1)!.parts.some((part) => part.clipIds.some((id) => id.startsWith("y-"))));
 });
 
 test("a finished short node stays done when clips are added", () => {
@@ -134,16 +203,48 @@ test("the review mixes 15 cards across all clips and changes per run", () => {
   const first = worldReviewCards(tables, konjugation, 0);
   assert.equal(first.length, WORLD_REVIEW_CARDS);
   const clips = new Set(first.map((card) => card.key.split(":")[1]));
-  assert.equal(clips.size, 12);
+  assert.equal(clips.size, WORLD_REVIEW_CARDS);
   const second = worldReviewCards(tables, konjugation, 1);
   assert.notDeepEqual(first.map((card) => card.key), second.map((card) => card.key));
   const grown = withClips(konjugation, moreClips);
-  assert.ok(worldReviewCards(tables, grown, 1).some((card) => card.key.includes(":x-0")));
+  assert.ok(
+    Array.from({ length: 40 }, (_, run) => worldReviewCards(tables, grown, run)).some((cards) =>
+      cards.some((card) => card.key.includes(":x-0")),
+    ),
+  );
 });
 
-test("stage view: review unlocks after the nodes, done after the review", () => {
+test("a practice part and a review report the cards that pay XP", () => {
+  const node = worldNodes(tables, konjugation)[0]!;
+  const part = node.parts[0]!;
+  assert.equal(
+    worldPracticeCardCount(tables, konjugation, undefined, { review: false, node: 1, part: 1, run: 0 }),
+    part.cards.length,
+  );
+  assert.equal(worldPracticeCardCount(tables, konjugation, undefined, { review: false, node: 9, part: 1, run: 0 }), null);
+  assert.equal(worldPracticeCardCount(tables, konjugation, undefined, { review: true, node: 0, part: 0, run: 0 }), null);
+
   let stage = undefined as ReturnType<typeof withWorldPartDone> | undefined;
-  for (const part of worldNodes(tables, konjugation)[0]!.parts) stage = withWorldPartDone(tables, konjugation, stage, part.key);
+  for (const entry of worldNodes(tables, konjugation)) {
+    for (const done of entry.parts) stage = withWorldPartDone(tables, konjugation, stage, done.key);
+  }
+  assert.equal(
+    worldPracticeCardCount(tables, konjugation, stage, { review: true, node: 0, part: 0, run: 0 }),
+    worldReviewCards(tables, konjugation, 0).length,
+  );
+  const played = withWorldReviewDone(stage);
+  assert.equal(
+    worldPracticeCardCount(tables, konjugation, played, { review: true, node: 0, part: 0, run: 0 }),
+    worldReviewCards(tables, konjugation, 0).length,
+  );
+  assert.equal(worldPracticeCardCount(tables, konjugation, played, { review: true, node: 0, part: 0, run: 5 }), null);
+});
+
+test("stage view: review unlocks after every node, done after the review", () => {
+  let stage = undefined as ReturnType<typeof withWorldPartDone> | undefined;
+  for (const node of worldNodes(tables, konjugation)) {
+    for (const part of node.parts) stage = withWorldPartDone(tables, konjugation, stage, part.key);
+  }
   let view = worldStageView(tables, konjugation, stage);
   assert.equal(view.review.unlocked, true);
   assert.equal(view.done, false);

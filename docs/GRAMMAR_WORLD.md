@@ -7,7 +7,7 @@ Status: first build. One tab with content (Động từ), one stage (Verbkonjuga
 - **Lesson button**: when a stage opens, a purple mountain button sticks to the bottom right of that Lektion's path, above the tab bar. It is not a node on the path. Until the first part of that stage is finished, a hint centered on the button says "Luyện ngữ pháp của nút này". The hint may extend past the path. The first tap opens `/grammar?intro=<topic>&from=<path>`: a short tour, then *Bắt đầu phần 1*. After a part of that stage is finished, the same button opens the mountain and the hint is gone.
 - **Portal**: the same button, fixed at the bottom right above the tab bar, on CEFR level paths that do not contain the opening Lektion. A red badge counts open stages with nothing practised; otherwise a thin gold ring shows the stars collected.
 - **Mountain** (`/grammar?tab=<area>&from=<path>`): tabs are areas, each with its stars, a check when done, or a lock. It opens on the tab of the newest open stage, scrolled to the next unfinished stop. Stops climb bottom to top: practice nodes, then one review node per stage. A locked stage waits in fog with a button to its Lektion. The current stage's banner is the ground at the bottom. The first time a tab is finished, Pingu plants a flag; after that the banner says "Ôn lại để giữ đỉnh".
-- **Practice** (`/grammar/practice?topic=&node=&part=` or `&review=1`): the same session as a Lektion grammar node, with three hearts. The first miss on a card costs one; the card stays until the answer is right. Running out ends the part without saving it. A finished part goes back to the mountain, where a star is added to the tab and the next stop lights up. No XP yet.
+- **Practice** (`/grammar/practice?topic=&node=&part=` or `&review=1`): the same session as a Lektion grammar node, with three hearts. The first miss on a card costs one; the card stays until the answer is right. Running out ends the part without saving it. A finished part goes back to the mountain, where a star is added to the tab and the next stop lights up. Every finished part and every review pays 20 XP, including a replay. Running out of hearts pays nothing.
 
 ## Authoring: `src/data/grammar/world.json`
 
@@ -186,6 +186,7 @@ pronoun-pairing
 All clip cards, in clip order, form one stream. Every clip deals from its own seed, so adding clips only adds cards at the end of the stream.
 
 - A node holds 4 parts. A part in nodes 1–2 is 10 cards; from node 3 on it is 15. Two of each part's cards are the warm-ups.
+- A node ends on a clip, so the next node starts on a new one. The same clip is never in two practice nodes; only the review deals it again. One or two cards of the last clip can lengthen the last part. A clip that would open a fifth part starts the next node.
 - The last node can have fewer parts. A tail of fewer than 3 cards joins the part before it.
 - When the learner finishes a node, its end in the stream is stored. Clips added later start a new node above it, below the review. A finished node keeps its parts even when it had fewer than 4.
 - The review node deals 15 cards: one card per clip in turn, across every clip of the stage. It opens when every node is done. Each replay draws again and takes in new clips. Once played, it stays done.

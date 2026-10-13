@@ -7,7 +7,7 @@
  * sized for a class of about 6: 1000 XP, 40 parts, or 12 duels.
  *
  * Progress is counted by the server from rows it already wrote (xp_awards,
- * study_xp_awards, duel_xp_awards, listening_runs). A finished quest pays XP
+ * study_xp_awards, duel_xp_awards, grammar_world_awards, listening_runs). A finished quest pays XP
  * to every learner who added to it, once they tap claim, until the day or week
  * ends. Claims live in quest_claims under ids starting with `class`, so the XP
  * counts on every board like any other quest XP.
@@ -186,7 +186,8 @@ export function classQuestTarget(quest: ClassQuestDefinition, learners: number):
 export type ClassActivity =
   | { userId: string; day: string; kind: "listening"; accuracy: number; xp?: number }
   | { userId: string; day: string; kind: "study"; xp?: number }
-  | { userId: string; day: string; kind: "duel"; xp?: number };
+  | { userId: string; day: string; kind: "duel"; xp?: number }
+  | { userId: string; day: string; kind: "grammar"; xp?: number };
 
 export type ClassQuestShare = { userId: string; amount: number };
 

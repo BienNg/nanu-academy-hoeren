@@ -23,7 +23,6 @@ import {
   Summit,
   WORLD_ACCENT,
   WORLD_ACCENT_DEEP,
-  WORLD_TRACK,
   WORLD_VARS,
 } from "./WorldArt";
 import { stagePlayHref, useGrammarWorld } from "./useGrammarWorld";
@@ -48,6 +47,8 @@ type Stop = {
   partsDone: number;
   done: boolean;
   locked: boolean;
+  /** Locked because the node's audio is not recorded yet. */
+  soon: boolean;
   /** Global index from the foot, for the zigzag. */
   index: number;
   start: StartOffer | null;
@@ -71,7 +72,8 @@ function buildStops(view: WorldAreaView): Stop[] {
     const topic = stage.topic;
     stage.nodes.forEach((node, nodeIndex) => {
       const previousDone = nodeIndex === 0 || stage.nodes[nodeIndex - 1]!.done;
-      const locked = !node.done && !previousDone;
+      const soon = !node.ready;
+      const locked = soon || (!node.done && !previousDone);
       const nextPart = node.partDone.findIndex((done) => !done) + 1;
       const playPart = node.done || nextPart === 0 ? 1 : nextPart;
       stops.push({
@@ -84,6 +86,7 @@ function buildStops(view: WorldAreaView): Stop[] {
         partsDone: node.partsDone,
         done: node.done,
         locked,
+        soon,
         index: stops.length,
         start: locked
           ? null
@@ -106,6 +109,7 @@ function buildStops(view: WorldAreaView): Stop[] {
       partsDone: review.done ? 1 : 0,
       done: review.done,
       locked: !review.unlocked,
+      soon: false,
       index: stops.length,
       start: review.unlocked
         ? {
@@ -133,19 +137,28 @@ function gateLine(gate: WorldGate | undefined): string {
 
 // ---------------------------------------------------------------- stop
 
-const RING_R = 44;
-const RING_BOX = 100;
+/** Same ring as a Lektion path node: it circles the face and its lip, one arc per part. */
+const RING_STROKE = 7;
+const RING_DROP = 3;
+const RING_RADIUS = 35 + RING_DROP + 3 + RING_STROKE / 2;
+const RING_BOX = 2 * (RING_RADIUS + RING_STROKE / 2);
 
-function StopRing({ parts, done, current }: { parts: number; done: number; current: boolean }) {
-  const circumference = 2 * Math.PI * RING_R;
-  const count = Math.max(1, parts);
+function StopRing({ parts, done }: { parts: number; done: number }) {
+  const circumference = 2 * Math.PI * RING_RADIUS;
+  const count = Math.max(1, Math.round(parts));
+  const filled = Math.min(count, Math.max(0, Math.round(done)));
   const slot = circumference / count;
-  const gap = count > 1 ? Math.min(10, slot * 0.18) + 2 : 0;
+  const gap = count > 1 ? Math.min(10, slot * 0.18) + (RING_STROKE - 5) : 0;
   const segment = slot - gap;
   return (
     <svg
-      className="pointer-events-none absolute -rotate-90"
-      style={{ width: RING_BOX, height: RING_BOX, left: 35 - RING_BOX / 2, top: 38 - RING_BOX / 2 }}
+      className="pointer-events-none absolute -rotate-90 overflow-visible"
+      style={{
+        width: RING_BOX,
+        height: RING_BOX,
+        left: 35 - RING_BOX / 2,
+        top: 35 + RING_DROP - RING_BOX / 2,
+      }}
       viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
       aria-hidden="true"
     >
@@ -154,10 +167,10 @@ function StopRing({ parts, done, current }: { parts: number; done: number; curre
           key={index}
           cx={RING_BOX / 2}
           cy={RING_BOX / 2}
-          r={RING_R}
+          r={RING_RADIUS}
           fill="none"
-          stroke={index < done ? WORLD_ACCENT : current ? "#d9ccfa" : WORLD_TRACK}
-          strokeWidth={7}
+          stroke={index < filled ? "var(--path-node)" : "#a78bfa"}
+          strokeWidth={RING_STROKE}
           strokeLinecap="round"
           strokeDasharray={`${segment} ${circumference - segment}`}
           strokeDashoffset={-index * (segment + gap)}
@@ -169,14 +182,20 @@ function StopRing({ parts, done, current }: { parts: number; done: number; curre
 
 function StopFace({ stop, current }: { stop: Stop; current: boolean }) {
   const Icon = stop.kind === "review" ? GrammarReviewIcon : GrammarPieceIcon;
+  const ring = (
+    <StopRing parts={stop.partCount} done={stop.partsDone} />
+  );
   if (stop.locked) {
     return (
-      <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e5e1ee] shadow-[0_6px_0_0_#cfc8de]">
-        <span className="opacity-40 grayscale">
-          <Icon onWhite className="h-10 w-10" />
-        </span>
-        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e5e1ee] bg-white text-[#9b93ad] shadow-[0_2px_0_0_#cfc8de]">
-          <LockGlyph className="h-3.5 w-3.5" />
+      <span className="relative flex h-[70px] w-[70px] items-center justify-center">
+        {ring}
+        <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white/70 bg-[#e5e1ee] shadow-[0_6px_0_0_#cfc8de]">
+          <span className="opacity-40 grayscale">
+            <Icon onWhite className="h-10 w-10" />
+          </span>
+          <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#e5e1ee] bg-white text-[#9b93ad] shadow-[0_2px_0_0_#cfc8de]">
+            <LockGlyph className="h-3.5 w-3.5" />
+          </span>
         </span>
       </span>
     );
@@ -199,10 +218,10 @@ function StopFace({ stop, current }: { stop: Stop; current: boolean }) {
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
         >
-          <StopRing parts={stop.partCount} done={stop.partsDone} current />
+          {ring}
         </motion.span>
       ) : (
-        <StopRing parts={stop.partCount} done={stop.partsDone} current={false} />
+        ring
       )}
       <span className="relative flex h-[70px] w-[70px] items-center justify-center rounded-full border-t-2 border-white bg-white shadow-[0_6px_0_0_#cdbff0]">
         <Icon onWhite className="h-10 w-10" />
@@ -311,7 +330,11 @@ function WorldStopView({
 
   const label = stop.kind === "review" ? "Ôn tập" : `Nút ${stop.node}`;
   const lockText =
-    stop.kind === "review" ? "Hoàn thành mọi nút của chặng để mở ôn tập" : "Hoàn thành nút bên dưới để mở nút này";
+    stop.kind === "review"
+      ? "Hoàn thành mọi nút của chặng để mở ôn tập"
+      : stop.soon
+        ? "Nút này sắp ra mắt"
+        : "Hoàn thành nút bên dưới để mở nút này";
 
   return (
     <div ref={rootRef} className="relative flex flex-col items-center" data-stop={stop.id}>

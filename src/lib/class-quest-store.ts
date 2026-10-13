@@ -33,6 +33,7 @@ const CLAIMS_TABLE = "quest_claims";
 const XP_TABLE = "xp_awards";
 const STUDY_XP_TABLE = "study_xp_awards";
 const DUEL_XP_TABLE = "duel_xp_awards";
+const GRAMMAR_WORLD_TABLE = "grammar_world_awards";
 const RUNS_TABLE = "listening_runs";
 const CLASS_PODIUMS_TABLE = "weekly_class_podiums";
 const WEEK_MS = 7 * 86_400_000;
@@ -77,7 +78,7 @@ async function readClassActivity(
   const listening: { run_id: string; user_id: string; day_key: string; xp: number }[] = [];
   const activity: ClassActivity[] = [];
   for (const ids of chunks(userIds)) {
-    const [awards, study, duels] = await Promise.all([
+    const [awards, study, duels, grammar] = await Promise.all([
       readAll((from, to) =>
         supabase
           .from(XP_TABLE)
@@ -108,6 +109,16 @@ async function readClassActivity(
           .order("user_id")
           .range(from, to),
       ),
+      readAll((from, to) =>
+        supabase
+          .from(GRAMMAR_WORLD_TABLE)
+          .select("id, user_id, day_key, xp")
+          .eq("week_key", week)
+          .gt("xp", 0)
+          .in("user_id", ids)
+          .order("id")
+          .range(from, to),
+      ),
     ]);
     if (!awards || !study) {
       console.error("Supabase class quest activity", "listening or study XP unreadable");
@@ -129,6 +140,17 @@ async function readClassActivity(
           userId: row.user_id,
           day: row.day_key,
           kind: "study",
+          xp: typeof row.xp === "number" ? row.xp : 0,
+        });
+      }
+    }
+    // Grammar world is optional until its table exists. Its XP counts on the weekly bar.
+    for (const row of (grammar ?? []) as { user_id?: unknown; day_key?: unknown; xp?: unknown }[]) {
+      if (typeof row.user_id === "string" && typeof row.day_key === "string") {
+        activity.push({
+          userId: row.user_id,
+          day: row.day_key,
+          kind: "grammar",
           xp: typeof row.xp === "number" ? row.xp : 0,
         });
       }

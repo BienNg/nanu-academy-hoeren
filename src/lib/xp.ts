@@ -18,6 +18,10 @@ export const LISTENING_RERUN_PART_XP = 20;
 export const MASTERED_PART_XP = 10;
 export const STUDY_FIRST_PART_XP = 20;
 export const STUDY_RERUN_PART_XP = 10;
+/** Every finished grammar-world part and review pays this, including a replay. */
+export const GRAMMAR_WORLD_PART_XP = 20;
+/** Shorter than a listening clip. Still long enough to reject an instant post. */
+export const MIN_MS_PER_GRAMMAR_CARD = 500;
 export const GLOBAL_LEADERBOARD_LIMIT = 50;
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -247,6 +251,9 @@ export const XP_SCHEMA_HINT =
 export const STUDY_XP_SCHEMA_HINT =
   "Run supabase/study_xp_awards.sql once in the Supabase SQL editor.";
 
+export const GRAMMAR_WORLD_XP_SCHEMA_HINT =
+  "Run supabase/grammar_world_awards.sql once in the Supabase SQL editor, then re-run supabase/xp_totals.sql and supabase/admin_progress_reads.sql.";
+
 export function isXpSchemaMissing(message: string): boolean {
   return (
     /(?<!study_)xp_awards/i.test(message) &&
@@ -257,6 +264,13 @@ export function isXpSchemaMissing(message: string): boolean {
 export function isStudyXpSchemaMissing(message: string): boolean {
   return (
     /study_xp_awards/i.test(message) &&
+    /does not exist|schema cache|could not find the table/i.test(message)
+  );
+}
+
+export function isGrammarWorldSchemaMissing(message: string): boolean {
+  return (
+    /grammar_world_awards/i.test(message) &&
     /does not exist|schema cache|could not find the table/i.test(message)
   );
 }
@@ -503,6 +517,28 @@ export function decideStudyPartXp(input: {
   return { ...award, store: true, ...keys };
 }
 
+/**
+ * Flat XP for one finished grammar-world practice. The first pass and every
+ * replay pay the same 20. A part that is not real, or too short to have been
+ * played, pays nothing.
+ */
+export function decideGrammarWorldXp(input: {
+  elapsedMs: number;
+  /** Cards in this part. Null when the part is not a real one. */
+  cardCount: number | null;
+  now: Date;
+}): XpDecision {
+  const keys = {
+    dayKey: dayKey(input.now),
+    weekKey: weekKey(input.now),
+  };
+  const expected = input.cardCount;
+  if (expected == null || expected < 1 || input.elapsedMs < expected * MIN_MS_PER_GRAMMAR_CARD) {
+    return { xp: 0, kind: "rejected", store: false, ...keys };
+  }
+  return { xp: GRAMMAR_WORLD_PART_XP, kind: "new", store: true, ...keys };
+}
+
 const STUDY_XP_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -547,6 +583,34 @@ export function parseStudyXpInput(value: unknown): StudyXpInput | null {
     clipIds.push(id);
   }
   return { id: record.id, lessonKey: record.lessonKey, partNumber, partCount, elapsedMs, clipIds };
+}
+
+export type GrammarWorldXpInput = {
+  id: string;
+  topicId: string;
+  review: boolean;
+  node: number;
+  part: number;
+  /** Review run the cards were dealt from. 0 for a practice part. */
+  run: number;
+  elapsedMs: number;
+};
+
+/** A finished grammar-world part the browser may submit. Null when the body is not one. */
+export function parseGrammarWorldXpInput(value: unknown): GrammarWorldXpInput | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.id !== "string" || !STUDY_XP_ID.test(record.id)) return null;
+  if (typeof record.topicId !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(record.topicId)) return null;
+  if (typeof record.review !== "boolean") return null;
+  const node = studyInteger(record.node, 0, 99);
+  const part = studyInteger(record.part, 0, 99);
+  const run = studyInteger(record.run, 0, 10_000);
+  const elapsedMs = studyInteger(record.elapsedMs, 0, 24 * 60 * 60 * 1000);
+  if (node == null || part == null || run == null || elapsedMs == null) return null;
+  if (record.review) return { id: record.id, topicId: record.topicId, review: true, node: 0, part: 0, run, elapsedMs };
+  if (node < 1 || part < 1) return null;
+  return { id: record.id, topicId: record.topicId, review: false, node, part, run: 0, elapsedMs };
 }
 
 export function emptyLeaderboard(input: {

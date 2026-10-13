@@ -4,7 +4,7 @@
  *
  * Every topic, its area and its place are written by hand in
  * src/data/grammar/world.json. A topic's clips become one card stream; the
- * stream is cut into nodes of 4 parts, and each part opens with two warm-ups
+ * stream is cut into nodes of 4 parts on clip boundaries, and each part opens with two warm-ups
  * from the verb tables. Every clip deals its cards from its own seed, so
  * adding clips only adds cards at the end of the stream: finished parts keep
  * their keys, and finished nodes keep their place.
@@ -371,6 +371,8 @@ export type WorldNode = {
   parts: WorldPart[];
   /** Finished and stored: it keeps its range even after clips are added. */
   sealed: boolean;
+  /** Every clip in its parts has its MP3. A node without them cannot be played. */
+  ready: boolean;
 };
 
 function buildPart(tables: TenseTables, topic: WorldTopic, cards: readonly GrammarCard[], part: number): WorldPart {
@@ -382,6 +384,40 @@ function buildPart(tables: TenseTables, topic: WorldTopic, cards: readonly Gramm
     cards: dealt,
     clipIds: [...new Set(cards.map((card) => card.key.split(":")[1] ?? ""))].filter(Boolean),
   };
+}
+
+/** The clip id stored in a world card key (`topic:clip:kind`). */
+function clipIdOf(card: GrammarCard): string {
+  return card.key.split(":")[1] ?? "";
+}
+
+/** Index just after the clip that contains `at`. */
+function clipBoundary(stream: readonly GrammarCard[], at: number): number {
+  const id = clipIdOf(stream[at]!);
+  let end = at + 1;
+  while (end < stream.length && clipIdOf(stream[end]!) === id) end += 1;
+  return end;
+}
+
+/**
+ * Where the next practice node ends. It takes whole clips until it holds
+ * `capacity` cards, so the node after it starts on a new clip. One or two
+ * extra cards come along and join the last part; a clip that would open a
+ * fifth part waits. A remainder shorter than a part's tail stays here too.
+ */
+function practiceNodeEnd(stream: readonly GrammarCard[], cursor: number, capacity: number): number {
+  const limit = capacity + MIN_TAIL_CARDS - 1;
+  let end = cursor;
+  while (end < stream.length) {
+    const next = clipBoundary(stream, end);
+    if (end > cursor && next - cursor > limit) break;
+    end = next;
+    if (end - cursor >= capacity) break;
+  }
+  if (stream.length - end > 0 && stream.length - end < MIN_TAIL_CARDS && stream.length - cursor <= limit) {
+    return stream.length;
+  }
+  return end;
 }
 
 /** Cuts one node's cards into parts of `per`. A short tail joins the part before it. */
@@ -399,30 +435,32 @@ function cutParts(cards: readonly GrammarCard[], per: number): GrammarCard[][] {
 /**
  * The stage's practice nodes. Finished nodes keep the ranges stored in
  * `nodeEnds`; the rest of the stream fills new nodes of 4 parts above them.
+ * A new node ends on a clip, so the same clip is never in two of them.
  */
 export function worldNodes(tables: TenseTables, topic: WorldTopic, nodeEnds: readonly number[] = []): WorldNode[] {
   const stream = worldCardStream(tables, topic);
+  const voiced = new Set(topic.clips.flatMap((clip) => (clip.audioPath ? [clip.id] : [])));
   const nodes: WorldNode[] = [];
   let cursor = 0;
   const addNode = (end: number, sealed: boolean) => {
     const node = nodes.length + 1;
     const per = worldPartSize(node) - WORLD_WARM_UPS;
     const cards = stream.slice(cursor, end);
+    const parts = cutParts(cards, per).map((partCards, index) => buildPart(tables, topic, partCards, index + 1));
     nodes.push({
       node,
       start: cursor,
       end,
       sealed,
-      parts: cutParts(cards, per).map((partCards, index) => buildPart(tables, topic, partCards, index + 1)),
+      parts,
+      ready: parts.every((part) => part.clipIds.every((id) => voiced.has(id))),
     });
     cursor = Math.max(cursor, end);
   };
   for (const end of nodeEnds) addNode(Math.min(Math.max(end, cursor), stream.length), true);
   while (cursor < stream.length) {
     const per = worldPartSize(nodes.length + 1) - WORLD_WARM_UPS;
-    let end = Math.min(stream.length, cursor + per * WORLD_PARTS_PER_NODE);
-    if (stream.length - end > 0 && stream.length - end < MIN_TAIL_CARDS) end = stream.length;
-    addNode(end, false);
+    addNode(practiceNodeEnd(stream, cursor, per * WORLD_PARTS_PER_NODE), false);
   }
   return nodes;
 }
@@ -468,7 +506,7 @@ export type WorldStageView = {
   practised: boolean;
   /** Every node and the review are done. */
   done: boolean;
-  /** The node to play next, or null when only the review is left (or nothing). */
+  /** The node to play next, or null when only the review is left, the next node's audio is missing, or nothing. */
   current: { node: number; part: number } | null;
 };
 
@@ -498,7 +536,7 @@ export function worldStageView(
     starsTotal: partTotal + 1,
     practised: partStars > 0 || reviewDone || progress.nodeEnds.length > 0,
     done: allNodesDone && reviewDone && topic.clips.length > 0,
-    current: open ? { node: open.node, part: openPart } : null,
+    current: open?.ready ? { node: open.node, part: openPart } : null,
   };
 }
 
@@ -526,6 +564,39 @@ export function withWorldPartDone(
 
 export function withWorldReviewDone(progress: WorldStageProgress = EMPTY_STAGE): WorldStageProgress {
   return { ...progress, reviewRuns: progress.reviewRuns + 1 };
+}
+
+/**
+ * Cards in the part the learner just finished. Null when that part is not a
+ * real one, or a review that is not open yet. `run` is the review draw; a
+ * saved review is one run ahead of the draw it was dealt from.
+ */
+export function worldPracticeCardCount(
+  tables: TenseTables,
+  topic: WorldTopic,
+  progress: WorldStageProgress | undefined,
+  target: { review: boolean; node: number; part: number; run: number },
+): number | null {
+  const stage = progress ?? EMPTY_STAGE;
+  if (target.review) {
+    if (topic.clips.length === 0 || target.run < 0 || target.run > stage.reviewRuns) return null;
+    const view = worldStageView(tables, topic, stage);
+    if (!view.review.unlocked && stage.reviewRuns === 0) return null;
+    const count = worldReviewCards(tables, topic, target.run).length;
+    return count > 0 ? count : null;
+  }
+  if (target.node < 1 || target.part < 1) return null;
+  const layouts = [stage.nodeEnds, stage.nodeEnds.slice(0, -1), [] as number[]];
+  const seen = new Set<string>();
+  for (const ends of layouts) {
+    const key = ends.join(",");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const node = worldNodes(tables, topic, ends).find((entry) => entry.node === target.node);
+    const part = node?.ready ? node.parts.find((entry) => entry.part === target.part) : undefined;
+    if (part && part.cards.length > 0) return part.cards.length;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- areas

@@ -15,7 +15,13 @@ import {
   type StoredListeningRun,
   type StudentRunsPage,
 } from "@/lib/listening-runs";
-import { googleProfileImage, isStudyXpSchemaMissing, isXpSchemaMissing, parseDisplayName } from "@/lib/xp";
+import {
+  googleProfileImage,
+  isGrammarWorldSchemaMissing,
+  isStudyXpSchemaMissing,
+  isXpSchemaMissing,
+  parseDisplayName,
+} from "@/lib/xp";
 import {
   isJumpRunsSchemaMissing,
   isJumpXpSchemaMissing,
@@ -2285,6 +2291,7 @@ async function deleteUserXpAwards(
   if (!error || isXpSchemaMissing(error.message)) {
     await deleteUserStudyXp(supabase, userId, "all");
     await deleteUserJumpXp(supabase, userId, "all");
+    await deleteUserGrammarWorldXp(supabase, userId);
     return;
   }
   throw new Error(`Could not delete XP (${error.message}).`);
@@ -2301,6 +2308,12 @@ async function deleteUserStudyXp(
   const { error } = await scoped;
   if (!error || isStudyXpSchemaMissing(error.message)) return;
   throw new Error(`Could not delete study XP (${error.message}).`);
+}
+
+async function deleteUserGrammarWorldXp(supabase: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await supabase.from("grammar_world_awards").delete().eq("user_id", userId);
+  if (!error || isGrammarWorldSchemaMissing(error.message)) return;
+  throw new Error(`Could not delete grammar world XP (${error.message}).`);
 }
 
 /** Jump XP goes with practice: a Lektion cleared of practice can be skipped, and paid, again. */
@@ -3089,6 +3102,15 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     severity: "warn",
     kind: "table",
     table: "lesson_jump_awards",
+    column: "id",
+  },
+  {
+    id: "grammar_world_awards",
+    label: "grammar_world_awards",
+    sqlFile: "supabase/grammar_world_awards.sql",
+    severity: "warn",
+    kind: "table",
+    table: "grammar_world_awards",
     column: "id",
   },
   {
