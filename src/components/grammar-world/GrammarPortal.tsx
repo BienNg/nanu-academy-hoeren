@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GrammarWorldData } from "@/lib/grammar-world-content";
 import { PortalMountain, WORLD_ACCENT, WORLD_ACCENT_DEEP } from "./WorldArt";
 import { useGrammarWorld } from "./useGrammarWorld";
@@ -19,39 +19,97 @@ export function worldHref(from: string, tab?: string): string {
 }
 
 /**
- * The floating purple button on a level path, bottom right above the tab bar.
- * It appears once the learner has finished a part on the mountain; before
- * that, a new stage is a node on the path. A badge counts open stages not
- * practised yet; otherwise a thin ring shows the stars collected.
+ * The floating purple button for the grammar world. On the Lektion that
+ * opened a stage it sticks to the bottom right of that lesson's path. On
+ * other level paths it stays fixed above the tab bar. A badge counts open
+ * stages not practised yet; otherwise a thin ring shows the stars collected.
  */
-export function GrammarPortal({ data, from }: { data: GrammarWorldData; from: string }) {
+export function GrammarPortal({
+  data,
+  from,
+  placement = "fixed",
+  introTopicId = null,
+}: {
+  data: GrammarWorldData;
+  from: string;
+  /** `lesson` sits in the lesson path; `fixed` floats above the tab bar. */
+  placement?: "fixed" | "lesson";
+  /** First tap of a new stage: the short tour, then its first part. */
+  introTopicId?: string | null;
+}) {
   const router = useRouter();
   const reduceMotion = useReducedMotion() === true;
   const world = useGrammarWorld(data);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [zooming, setZooming] = useState(false);
+  const [zoomFrom, setZoomFrom] = useState<{ right: number; bottom: number } | null>(null);
 
-  // Until a first part is done, the stage is a node on the path instead.
-  const started = world.views.some((view) => view.stages.some((stage) => stage.open && stage.practised));
-  if (!started) return null;
+  if (!world.anyOpen) return null;
 
   const badge = world.unpractised.length;
   const ratio = world.starsTotal === 0 ? 0 : world.stars / world.starsTotal;
+  // The lesson button, while its first part is still unfinished.
+  const showHint = placement === "lesson" && introTopicId != null;
+  const href = introTopicId
+    ? `/grammar?intro=${encodeURIComponent(introTopicId)}&from=${encodeURIComponent(from)}`
+    : worldHref(from);
   const enter = () => {
     if (reduceMotion) {
-      router.push(worldHref(from));
+      router.push(href);
       return;
     }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    setZoomFrom(
+      rect
+        ? {
+            right: window.innerWidth - (rect.left + rect.width / 2),
+            bottom: window.innerHeight - (rect.top + rect.height / 2),
+          }
+        : null,
+    );
     setZooming(true);
-    window.setTimeout(() => router.push(worldHref(from)), 380);
+    window.setTimeout(() => router.push(href), 380);
   };
 
   return (
     <>
+      <div className={placement === "fixed" ? "contents" : "relative"}>
+      {showHint ? (
+        <motion.div
+          className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 flex -translate-x-1/2 flex-col items-center"
+          aria-hidden="true"
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -4, 0] }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { opacity: { duration: 0.2 }, y: { duration: 1.6, repeat: Infinity, ease: "easeInOut" } }
+          }
+        >
+          <span className="w-[9.5rem] rounded-2xl bg-white px-3 py-2 text-center text-[13px] leading-[18px] font-extrabold text-balance text-[var(--path-guide)] shadow-[0_1px_0_rgba(0,0,0,0.05),0_8px_14px_rgba(28,27,31,0.14)]">
+            Luyện ngữ pháp của nút này
+          </span>
+          <svg viewBox="0 0 16 9" className="-mt-px h-[9px] w-4" aria-hidden="true">
+            <path d="M0 0 H16 L8 9 Z" fill="#ffffff" />
+          </svg>
+        </motion.div>
+      ) : null}
       <motion.button
+        ref={buttonRef}
         type="button"
         onClick={enter}
-        aria-label={badge > 0 ? `Thế giới ngữ pháp, ${badge} chặng mới chưa luyện` : "Thế giới ngữ pháp"}
-        className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-40 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7c3aed]"
+        aria-label={
+          showHint
+            ? "Thế giới ngữ pháp. Luyện ngữ pháp của nút này"
+            : badge > 0
+              ? `Thế giới ngữ pháp, ${badge} chặng mới chưa luyện`
+              : "Thế giới ngữ pháp"
+        }
+        className={`${
+          placement === "fixed"
+            ? "fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+            : "relative"
+        } z-40 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7c3aed]`}
         style={{ width: PORTAL_PX, height: PORTAL_PX }}
         initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -93,6 +151,7 @@ export function GrammarPortal({ data, from }: { data: GrammarWorldData; from: st
           </motion.span>
         ) : null}
       </motion.button>
+      </div>
 
       {/* The zoom into the world: the button's purple grows over the screen. */}
       <AnimatePresence>
@@ -101,8 +160,8 @@ export function GrammarPortal({ data, from }: { data: GrammarWorldData; from: st
             key="zoom"
             className="pointer-events-none fixed z-[90] rounded-full"
             style={{
-              right: 16 + PORTAL_PX / 2,
-              bottom: `calc(5rem + env(safe-area-inset-bottom, 0px) + ${PORTAL_PX / 2}px)`,
+              right: zoomFrom?.right ?? 16 + PORTAL_PX / 2,
+              bottom: zoomFrom?.bottom ?? `calc(5rem + env(safe-area-inset-bottom, 0px) + ${PORTAL_PX / 2}px)`,
               width: 2,
               height: 2,
               background: WORLD_ACCENT,

@@ -1,16 +1,15 @@
 import worldFile from "@/data/grammar/world.json";
 import { isAdminUser } from "@/lib/admins";
 import { publicMediaExists } from "@/lib/content";
-import { grammarPartStorageKey } from "@/lib/grammar-node";
 import { resolveWorld, type StoredWorldArea, type WorldArea, type WorldGate } from "@/lib/grammar-world";
 import type { TenseTables } from "@/lib/grammar-lessons";
 import {
   getCefrLevel,
-  getChapterGrammarLayouts,
+  getChapterClips,
   getGrammarTenses,
   getLevelChapters,
-  getLevelProgressKeys,
 } from "@/lib/levels";
+import { practiceNodeLayout } from "@/lib/practice-node";
 import { cefrLearnKey } from "@/lib/progress";
 import { getUserDashboardFlags, getUserLevelAccess } from "@/lib/progress-store";
 
@@ -30,8 +29,8 @@ export function getWorldAreas(): WorldArea[] {
 }
 
 /**
- * The Lektion that opens a topic: its Học ngữ pháp part keys, or, when it has
- * none, the Lektionen before it on the path. Null when `opensWith` names no Lektion.
+ * The Lektion that opens a topic, and the parts of its first practice node.
+ * Null when `opensWith` names no Lektion.
  */
 function gateFor(opensWith: string, levelAccess: ReadonlySet<string> | null, unlockAll: boolean): WorldGate | null {
   const [levelSlug, chapterSlug] = opensWith.split("/");
@@ -40,15 +39,19 @@ function gateFor(opensWith: string, levelAccess: ReadonlySet<string> | null, unl
   const chapter = getLevelChapters(levelSlug).find((entry) => entry.slug === chapterSlug);
   if (!level || !chapter) return null;
   const progressKey = cefrLearnKey(levelSlug, chapterSlug);
-  const levelKeys = getLevelProgressKeys(levelSlug);
-  const at = levelKeys.indexOf(progressKey);
-  const studyKeys = getChapterGrammarLayouts(levelSlug, chapterSlug).flatMap((layout) =>
-    layout.studyParts.map((part) => grammarPartStorageKey(layout.topicId, part.key)),
-  );
+  let practiceParts: WorldGate["practiceParts"] = [];
+  try {
+    const clips = getChapterClips(levelSlug, chapterSlug);
+    practiceParts = (practiceNodeLayout(`${levelSlug}/${chapterSlug}`, clips)[0] ?? []).map((part) => ({
+      key: part.key,
+      clipIds: [...part.clipIds],
+    }));
+  } catch {
+    practiceParts = [];
+  }
   return {
     progressKey,
-    previousKeys: at < 0 ? [] : levelKeys.slice(0, at),
-    studyKeys,
+    practiceParts,
     access: levelAccess === null || levelAccess.has(levelSlug),
     unlocked: unlockAll && (levelAccess === null || levelAccess.has(levelSlug)),
     lessonHref: `/learn/${levelSlug}?lektion=${encodeURIComponent(chapterSlug)}`,

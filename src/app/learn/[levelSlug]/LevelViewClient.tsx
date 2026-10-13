@@ -2082,18 +2082,19 @@ export default function LevelViewClient({
       ),
     [cefrCatalog, level.slug],
   );
-  // Open stages with no finished part, by the progress key of the Lektion that opened them.
+  // Open stages, by the progress key of the Lektion whose first practice node opened them.
   const worldView = useGrammarWorld(grammarWorld);
-  const worldNodeTopics = useMemo(() => {
+  const openWorldByLesson = useMemo(() => {
     const byLesson = new Map<string, WorldTopic[]>();
     if (!grammarWorld || accessLocked || !worldView.progressReady) return byLesson;
     for (const stage of worldView.views.flatMap((view) => view.stages)) {
       const gate = grammarWorld.gates[stage.topic.id];
-      if (!gate || !stage.open || stage.practised) continue;
+      if (!gate || !stage.open) continue;
       byLesson.set(gate.progressKey, [...(byLesson.get(gate.progressKey) ?? []), stage.topic]);
     }
     return byLesson;
   }, [accessLocked, grammarWorld, worldView]);
+  const worldButtonOnThisPath = chapters.some((chapter) => openWorldByLesson.has(progressKeyOf(chapter)));
   /** Grammar topics of every Lektion of this level, by lesson id. */
   const grammarLayouts = useMemo(
     () =>
@@ -2620,24 +2621,10 @@ export default function LevelViewClient({
                 );
               },
             );
-            // A stage that just opened shows up here until its first part is done.
-            for (const topic of worldNodeTopics.get(chapterKey) ?? []) {
-              nodes.push({
-                key: `grammar-world-${topic.id}`,
-                icon: "grammar_world",
-                href: `/grammar?intro=${encodeURIComponent(topic.id)}&from=${encodeURIComponent(`/learn/${level.slug}`)}`,
-                percent: 0,
-                partCount: 0,
-                partsDone: 0,
-                complete: false,
-                struggling: false,
-                primary: null,
-                secondary: null,
-                start: null,
-                finishSide: null,
-                label: `Núi ngữ pháp, ${topic.titleVi}`,
-              });
-            }
+            const lessonWorld = openWorldByLesson.get(chapterKey) ?? [];
+            const worldIntro = lessonWorld.find((topic) =>
+              worldView.unpractised.some((entry) => entry.id === topic.id),
+            );
             const pathStart = pathStep;
             pathStep += nodes.length;
             const sectionTitle = lessonBanners[index]?.title ?? chapter.label;
@@ -2662,6 +2649,23 @@ export default function LevelViewClient({
                 {index > 0 ? <LessonSectionTitle title={sectionTitle} /> : null}
                 {nodes.length > 0 ? (
                   <ul className="relative isolate flex w-full flex-col items-center gap-3 py-3">
+                    {lessonWorld.length > 0 && grammarWorld ? (
+                      <li
+                        className="pointer-events-none sticky z-40 h-0 w-full self-stretch"
+                        style={{
+                          top: "calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px) - 60px)",
+                        }}
+                      >
+                        <div className="pointer-events-auto absolute top-0 right-0">
+                          <GrammarPortal
+                            data={grammarWorld}
+                            from={`/learn/${level.slug}`}
+                            placement="lesson"
+                            introTopicId={worldIntro?.id ?? null}
+                          />
+                        </div>
+                      </li>
+                    ) : null}
                     {jumpFrom && jump?.targetIndex === index ? (
                       <li
                         className="relative pt-14"
@@ -2779,7 +2783,7 @@ export default function LevelViewClient({
       </section>
     </main>
     <BottomNav />
-    {grammarWorld && !accessLocked ? (
+    {grammarWorld && !accessLocked && openWorldByLesson.size > 0 && !worldButtonOnThisPath ? (
       <GrammarPortal
         data={grammarWorld}
         from={`/learn/${level.slug}`}

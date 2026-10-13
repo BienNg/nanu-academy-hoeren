@@ -4,8 +4,8 @@ Status: first build. One tab with content (Động từ), one stage (Verbkonjuga
 
 ## What the learner sees
 
-- **Path node**: when a stage opens, a purple mountain node appears at the end of its opening Lektion on the level path. It stays until the learner finishes one part of that stage. Tapping it opens `/grammar?intro=<topic>&from=<path>`: a short tour (what the mountain is, parts and hearts), then *Bắt đầu phần 1*. Finishing that part returns to the path, not the mountain.
-- **Portal**: a round purple button, bottom right above the tab bar, on every CEFR level path. Hidden until a part has been finished in some stage. A red badge counts open stages with nothing practised; otherwise a thin gold ring shows the stars collected.
+- **Lesson button**: when a stage opens, a purple mountain button sticks to the bottom right of that Lektion's path, above the tab bar. It is not a node on the path. Until the first part of that stage is finished, a hint centered on the button says "Luyện ngữ pháp của nút này". The hint may extend past the path. The first tap opens `/grammar?intro=<topic>&from=<path>`: a short tour, then *Bắt đầu phần 1*. After a part of that stage is finished, the same button opens the mountain and the hint is gone.
+- **Portal**: the same button, fixed at the bottom right above the tab bar, on CEFR level paths that do not contain the opening Lektion. A red badge counts open stages with nothing practised; otherwise a thin gold ring shows the stars collected.
 - **Mountain** (`/grammar?tab=<area>&from=<path>`): tabs are areas, each with its stars, a check when done, or a lock. It opens on the tab of the newest open stage, scrolled to the next unfinished stop. Stops climb bottom to top: practice nodes, then one review node per stage. A locked stage waits in fog with a button to its Lektion. The current stage's banner is the ground at the bottom. The first time a tab is finished, Pingu plants a flag; after that the banner says "Ôn lại để giữ đỉnh".
 - **Practice** (`/grammar/practice?topic=&node=&part=` or `&review=1`): the same session as a Lektion grammar node, with three hearts. The first miss on a card costs one; the card stays until the answer is right. Running out ends the part without saving it. A finished part goes back to the mountain, where a star is added to the tab and the next stop lights up. No XP yet.
 
@@ -23,7 +23,7 @@ Everything is written by hand. Nothing is collected or sorted across levels or L
         {
           "id": "verbkonjugation",             // stable: progress is saved under it
           "titleVi": "Chia động từ", "titleDe": "Verbkonjugation",
-          "opensWith": "a1-1/lektion-3",       // see "Opening" below
+          "opensWith": "a1-1/lektion-3",       // first practice node of this Lektion opens the stage
           "tenses": ["praesens"],              // warm-ups and listening stay inside these
           "verbs": ["machen", "kommen"],       // warm-up tables; must be in tenses.json
           "tips": [{ "id": "endungen", "tense": "praesens", "titleVi": "…", "textVi": "…" }],
@@ -192,7 +192,7 @@ All clip cards, in clip order, form one stream. Every clip deals from its own se
 
 ## Opening
 
-A stage opens when the learner finishes every Học ngữ pháp part of its `opensWith` Lektion. If that Lektion has no Học ngữ pháp, the stage opens as soon as the Lektion opens on the path, i.e. every earlier Lektion of its level is finished. The learner also needs access to that level. Admins and teachers see every stage of their courses open, as on the Lektion path.
+A stage opens when the learner finishes the first practice node of its `opensWith` Lektion: every part of that node is stored, or every clip in those parts is completed, or the Lektion's listening is finished. The learner also needs access to that level. Admins and teachers see every stage of their courses open, as on the Lektion path.
 
 ## Progress
 

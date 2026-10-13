@@ -37,7 +37,7 @@ import {
   type GrammarPairingItem,
 } from "./grammar-node";
 import { EMPTY_STAGE, type WorldProgress, type WorldStageProgress } from "./grammar-world-progress";
-import { isLearnChapterCompleted, type StoredProgress } from "./progress";
+import { type LearnProgress, type StoredProgress } from "./progress";
 
 export {
   EMPTY_STAGE,
@@ -70,7 +70,7 @@ export type StoredWorldTopic = {
   id: string;
   titleVi: string;
   titleDe: string;
-  /** "<level>/<lektion>": its Học ngữ pháp opens the stage, or the Lektion opening on the path when it has none. */
+  /** "<level>/<lektion>": the Lektion's first practice node opens the stage. */
   opensWith: string;
   /** Tenses the stage practises. Warm-ups and listening options stay inside them. */
   tenses: GrammarTense[];
@@ -592,14 +592,18 @@ export function landingArea(views: readonly WorldAreaView[]): string | null {
 
 // ---------------------------------------------------------------- opening
 
+/** One part of the practice node that opens a stage. */
+export type WorldPracticePart = {
+  key: string;
+  clipIds: string[];
+};
+
 /** What opens a topic's stage, worked out on the server from `opensWith`. */
 export type WorldGate = {
   /** Progress key of the opening Lektion. */
   progressKey: string;
-  /** Lektionen before it on its level's path. All finished: the Lektion is open. */
-  previousKeys: string[];
-  /** Stored keys of the Lektion's Học ngữ pháp parts. Empty when it has none. */
-  studyKeys: string[];
+  /** Parts of that Lektion's first practice node. The stage opens when the node is done. */
+  practiceParts: WorldPracticePart[];
   /** The learner may open the Lektion's level. */
   access: boolean;
   /** Admins and teachers skip the path, as on the Lektion trail. */
@@ -611,15 +615,25 @@ export type WorldGate = {
 };
 
 /**
- * A stage opens when the learner finishes its Lektion's Học ngữ pháp. A
- * Lektion without one opens the stage as soon as it opens on the path.
+ * The first practice node is done when every part is stored, every clip in
+ * those parts is completed, or the Lektion's listening counts as finished.
  */
+export function firstPracticeNodeDone(
+  learn: LearnProgress | undefined,
+  parts: readonly WorldPracticePart[],
+): boolean {
+  if (!learn || parts.length === 0) return false;
+  if (learn.completedAt || learn.runCount > 0) return true;
+  const keys = new Set(learn.practicePartKeys ?? []);
+  const clips = new Set(learn.completedClipIds);
+  return parts.every(
+    (part) => keys.has(part.key) || (part.clipIds.length > 0 && part.clipIds.every((id) => clips.has(id))),
+  );
+}
+
+/** A stage opens when the learner finishes the first practice node of its Lektion. */
 export function worldStageOpen(gate: WorldGate | undefined, progress: StoredProgress): boolean {
   if (!gate || !gate.access) return false;
   if (gate.unlocked) return true;
-  if (gate.studyKeys.length > 0) {
-    const done = new Set(progress.learn[gate.progressKey]?.grammarPartKeys ?? []);
-    return gate.studyKeys.every((key) => done.has(key));
-  }
-  return gate.previousKeys.every((key) => isLearnChapterCompleted(progress, key));
+  return firstPracticeNodeDone(progress.learn[gate.progressKey], gate.practiceParts);
 }

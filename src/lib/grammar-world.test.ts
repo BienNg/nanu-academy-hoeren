@@ -4,7 +4,9 @@ import { join } from "node:path";
 import test from "node:test";
 import { grammarTopicContent, type StoredGrammarTopic, type TenseTables } from "./grammar-lessons.js";
 import { grammarNodeLayout } from "./grammar-node.js";
+import { DEFAULT_PROGRESS, type LearnProgress } from "./progress.js";
 import {
+  firstPracticeNodeDone,
   landingArea,
   mergeWorldProgress,
   normalizeWorldProgress,
@@ -17,9 +19,11 @@ import {
   worldNodes,
   worldReviewCards,
   worldStageView,
+  worldStageOpen,
   WORLD_REVIEW_CARDS,
   type StoredWorldArea,
   type StoredWorldClip,
+  type WorldGate,
   type WorldTopic,
 } from "./grammar-world.js";
 
@@ -146,6 +150,40 @@ test("stage view: review unlocks after the nodes, done after the review", () => 
   view = worldStageView(tables, konjugation, withWorldReviewDone(stage));
   assert.equal(view.done, true);
   assert.equal(view.stars, view.starsTotal);
+});
+
+test("a stage opens when the Lektion's first practice node is finished", () => {
+  const parts = [{ key: "p1", clipIds: ["c1", "c2"] }];
+  const gate: WorldGate = {
+    progressKey: "lektion-3",
+    practiceParts: parts,
+    access: true,
+    unlocked: false,
+    lessonHref: "/learn/a1-1?lektion=lektion-3",
+    lessonLabel: "A1.1 · Lektion 3",
+  };
+  const withLearn = (patch: Partial<LearnProgress>) => ({
+    ...DEFAULT_PROGRESS,
+    learn: {
+      "lektion-3": {
+        currentClipIndex: 0,
+        completedClipIds: [],
+        runCount: 0,
+        runCompletedClipIds: [],
+        reviewedClipIds: [],
+        studyRunCount: 0,
+        ...patch,
+      },
+    },
+  });
+  assert.equal(firstPracticeNodeDone(undefined, parts), false);
+  assert.equal(worldStageOpen(gate, DEFAULT_PROGRESS), false);
+  assert.equal(worldStageOpen(gate, withLearn({ practicePartKeys: ["other"] })), false);
+  assert.equal(worldStageOpen(gate, withLearn({ practicePartKeys: ["p1"] })), true);
+  assert.equal(worldStageOpen(gate, withLearn({ completedClipIds: ["c1", "c2"] })), true);
+  assert.equal(worldStageOpen(gate, withLearn({ runCount: 1 })), true);
+  assert.equal(worldStageOpen({ ...gate, access: false }, withLearn({ practicePartKeys: ["p1"] })), false);
+  assert.equal(worldStageOpen({ ...gate, unlocked: true }, DEFAULT_PROGRESS), true);
 });
 
 test("areas: badge for open unpractised stages, landing on the newest open stage", () => {

@@ -128,9 +128,7 @@ function currentStopId(stops: readonly Stop[]): string | null {
 function gateLine(gate: WorldGate | undefined): string {
   if (!gate) return "Chưa mở";
   if (!gate.access) return `Cần quyền vào khóa học ${gate.lessonLabel.split(" · ")[0]}`;
-  return gate.studyKeys.length > 0
-    ? `Mở khi học xong Học ngữ pháp của ${gate.lessonLabel}`
-    : `Mở khi bạn đến ${gate.lessonLabel}`;
+  return `Mở khi làm xong Luyện tập đầu tiên của ${gate.lessonLabel}`;
 }
 
 // ---------------------------------------------------------------- stop
@@ -896,7 +894,7 @@ function WorldIntro({
   const last = step === INTRO_STEPS.length;
   const title = last ? "Sẵn sàng chưa?" : INTRO_STEPS[step]!.title;
   const text = last
-    ? `Bắt đầu phần 1 của "${topic.titleVi}". Xong phần này, bạn quay lại lộ trình và nút Núi ngữ pháp sẽ nằm ở góc màn hình.`
+    ? `Bắt đầu phần 1 của "${topic.titleVi}". Xong phần này, bạn quay lại lộ trình. Nút núi ở góc phải vẫn mở thế giới ngữ pháp.`
     : INTRO_STEPS[step]!.text;
 
   return (
