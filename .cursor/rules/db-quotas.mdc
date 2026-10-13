@@ -1,0 +1,18 @@
+---
+description: When a solution reads or writes the database, keep Supabase log ingestion and egress inside the free quotas.
+alwaysApply: true
+---
+
+# Efficient database requests
+
+Supabase on the free plan meters two things this app is close to filling. Log ingestion is 1 GB and is already over (about 1.06 GB). Egress is 5 GB. Any solution that talks to the database has to stay inside both, including the approach you recommend before writing code.
+
+Log ingestion grows with how many requests and statements run. A small poll still writes a log line. Egress grows with the bytes sent back. A rare query that returns a large JSON column can cost more than a tight poll.
+
+- Count both before choosing. Write down calls per action, how many clients do it at once, and roughly how many bytes come back. Prefer the option with fewer round trips and a smaller payload.
+- Name the columns. Return only what this caller uses. Large JSON (decks, progress documents, answer blobs) is a separate read, and only on the request that needs it.
+- Poll only what changes. The first load can be bigger. Later ticks send status and counts, and leave out rows and fields the client already has.
+- Batch. One `.in()` or one upsert covers the rows. A loop of single-row calls adds a log line and a response for each row.
+- New timers need the same math Blitzrunde already uses: interval, concurrent clients, bytes per call. Stretch the interval when the screen is idle. Blitzrunde's own poll rules stay in `CLAUDE.md`.
+- Hot paths stay quiet. A per-request `console.log` or a debug dump of the row payload counts toward log ingestion on top of the request log Supabase already stores.
+- Measure a new or changed read with the response size (`JSON.stringify(result).length` or DevTools) and the number of Supabase calls in that path.

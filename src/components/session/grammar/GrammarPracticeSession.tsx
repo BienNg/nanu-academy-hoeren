@@ -10,7 +10,9 @@ import {
   checkTableFill,
   grammarPracticeParts,
   type GrammarCard,
+  type GrammarCardKind,
 } from "@/lib/grammar-node";
+import type { GrammarWorldCardInput } from "@/lib/grammar-world-runs";
 import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
@@ -52,7 +54,27 @@ type Summary = {
   elapsedMs: number;
   /** The part ended because the hearts ran out. It is not saved. */
   failed: boolean;
+  /** Cards that were answered, in play order. The grammar world logs these. */
+  cards: GrammarWorldCardInput[];
 };
+
+function clipAnswer(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > 160 ? clean.slice(0, 160) : clean;
+}
+
+function tableMiss(
+  rows: readonly { personLabel: string; text: string | null; answer: string }[],
+  placed: readonly (string | null)[],
+): string {
+  const blanks = rows.filter((row) => row.text === null);
+  const misses = blanks.flatMap((row, index) => {
+    const given = placed[index] ?? null;
+    if (given !== null && given.toLocaleLowerCase("de") === row.answer.toLocaleLowerCase("de")) return [];
+    return [`${row.personLabel}: ${given ?? "—"}`];
+  });
+  return clipAnswer(misses.join(", "));
+}
 
 /** Same budget as a listening practice part. */
 const GRAMMAR_HEARTS = 3;
@@ -156,7 +178,7 @@ export function GrammarCardDeck({
   tables: TenseTables;
   onFinish: (summary: GrammarDeckSummary) => void;
   /** Leaves the session. Asked only before the first answer, or after the quit dialog. */
-  onLeave: () => void;
+  onLeave: (progress: { cardsDone: number }) => void;
 }) {
   const { recordWrongAttempt } = useProgress();
   const [queue] = useState<readonly GrammarCard[]>(() => cards);
@@ -170,6 +192,8 @@ export function GrammarCardDeck({
   const startedAtRef = useRef(0);
   /** Card keys that already spent a heart, so a retry of the same card is free. */
   const spentHeartKeys = useRef(new Set<string>());
+  /** First result on each card. A later retry does not replace the first miss. */
+  const marks = useRef(new Map<string, GrammarWorldCardInput>());
 
   useEffect(() => {
     startedAtRef.current = Date.now();
@@ -193,6 +217,18 @@ export function GrammarCardDeck({
       accuracy: answered === 0 ? 0 : Math.round((tally.right / answered) * 100),
       elapsedMs: Date.now() - startedAtRef.current,
       failed,
+      cards: [...marks.current.values()].sort((left, right) => left.position - right.position),
+    });
+  };
+
+  const markCard = (kind: GrammarCardKind, correct: boolean, wrongText: string) => {
+    if (!card || marks.current.has(card.key)) return;
+    marks.current.set(card.key, {
+      key: card.key,
+      kind,
+      position: index,
+      missed: !correct,
+      answer: correct ? "" : clipAnswer(wrongText),
     });
   };
 
@@ -207,8 +243,9 @@ export function GrammarCardDeck({
   };
 
   /** Scores this try. A miss stays on the card until the answer is right. */
-  const answer = (result: Outcome) => {
+  const answer = (result: Outcome, wrongText = "") => {
     if (!card || outcome) return;
+    markCard(card.kind, result.correct, wrongText);
     setOutcome(result);
     setTally((current) => ({ answered: current.answered + 1, right: current.right + (result.correct ? 1 : 0) }));
     if (result.correct) playSuccessSound();
@@ -247,7 +284,7 @@ export function GrammarCardDeck({
         <GrammarHeader
           progress={progress}
           hearts={{ remaining: heartsLeft, total: GRAMMAR_HEARTS, breakingIndex }}
-          onClose={() => (tally.answered === 0 ? onLeave() : setQuitOpen(true))}
+          onClose={() => (tally.answered === 0 ? onLeave({ cardsDone: 0 }) : setQuitOpen(true))}
         />
       }
     >
@@ -255,7 +292,7 @@ export function GrammarCardDeck({
         <QuitDialog
           message="Bạn sẽ mất tiến độ của phần này nếu dừng bây giờ."
           onStay={() => setQuitOpen(false)}
-          onQuit={onLeave}
+          onQuit={() => onLeave({ cardsDone: marks.current.size })}
         />
       ) : null}
 
@@ -273,7 +310,8 @@ export function GrammarCardDeck({
               result={mcResult}
               onSubmit={(selectedId) => {
                 const mc = checkMc(selectedId, card.question.options);
-                answer({ correct: mc.accuracy === 100, mc });
+                const picked = card.question.options.find((option) => option.id === selectedId)?.text ?? "";
+                answer({ correct: mc.accuracy === 100, mc }, picked);
               }}
             />
           ) : card.kind === "tense-spot" ? (
@@ -291,7 +329,8 @@ export function GrammarCardDeck({
               }
               onSubmit={(selectedId) => {
                 const mc = checkMc(selectedId, card.options);
-                answer({ correct: mc.accuracy === 100, mc });
+                const picked = card.options.find((option) => option.id === selectedId)?.text ?? "";
+                answer({ correct: mc.accuracy === 100, mc }, picked);
               }}
             />
           ) : card.kind === "error-check" ? (
@@ -306,7 +345,8 @@ export function GrammarCardDeck({
               onSubmit={(selectedId) => {
                 const options = errorOptions(card.fix);
                 const mc = checkMc(selectedId, options);
-                answer({ correct: checkErrorCheck(card.fix, selectedId === ERROR_OK).accuracy === 100, mc });
+                const picked = options.find((option) => option.id === selectedId)?.text ?? "";
+                answer({ correct: checkErrorCheck(card.fix, selectedId === ERROR_OK).accuracy === 100, mc }, picked);
               }}
             />
           ) : card.kind === "tense-transform" ? (
@@ -327,7 +367,10 @@ export function GrammarCardDeck({
               chips={card.bank}
               locked={outcome !== null}
               correct={outcome?.correct === true}
-              onSubmit={(selected) => answer({ correct: checkGrammarOrder(selected, card.script).accuracy === 100 })}
+              onSubmit={(selected) => {
+                const correct = checkGrammarOrder(selected, card.script).accuracy === 100;
+                answer({ correct }, correct ? "" : selected.join(" "));
+              }}
             />
           ) : card.kind === "bracket-order" ? (
             <SentenceOrderCard
@@ -337,7 +380,10 @@ export function GrammarCardDeck({
               chips={card.bank}
               locked={outcome !== null}
               correct={outcome?.correct === true}
-              onSubmit={(selected) => answer({ correct: checkGrammarOrder(selected, card.script).accuracy === 100 })}
+              onSubmit={(selected) => {
+                const correct = checkGrammarOrder(selected, card.script).accuracy === 100;
+                answer({ correct }, correct ? "" : selected.join(" "));
+              }}
             />
           ) : card.kind === "table-fill" ? (
             <TableFillCard
@@ -351,7 +397,7 @@ export function GrammarCardDeck({
               result={outcome?.table ?? null}
               onSubmit={(placed) => {
                 const table = checkTableFill(card.rows, placed);
-                answer({ correct: table.accuracy === 100, table });
+                answer({ correct: table.accuracy === 100, table }, table.accuracy === 100 ? "" : tableMiss(card.rows, placed));
               }}
             />
           ) : (
@@ -372,7 +418,7 @@ export function GrammarCardDeck({
               }
               items={card.items.map((item) => ({ id: item.id, vi: item.person, de: item.form }))}
               locked={outcome !== null}
-              onMistake={() => answer({ correct: false })}
+              onMistake={(entered) => answer({ correct: false }, entered)}
               onSolved={() => answer({ correct: true })}
               onNext={next}
               nextLabel="Tiếp theo"

@@ -28,6 +28,7 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
+import { deleteGrammarWorldRuns } from "@/lib/grammar-world-runs-store";
 import { normalizeClassSchedule, type ClassSchedule } from "@/lib/class-schedule";
 import { upsertClassSchedule } from "@/lib/class-schedule-store";
 import {
@@ -171,6 +172,21 @@ function readProgressTarget(value: StudentProgressTarget): StudentProgressTarget
   return { scope: "part", courseId, lessonId, part: { videoId } };
 }
 
+function grammarWorldTopicsFor(target: StudentProgressTarget): "all" | string[] | null {
+  if (target.scope === "all" || target.scope === "grammar-world") return "all";
+  if (target.scope === "grammar-stage") return [target.topicId];
+  if (target.scope === "grammar-area") {
+    return adminGrammarCatalog().find((area) => area.id === target.areaId)?.topicIds.slice() ?? [];
+  }
+  return null;
+}
+
+async function deleteGrammarWorldRunsForTarget(userId: string, target: StudentProgressTarget): Promise<void> {
+  const topics = grammarWorldTopicsFor(target);
+  if (topics == null) return;
+  await deleteGrammarWorldRuns(userId, topics);
+}
+
 export async function deleteAdminStudentProgress(
   userId: string,
   target: StudentProgressTarget,
@@ -201,6 +217,7 @@ export async function deleteAdminStudentProgress(
     const progress = commitAdminProgressClear(current, built.clear);
     await setCloudProgress(id, progress);
     await deleteListeningRunsForLessons(id, built.history.runs);
+    await deleteGrammarWorldRunsForTarget(id, parsed);
     await deleteStudyXpForLessons(id, built.history.studyXp);
     await forgetStudiedClips(id, built.history.studied);
     if (parsed.scope === "all") {

@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CheeringPingu, ChillPingu } from "@/components/session/Pingu";
 import {
+  firstOpenStage,
   landingArea,
   worldPartSize,
   WORLD_REVIEW_CARDS,
@@ -664,7 +665,7 @@ export function GrammarWorldClient({
   }, [areaId, currentId, view?.done, world.progressReady]);
 
   const dismiss = useCallback(() => setOpenStop(null), []);
-  const firstOpenId = world.views.flatMap((entry) => entry.stages).find((stage) => stage.open)?.topic.id ?? null;
+  const firstOpenId = firstOpenStage(world.views)?.id ?? null;
   const introOpen =
     !introDismissed &&
     world.progressReady &&
@@ -915,7 +916,7 @@ const INTRO_STEPS = [
   },
 ] as const;
 
-/** A short tour the first time a stage is opened from the path, ending in its first part. */
+/** A short tour for the first unlocked stage, before any part is finished, ending in its first part. */
 function WorldIntro({
   topic,
   reduceMotion,

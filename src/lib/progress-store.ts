@@ -1479,6 +1479,8 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await forgetStudiedClips(userId, "all");
   await deleteUserQuestClaims(userId);
   await deleteUserBlitzrunde(userId);
+  const { deleteGrammarWorldRuns } = await import("@/lib/grammar-world-runs-store");
+  await deleteGrammarWorldRuns(userId, "all");
 
   const now = new Date().toISOString();
   const { error } = await supabase.from(TABLE).upsert(
@@ -3111,6 +3113,33 @@ const STORE_PROBE_SPECS: readonly StoreProbeSpec[] = [
     severity: "warn",
     kind: "table",
     table: "grammar_world_awards",
+    column: "id",
+  },
+  {
+    id: "grammar_world_runs",
+    label: "grammar_world_runs",
+    sqlFile: "supabase/grammar_world_runs.sql",
+    severity: "warn",
+    kind: "table",
+    table: "grammar_world_runs",
+    column: "id",
+  },
+  {
+    id: "grammar_world_cards",
+    label: "grammar_world_cards",
+    sqlFile: "supabase/grammar_world_runs.sql",
+    severity: "warn",
+    kind: "table",
+    table: "grammar_world_cards",
+    column: "id",
+  },
+  {
+    id: "grammar_world_starts",
+    label: "grammar_world_starts",
+    sqlFile: "supabase/grammar_world_runs.sql",
+    severity: "warn",
+    kind: "table",
+    table: "grammar_world_starts",
     column: "id",
   },
   {

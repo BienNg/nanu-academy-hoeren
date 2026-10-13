@@ -242,6 +242,7 @@ const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/content/videos", label: "Videos", icon: "smart_display", ready: true },
       { href: "/admin/content/grammar", label: "Grammar gaps", icon: "edit_note", ready: true },
       { href: "/admin/runs", label: "Practice", icon: "fitness_center", ready: true, ranged: true },
+      { href: "/admin/grammar-world", label: "Grammar world", icon: "landscape", ready: true, ranged: true },
     ],
   },
   {

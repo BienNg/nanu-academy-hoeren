@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { GrammarCardDeck, type GrammarDeckSummary } from "@/components/session/grammar/GrammarPracticeSession";
 import { GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
@@ -17,6 +17,7 @@ import {
   type WorldGate,
   type WorldTopic,
 } from "@/lib/grammar-world";
+import { submitGrammarWorldLeft, submitGrammarWorldStart } from "@/lib/grammar-world-runs";
 import { clearQuestBoardCache } from "@/lib/quest-badge";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { useProgress } from "@/lib/useProgress";
@@ -51,6 +52,8 @@ export function GrammarWorldSession({
 }) {
   const router = useRouter();
   const { progress, progressReady, commitWorldStageDone, streakDays } = useProgress();
+  const attemptId = useRef("");
+  const started = useRef(false);
   const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const [summary, setSummary] = useState<(GrammarDeckSummary & { nodeDone: boolean }) | null>(null);
   const [xpGrant, setXpGrant] = useState<{
@@ -83,6 +86,21 @@ export function GrammarWorldSession({
   }, [freePlay, gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
   if (!deal && ready) setDeal(ready);
   const missing = progressReady && !ready && !deal;
+
+  useEffect(() => {
+    if (!deal || started.current) return;
+    started.current = true;
+    const id = crypto.randomUUID();
+    attemptId.current = id;
+    submitGrammarWorldStart({
+      id,
+      topicId: topic.id,
+      review,
+      node: review ? 0 : node,
+      part: review ? 0 : part,
+      cardCount: deal.cards.length,
+    });
+  }, [deal, node, part, review, topic.id]);
 
   // A part that no longer exists, is not open yet or lacks its audio goes back to the mountain.
   useEffect(() => {
@@ -139,11 +157,35 @@ export function GrammarWorldSession({
     <GrammarCardDeck
       cards={deal.cards}
       tables={tables}
-      onLeave={() => leave(mountainHref)}
+      onLeave={({ cardsDone }) => {
+        if (attemptId.current) submitGrammarWorldLeft({ id: attemptId.current, cardsDone });
+        leave(mountainHref);
+      }}
       onFinish={(result) => {
+        const body = {
+          id: attemptId.current || crypto.randomUUID(),
+          topicId: topic.id,
+          review,
+          node: review ? 0 : node,
+          part: review ? 0 : part,
+          run: deal.run,
+          elapsedMs: result.elapsedMs,
+          failed: result.failed,
+          accuracy: result.accuracy,
+          cardCount: deal.cards.length,
+          cards: result.cards,
+        };
         if (result.failed) {
           setSummary({ ...result, nodeDone: false });
           setPhase("complete");
+          void fetch("/api/grammar-world-xp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            keepalive: true,
+          }).catch(() => {
+            // The part is already over. A missed log only hides it from admin.
+          });
           return;
         }
         const next = deal.key
@@ -156,15 +198,7 @@ export function GrammarWorldSession({
         void fetch("/api/grammar-world-xp", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...questZoneHeaders() },
-          body: JSON.stringify({
-            id: crypto.randomUUID(),
-            topicId: topic.id,
-            review,
-            node: review ? 0 : node,
-            part: review ? 0 : part,
-            run: deal.run,
-            elapsedMs: result.elapsedMs,
-          }),
+          body: JSON.stringify(body),
         })
           .then((response) => (response.ok ? response.json() : null))
           .then((data: { xp?: unknown; kind?: unknown; quests?: unknown; total?: unknown } | null) => {

@@ -6,7 +6,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { GrammarPortal } from "@/components/grammar-world/GrammarPortal";
 import { useGrammarWorld } from "@/components/grammar-world/useGrammarWorld";
-import type { WorldTopic } from "@/lib/grammar-world";
+import { firstOpenStage, type WorldTopic } from "@/lib/grammar-world";
 import type { GrammarWorldData } from "@/lib/grammar-world-content";
 import { CHUNKY_PRESS_SPRING } from "@/components/chunkyButton";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
@@ -2099,16 +2099,14 @@ export default function LevelViewClient({
       chapters.flatMap((chapter) => {
         const topics = openWorldByLesson.get(progressKeyOf(chapter));
         if (!topics?.length) return [];
-        const firstId = worldView.views
-          .flatMap((view) => view.stages)
-          .find((stage) => stage.open)?.topic.id;
+        const firstId = firstOpenStage(worldView.views)?.id;
         const intro =
           worldView.progressReady && worldView.stars === 0
             ? topics.find((topic) => topic.id === firstId)
             : undefined;
         return [{ domId: `lesson-${chapter.slug}`, introTopicId: intro?.id ?? null }];
       }),
-    [chapters, openWorldByLesson, worldView.unpractised],
+    [chapters, openWorldByLesson, worldView],
   );
   /** Grammar topics of every Lektion of this level, by lesson id. */
   const grammarLayouts = useMemo(
