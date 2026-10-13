@@ -52,7 +52,7 @@ export const OUTREACH_STATUS_TONE: Record<OutreachStatus, BadgeTone> = {
 
 const REASON_STATUSES: ReadonlySet<OutreachStatus> = new Set(["da_tra_loi", "khong_tra_loi"]);
 
-const VISIBLE_OUTREACH_STATUSES = OUTREACH_STATUSES.filter(
+const VISIBLE_OUTREACH_STATUSES: readonly OutreachStatus[] = OUTREACH_STATUSES.filter(
   (status) => status !== "da_gui_tin_1" && status !== "da_gui_tin_2",
 );
 
