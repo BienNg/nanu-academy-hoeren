@@ -12,7 +12,11 @@ import {
   useTransition,
 } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
-import { loadOverviewWindow } from "@/app/admin/range-data";
+import {
+  loadOverviewWindow,
+  refreshOverviewWindow,
+  type OverviewWindow,
+} from "@/app/admin/range-data";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import {
   AdminPageHeader,
@@ -1238,7 +1242,18 @@ export function AdminOverview({
     },
     loadOverviewWindow,
   );
-  const range = windowData.range;
+  const [freshWindow, setFreshWindow] = useState<{
+    range: AdminRange;
+    value: OverviewWindow;
+  } | null>(null);
+  useEffect(() => {
+    setFreshWindow((current) =>
+      current && current.range !== windowData.range ? null : current,
+    );
+  }, [windowData.range]);
+  const shownWindow =
+    freshWindow && freshWindow.range === windowData.range ? freshWindow : null;
+  const range = shownWindow?.range ?? windowData.range;
   const {
     rangeXp: earnedXp,
     rangeXpReady: earnedReady,
@@ -1247,9 +1262,28 @@ export function AdminOverview({
     practiceParts: practicePartCount,
     practicePartsByUser: practiceByUser,
     cardUserIds: activeCardIds,
-  } = windowData.value;
+  } = shownWindow?.value ?? windowData.value;
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [rowRefreshPending, startRowRefresh] = useTransition();
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshBusy = refreshing || rowRefreshPending;
+
+  async function refreshOverview() {
+    if (refreshBusy) return;
+    setRefreshing(true);
+    try {
+      const value = await refreshOverviewWindow(range);
+      setFreshWindow({ range, value });
+      startRowRefresh(() => {
+        router.refresh();
+      });
+    } catch {
+      // Keep the numbers already on the page.
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const window =
     range === "today"
       ? "today"
@@ -1340,7 +1374,23 @@ export function AdminOverview({
           kicker="Admin"
           title="Overview"
           subtitle={`Platform activity ${window}.`}
-          trailing={<HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>}
+          trailing={
+            <>
+              <button
+                type="button"
+                onClick={() => void refreshOverview()}
+                disabled={refreshBusy}
+                className="inline-flex h-8 items-center gap-space-4 rounded-admin-control border border-admin-hairline bg-admin-card px-space-12 text-admin-label-md font-semibold text-admin-ink-muted transition-colors hover:border-admin-border hover:text-admin-ink disabled:opacity-60"
+              >
+                <MaterialIcon
+                  name="refresh"
+                  className={`text-[16px] ${refreshBusy ? "animate-spin" : ""}`}
+                />
+                {refreshBusy ? "Refreshing" : "Refresh"}
+              </button>
+              <HeaderChip icon="public">Vietnam time · GMT+7</HeaderChip>
+            </>
+          }
         />
 
         {!storeConfigured ? (

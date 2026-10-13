@@ -1,6 +1,7 @@
 "use server";
 
-import { listCachedUserProgress } from "@/lib/admin-list-cache";
+import { updateTag } from "next/cache";
+import { ADMIN_USER_PROGRESS_TAG, listCachedUserProgress } from "@/lib/admin-list-cache";
 import {
   adminActivityGrain,
   adminRangeVietnamDayKeys,
@@ -137,6 +138,16 @@ export async function loadOverviewWindow(range: AdminRange): Promise<OverviewWin
     practicePartsByUser: practice.ready ? practice.passedByUser : null,
     cardUserIds: cardIds(study, practice),
   };
+}
+
+/**
+ * Current overview window, past the short user-list cache. The page then
+ * refreshes so last seen, streaks, and time on the rows match this window.
+ */
+export async function refreshOverviewWindow(range: AdminRange): Promise<OverviewWindow> {
+  await requireDashboard();
+  updateTag(ADMIN_USER_PROGRESS_TAG);
+  return loadOverviewWindow(range);
 }
 
 /** Finished study and practice parts for the activity tab, totalled and by chart bucket. */
