@@ -1,3 +1,239 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a21-lektion1-02-ich-bin-krank.mp3",
+      "script": "Ich bin krank.",
+      "translationVi": "Tôi bị ốm."
+    },
+    {
+      "filename": "a21-lektion1-04-ich-bin-muede-aber.mp3",
+      "script": "Ich bin müde, aber ich lerne noch.",
+      "translationVi": "Tôi mệt, nhưng tôi vẫn còn học."
+    },
+    {
+      "filename": "a21-lektion1-09-weil.mp3",
+      "script": "weil",
+      "translationVi": "bởi vì"
+    },
+    {
+      "filename": "a21-lektion1-10-weil-ich-krank-bin.mp3",
+      "script": "Ich bleibe zu Hause, weil ich krank bin.",
+      "translationVi": "Tôi ở nhà, bởi vì tôi bị ốm."
+    },
+    {
+      "filename": "a21-lektion1-11-weil-ich-krank-bin-vorne.mp3",
+      "script": "Weil ich krank bin, bleibe ich zu Hause.",
+      "translationVi": "Bởi vì tôi bị ốm, tôi ở nhà."
+    },
+    {
+      "filename": "a21-lektion1-12-weil-studieren-moechte.mp3",
+      "script": "Ich lerne Deutsch, weil ich in Deutschland studieren möchte.",
+      "translationVi": "Tôi học tiếng Đức, bởi vì tôi muốn du học ở Đức."
+    },
+    {
+      "filename": "a21-lektion1-13-da.mp3",
+      "script": "da",
+      "translationVi": "vì, bởi vì"
+    },
+    {
+      "filename": "a21-lektion1-14-da-es-regnet.mp3",
+      "script": "Da es regnet, nehme ich den Bus.",
+      "translationVi": "Vì trời mưa, tôi đi xe buýt."
+    },
+    {
+      "filename": "a21-lektion1-15-obwohl.mp3",
+      "script": "obwohl",
+      "translationVi": "mặc dù"
+    },
+    {
+      "filename": "a21-lektion1-16-obwohl-ich-krank-bin.mp3",
+      "script": "Ich gehe zur Arbeit, obwohl ich krank bin.",
+      "translationVi": "Tôi đi làm, mặc dù tôi bị ốm."
+    },
+    {
+      "filename": "a21-lektion1-17-obwohl-es-kalt-ist.mp3",
+      "script": "Obwohl es kalt ist, esse ich ein Eis.",
+      "translationVi": "Mặc dù trời lạnh, tôi vẫn ăn kem."
+    },
+    {
+      "filename": "a21-lektion1-18-dass.mp3",
+      "script": "dass",
+      "translationVi": "rằng"
+    },
+    {
+      "filename": "a21-lektion1-19-dass-deutsch-schwer-ist.mp3",
+      "script": "Ich glaube, dass Deutsch schwer ist.",
+      "translationVi": "Tôi nghĩ rằng tiếng Đức khó."
+    },
+    {
+      "filename": "a21-lektion1-20-dass-keine-zeit-hat.mp3",
+      "script": "Mai sagt, dass sie morgen keine Zeit hat.",
+      "translationVi": "Mai nói rằng ngày mai cô ấy không có thời gian."
+    },
+    {
+      "filename": "a21-lektion1-21-ob.mp3",
+      "script": "ob",
+      "translationVi": "liệu rằng, có … không"
+    },
+    {
+      "filename": "a21-lektion1-22-ob-er-heute-kommt.mp3",
+      "script": "Ich weiß nicht, ob er heute kommt.",
+      "translationVi": "Tôi không biết liệu hôm nay anh ấy có đến không."
+    },
+    {
+      "filename": "a21-lektion1-23-ob-der-zug-puenktlich-ist.mp3",
+      "script": "Können Sie mir sagen, ob der Zug pünktlich ist?",
+      "translationVi": "Ngài có thể cho tôi biết tàu có đúng giờ không?"
+    },
+    {
+      "filename": "a21-lektion1-24-damit.mp3",
+      "script": "damit",
+      "translationVi": "để mà"
+    },
+    {
+      "filename": "a21-lektion1-25-damit-du-mich-verstehst.mp3",
+      "script": "Ich spreche langsam, damit du mich verstehst.",
+      "translationVi": "Tôi nói chậm để bạn hiểu tôi."
+    },
+    {
+      "filename": "a21-lektion1-26-damit-ich-gesund-werde.mp3",
+      "script": "Meine Mutter kocht Suppe, damit ich schnell gesund werde.",
+      "translationVi": "Mẹ tôi nấu súp để tôi mau khỏe."
+    },
+    {
+      "filename": "a21-lektion1-27-bis.mp3",
+      "script": "bis",
+      "translationVi": "tới khi"
+    },
+    {
+      "filename": "a21-lektion1-28-bis-b1-zertifikat.mp3",
+      "script": "Ich lerne Deutsch, bis ich das B1-Zertifikat habe.",
+      "translationVi": "Tôi học tiếng Đức, tới khi tôi có bằng B1."
+    },
+    {
+      "filename": "a21-lektion1-29-bis-du-kommst.mp3",
+      "script": "Ich warte hier, bis du kommst.",
+      "translationVi": "Tôi đợi ở đây tới khi bạn đến."
+    },
+    {
+      "filename": "a21-lektion1-30-waehrend.mp3",
+      "script": "während",
+      "translationVi": "trong khi"
+    },
+    {
+      "filename": "a21-lektion1-31-waehrend-ich-koche.mp3",
+      "script": "Ich höre Musik, während ich koche.",
+      "translationVi": "Tôi nghe nhạc trong khi nấu ăn."
+    },
+    {
+      "filename": "a21-lektion1-32-waehrend-bruder-fernsieht.mp3",
+      "script": "Während mein Bruder fernsieht, mache ich Hausaufgaben.",
+      "translationVi": "Trong khi anh trai tôi xem TV, tôi làm bài tập."
+    },
+    {
+      "filename": "a21-lektion1-33-wenn.mp3",
+      "script": "wenn",
+      "translationVi": "nếu, khi (hiện tại, tương lai)"
+    },
+    {
+      "filename": "a21-lektion1-34-wenn-ich-geld-habe.mp3",
+      "script": "Wenn ich Geld habe, kaufe ich ein Haus in Hamburg.",
+      "translationVi": "Nếu tôi có tiền, tôi sẽ mua nhà ở Hamburg."
+    },
+    {
+      "filename": "a21-lektion1-35-wenn-haus-in-deutschland.mp3",
+      "script": "Wenn ich ein Haus in Deutschland habe, lade ich meine Familie ein.",
+      "translationVi": "Khi tôi có nhà ở Đức, tôi sẽ mời gia đình sang chơi."
+    },
+    {
+      "filename": "a21-lektion1-36-wenn-ich-morgen-zeit-habe.mp3",
+      "script": "Wenn ich morgen Zeit habe, rufe ich dich an.",
+      "translationVi": "Nếu ngày mai tôi có thời gian, tôi sẽ gọi cho bạn."
+    },
+    {
+      "filename": "a21-lektion1-37-als.mp3",
+      "script": "als",
+      "translationVi": "khi, hồi mà (quá khứ)"
+    },
+    {
+      "filename": "a21-lektion1-38-als-ich-klein-war.mp3",
+      "script": "Als ich klein war, habe ich viel gespielt.",
+      "translationVi": "Khi tôi còn nhỏ, tôi đã chơi rất nhiều."
+    },
+    {
+      "filename": "a21-lektion1-39-als-ich-in-vietnam-war.mp3",
+      "script": "Als ich noch in Vietnam war, habe ich Englisch gelernt.",
+      "translationVi": "Khi tôi còn ở Việt Nam, tôi đã học tiếng Anh."
+    },
+    {
+      "filename": "a21-lektion1-40-als-ich-im-hotel-gearbeitet-habe.mp3",
+      "script": "Als ich noch im Hotel gearbeitet habe, bin ich früh aufgestanden.",
+      "translationVi": "Khi tôi còn làm việc ở khách sạn, tôi đã dậy sớm."
+    },
+    {
+      "filename": "a21-lektion1-41-was-er-heute-macht.mp3",
+      "script": "Ich weiß nicht, was er heute macht.",
+      "translationVi": "Tôi không biết hôm nay anh ấy làm gì."
+    },
+    {
+      "filename": "a21-lektion1-42-wo-der-supermarkt-ist.mp3",
+      "script": "Wissen Sie, wo der Supermarkt ist?",
+      "translationVi": "Ngài có biết siêu thị ở đâu không?"
+    },
+    {
+      "filename": "a21-lektion1-43-was-ich-machen-soll.mp3",
+      "script": "Ich weiß nicht, was ich da machen soll.",
+      "translationVi": "Tôi không biết nên làm gì đây."
+    },
+    {
+      "filename": "a21-lektion1-44-wann-lidl-geoeffnet-ist.mp3",
+      "script": "Ich weiß nicht, wann Lidl geöffnet ist.",
+      "translationVi": "Tôi không biết mấy giờ Lidl mở cửa."
+    },
+    {
+      "filename": "a21-lektion1-45-wissen-sie-wann-lidl.mp3",
+      "script": "Wissen Sie, wann Lidl geöffnet ist?",
+      "translationVi": "Ngài có biết khi nào Lidl mở cửa không?"
+    },
+    {
+      "filename": "a21-lektion1-46-hauptsache.mp3",
+      "script": "Hauptsache",
+      "translationVi": "cái chính là, quan trọng là"
+    },
+    {
+      "filename": "a21-lektion1-47-hauptsache-du-bist-gluecklich.mp3",
+      "script": "Hauptsache, du bist glücklich.",
+      "translationVi": "Quan trọng là bạn hạnh phúc."
+    },
+    {
+      "filename": "a21-lektion1-48-trotzdem.mp3",
+      "script": "trotzdem",
+      "translationVi": "mặc dù vậy, dù vậy vẫn"
+    },
+    {
+      "filename": "a21-lektion1-49-trotzdem-spazieren.mp3",
+      "script": "Es regnet, trotzdem gehe ich spazieren.",
+      "translationVi": "Trời mưa, dù vậy tôi vẫn đi dạo."
+    },
+    {
+      "filename": "a21-lektion1-50-deshalb.mp3",
+      "script": "deshalb",
+      "translationVi": "do đó, cho nên"
+    },
+    {
+      "filename": "a21-lektion1-51-deshalb-bleibe-ich-zu-hause.mp3",
+      "script": "Ich bin krank, deshalb bleibe ich zu Hause.",
+      "translationVi": "Tôi bị ốm, cho nên tôi ở nhà."
+    },
+    {
+      "filename": "a21-lektion1-52-deswegen.mp3",
+      "script": "deswegen",
+      "translationVi": "vì vậy, cho nên"
+    },
+    {
+      "filename": "a21-lektion1-53-deswegen-lerne-ich-deutsch.mp3",
+      "script": "Ich möchte in Deutschland arbeiten, deswegen lerne ich Deutsch.",
+      "translationVi": "Tôi muốn làm việc ở Đức, vì vậy tôi học tiếng Đức."
+    }
+  ]
 }
