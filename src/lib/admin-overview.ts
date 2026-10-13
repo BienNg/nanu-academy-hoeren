@@ -4,6 +4,7 @@ import {
   normalizeGrantEmail,
   normalizeProgress,
   signInDeviceLabel,
+  VISIT_IDLE_MS,
   type AppUseRecord,
   type SignInDevice,
   type SignInRecord,
@@ -1239,6 +1240,23 @@ export function buildAdminActivityBoard(
   return { grain, points, leaders: buildActivityLeaders(learners, days) };
 }
 
+export type AdminClientDevice = SignInDevice | "unknown";
+
+/** Finished study and practice parts attributed to one device. */
+export type AdminDevicePartCounts = {
+  study: number;
+  practice: number;
+};
+
+/**
+ * Parts finished in the activity window, per student and the device open at
+ * that moment. A device key is omitted when that student finished nothing on it.
+ */
+export type AdminDevicePartsByUser = Record<
+  string,
+  Partial<Record<AdminClientDevice, AdminDevicePartCounts>>
+>;
+
 export type AdminClientSlice = {
   key: string;
   label: string;
@@ -1246,6 +1264,10 @@ export type AdminClientSlice = {
   students: number;
   /** Visits that overlap the selected window. */
   visits: number;
+  /** Study parts finished during a visit on this device. Browsers stay at 0. */
+  studyParts: number;
+  /** Practice parts finished during a visit on this device. Browsers stay at 0. */
+  practiceParts: number;
 };
 
 export type AdminClientUsage = {
@@ -1266,38 +1288,111 @@ function visitOverlapsWindow(visit: AppUseRecord, fromMs: number, toMs: number):
   return start < toMs && end >= fromMs;
 }
 
+const CLIENT_DEVICES = new Set<AdminClientDevice>(["mobile", "tablet", "desktop", "unknown"]);
+
+function clientDeviceKey(device: SignInDevice | null): AdminClientDevice {
+  return device && CLIENT_DEVICES.has(device) ? device : "unknown";
+}
+
+/**
+ * The device whose visit was open when a part was finished. The visit stays
+ * open through the idle gap after its last heartbeat. When two visits overlap,
+ * the one that started later wins. No open visit counts as unknown.
+ */
+export function deviceForPartAt(
+  uses: readonly AppUseRecord[],
+  atMs: number,
+): AdminClientDevice {
+  let bestStart = -Infinity;
+  let device: AdminClientDevice = "unknown";
+  let matched = false;
+  for (const use of uses) {
+    const start = Date.parse(use.at);
+    if (Number.isNaN(start) || start > atMs) continue;
+    const seen = Date.parse(use.seenAt);
+    const openUntil = (Number.isNaN(seen) ? start : Math.max(start, seen)) + VISIT_IDLE_MS;
+    if (atMs > openUntil) continue;
+    if (!matched || start >= bestStart) {
+      matched = true;
+      bestStart = start;
+      device = clientDeviceKey(use.device);
+    }
+  }
+  return device;
+}
+
+/** Attribute each finished part to the device that was open at its timestamp. */
+export function attributePartsByDevice(
+  study: readonly { userId: string; at: string }[],
+  practice: readonly { userId: string; at: string }[],
+  appUsesByUser: ReadonlyMap<string, readonly AppUseRecord[]>,
+): AdminDevicePartsByUser {
+  const byUser: AdminDevicePartsByUser = {};
+  const assign = (stamp: { userId: string; at: string }, kind: "study" | "practice") => {
+    const atMs = Date.parse(stamp.at);
+    const device = Number.isNaN(atMs)
+      ? "unknown"
+      : deviceForPartAt(appUsesByUser.get(stamp.userId) ?? [], atMs);
+    const counts = (byUser[stamp.userId] ??= {});
+    const current = (counts[device] ??= { study: 0, practice: 0 });
+    current[kind] += 1;
+  };
+  for (const stamp of study) assign(stamp, "study");
+  for (const stamp of practice) assign(stamp, "practice");
+  return byUser;
+}
+
+type ClientBucket = {
+  students: Set<string>;
+  visits: number;
+  studyParts: number;
+  practiceParts: number;
+};
+
 /**
  * Browsers and devices used in the selected window. A visit counts when it
  * overlaps the Vietnam interval. One student can appear in more than one slice.
+ * Device slices also sum finished parts from `deviceParts` for the same rows.
  */
 export function buildAdminClientUsage(
   rows: readonly AdminUserRow[],
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
+  deviceParts: AdminDevicePartsByUser = {},
 ): AdminClientUsage {
   const { from, to } = adminRangeVietnamInterval(range, now);
   const fromMs = Date.parse(from);
   const toMs = Date.parse(to);
-  const devices = new Map<string, { students: Set<string>; visits: number }>();
-  const browsers = new Map<string, { students: Set<string>; visits: number }>();
+  const devices = new Map<string, ClientBucket>();
+  const browsers = new Map<string, ClientBucket>();
   const people = new Set<string>();
   let visits = 0;
 
-  const bump = (
-    buckets: Map<string, { students: Set<string>; visits: number }>,
-    key: string,
-    userId: string,
-  ) => {
+  const bucketFor = (buckets: Map<string, ClientBucket>, key: string): ClientBucket => {
     let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { students: new Set(), visits: 0 };
+      bucket = { students: new Set(), visits: 0, studyParts: 0, practiceParts: 0 };
       buckets.set(key, bucket);
     }
+    return bucket;
+  };
+
+  const bump = (buckets: Map<string, ClientBucket>, key: string, userId: string) => {
+    const bucket = bucketFor(buckets, key);
     bucket.students.add(userId);
     bucket.visits += 1;
   };
 
   for (const row of learnerRows(rows)) {
+    const parts = deviceParts[row.userId];
+    if (parts) {
+      for (const [device, counts] of Object.entries(parts)) {
+        if (!counts || !CLIENT_DEVICES.has(device as AdminClientDevice)) continue;
+        const bucket = bucketFor(devices, device);
+        bucket.studyParts += counts.study;
+        bucket.practiceParts += counts.practice;
+      }
+    }
     for (const visit of row.appUses) {
       if (!visitOverlapsWindow(visit, fromMs, toMs)) continue;
       people.add(row.userId);
@@ -1310,22 +1405,32 @@ export function buildAdminClientUsage(
   const slice = (
     key: string,
     label: string,
-    bucket: { students: Set<string>; visits: number } | undefined,
+    bucket: ClientBucket | undefined,
+    withParts: boolean,
   ): AdminClientSlice | null => {
-    if (!bucket || bucket.students.size === 0) return null;
-    return { key, label, students: bucket.students.size, visits: bucket.visits };
+    if (!bucket) return null;
+    const hasParts = withParts && (bucket.studyParts > 0 || bucket.practiceParts > 0);
+    if (bucket.students.size === 0 && !hasParts) return null;
+    return {
+      key,
+      label,
+      students: bucket.students.size,
+      visits: bucket.visits,
+      studyParts: withParts ? bucket.studyParts : 0,
+      practiceParts: withParts ? bucket.practiceParts : 0,
+    };
   };
 
   const deviceSlices = CLIENT_DEVICE_ORDER.flatMap((device) => {
-    const item = slice(device, signInDeviceLabel(device), devices.get(device));
+    const item = slice(device, signInDeviceLabel(device), devices.get(device), true);
     return item ? [item] : [];
   });
-  const unknownDevice = slice("unknown", "Unknown", devices.get("unknown"));
+  const unknownDevice = slice("unknown", "Unknown", devices.get("unknown"), true);
   if (unknownDevice) deviceSlices.push(unknownDevice);
 
   const browserSlices = [...browsers.entries()]
     .flatMap(([key, bucket]) => {
-      const item = slice(key, key, bucket);
+      const item = slice(key, key, bucket, false);
       return item ? [item] : [];
     })
     .sort(

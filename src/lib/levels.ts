@@ -216,10 +216,25 @@ export function getAvailableLevels(): CefrLevel[] {
   );
 }
 
-/** Playable clip ids per lesson, in catalog order. Shared slugs are omitted. */
-export function listLessonClipCatalog(): { chapterSlug: string; clipIds: string[] }[] {
+type LessonClipCatalogRow = { chapterSlug: string; clipIds: string[] };
+
+/** Built once per server instance in production, like the lesson files it reads. */
+let lessonClipCatalog: LessonClipCatalogRow[] | null = null;
+
+/**
+ * Playable clip ids per lesson, in catalog order. Shared slugs are omitted.
+ * Every progress read and save calls this, so production builds it once.
+ */
+export function listLessonClipCatalog(): LessonClipCatalogRow[] {
+  if (cacheContent && lessonClipCatalog) return lessonClipCatalog;
+  const rows = buildLessonClipCatalog();
+  if (cacheContent) lessonClipCatalog = rows;
+  return rows;
+}
+
+function buildLessonClipCatalog(): LessonClipCatalogRow[] {
   const counts = new Map<string, number>();
-  const rows: { chapterSlug: string; clipIds: string[] }[] = [];
+  const rows: LessonClipCatalogRow[] = [];
   for (const level of getCefrLevels()) {
     for (const chapter of level.chapters) {
       counts.set(chapter.slug, (counts.get(chapter.slug) ?? 0) + 1);

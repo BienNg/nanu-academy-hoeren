@@ -11,6 +11,8 @@ import {
   buildAdminClientUsage,
   buildAdminRosterTrend,
   buildOutreachPeople,
+  deviceForPartAt,
+  attributePartsByDevice,
   filterOutreachPeople,
   formatRelativeLastSeen,
   listAdminClasses,
@@ -516,6 +518,69 @@ test("client usage counts students once per browser and device in the window", (
   );
   assert.equal(usage.students, 4);
   assert.equal(usage.visits, 6);
+  assert.deepEqual(
+    usage.devices.map((slice) => [slice.studyParts, slice.practiceParts]),
+    [
+      [0, 0],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ],
+  );
+});
+
+test("a finished part counts on the device that was open, and a later visit wins an overlap", () => {
+  const uses = new Map<string, AppUseRecord[]>([
+    [
+      "phone",
+      [
+        appUse("2026-10-02T01:00:00.000Z", "mobile", "Chrome", "2026-10-02T01:20:00.000Z"),
+        appUse("2026-10-02T01:10:00.000Z", "desktop", "Safari", "2026-10-02T01:12:00.000Z"),
+      ],
+    ],
+    ["tablet", [appUse("2026-10-02T02:00:00.000Z", "tablet", "Safari")]],
+  ]);
+  assert.equal(deviceForPartAt(uses.get("phone") ?? [], Date.parse("2026-10-02T01:05:00.000Z")), "mobile");
+  assert.equal(deviceForPartAt(uses.get("phone") ?? [], Date.parse("2026-10-02T01:11:00.000Z")), "desktop");
+  assert.equal(deviceForPartAt(uses.get("phone") ?? [], Date.parse("2026-10-02T01:30:00.000Z")), "mobile");
+  assert.equal(deviceForPartAt(uses.get("tablet") ?? [], Date.parse("2026-10-02T02:10:00.000Z")), "tablet");
+  assert.equal(deviceForPartAt(uses.get("tablet") ?? [], Date.parse("2026-10-02T02:20:00.000Z")), "unknown");
+
+  const parts = attributePartsByDevice(
+    [
+      { userId: "phone", at: "2026-10-02T01:05:00.000Z" },
+      { userId: "phone", at: "2026-10-02T01:11:00.000Z" },
+      { userId: "tablet", at: "2026-10-02T02:05:00.000Z" },
+      { userId: "gone", at: "2026-10-02T02:00:00.000Z" },
+    ],
+    [{ userId: "phone", at: "2026-10-02T01:30:00.000Z" }],
+    uses,
+  );
+  const usage = buildAdminClientUsage(
+    [
+      {
+        ...row("phone", null),
+        appUses: uses.get("phone") ?? [],
+      },
+      {
+        ...row("tablet", null),
+        appUses: uses.get("tablet") ?? [],
+      },
+      { ...row("gone", null), appUses: [] },
+    ],
+    "today",
+    NOW,
+    parts,
+  );
+  assert.deepEqual(
+    usage.devices.map((slice) => [slice.label, slice.students, slice.studyParts, slice.practiceParts]),
+    [
+      ["Mobile", 1, 1, 1],
+      ["Tablet", 1, 1, 0],
+      ["Desktop", 1, 1, 0],
+      ["Unknown", 0, 1, 0],
+    ],
+  );
 });
 
 test("signed up sort puts the newest account first", () => {

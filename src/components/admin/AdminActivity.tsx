@@ -869,23 +869,31 @@ function clientColor(slice: AdminClientSlice, index: number): string {
   return CLIENT_PALETTE[index % CLIENT_PALETTE.length];
 }
 
-function clientSummary(slices: readonly AdminClientSlice[]): string {
+function clientSummary(slices: readonly AdminClientSlice[], parts: boolean): string {
   if (slices.length === 0) return "No app visits recorded in this window.";
   return slices
-    .map((slice) => `${slice.label}, ${formatStudents(slice.students)}`)
+    .map((slice) => {
+      const students = `${slice.label}, ${formatStudents(slice.students)}`;
+      if (!parts) return students;
+      const finished = slice.studyParts + slice.practiceParts;
+      return `${students}, ${formatPerActive(finished, slice.students)} parts per student`;
+    })
     .join(". ");
 }
 
 function ClientTooltip({
   active,
   payload,
+  parts = false,
 }: {
   active?: boolean;
   payload?: readonly { payload?: AdminClientSlice; color?: string }[];
+  parts?: boolean;
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
   const color = payload?.[0]?.color ?? ADMIN_COLORS.cobalt;
+  const finished = point.studyParts + point.practiceParts;
   return (
     <ChartTooltip
       active
@@ -893,12 +901,30 @@ function ClientTooltip({
       payload={[
         { name: "Students", value: point.students, color },
         { name: "Visits", value: point.visits, color },
+        ...(parts
+          ? [
+              { name: "Parts", value: finished, color },
+              { name: "Study", value: point.studyParts, color },
+              { name: "Practice", value: point.practiceParts, color },
+              {
+                name: "Per student",
+                value: formatPerActive(finished, point.students),
+                color,
+              },
+            ]
+          : []),
       ]}
     />
   );
 }
 
-function ClientChart({ slices }: { slices: readonly AdminClientSlice[] }) {
+function ClientChart({
+  slices,
+  parts = false,
+}: {
+  slices: readonly AdminClientSlice[];
+  parts?: boolean;
+}) {
   if (slices.length === 0) {
     return (
       <p className="flex h-full items-center justify-center px-space-16 text-center text-admin-body-sm text-admin-ink-subtle">
@@ -908,7 +934,7 @@ function ClientChart({ slices }: { slices: readonly AdminClientSlice[] }) {
   }
   const data = slices.map((slice, index) => ({ ...slice, fill: clientColor(slice, index) }));
   return (
-    <div className="h-full w-full" role="img" aria-label={clientSummary(slices)}>
+    <div className="h-full w-full" role="img" aria-label={clientSummary(slices, parts)}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           layout="vertical"
@@ -924,7 +950,7 @@ function ClientChart({ slices }: { slices: readonly AdminClientSlice[] }) {
             tickLine={false}
             axisLine={false}
           />
-          <Tooltip content={<ClientTooltip />} cursor={{ fill: ADMIN_COLORS.subtle }} />
+          <Tooltip content={<ClientTooltip parts={parts} />} cursor={{ fill: ADMIN_COLORS.subtle }} />
           <Bar dataKey="students" name="Students" radius={[0, 2, 2, 0]} maxBarSize={22}>
             {data.map((slice) => (
               <Cell key={slice.key} fill={slice.fill} />
@@ -939,6 +965,34 @@ function ClientChart({ slices }: { slices: readonly AdminClientSlice[] }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PartsPerDevice({ slices }: { slices: readonly AdminClientSlice[] }) {
+  return (
+    <div className="mt-space-12 border-t border-admin-hairline pt-space-12">
+      <p className="text-admin-label-md text-admin-ink-subtle">Parts per student</p>
+      <ul className="mt-space-8 flex flex-col gap-space-4">
+        {slices.map((slice) => {
+          const finished = slice.studyParts + slice.practiceParts;
+          return (
+            <li
+              key={slice.key}
+              className="flex items-baseline justify-between gap-space-12 text-admin-body-sm"
+            >
+              <span className="text-admin-ink-muted">{slice.label}</span>
+              <span className="text-right tabular-nums text-admin-ink">
+                <span className="font-semibold">{formatPerActive(finished, slice.students)}</span>
+                <span className="text-admin-ink-subtle">
+                  {" "}
+                  · {formatCount(slice.studyParts)} study · {formatCount(slice.practiceParts)} practice
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -1381,7 +1435,7 @@ export function AdminActivity({
   };
   const loaded = useAdminWindow(serverRange, serverParts, loadActivityWindow);
   const range = loaded.range;
-  const { studyPartsByUser, practicePartsByUser, studyPartBuckets, practicePartBuckets } =
+  const { studyPartsByUser, practicePartsByUser, studyPartBuckets, practicePartBuckets, devicePartsByUser } =
     loaded.value;
   const [classFilter, setClassFilter] = useState("all");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
@@ -1438,8 +1492,8 @@ export function AdminActivity({
     [filteredRows, range, studyPartBuckets, practicePartBuckets],
   );
   const clients = useMemo(
-    () => buildAdminClientUsage(filteredRows, range),
-    [filteredRows, range],
+    () => buildAdminClientUsage(filteredRows, range, new Date(), devicePartsByUser ?? {}),
+    [filteredRows, range, devicePartsByUser],
   );
   const filterOptions = useMemo(
     () => [
@@ -1748,9 +1802,15 @@ export function AdminActivity({
                 <ChartPanel
                   icon="smartphone"
                   title="Devices"
-                  hint={`Unique students whose visit overlapped ${window}. A student on two devices is counted in both.`}
+                  hint={`Students whose visit overlapped ${window}, and the study and practice parts they finished on that device. A student on two devices is counted in both.`}
+                  footer={
+                    clients.devices.length > 0 ? <PartsPerDevice slices={clients.devices} /> : undefined
+                  }
                 >
-                  <ClientChart slices={clients.devices} />
+                  <ClientChart
+                    slices={clients.devices.filter((slice) => slice.students > 0)}
+                    parts
+                  />
                 </ChartPanel>
                 <ChartPanel
                   icon="language"

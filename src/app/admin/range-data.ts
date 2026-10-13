@@ -6,6 +6,7 @@ import {
   adminActivityGrain,
   adminRangeVietnamDayKeys,
   adminRangeVietnamInterval,
+  attributePartsByDevice,
   bucketPartStamps,
   parseAdminRange,
   partsByUser,
@@ -14,6 +15,7 @@ import {
   withSessionIdentity,
   DEFAULT_ADMIN_RANGE,
   OVERVIEW_ADMIN_RANGE,
+  type AdminDevicePartsByUser,
   type AdminPartBuckets,
   type AdminRange,
 } from "@/lib/admin-overview";
@@ -54,6 +56,8 @@ export type ActivityWindow = {
   practicePartsByUser: Record<string, number>;
   studyPartBuckets: AdminPartBuckets;
   practicePartBuckets: AdminPartBuckets;
+  /** Finished parts in this window, split by the device open when each one finished. */
+  devicePartsByUser: AdminDevicePartsByUser;
 };
 
 export type XpWindow = {
@@ -75,14 +79,19 @@ function learnerIds(
 async function activityLearnerIds() {
   const access = await requireDashboard();
   if (!isProgressStoreConfigured()) {
-    return { configured: false as const, ids: new Set<string>(), teacher: false };
+    return { configured: false as const, ids: new Set<string>(), rows: [], teacher: false };
   }
   const items = await listCachedUserProgress("activity");
   const rows = rowsForClassScope(
     items.map((item) => toAdminUserRow(withSessionIdentity(item, access.session.user))),
     access.teacherClassKeys,
   );
-  return { configured: true as const, ids: learnerIds(rows), teacher: access.role === "teacher" };
+  return {
+    configured: true as const,
+    ids: learnerIds(rows),
+    rows,
+    teacher: access.role === "teacher",
+  };
 }
 
 function cardIds(
@@ -160,6 +169,7 @@ export async function loadActivityWindow(range: AdminRange): Promise<ActivityWin
       practicePartsByUser: {},
       studyPartBuckets: {},
       practicePartBuckets: {},
+      devicePartsByUser: {},
     };
   }
 
@@ -174,12 +184,21 @@ export async function loadActivityWindow(range: AdminRange): Promise<ActivityWin
   ]);
   const studyPartBuckets = study.ready ? bucketPartStamps(study.stamps, grain) : {};
   const practicePartBuckets = practice.ready ? bucketPartStamps(practice.stamps, grain) : {};
+  const appUsesByUser = new Map<string, (typeof learners.rows)[number]["appUses"]>();
+  for (const row of learners.rows) {
+    if (learners.ids.has(row.userId)) appUsesByUser.set(row.userId, row.appUses);
+  }
 
   return {
     studyPartsByUser: partsByUser(studyPartBuckets),
     practicePartsByUser: partsByUser(practicePartBuckets),
     studyPartBuckets,
     practicePartBuckets,
+    devicePartsByUser: attributePartsByDevice(
+      study.ready ? study.stamps : [],
+      practice.ready ? practice.stamps : [],
+      appUsesByUser,
+    ),
   };
 }
 

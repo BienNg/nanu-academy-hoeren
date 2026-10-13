@@ -270,6 +270,12 @@ const VISIT_TICK_MS = 60_000;
 /** Each upload sends the full progress document and gets it back, so keep them rare. */
 const PLAYBACK_CLOUD_SYNC_MS = 60_000;
 const CLOUD_SYNC_DEBOUNCE_MS = 1200;
+/**
+ * Single answers (a wrong attempt, a reviewed clip) arrive seconds apart, so a
+ * short debounce merges none of them. Finishing a part uploads at once and
+ * carries whatever answers are still waiting.
+ */
+const ANSWER_CLOUD_SYNC_MS = 20_000;
 
 let visitTracking = false;
 let visitCleanup: (() => void) | null = null;
@@ -769,6 +775,9 @@ export function useProgress(
     );
   }, [authAt, status, userId]);
 
+  const cloudSyncTimer = useRef<number | null>(null);
+  const cloudSyncDueAt = useRef(0);
+
   const persist = useCallback(
     (next: StoredProgress, syncCloud: boolean) => {
       const before = readProgressSnapshot();
@@ -776,14 +785,16 @@ export function useProgress(
       noteLessonFinish(before, next);
       writeProgress(next);
       if (syncCloud && status === "authenticated") {
+        // This upload carries every change still waiting on the timer.
+        if (cloudSyncTimer.current !== null) {
+          window.clearTimeout(cloudSyncTimer.current);
+          cloudSyncTimer.current = null;
+        }
         void pushCloudProgress(next);
       }
     },
     [status],
   );
-
-  const cloudSyncTimer = useRef<number | null>(null);
-  const cloudSyncDueAt = useRef(0);
 
   const flushCloudSync = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -839,9 +850,10 @@ export function useProgress(
   const markClipDone = useCallback(
     (berufSlug: string, clipId: string) => {
       const next = markClipCompleted(readProgressSnapshot(), berufSlug, clipId);
-      persist(next, true);
+      persist(next, false);
+      queueCloudSync(ANSWER_CLOUD_SYNC_MS);
     },
-    [persist],
+    [persist, queueCloudSync],
   );
 
   const markLearnClipDone = useCallback(
@@ -1082,9 +1094,10 @@ export function useProgress(
       );
       writeVisitId(recorded.visitId);
       if (recorded.progress === current) return;
-      persist(recorded.progress, true);
+      persist(recorded.progress, false);
+      queueCloudSync(ANSWER_CLOUD_SYNC_MS);
     },
-    [persist],
+    [persist, queueCloudSync],
   );
 
   const recordExerciseDone = useCallback(
@@ -1094,9 +1107,10 @@ export function useProgress(
       const recorded = recordVisitExercise(current, now, readVisitId(), lessonKey);
       writeVisitId(recorded.visitId);
       if (recorded.progress === current) return;
-      persist(recorded.progress, true);
+      persist(recorded.progress, false);
+      queueCloudSync(ANSWER_CLOUD_SYNC_MS);
     },
-    [persist],
+    [persist, queueCloudSync],
   );
 
   const recordWrongAttempt = useCallback(() => {
@@ -1105,8 +1119,9 @@ export function useProgress(
     const recorded = recordVisitWrongAttempt(current, now, readVisitId());
     writeVisitId(recorded.visitId);
     if (recorded.progress === current) return;
-    persist(recorded.progress, true);
-  }, [persist]);
+    persist(recorded.progress, false);
+    queueCloudSync(ANSWER_CLOUD_SYNC_MS);
+  }, [persist, queueCloudSync]);
 
   const recordLeftSession = useCallback(
     (session: {
