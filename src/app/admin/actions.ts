@@ -26,6 +26,8 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
+import { normalizeClassSchedule, type ClassSchedule } from "@/lib/class-schedule";
+import { upsertClassSchedule } from "@/lib/class-schedule-store";
 import {
   deleteUserDuelXp,
   forgetStudiedClips,
@@ -749,6 +751,39 @@ export async function setAdminUserClass(
 
   revalidateAdmin();
   return { ok: true, className: normalized || null };
+}
+
+/** Owners and staff only; teachers see the schedule but cannot change it. */
+export async function saveAdminClassSchedule(
+  className: string,
+  input: unknown,
+): Promise<{ ok: true; schedule: ClassSchedule } | { ok: false; error: string }> {
+  if (!(await requireDashboardAdmin())) {
+    return { ok: false, error: "Only owners and staff can edit class schedules." };
+  }
+  if (!isProgressStoreConfigured()) {
+    return { ok: false, error: "Cloud progress store is not configured" };
+  }
+
+  const name = normalizeClassName(className);
+  const key = classKey(name);
+  if (!key || name.length > CLASS_NAME_MAX_LENGTH) {
+    return { ok: false, error: "Pick a class first." };
+  }
+  const fields = normalizeClassSchedule(
+    input,
+    getCefrLevels().map((level) => level.slug),
+  );
+  if (!fields) return { ok: false, error: "This schedule is not valid." };
+
+  try {
+    const schedule = await upsertClassSchedule({ classKey: key, className: name, ...fields });
+    revalidatePath("/admin/classes");
+    return { ok: true, schedule };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not save the class schedule.";
+    return { ok: false, error: message };
+  }
 }
 
 export async function setAdminUserStaff(

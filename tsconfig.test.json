@@ -87,6 +87,8 @@
     "src/lib/push-reminder.ts",
     "src/lib/push-reminder.test.ts",
     "src/lib/part-difficulty.ts",
-    "src/lib/part-difficulty.test.ts"
+    "src/lib/part-difficulty.test.ts",
+    "src/lib/class-schedule.ts",
+    "src/lib/class-schedule.test.ts"
   ]
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { setAdminUserClass } from "@/app/admin/actions";
+import { AdminClassSchedule, type ScheduleLevel } from "@/components/admin/AdminClassSchedule";
 import { ClassCell } from "@/components/admin/AdminUsersDashboard";
 import { AdminPageHeader, MaterialIcon } from "@/components/admin/AdminShell";
 import {
@@ -26,6 +27,7 @@ import {
   type ClassMemberStat,
 } from "@/lib/admin-detail";
 import type { AdminClassLeagueData } from "@/lib/class-quest-store";
+import type { ClassSchedule } from "@/lib/class-schedule";
 import {
   classKey,
   formatAdminTimestamp,
@@ -106,6 +108,12 @@ type AdminClassStatsProps = {
   storeConfigured: boolean;
   pending?: readonly WaitingClassMember[];
   classLeague?: AdminClassLeagueData;
+  schedules?: readonly ClassSchedule[];
+  schedulesReady?: boolean;
+  scheduleLevels?: readonly ScheduleLevel[];
+  canEditSchedule?: boolean;
+  /** Server time, so "today" matches between server and client render. */
+  now: string;
 };
 
 export function AdminClassStats({
@@ -114,6 +122,11 @@ export function AdminClassStats({
   storeConfigured,
   pending = [],
   classLeague,
+  schedules = [],
+  schedulesReady = true,
+  scheduleLevels = [],
+  canEditSchedule = false,
+  now,
 }: AdminClassStatsProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -126,6 +139,7 @@ export function AdminClassStats({
   const [sort, setSort] = useState<MemberSortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [savedSchedules, setSavedSchedules] = useState<Record<string, ClassSchedule>>({});
 
   const liveRows = useMemo(
     () =>
@@ -168,6 +182,16 @@ export function AdminClassStats({
     [league],
   );
   const activeLeague = useMemo(() => leagueByClass.get(activeKey) ?? null, [leagueByClass, activeKey]);
+  const activeSchedule = useMemo(
+    () =>
+      savedSchedules[activeKey] ??
+      schedules.find((schedule) => schedule.classKey === activeKey) ??
+      null,
+    [savedSchedules, schedules, activeKey],
+  );
+  const saveSchedule = useCallback((schedule: ClassSchedule) => {
+    setSavedSchedules((current) => ({ ...current, [schedule.classKey]: schedule }));
+  }, []);
   const stats = useMemo(
     () => buildClassStats(classRows, courseCatalog),
     [classRows, courseCatalog],
@@ -321,6 +345,19 @@ export function AdminClassStats({
                     : ""}
                 </p>
               </div>
+
+              {storeConfigured && activeKey ? (
+                <AdminClassSchedule
+                  key={activeKey}
+                  className={activeLabel}
+                  schedule={activeSchedule}
+                  levels={scheduleLevels}
+                  now={now}
+                  canEdit={canEditSchedule}
+                  ready={schedulesReady}
+                  onSaved={saveSchedule}
+                />
+              ) : null}
 
               {storeConfigured && classLeague && !classLeague.ready ? (
                 <div className="rounded-admin-card border border-admin-crimson-border bg-admin-crimson-wash px-space-16 py-space-12 text-admin-body-sm text-admin-crimson-ink">
