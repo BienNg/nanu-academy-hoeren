@@ -4785,11 +4785,43 @@ function isLevelStarted(
   );
 }
 
+/** Level slug at the front of a visit lesson key (`a1-1/lektion-1`), when it is open. */
+function levelSlugFromVisitLesson(
+  lessonKey: string,
+  openSlugs: ReadonlySet<string>,
+): string | null {
+  const level = lessonKey.split("/")[0];
+  return level && openSlugs.has(level) ? level : null;
+}
+
+/**
+ * Level named latest in the newest visit that still names an open level.
+ * Visit lessons are appended as the learner opens them, so the last matching
+ * key in that visit is the last level they opened.
+ */
+function lastOpenedLevelSlug(
+  progress: StoredProgress,
+  openSlugs: ReadonlySet<string>,
+): string | null {
+  const visits = [...(progress.visits ?? [])].sort((left, right) =>
+    left.endedAt < right.endedAt ? 1 : left.endedAt > right.endedAt ? -1 : 0,
+  );
+  for (const visit of visits) {
+    for (let index = visit.lessons.length - 1; index >= 0; index -= 1) {
+      const level = levelSlugFromVisitLesson(visit.lessons[index] ?? "", openSlugs);
+      if (level) return level;
+    }
+  }
+  return null;
+}
+
 /**
  * CEFR level to open when the learner hits Học.
- * The highest catalog level they have started and still have access to.
- * A finished level still counts. With nothing started, the earliest unlocked
- * level. Null when none of the unlocked slugs are in the catalog.
+ * The level they opened most recently and can still open. The path then
+ * focuses the first unfinished node that is not a video. With no visit,
+ * the highest catalog level they have started (a finished level still
+ * counts), then the earliest unlocked level. Null when none of the
+ * unlocked slugs are in the catalog.
  */
 export function landingLevelSlug(
   progress: StoredProgress,
@@ -4798,6 +4830,9 @@ export function landingLevelSlug(
 ): string | null {
   const allowed = new Set(unlockedSlugs);
   const open = catalog.filter((level) => allowed.has(level.slug));
+  const openSlugs = new Set(open.map((level) => level.slug));
+  const lastOpened = lastOpenedLevelSlug(progress, openSlugs);
+  if (lastOpened) return lastOpened;
   const started = [...open].reverse().find((level) => isLevelStarted(progress, level));
   return started?.slug ?? open[0]?.slug ?? null;
 }

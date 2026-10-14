@@ -1,3 +1,119 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a21-tag1-59-folge-1-aller-anfang-ist-schwer.mp3",
+      "script": "Aller Anfang ist schwer.",
+      "translationVi": "Vạn sự khởi đầu nan."
+    },
+    {
+      "filename": "a21-tag1-60-ziehen.mp3",
+      "script": "ziehen",
+      "translationVi": "kéo (cửa...); chuyển (nhà)"
+    },
+    {
+      "filename": "a21-tag1-61-einziehen.mp3",
+      "script": "einziehen",
+      "translationVi": "chuyển vào ..."
+    },
+    {
+      "filename": "a21-tag1-62-in-eine-stadt-ziehen.mp3",
+      "script": "in eine Stadt ziehen",
+      "translationVi": "chuyển lên thành phố"
+    },
+    {
+      "filename": "a21-tag1-63-tim-ist-in-eine-andere-stadt-gezogen.mp3",
+      "script": "Tim ist in eine andere Stadt gezogen.",
+      "translationVi": "Tim đã chuyển đến một thành phố khác."
+    },
+    {
+      "filename": "a21-tag1-64-ich-denke-tim-ist-traurig-weil.mp3",
+      "script": "Ich denke, Tim ist traurig, weil er allein ist.",
+      "translationVi": "Tôi nghĩ Tim buồn vì anh ấy chỉ có một mình."
+    },
+    {
+      "filename": "a21-tag1-65-tim-ist-traurig.mp3",
+      "script": "Tim ist traurig.",
+      "translationVi": "Tim buồn."
+    },
+    {
+      "filename": "a21-tag1-66-tim-findet-die-wohnung-haesslich.mp3",
+      "script": "Tim findet die Wohnung hässlich.",
+      "translationVi": "Tim thấy căn hộ xấu."
+    },
+    {
+      "filename": "a21-tag1-67-tim-sieht-sich-fotos-von-lara-an.mp3",
+      "script": "Tim sieht sich Fotos von Lara an.",
+      "translationVi": "Tim xem ảnh của Lara."
+    },
+    {
+      "filename": "a21-tag1-68-nachbarn-von-tim.mp3",
+      "script": "Die beiden anderen Personen im Supermarkt sind Nachbarn von Tim.",
+      "translationVi": "Hai người kia trong siêu thị là hàng xóm của Tim."
+    },
+    {
+      "filename": "a21-tag1-69-tim-geht-es-nach-dem-einkauf-besser.mp3",
+      "script": "Tim geht es nach dem Einkauf besser.",
+      "translationVi": "Sau khi đi mua sắm, Tim thấy khá hơn."
+    },
+    {
+      "filename": "a21-tag1-70-es-hat-geklappt.mp3",
+      "script": "Es hat geklappt.",
+      "translationVi": "Mọi thứ đã chạy tốt, đã ổn."
+    },
+    {
+      "filename": "a21-tag1-71-es-hat-funktioniert.mp3",
+      "script": "Es hat funktioniert.",
+      "translationVi": "Nó đã hoạt động tốt, đã ổn."
+    },
+    {
+      "filename": "a21-tag1-72-beispiel-projekt-hat-geklappt.mp3",
+      "script": "Ich habe lange an meinem Projekt gearbeitet, und am Ende hat es sehr gut geklappt und ich habe eine gute Note bekommen.",
+      "translationVi": "Tôi đã làm dự án rất lâu, cuối cùng mọi thứ rất ổn và tôi nhận được điểm tốt."
+    },
+    {
+      "filename": "a21-tag1-73-satz-a-zimmer-fuer-mitarbeiter.mp3",
+      "script": "Es hat geklappt: Tim hat im Hotel ein Zimmer für Mitarbeiter bekommen.",
+      "translationVi": "Đã ổn rồi: Tim đã nhận được một phòng dành cho nhân viên ở khách sạn."
+    },
+    {
+      "filename": "a21-tag1-74-von-bis.mp3",
+      "script": "von ... bis",
+      "translationVi": "từ ... đến ..."
+    },
+    {
+      "filename": "a21-tag1-75-satz-b-vierzig-minuten-fahren.mp3",
+      "script": "Von der Wohnung bis zum Hotel im Zentrum muss Tim vierzig Minuten fahren.",
+      "translationVi": "Từ căn hộ đến khách sạn ở trung tâm, Tim phải đi mất bốn mươi phút."
+    },
+    {
+      "filename": "a21-tag1-76-das-gefuehl.mp3",
+      "script": "das Gefühl",
+      "translationVi": "cảm giác"
+    },
+    {
+      "filename": "a21-tag1-77-satz-c-ich-bin-allein.mp3",
+      "script": "Tim hat das Gefühl: „Ich bin allein.“",
+      "translationVi": "Tim có cảm giác: „Tôi chỉ có một mình.“"
+    },
+    {
+      "filename": "a21-tag1-78-kennenlernen.mp3",
+      "script": "kennenlernen",
+      "translationVi": "làm quen"
+    },
+    {
+      "filename": "a21-tag1-79-satz-d-zwei-nachbarn-kennen.mp3",
+      "script": "Im Supermarkt lernt Tim zwei Nachbarn kennen.",
+      "translationVi": "Ở siêu thị, Tim làm quen với hai người hàng xóm."
+    },
+    {
+      "filename": "a21-tag1-80-satz-e-nur-noch-drei-euro.mp3",
+      "script": "Betty und Paul haben nur noch drei Euro.",
+      "translationVi": "Betty và Paul chỉ còn ba euro."
+    },
+    {
+      "filename": "a21-tag1-81-satz-f-keine-musik.mp3",
+      "script": "Die Nachbarn mögen keine Musik.",
+      "translationVi": "Những người hàng xóm không thích nhạc."
+    }
+  ]
 }

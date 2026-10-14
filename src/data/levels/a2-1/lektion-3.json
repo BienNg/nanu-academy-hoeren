@@ -1,3 +1,294 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a21-tag3-01-wo.mp3",
+      "script": "wo?",
+      "translationVi": "ở đâu?"
+    },
+    {
+      "filename": "a21-tag3-02-wohin.mp3",
+      "script": "wohin?",
+      "translationVi": "đi đâu?"
+    },
+    {
+      "filename": "a21-tag3-03-liegen.mp3",
+      "script": "liegen",
+      "translationVi": "nằm"
+    },
+    {
+      "filename": "a21-tag3-04-stehen.mp3",
+      "script": "stehen",
+      "translationVi": "đứng"
+    },
+    {
+      "filename": "a21-tag3-05-sitzen.mp3",
+      "script": "sitzen",
+      "translationVi": "ngồi"
+    },
+    {
+      "filename": "a21-tag3-06-der-besen.mp3",
+      "script": "der Besen",
+      "translationVi": "cái chổi"
+    },
+    {
+      "filename": "a21-tag3-07-wo-liegt-der-besen.mp3",
+      "script": "Wo liegt der Besen?",
+      "translationVi": "Cái chổi nằm đâu ấy nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-08-der-boden.mp3",
+      "script": "der Boden",
+      "translationVi": "sàn nhà"
+    },
+    {
+      "filename": "a21-tag3-09-er-liegt-auf-dem-boden.mp3",
+      "script": "Er liegt auf dem Boden.",
+      "translationVi": "Nó nằm trên sàn ấy."
+    },
+    {
+      "filename": "a21-tag3-10-wo-steht-der-besen.mp3",
+      "script": "Wo steht der Besen?",
+      "translationVi": "Cái chổi dựng/đứng đâu ấy nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-11-der-schrank.mp3",
+      "script": "der Schrank",
+      "translationVi": "cái tủ"
+    },
+    {
+      "filename": "a21-tag3-12-er-steht-vor-dem-schrank.mp3",
+      "script": "Er steht vor dem Schrank.",
+      "translationVi": "Nó dựng/đứng trước cái tủ ấy."
+    },
+    {
+      "filename": "a21-tag3-13-legen.mp3",
+      "script": "legen",
+      "translationVi": "để, đặt, cất (vật thể nằm)"
+    },
+    {
+      "filename": "a21-tag3-14-das-objekt.mp3",
+      "script": "das Objekt",
+      "translationVi": "đồ vật"
+    },
+    {
+      "filename": "a21-tag3-15-ich-lege-das-handy-auf-den-tisch.mp3",
+      "script": "Ich lege das Handy auf den Tisch.",
+      "translationVi": "Tôi để cái điện thoại lên trên bàn."
+    },
+    {
+      "filename": "a21-tag3-16-wohin-lege-ich-das-handy.mp3",
+      "script": "Wohin lege ich das Handy?",
+      "translationVi": "Tôi cất/để cái điện thoại đi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-17-der-hund.mp3",
+      "script": "der Hund",
+      "translationVi": "con chó"
+    },
+    {
+      "filename": "a21-tag3-18-hinlegen.mp3",
+      "script": "hinlegen",
+      "translationVi": "đặt xuống"
+    },
+    {
+      "filename": "a21-tag3-19-er-legt-ihn-hin.mp3",
+      "script": "Er legt ihn hin.",
+      "translationVi": "Anh ấy đặt anh chó xuống."
+    },
+    {
+      "filename": "a21-tag3-27-er-legt-sich-hin.mp3",
+      "script": "Er legt sich hin.",
+      "translationVi": "Anh ấy đặt chính anh ấy xuống (anh ấy nằm xuống)."
+    },
+    {
+      "filename": "a21-tag3-28-stellen.mp3",
+      "script": "stellen",
+      "translationVi": "để, đặt, cất (vật thể đứng)"
+    },
+    {
+      "filename": "a21-tag3-29-setzen.mp3",
+      "script": "setzen",
+      "translationVi": "để, đặt (vật thể ngồi)"
+    },
+    {
+      "filename": "a21-tag3-30-ich-lege-mich-hin.mp3",
+      "script": "Ich lege mich hin.",
+      "translationVi": "Tôi đi nằm đây."
+    },
+    {
+      "filename": "a21-tag3-31-die-reihe.mp3",
+      "script": "die Reihe",
+      "translationVi": "hàng (xếp hàng)"
+    },
+    {
+      "filename": "a21-tag3-32-entschuldigung-stellen-sie-sich-in-die-reihe.mp3",
+      "script": "Entschuldigung, stellen Sie sich bitte in die Reihe!",
+      "translationVi": "Xin lỗi, Ngài vui lòng đi xếp hàng nhé!"
+    },
+    {
+      "filename": "a21-tag3-33-die-flasche.mp3",
+      "script": "die Flasche",
+      "translationVi": "cái chai"
+    },
+    {
+      "filename": "a21-tag3-34-wohin-stelle-ich-die-flasche.mp3",
+      "script": "Mama, wohin stelle ich die Flasche?",
+      "translationVi": "Mẹ ơi, con cất chai nước đi đâu?"
+    },
+    {
+      "filename": "a21-tag3-35-stell-sie-auf-den-tisch.mp3",
+      "script": "Stell sie auf den Tisch!",
+      "translationVi": "Để (đứng) lên bàn con nhé!"
+    },
+    {
+      "filename": "a21-tag3-36-leg-sie-auf-den-tisch.mp3",
+      "script": "Leg sie auf den Tisch!",
+      "translationVi": "Để (nằm) lên bàn con nhé!"
+    },
+    {
+      "filename": "a21-tag3-37-mama-wo-steht-meine-flasche.mp3",
+      "script": "Mama, wo steht meine Flasche?",
+      "translationVi": "Mẹ ơi, chai nước của con đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-38-sie-steht-auf-dem-tisch.mp3",
+      "script": "Es steht auf dem Tisch.",
+      "translationVi": "Nó đứng trên bàn đó!"
+    },
+    {
+      "filename": "a21-tag3-39-sie-liegt-auf-dem-tisch.mp3",
+      "script": "Es liegt auf dem Tisch.",
+      "translationVi": "Nó nằm trên bàn đó!"
+    },
+    {
+      "filename": "a21-tag3-40-sich-setzen.mp3",
+      "script": "sich setzen",
+      "translationVi": "ngồi xuống (đặt mình ngồi)"
+    },
+    {
+      "filename": "a21-tag3-41-wohin-setze-ich-mich.mp3",
+      "script": "Wohin setze ich mich?",
+      "translationVi": "Tôi ngồi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-42-die-katze.mp3",
+      "script": "die Katze",
+      "translationVi": "con mèo"
+    },
+    {
+      "filename": "a21-tag3-43-wohin-setze-ich-die-katze.mp3",
+      "script": "Wohin setze ich die Katze?",
+      "translationVi": "Tôi đặt con mèo ngồi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-44-setzen-sie-sich-bitte-hin.mp3",
+      "script": "Setzen Sie sich bitte hin!",
+      "translationVi": "Ngài ngồi xuống đi!"
+    },
+    {
+      "filename": "a21-tag3-45-setzt-euch-bitte-hin.mp3",
+      "script": "Setzt euch bitte hin!",
+      "translationVi": "Mấy đứa ngồi xuống đi!"
+    },
+    {
+      "filename": "a21-tag3-46-wohin-lege-ich-die-buecher.mp3",
+      "script": "Wohin lege ich die Bücher?",
+      "translationVi": "Tôi để mấy quyển sách này đi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-47-wohin-stelle-ich-die-buecher.mp3",
+      "script": "Wohin stelle ich die Bücher?",
+      "translationVi": "Tôi để (đứng) mấy quyển sách này đi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-48-das-sofa.mp3",
+      "script": "das Sofa",
+      "translationVi": "ghế sofa"
+    },
+    {
+      "filename": "a21-tag3-49-ich-lege-sie-unter-das-sofa.mp3",
+      "script": "Ich lege sie unter das Sofa.",
+      "translationVi": "Anh để nó xuống dưới gầm ghế sofa."
+    },
+    {
+      "filename": "a21-tag3-50-wohin-hast-du-die-buecher-gelegt.mp3",
+      "script": "Wohin hast du die Bücher gelegt?",
+      "translationVi": "Anh đã để mấy quyển sách đi đâu rồi?"
+    },
+    {
+      "filename": "a21-tag3-57-der-kuehlschrank.mp3",
+      "script": "der Kühlschrank",
+      "translationVi": "tủ lạnh"
+    },
+    {
+      "filename": "a21-tag3-58-loesung-1-flasche-kuehlschrank.mp3",
+      "script": "Kannst du bitte die Flasche in den Kühlschrank stellen?",
+      "translationVi": "Bạn có thể cất chai nước vào tủ lạnh không?"
+    },
+    {
+      "filename": "a21-tag3-59-das-fahrrad.mp3",
+      "script": "das Fahrrad",
+      "translationVi": "xe đạp"
+    },
+    {
+      "filename": "a21-tag3-60-loesung-2-fahrrad-ins-zimmer.mp3",
+      "script": "Ich stelle das Fahrrad in das Zimmer.",
+      "translationVi": "Tôi dựng cái xe đạp vào trong phòng."
+    },
+    {
+      "filename": "a21-tag3-61-loesung-3-wo-ist-das-fahrrad.mp3",
+      "script": "Wo ist das Fahrrad?",
+      "translationVi": "Cái xe đạp ở đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-62-loesung-3-wo-steht-das-fahrrad.mp3",
+      "script": "Wo steht das Fahrrad?",
+      "translationVi": "Cái xe đạp dựng ở đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-63-loesung-4-fahrrad-steht-im-zimmer.mp3",
+      "script": "Das Fahrrad steht im Zimmer.",
+      "translationVi": "Xe đạp dựng trong phòng ấy."
+    },
+    {
+      "filename": "a21-tag3-64-loesung-5-darf-ich-mich-hierhin-setzen.mp3",
+      "script": "Darf ich mich hierhin setzen?",
+      "translationVi": "Tôi ngồi xuống đây được không?"
+    },
+    {
+      "filename": "a21-tag3-66-loesung-7-wohin-stelle-ich-den-besen.mp3",
+      "script": "Wohin stelle ich den Besen?",
+      "translationVi": "Để cái chổi này đi đâu nhỉ?"
+    },
+    {
+      "filename": "a21-tag3-67-weglegen.mp3",
+      "script": "weglegen",
+      "translationVi": "cất đi, mang đi chỗ khác"
+    },
+    {
+      "filename": "a21-tag3-68-loesung-8-tasche-weg.mp3",
+      "script": "Einen Moment, ich lege kurz meine Tasche weg.",
+      "translationVi": "Đợi tí, tôi đi cất cái túi."
+    },
+    {
+      "filename": "a21-tag3-69-die-schlange.mp3",
+      "script": "die Schlange",
+      "translationVi": "hàng (người xếp hàng)"
+    },
+    {
+      "filename": "a21-tag3-70-loesung-9-stellen-sie-sich-in-die-schlange.mp3",
+      "script": "Stellen Sie sich bitte in die Schlange.",
+      "translationVi": "Ngài vui lòng đi xếp hàng."
+    },
+    {
+      "filename": "a21-tag3-71-der-ruecken.mp3",
+      "script": "der Rücken",
+      "translationVi": "lưng"
+    },
+    {
+      "filename": "a21-tag3-72-loesung-10-ruecken-tut-weh.mp3",
+      "script": "Mein Rücken tut weh.",
+      "translationVi": "Đau lưng quá!"
+    }
+  ]
 }
