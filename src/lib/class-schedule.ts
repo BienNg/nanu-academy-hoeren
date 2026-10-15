@@ -92,7 +92,14 @@ export function isScheduleDay(value: unknown): value is string {
 }
 
 export function emptyClassSchedule(): ClassScheduleFields {
-  return { format: null, weekdays: [], levels: [], skippedDates: [] };
+  return { format: null, weekdays: [], levels: [], skippedDates: [], sessionStart: null, sessionMinutes: null };
+}
+
+/** "21:00" for "19:30" plus 90 minutes, wrapping past midnight. */
+export function sessionEndTime(start: string, minutes: number): string {
+  const [hour, minute] = start.split(":").map(Number);
+  const total = (hour * 60 + minute + minutes) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 /**
@@ -129,11 +136,15 @@ export function normalizeClassSchedule(
     ? [...new Set(raw.skippedDates.filter(isScheduleDay))].sort()
     : [];
 
+  const sessionStart = isSessionStart(raw.sessionStart) ? raw.sessionStart : null;
   return {
     format: isClassFormat(raw.format) ? raw.format : null,
     weekdays,
     levels: levels.slice(-MAX_LEVELS),
     skippedDates: skippedDates.slice(-MAX_SKIPPED),
+    sessionStart,
+    // A length without a start time means nothing, so it is dropped.
+    sessionMinutes: sessionStart ? readSessionMinutes(raw.sessionMinutes) : null,
   };
 }
 

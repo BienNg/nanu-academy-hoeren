@@ -30,7 +30,7 @@ import {
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { deleteGrammarWorldRuns } from "@/lib/grammar-world-runs-store";
 import { normalizeClassSchedule, type ClassSchedule } from "@/lib/class-schedule";
-import { upsertClassSchedule } from "@/lib/class-schedule-store";
+import { CLASS_SCHEDULES_TAG, upsertClassSchedule } from "@/lib/class-schedule-store";
 import {
   deleteUserDuelXp,
   forgetStudiedClips,
@@ -816,6 +816,7 @@ export async function saveAdminClassSchedule(
 
   try {
     const schedule = await upsertClassSchedule({ classKey: key, className: name, ...fields });
+    updateTag(CLASS_SCHEDULES_TAG);
     revalidatePath("/admin/classes");
     return { ok: true, schedule };
   } catch (error) {

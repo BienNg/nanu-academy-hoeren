@@ -5,7 +5,9 @@ import {
   formatScheduleDay,
   isScheduleDay,
   normalizeClassSchedule,
+  readSessionStart,
   scheduleToday,
+  sessionEndTime,
   type ClassScheduleFields,
 } from "./class-schedule.js";
 
@@ -73,9 +75,42 @@ test("normalizeClassSchedule drops unknown levels, bad days, and duplicates", ()
       { level: "a1-2", startedOn: "2026-12-01" },
     ],
     skippedDates: ["2026-10-15", "2026-12-24"],
+    sessionStart: null,
+    sessionMinutes: null,
   });
   assert.equal(normalizeClassSchedule("nope", KNOWN), null);
   assert.equal(normalizeClassSchedule({ format: "moon" }, KNOWN)?.format, null);
+});
+
+test("normalizeClassSchedule keeps a valid session time only", () => {
+  const time = (sessionStart: unknown, sessionMinutes: unknown) => {
+    const result = normalizeClassSchedule({ sessionStart, sessionMinutes }, KNOWN);
+    return [result?.sessionStart, result?.sessionMinutes];
+  };
+  assert.deepEqual(time("19:30", 90), ["19:30", 90]);
+  assert.deepEqual(time("07:05", 15), ["07:05", 15]);
+  assert.deepEqual(time("19:30", null), ["19:30", null]);
+  // Out of range lengths and bad times are dropped.
+  assert.deepEqual(time("19:30", 10), ["19:30", null]);
+  assert.deepEqual(time("19:30", 481), ["19:30", null]);
+  assert.deepEqual(time("19:30", 90.5), ["19:30", null]);
+  assert.deepEqual(time("24:00", 90), [null, null]);
+  assert.deepEqual(time("7:30", 90), [null, null]);
+  assert.deepEqual(time("19:30:00", 90), [null, null]);
+  // A length needs a start time.
+  assert.deepEqual(time(null, 90), [null, null]);
+});
+
+test("readSessionStart reads Postgres time values", () => {
+  assert.equal(readSessionStart("19:30:00"), "19:30");
+  assert.equal(readSessionStart("19:30"), "19:30");
+  assert.equal(readSessionStart(null), null);
+  assert.equal(readSessionStart("25:00:00"), null);
+});
+
+test("sessionEndTime adds the length and wraps past midnight", () => {
+  assert.equal(sessionEndTime("19:30", 90), "21:00");
+  assert.equal(sessionEndTime("23:30", 45), "00:15");
 });
 
 test("next Lektion counts class days before today", () => {

@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/progress-store";
 import {
   isClassFormat,
@@ -86,29 +87,54 @@ export async function upsertClassSchedule(
 ): Promise<ClassSchedule> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Cloud progress is not configured.");
-  const { data, error } = await supabase
+  const base = {
+    class_key: schedule.classKey,
+    class_name: schedule.className,
+    format: schedule.format,
+    weekdays: schedule.weekdays,
+    levels: schedule.levels,
+    skipped_dates: schedule.skippedDates,
+    updated_at: new Date().toISOString(),
+  };
+  const sessionStart = schedule.sessionStart ?? null;
+  let result: { data: ClassScheduleRow | null; error: { message: string } | null } = await supabase
     .from(TABLE)
     .upsert(
-      {
-        class_key: schedule.classKey,
-        class_name: schedule.className,
-        format: schedule.format,
-        weekdays: schedule.weekdays,
-        levels: schedule.levels,
-        skipped_dates: schedule.skippedDates,
-        updated_at: new Date().toISOString(),
-      },
+      { ...base, session_start: sessionStart, session_minutes: sessionStart ? (schedule.sessionMinutes ?? null) : null },
       { onConflict: "class_key" },
     )
-    .select(COLUMNS)
+    .select(COLUMNS_WITH_TIME)
     .single();
-  if (error) {
-    if (missingTable(error.message)) {
+  if (result.error && missingTimeColumns(result.error.message)) {
+    if (sessionStart) {
+      throw new Error("Session times are not set up yet. Run supabase/class_schedules.sql again.");
+    }
+    result = await supabase.from(TABLE).upsert(base, { onConflict: "class_key" }).select(COLUMNS).single();
+  }
+  const { data, error } = result;
+  if (error || !data) {
+    if (error && missingTable(error.message)) {
       throw new Error("Class schedules are not set up yet. Run supabase/class_schedules.sql once.");
     }
-    throw new Error(error.message);
+    throw new Error(error?.message ?? "Could not save the class schedule.");
   }
   const saved = classScheduleFromRow(data);
   if (!saved) throw new Error("Could not read the saved class schedule.");
   return saved;
+}
+
+export const CLASS_SCHEDULES_TAG = "class-schedules";
+
+/**
+ * All schedules, cached for an hour. Learner pages read this on every Home
+ * load, so it must not hit the database each time. Saving a schedule calls
+ * `updateTag(CLASS_SCHEDULES_TAG)`. `null` (table missing) is cached too.
+ */
+const cachedClassSchedules = unstable_cache(() => listClassSchedules(), [CLASS_SCHEDULES_TAG], {
+  revalidate: 60 * 60,
+  tags: [CLASS_SCHEDULES_TAG],
+});
+
+export function listCachedClassSchedules(): Promise<ClassSchedule[] | null> {
+  return cachedClassSchedules();
 }

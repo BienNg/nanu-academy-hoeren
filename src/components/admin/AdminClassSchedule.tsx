@@ -9,7 +9,12 @@ import {
   CLASS_FORMAT_LABEL,
   CLASS_WEEKDAYS,
   CLASS_WEEKDAY_LABEL,
+  DEFAULT_SESSION_MINUTES,
+  SESSION_MINUTES_MAX,
+  SESSION_MINUTES_MIN,
   classProgress,
+  isSessionStart,
+  sessionEndTime,
   emptyClassSchedule,
   formatScheduleDay,
   isScheduleDay,
@@ -37,7 +42,26 @@ function fieldsOf(schedule: ClassSchedule | null): ClassScheduleFields {
     weekdays: schedule.weekdays,
     levels: schedule.levels,
     skippedDates: schedule.skippedDates,
+    sessionStart: schedule.sessionStart ?? null,
+    sessionMinutes: schedule.sessionMinutes ?? null,
   };
+}
+
+/** "19:30–21:00 · 90 min", with the default length when none is set. */
+function sessionTimeLine(fields: ClassScheduleFields): string | null {
+  if (!fields.sessionStart) return null;
+  const minutes = fields.sessionMinutes ?? DEFAULT_SESSION_MINUTES;
+  return `${fields.sessionStart}–${sessionEndTime(fields.sessionStart, minutes)} · ${minutes} min`;
+}
+
+/** An empty length uses the default; a typed one must be in range, or saving would drop it silently. */
+function minutesValid(fields: ClassScheduleFields): boolean {
+  const minutes = fields.sessionMinutes;
+  return minutes == null || (minutes >= SESSION_MINUTES_MIN && minutes <= SESSION_MINUTES_MAX);
+}
+
+function clockLabel(format: ClassScheduleFields["format"]): string {
+  return format === "online_de" ? "German time" : "Vietnam time";
 }
 
 function weekdayList(weekdays: readonly number[]): string {
@@ -189,7 +213,7 @@ export function AdminClassSchedule({
             variant="primary"
             icon="check"
             onClick={() => void save()}
-            disabled={saving || draft.levels.some((entry) => !isScheduleDay(entry.startedOn))}
+            disabled={saving || draft.levels.some((entry) => !isScheduleDay(entry.startedOn)) || !minutesValid(draft)}
           >
             {saving ? "Saving…" : "Save schedule"}
           </Button>
@@ -243,6 +267,17 @@ export function AdminClassSchedule({
           <dt className={LABEL}>Days</dt>
           <dd className="text-admin-ink">
             {saved.weekdays.length > 0 ? weekdayList(saved.weekdays) : <span className="text-admin-ink-faint">Not set</span>}
+          </dd>
+          <dt className={LABEL}>Time</dt>
+          <dd className="text-admin-ink">
+            {sessionTimeLine(saved) ? (
+              <>
+                {sessionTimeLine(saved)}{" "}
+                <span className="text-admin-ink-subtle">({clockLabel(saved.format)})</span>
+              </>
+            ) : (
+              <span className="text-admin-ink-faint">Not set · rating opens at 23:59</span>
+            )}
           </dd>
           <dt className={LABEL}>Levels</dt>
           <dd>
@@ -450,6 +485,51 @@ function ScheduleEditor({
             })}
           </div>
           <p className="text-admin-body-sm text-admin-ink-subtle">Each class day is one Lektion.</p>
+        </fieldset>
+
+        <fieldset className={FIELD}>
+          <legend className={`${LABEL} mb-space-8`}>Class time</legend>
+          <div className="grid grid-cols-2 gap-space-8">
+            <label className="flex flex-col gap-space-4 text-admin-body-sm text-admin-ink-subtle">
+              Starts
+              <input
+                type="time"
+                step={300}
+                className={INPUT}
+                value={draft.sessionStart ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value.slice(0, 5);
+                  onPatch({
+                    sessionStart: isSessionStart(value) ? value : null,
+                    sessionMinutes: isSessionStart(value) ? draft.sessionMinutes : null,
+                  });
+                }}
+              />
+            </label>
+            <label className="flex flex-col gap-space-4 text-admin-body-sm text-admin-ink-subtle">
+              Minutes
+              <input
+                type="number"
+                inputMode="numeric"
+                min={SESSION_MINUTES_MIN}
+                max={SESSION_MINUTES_MAX}
+                step={5}
+                placeholder={String(DEFAULT_SESSION_MINUTES)}
+                disabled={!draft.sessionStart}
+                className={INPUT}
+                value={draft.sessionMinutes ?? ""}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber;
+                  onPatch({ sessionMinutes: Number.isFinite(value) ? Math.round(value) : null });
+                }}
+              />
+            </label>
+          </div>
+          <p className="text-admin-body-sm text-admin-ink-subtle">
+            {draft.sessionStart
+              ? `${sessionTimeLine(draft)} in ${clockLabel(draft.format)}. Students can rate the session from its end for 48 hours.`
+              : "Without a start time, students can rate a session from 23:59 that day."}
+          </p>
         </fieldset>
       </div>
 
