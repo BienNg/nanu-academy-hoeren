@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { chunkyButton } from "@/components/chunkyButton";
 import { CountUp, KindTile, QuestChest, QuestProgressBar } from "@/components/QuestParts";
 import { isOnboardingActive, subscribeOnboardingGate } from "@/lib/onboarding-gate";
+import { otherOverlayOpen, overlaySnapshot, setOverlayOpen, subscribeOverlays } from "@/lib/overlay-gate";
 import { localCalendarDay } from "@/lib/progress";
 import { clearQuestBoardCache, publishQuestBadge, rememberQuestBoard } from "@/lib/quest-badge";
 import {
@@ -18,6 +19,8 @@ import {
 import { questZoneHeaders, readQuestBoard, type QuestBoardView } from "@/lib/quests";
 import { playSuccessSound } from "@/lib/sfx";
 import { readStreakCelebration } from "@/lib/useProgress";
+
+const QUEST_INTRO_OVERLAY = "quest-intro";
 
 /** When each beat of the reveal starts, in seconds. */
 const BEAT = {
@@ -117,13 +120,22 @@ export function DailyQuestIntro() {
   const pathnameRef = useRef(pathname);
   // The first-run map tour goes first. The intro tries again once it is over.
   const onboarding = useSyncExternalStore(subscribeOnboardingGate, isOnboardingActive, () => false);
+  // Another Home sheet (the session rating) goes first; the intro tries again when it closes.
+  const overlays = useSyncExternalStore(subscribeOverlays, overlaySnapshot, () => "");
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
   useEffect(() => {
-    if (!userId || board || onboarding || !isQuestIntroSurface(pathname)) return;
+    setOverlayOpen(QUEST_INTRO_OVERLAY, open);
+    return () => setOverlayOpen(QUEST_INTRO_OVERLAY, false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!userId || board || onboarding || otherOverlayOpen(QUEST_INTRO_OVERLAY) || !isQuestIntroSurface(pathname)) {
+      return;
+    }
     const today = localCalendarDay();
     const marker = `${userId}|${today}`;
     if (checked.current === marker) return;
@@ -150,7 +162,8 @@ export function DailyQuestIntro() {
         if (
           !isQuestIntroSurface(pathnameRef.current) ||
           readStreakCelebration() ||
-          isOnboardingActive()
+          isOnboardingActive() ||
+          otherOverlayOpen(QUEST_INTRO_OVERLAY)
         ) {
           checked.current = null;
           return;
@@ -161,7 +174,7 @@ export function DailyQuestIntro() {
       .catch(() => {
         checked.current = null;
       });
-  }, [board, onboarding, pathname, userId]);
+  }, [board, onboarding, overlays, pathname, userId]);
 
   // Today counts as seen once the learner dismisses it. A reload or redirect
   // while it is still up brings it back.

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BottomNav } from "@/components/BottomNav";
+import dynamic from "next/dynamic";
 import { BlitzrundeBanner } from "@/components/blitzrunde/BlitzrundeBanner";
 import { GrammarPortal } from "@/components/grammar-world/GrammarPortal";
 import { useGrammarWorld } from "@/components/grammar-world/useGrammarWorld";
@@ -11,6 +12,7 @@ import type { GrammarWorldData } from "@/lib/grammar-world-content";
 import { CHUNKY_PRESS_SPRING } from "@/components/chunkyButton";
 import { CourseMenu, type CourseMenuItem } from "@/components/CourseMenu";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import type { PendingRating } from "@/lib/session-rating-store";
 import { TodayXpChip } from "@/components/TodayXpChip";
 import { ClassmateFinishLine } from "@/components/LeaderboardParts";
 import {
@@ -72,6 +74,9 @@ import {
 import { setOnboardingActive } from "@/lib/onboarding-gate";
 
 /** Set once the tour is finished, so a client-side move to another map does not rerun it. */
+// Loaded only for a learner with a class session to rate, and never on the server.
+const SessionRatingPrompt = dynamic(() => import("@/components/session-rating/SessionRatingPrompt"), { ssr: false });
+
 let onboardingFinishedThisSession = false;
 
 type Chapter = {
@@ -1914,6 +1919,7 @@ export default function LevelViewClient({
   liveRound = null,
   onboarding = false,
   grammarWorld = null,
+  sessionRating = null,
 }: {
   level: Level;
   chapters: Chapter[];
@@ -1931,6 +1937,8 @@ export default function LevelViewClient({
   onboarding?: boolean;
   /** The grammar world, for the portal button. Only CEFR level maps pass it. */
   grammarWorld?: GrammarWorldData | null;
+  /** A class session the learner can rate now. Only CEFR level maps pass it. */
+  sessionRating?: PendingRating | null;
 }) {
   const { data: session } = useSession();
   const userId = session?.user?.id ?? null;
@@ -2440,6 +2448,13 @@ export default function LevelViewClient({
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
       >
         {path.showBlitzrunde === false ? null : <BlitzrundeBanner initial={liveRound} />}
+        {sessionRating && !accessLocked ? (
+          <SessionRatingPrompt
+            key={`${sessionRating.classKey}|${sessionRating.day}`}
+            pending={sessionRating}
+            blocked={onboardingWanted && tourPhase !== "over"}
+          />
+        ) : null}
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}

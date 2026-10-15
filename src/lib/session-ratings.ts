@@ -126,6 +126,28 @@ export function openRatingSession(
 }
 
 // ---------------------------------------------------------------------------
+// Sheet copy
+
+const VI_WEEKDAYS = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"] as const;
+
+function viWeekday(day: string): string {
+  return VI_WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()];
+}
+
+/** "Buổi học hôm qua thế nào?", or the weekday when the session was earlier. `today` is the learner's calendar day. */
+export function ratingTitle(day: string, today: string): string {
+  if (day === today) return "Buổi học hôm nay thế nào?";
+  if (day === addScheduleDays(today, -1)) return "Buổi học hôm qua thế nào?";
+  return `Buổi học hôm ${viWeekday(day).toLocaleLowerCase("vi")} thế nào?`;
+}
+
+/** "Lektion 4 · Thứ Tư, 14.10" */
+export function ratingSubtitle(lektion: number, day: string): string {
+  const [, month, date] = day.split("-");
+  return `Lektion ${lektion} · ${viWeekday(day)}, ${date}.${month}`;
+}
+
+// ---------------------------------------------------------------------------
 // Rating input
 
 export type RatingInput = {

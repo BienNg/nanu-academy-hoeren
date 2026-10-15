@@ -31,15 +31,19 @@ function missingTable(message: string): boolean {
   return /does not exist|schema cache|could not find/i.test(message);
 }
 
-/** Cookie value for one session. Only the newest open session is ever asked, so one cookie is enough. */
-export function ratingDoneCookieValue(key: string, day: string): string {
-  return encodeURIComponent(`${key}|${day}`);
+/**
+ * Cookie value for one learner and session. Only the newest open session is
+ * ever asked, so one cookie is enough. The learner is part of it so a shared
+ * phone never skips a classmate's question.
+ */
+export function ratingDoneCookieValue(userId: string, key: string, day: string): string {
+  return encodeURIComponent(`${userId}|${key}|${day}`);
 }
 
 /** Next decodes cookie values when it reads them, so compare both forms. */
-function isDoneCookie(cookie: string | undefined, key: string, day: string): boolean {
+function isDoneCookie(cookie: string | undefined, userId: string, key: string, day: string): boolean {
   if (!cookie) return false;
-  const value = ratingDoneCookieValue(key, day);
+  const value = ratingDoneCookieValue(userId, key, day);
   return cookie === value || cookie === decodeURIComponent(value);
 }
 
@@ -79,7 +83,7 @@ export async function readPendingRating(
 ): Promise<PendingRating | null> {
   const session = await openSessionFor(user, now);
   if (!session) return null;
-  if (isDoneCookie(doneCookie, session.classKey, session.day)) return null;
+  if (isDoneCookie(doneCookie, user.id, session.classKey, session.day)) return null;
 
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!result.ok) return NextResponse.json({ denial: result.denial }, { status: STATUS[result.denial] });
 
     const response = NextResponse.json({ xp: result.xp });
-    response.cookies.set(RATING_DONE_COOKIE, ratingDoneCookieValue(result.session.classKey, result.session.day), {
+    response.cookies.set(RATING_DONE_COOKIE, ratingDoneCookieValue(session.user.id, result.session.classKey, result.session.day), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

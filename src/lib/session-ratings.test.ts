@@ -13,6 +13,8 @@ import {
   partsByDayFromActivity,
   partsPerDay,
   ratingClaimId,
+  ratingSubtitle,
+  ratingTitle,
   sessionEndsAt,
   zonedTimeToInstant,
 } from "./session-ratings.js";
@@ -241,4 +243,15 @@ test("behindReasons flags pace, Lektion and absence on their own", () => {
     "behind-lektion",
     "inactive",
   ]);
+});
+
+test("ratingTitle says today, yesterday, or the weekday", () => {
+  assert.equal(ratingTitle("2026-10-15", "2026-10-15"), "Buổi học hôm nay thế nào?");
+  assert.equal(ratingTitle("2026-10-14", "2026-10-15"), "Buổi học hôm qua thế nào?");
+  assert.equal(ratingTitle("2026-10-13", "2026-10-15"), "Buổi học hôm thứ ba thế nào?");
+  assert.equal(ratingTitle("2026-10-11", "2026-10-13"), "Buổi học hôm chủ nhật thế nào?");
+});
+
+test("ratingSubtitle names the Lektion, weekday and date", () => {
+  assert.equal(ratingSubtitle(4, "2026-10-14"), "Lektion 4 · Thứ Tư, 14.10");
 });

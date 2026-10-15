@@ -1726,3 +1726,100 @@ function LevelDonePinguArt() {
     </svg>
   );
 }
+
+/**
+ * Pingu's face for the session rating sheet: 0 before a star is picked, then
+ * sad at 1 star up to excited at 5. SVG only; a `rating` artboard in pingu.riv
+ * can replace it later (docs/PINGU_RIVE.md).
+ */
+export function RatingPingu({ mood, size = 124 }: { mood: number; size?: number }) {
+  const face = Math.max(0, Math.min(5, Math.round(mood)));
+  const round = face === 0 || face === 3 || face === 4;
+  const blush = [0.35, 0.2, 0.3, 0.4, 0.6, 0.75][face];
+  const label = ["Pingu đang chờ", "Pingu buồn", "Pingu hơi thất vọng", "Pingu bình thường", "Pingu vui", "Pingu rất vui"][face];
+  return (
+    <svg
+      viewBox="-20 -24 280 290"
+      width={size}
+      height={Math.round((size * 290) / 280)}
+      style={{ overflow: "visible" }}
+      role="img"
+      aria-label={label}
+    >
+      {face === 5 ? (
+        <g>
+          <path d="M24 34 L28 46 L40 50 L28 54 L24 66 L20 54 L8 50 L20 46 Z" fill="#FFC800" />
+          <path d="M214 14 L217 23 L226 26 L217 29 L214 38 L211 29 L202 26 L211 23 Z" fill="#FFC800" />
+          <path d="M228 96 L231 104 L239 107 L231 110 L228 118 L225 110 L217 107 L225 104 Z" fill="#0071E3" />
+        </g>
+      ) : null}
+      <ellipse cx="120" cy="238" rx="64" ry="8" fill="#1D1D1F" opacity="0.09" />
+      <ellipse cx="92" cy="228" rx="22" ry="10" fill="#FF9500" />
+      <ellipse cx="148" cy="228" rx="22" ry="10" fill="#FF9500" />
+      {face === 5 ? (
+        <>
+          <path d="M54 120 C30 104 18 76 28 52 C34 44 46 50 50 62 C56 82 58 102 54 120 Z" fill="#232F4B" />
+          <path d="M186 120 C210 104 222 76 212 52 C206 44 194 50 190 62 C184 82 182 102 186 120 Z" fill="#232F4B" />
+        </>
+      ) : (
+        <>
+          <path d={CELE_FLIPPER_L} fill="#232F4B" />
+          <path d={CELE_FLIPPER_R} fill="#232F4B" />
+        </>
+      )}
+      <ellipse cx="120" cy="134" rx="84" ry="92" fill="#232F4B" />
+      <ellipse cx="82" cy="78" rx="24" ry="12" fill="#3A4A72" transform="rotate(-28 82 78)" />
+      <ellipse cx="120" cy="158" rx="62" ry="66" fill="#FFFFFF" />
+      <path
+        d="M110 48 Q106 34 98 30 M122 44 Q122 30 122 22 M134 48 Q140 34 148 32"
+        stroke="#232F4B"
+        strokeWidth="6"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <ellipse cx="76" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity={blush} />
+      <ellipse cx="164" cy="140" rx="10" ry="7" fill="#FF8FA3" opacity={blush} />
+      {round ? (
+        <g>
+          <ellipse cx="92" cy="119" rx="10.5" ry="13" fill="#141B2E" />
+          <ellipse cx="148" cy="119" rx="10.5" ry="13" fill="#141B2E" />
+          <circle cx="96" cy="113" r="4" fill="#FFFFFF" />
+          <circle cx="152" cy="113" r="4" fill="#FFFFFF" />
+          <circle cx="89" cy="125" r="1.8" fill="#FFFFFF" />
+          <circle cx="145" cy="125" r="1.8" fill="#FFFFFF" />
+        </g>
+      ) : null}
+      {face === 1 ? (
+        <g>
+          <ellipse cx="92" cy="125" rx="9" ry="10" fill="#141B2E" />
+          <ellipse cx="148" cy="125" rx="9" ry="10" fill="#141B2E" />
+          <circle cx="94" cy="121" r="3" fill="#FFFFFF" />
+          <circle cx="150" cy="121" r="3" fill="#FFFFFF" />
+          <path d="M76 104 Q88 102 104 94" stroke="#141B2E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M136 94 Q152 102 164 104" stroke="#141B2E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M80 140 Q86 152 80 158 Q74 152 80 140 Z" fill="#7DB8F5" />
+        </g>
+      ) : null}
+      {face === 2 ? (
+        <g>
+          <ellipse cx="92" cy="122" rx="10" ry="11" fill="#141B2E" />
+          <ellipse cx="148" cy="122" rx="10" ry="11" fill="#141B2E" />
+          <rect x="80" y="108" width="24" height="14" fill="#FFFFFF" />
+          <rect x="136" y="108" width="24" height="14" fill="#FFFFFF" />
+          <path d="M80 122 L104 122 M136 122 L160 122" stroke="#141B2E" strokeWidth="4" strokeLinecap="round" />
+          <circle cx="95" cy="126" r="2.6" fill="#FFFFFF" />
+          <circle cx="151" cy="126" r="2.6" fill="#FFFFFF" />
+        </g>
+      ) : null}
+      {face === 5 ? (
+        <g>
+          <path d="M82 122 Q92 106 102 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <path d="M138 122 Q148 106 158 122" stroke="#141B2E" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+        </g>
+      ) : null}
+      {face >= 4 ? <ellipse cx="120" cy="150" rx="9" ry="8" fill="#D9423A" /> : null}
+      <path d="M107 132 Q120 122 133 132 Q131 145 120 146 Q109 145 107 132 Z" fill="#FF9500" />
+      <path d="M113 134 Q120 129 127 134" stroke="#FFC266" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}

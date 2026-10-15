@@ -34,7 +34,7 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 - **Most Home loads read nothing new:**
   - Schedules: all `class_schedules` rows through `unstable_cache` (1 hour, tag `class-schedules`, revalidated when an admin saves a schedule). A few KB per hour, not per load.
   - If no session of the learner's class is open, stop there. 0 rows.
-  - After a rating or "Để sau", a cookie (`nr_rated=<class_key>:<date>`, expires when the window closes) marks the session as done, and the server skips the lookup. 0 rows.
+  - After a rating or "Để sau", a cookie (`nr_rated=<user_id>|<class_key>|<date>`, expires when the window closes) marks the session as done, and the server skips the lookup. 0 rows. The learner is in the value so a shared phone never skips a classmate.
   - Otherwise one primary-key lookup on `session_ratings`, selecting only `status`. Under 100 bytes.
   - The learner's `class_name` comes from a read the learn page already makes: add the column to the `level_access` select in `getUserLevelAccess` (`progress-store.ts`, called by `requireLevelAccess`), not a second query. Admins skip that read, but they are never asked anyway.
 - **Writes:** one `POST` per rating or dismiss. The XP claim is written in the same server call.
@@ -71,10 +71,11 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 
 ## Part 4: Student UI
 - `src/components/session-rating/RatingSheet.tsx`: S1 (stars), S2 (tags and comment), S3 (thank you, closes after 2 s). Stars and buttons follow `ChunkyButton`. Respects reduced motion.
-- `src/components/session-rating/RatingHomeCard.tsx`: S4, shown when the sheet was closed without "Để sau", until the window ends. Closing the sheet is kept in `sessionStorage`, so it needs no request.
-- Pingu: add a `RatingPingu({ mood: 0–5 })` to `src/components/session/Pingu.tsx` with the six faces from the canvas, plus a `rating` artboard name for `pingu.riv` later (`docs/PINGU_RIVE.md`).
+- `src/components/session-rating/SessionRatingPrompt.tsx`: the S4 Home card, and which of sheet or card shows. The sheet opens once per session per device (`localStorage` key `nr-rating-seen:<class_key>|<date>`); after that, or after a soft close, only the card shows until the window ends. No request.
+- Home sheets take turns through `src/lib/overlay-gate.ts`: the daily quest intro and the rating sheet each register while open, and the other waits. The rating sheet also waits for the first-run tour and the streak flame.
+- Pingu: `RatingPingu({ mood: 0–5 })` in `src/components/session/Pingu.tsx` with the six faces from the canvas. SVG only for now; a `rating` artboard in `pingu.riv` can replace it later (`docs/PINGU_RIVE.md`).
 - Title by day: "Buổi học hôm qua thế nào?" when the session was yesterday, otherwise "Buổi học hôm <thứ> thế nào?". Subtitle: "Lektion N · <thứ>, DD.MM".
-- Rendered from the `pendingRating` prop. With no prop, nothing renders and no code for the sheet loads (dynamic import).
+- Rendered from the `sessionRating` prop of `LevelViewClient`. The prompt is loaded with `next/dynamic` (`ssr: false`), so with no pending session no code for it loads.
 
 ## Part 5: Admin
 - `/admin/classes`: start time and length fields next to the weekdays. Saved by the existing schedule action, with `normalizeClassSchedule` extended to the two new fields. Saving revalidates the `class-schedules` tag.

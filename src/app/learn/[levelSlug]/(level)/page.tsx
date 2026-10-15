@@ -11,7 +11,9 @@ import {
 } from "@/lib/levels";
 import { loadGrammarWorld } from "@/lib/grammar-world-content";
 import { shouldShowOnboarding } from "@/lib/onboarding-store";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { RATING_DONE_COOKIE, readPendingRating } from "@/lib/session-rating-store";
 import LevelViewClient from "../LevelViewClient";
 
 type LearnLevelPageProps = {
@@ -48,11 +50,15 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
     }
   }
 
-  const [courses, liveRound, onboarding, grammarWorld] = await Promise.all([
+  const doneCookie = (await cookies()).get(RATING_DONE_COOKIE)?.value;
+  const [courses, liveRound, onboarding, grammarWorld, sessionRating] = await Promise.all([
     loadLearnerCourseMenu(session.user),
     session.user.id ? getLiveRoundForUser(session.user.id) : null,
     shouldShowOnboarding(session.user.id),
     loadGrammarWorld(session.user),
+    session.user.id
+      ? readPendingRating({ id: session.user.id, email: session.user.email }, doneCookie).catch(() => null)
+      : null,
   ]);
 
   return (
@@ -66,6 +72,7 @@ export default async function LearnLevelPage({ params }: LearnLevelPageProps) {
       liveRound={liveRound}
       onboarding={onboarding}
       grammarWorld={grammarWorld}
+      sessionRating={sessionRating}
     />
   );
 }
