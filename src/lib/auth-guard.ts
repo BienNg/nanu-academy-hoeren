@@ -4,6 +4,7 @@ import { cache } from "react";
 import { auth } from "@/auth";
 import { isAdminUser, type AdminDashboardRole } from "@/lib/admins";
 import { classKey } from "@/lib/admin-overview";
+import { teacherBase } from "@/lib/teacher-base";
 import {
   getUserDashboardFlags,
   getUserInterviewAccess,
@@ -203,7 +204,7 @@ export const readTeacherSiteAccess = cache(async (): Promise<TeacherSiteAccess> 
 /** Teacher pages: signed-out visitors go to /login, everyone else gets their access. */
 export async function requireTeacherSite(): Promise<TeacherSiteAccess & { kind: "allowed" | "denied" }> {
   const access = await readTeacherSiteAccess();
-  if (access.kind === "signed-out") redirect("/login");
+  if (access.kind === "signed-out") redirect(`${await teacherBase()}/login`);
   return access;
 }
 

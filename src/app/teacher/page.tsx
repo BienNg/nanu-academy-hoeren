@@ -3,12 +3,14 @@ import { RatingPingu } from "@/components/session/Pingu";
 import { TeacherLogin } from "@/components/teacher/TeacherClient";
 import { CARD, EmptyState, Star, classHref, shortDay } from "@/components/teacher/TeacherUi";
 import { requireTeacherSite } from "@/lib/auth-guard";
+import { teacherBase } from "@/lib/teacher-base";
 import { listTeacherClassKeys, readTeacherClass, type TeacherClass } from "@/lib/teacher-store";
 
 /** T1: one card per class the teacher may open. */
 export default async function TeacherHomePage() {
   const access = await requireTeacherSite();
-  if (access.kind === "denied") return <TeacherLogin denied email={access.email} />;
+  const base = await teacherBase();
+  if (access.kind === "denied") return <TeacherLogin denied email={access.email} base={base} />;
 
   const keys = await listTeacherClassKeys(access.classKeys);
   const classes = (await Promise.all(keys.map((key) => readTeacherClass(key)))).filter(
@@ -33,7 +35,7 @@ export default async function TeacherHomePage() {
         <ul className="mt-7 grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))]">
           {classes.map((entry) => (
             <li key={entry.key}>
-              <ClassCard data={entry} />
+              <ClassCard data={entry} base={base} />
             </li>
           ))}
         </ul>
@@ -42,12 +44,12 @@ export default async function TeacherHomePage() {
   );
 }
 
-function ClassCard({ data }: { data: TeacherClass }) {
+function ClassCard({ data, base }: { data: TeacherClass; base: string }) {
   const last = data.sessions[0] ?? null;
   const behind = data.students.filter((student) => student.reasons.length > 0).length;
   return (
     <Link
-      href={classHref(data.key)}
+      href={classHref(base, data.key)}
       className={`${CARD} flex h-full flex-col gap-4 p-5 transition-shadow hover:shadow-[0_10px_28px_rgba(17,24,39,0.08)]`}
     >
       <div className="flex items-start justify-between gap-3">

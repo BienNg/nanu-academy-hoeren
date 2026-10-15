@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
-import { isTeacherHost } from "@/lib/teacher-host";
+import { TEACHER_PATH_HEADER, isTeacherHost } from "@/lib/teacher-host";
 import { colors } from "@/lib/tokens";
 import "./globals.css";
 
@@ -82,7 +82,10 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
   // The teacher site has no learner chrome: no splash, install prompt, quest intro or service worker.
-  const teacherSite = isTeacherHost((await headers()).get("host"));
+  // In development it can also be served at /teacher on this host (src/proxy.ts sets the header).
+  const requestHeaders = await headers();
+  const teacherSite =
+    isTeacherHost(requestHeaders.get("host")) || requestHeaders.get(TEACHER_PATH_HEADER) === "1";
 
   return (
     <html

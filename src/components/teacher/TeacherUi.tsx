@@ -36,9 +36,9 @@ export function reasonLabel(reason: BehindReason, lektionGap: number | null, day
   return days === null ? "chưa vào app" : `${days} ngày không vào app`;
 }
 
-/** Path segment for a class key; keys may contain spaces or Vietnamese letters. */
-export function classHref(key: string, rest = ""): string {
-  return `/${encodeURIComponent(key)}${rest}`;
+/** A class page's path; keys may contain spaces or Vietnamese letters. `base` comes from `teacherBase()`. */
+export function classHref(base: string, key: string, rest = ""): string {
+  return `${base}/${encodeURIComponent(key)}${rest}`;
 }
 
 export function decodeSegment(value: string): string {

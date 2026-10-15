@@ -39,8 +39,8 @@ function timeLabel(iso: string): string {
 export default async function SessionPage({ params }: { params: Promise<{ classKey: string; date: string }> }) {
   const { classKey, date } = await params;
   const page = await loadClassPage(classKey);
-  if (page.kind === "denied") return <TeacherLogin denied email={page.email} />;
-  const { data } = page;
+  if (page.kind === "denied") return <TeacherLogin denied email={page.email} base={page.base} />;
+  const { data, base } = page;
   if (!isScheduleDay(date)) notFound();
   const session = data.sessions.find((entry) => entry.day === date);
   if (!session) notFound();
@@ -51,7 +51,7 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
 
   return (
     <main className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 pt-4 pb-12 sm:px-6">
-      <BackLink href={classHref(data.key)}>{data.name} · Phản hồi</BackLink>
+      <BackLink href={classHref(base, data.key)}>{data.name} · Phản hồi</BackLink>
       <div>
         <p className="text-[14px] text-[#5e5e63]">
           {data.levelLabel ? `${data.levelLabel} · ` : ""}Lektion {session.lektion}
@@ -133,7 +133,7 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                     <Link
-                      href={classHref(data.key, `/students/${encodeURIComponent(rating.userId)}`)}
+                      href={classHref(base, data.key, `/students/${encodeURIComponent(rating.userId)}`)}
                       className="text-[15px] font-bold hover:text-[#0059b5]"
                     >
                       {rating.name}

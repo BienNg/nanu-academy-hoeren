@@ -1,14 +1,26 @@
 /**
  * The teacher site (docs/SESSION_RATINGS.md, Part 6) is this same app on the
- * `teacher.` subdomain: teacher.nanugo.app, or teacher.localhost:3000 in
- * development. The proxy rewrites its paths to `/teacher/...`, so pages and
- * links there use the visible paths ("/", "/g126", "/login").
+ * `teacher.` subdomain: teacher.nanugo.app. The proxy rewrites its paths to
+ * `/teacher/...`, so pages and links there use the visible paths ("/",
+ * "/g126", "/login").
+ *
+ * In development it is also served at localhost:3000/teacher, because Google
+ * sign-in does not accept teacher.localhost as an origin. Pages and links
+ * there keep the `/teacher` prefix (`teacherBase` in components/teacher).
  */
 
 export const TEACHER_HOST_PREFIX = "teacher.";
 
 /** Where teacher pages live in `src/app`. */
 export const TEACHER_ROUTE_PREFIX = "/teacher";
+
+/** Set by the proxy on /teacher requests served from the learner host in development. */
+export const TEACHER_PATH_HEADER = "x-nanu-teacher-path";
+
+/** localhost:3000/teacher works only in development; production moves it to the teacher host. */
+export function teacherPathModeEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
 
 export function isTeacherHost(host: string | null | undefined): boolean {
   return Boolean(host && host.trim().toLowerCase().startsWith(TEACHER_HOST_PREFIX));

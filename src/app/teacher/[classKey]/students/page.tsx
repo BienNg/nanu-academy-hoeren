@@ -47,8 +47,8 @@ export default async function StudentsPage({
   searchParams: Promise<{ behind?: string; sort?: string }>;
 }) {
   const page = await loadClassPage((await params).classKey);
-  if (page.kind === "denied") return <TeacherLogin denied email={page.email} />;
-  const { data } = page;
+  if (page.kind === "denied") return <TeacherLogin denied email={page.email} base={page.base} />;
+  const { data, base } = page;
   const query = await searchParams;
   const onlyBehind = query.behind === "1";
   const sort: SortKey = query.sort && query.sort in SORTS ? (query.sort as SortKey) : "attention";
@@ -63,7 +63,7 @@ export default async function StudentsPage({
     const nextSort = next.sort ?? sort;
     if (nextSort !== "attention") params.set("sort", nextSort);
     const search = params.toString();
-    return classHref(data.key, `/students${search ? `?${search}` : ""}`);
+    return classHref(base, data.key, `/students${search ? `?${search}` : ""}`);
   };
 
   return (
@@ -150,7 +150,7 @@ export default async function StudentsPage({
                       <tr key={student.userId} className="border-t border-[#f0edef] hover:bg-[#f7f9fd]">
                         <td className="px-6 py-3">
                           <Link
-                            href={classHref(data.key, `/students/${encodeURIComponent(student.userId)}`)}
+                            href={classHref(base, data.key, `/students/${encodeURIComponent(student.userId)}`)}
                             className="flex items-center gap-2.5"
                           >
                             <span className="flex w-2.5 justify-center">{student.reasons.length > 0 ? <BehindDot /> : null}</span>

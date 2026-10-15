@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TeacherSiteAccess } from "@/lib/auth-guard";
 import { listTeacherClassKeys, readTeacherClass, type TeacherClass } from "@/lib/teacher-store";
+import { teacherBase } from "@/lib/teacher-base";
 import { classHref } from "./TeacherUi";
 
 /** Class switcher and the Phản hồi | Học viên tabs (T2, T4). */
@@ -13,6 +14,7 @@ export async function ClassHeader({
   data: TeacherClass;
   tab: "feedback" | "students";
 }) {
+  const base = await teacherBase();
   const keys = await listTeacherClassKeys(access.classKeys);
   const others = (await Promise.all(keys.filter((key) => key !== data.key).map((key) => readTeacherClass(key)))).filter(
     (entry): entry is TeacherClass => entry !== null,
@@ -44,7 +46,7 @@ export async function ClassHeader({
                 {others.map((entry) => (
                   <li key={entry.key}>
                     <Link
-                      href={classHref(entry.key, tab === "students" ? "/students" : "")}
+                      href={classHref(base, entry.key, tab === "students" ? "/students" : "")}
                       className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 hover:bg-[#f4f6fb]"
                     >
                       <span className="font-bold">{entry.name}</span>
@@ -58,11 +60,11 @@ export async function ClassHeader({
           {data.scheduleLine ? <p className="text-[14px] text-[#5e5e63]">{data.scheduleLine}</p> : null}
         </div>
         <nav aria-label="Lớp" className="mt-3.5 flex gap-1">
-          <Link href={classHref(data.key)} aria-current={tab === "feedback" ? "page" : undefined} className={tabClass(tab === "feedback")}>
+          <Link href={classHref(base, data.key)} aria-current={tab === "feedback" ? "page" : undefined} className={tabClass(tab === "feedback")}>
             Phản hồi
           </Link>
           <Link
-            href={classHref(data.key, "/students")}
+            href={classHref(base, data.key, "/students")}
             aria-current={tab === "students" ? "page" : undefined}
             className={tabClass(tab === "students")}
           >

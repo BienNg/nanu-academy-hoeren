@@ -43,8 +43,8 @@ function ProgressRow({ label, done, total, note }: { label: string; done: number
 export default async function StudentPage({ params }: { params: Promise<{ classKey: string; userId: string }> }) {
   const { classKey, userId } = await params;
   const page = await loadClassPage(classKey);
-  if (page.kind === "denied") return <TeacherLogin denied email={page.email} />;
-  const { data } = page;
+  if (page.kind === "denied") return <TeacherLogin denied email={page.email} base={page.base} />;
+  const { data, base } = page;
   const student = data.students.find((entry) => entry.userId === decodeSegment(userId));
   if (!student) notFound();
   const ratings = (await readTeacherStudentRatings(data.key, student.userId)) ?? [];
@@ -58,7 +58,7 @@ export default async function StudentPage({ params }: { params: Promise<{ classK
 
   return (
     <main className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 pt-4 pb-12 sm:px-6">
-      <BackLink href={classHref(data.key, "/students")}>{data.name} · Học viên</BackLink>
+      <BackLink href={classHref(base, data.key, "/students")}>{data.name} · Học viên</BackLink>
 
       <section className={`${CARD} flex flex-wrap items-center gap-5 p-6`}>
         <Avatar name={student.name} image={student.image} size={72} />
@@ -144,7 +144,7 @@ export default async function StudentPage({ params }: { params: Promise<{ classK
               return (
                 <li key={session.day} className="border-t border-[#f0edef]">
                   <Link
-                    href={classHref(data.key, `/sessions/${session.day}`)}
+                    href={classHref(base, data.key, `/sessions/${session.day}`)}
                     className="flex flex-wrap items-start gap-x-5 gap-y-2 px-6 py-3.5 hover:bg-[#f7f9fd]"
                   >
                     <span className="w-[170px] shrink-0">

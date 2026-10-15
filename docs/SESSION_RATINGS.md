@@ -82,7 +82,9 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 - No ratings page in this branch (see Later).
 
 ## Part 6: Teacher site
-- Routing: `src/proxy.ts` keeps the Auth.js wrapper and rewrites requests whose host starts with `teacher.` to `/teacher/...` (`NextResponse.rewrite`, see `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`). On the main host, `/teacher` redirects to `teacher.nanugo.app`. Local: `teacher.localhost:3000`.
+- Routing: `src/proxy.ts` keeps the Auth.js wrapper and rewrites requests whose host starts with `teacher.` to `/teacher/...` (`NextResponse.rewrite`, see `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`). On the main host, `/teacher` redirects to `teacher.nanugo.app` in production.
+- Local development: open `http://localhost:3000/teacher`. Google refuses `teacher.localhost` as an OAuth origin ("must end with a public top-level domain"), so in development the proxy serves the site at `/teacher` on the learner host and marks the request (`x-nanu-teacher-path`). `teacherBase()` (`src/lib/teacher-base.ts`) then prefixes every link, redirect and sign-in callback with `/teacher`. Sign-in there shares the learner session.
+- `src/app/api/auth/[...nextauth]/route.ts` rebuilds the request URL from the Host header, because the Next dev server reports `localhost` in `request.url` even for other hosts, which sent the OAuth callback to the wrong host.
 - Login: `/teacher/login` (T0) uses the same Google provider. The `authorized` callback in `src/auth.ts` lets it through, and its `callbackUrl` stays on the teacher host.
 - Guard: `requireTeacherSite()` in `auth-guard.ts`. Same roles and `teacherClassKeys` as `requireDashboard`. Users with no role see the T0 denied state, not a 404. Every page calls it first and passes its result to `src/lib/teacher-store.ts`, whose functions refuse a class key outside it.
 - Routes under `src/app/teacher/` with its own layout (no `AppShell`, no `BottomNav`):
@@ -110,7 +112,7 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 
 ## Part 7: Setup (manual, before release)
 - Vercel: add the `teacher.nanugo.app` domain to the project.
-- Google Cloud: add `https://teacher.nanugo.app` to the authorized origins and `https://teacher.nanugo.app/api/auth/callback/google` to the redirect URIs (and the same for `teacher.localhost:3000` in development).
+- Google Cloud: add `https://teacher.nanugo.app` to the authorized origins and `https://teacher.nanugo.app/api/auth/callback/google` to the redirect URIs. Nothing for development: `localhost:3000/teacher` uses the existing localhost entries.
 - Supabase SQL editor: run `class_schedules.sql`, then `session_ratings.sql`.
 - Admin: set start times on each class in `/admin/classes`. Assign teachers to classes.
 - No new environment variables.

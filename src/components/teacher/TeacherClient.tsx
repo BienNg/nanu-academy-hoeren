@@ -23,7 +23,7 @@ const BLUE = "#0071e3";
 const BLUE_LIGHT = "#9cc3f2";
 
 /** T0: Google sign-in, or the "no teacher role" note with a way to switch accounts. */
-export function TeacherLogin({ denied, email }: { denied: boolean; email?: string | null }) {
+export function TeacherLogin({ denied, email, base }: { denied: boolean; email?: string | null; base: string }) {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[#f4f6fb] px-4 py-12">
       <div className="flex w-full max-w-[420px] flex-col items-center rounded-[28px] border border-[#e5e5ea] bg-white px-8 pt-10 pb-8 text-center shadow-[0_12px_40px_rgba(17,24,39,0.06)]">
@@ -61,8 +61,8 @@ export function TeacherLogin({ denied, email }: { denied: boolean; email?: strin
           type="button"
           onClick={() =>
             denied
-              ? void signOut({ redirect: false }).then(() => signIn("google", { callbackUrl: "/" }))
-              : void signIn("google", { callbackUrl: "/" })
+              ? void signOut({ redirect: false }).then(() => signIn("google", { callbackUrl: base || "/" }))
+              : void signIn("google", { callbackUrl: base || "/" })
           }
           className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-2xl border-2 border-[#e5e5ea] bg-white text-[16px] font-bold text-[#1b1b1d] shadow-[0_3px_0_#e5e5ea] active:translate-y-[3px] active:shadow-none ${FOCUS_RING}`}
         >
@@ -80,11 +80,11 @@ export function TeacherLogin({ denied, email }: { denied: boolean; email?: strin
   );
 }
 
-export function SignOutButton() {
+export function SignOutButton({ base }: { base: string }) {
   return (
     <button
       type="button"
-      onClick={() => void signOut({ callbackUrl: "/login" })}
+      onClick={() => void signOut({ callbackUrl: `${base}/login` })}
       className={`h-9 rounded-xl px-3 text-[13px] font-semibold text-[#5e5e63] hover:bg-[#f0edef] ${FOCUS_RING}`}
     >
       Đăng xuất

@@ -8,8 +8,8 @@ import { loadClassPage } from "@/components/teacher/loadClass";
 /** T2: how the class's sessions were received. */
 export default async function ClassFeedbackPage({ params }: { params: Promise<{ classKey: string }> }) {
   const page = await loadClassPage((await params).classKey);
-  if (page.kind === "denied") return <TeacherLogin denied email={page.email} />;
-  const { data } = page;
+  if (page.kind === "denied") return <TeacherLogin denied email={page.email} base={page.base} />;
+  const { data, base } = page;
   const last = data.sessions[0] ?? null;
   const studentCount = data.students.length;
 
@@ -52,7 +52,7 @@ export default async function ClassFeedbackPage({ params }: { params: Promise<{ 
                   </div>
                 </div>
                 <Link
-                  href={classHref(data.key, `/sessions/${last.day}`)}
+                  href={classHref(base, data.key, `/sessions/${last.day}`)}
                   className="mt-5 inline-flex min-h-11 items-center gap-1 text-[14px] font-bold text-[#0059b5] hover:text-[#004c99]"
                 >
                   Xem chi tiết và đánh giá
@@ -127,7 +127,7 @@ export default async function ClassFeedbackPage({ params }: { params: Promise<{ 
                     {data.sessions.map((session) => (
                       <tr key={session.day} className="border-t border-[#f0edef] hover:bg-[#f7f9fd]">
                         <td className="px-6 py-3 font-semibold">
-                          <Link href={classHref(data.key, `/sessions/${session.day}`)} className="hover:text-[#0059b5]">
+                          <Link href={classHref(base, data.key, `/sessions/${session.day}`)} className="hover:text-[#0059b5]">
                             {viDay(session.day)}
                           </Link>
                         </td>
