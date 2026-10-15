@@ -20,7 +20,7 @@ Run `supabase/quest_claims.sql` once in the Supabase SQL editor. Until then ques
 The admin XP page (`src/app/admin/xp/page.tsx`) has a Daily quests section: quests finished, all-3 days, quest players, quest XP, a by-day chart and a by-type table. Claims are grouped by Vietnam day to match the other admin numbers.
 
 ## Tuning
-Edit `QUEST_POOL`, `QUEST_BONUS_XP` and `QUEST_ACCURACY_MIN` in `quests.ts`. `MAX_QUEST_XP` (currently 75) is derived from them. Changing the pool mid-day can change a learner's quests for that day. Claims already stored keep their XP.
+Edit `QUEST_POOL`, `QUEST_BONUS_XP` and `QUEST_ACCURACY_MIN` in `quests.ts`. `MAX_QUEST_XP` (currently 225) is derived from them. Changing the pool mid-day can change a learner's quests for that day. Claims already stored keep their XP.
 
 ## Not built yet
 - Quest XP is included in overview Highlights (`sumAdminRangeXp`). The admin XP page still shows it in its own Daily quests section, separate from the listening and duel chart.

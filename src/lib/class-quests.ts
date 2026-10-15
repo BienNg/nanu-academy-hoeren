@@ -47,8 +47,8 @@ export type ClassQuestDefinition = {
   title: (target: number) => string;
 };
 
-export const CLASS_QUEST_DAILY_XP = 25;
-export const CLASS_QUEST_WEEKLY_XP = 80;
+export const CLASS_QUEST_DAILY_XP = 75;
+export const CLASS_QUEST_WEEKLY_XP = 240;
 export const CLASS_QUEST_ACCURACY_MIN = 90;
 export const CLASS_DAILY_QUEST_COUNT = 2;
 /** Weekly piles, sized so a class of about 6 has a real week of work. */

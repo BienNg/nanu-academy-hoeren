@@ -41,26 +41,26 @@ export type QuestDefinition = {
 };
 
 export const QUEST_BONUS_ID = "bonus";
-export const QUEST_BONUS_XP = 20;
+export const QUEST_BONUS_XP = 60;
 export const QUEST_ACCURACY_MIN = 90;
 
 /** Listening and study parts earn XP only after the server accepts the run. */
 export const QUEST_POOL: readonly QuestDefinition[] = [
-  { id: "listen-1", kind: "listening", metric: "listening-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần luyện tập" },
-  { id: "listen-2", kind: "listening", metric: "listening-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần luyện tập" },
+  { id: "listen-1", kind: "listening", metric: "listening-parts", target: 1, xp: 30, title: "Hoàn thành 1 phần luyện tập" },
+  { id: "listen-2", kind: "listening", metric: "listening-parts", target: 2, xp: 45, title: "Hoàn thành 2 phần luyện tập" },
   {
     id: "listen-accurate",
     kind: "listening",
     metric: "listening-accurate-parts",
     target: 1,
-    xp: 20,
+    xp: 60,
     title: `Hoàn thành 1 phần luyện tập đúng từ ${QUEST_ACCURACY_MIN}%`,
     minAccuracy: QUEST_ACCURACY_MIN,
   },
-  { id: "study-1", kind: "study", metric: "study-parts", target: 1, xp: 10, title: "Hoàn thành 1 phần học từ vựng" },
-  { id: "study-2", kind: "study", metric: "study-parts", target: 2, xp: 15, title: "Hoàn thành 2 phần học từ vựng" },
-  { id: "habit-60", kind: "habit", metric: "base-xp", target: 60, xp: 15, title: "Kiếm 60 XP hôm nay" },
-  { id: "habit-100", kind: "habit", metric: "base-xp", target: 100, xp: 20, title: "Kiếm 100 XP hôm nay" },
+  { id: "study-1", kind: "study", metric: "study-parts", target: 1, xp: 30, title: "Hoàn thành 1 phần học từ vựng" },
+  { id: "study-2", kind: "study", metric: "study-parts", target: 2, xp: 45, title: "Hoàn thành 2 phần học từ vựng" },
+  { id: "habit-60", kind: "habit", metric: "base-xp", target: 60, xp: 45, title: "Kiếm 60 XP hôm nay" },
+  { id: "habit-100", kind: "habit", metric: "base-xp", target: 100, xp: 60, title: "Kiếm 100 XP hôm nay" },
 ];
 
 export const QUEST_KINDS: readonly QuestKind[] = ["study", "listening", "habit"];

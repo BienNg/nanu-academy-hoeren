@@ -32,8 +32,8 @@ import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
 import { duelEndSteps, type DuelEndStep, type DuelView, type IncomingChallenge } from "@/lib/duels";
 import type { McResult } from "@/lib/multiple-choice";
 import { planClassRankClimb, planRankClimb } from "@/lib/rank-climb";
-import type { ClassQuestView } from "@/lib/class-quests";
-import type { QuestUpdate } from "@/lib/quests";
+import { CLASS_QUEST_DAILY_XP, CLASS_QUEST_WEEKLY_XP, type ClassQuestView } from "@/lib/class-quests";
+import { QUEST_BONUS_XP, QUEST_POOL, type QuestUpdate } from "@/lib/quests";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import { dropQueuedStreakCelebration, stageStreakCelebration } from "@/lib/useProgress";
 import type { ClassmateFinish } from "@/lib/progress";
@@ -262,8 +262,12 @@ function badgesFor(id: SceneId): FreshBadge[] {
   });
 }
 
+function poolXp(id: string): number {
+  return QUEST_POOL.find((quest) => quest.id === id)!.xp;
+}
+
 const MOVED_QUEST: QuestUpdate = {
-  xp: 10,
+  xp: poolXp("listen-1"),
   completed: ["Hoàn thành 1 phần luyện tập"],
   bonus: false,
   quests: [
@@ -271,7 +275,7 @@ const MOVED_QUEST: QuestUpdate = {
       id: "listen-1",
       kind: "listening",
       title: "Hoàn thành 1 phần luyện tập",
-      xp: 10,
+      xp: poolXp("listen-1"),
       target: 1,
       progress: 1,
       done: true,
@@ -281,7 +285,7 @@ const MOVED_QUEST: QuestUpdate = {
       id: "study-1",
       kind: "study",
       title: "Hoàn thành 1 phần học từ vựng",
-      xp: 10,
+      xp: poolXp("study-1"),
       target: 1,
       progress: 0,
       done: false,
@@ -291,7 +295,7 @@ const MOVED_QUEST: QuestUpdate = {
       id: "habit-60",
       kind: "habit",
       title: "Kiếm 60 XP hôm nay",
-      xp: 15,
+      xp: poolXp("habit-60"),
       target: 60,
       progress: 32,
       done: false,
@@ -301,7 +305,7 @@ const MOVED_QUEST: QuestUpdate = {
 };
 
 const BONUS_QUEST: QuestUpdate = {
-  xp: 40,
+  xp: poolXp("listen-1") + poolXp("study-1") + QUEST_BONUS_XP,
   completed: [
     "Hoàn thành 1 phần luyện tập",
     "Hoàn thành 1 phần học từ vựng",
@@ -313,7 +317,7 @@ const BONUS_QUEST: QuestUpdate = {
       id: "listen-1",
       kind: "listening",
       title: "Hoàn thành 1 phần luyện tập",
-      xp: 10,
+      xp: poolXp("listen-1"),
       target: 1,
       progress: 1,
       done: true,
@@ -323,7 +327,7 @@ const BONUS_QUEST: QuestUpdate = {
       id: "study-1",
       kind: "study",
       title: "Hoàn thành 1 phần học từ vựng",
-      xp: 10,
+      xp: poolXp("study-1"),
       target: 1,
       progress: 1,
       done: true,
@@ -333,7 +337,7 @@ const BONUS_QUEST: QuestUpdate = {
       id: "habit-60",
       kind: "habit",
       title: "Kiếm 60 XP hôm nay",
-      xp: 15,
+      xp: poolXp("habit-60"),
       target: 60,
       progress: 60,
       done: true,
@@ -981,7 +985,7 @@ const SAMPLE_DAILY: readonly ClassQuestView[] = [
     period: "day",
     title: "Cả lớp hoàn thành 12 phần luyện tập",
     icon: "fitness_center",
-    xp: 25,
+    xp: CLASS_QUEST_DAILY_XP,
     target: 12,
     progress: 12,
     done: true,
@@ -1001,7 +1005,7 @@ const SAMPLE_DAILY: readonly ClassQuestView[] = [
     period: "day",
     title: "4 bạn trong lớp luyện tập hôm nay",
     icon: "groups",
-    xp: 25,
+    xp: CLASS_QUEST_DAILY_XP,
     target: 4,
     progress: 2,
     done: false,
@@ -1022,7 +1026,7 @@ const SAMPLE_WEEKLY: readonly ClassQuestView[] = [
     period: "week",
     title: "Cả lớp kiếm 1000 XP tuần này",
     icon: "bolt",
-    xp: 80,
+    xp: CLASS_QUEST_WEEKLY_XP,
     target: 1000,
     progress: 1000,
     done: true,

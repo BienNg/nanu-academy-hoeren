@@ -14,7 +14,7 @@ Classes compete against each other every week. A class's score is the total XP i
 | Row content | Total week XP, XP per learner, and on your own class: your contribution. |
 | Week end | The top 3 classes are stored. Their learners earn a class podium badge family. |
 | Class quests | 2 daily + 1 weekly, Vietnam day and week. |
-| Payout | Contributors only, tap to claim, until the day or week ends. 25 XP daily, 80 XP weekly. |
+| Payout | Contributors only, tap to claim, until the day or week ends. 75 XP daily, 240 XP weekly. |
 | Quest UI | "Nhiệm vụ lớp" section on the Quests screen. Headcount quests show avatars. XP, parts and duel quests show each contribution on the bar. Never lists who has not helped. |
 | Admin | Nothing new. |
 
