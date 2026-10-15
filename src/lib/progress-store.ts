@@ -1481,6 +1481,8 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await deleteUserBlitzrunde(userId);
   const { deleteGrammarWorldRuns } = await import("@/lib/grammar-world-runs-store");
   await deleteGrammarWorldRuns(userId, "all");
+  const { deleteUserSessionRatings } = await import("@/lib/session-rating-store");
+  await deleteUserSessionRatings(userId);
 
   const now = new Date().toISOString();
   const { error } = await supabase.from(TABLE).upsert(

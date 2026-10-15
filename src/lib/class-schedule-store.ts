@@ -2,6 +2,8 @@ import { getSupabaseAdmin } from "@/lib/progress-store";
 import {
   isClassFormat,
   isScheduleDay,
+  readSessionMinutes,
+  readSessionStart,
   type ClassLevelStart,
   type ClassSchedule,
 } from "@/lib/class-schedule";
@@ -9,6 +11,8 @@ import {
 const TABLE = "class_schedules";
 
 const COLUMNS = "class_key, class_name, format, weekdays, levels, skipped_dates, updated_at";
+/** Session time columns come from a later run of class_schedules.sql. Older tables fall back to COLUMNS. */
+const COLUMNS_WITH_TIME = `${COLUMNS}, session_start, session_minutes`;
 
 type ClassScheduleRow = {
   class_key?: unknown;
@@ -18,7 +22,13 @@ type ClassScheduleRow = {
   levels?: unknown;
   skipped_dates?: unknown;
   updated_at?: unknown;
+  session_start?: unknown;
+  session_minutes?: unknown;
 };
+
+function missingTimeColumns(message: string): boolean {
+  return /session_start|session_minutes/i.test(message);
+}
 
 function classScheduleFromRow(row: ClassScheduleRow): ClassSchedule | null {
   if (typeof row.class_key !== "string" || !row.class_key) return null;
@@ -37,6 +47,8 @@ function classScheduleFromRow(row: ClassScheduleRow): ClassSchedule | null {
       : [],
     levels: levels.sort((a, b) => a.startedOn.localeCompare(b.startedOn)),
     skippedDates: Array.isArray(row.skipped_dates) ? row.skipped_dates.filter(isScheduleDay).sort() : [],
+    sessionStart: readSessionStart(row.session_start),
+    sessionMinutes: readSessionMinutes(row.session_minutes),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
   };
 }
@@ -49,7 +61,14 @@ function missingTable(message: string): boolean {
 export async function listClassSchedules(): Promise<ClassSchedule[] | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return [];
-  const { data, error } = await supabase.from(TABLE).select(COLUMNS).limit(1000);
+  let result: { data: ClassScheduleRow[] | null; error: { message: string } | null } = await supabase
+    .from(TABLE)
+    .select(COLUMNS_WITH_TIME)
+    .limit(1000);
+  if (result.error && missingTimeColumns(result.error.message)) {
+    result = await supabase.from(TABLE).select(COLUMNS).limit(1000);
+  }
+  const { data, error } = result;
   if (error) {
     if (!missingTable(error.message)) console.error("Supabase listClassSchedules", error.message);
     return null;

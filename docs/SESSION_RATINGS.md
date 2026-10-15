@@ -52,7 +52,7 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
   - Check: `status = 'rated'` requires `stars`. `dismissed` rows have no stars, tags or comment.
   - RLS on, no policies for `anon` or `authenticated`. Only the service role reads and writes, like every other table.
   - `session_rating_summary(p_class_key text)`: per session date, rated count, average (null under 3), star counts and tag counts (null under 3). Granted to `service_role` only.
-- Account deletion and full progress wipes also delete the student's `session_ratings` rows.
+- Account deletion also deletes the student's `session_ratings` rows (`deleteUserSessionRatings`). A full progress wipe keeps them: a rating is feedback on a session, not progress. The wipe already removes the rating XP with the rest of `quest_claims`.
 
 ## Part 2: Pure logic (`src/lib/session-ratings.ts`)
 - `classSessionDays(schedule, levelOrder, from, to)`: lists session days with their level and Lektion. Exported from `class-schedule.ts` next to `classProgress`, sharing its loop, so both always agree.

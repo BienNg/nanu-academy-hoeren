@@ -43,7 +43,36 @@ export type ClassScheduleFields = {
   levels: ClassLevelStart[];
   /** Days without class (holidays, cancelled lessons), oldest first. */
   skippedDates: string[];
+  /** Local start time "HH:MM" in the class's time zone. Unset: sessions end at 23:59. */
+  sessionStart?: string | null;
+  /** Session length in minutes. Unset: DEFAULT_SESSION_MINUTES. */
+  sessionMinutes?: number | null;
 };
+
+export const DEFAULT_SESSION_MINUTES = 90;
+export const SESSION_MINUTES_MIN = 15;
+export const SESSION_MINUTES_MAX = 480;
+
+/** "19:30" (24-hour clock). Seconds from Postgres `time` are dropped by `readSessionStart`. */
+export function isSessionStart(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+/** Postgres `time` comes back as "19:30:00". */
+export function readSessionStart(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const short = value.slice(0, 5);
+  return isSessionStart(short) ? short : null;
+}
+
+export function readSessionMinutes(value: unknown): number | null {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= SESSION_MINUTES_MIN &&
+    value <= SESSION_MINUTES_MAX
+    ? value
+    : null;
+}
 
 export type ClassSchedule = ClassScheduleFields & {
   classKey: string;
@@ -161,6 +190,65 @@ export type ClassProgress =
 /** Safety stop: ~14 years of days. Weekdays are never empty here, so it is never reached. */
 const MAX_SCAN_DAYS = 5000;
 
+function levelLektionen(levelOrder: readonly { slug: string; lektionen: number }[], level: string): number {
+  return Math.max(1, levelOrder.find((entry) => entry.slug === level)?.lektionen ?? 20);
+}
+
+/**
+ * The class days of one level, oldest first: one Lektion per class day from
+ * its start date, skipping days without class, until the level's last Lektion.
+ * `classProgress` and `classSessionDays` both count with this, so they agree.
+ */
+function* lektionDays(
+  weekdays: ReadonlySet<number>,
+  skipped: ReadonlySet<string>,
+  startedOn: string,
+  total: number,
+): Generator<{ day: string; lektion: number }> {
+  let held = 0;
+  let day = startedOn;
+  for (let step = 0; step < MAX_SCAN_DAYS && held < total; step++, day = addScheduleDays(day, 1)) {
+    if (!weekdays.has(isoWeekday(day)) || skipped.has(day)) continue;
+    held += 1;
+    yield { day, lektion: held };
+  }
+}
+
+export type ClassSessionDay = {
+  /** "YYYY-MM-DD" in the class's time zone. */
+  day: string;
+  level: string;
+  lektion: number;
+};
+
+/**
+ * Every class session from `from` to `to` (inclusive), oldest first. A level's
+ * sessions stop at its last Lektion or when the next level starts, whichever
+ * comes first. Sessions are never stored: this is the list.
+ */
+export function classSessionDays(
+  schedule: ClassScheduleFields,
+  levelOrder: readonly { slug: string; lektionen: number }[],
+  from: string,
+  to: string,
+): ClassSessionDay[] {
+  const weekdays = new Set(schedule.weekdays);
+  if (weekdays.size === 0 || from > to) return [];
+  const skipped = new Set(schedule.skippedDates);
+  const levels = [...schedule.levels].sort((a, b) => a.startedOn.localeCompare(b.startedOn));
+  const sessions: ClassSessionDay[] = [];
+  levels.forEach((entry, index) => {
+    if (entry.startedOn > to) return;
+    const nextStart = levels[index + 1]?.startedOn ?? null;
+    const total = levelLektionen(levelOrder, entry.level);
+    for (const held of lektionDays(weekdays, skipped, entry.startedOn, total)) {
+      if (held.day > to || (nextStart && held.day >= nextStart)) break;
+      if (held.day >= from) sessions.push({ day: held.day, level: entry.level, lektion: held.lektion });
+    }
+  });
+  return sessions;
+}
+
 /**
  * The level that started most recently (on or before today) sets the pace.
  * Class days from its start date count up from Lektion 1; days before today
@@ -183,22 +271,19 @@ export function classProgress(
   }
 
   const index = levelOrder.findIndex((entry) => entry.slug === current.level);
-  const total = Math.max(1, levelOrder[index]?.lektionen ?? 20);
+  const total = levelLektionen(levelOrder, current.level);
   const skipped = new Set(schedule.skippedDates);
 
   let done = 0;
   let nextOn: string | null = null;
-  let held = 0;
   let day = current.startedOn;
-  for (let step = 0; step < MAX_SCAN_DAYS && held < total; step++, day = addScheduleDays(day, 1)) {
-    if (!weekdays.has(isoWeekday(day)) || skipped.has(day)) continue;
-    held += 1;
+  for (const held of lektionDays(weekdays, skipped, current.startedOn, total)) {
+    day = held.day;
     if (day < today) {
       done += 1;
     } else if (!nextOn) {
       nextOn = day;
     }
-    if (held === total) break;
   }
 
   if (!nextOn) {
