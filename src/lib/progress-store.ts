@@ -1560,19 +1560,33 @@ export async function deleteUserAccount(userId: string): Promise<void> {
  * CEFR slugs granted to this learner. Missing rows and a missing column both
  * mean no access, so a new sign-up stays locked until an admin grants a level.
  */
-export const getUserLevelAccess = cache(async (userId: string): Promise<string[]> => {
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return [];
+/**
+ * One small read per request for both the level grants and the class, so the
+ * session rating check on Home costs no extra query.
+ */
+const getUserAccessRow = cache(
+  async (userId: string): Promise<{ levelAccess: string[]; className: string | null }> => {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return { levelAccess: [], className: null };
 
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("level_access")
-    .eq("user_id", userId)
-    .maybeSingle();
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("level_access, class_name")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-  if (error || !data) return [];
-  return readLevelAccess((data as { level_access?: unknown }).level_access);
-});
+    if (error || !data) return { levelAccess: [], className: null };
+    const row = data as { level_access?: unknown; class_name?: unknown };
+    return {
+      levelAccess: readLevelAccess(row.level_access),
+      className: readClassName(row.class_name),
+    };
+  },
+);
+
+export const getUserLevelAccess = cache(
+  async (userId: string): Promise<string[]> => (await getUserAccessRow(userId)).levelAccess,
+);
 
 export type PendingLevelGrant = {
   email: string;
@@ -1922,19 +1936,13 @@ export const getUserDashboardFlags = cache(async (userId: string): Promise<Dashb
   return { ...empty, staff: (staffOnly.data as { staff?: unknown }).staff === true };
 });
 
-/** The admin-set class label for one learner, or null when they have none. */
+/**
+ * The admin-set class label for one learner, or null when they have none.
+ * Shares one read with `getUserLevelAccess` in the same request.
+ */
 export const getUserClassName = cache(async (userId: string): Promise<string | null> => {
-  const supabase = getSupabaseAdmin();
-  if (!supabase || !userId) return null;
-
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("class_name")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return readClassName((data as { class_name?: unknown }).class_name);
+  if (!userId) return null;
+  return (await getUserAccessRow(userId)).className;
 });
 
 /** Full admins only. Grants or removes staff dashboard access. */
