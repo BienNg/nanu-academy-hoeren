@@ -215,12 +215,16 @@ export function outreachMessage1(group: OutreachGroup, address: OutreachAddress 
   if (group === "fresh") return null;
   const text =
     group === "heavy"
-      ? `em ơi! 😊 Mình thấy dạo này em học trên app NaNu Go nhiều ghê, vui quá trời! Em thấy app sao rồi? Có gì thích, hay có gì thấy bất tiện không? Cứ nói thoải mái nha, mình nghe hết 🙌`
+      ? `Hallo ...
+Chị thấy dạo này em học trên app NaNu Go chăm ghê, cảm ơn em nhiều nha! 💛
+Em dùng app thấy thế nào rồi? Có phần nào em thích nhất, hay có chỗ nào khó dùng hoặc chưa tiện không? Em cứ chia sẻ thật với chị nha, để trung tâm cải thiện app tốt hơn nè. 🥰`
       : group === "light"
         ? `em ơi! 😊 Mình thấy em có thử app NaNu Go, cảm ơn em nha! Hỏi thiệt nè: em thấy sao? Có chỗ nào khó hiểu, chán, hay không giống em nghĩ không? Cứ nói thẳng với mình nha, mình không giận đâu 😄`
         : group === "never"
           ? `em ơi! 😊 Mình thấy em đã đăng ký app NaNu Go nhưng chưa vô xem thử. Không sao hết nha! Em có bị vướng chỗ nào không, kiểu đăng nhập hay không biết bắt đầu từ đâu? Nói mình biết, mình giúp liền 😊`
-          : `em ơi! 😊 Lớp mình đa số đăng ký app rồi, mà em thì chưa. Mình tò mò thôi: em có lý do gì không? Bận, bị vướng chỗ nào, hay thấy chưa cần? Em cứ nói thật nha, giúp tụi mình nhiều lắm 🙏`;
+          : `Hallo....
+Trung tâm thấy nhiều bạn trong lớp đã đăng ký App NaNu Go rồi mà chưa thấy em đăng ký nên muốn hỏi thăm chút. Không biết em đang bận, gặp khó khăn gì khi đăng ký hay cảm thấy chưa cần dùng app lúc này nhỉ?
+Em cứ chia sẻ thật với trung tâm nha, trung tâm muốn hiểu thêm để xem có thể hỗ trợ gì cho em không em nhé 🥰`;
   return withOutreachAddress(text, address);
 }
 

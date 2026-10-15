@@ -1,3 +1,329 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a21-lektion4-01-freizeit.mp3",
+      "script": "die Freizeit",
+      "translationVi": "thời gian rảnh"
+    },
+    {
+      "filename": "a21-lektion4-02-was-machst-du-in-deiner-freizeit.mp3",
+      "script": "Was machst du in deiner Freizeit?",
+      "translationVi": "Bạn làm gì trong thời gian rảnh?"
+    },
+    {
+      "filename": "a21-lektion4-03-was-hast-du-in-deiner-freizeit-gemacht.mp3",
+      "script": "Was hast du in deiner Freizeit gemacht?",
+      "translationVi": "Bạn đã làm gì trong thời gian rảnh?"
+    },
+    {
+      "filename": "a21-lektion4-04-rausgehen.mp3",
+      "script": "rausgehen",
+      "translationVi": "ra ngoài, đi chơi"
+    },
+    {
+      "filename": "a21-lektion4-05-gehst-du-gern-raus.mp3",
+      "script": "Gehst du am Wochenende gern raus?",
+      "translationVi": "Cuối tuần bạn có thích ra ngoài không?"
+    },
+    {
+      "filename": "a21-lektion4-06-ich-gehe-gern-raus.mp3",
+      "script": "Ja, ich gehe am Wochenende gern raus.",
+      "translationVi": "Có, cuối tuần tôi thích ra ngoài."
+    },
+    {
+      "filename": "a21-lektion4-07-bin-rausgegangen.mp3",
+      "script": "Letztes Wochenende bin ich mit meiner Familie rausgegangen.",
+      "translationVi": "Cuối tuần trước tôi đã ra ngoài cùng gia đình."
+    },
+    {
+      "filename": "a21-lektion4-08-freunde-treffen.mp3",
+      "script": "Freunde treffen",
+      "translationVi": "gặp bạn bè"
+    },
+    {
+      "filename": "a21-lektion4-09-ich-treffe-gern-freunde.mp3",
+      "script": "Am Wochenende treffe ich gern Freunde.",
+      "translationVi": "Cuối tuần tôi thích gặp bạn bè."
+    },
+    {
+      "filename": "a21-lektion4-10-freunde-im-cafe-getroffen.mp3",
+      "script": "Gestern habe ich meine Freunde im Café getroffen.",
+      "translationVi": "Hôm qua tôi đã gặp bạn bè ở quán cà phê."
+    },
+    {
+      "filename": "a21-lektion4-11-unternehmen.mp3",
+      "script": "unternehmen",
+      "translationVi": "làm gì đó, đi chơi (hoạt động)"
+    },
+    {
+      "filename": "a21-lektion4-12-was-unternimmst-du.mp3",
+      "script": "Was unternimmst du am Wochenende?",
+      "translationVi": "Cuối tuần bạn làm gì?"
+    },
+    {
+      "filename": "a21-lektion4-13-viel-zusammen-unternommen.mp3",
+      "script": "Am Samstag haben wir viel zusammen unternommen.",
+      "translationVi": "Thứ bảy chúng tôi đã cùng nhau làm nhiều việc."
+    },
+    {
+      "filename": "a21-lektion4-14-sich-entspannen.mp3",
+      "script": "sich entspannen",
+      "translationVi": "thư giãn"
+    },
+    {
+      "filename": "a21-lektion4-15-ich-entspanne-mich-zu-hause.mp3",
+      "script": "Am Abend entspanne ich mich gern zu Hause.",
+      "translationVi": "Buổi tối tôi thích thư giãn ở nhà."
+    },
+    {
+      "filename": "a21-lektion4-16-im-park-entspannt.mp3",
+      "script": "Am Sonntag habe ich mich im Park entspannt.",
+      "translationVi": "Chủ nhật tôi đã thư giãn ở công viên."
+    },
+    {
+      "filename": "a21-lektion4-17-entdecken.mp3",
+      "script": "entdecken",
+      "translationVi": "khám phá"
+    },
+    {
+      "filename": "a21-lektion4-18-neue-orte-entdecken.mp3",
+      "script": "Ich entdecke gern neue Orte in meiner Stadt.",
+      "translationVi": "Tôi thích khám phá những nơi mới trong thành phố của mình."
+    },
+    {
+      "filename": "a21-lektion4-19-cafe-entdeckt.mp3",
+      "script": "Letzten Sommer haben wir ein schönes Café entdeckt.",
+      "translationVi": "Mùa hè năm ngoái chúng tôi đã khám phá ra một quán cà phê đẹp."
+    },
+    {
+      "filename": "a21-lektion4-20-kochen.mp3",
+      "script": "kochen",
+      "translationVi": "nấu ăn"
+    },
+    {
+      "filename": "a21-lektion4-21-kochst-du-gern.mp3",
+      "script": "Kochst du gern?",
+      "translationVi": "Bạn có thích nấu ăn không?"
+    },
+    {
+      "filename": "a21-lektion4-22-pho-gekocht.mp3",
+      "script": "Gestern habe ich Phở für meine Familie gekocht.",
+      "translationVi": "Hôm qua tôi đã nấu phở cho gia đình."
+    },
+    {
+      "filename": "a21-lektion4-23-anschauen.mp3",
+      "script": "anschauen",
+      "translationVi": "xem"
+    },
+    {
+      "filename": "a21-lektion4-24-serien-anschauen.mp3",
+      "script": "Am Wochenende schaue ich gern Serien an.",
+      "translationVi": "Cuối tuần tôi thích xem phim bộ."
+    },
+    {
+      "filename": "a21-lektion4-25-film-angeschaut.mp3",
+      "script": "Gestern Abend habe ich einen Film angeschaut.",
+      "translationVi": "Tối qua tôi đã xem một bộ phim."
+    },
+    {
+      "filename": "a21-lektion4-27-mit-familie-essen.mp3",
+      "script": "Am Wochenende esse ich gern mit meiner Familie.",
+      "translationVi": "Cuối tuần tôi thích ăn cùng gia đình."
+    },
+    {
+      "filename": "a21-lektion4-28-im-restaurant-gegessen.mp3",
+      "script": "Letzten Sonntag haben wir im Restaurant gegessen.",
+      "translationVi": "Chủ nhật tuần trước chúng tôi đã ăn ở nhà hàng."
+    },
+    {
+      "filename": "a21-lektion4-29-sport-machen.mp3",
+      "script": "Sport machen",
+      "translationVi": "chơi thể thao"
+    },
+    {
+      "filename": "a21-lektion4-30-dreimal-pro-woche-sport.mp3",
+      "script": "Ich mache dreimal pro Woche Sport.",
+      "translationVi": "Tôi chơi thể thao ba lần một tuần."
+    },
+    {
+      "filename": "a21-lektion4-31-sport-gemacht.mp3",
+      "script": "Gestern habe ich eine Stunde Sport gemacht.",
+      "translationVi": "Hôm qua tôi đã chơi thể thao một tiếng."
+    },
+    {
+      "filename": "a21-lektion4-32-ueben.mp3",
+      "script": "üben",
+      "translationVi": "luyện tập"
+    },
+    {
+      "filename": "a21-lektion4-33-volleyball-ueben.mp3",
+      "script": "Ich übe jeden Abend Volleyball.",
+      "translationVi": "Tối nào tôi cũng luyện tập bóng chuyền."
+    },
+    {
+      "filename": "a21-lektion4-35-lange-schlafen.mp3",
+      "script": "Am Wochenende schlafe ich gern lange.",
+      "translationVi": "Cuối tuần tôi thích ngủ nướng."
+    },
+    {
+      "filename": "a21-lektion4-36-bis-zehn-uhr-geschlafen.mp3",
+      "script": "Am Sonntag habe ich bis zehn Uhr geschlafen.",
+      "translationVi": "Chủ nhật tôi đã ngủ đến mười giờ."
+    },
+    {
+      "filename": "a21-lektion4-37-zu-hause-bleiben.mp3",
+      "script": "zu Hause bleiben",
+      "translationVi": "ở nhà"
+    },
+    {
+      "filename": "a21-lektion4-38-ich-bleibe-zu-hause.mp3",
+      "script": "Am Sonntag bleibe ich gern zu Hause.",
+      "translationVi": "Chủ nhật tôi thích ở nhà."
+    },
+    {
+      "filename": "a21-lektion4-39-zu-hause-geblieben.mp3",
+      "script": "Letztes Wochenende bin ich zu Hause geblieben.",
+      "translationVi": "Cuối tuần trước tôi đã ở nhà."
+    },
+    {
+      "filename": "a21-lektion4-40-einkaufen.mp3",
+      "script": "einkaufen",
+      "translationVi": "đi mua sắm, đi chợ"
+    },
+    {
+      "filename": "a21-lektion4-41-im-supermarkt-einkaufen.mp3",
+      "script": "Am Samstag kaufe ich im Supermarkt ein.",
+      "translationVi": "Thứ bảy tôi đi mua đồ ở siêu thị."
+    },
+    {
+      "filename": "a21-lektion4-42-auf-dem-markt-eingekauft.mp3",
+      "script": "Gestern habe ich auf dem Markt eingekauft.",
+      "translationVi": "Hôm qua tôi đã đi chợ."
+    },
+    {
+      "filename": "a21-lektion4-43-ein-buch-lesen.mp3",
+      "script": "ein Buch lesen",
+      "translationVi": "đọc sách"
+    },
+    {
+      "filename": "a21-lektion4-44-vor-dem-schlafen-lesen.mp3",
+      "script": "Vor dem Schlafen lese ich gern ein Buch.",
+      "translationVi": "Trước khi ngủ tôi thích đọc sách."
+    },
+    {
+      "filename": "a21-lektion4-45-buch-gelesen.mp3",
+      "script": "Letzten Monat habe ich ein spannendes Buch gelesen.",
+      "translationVi": "Tháng trước tôi đã đọc một cuốn sách hấp dẫn."
+    },
+    {
+      "filename": "a21-lektion4-46-einen-ausflug-machen.mp3",
+      "script": "einen Ausflug machen",
+      "translationVi": "đi dã ngoại, đi chơi xa"
+    },
+    {
+      "filename": "a21-lektion4-47-wir-machen-einen-ausflug.mp3",
+      "script": "Am Wochenende machen wir gern einen Ausflug.",
+      "translationVi": "Cuối tuần chúng tôi thích đi dã ngoại."
+    },
+    {
+      "filename": "a21-lektion4-48-ausflug-ans-meer-gemacht.mp3",
+      "script": "Letzten Sonntag haben wir einen Ausflug ans Meer gemacht.",
+      "translationVi": "Chủ nhật tuần trước chúng tôi đã đi chơi biển."
+    },
+    {
+      "filename": "a21-lektion4-49-aufraeumen.mp3",
+      "script": "aufräumen",
+      "translationVi": "dọn dẹp"
+    },
+    {
+      "filename": "a21-lektion4-50-zimmer-aufraeumen.mp3",
+      "script": "Am Samstagmorgen räume ich mein Zimmer auf.",
+      "translationVi": "Sáng thứ bảy tôi dọn phòng của mình."
+    },
+    {
+      "filename": "a21-lektion4-51-wohnung-aufgeraeumt.mp3",
+      "script": "Gestern habe ich die ganze Wohnung aufgeräumt.",
+      "translationVi": "Hôm qua tôi đã dọn dẹp cả căn hộ."
+    },
+    {
+      "filename": "a21-lektion4-52-den-kopf-frei-bekommen.mp3",
+      "script": "den Kopf frei bekommen",
+      "translationVi": "thư giãn đầu óc, xả stress"
+    },
+    {
+      "filename": "a21-lektion4-53-um-den-kopf-frei-zu-bekommen-frage.mp3",
+      "script": "Was machst du in deiner Freizeit, um den Kopf frei zu bekommen?",
+      "translationVi": "Bạn làm gì trong thời gian rảnh để thư giãn đầu óc?"
+    },
+    {
+      "filename": "a21-lektion4-54-joggen-kopf-frei.mp3",
+      "script": "Ich gehe joggen, um den Kopf frei zu bekommen.",
+      "translationVi": "Tôi đi chạy bộ để thư giãn đầu óc."
+    },
+    {
+      "filename": "a21-lektion4-55-auf-social-media-verzichten.mp3",
+      "script": "auf Social Media verzichten",
+      "translationVi": "hạn chế mạng xã hội"
+    },
+    {
+      "filename": "a21-lektion4-56-versuchst-du-zu-verzichten.mp3",
+      "script": "Versuchst du in deiner Freizeit, auf Social Media zu verzichten?",
+      "translationVi": "Bạn có cố gắng hạn chế mạng xã hội trong thời gian rảnh không?"
+    },
+    {
+      "filename": "a21-lektion4-57-am-wochenende-verzichte-ich.mp3",
+      "script": "Ja, am Wochenende verzichte ich auf Social Media.",
+      "translationVi": "Có, cuối tuần tôi hạn chế dùng mạng xã hội."
+    },
+    {
+      "filename": "a21-lektion4-58-stress-abbauen.mp3",
+      "script": "Stress abbauen",
+      "translationVi": "giảm căng thẳng"
+    },
+    {
+      "filename": "a21-lektion4-59-musik-stress-abbauen.mp3",
+      "script": "Ich höre Musik, um Stress abzubauen.",
+      "translationVi": "Tôi nghe nhạc để giảm căng thẳng."
+    },
+    {
+      "filename": "a21-lektion4-60-sport-hilft-stress-abbauen.mp3",
+      "script": "Sport hilft mir, Stress abzubauen.",
+      "translationVi": "Thể thao giúp tôi giảm căng thẳng."
+    },
+    {
+      "filename": "a21-lektion4-61-zeichnen.mp3",
+      "script": "zeichnen",
+      "translationVi": "vẽ (bằng bút chì, bút)"
+    },
+    {
+      "filename": "a21-lektion4-62-malen.mp3",
+      "script": "malen",
+      "translationVi": "vẽ, tô màu"
+    },
+    {
+      "filename": "a21-lektion4-63-ich-zeichne-gern-tiere.mp3",
+      "script": "In meiner Freizeit zeichne ich gern Tiere.",
+      "translationVi": "Trong thời gian rảnh tôi thích vẽ động vật."
+    },
+    {
+      "filename": "a21-lektion4-64-bild-gemalt.mp3",
+      "script": "Am Wochenende habe ich ein Bild gemalt.",
+      "translationVi": "Cuối tuần tôi đã vẽ một bức tranh."
+    },
+    {
+      "filename": "a21-lektion4-65-einem-hobby-nachgehen.mp3",
+      "script": "einem Hobby nachgehen",
+      "translationVi": "theo đuổi một sở thích"
+    },
+    {
+      "filename": "a21-lektion4-66-meinem-hobby-nachgehen.mp3",
+      "script": "In meiner Freizeit gehe ich gern meinem Hobby nach.",
+      "translationVi": "Trong thời gian rảnh tôi thích theo đuổi sở thích của mình."
+    },
+    {
+      "filename": "a21-lektion4-67-wenig-zeit-hobby-nachzugehen.mp3",
+      "script": "Leider habe ich wenig Zeit, meinem Hobby nachzugehen.",
+      "translationVi": "Tiếc là tôi có ít thời gian để theo đuổi sở thích của mình."
+    }
+  ]
 }

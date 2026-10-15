@@ -77,10 +77,15 @@ test("messages use the address instead of the name", () => {
   assert.equal(outreachAddress(null), "em");
   assert.equal(outreachAddress("Ngọc"), "em");
   assert.equal(outreachAddress("chi"), "chị");
-  assert.match(outreachMessage1("preaccess", "em") ?? "", /^em ơi!/);
+  const unsigned = outreachMessage1("preaccess", "anh") ?? "";
+  assert.match(unsigned, /^Hallo/);
+  assert.match(unsigned, /chưa thấy anh đăng ký/);
+  assert.match(unsigned, /không anh nhé/);
+  assert.doesNotMatch(unsigned, /(?<![\p{L}])em(?![\p{L}])/u);
   const heavy = outreachMessage1("heavy", "anh") ?? "";
-  assert.match(heavy, /^anh ơi!/);
-  assert.match(heavy, /Anh thấy app sao/);
+  assert.match(heavy, /^Hallo/);
+  assert.match(heavy, /Anh dùng app/);
+  assert.match(heavy, /cảm ơn anh/);
   assert.match(heavy, /NaNu Go/);
   assert.doesNotMatch(heavy, /(?<![\p{L}])em(?![\p{L}])/u);
   const tech = outreachObjectionReply("tech", "cô");
@@ -309,7 +314,8 @@ test("a send after the reset is not a new job", () => {
 
 test("the question catalog follows the group and opens on the current job", () => {
   const heavy = outreachCatalog("heavy", "chú");
-  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^chú ơi!/);
+  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /^Hallo/);
+  assert.match(heavy.find((item) => item.id === "open")?.message ?? "", /Chú dùng app/);
   assert.ok(heavy.some((item) => item.category === "like"));
   assert.equal(heavy.find((item) => item.id === "fit-disappointed")?.message?.includes("rất tiếc"), true);
   assert.equal(heavy.some((item) => item.id === "wish-main"), false);

@@ -119,7 +119,6 @@ function StatusBar({ level }: { level: AdminCatalogLevelRow }) {
 
 function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
   const [page, setPage] = useState(1);
-  const topClips = Math.max(0, ...level.lessons.map((lesson) => lesson.playableClips));
   const paged = paginate(level.lessons, page, CATALOG_PAGE_SIZE);
   return (
     <TablePanel
@@ -191,33 +190,22 @@ function LessonTable({ level }: { level: AdminCatalogLevelRow }) {
                       <StatusPill label={status.label} tone={status.tone} />
                     </td>
                     <td className="px-space-16 py-space-12">
-                      <div className="flex w-full max-w-[10rem] flex-col gap-1">
-                        <div className="flex items-center justify-between text-admin-label-md font-semibold">
-                          <span
-                            className={`tabular-nums ${
-                              lesson.playableClips > 0 ? "font-semibold text-admin-ink" : "text-admin-ink-subtle"
-                            }`}
-                          >
-                            {formatCount(lesson.playableClips)}
-                            <span className="font-normal text-admin-ink-subtle">
-                              {" "}
-                              / {formatCount(lesson.listedClips)}
-                            </span>
+                      <span className="inline-flex items-baseline gap-space-8 text-admin-label-md">
+                        <span
+                          className={`tabular-nums ${
+                            lesson.playableClips > 0 ? "font-semibold text-admin-ink" : "text-admin-ink-subtle"
+                          }`}
+                        >
+                          {formatCount(lesson.playableClips)}
+                          <span className="font-normal text-admin-ink-subtle">
+                            {" "}
+                            / {formatCount(lesson.listedClips)}
                           </span>
-                          <span className="tabular-nums text-admin-ink-subtle">
-                            {formatPercent(share(lesson.playableClips, lesson.listedClips))}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-admin-subtle">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: formatPercent(share(lesson.playableClips, topClips)),
-                              backgroundColor: ready ? CLIPS : ADMIN_COLORS.grid,
-                            }}
-                          />
-                        </div>
-                      </div>
+                        </span>
+                        <span className="tabular-nums font-semibold text-admin-ink-subtle">
+                          {formatPercent(share(lesson.playableClips, lesson.listedClips))}
+                        </span>
+                      </span>
                     </td>
                     <td className="px-space-16 py-space-12 text-center">
                       <CountPill value={lesson.missingAudio} tone="alert" />
