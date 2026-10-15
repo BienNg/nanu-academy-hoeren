@@ -177,6 +177,46 @@ export function normalizeRatingInput(input: unknown): RatingInput | null {
   return { stars, tags, comment: comment.length > 0 ? comment : null };
 }
 
+export type SessionRatingSummary = {
+  day: string;
+  ratedCount: number;
+  /** Rounded to one decimal. Null under SESSION_RATING_SUMMARY_MIN ratings. */
+  average: number | null;
+  /** [1★, 2★, 3★, 4★, 5★]. Null under SESSION_RATING_SUMMARY_MIN ratings. */
+  starCounts: number[] | null;
+  /** Null under SESSION_RATING_SUMMARY_MIN ratings. */
+  tagCounts: Partial<Record<RatingTag, number>> | null;
+};
+
+/**
+ * What session_rating_summary() returns, worked out in code from rated rows.
+ * Used when that SQL function is missing. Newest session first.
+ */
+export function summarizeRatings(rows: readonly { day: string; stars: number; tags: readonly string[] }[]): SessionRatingSummary[] {
+  const byDay = new Map<string, { stars: number[]; tags: Map<RatingTag, number> }>();
+  for (const row of rows) {
+    if (!Number.isInteger(row.stars) || row.stars < 1 || row.stars > 5) continue;
+    const entry = byDay.get(row.day) ?? { stars: [0, 0, 0, 0, 0], tags: new Map() };
+    entry.stars[row.stars - 1] += 1;
+    for (const tag of row.tags) if (isRatingTag(tag)) entry.tags.set(tag, (entry.tags.get(tag) ?? 0) + 1);
+    byDay.set(row.day, entry);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([day, entry]) => {
+      const ratedCount = entry.stars.reduce((sum, count) => sum + count, 0);
+      const enough = ratedCount >= SESSION_RATING_SUMMARY_MIN;
+      const total = entry.stars.reduce((sum, count, index) => sum + count * (index + 1), 0);
+      return {
+        day,
+        ratedCount,
+        average: enough ? Math.round((total / ratedCount) * 10) / 10 : null,
+        starCounts: enough ? entry.stars : null,
+        tagCounts: enough ? Object.fromEntries(entry.tags) : null,
+      };
+    });
+}
+
 /** Quest claim id for a sent rating, so its XP counts on every board. */
 export function ratingClaimId(classKey: string, day: string): string {
   return `rating:${classKey}:${day}`;

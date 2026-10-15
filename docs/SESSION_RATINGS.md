@@ -92,7 +92,11 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
   - `[classKey]/students/page.tsx` – T4. Filter and sort live in the URL (`?behind=1&sort=xp`) and run on the cached rows, so changing them costs no database read.
   - `[classKey]/students/[userId]/page.tsx` – T5. Also checks that the student is in that class.
   - Empty states from the canvas on T2, T3 and T4.
-- Reuse: Lektion and video counts come from the projectors in `admin-detail.ts`, fed with the JSON slices instead of the whole document, so the teacher site and the admin show the same numbers.
+- Reuse: Lektion and video counts come from the projectors in `admin-detail.ts`, fed with the JSON slices instead of the whole document, so the teacher site and the admin show the same numbers. Week XP and rank come from `listWeekBoardPeople` in `xp-store.ts` (the leaderboard's own totals).
+- Data: `src/lib/teacher-store.ts`, every read cached 5 minutes (`unstable_cache`). Ratings use `session_rating_summary`, or `summarizeRatings` in code while that function is missing.
+- The root layout skips the learner shell (splash, install prompt, daily quest intro, service worker) on the teacher host, because the browser path there is `/`.
+- Not built from the designs: badges and join date on T5, and practice accuracy. They need reads the plan does not budget for.
+- Measured in the sandbox (6 synthetic students): the roster's progress slices 10.7 KB, the cached class payload 8.9 KB. Real `learn` data is larger; measure again on the real database.
 
 ## Part 7: Setup (manual, before release)
 - Vercel: add the `teacher.nanugo.app` domain to the project.

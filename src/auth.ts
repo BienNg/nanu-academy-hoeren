@@ -1,9 +1,11 @@
 import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { signInContextFromHeaders, type SignInContext } from "@/lib/progress";
 import { googleProfileImage } from "@/lib/xp";
 import { recordUserSignIn, rememberUserImage } from "@/lib/progress-store";
+import { isSharedAppPath, isTeacherHost } from "@/lib/teacher-host";
 
 const EMPTY_SIGN_IN_CONTEXT: SignInContext = {
   device: null,
@@ -34,23 +36,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
+      // The teacher site sends signed-out visitors to its own /login (src/proxy.ts).
+      if (isTeacherHost(request.headers.get("host"))) return true;
+      // /teacher/... on the learner host moves to the teacher host first (src/proxy.ts).
+      if (pathname === "/teacher" || pathname.startsWith("/teacher/")) return true;
       if (pathname === "/account" || pathname.startsWith("/account/")) {
         return true;
       }
       // Link previews and the browser tab fetch these with no session.
-      if (
-        pathname === "/opengraph-image" ||
-        pathname.startsWith("/opengraph-image/") ||
-        pathname === "/icon" ||
-        pathname.startsWith("/icon/") ||
-        /^\/icon\d+(\/|$)/.test(pathname) ||
-        pathname === "/apple-icon" ||
-        pathname.startsWith("/apple-icon/") ||
-        pathname === "/manifest.webmanifest"
-      ) {
-        return true;
-      }
-      return !!auth;
+      if (isSharedAppPath(pathname)) return true;
+      if (auth) return true;
+      // The proxy wraps this config, and Auth.js only acts on a returned
+      // Response there, so the sign-in redirect is built here.
+      const signIn = request.nextUrl.clone();
+      signIn.pathname = "/account";
+      signIn.search = "";
+      signIn.searchParams.set("callbackUrl", request.nextUrl.href);
+      return NextResponse.redirect(signIn);
     },
     async jwt({ token, account, profile, user }) {
       const userId =

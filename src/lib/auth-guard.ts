@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import type { Session } from "next-auth";
+import { cache } from "react";
 import { auth } from "@/auth";
 import { isAdminUser, type AdminDashboardRole } from "@/lib/admins";
 import { classKey } from "@/lib/admin-overview";
@@ -160,4 +162,52 @@ export async function unlocksLessonPath(user: {
   if (isAdminUser(user)) return true;
   if (!user.id) return false;
   return (await getUserDashboardFlags(user.id)).teacher;
+}
+
+export type TeacherSiteAccess =
+  | { kind: "signed-out" }
+  /** Signed in, but not a teacher, staff member or owner. */
+  | { kind: "denied"; email: string | null }
+  | {
+      kind: "allowed";
+      session: Session;
+      role: AdminDashboardRole;
+      /** Null for the owner and staff: every class. A teacher's assigned class keys otherwise. */
+      classKeys: ReadonlySet<string> | null;
+    };
+
+/**
+ * Who may use the teacher site. Same roles as the dashboard, but a signed-in
+ * account without one gets the "chưa có quyền giáo viên" page, not a 404.
+ * Cached per request, so the layout and the page share one check.
+ */
+export const readTeacherSiteAccess = cache(async (): Promise<TeacherSiteAccess> => {
+  const session = await auth();
+  if (!session?.user?.id) return { kind: "signed-out" };
+  const access = await resolveAccountAccess(session.user.id, session.user.authAt);
+  if (access === "revoked") return { kind: "signed-out" };
+  if (isAdminUser(session.user)) return { kind: "allowed", session, role: "owner", classKeys: null };
+  const flags = await getUserDashboardFlags(session.user.id);
+  if (flags.staff) return { kind: "allowed", session, role: "staff", classKeys: null };
+  if (flags.teacher) {
+    return {
+      kind: "allowed",
+      session,
+      role: "teacher",
+      classKeys: new Set(flags.classes.map((name) => classKey(name)).filter((key) => key.length > 0)),
+    };
+  }
+  return { kind: "denied", email: session.user.email ?? null };
+});
+
+/** Teacher pages: signed-out visitors go to /login, everyone else gets their access. */
+export async function requireTeacherSite(): Promise<TeacherSiteAccess & { kind: "allowed" | "denied" }> {
+  const access = await readTeacherSiteAccess();
+  if (access.kind === "signed-out") redirect("/login");
+  return access;
+}
+
+export function canSeeClass(access: TeacherSiteAccess, key: string): boolean {
+  if (access.kind !== "allowed" || !key) return false;
+  return access.classKeys === null || access.classKeys.has(key);
 }

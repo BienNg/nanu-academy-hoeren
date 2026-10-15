@@ -16,6 +16,7 @@ import {
   ratingSubtitle,
   ratingTitle,
   sessionEndsAt,
+  summarizeRatings,
   zonedTimeToInstant,
 } from "./session-ratings.js";
 
@@ -254,4 +255,25 @@ test("ratingTitle says today, yesterday, or the weekday", () => {
 
 test("ratingSubtitle names the Lektion, weekday and date", () => {
   assert.equal(ratingSubtitle(4, "2026-10-14"), "Lektion 4 · Thứ Tư, 14.10");
+});
+
+test("summarizeRatings hides the summary under 3 ratings, newest session first", () => {
+  const rows = [
+    { day: "2026-10-12", stars: 4, tags: ["easy"] },
+    { day: "2026-10-12", stars: 3, tags: [] },
+    { day: "2026-10-14", stars: 5, tags: ["easy", "fun"] },
+    { day: "2026-10-14", stars: 4, tags: ["easy", "bogus"] },
+    { day: "2026-10-14", stars: 2, tags: ["too_fast"] },
+    { day: "2026-10-14", stars: 9, tags: ["fun"] },
+  ];
+  assert.deepEqual(summarizeRatings(rows), [
+    {
+      day: "2026-10-14",
+      ratedCount: 3,
+      average: 3.7,
+      starCounts: [0, 1, 0, 1, 1],
+      tagCounts: { easy: 2, fun: 1, too_fast: 1 },
+    },
+    { day: "2026-10-12", ratedCount: 2, average: null, starCounts: null, tagCounts: null },
+  ]);
 });

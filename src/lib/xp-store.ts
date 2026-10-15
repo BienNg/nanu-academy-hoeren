@@ -1805,6 +1805,18 @@ export type LastWeekClassPodium = (now: Date) => Promise<{ week: string; places:
  * asked for. `readLastWeek` adds last week's champions; it lives with the
  * badge podiums, which import this file.
  */
+/**
+ * This Vietnam week's XP for every learner, with class, name and photo: the
+ * same totals the leaderboard shows. One XP totals read plus one profile read.
+ * Null when XP cannot be read. Callers cache it (teacher-store.ts).
+ */
+export async function listWeekBoardPeople(now: Date): Promise<BoardPerson[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  const people = await readXpBoardPeople(supabase, "week", now, "");
+  return people ? people.filter((person) => person.userId !== "") : null;
+}
+
 export async function getClassLeaderboard(
   input: BoardQuery,
   readLastWeek?: LastWeekClassPodium,

@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
+import { headers } from "next/headers";
 import { auth } from "@/auth";
+import { isTeacherHost } from "@/lib/teacher-host";
 import { colors } from "@/lib/tokens";
 import "./globals.css";
 
@@ -79,6 +81,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  // The teacher site has no learner chrome: no splash, install prompt, quest intro or service worker.
+  const teacherSite = isTeacherHost((await headers()).get("host"));
 
   return (
     <html
@@ -94,11 +98,13 @@ export default async function RootLayout({
           }}
         />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){})`,
-          }}
-        />
+        {teacherSite ? null : (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){})`,
+            }}
+          />
+        )}
         {/* Material Symbols used by design-reference mockups (home, exercise). */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
@@ -108,7 +114,7 @@ export default async function RootLayout({
       </head>
       <body className="flex min-h-dvh flex-col bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-fixed">
         <AuthSessionProvider session={session}>
-          <AppShell>{children}</AppShell>
+          {teacherSite ? children : <AppShell>{children}</AppShell>}
         </AuthSessionProvider>
       </body>
     </html>
