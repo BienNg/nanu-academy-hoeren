@@ -96,7 +96,17 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 - Data: `src/lib/teacher-store.ts`, every read cached 5 minutes (`unstable_cache`). Ratings use `session_rating_summary`, or `summarizeRatings` in code while that function is missing.
 - The root layout skips the learner shell (splash, install prompt, daily quest intro, service worker) on the teacher host, because the browser path there is `/`.
 - Not built from the designs: badges and join date on T5, and practice accuracy. They need reads the plan does not budget for.
-- Measured in the sandbox (6 synthetic students): the roster's progress slices 10.7 KB, the cached class payload 8.9 KB. Real `learn` data is larger; measure again on the real database.
+- Measured on the real database (15.10.2026, 51 profiles, 10 classes, largest 7 learners), read-only:
+
+  | Read | Bytes |
+  | --- | --- |
+  | Profiles for the week board (all learners, shared by every class) | 14 KB |
+  | Progress slices of one class (`learn`, `videos`, `activity`) | 58–89 KB, 8–13 KB per learner |
+  | Whole `data` for the same learners, for comparison | 166–255 KB |
+  | `session_rating_summary` per class (no ratings yet) | 2 B; about 200 B per rated session |
+  | Home pending lookup (one primary key) | 2 B |
+
+  Each class costs one slice read per 5 minutes at most, and only while a teacher has it open. Ten classes opened three times a day each is about 10 × 3 × 30 × 90 KB ≈ 80 MB a month. If classes grow past ~20 learners, `learn` is the part to slim next (only the current level's keys).
 
 ## Part 7: Setup (manual, before release)
 - Vercel: add the `teacher.nanugo.app` domain to the project.
