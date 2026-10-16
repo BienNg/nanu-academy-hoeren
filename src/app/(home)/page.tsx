@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { buildCefrProgressCatalog } from "@/lib/admin-catalog";
+import { cefrLevelProgressCatalog } from "@/lib/admin-catalog";
 import { requireUser } from "@/lib/auth-guard";
 import type { SessionClip } from "@/lib/content";
 import {
@@ -57,7 +57,7 @@ export default async function Home() {
     <LevelViewClient
       level={level}
       chapters={buildLevelPathChapters(level.slug)}
-      cefrCatalog={buildCefrProgressCatalog()}
+      cefrCatalog={cefrLevelProgressCatalog(level.slug)}
       courses={lockedLearnerCourses()}
       accessLocked
       loadLessonDictionary={emptyDictionary}

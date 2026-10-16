@@ -1,3 +1,504 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a21-lek6-01-kantine.mp3",
+      "script": "die Kantine",
+      "translationVi": "căng tin, nhà ăn (của công ty)"
+    },
+    {
+      "filename": "a21-lek6-02-leiten.mp3",
+      "script": "leiten",
+      "translationVi": "hướng dẫn, dẫn dắt; đứng đầu, điều hành"
+    },
+    {
+      "filename": "a21-lek6-03-vogt-leitet.mp3",
+      "script": "Joachim Vogt leitet die Kantine einer großen Bank in München.",
+      "translationVi": "Joachim Vogt điều hành căng tin của một ngân hàng lớn ở München."
+    },
+    {
+      "filename": "a21-lek6-04-gesund.mp3",
+      "script": "gesund",
+      "translationVi": "lành mạnh, tốt cho sức khỏe"
+    },
+    {
+      "filename": "a21-lek6-05-frisch.mp3",
+      "script": "frisch",
+      "translationVi": "tươi"
+    },
+    {
+      "filename": "a21-lek6-06-koch-findet.mp3",
+      "script": "Der Koch findet gesundes und frisches Essen sehr wichtig.",
+      "translationVi": "Người đầu bếp thấy đồ ăn lành mạnh và tươi rất quan trọng."
+    },
+    {
+      "filename": "a21-lek6-07-wie-viele-menschen.mp3",
+      "script": "Herr Vogt, für wie viele Menschen kochen Sie jeden Tag?",
+      "translationVi": "Ông Vogt, mỗi ngày ông nấu ăn cho bao nhiêu người?"
+    },
+    {
+      "filename": "a21-lek6-08-firma.mp3",
+      "script": "die Firma",
+      "translationVi": "công ty"
+    },
+    {
+      "filename": "a21-lek6-09-unternehmen.mp3",
+      "script": "das Unternehmen",
+      "translationVi": "công ty, doanh nghiệp"
+    },
+    {
+      "filename": "a21-lek6-10-betrieb.mp3",
+      "script": "der Betrieb",
+      "translationVi": "công ty, xí nghiệp"
+    },
+    {
+      "filename": "a21-lek6-11-rund.mp3",
+      "script": "rund",
+      "translationVi": "khoảng (chừng)"
+    },
+    {
+      "filename": "a21-lek6-12-ungefaehr.mp3",
+      "script": "ungefähr",
+      "translationVi": "khoảng, xấp xỉ"
+    },
+    {
+      "filename": "a21-lek6-13-circa.mp3",
+      "script": "circa",
+      "translationVi": "khoảng, chừng"
+    },
+    {
+      "filename": "a21-lek6-14-etwa.mp3",
+      "script": "etwa",
+      "translationVi": "khoảng, chừng"
+    },
+    {
+      "filename": "a21-lek6-15-500-mitarbeiter.mp3",
+      "script": "In unserer Firma haben wir rund 500 Mitarbeiter.",
+      "translationVi": "Ở công ty chúng tôi có khoảng 500 nhân viên."
+    },
+    {
+      "filename": "a21-lek6-17-aus-deutschland.mp3",
+      "script": "Sie kommen aus Deutschland und aus vielen anderen Ländern.",
+      "translationVi": "Họ đến từ Đức và từ nhiều nước khác nhau."
+    },
+    {
+      "filename": "a21-lek6-18-angebot.mp3",
+      "script": "das Angebot",
+      "translationVi": "sự cung cấp, lời đề nghị; sự lựa chọn (= die Auswahl)"
+    },
+    {
+      "filename": "a21-lek6-19-angebot-international.mp3",
+      "script": "Ist das Angebot in Ihrer Kantine auch so international wie die Mitarbeiter?",
+      "translationVi": "Các món trong căng tin của ông cũng đa quốc gia như nhân viên chứ?"
+    },
+    {
+      "filename": "a21-lek6-20-manchmal.mp3",
+      "script": "manchmal",
+      "translationVi": "thỉnh thoảng"
+    },
+    {
+      "filename": "a21-lek6-21-manchmal-schon.mp3",
+      "script": "Ja, manchmal schon.",
+      "translationVi": "Vâng, thỉnh thoảng thì có."
+    },
+    {
+      "filename": "a21-lek6-22-asien.mp3",
+      "script": "Asien",
+      "translationVi": "châu Á"
+    },
+    {
+      "filename": "a21-lek6-23-asiatisch.mp3",
+      "script": "asiatisch",
+      "translationVi": "thuộc châu Á, kiểu châu Á"
+    },
+    {
+      "filename": "a21-lek6-24-gericht.mp3",
+      "script": "das Gericht",
+      "translationVi": "món ăn"
+    },
+    {
+      "filename": "a21-lek6-25-speise.mp3",
+      "script": "die Speise, die Speisen",
+      "translationVi": "món ăn"
+    },
+    {
+      "filename": "a21-lek6-26-anbieten.mp3",
+      "script": "anbieten",
+      "translationVi": "cung cấp, phục vụ"
+    },
+    {
+      "filename": "a21-lek6-27-asiatische-gerichte.mp3",
+      "script": "Wir kochen auch asiatische Gerichte und bieten Currys an.",
+      "translationVi": "Chúng tôi cũng nấu các món châu Á và phục vụ món cà ri."
+    },
+    {
+      "filename": "a21-lek6-28-gesund-kochen.mp3",
+      "script": "Gesund kochen, das ist für uns sehr wichtig.",
+      "translationVi": "Nấu ăn lành mạnh, điều đó rất quan trọng với chúng tôi."
+    },
+    {
+      "filename": "a21-lek6-29-was-bieten-sie-an.mp3",
+      "script": "Was genau bieten Sie an?",
+      "translationVi": "Chính xác thì ông phục vụ những món gì?"
+    },
+    {
+      "filename": "a21-lek6-30-zum-fruehstueck.mp3",
+      "script": "zum Frühstück",
+      "translationVi": "vào bữa sáng"
+    },
+    {
+      "filename": "a21-lek6-31-es-gibt.mp3",
+      "script": "es gibt",
+      "translationVi": "có (dùng khi câu không có chủ ngữ)"
+    },
+    {
+      "filename": "a21-lek6-32-es-gibt-10-leute.mp3",
+      "script": "Es gibt zehn Leute in der Klasse.",
+      "translationVi": "Có mười người trong lớp."
+    },
+    {
+      "filename": "a21-lek6-35-unterschiedlich.mp3",
+      "script": "unterschiedlich",
+      "translationVi": "khác nhau, khác biệt"
+    },
+    {
+      "filename": "a21-lek6-36-verschieden.mp3",
+      "script": "verschieden",
+      "translationVi": "khác nhau"
+    },
+    {
+      "filename": "a21-lek6-38-arten-von-muesli.mp3",
+      "script": "unterschiedliche Arten von Müsli",
+      "translationVi": "các loại ngũ cốc khác nhau"
+    },
+    {
+      "filename": "a21-lek6-40-obst.mp3",
+      "script": "das Obst",
+      "translationVi": "hoa quả, trái cây"
+    },
+    {
+      "filename": "a21-lek6-41-eiergericht.mp3",
+      "script": "das Eiergericht",
+      "translationVi": "món trứng"
+    },
+    {
+      "filename": "a21-lek6-42-marmelade.mp3",
+      "script": "die Marmelade",
+      "translationVi": "mứt"
+    },
+    {
+      "filename": "a21-lek6-44-bueffet.mp3",
+      "script": "das Büfett",
+      "translationVi": "quầy buffet, quầy tự chọn"
+    },
+    {
+      "filename": "a21-lek6-45-vorspeise.mp3",
+      "script": "die Vorspeise",
+      "translationVi": "món khai vị"
+    },
+    {
+      "filename": "a21-lek6-46-hauptspeise.mp3",
+      "script": "die Hauptspeise",
+      "translationVi": "món chính"
+    },
+    {
+      "filename": "a21-lek6-47-nachspeise.mp3",
+      "script": "die Nachspeise",
+      "translationVi": "món tráng miệng"
+    },
+    {
+      "filename": "a21-lek6-49-dazu.mp3",
+      "script": "dazu",
+      "translationVi": "thêm vào đó"
+    },
+    {
+      "filename": "a21-lek6-50-vegetarisch.mp3",
+      "script": "vegetarisch",
+      "translationVi": "chay"
+    },
+    {
+      "filename": "a21-lek6-52-gast.mp3",
+      "script": "der Gast",
+      "translationVi": "khách"
+    },
+    {
+      "filename": "a21-lek6-53-besonders.mp3",
+      "script": "besonders",
+      "translationVi": "đặc biệt"
+    },
+    {
+      "filename": "a21-lek6-54-was-moegen-gaeste.mp3",
+      "script": "Und was mögen die Gäste besonders gern?",
+      "translationVi": "Thế khách đặc biệt thích món gì?"
+    },
+    {
+      "filename": "a21-lek6-55-saft.mp3",
+      "script": "der Saft",
+      "translationVi": "nước ép hoa quả"
+    },
+    {
+      "filename": "a21-lek6-56-ingwer.mp3",
+      "script": "der Ingwer",
+      "translationVi": "gừng"
+    },
+    {
+      "filename": "a21-lek6-58-mittags-vegetarisch.mp3",
+      "script": "Mittags essen viele Gäste vegetarisch.",
+      "translationVi": "Buổi trưa nhiều khách ăn chay."
+    },
+    {
+      "filename": "a21-lek6-59-deutlich.mp3",
+      "script": "deutlich",
+      "translationVi": "rõ ràng (= klar)"
+    },
+    {
+      "filename": "a21-lek6-60-deutlich-mehr.mp3",
+      "script": "Das ist in den letzten Jahren deutlich mehr geworden.",
+      "translationVi": "Điều đó đã tăng lên rõ rệt trong những năm gần đây."
+    },
+    {
+      "filename": "a21-lek6-61-oft.mp3",
+      "script": "oft",
+      "translationVi": "thường xuyên"
+    },
+    {
+      "filename": "a21-lek6-62-immer.mp3",
+      "script": "immer",
+      "translationVi": "luôn luôn"
+    },
+    {
+      "filename": "a21-lek6-63-selten.mp3",
+      "script": "selten",
+      "translationVi": "hiếm khi"
+    },
+    {
+      "filename": "a21-lek6-64-nie.mp3",
+      "script": "nie",
+      "translationVi": "không bao giờ"
+    },
+    {
+      "filename": "a21-lek6-65-oft-50-prozent.mp3",
+      "script": "Oft nehmen fast 50 Prozent das Gemüsegericht.",
+      "translationVi": "Thường thì gần 50 phần trăm chọn món rau."
+    },
+    {
+      "filename": "a21-lek6-66-lebensmittel.mp3",
+      "script": "die Lebensmittel",
+      "translationVi": "lương thực, thực phẩm"
+    },
+    {
+      "filename": "a21-lek6-67-wo-kaufen-sie.mp3",
+      "script": "Wo kaufen Sie Ihre Lebensmittel?",
+      "translationVi": "Ông mua thực phẩm ở đâu?"
+    },
+    {
+      "filename": "a21-lek6-68-auf-dem-markt.mp3",
+      "script": "auf dem Markt",
+      "translationVi": "ở chợ (chợ trời)"
+    },
+    {
+      "filename": "a21-lek6-71-selbst.mp3",
+      "script": "selbst",
+      "translationVi": "tự (mình làm)"
+    },
+    {
+      "filename": "a21-lek6-72-mache-ich-selbst.mp3",
+      "script": "Das mache ich selbst.",
+      "translationVi": "Việc đó tôi tự làm."
+    },
+    {
+      "filename": "a21-lek6-75-im-angebot.mp3",
+      "script": "im Angebot",
+      "translationVi": "đang khuyến mãi"
+    },
+    {
+      "filename": "a21-lek6-77-ausserdem.mp3",
+      "script": "außerdem",
+      "translationVi": "ngoài ra"
+    },
+    {
+      "filename": "a21-lek6-78-regional.mp3",
+      "script": "regional",
+      "translationVi": "thuộc địa phương"
+    },
+    {
+      "filename": "a21-lek6-79-region.mp3",
+      "script": "die Region",
+      "translationVi": "vùng, miền"
+    },
+    {
+      "filename": "a21-lek6-80-produkt.mp3",
+      "script": "das Produkt",
+      "translationVi": "sản phẩm"
+    },
+    {
+      "filename": "a21-lek6-81-umgebung.mp3",
+      "script": "die Umgebung",
+      "translationVi": "vùng lân cận, khu vực xung quanh"
+    },
+    {
+      "filename": "a21-lek6-83-beim-kochen-wichtig.mp3",
+      "script": "Was ist Ihnen beim Kochen wichtig?",
+      "translationVi": "Khi nấu ăn, điều gì quan trọng với ông?"
+    },
+    {
+      "filename": "a21-lek6-84-frisches-obst.mp3",
+      "script": "Ich nehme nur frisches Obst, Gemüse und frische Salate.",
+      "translationVi": "Tôi chỉ dùng hoa quả, rau tươi và salad tươi."
+    },
+    {
+      "filename": "a21-lek6-85-gefluegel.mp3",
+      "script": "das Geflügel",
+      "translationVi": "gia cầm"
+    },
+    {
+      "filename": "a21-lek6-86-vieh.mp3",
+      "script": "das Vieh",
+      "translationVi": "gia súc"
+    },
+    {
+      "filename": "a21-lek6-87-schweinefleisch.mp3",
+      "script": "das Schweinefleisch",
+      "translationVi": "thịt heo, thịt lợn"
+    },
+    {
+      "filename": "a21-lek6-89-steak.mp3",
+      "script": "das Steak",
+      "translationVi": "bít tết"
+    },
+    {
+      "filename": "a21-lek6-90-selten-steak.mp3",
+      "script": "Ganz selten gibt es auch mal Steak.",
+      "translationVi": "Nhưng rất hiếm khi cũng có món bít tết."
+    },
+    {
+      "filename": "a21-lek6-92-fabrik.mp3",
+      "script": "die Fabrik",
+      "translationVi": "nhà máy"
+    },
+    {
+      "filename": "a21-lek6-93-essen-aus-fabriken.mp3",
+      "script": "Andere Kantinen bekommen das Essen aus Fabriken.",
+      "translationVi": "Các căng tin khác nhận đồ ăn từ nhà máy."
+    },
+    {
+      "filename": "a21-lek6-94-frische-lebensmittel.mp3",
+      "script": "Aber ich arbeite hier nur mit frischen Lebensmitteln. Das finde ich toll.",
+      "translationVi": "Nhưng ở đây tôi chỉ làm việc với thực phẩm tươi. Tôi thấy điều đó thật tuyệt."
+    },
+    {
+      "filename": "a21-lek6-95-arbeitstag.mp3",
+      "script": "der Arbeitstag",
+      "translationVi": "ngày làm việc"
+    },
+    {
+      "filename": "a21-lek6-96-wie-sieht-arbeitstag-aus.mp3",
+      "script": "Wie sieht denn Ihr Arbeitstag aus?",
+      "translationVi": "Một ngày làm việc của ông diễn ra thế nào?"
+    },
+    {
+      "filename": "a21-lek6-97-beginnt-frueh.mp3",
+      "script": "Er beginnt früh um 6 Uhr auf dem Markt.",
+      "translationVi": "Nó bắt đầu sớm lúc 6 giờ ở chợ."
+    },
+    {
+      "filename": "a21-lek6-98-gegen-uhrzeit.mp3",
+      "script": "gegen 9 Uhr",
+      "translationVi": "khoảng 9 giờ (gegen + giờ: khoảng + giờ)"
+    },
+    {
+      "filename": "a21-lek6-99-gegen-9-uhr.mp3",
+      "script": "Gegen 9 Uhr bin ich in der Kantine und koche mit meinen sechs Mitarbeitern das Mittagessen.",
+      "translationVi": "Khoảng 9 giờ tôi có mặt ở căng tin và nấu bữa trưa cùng sáu nhân viên của mình."
+    },
+    {
+      "filename": "a21-lek6-100-bueroarbeit.mp3",
+      "script": "Am Nachmittag mache ich die Büroarbeit und plane die Gerichte für die nächsten Tage.",
+      "translationVi": "Buổi chiều tôi làm công việc văn phòng và lên kế hoạch các món ăn cho những ngày tiếp theo."
+    },
+    {
+      "filename": "a21-lek6-101-um-15-uhr.mp3",
+      "script": "Um 15 Uhr gehe ich meistens nach Hause.",
+      "translationVi": "Tôi thường về nhà lúc 15 giờ."
+    },
+    {
+      "filename": "a21-lek6-105-im-vierten-stock.mp3",
+      "script": "im vierten Stock",
+      "translationVi": "ở tầng 4"
+    },
+    {
+      "filename": "a21-lek6-106-aufzug.mp3",
+      "script": "der Aufzug",
+      "translationVi": "thang máy"
+    },
+    {
+      "filename": "a21-lek6-108-um-gefallen-bitten.mp3",
+      "script": "um einen Gefallen bitten",
+      "translationVi": "nhờ một việc, nhờ giúp đỡ"
+    },
+    {
+      "filename": "a21-lek6-109-darf-ich-dich-bitten.mp3",
+      "script": "Hallo, darf ich dich um einen Gefallen bitten?",
+      "translationVi": "Chào bạn, mình nhờ chút được không?"
+    },
+    {
+      "filename": "a21-lek6-110-naechsten-freitag.mp3",
+      "script": "Am nächsten Freitag muss ich in die neue Wohnung umziehen.",
+      "translationVi": "Thứ Sáu tuần sau mình phải chuyển nhà."
+    },
+    {
+      "filename": "a21-lek6-111-zu-viele-sachen.mp3",
+      "script": "Aber ich habe zu viele Sachen.",
+      "translationVi": "Mà nhà mình nhiều đồ quá."
+    },
+    {
+      "filename": "a21-lek6-112-aufraeumen.mp3",
+      "script": "beim Aufräumen helfen",
+      "translationVi": "giúp dọn dẹp"
+    },
+    {
+      "filename": "a21-lek6-113-kannst-du-helfen.mp3",
+      "script": "Kannst du mir bitte beim Aufräumen helfen?",
+      "translationVi": "Bạn giúp mình dọn dẹp được không?"
+    },
+    {
+      "filename": "a21-lek6-114-koenntest-du-helfen.mp3",
+      "script": "Könntest du mir bitte beim Aufräumen helfen?",
+      "translationVi": "Bạn có thể giúp mình dọn dẹp được không?"
+    },
+    {
+      "filename": "a21-lek6-115-wann-am-freitag.mp3",
+      "script": "Ja, klar. Aber wann am Freitag?",
+      "translationVi": "Được chứ. Mà thứ Sáu mấy giờ?"
+    },
+    {
+      "filename": "a21-lek6-116-geht-das.mp3",
+      "script": "Gegen 14 Uhr. Geht das?",
+      "translationVi": "Khoảng 14 giờ. Được không?"
+    },
+    {
+      "filename": "a21-lek6-117-an-dem-tag.mp3",
+      "script": "an dem Tag",
+      "translationVi": "hôm đó"
+    },
+    {
+      "filename": "a21-lek6-118-freinehmen.mp3",
+      "script": "freinehmen",
+      "translationVi": "xin nghỉ (làm, học)"
+    },
+    {
+      "filename": "a21-lek6-120-frueh-freinehmen.mp3",
+      "script": "Kannst du an dem Tag früh freinehmen?",
+      "translationVi": "Hôm đó bạn xin nghỉ sớm được không?"
+    },
+    {
+      "filename": "a21-lek6-121-bescheid-geben.mp3",
+      "script": "Bescheid geben",
+      "translationVi": "báo (lại) cho ai biết"
+    },
+    {
+      "filename": "a21-lek6-122-wenn-was-ist.mp3",
+      "script": "Wenn was ist, gebe ich dir Bescheid.",
+      "translationVi": "Nếu có gì, mình báo lại cho bạn."
+    }
+  ]
 }

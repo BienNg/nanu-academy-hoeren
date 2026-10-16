@@ -1,0 +1,17 @@
+---
+description: Learner path pages send one cached course, not a catalog rebuilt for every visit.
+alwaysApply: true
+---
+
+# Learner catalog payload
+
+Opening a level is the request a class hits together. Fluid Active CPU bills the JavaScript that builds and serializes that page. Waiting on Supabase does not.
+
+The course catalog and the grammar-world map come from files shipped in the deploy. They are the same for every learner.
+
+- Build them once per server copy in production (`learnerCourseCatalog` in `src/lib/admin-catalog.ts`, `getWorldAreas` in `src/lib/grammar-world-content.ts`). Development rebuilds on each call so content edits show up. A deploy starts new copies, so the cache cannot serve a stale catalog.
+- A learner path sends one course. CEFR levels use `cefrLevelProgressCatalog(levelSlug)`. Leben in Deutschland uses `buildLivingProgressCatalog(workplaceSlug)`. Do not pass `buildCefrProgressCatalog()` or `buildAdminCourseCatalog()` into a learner page.
+- `buildCefrProgressCatalog()` is the full CEFR list for a screen that compares levels. Admin pages that need every course keep using `buildAdminCourseCatalog(tracks)`.
+- Which grammar stages are open depends on that learner. Compute gates per request. The map itself stays cached.
+- Do not mutate a cached catalog or world map. Copy the course before changing it.
+- Clip sentences for the open level stay on the path because the trail renders them. Sentences for other levels do not.
