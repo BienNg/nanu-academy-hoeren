@@ -22,28 +22,28 @@ test("a tap just before Vietnam midnight stays on that calendar day", () => {
 });
 
 test("repeated taps of one control on the same day add up", () => {
-  const once = addUiClick([], "nav.quests", BEFORE_MIDNIGHT);
-  const twice = addUiClick(once, "nav.quests", BEFORE_MIDNIGHT);
-  const nextDay = addUiClick(twice, "nav.quests", MIDNIGHT);
+  const once = addUiClick([], "duel.ready", BEFORE_MIDNIGHT);
+  const twice = addUiClick(once, "duel.ready", BEFORE_MIDNIGHT);
+  const nextDay = addUiClick(twice, "duel.challenge.accept", MIDNIGHT);
   assert.deepEqual(nextDay, [
-    { target: "nav.quests", day: "2026-10-01", count: 2 },
-    { target: "nav.quests", day: "2026-10-02", count: 1 },
+    { target: "duel.ready", day: "2026-10-01", count: 2 },
+    { target: "duel.challenge.accept", day: "2026-10-02", count: 1 },
   ]);
 });
 
 test("a failed flush folds the batch back onto clicks that arrived since", () => {
   const merged = mergeUiClicks(
-    [{ target: "nav.learn", day: "2026-10-02", count: 2 }],
-    [{ target: "nav.learn", day: "2026-10-02", count: 1 }],
+    [{ target: "duel.ready", day: "2026-10-02", count: 2 }],
+    [{ target: "duel.ready", day: "2026-10-02", count: 1 }],
   );
-  assert.deepEqual(merged, [{ target: "nav.learn", day: "2026-10-02", count: 3 }]);
+  assert.deepEqual(merged, [{ target: "duel.ready", day: "2026-10-02", count: 3 }]);
 });
 
 test("a flush sends at most 20 targets and 50 taps of each", () => {
   const pending = [
-    { target: "nav.learn" as const, day: "2026-10-02", count: UI_CLICK_MAX_COUNT + 10 },
+    { target: "duel.ready" as const, day: "2026-10-02", count: UI_CLICK_MAX_COUNT + 10 },
     ...Array.from({ length: UI_CLICK_MAX_TARGETS }, (_, index) => ({
-      target: "nav.quests" as const,
+      target: "duel.challenge.accept" as const,
       day: `2026-09-${String(index + 1).padStart(2, "0")}`,
       count: 1,
     })),
@@ -55,23 +55,24 @@ test("a flush sends at most 20 targets and 50 taps of each", () => {
   assert.equal(rest.length, 2);
 });
 
-test("the server keeps today and yesterday and drops everything else", () => {
+test("the server keeps today and yesterday and drops tab opens", () => {
   const accepted = acceptUiClicks(
     {
       clicks: [
-        { target: "nav.duel", day: "2026-10-02", count: 2 },
+        { target: "duel.ready", day: "2026-10-02", count: 2 },
         { target: "nav.learn", day: "2026-10-01", count: 1 },
         { target: "nav.badges", day: "2026-09-01", count: 4 },
         { target: "not-a-control", day: "2026-10-02", count: 9 },
         { target: "nav.quests", day: "2026-10-02", count: UI_CLICK_MAX_COUNT + 1 },
-        { target: "nav.learn", day: "2026-10-01", count: 3 },
+        { target: "duel.challenge.accept", day: "2026-10-01", count: 3 },
+        { target: "duel.ready", day: "2026-10-02", count: 1 },
       ],
     },
     MIDNIGHT,
   );
   assert.deepEqual(accepted, [
-    { target: "nav.duel", day: "2026-10-02", count: 2 },
-    { target: "nav.learn", day: "2026-10-01", count: 4 },
+    { target: "duel.ready", day: "2026-10-02", count: 3 },
+    { target: "duel.challenge.accept", day: "2026-10-01", count: 3 },
   ]);
 });
 
@@ -84,30 +85,29 @@ test("a flush lands on the visit that was open, not on a later one", () => {
     {
       loggedAt: "2026-10-07T05:55:40.000Z",
       clicks: [
-        { target: "nav.badges", label: "Huy hiệu", count: 1 },
-        { target: "nav.learn", label: "Học", count: 1 },
+        { target: "duel.challenge.accept", label: "Chấp nhận", count: 1 },
+        { target: "duel.ready", label: "Đấu", count: 1 },
       ],
     },
     {
       loggedAt: "2026-10-07T05:56:10.000Z",
-      clicks: [{ target: "nav.badges", label: "Huy hiệu", count: 1 }],
+      clicks: [{ target: "duel.challenge.accept", label: "Chấp nhận", count: 1 }],
     },
     {
       loggedAt: "2026-10-07T07:00:00.000Z",
-      clicks: [{ target: "nav.quests", label: "Nhiệm vụ", count: 4 }],
+      clicks: [{ target: "duel.challenge.later", label: "Để sau", count: 4 }],
     },
   ]);
   assert.deepEqual(placed.byVisitId.get("early"), [
-    { target: "nav.badges", label: "Huy hiệu", count: 2 },
-    { target: "nav.learn", label: "Học", count: 1 },
+    { target: "duel.challenge.accept", label: "Chấp nhận", count: 2 },
+    { target: "duel.ready", label: "Đấu", count: 1 },
   ]);
   assert.equal(placed.byVisitId.has("later"), false);
   assert.equal(placed.unmatched.length, 1);
-  assert.equal(placed.unmatched[0]?.clicks[0]?.target, "nav.quests");
+  assert.equal(placed.unmatched[0]?.clicks[0]?.target, "duel.challenge.later");
 });
 
-test("a visit describes each tab opening", () => {
-  assert.equal(describeVisitClick({ target: "nav.duel", label: "Đấu", count: 1 }), "Opened the Đấu tab once");
+test("a visit describes a duel open and a challenge choice", () => {
   assert.equal(
     describeVisitClick({ target: "duel.ready", label: "Đấu", count: 1 }),
     "Opened the Đấu tab once, start available",
@@ -115,10 +115,6 @@ test("a visit describes each tab opening", () => {
   assert.equal(
     describeVisitClick({ target: "duel.locked.study", label: "Đấu", count: 2 }),
     "Opened the Đấu tab 2 times, start locked, study more first",
-  );
-  assert.equal(
-    describeVisitClick({ target: "nav.learn", label: "Học", count: 3 }),
-    "Opened the Học tab 3 times",
   );
   assert.equal(
     describeVisitClick({ target: "duel.challenge.accept", label: "Chấp nhận", count: 1 }),
@@ -130,17 +126,19 @@ test("a visit describes each tab opening", () => {
   );
 });
 
-test("click totals sort by count", () => {
+test("click totals drop tab opens and sort by count", () => {
   assert.deepEqual(
     summarizeUiClicks([
-      { target: "nav.learn", count: 2 },
-      { target: "nav.learn", count: 1 },
+      { target: "duel.ready", count: 2 },
+      { target: "duel.ready", count: 1 },
       { target: "nav.quests", count: 8 },
+      { target: "nav.learn", count: 3 },
+      { target: "duel.challenge.accept", count: 4 },
       { target: "made-up", count: 100 },
     ]),
     [
-      { target: "nav.quests", label: "Nhiệm vụ", count: 8 },
-      { target: "nav.learn", label: "Học", count: 3 },
+      { target: "duel.challenge.accept", label: "Chấp nhận", count: 4 },
+      { target: "duel.ready", label: "Đấu", count: 3 },
     ],
   );
 });

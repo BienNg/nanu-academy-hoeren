@@ -17,16 +17,16 @@ import {
   subscribeQuestBadge,
 } from "@/lib/quest-badge";
 import { questZoneHeaders, readQuestBoard } from "@/lib/quests";
-import { flushTrackedClicks, trackUiClick, type UiClickTarget } from "@/lib/ui-clicks";
+import { flushTrackedClicks } from "@/lib/ui-clicks";
 
 const ITEMS = [
-  { href: "/", label: "Học", icon: "/nav/learn.svg", target: "nav.learn" },
-  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg", target: "nav.quests" },
-  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", target: "nav.duel" },
-  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg", target: "nav.leaderboard" },
-  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg", target: "nav.badges" },
-  { href: "/account", label: "Hồ sơ", icon: "/nav/profile.svg", target: "nav.profile" },
-] as const satisfies readonly { href: string; label: string; icon: string; target: UiClickTarget }[];
+  { href: "/", label: "Học", icon: "/nav/learn.svg" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg" },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg" },
+  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg" },
+  { href: "/account", label: "Hồ sơ", icon: "/nav/profile.svg" },
+] as const;
 
 function isCurrent(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/" || pathname.startsWith("/learn");
@@ -298,14 +298,13 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
-                onClick={() => {
-                  // The Đấu page records the open, with whether start was available.
-                  if (item.target === "nav.duel") {
-                    if (challenges.length > 0) requestChallengeShowdown();
-                    return;
-                  }
-                  trackUiClick(item.target);
-                }}
+                onClick={
+                  item.href === "/duel"
+                    ? () => {
+                        if (challenges.length > 0) requestChallengeShowdown();
+                      }
+                    : undefined
+                }
                 className={`flex min-w-0 flex-col items-center gap-px rounded-2xl border-2 px-0.5 py-1 sm:px-2 ${
                   active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
                 }`}

@@ -1,11 +1,9 @@
-/** Named controls a learner tap can count. Button text is never stored. */
+/**
+ * Named controls a learner tap can count. Button text is never stored.
+ * Bottom-nav tabs are not counted. Older rows may still hold `nav.*` keys;
+ * those keys are ignored on read and rejected on write.
+ */
 export const UI_CLICK_LABELS = {
-  "nav.learn": "Học",
-  "nav.quests": "Nhiệm vụ",
-  "nav.duel": "Đấu",
-  "nav.leaderboard": "Xếp hạng",
-  "nav.badges": "Huy hiệu",
-  "nav.profile": "Hồ sơ",
   "duel.ready": "Đấu",
   "duel.locked.study": "Đấu",
   "duel.locked.cap": "Đấu",
@@ -21,12 +19,6 @@ export const UI_CLICK_LABELS = {
 
 /** Same artwork as the bottom nav, so an admin row reads as that tab. */
 export const UI_CLICK_ICONS: Record<UiClickTarget, string> = {
-  "nav.learn": "/nav/learn.svg",
-  "nav.quests": "/nav/quests.svg",
-  "nav.duel": "/nav/duel.svg",
-  "nav.leaderboard": "/nav/ranking.svg",
-  "nav.badges": "/nav/badges.svg",
-  "nav.profile": "/nav/profile.svg",
   "duel.ready": "/nav/duel.svg",
   "duel.locked.study": "/nav/duel.svg",
   "duel.locked.cap": "/nav/duel.svg",
@@ -134,7 +126,7 @@ const CHALLENGE_CHOICE: Partial<Record<UiClickTarget, string>> = {
   "duel.challenge.later": "Left the challenge for later",
 };
 
-/** One tab opening, written the way an admin reads a visit. */
+/** One counted tap, written the way an admin reads a visit. */
 export function describeVisitClick(click: StudentUiClick): string {
   const times = click.count === 1 ? "once" : `${click.count} times`;
   const choice = CHALLENGE_CHOICE[click.target];

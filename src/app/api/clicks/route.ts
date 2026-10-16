@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { acceptUiClicks } from "@/lib/ui-clicks";
 import { isProgressStoreConfigured, recordUiClicks, resolveAccountAccess } from "@/lib/progress-store";
 
-/** Add a learner's buffered tab taps. An empty or fully rejected body is still success. */
+/** Add a learner's buffered taps. An empty or fully rejected body is still success. */
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {

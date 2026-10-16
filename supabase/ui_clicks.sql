@@ -1,6 +1,8 @@
 -- Re-run in Supabase → SQL Editor. This replaces the daily-total table:
 -- one row per flush, at the moment the group of taps was logged.
--- `counts` is { "nav.learn": 2, "nav.quests": 1 }. Not one row per tap.
+-- `counts` is { "duel.ready": 1, "duel.challenge.accept": 1 }. Not one row per tap.
+-- Bottom-nav keys such as "nav.learn" are no longer written. Rows already
+-- stored stay here; the app ignores those keys when it reads a flush.
 -- Writes go through the Next.js API with the service role key.
 
 drop table if exists public.ui_clicks;
