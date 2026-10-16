@@ -1981,9 +1981,9 @@ export async function actOnDuel(input: {
   const current = (await readDuel(supabase, input.duelId)) ?? (closed.has(duel.id) ? null : duel);
   if (!current) return { ok: false, status: 404, error: "Not found" };
   if (current.completed_at) {
-    if (!current.expired) await markResultSeen(supabase, input.userId, input.duelId, now);
     const finished = await readView(supabase, input.userId, input.duelId);
     if (!finished) return { ok: false, status: 503, error: "Unavailable" };
+    if (!current.expired) await markResultSeen(supabase, input.userId, input.duelId, now);
     return { ok: true, view: finished, feedback: null };
   }
 
@@ -2812,6 +2812,11 @@ function buildView(input: {
     completedAt: input.duel.completed_at,
     expired: input.duel.expired,
     expiresAt: input.duel.completed_at ? null : challengeExpiresAt(released),
+    claimXp: resultNeedsClaim({
+      completedAt: input.duel.completed_at,
+      expired: input.duel.expired,
+      seenAt: yourAward?.result_seen_at,
+    }),
     clips,
   };
 }

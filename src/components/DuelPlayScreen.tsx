@@ -304,6 +304,67 @@ export function DuelEndCard({
   );
 }
 
+/** The beat before a result the earlier player has not opened: the XP, then the score. */
+export function DuelXpClaim({
+  xp,
+  celebrate = false,
+  onDone,
+}: {
+  xp: number;
+  celebrate?: boolean;
+  onDone: () => void;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const onDoneRef = useRef(onDone);
+  useLayoutEffect(() => {
+    onDoneRef.current = onDone;
+  });
+  useEffect(() => {
+    if (celebrate) playCelebrationSound();
+    const timer = window.setTimeout(() => onDoneRef.current(), reduceMotion ? 700 : 2600);
+    return () => window.clearTimeout(timer);
+  }, [celebrate, reduceMotion]);
+
+  return (
+    <section className="fixed inset-0 z-10 flex flex-col items-center justify-center bg-[#faf8ff] px-6 text-center" aria-live="polite">
+      <motion.div
+        className="flex h-[170px] items-end justify-center"
+        initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 22 }}
+      >
+        <div className="origin-bottom scale-[1.9]" aria-hidden="true">
+          <ChillPingu pose="balloon" />
+        </div>
+      </motion.div>
+      <motion.p
+        className="mt-6 text-[13px] font-semibold uppercase tracking-wider text-[#86868b]"
+        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: reduceMotion ? 0 : 0.25 }}
+      >
+        Nhận XP
+      </motion.p>
+      <motion.div
+        className="mt-4 inline-flex items-center gap-1 text-[40px] font-extrabold leading-none text-[#f59e0b]"
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 16, delay: 0.35 }}
+      >
+        <span
+          className="material-symbols-outlined text-[40px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+          aria-hidden="true"
+        >
+          bolt
+        </span>
+        +<CountUp from={0} to={xp} delay={0.5} duration={0.9} />
+        {" XP"}
+      </motion.div>
+    </section>
+  );
+}
+
 function countdownLabel(seconds: number): string {
   if (seconds >= 3) return "Sẵn sàng?";
   if (seconds === 2) return "Tập trung";
@@ -426,6 +487,7 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
   const [syncError, setSyncError] = useState("");
   /** Which end card shows. Clamped to the last one, so a reopened duel skips "Bạn đã xong". */
   const [endStep, setEndStep] = useState(0);
+  const [claimedFor, setClaimedFor] = useState<string | null>(null);
   const [startingNext, setStartingNext] = useState(false);
   const phaseRef = useRef<Phase>("loading");
   const generationRef = useRef(0);
@@ -1089,7 +1151,9 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
           </section>
         ) : null}
 
-        {phase === "result" && view && currentEnd ? (
+        {phase === "result" && view?.claimXp && (view.yourXp ?? 0) > 0 && claimedFor !== view.id ? (
+          <DuelXpClaim xp={view.yourXp ?? 0} celebrate onDone={() => setClaimedFor(view.id)} />
+        ) : phase === "result" && view && currentEnd ? (
           <DuelEndCard
             key={currentEnd.kind}
             step={currentEnd}

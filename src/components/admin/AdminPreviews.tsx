@@ -8,7 +8,7 @@ import { ShowdownOverlay } from "@/components/DuelChallengeIntro";
 import { DuelMatchmaking, type MatchedDuel } from "@/components/DuelMatchmaking";
 import { DuelOnboarding } from "@/components/DuelOnboarding";
 import { DuelHistoryCard } from "@/components/DuelHomeScreen";
-import { DuelEndCard, OpeningCountdown } from "@/components/DuelPlayScreen";
+import { DuelEndCard, DuelXpClaim, OpeningCountdown } from "@/components/DuelPlayScreen";
 import { BlitzrundeCountdown, BlitzrundeLobby } from "@/components/blitzrunde/BlitzrundeLobby";
 import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
 import { QuitDialog } from "@/components/session/QuitDialog";
@@ -579,7 +579,7 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     group: "How it ended",
     icon: "redeem",
     title: "Claim XP",
-    detail: "You finished first. Minh has played, and you have not opened the result. The Đấu tab counts it.",
+    detail: "Nhận XP sits on a card in the Đấu list. It plays the XP, then the result.",
   },
   {
     id: "duel-win",
@@ -1873,27 +1873,45 @@ const CLAIM_NAV = [
   { href: "/account", label: "Hồ sơ", icon: "/nav/profile.svg" },
 ] as const;
 
-function claimCard(): DuelCard {
+function historyCard(patch: Partial<DuelCard> & Pick<DuelCard, "id" | "opponentName" | "yourOutcome" | "yourPoints" | "opponentPoints" | "yourXp">): DuelCard {
   return {
-    id: "11111111-1111-4111-8111-111111111111",
     yourName: "Bạn",
-    opponentName: "Minh",
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
     challenged: false,
     youSettled: 15,
     opponentStarted: true,
+    expired: false,
+    expiresAt: null,
+    ...patch,
+  };
+}
+
+/** Đấu list, then the XP beat, then the result. Claiming only changes this preview. */
+function ClaimXpPreview({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<"list" | "xp" | "result">("list");
+  const [claimed, setClaimed] = useState(false);
+  const ended = duelCase("duel-win");
+  const resultView = ended ? { ...ended.view, yourXp: 50 } : null;
+  const resultStep = resultView ? duelEndSteps(resultView, DUEL_NOW)[0] : null;
+  const claim = historyCard({
+    id: "11111111-1111-4111-8111-111111111111",
+    opponentName: "Minh",
+    createdAt: new Date().toISOString(),
     yourOutcome: "win",
     yourXp: 50,
     yourPoints: 9,
     opponentPoints: 6,
-    expired: false,
-    expiresAt: null,
-    claimXp: true,
-  };
-}
+    claimXp: !claimed,
+  });
+  const earlier = historyCard({
+    id: "22222222-2222-4222-8222-222222222222",
+    opponentName: "Lan",
+    yourOutcome: "loss",
+    yourXp: 20,
+    yourPoints: 6,
+    opponentPoints: 9,
+  });
 
-/** The home card for a result the earlier player has not opened, with the tab count. */
-function ClaimXpPreview({ onClose }: { onClose: () => void }) {
   return (
     <PreviewChrome onClose={onClose}>
       <div className="flex h-full flex-col bg-[#faf8ff] text-[#131b2e]">
@@ -1902,9 +1920,14 @@ function ClaimXpPreview({ onClose }: { onClose: () => void }) {
             <h1 className="font-headline-md text-headline-md font-extrabold tracking-tight">Đấu</h1>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 pt-4 pb-28">
-          <h2 className="mb-3 text-[13px] font-extrabold uppercase tracking-wider text-[#6e7881]">Đã xong</h2>
-          <DuelHistoryCard card={claimCard()} href="#claim" />
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 overflow-y-auto px-4 pt-4 pb-28">
+          <h2 className="px-1 text-[13px] font-extrabold uppercase tracking-wide text-[#6e7881]">Đã xong</h2>
+          <DuelHistoryCard
+            card={claim}
+            href="#claim"
+            onClick={claimed ? undefined : () => setStep("xp")}
+          />
+          <DuelHistoryCard card={earlier} href="#earlier" />
         </main>
         <nav
           aria-label="Điều hướng chính"
@@ -1922,7 +1945,7 @@ function ClaimXpPreview({ onClose }: { onClose: () => void }) {
                 >
                   <span className="relative flex h-7 w-7 items-center justify-center">
                     <img src={item.icon} alt="" width={28} height={28} className="h-7 w-7" />
-                    {"badge" in item ? (
+                    {"badge" in item && !claimed ? (
                       <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
                         {item.badge}
                       </span>
@@ -1941,6 +1964,18 @@ function ClaimXpPreview({ onClose }: { onClose: () => void }) {
           </div>
         </nav>
       </div>
+      {step === "xp" ? <DuelXpClaim xp={50} onDone={() => setStep("result")} /> : null}
+      {step === "result" && resultStep && resultView ? (
+        <DuelEndCard
+          step={resultStep}
+          view={resultView}
+          primaryLabel="Về đấu"
+          onPrimary={() => {
+            setClaimed(true);
+            setStep("list");
+          }}
+        />
+      ) : null}
     </PreviewChrome>
   );
 }

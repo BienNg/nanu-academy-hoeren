@@ -173,6 +173,11 @@ export type DuelView = {
   expired: boolean;
   /** When the challenged person's 3 days run out. Null before the challenge is released. */
   expiresAt: string | null;
+  /**
+   * This learner finished first and has not opened the result yet.
+   * The play screen claims the XP, then shows the result.
+   */
+  claimXp?: boolean;
   clips: DuelClipView[];
 };
 

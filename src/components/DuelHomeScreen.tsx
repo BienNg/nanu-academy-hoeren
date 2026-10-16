@@ -174,7 +174,7 @@ function outcomeLabel(card: Pick<DuelCard, "expired" | "yourOutcome">): string {
   return "Hòa";
 }
 
-function MatchupCard({ card, href }: { card: DuelCard; href?: string }) {
+function MatchupCard({ card, href, onClick }: { card: DuelCard; href?: string; onClick?: () => void }) {
   const yourName = card.yourName || "Bạn";
   const opponentName = card.opponentName || "Học viên";
   const age = completedAgoLabel(card.createdAt);
@@ -185,11 +185,10 @@ function MatchupCard({ card, href }: { card: DuelCard; href?: string }) {
     return <DuelCardLink card={{ ...card, challenged: false }} action="Xem lại" detail={detail} />;
   }
 
-  return (
-    <Link
-      href={href ?? `/duel/${card.id}`}
-      className="block rounded-[28px] bg-white px-4 py-4 shadow-[0_3px_0_0_#dae2fd] transition-transform active:translate-y-0.5"
-    >
+  const className =
+    "block w-full rounded-[28px] bg-white px-4 py-4 text-left shadow-[0_3px_0_0_#dae2fd] transition-transform active:translate-y-0.5";
+  const body = (
+    <>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <MatchupSide name={yourName} points={card.yourPoints} winner={card.yourOutcome === "win"} />
         <span className="flex flex-col items-center gap-1">
@@ -199,8 +198,15 @@ function MatchupCard({ card, href }: { card: DuelCard; href?: string }) {
         <MatchupSide name={opponentName} points={card.opponentPoints} winner={card.yourOutcome === "loss"} />
       </div>
       {card.claimXp ? (
-        <span className="mt-3 flex h-11 items-center justify-center rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-[0.06em] text-white shadow-[0_3px_0_0_#0369a1]">
-          Nhận XP
+        <span className="mt-3 flex h-11 items-center justify-center gap-1 rounded-2xl bg-[#f59e0b] text-[14px] font-extrabold uppercase tracking-[0.06em] text-white shadow-[0_3px_0_0_#b45309]">
+          <span
+            className="material-symbols-outlined text-[20px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+            aria-hidden="true"
+          >
+            bolt
+          </span>
+          {xp > 0 ? `Nhận +${xp} XP` : "Nhận XP"}
         </span>
       ) : (
         <div className="mt-3 flex items-center justify-center gap-2 text-[13px] font-extrabold">
@@ -219,13 +225,25 @@ function MatchupCard({ card, href }: { card: DuelCard; href?: string }) {
           ) : null}
         </div>
       )}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {body}
+      </button>
+    );
+  }
+  return (
+    <Link href={href ?? `/duel/${card.id}`} className={className}>
+      {body}
     </Link>
   );
 }
 
 /** The history card, including the claim state, for the admin preview. */
-export function DuelHistoryCard({ card, href }: { card: DuelCard; href?: string }) {
-  return <MatchupCard card={card} href={href} />;
+export function DuelHistoryCard({ card, href, onClick }: { card: DuelCard; href?: string; onClick?: () => void }) {
+  return <MatchupCard card={card} href={href} onClick={onClick} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
