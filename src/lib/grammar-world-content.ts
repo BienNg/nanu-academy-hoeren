@@ -13,7 +13,10 @@ import { practiceNodeLayout } from "@/lib/practice-node";
 import { cefrLearnKey } from "@/lib/progress";
 import { getUserDashboardFlags, getUserLevelAccess } from "@/lib/progress-store";
 
-/** Everything the mountain and the portal need. Small enough to send to the browser. */
+/**
+ * Everything the mountain and the portal need. The map is large, so only a page
+ * that draws the portal should receive it. `getWorldAreas` caches the map.
+ */
 export type GrammarWorldData = {
   areas: WorldArea[];
   tables: TenseTables;
@@ -25,9 +28,20 @@ export type GrammarWorldData = {
 
 const storedAreas = worldAreas;
 
+/**
+ * The map is the same for every learner. Production resolves audio once per
+ * server copy. Which stages are open is still decided per learner in
+ * `loadGrammarWorld`.
+ */
+const cacheWorldAreas = process.env.NODE_ENV === "production";
+let resolvedAreas: WorldArea[] | null = null;
+
 /** The authored world with clip audio resolved. */
 export function getWorldAreas(): WorldArea[] {
-  return resolveWorld(storedAreas, (audioPath) => publicMediaExists(`audio/${audioPath}`));
+  if (cacheWorldAreas && resolvedAreas) return resolvedAreas;
+  const areas = resolveWorld(storedAreas, (audioPath) => publicMediaExists(`audio/${audioPath}`));
+  if (cacheWorldAreas) resolvedAreas = areas;
+  return areas;
 }
 
 /**

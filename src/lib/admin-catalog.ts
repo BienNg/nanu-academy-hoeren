@@ -130,31 +130,58 @@ export function buildAdminCourseCatalog(
   return [...ausbildung, ...levels, ...living];
 }
 
+/**
+ * Lesson files are fixed for a deploy. Production keeps one catalog per server
+ * copy. The first request on that copy builds it; later requests reuse it.
+ * Development rebuilds, so edits to lesson files show up without a restart.
+ */
+const cacheLearnerCatalog = process.env.NODE_ENV === "production";
+let learnerCatalog: AdminCatalogCourse[] | null = null;
+let cefrProgressCatalog: AdminCatalogCourse[] | null = null;
+
+function learnerCourseCatalog(): AdminCatalogCourse[] {
+  if (cacheLearnerCatalog && learnerCatalog) return learnerCatalog;
+  const catalog = buildAdminCourseCatalog([]);
+  if (cacheLearnerCatalog) learnerCatalog = catalog;
+  return catalog;
+}
+
+/** Clip text stays on the server. Learner pages only need ids for the meters. */
+function withoutClipPrompts(course: AdminCatalogCourse): AdminCatalogCourse {
+  return {
+    ...course,
+    lessons: course.lessons.map((lesson) => ({
+      ...lesson,
+      clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
+    })),
+  };
+}
+
 /** One workplace with clip ids only, so its path can project the same meters as a level. */
 export function buildLivingProgressCatalog(workplaceSlug: string): AdminCatalogCourse[] {
   const id = livingAccessSlug(workplaceSlug);
-  return buildAdminCourseCatalog([])
-    .filter((course) => course.id === id)
-    .map((course) => ({
-      ...course,
-      lessons: course.lessons.map((lesson) => ({
-        ...lesson,
-        clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
-      })),
-    }));
+  const course = learnerCourseCatalog().find((entry) => entry.id === id);
+  return course ? [withoutClipPrompts(course)] : [];
 }
 
-/** CEFR courses with clip ids only, so learner pages can project the same meters as admin. */
+/**
+ * Every CEFR level, clip ids only, so a screen that compares levels can project
+ * the same meters as admin. Learner path pages should use
+ * `cefrLevelProgressCatalog` and send one level.
+ */
 export function buildCefrProgressCatalog(): AdminCatalogCourse[] {
-  return buildAdminCourseCatalog([])
+  if (cacheLearnerCatalog && cefrProgressCatalog) return cefrProgressCatalog;
+  const catalog = learnerCourseCatalog()
     .filter((course) => course.kind === "cefr" && !course.living)
-    .map((course) => ({
-      ...course,
-      lessons: course.lessons.map((lesson) => ({
-        ...lesson,
-        clips: lesson.clips.map((clip) => ({ id: clip.id, prompt: "" })),
-      })),
-    }));
+    .map(withoutClipPrompts);
+  if (cacheLearnerCatalog) cefrProgressCatalog = catalog;
+  return catalog;
+}
+
+/** The one CEFR level a path page renders. Empty when the slug is not a level. */
+export function cefrLevelProgressCatalog(levelSlug: string): AdminCatalogCourse[] {
+  const course = buildCefrProgressCatalog().find((entry) => entry.id === levelSlug);
+  return course ? [course] : [];
 }
 
 export type AdminCatalogLessonStatus = "ready" | "silent" | "stub" | "missing";
