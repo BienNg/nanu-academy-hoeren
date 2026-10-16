@@ -338,6 +338,16 @@ function studentStats(
   };
 }
 
+/** Class days up to now whose session has ended. Oldest first. */
+function heldSessions(schedule: ClassSchedule, now: Date) {
+  const firstStart = schedule.levels[0]?.startedOn;
+  const today = scheduleToday(schedule.format, now);
+  if (!firstStart || !today) return [];
+  return classSessionDays(schedule, levelOrder(), firstStart, today).filter(
+    (session) => sessionEndsAt(schedule, session.day) <= now,
+  );
+}
+
 async function loadTeacherClass(key: string): Promise<TeacherClass | null> {
   const now = new Date();
   const [schedules, board, summaries] = await Promise.all([
@@ -351,15 +361,7 @@ async function loadTeacherClass(key: string): Promise<TeacherClass | null> {
   const name = schedule?.className ?? learners[0]?.className ?? key;
   const levels = getCefrLevels();
 
-  // Held sessions: every class day of every level up to now whose session has ended.
-  const firstStart = schedule?.levels[0]?.startedOn;
-  const today = schedule ? scheduleToday(schedule.format, now) : null;
-  const held =
-    schedule && firstStart && today
-      ? classSessionDays(schedule, levelOrder(), firstStart, today).filter(
-          (session) => sessionEndsAt(schedule, session.day) <= now,
-        )
-      : [];
+  const held = schedule ? heldSessions(schedule, now) : [];
   const last = held.at(-1) ?? null;
   const levelSlug = last?.level ?? schedule?.levels.at(-1)?.level ?? null;
   const summaryByDay = new Map((summaries?.summaries ?? []).map((summary) => [summary.day, summary]));
@@ -435,6 +437,49 @@ export async function listTeacherClassKeys(classKeys: ReadonlySet<string> | null
     }
   }
   return [...keys].sort();
+}
+
+export type TeacherClassLabel = {
+  key: string;
+  name: string;
+  levelLabel: string | null;
+};
+
+/**
+ * Name and level for the class switcher. Timetables come from the hour-long
+ * schedule cache. A class with no timetable takes its name from the week
+ * board, and only then. No rating summary and no progress slices.
+ */
+export async function listTeacherClassLabels(keys: readonly string[]): Promise<TeacherClassLabel[]> {
+  if (keys.length === 0) return [];
+  const schedules = (await listCachedClassSchedules()) ?? [];
+  const byKey = new Map(schedules.map((schedule) => [schedule.classKey, schedule]));
+  const now = new Date();
+  const levels = getCefrLevels();
+  const missing = keys.filter((key) => !byKey.has(key));
+  const fallbackName = new Map<string, string>();
+  if (missing.length > 0) {
+    const board = (await cachedWeekBoard()) ?? [];
+    for (const key of missing) {
+      const learners = classLearners(board, key);
+      if (learners.length > 0) fallbackName.set(key, learners[0]?.className ?? key);
+    }
+  }
+  return keys.flatMap((key) => {
+    const schedule = byKey.get(key);
+    if (schedule) {
+      const slug = heldSessions(schedule, now).at(-1)?.level ?? schedule.levels.at(-1)?.level ?? null;
+      return [
+        {
+          key,
+          name: schedule.className,
+          levelLabel: levels.find((level) => level.slug === slug)?.level ?? null,
+        },
+      ];
+    }
+    if (!fallbackName.has(key)) return [];
+    return [{ key, name: fallbackName.get(key) ?? key, levelLabel: null }];
+  });
 }
 
 async function loadSessionRatings(key: string, day: string): Promise<TeacherRating[] | null> {

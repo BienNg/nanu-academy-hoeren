@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TeacherSiteAccess } from "@/lib/auth-guard";
-import { listTeacherClassKeys, readTeacherClass, type TeacherClass } from "@/lib/teacher-store";
+import { listTeacherClassKeys, listTeacherClassLabels, type TeacherClass } from "@/lib/teacher-store";
 import { teacherBase } from "@/lib/teacher-base";
 import { classHref } from "./TeacherUi";
 
@@ -16,9 +16,7 @@ export async function ClassHeader({
 }) {
   const base = await teacherBase();
   const keys = await listTeacherClassKeys(access.classKeys);
-  const others = (await Promise.all(keys.filter((key) => key !== data.key).map((key) => readTeacherClass(key)))).filter(
-    (entry): entry is TeacherClass => entry !== null,
-  );
+  const others = await listTeacherClassLabels(keys.filter((key) => key !== data.key));
   const behind = data.students.filter((student) => student.reasons.length > 0).length;
   const tabClass = (on: boolean) =>
     `flex min-h-11 items-center gap-2 border-b-[3px] px-4 font-[family-name:var(--font-plus-jakarta-sans)] text-[15px] ${
