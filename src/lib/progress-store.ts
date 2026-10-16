@@ -1765,6 +1765,44 @@ export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | nu
   return grants;
 }
 
+/**
+ * Class names of learner pre-unlocks that have not signed in. Staff and
+ * teacher pre-unlocks are left out. `null` when the table cannot be read.
+ * One small read: class name and role only, not the course list.
+ */
+export async function listPendingLearnerClassNames(): Promise<string[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return [];
+
+  let { data, error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .select("class_name, role")
+    .limit(500);
+
+  if (error && isMissingPendingRoleColumn(error.message)) {
+    const fallback = await supabase.from(PENDING_ACCESS_TABLE).select("class_name").limit(500);
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
+
+  if (error && isMissingPendingClassColumn(error.message)) return [];
+
+  if (error) {
+    const missingTable = /does not exist|schema cache|could not find/i.test(error.message);
+    if (!missingTable) console.error("Supabase listPendingLearnerClassNames", error.message);
+    return null;
+  }
+
+  const names: string[] = [];
+  for (const row of data ?? []) {
+    const record = row as { class_name?: unknown; role?: unknown };
+    if (readPendingAccountRole(record.role)) continue;
+    const className = readClassName(record.class_name);
+    if (className) names.push(className);
+  }
+  return names;
+}
+
 async function readPendingGrantForSignIn(
   supabase: SupabaseClient,
   email: string,

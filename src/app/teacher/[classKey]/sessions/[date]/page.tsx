@@ -49,7 +49,7 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
   const absentCount = ratings.filter((rating) => rating.absent).length;
   const notHeldCount = ratings.filter((rating) => rating.notHeld).length;
   const enough = session.average != null;
-  const studentCount = data.students.length;
+  const studentCount = data.learnerCount;
 
   return (
     <main className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 pt-4 pb-12 sm:px-6">

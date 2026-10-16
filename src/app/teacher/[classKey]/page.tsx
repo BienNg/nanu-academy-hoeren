@@ -11,7 +11,7 @@ export default async function ClassFeedbackPage({ params }: { params: Promise<{ 
   if (page.kind === "denied") return <TeacherLogin denied email={page.email} base={page.base} />;
   const { data, base } = page;
   const last = data.sessions[0] ?? null;
-  const studentCount = data.students.length;
+  const studentCount = data.learnerCount;
 
   return (
     <>

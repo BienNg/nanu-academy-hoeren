@@ -192,6 +192,40 @@ export type SessionRatingSummary = {
  * What session_rating_summary() returns, worked out in code from rated rows.
  * Used when that SQL function is missing. Newest session first.
  */
+/** Mean of 1★–5★ counts, rounded to one decimal. Null when nothing was rated. */
+export function averageFromStarCounts(counts: readonly number[]): number | null {
+  let total = 0;
+  let rated = 0;
+  for (let index = 0; index < counts.length; index++) {
+    const count = counts[index] ?? 0;
+    total += count * (index + 1);
+    rated += count;
+  }
+  if (rated === 0) return null;
+  return Math.round((total / rated) * 10) / 10;
+}
+
+/**
+ * Mean of every rating in a class. `hiddenStars` are the star values from
+ * sessions whose summary hides `starCounts` (under SESSION_RATING_SUMMARY_MIN).
+ * Null when nobody has rated.
+ */
+export function classRatingAverage(
+  summaries: readonly Pick<SessionRatingSummary, "starCounts">[],
+  hiddenStars: readonly number[] = [],
+): number | null {
+  const counts = [0, 0, 0, 0, 0];
+  for (const summary of summaries) {
+    summary.starCounts?.forEach((count, index) => {
+      if (index < counts.length) counts[index] += count;
+    });
+  }
+  for (const stars of hiddenStars) {
+    if (stars >= 1 && stars <= counts.length) counts[stars - 1] += 1;
+  }
+  return averageFromStarCounts(counts);
+}
+
 export function summarizeRatings(rows: readonly { day: string; stars: number; tags: readonly string[] }[]): SessionRatingSummary[] {
   const byDay = new Map<string, { stars: number[]; tags: Map<RatingTag, number> }>();
   for (const row of rows) {

@@ -33,7 +33,7 @@ export async function ClassHeader({
             <summary className="flex h-11 cursor-pointer list-none items-center gap-2.5 rounded-[14px] border border-[#d1d1d6] bg-white px-3.5 [&::-webkit-details-marker]:hidden">
               <span className="font-[family-name:var(--font-plus-jakarta-sans)] text-[20px] font-extrabold">{data.name}</span>
               <span className="text-[14px] font-semibold text-[#5e5e63]">
-                {[data.levelLabel, `${data.students.length} học viên`].filter(Boolean).join(" · ")}
+                {[data.levelLabel, `${data.learnerCount} học viên`].filter(Boolean).join(" · ")}
               </span>
               {others.length > 0 ? (
                 <span className="material-symbols-outlined text-[20px] text-[#5e5e63] transition-transform group-open:rotate-180" aria-hidden="true">

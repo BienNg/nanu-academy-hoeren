@@ -10,7 +10,7 @@ import {
 import { listCachedClassSchedules } from "@/lib/class-schedule-store";
 import { getCefrLevels } from "@/lib/levels";
 import { normalizeProgress, todayIsoDate, type StoredProgress } from "@/lib/progress";
-import { getSupabaseAdmin } from "@/lib/progress-store";
+import { getSupabaseAdmin, listPendingLearnerClassNames } from "@/lib/progress-store";
 import {
   PACE_DAYS,
   behindReasons,
@@ -21,6 +21,7 @@ import {
   partsPerDay,
   paceTier,
   sessionEndsAt,
+  classRatingAverage,
   summarizeRatings,
   type BehindReason,
   type PaceTier,
@@ -80,10 +81,17 @@ export type TeacherClass = {
   classLektion: number | null;
   /** Held sessions of every level, newest first, with their ratings. */
   sessions: TeacherSession[];
-  /** Behind first, then by pace. */
+  /** Behind first, then by pace. Signed-up accounts only. */
   students: TeacherStudent[];
+  /**
+   * Signed-up learners plus people with class access who have not signed up.
+   * The rating total uses this. Pace and the student list stay on `students`.
+   */
+  learnerCount: number;
   /** False when ratings could not be read (table missing). */
   ratingsReady: boolean;
+  /** Mean of every rated star in the class, one decimal. Null when nobody has rated. */
+  ratingAverage: number | null;
 };
 
 export type TeacherRating = {
@@ -132,6 +140,32 @@ function classLearners(people: readonly BoardPerson[], key: string): BoardPerson
   );
 }
 
+/**
+ * One read of pending learner class keys, shared by every class for
+ * TEACHER_CACHE_SECONDS. Columns are class name and role only (no course
+ * list). At most 500 rows, a few kilobytes, one log line per window per
+ * server — not once per class and not on a student poll.
+ * Kept beside the class cache, not inside it, so a warm class still picks
+ * up people who were granted access.
+ */
+let pendingLearnerKeysRequest: Promise<string[] | null> | null = null;
+let pendingLearnerKeysAt = 0;
+
+function pendingLearnerKeys(): Promise<string[] | null> {
+  const now = Date.now();
+  if (pendingLearnerKeysRequest && now - pendingLearnerKeysAt < TEACHER_CACHE_SECONDS * 1000) {
+    return pendingLearnerKeysRequest;
+  }
+  pendingLearnerKeysAt = now;
+  pendingLearnerKeysRequest = listPendingLearnerClassNames()
+    .then((names) => (names ? names.map((name) => classKey(name)).filter((key) => key.length > 0) : null))
+    .catch((error: unknown) => {
+      pendingLearnerKeysRequest = null;
+      throw error;
+    });
+  return pendingLearnerKeysRequest;
+}
+
 const cachedWeekBoard = unstable_cache(
   async () => {
     const people = await listWeekBoardPeople(new Date());
@@ -152,12 +186,37 @@ const cachedWeekBoard = unstable_cache(
   { revalidate: TEACHER_CACHE_SECONDS },
 );
 
-async function readSummaries(key: string): Promise<SessionRatingSummary[] | null> {
+/**
+ * Stars the summary hides (a session under 3 ratings). One smallint per such
+ * rating, and only when a class has one of those sessions. The class read is
+ * cached for TEACHER_CACHE_SECONDS, so this is not a per-page poll.
+ */
+async function readHiddenStars(key: string, days: readonly string[]): Promise<number[] | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || days.length === 0) return [];
+  const { data, error } = await supabase
+    .from(RATINGS_TABLE)
+    .select("stars")
+    .eq("class_key", key)
+    .eq("status", "rated")
+    .in("session_date", [...days])
+    .limit(5000);
+  if (error) {
+    if (!missing(error.message)) console.error("Supabase teacher rating average", error.message);
+    return null;
+  }
+  return (data ?? []).flatMap((row) => {
+    const stars = (row as { stars?: unknown }).stars;
+    return typeof stars === "number" ? [stars] : [];
+  });
+}
+
+async function readSummaries(key: string): Promise<{ summaries: SessionRatingSummary[]; ratingAverage: number | null } | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
   const rpc = await supabase.rpc(SUMMARY_RPC, { p_class_key: key });
   if (!rpc.error && Array.isArray(rpc.data)) {
-    return (rpc.data as Record<string, unknown>[]).flatMap((row) => {
+    const summaries = (rpc.data as Record<string, unknown>[]).flatMap((row) => {
       if (typeof row.session_date !== "string" || typeof row.rated_count !== "number") return [];
       const tagCounts =
         row.tag_counts && typeof row.tag_counts === "object"
@@ -177,6 +236,14 @@ async function readSummaries(key: string): Promise<SessionRatingSummary[] | null
         },
       ];
     });
+    const hiddenDays = summaries.flatMap((summary) =>
+      summary.ratedCount > 0 && summary.starCounts === null ? [summary.day] : [],
+    );
+    const hiddenStars = hiddenDays.length > 0 ? await readHiddenStars(key, hiddenDays) : [];
+    return {
+      summaries,
+      ratingAverage: classRatingAverage(summaries, hiddenStars ?? []),
+    };
   }
   // Function not created yet: add up the rated rows here instead.
   const { data, error } = await supabase
@@ -189,14 +256,13 @@ async function readSummaries(key: string): Promise<SessionRatingSummary[] | null
     if (!missing(error.message)) console.error("Supabase teacher ratings", error.message);
     return null;
   }
-  return summarizeRatings(
-    (data ?? []).flatMap((row) => {
-      const record = row as { session_date?: unknown; stars?: unknown; tags?: unknown };
-      return typeof record.session_date === "string" && typeof record.stars === "number"
-        ? [{ day: record.session_date, stars: record.stars, tags: Array.isArray(record.tags) ? record.tags.map(String) : [] }]
-        : [];
-    }),
-  );
+  const rows = (data ?? []).flatMap((row) => {
+    const record = row as { session_date?: unknown; stars?: unknown; tags?: unknown };
+    return typeof record.session_date === "string" && typeof record.stars === "number"
+      ? [{ day: record.session_date, stars: record.stars, tags: Array.isArray(record.tags) ? record.tags.map(String) : [] }]
+      : [];
+  });
+  return { summaries: summarizeRatings(rows), ratingAverage: classRatingAverage([], rows.map((row) => row.stars)) };
 }
 
 type ProgressSlice = {
@@ -296,7 +362,7 @@ async function loadTeacherClass(key: string): Promise<TeacherClass | null> {
       : [];
   const last = held.at(-1) ?? null;
   const levelSlug = last?.level ?? schedule?.levels.at(-1)?.level ?? null;
-  const summaryByDay = new Map((summaries ?? []).map((summary) => [summary.day, summary]));
+  const summaryByDay = new Map((summaries?.summaries ?? []).map((summary) => [summary.day, summary]));
   const sessions: TeacherSession[] = held
     .map((session) => ({
       ...(summaryByDay.get(session.day) ?? {
@@ -335,17 +401,23 @@ async function loadTeacherClass(key: string): Promise<TeacherClass | null> {
     classLektion: last?.lektion ?? null,
     sessions,
     students,
+    learnerCount: students.length,
     ratingsReady: summaries !== null,
+    ratingAverage: summaries?.ratingAverage ?? null,
   };
 }
 
-const cachedTeacherClass = unstable_cache(loadTeacherClass, ["teacher-class"], {
+const cachedTeacherClass = unstable_cache(loadTeacherClass, ["teacher-class-rating"], {
   revalidate: TEACHER_CACHE_SECONDS,
 });
 
 /** One class for the teacher site, or null when it has no timetable and no learners. */
-export function readTeacherClass(key: string): Promise<TeacherClass | null> {
-  return cachedTeacherClass(key);
+export async function readTeacherClass(key: string): Promise<TeacherClass | null> {
+  const data = await cachedTeacherClass(key);
+  if (!data) return null;
+  const pendingKeys = (await pendingLearnerKeys()) ?? [];
+  const pendingLearners = pendingKeys.filter((entry) => entry === key).length;
+  return pendingLearners === 0 ? data : { ...data, learnerCount: data.students.length + pendingLearners };
 }
 
 /**

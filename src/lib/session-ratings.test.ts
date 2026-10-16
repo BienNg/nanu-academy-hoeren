@@ -16,6 +16,7 @@ import {
   ratingSubtitle,
   ratingTitle,
   sessionEndsAt,
+  classRatingAverage,
   summarizeRatings,
   zonedTimeToInstant,
 } from "./session-ratings.js";
@@ -255,6 +256,15 @@ test("ratingTitle says today, yesterday, or the weekday", () => {
 
 test("ratingSubtitle names the Lektion, weekday and date", () => {
   assert.equal(ratingSubtitle(4, "2026-10-14"), "Lektion 4 · Thứ Tư, 14.10");
+});
+
+test("classRatingAverage is the mean of every star, including sessions under 3 ratings", () => {
+  assert.equal(classRatingAverage([]), null);
+  assert.equal(classRatingAverage([{ starCounts: null }]), null);
+  // (4 + 5 + 5) / 3 = 4.666… → 4.7
+  assert.equal(classRatingAverage([{ starCounts: [0, 0, 0, 1, 2] }]), 4.7);
+  // Disclosed 4, 5, 5 plus a hidden 1 and 5: (4+5+5+1+5) / 5 = 4
+  assert.equal(classRatingAverage([{ starCounts: [0, 0, 0, 1, 2] }, { starCounts: null }], [1, 5]), 4);
 });
 
 test("summarizeRatings hides the summary under 3 ratings, newest session first", () => {

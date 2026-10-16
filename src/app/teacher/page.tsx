@@ -44,6 +44,20 @@ export default async function TeacherHomePage() {
   );
 }
 
+function ClassRating({ average }: { average: number | null }) {
+  const none = average == null;
+  const label = (average ?? 0).toLocaleString("vi");
+  return (
+    <span
+      className={`flex items-center gap-1 font-[family-name:var(--font-plus-jakarta-sans)] text-[18px] font-extrabold tabular-nums ${none ? "text-[#aeaeb2]" : ""}`}
+      aria-label={none ? "Chưa có đánh giá" : `Điểm trung bình ${label}`}
+    >
+      <Star fill={none ? 0 : 1} size={20} />
+      ({label})
+    </span>
+  );
+}
+
 function ClassCard({ data, base }: { data: TeacherClass; base: string }) {
   const last = data.sessions[0] ?? null;
   const behind = data.students.filter((student) => student.reasons.length > 0).length;
@@ -63,37 +77,31 @@ function ClassCard({ data, base }: { data: TeacherClass; base: string }) {
             ) : null}
           </div>
           <p className="mt-1 text-[14px] text-[#5e5e63]">
-            {[`${data.students.length} học viên`, data.scheduleLine].filter(Boolean).join(" · ")}
+            {[`${data.learnerCount} học viên`, data.scheduleLine].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <span className="material-symbols-outlined text-[22px] text-[#aeaeb2]" aria-hidden="true">
-          chevron_right
+        <span className="flex shrink-0 items-center gap-0.5">
+          <ClassRating average={data.ratingAverage} />
+          <span className="material-symbols-outlined text-[22px] text-[#aeaeb2]" aria-hidden="true">
+            chevron_right
+          </span>
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#f7f7f9] px-4 py-3.5">
-        <div>
-          <div className="text-[12px] font-semibold text-[#5e5e63]">
-            {last ? `Buổi gần nhất · ${shortDay(last.day)}` : "Buổi gần nhất"}
-          </div>
-          {last?.average != null ? (
-            <div className="mt-1 flex items-center gap-1.5 font-[family-name:var(--font-plus-jakarta-sans)] text-[24px] font-extrabold tabular-nums">
-              <Star size={22} />
-              {last.average.toLocaleString("vi")}
-            </div>
-          ) : (
-            <div className="mt-1.5 text-[13px] leading-[18px] text-[#5e5e63]">
-              {last ? "Chưa đủ 3 đánh giá" : "Chưa có buổi học"}
-            </div>
-          )}
+      <div className="rounded-2xl bg-[#f7f7f9] px-4 py-3.5">
+        <div className="text-[12px] font-semibold text-[#5e5e63]">
+          {last ? `Buổi gần nhất · ${shortDay(last.day)}` : "Buổi gần nhất"}
         </div>
-        <div>
-          <div className="text-[12px] font-semibold text-[#5e5e63]">Đã đánh giá</div>
-          <div className="mt-1 font-[family-name:var(--font-plus-jakarta-sans)] text-[24px] font-extrabold tabular-nums">
-            {last ? last.ratedCount : "—"}
-            <span className="text-[15px] font-semibold text-[#5e5e63]">/{data.students.length}</span>
+        {last?.average != null ? (
+          <div className="mt-1 flex items-center gap-1.5 font-[family-name:var(--font-plus-jakarta-sans)] text-[24px] font-extrabold tabular-nums">
+            <Star size={22} />
+            {last.average.toLocaleString("vi")}
           </div>
-        </div>
+        ) : (
+          <div className="mt-1.5 text-[13px] leading-[18px] text-[#5e5e63]">
+            {last ? "Chưa đủ 3 đánh giá" : "Chưa có buổi học"}
+          </div>
+        )}
       </div>
 
       {behind > 0 ? (
