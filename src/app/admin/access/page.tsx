@@ -9,6 +9,7 @@ import {
   type AdminTrackColumn,
 } from "@/lib/admin-overview";
 import { listCachedUserProgress } from "@/lib/admin-list-cache";
+import { isAdminUser } from "@/lib/admins";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getAvailableBerufe, getSessionClips } from "@/lib/content";
 import { getCefrLevels } from "@/lib/levels";
@@ -61,6 +62,7 @@ export default async function AdminAccessPage() {
       storeConfigured={storeConfigured}
       pending={pending ?? []}
       pendingReady={pending !== null}
+      canAssignStaff={isAdminUser(session.user)}
     />
   );
 }

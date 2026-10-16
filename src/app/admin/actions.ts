@@ -69,6 +69,7 @@ import {
   deleteStudyXpForLessons,
   deleteUserAccount,
   findActiveUserIdByEmail,
+  getPendingAccountRole,
   getAdminStudentDetail,
   listLessonStartSignals,
   getCloudProgress,
@@ -91,6 +92,7 @@ import {
   setUserTeacher,
   upsertPendingLevelGrant,
   withoutReservedAccess,
+  type PendingAccountRole,
   type PendingLevelGrant,
 } from "@/lib/progress-store";
 import { deleteUserQuestClaims } from "@/lib/quest-store";
@@ -698,10 +700,13 @@ export async function setAdminPendingAccess(
   interviewAccess: boolean,
   className = "",
   livingAccess: string[] = [],
+  role: PendingAccountRole | null = null,
+  teacherClasses: readonly string[] = [],
 ): Promise<
   { ok: true; grant: PendingLevelGrant | null } | { ok: false; error: string }
 > {
-  if (!(await requireDashboardAdmin())) {
+  const session = await auth();
+  if (!session?.user?.id || !(await requireDashboardAdmin())) {
     return { ok: false, error: "Unauthorized" };
   }
   if (!isProgressStoreConfigured()) {
@@ -721,9 +726,39 @@ export async function setAdminPendingAccess(
   if (storedClass.length > CLASS_NAME_MAX_LENGTH) {
     return { ok: false, error: "Class names can be at most 64 characters." };
   }
+  const storedRole = role === "staff" || role === "teacher" ? role : null;
+  const storedTeacherClasses: string[] = [];
+  if (storedRole === "teacher") {
+    const seen = new Set<string>();
+    for (const value of teacherClasses) {
+      if (typeof value !== "string") continue;
+      const name = normalizeClassName(value);
+      if (!name) continue;
+      if (name.length > CLASS_NAME_MAX_LENGTH) {
+        return { ok: false, error: "Class names can be at most 64 characters." };
+      }
+      const key = classKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      storedTeacherClasses.push(name);
+    }
+    if (storedTeacherClasses.length === 0 && storedClass) storedTeacherClasses.push(storedClass);
+    if (storedTeacherClasses.length === 0) {
+      return { ok: false, error: "Choose at least one class for this teacher." };
+    }
+  }
+
+  const owner = isAdminUser(session.user);
+  if (!owner) {
+    const existingRole = await getPendingAccountRole(normalized);
+    const touchesStaff = storedRole === "staff" || existingRole === "staff";
+    if (touchesStaff && storedRole !== existingRole) {
+      return { ok: false, error: "Only the owner can assign staff." };
+    }
+  }
 
   try {
-    if (slugs.length === 0 && !storedClass) {
+    if (slugs.length === 0 && !storedClass && !storedRole) {
       await deletePendingLevelGrant(normalized);
       revalidateAdmin();
       return { ok: true, grant: null };
@@ -737,7 +772,13 @@ export async function setAdminPendingAccess(
       };
     }
 
-    await upsertPendingLevelGrant(normalized, slugs, storedClass || null);
+    await upsertPendingLevelGrant(
+      normalized,
+      slugs,
+      storedRole === "teacher" ? null : storedClass || null,
+      storedRole,
+      storedTeacherClasses,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to save pre-unlock";
     return { ok: false, error: message };
@@ -751,7 +792,9 @@ export async function setAdminPendingAccess(
       levelAccess: withoutReservedAccess(slugs),
       interviewAccess: hasInterviewAccess(slugs),
       livingAccess: livingAccessFrom(slugs),
-      className: storedClass || null,
+      className: storedRole === "teacher" ? null : storedClass || null,
+      role: storedRole,
+      teacherClasses: storedTeacherClasses,
       updatedAt: new Date().toISOString(),
     },
   };

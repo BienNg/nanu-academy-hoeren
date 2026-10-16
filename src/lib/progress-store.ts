@@ -1202,6 +1202,9 @@ export async function recordUserSignIn(
   const existingClass = readClassName(row?.class_name);
   const nextClass =
     pending?.className && (isNewAccount || !existingClass) ? pending.className : null;
+  const roleFields = pending?.role
+    ? pendingRolePatch(pending.role, pending.className, pending.teacherClasses)
+    : {};
   let imageSaved = !requestedImage;
   let wroteAccount = false;
 
@@ -1212,6 +1215,7 @@ export async function recordUserSignIn(
       ...(signInLog ? { sign_in_log: signInLog } : {}),
       ...(nextLevelAccess ? { level_access: nextLevelAccess } : {}),
       ...(nextClass ? { class_name: nextClass } : {}),
+      ...roleFields,
     };
     if (Object.keys(patch).length > 0) {
       let updateError = (
@@ -1259,6 +1263,7 @@ export async function recordUserSignIn(
       updated_at: now,
       level_access: nextLevelAccess ?? [],
       ...(nextClass ? { class_name: nextClass } : {}),
+      ...roleFields,
       ...(signIns ? { sign_ins: signIns } : {}),
       ...(signInLog ? { sign_in_log: signInLog } : {}),
       ...identity,
@@ -1588,12 +1593,22 @@ export const getUserLevelAccess = cache(
   async (userId: string): Promise<string[]> => (await getUserAccessRow(userId)).levelAccess,
 );
 
+/** Pre-assigned dashboard role. Empty means the account signs in as a learner. */
+export type PendingAccountRole = "staff" | "teacher";
+
+export function readPendingAccountRole(value: unknown): PendingAccountRole | null {
+  return value === "staff" || value === "teacher" ? value : null;
+}
+
 export type PendingLevelGrant = {
   email: string;
   levelAccess: string[];
   interviewAccess: boolean;
   livingAccess: string[];
   className: string | null;
+  role: PendingAccountRole | null;
+  /** Classes this teacher can open. Empty unless role is teacher. */
+  teacherClasses: string[];
   updatedAt: string | null;
 };
 
@@ -1601,18 +1616,26 @@ function mapPendingGrant(row: {
   email?: unknown;
   level_access?: unknown;
   class_name?: unknown;
+  role?: unknown;
+  teacher_classes?: unknown;
   updated_at?: unknown;
 }): PendingLevelGrant | null {
   if (typeof row.email !== "string") return null;
   const email = normalizeGrantEmail(row.email);
   if (!email) return null;
   const access = readLevelAccess(row.level_access);
+  const role = readPendingAccountRole(row.role);
+  const className = readClassName(row.class_name);
+  const listed = readTeacherClasses(row.teacher_classes);
   return {
     email,
     levelAccess: withoutReservedAccess(access),
     interviewAccess: hasInterviewAccess(access),
     livingAccess: livingAccessFrom(access),
-    className: readClassName(row.class_name),
+    className,
+    role,
+    teacherClasses:
+      role === "teacher" ? (listed.length > 0 ? listed : readTeacherClasses(className ? [className] : [])) : [],
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
   };
 }
@@ -1622,12 +1645,38 @@ function pendingGrantIsActive(grant: PendingLevelGrant): boolean {
     grant.levelAccess.length > 0 ||
     grant.interviewAccess ||
     grant.livingAccess.length > 0 ||
-    Boolean(grant.className)
+    Boolean(grant.className) ||
+    Boolean(grant.role)
   );
 }
 
+/** Flags copied onto user_progress when this email signs in. */
+function pendingRolePatch(
+  role: PendingAccountRole,
+  className: string | null,
+  teacherClasses: readonly string[],
+): Record<string, unknown> {
+  if (role === "staff") return { staff: true, teacher: false, teacher_classes: [] };
+  const classes = readTeacherClasses(
+    teacherClasses.length > 0 ? teacherClasses : className ? [className] : [],
+  );
+  return { staff: false, teacher: true, teacher_classes: classes };
+}
+
+function isMissingPendingColumn(message: string, column: string): boolean {
+  return new RegExp(column, "i").test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
 function isMissingPendingClassColumn(message: string): boolean {
-  return /class_name/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+  return isMissingPendingColumn(message, "class_name");
+}
+
+function isMissingPendingRoleColumn(message: string): boolean {
+  return isMissingPendingColumn(message, "\\brole\\b");
+}
+
+function isMissingPendingTeacherClassesColumn(message: string): boolean {
+  return isMissingPendingColumn(message, "teacher_classes");
 }
 
 /** Active account for this email, if one has already signed in. */
@@ -1664,9 +1713,29 @@ export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | nu
 
   let { data, error } = await supabase
     .from(PENDING_ACCESS_TABLE)
-    .select("email, level_access, class_name, updated_at")
+    .select("email, level_access, class_name, role, teacher_classes, updated_at")
     .order("email", { ascending: true })
     .limit(500);
+
+  if (error && isMissingPendingTeacherClassesColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("email, level_access, class_name, role, updated_at")
+      .order("email", { ascending: true })
+      .limit(500);
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
+
+  if (error && isMissingPendingRoleColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("email, level_access, class_name, updated_at")
+      .order("email", { ascending: true })
+      .limit(500);
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   if (error && isMissingPendingClassColumn(error.message)) {
     const fallback = await supabase
@@ -1699,15 +1768,40 @@ export async function listPendingLevelGrants(): Promise<PendingLevelGrant[] | nu
 async function readPendingGrantForSignIn(
   supabase: SupabaseClient,
   email: string,
-): Promise<{ slugs: string[]; className: string | null } | null> {
+): Promise<{
+  slugs: string[];
+  className: string | null;
+  role: PendingAccountRole | null;
+  teacherClasses: string[];
+} | null> {
   const normalized = normalizeGrantEmail(email);
   if (!normalized) return null;
 
   let { data, error } = await supabase
     .from(PENDING_ACCESS_TABLE)
-    .select("level_access, class_name")
+    .select("level_access, class_name, role, teacher_classes")
     .eq("email", normalized)
     .maybeSingle();
+
+  if (error && isMissingPendingTeacherClassesColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("level_access, class_name, role")
+      .eq("email", normalized)
+      .maybeSingle();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
+
+  if (error && isMissingPendingRoleColumn(error.message)) {
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .select("level_access, class_name")
+      .eq("email", normalized)
+      .maybeSingle();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   if (error && isMissingPendingClassColumn(error.message)) {
     const fallback = await supabase
@@ -1724,16 +1818,48 @@ async function readPendingGrantForSignIn(
     return null;
   }
   if (!data) return null;
-  const slugs = readLevelAccess((data as { level_access?: unknown }).level_access);
-  const className = readClassName((data as { class_name?: unknown }).class_name);
-  if (slugs.length === 0 && !className) return null;
-  return { slugs, className };
+  const row = data as {
+    level_access?: unknown;
+    class_name?: unknown;
+    role?: unknown;
+    teacher_classes?: unknown;
+  };
+  const slugs = readLevelAccess(row.level_access);
+  const className = readClassName(row.class_name);
+  const role = readPendingAccountRole(row.role);
+  const teacherClasses = role === "teacher" ? readTeacherClasses(row.teacher_classes) : [];
+  if (slugs.length === 0 && !className && !role) return null;
+  return { slugs, className, role, teacherClasses };
+}
+
+/** Role already stored for this email, or null when there is no pre-unlock row. */
+export async function getPendingAccountRole(email: string): Promise<PendingAccountRole | null> {
+  const supabase = getSupabaseAdmin();
+  const normalized = normalizeGrantEmail(email);
+  if (!supabase || !normalized) return null;
+
+  const { data, error } = await supabase
+    .from(PENDING_ACCESS_TABLE)
+    .select("role")
+    .eq("email", normalized)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingPendingRoleColumn(error.message) || /does not exist|schema cache|could not find/i.test(error.message)) {
+      return null;
+    }
+    console.error("Supabase getPendingAccountRole", error.message);
+    return null;
+  }
+  return readPendingAccountRole((data as { role?: unknown } | null)?.role);
 }
 
 export async function upsertPendingLevelGrant(
   email: string,
   levelSlugs: readonly string[],
   className: string | null = null,
+  role: PendingAccountRole | null = null,
+  teacherClasses: readonly string[] = [],
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
@@ -1744,21 +1870,53 @@ export async function upsertPendingLevelGrant(
     throw new Error("Enter a valid email address.");
   }
   const storedClass = readClassName(className);
-  if (levelSlugs.length === 0 && !storedClass) {
+  const storedRole = readPendingAccountRole(role);
+  const storedTeacherClasses = storedRole === "teacher" ? readTeacherClasses(teacherClasses) : [];
+  if (levelSlugs.length === 0 && !storedClass && !storedRole) {
     await deletePendingLevelGrant(normalized);
     return;
   }
 
   const now = new Date().toISOString();
-  const payload = {
+  let payload: Record<string, unknown> = {
     email: normalized,
     level_access: [...levelSlugs],
     class_name: storedClass,
+    role: storedRole,
+    teacher_classes: storedTeacherClasses,
     updated_at: now,
   };
   let { error } = await supabase
     .from(PENDING_ACCESS_TABLE)
     .upsert(payload, { onConflict: "email" });
+
+  if (error && isMissingPendingTeacherClassesColumn(error.message)) {
+    if (storedTeacherClasses.length > 0) {
+      throw new Error(
+        "Could not save these classes. Run supabase/pending_level_access.sql again to add teacher_classes.",
+      );
+    }
+    const { teacher_classes: _classes, ...withoutClasses } = payload;
+    payload = withoutClasses;
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .upsert(payload, { onConflict: "email" });
+    error = fallback.error;
+  }
+
+  if (error && isMissingPendingRoleColumn(error.message)) {
+    if (storedRole) {
+      throw new Error(
+        "Could not save this role. Run supabase/pending_level_access.sql again to add role.",
+      );
+    }
+    const { role: _role, ...withoutRole } = payload;
+    payload = withoutRole;
+    const fallback = await supabase
+      .from(PENDING_ACCESS_TABLE)
+      .upsert(payload, { onConflict: "email" });
+    error = fallback.error;
+  }
 
   if (error && isMissingPendingClassColumn(error.message)) {
     if (storedClass) {

@@ -53,7 +53,7 @@ import {
   type AdminUserRow,
 } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
-import type { PendingLevelGrant } from "@/lib/progress-store";
+import type { PendingAccountRole, PendingLevelGrant } from "@/lib/progress-store";
 
 const INTERVIEW_LABEL = "Phỏng vấn";
 
@@ -346,6 +346,115 @@ function ClassNameField({
   );
 }
 
+function TeacherClassPicker({
+  label,
+  suggestions,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  suggestions: readonly string[];
+  value: readonly string[];
+  disabled: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const box = useMenuBox(open, buttonRef);
+  const choices = useMemo(() => {
+    const labels = [...suggestions];
+    for (const name of value) {
+      if (!labels.some((item) => classKey(item) === classKey(name))) labels.push(name);
+    }
+    return labels;
+  }, [suggestions, value]);
+  const summary = value.length === 0 ? "Choose classes" : value.join(", ");
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  function toggle(name: string) {
+    const on = value.some((item) => classKey(item) === classKey(name));
+    onChange(on ? value.filter((item) => classKey(item) !== classKey(name)) : [...value, name]);
+  }
+
+  const menu =
+    open && box && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={label}
+            className={`${POPOVER} max-h-72 overflow-y-auto`}
+            style={{ top: box.top, left: box.left, width: Math.max(box.width, 220) }}
+          >
+            {choices.length === 0 ? (
+              <p className="px-space-12 py-space-8 text-admin-body-sm text-admin-ink-muted">
+                No classes yet. Give a student a class first.
+              </p>
+            ) : (
+              choices.map((name) => {
+                const on = value.some((item) => classKey(item) === classKey(name));
+                return (
+                  <PickerOption key={name} on={on} label={name} onToggle={() => toggle(name)} />
+                );
+              })
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div className="relative min-w-[12rem]">
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`${INPUT} flex items-center justify-between gap-space-8 text-left ${
+          open ? "border-admin-cobalt shadow-admin-focus" : "hover:border-admin-ink-faint"
+        } ${value.length > 0 ? "text-admin-ink" : "text-admin-ink-faint"}`}
+      >
+        <span className="truncate">{summary}</span>
+        <MaterialIcon name="expand_more" className="shrink-0 text-[20px] text-admin-ink-subtle" />
+      </button>
+      {menu}
+    </div>
+  );
+}
+
+function pendingClassNames(row: PendingLevelGrant): string[] {
+  if (row.role === "teacher") {
+    return row.teacherClasses.length > 0
+      ? [...row.teacherClasses]
+      : row.className
+        ? [row.className]
+        : [];
+  }
+  return row.className ? [row.className] : [];
+}
+
 function Notice({ children }: { children: ReactNode }) {
   return (
     <div
@@ -361,6 +470,43 @@ function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-admin-label-md font-semibold text-admin-ink">{children}</span>;
 }
 
+function RoleSelect({
+  id,
+  label,
+  value,
+  disabled,
+  canAssignStaff,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: PendingAccountRole | null;
+  disabled: boolean;
+  canAssignStaff: boolean;
+  onChange: (role: PendingAccountRole | null) => void;
+}) {
+  const locked = disabled || (value === "staff" && !canAssignStaff);
+  return (
+    <select
+      id={id}
+      aria-label={label}
+      value={value ?? ""}
+      disabled={locked}
+      onChange={(event) => {
+        const next = event.target.value;
+        onChange(next === "staff" || next === "teacher" ? next : null);
+      }}
+      className={INPUT}
+    >
+      <option value="">Learner</option>
+      <option value="staff" disabled={!canAssignStaff}>
+        Staff
+      </option>
+      <option value="teacher">Teacher</option>
+    </select>
+  );
+}
+
 export function AdminAccess({
   rows,
   catalog,
@@ -369,6 +515,7 @@ export function AdminAccess({
   storeConfigured,
   pending,
   pendingReady,
+  canAssignStaff,
 }: {
   rows: AdminUserRow[];
   catalog: readonly AdminCatalogCourse[];
@@ -377,6 +524,7 @@ export function AdminAccess({
   storeConfigured: boolean;
   pending: PendingLevelGrant[];
   pendingReady: boolean;
+  canAssignStaff: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -397,6 +545,9 @@ export function AdminAccess({
   const [draftInterview, setDraftInterview] = useState(false);
   const [draftLiving, setDraftLiving] = useState<string[]>([]);
   const [draftClass, setDraftClass] = useState("");
+  const [draftRole, setDraftRole] = useState<PendingAccountRole | null>(null);
+  const [draftTeacherClasses, setDraftTeacherClasses] = useState<string[]>([]);
+  const [teacherPick, setTeacherPick] = useState<Record<string, string[]>>({});
   const [pendingClassFilter, setPendingClassFilter] = useState<string | "all">("all");
   const [savingGrant, setSavingGrant] = useState(false);
   const [pendingRows, setPendingRows] = useState(pending);
@@ -407,7 +558,7 @@ export function AdminAccess({
   const pendingSignature = pending
     .map(
       (row) =>
-        `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}:${row.livingAccess.join(",")}:${row.className ?? ""}`,
+        `${row.email}:${row.levelAccess.join(",")}:${row.interviewAccess}:${row.livingAccess.join(",")}:${row.className ?? ""}:${row.role ?? ""}:${row.teacherClasses.join(",")}`,
     )
     .join("|");
   const [seenPending, setSeenPending] = useState(pendingSignature);
@@ -444,12 +595,16 @@ export function AdminAccess({
 
   const waitingMembers = useMemo(
     () =>
-      pendingRows.map((row) => ({
-        className: row.className,
-        levelAccess: row.levelAccess,
-        interviewAccess: row.interviewAccess,
-        updatedAt: row.updatedAt,
-      })),
+      pendingRows.flatMap((row) => {
+        const names = pendingClassNames(row);
+        const shared = {
+          levelAccess: row.levelAccess,
+          interviewAccess: row.interviewAccess,
+          updatedAt: row.updatedAt,
+        };
+        if (names.length === 0) return [{ ...shared, className: null }];
+        return names.map((className) => ({ ...shared, className }));
+      }),
     [pendingRows],
   );
   const board = useMemo(
@@ -461,11 +616,11 @@ export function AdminAccess({
     [liveRows, waitingMembers],
   );
   const pendingClassOptions = useMemo(
-    () => listAdminClasses(pendingRows),
-    [pendingRows],
+    () => listAdminClasses(waitingMembers),
+    [waitingMembers],
   );
   const pendingUnassigned = useMemo(
-    () => pendingRows.filter((row) => !classKey(row.className)).length,
+    () => pendingRows.filter((row) => pendingClassNames(row).length === 0).length,
     [pendingRows],
   );
   const pendingFilterValid =
@@ -479,7 +634,12 @@ export function AdminAccess({
   const activePendingClass = pendingFilterValid ? pendingClassFilter : "all";
   const visiblePending = useMemo(() => {
     if (activePendingClass === "all") return pendingRows;
-    return pendingRows.filter((row) => classKey(row.className) === activePendingClass);
+    if (activePendingClass === "") {
+      return pendingRows.filter((row) => pendingClassNames(row).length === 0);
+    }
+    return pendingRows.filter((row) =>
+      pendingClassNames(row).some((name) => classKey(name) === activePendingClass),
+    );
   }, [pendingRows, activePendingClass]);
   const pendingClassChips: { key: string | "all"; label: string; count: number }[] = [
     { key: "all", label: "All", count: pendingRows.length },
@@ -635,8 +795,20 @@ export function AdminAccess({
     const email = grantEmail.trim();
     if (!email || savingGrant) return;
     const className = draftClass.trim();
-    if (draftLevels.length === 0 && !draftInterview && draftLiving.length === 0 && !className) {
-      setAccessError("Choose a course or a class.");
+    const teacherClasses = draftRole === "teacher" ? draftTeacherClasses : [];
+    if (draftRole === "teacher" && teacherClasses.length === 0) {
+      setAccessError("Choose at least one class for this teacher.");
+      return;
+    }
+    if (
+      draftLevels.length === 0 &&
+      !draftInterview &&
+      draftLiving.length === 0 &&
+      !className &&
+      teacherClasses.length === 0 &&
+      !draftRole
+    ) {
+      setAccessError("Choose a course, a class, or a role.");
       return;
     }
     setSavingGrant(true);
@@ -646,8 +818,10 @@ export function AdminAccess({
         email,
         draftLevels,
         draftInterview,
-        className,
+        draftRole === "teacher" ? "" : className,
         draftLiving,
+        draftRole,
+        teacherClasses,
       );
       if (!result.ok) {
         setAccessError(result.error);
@@ -666,6 +840,8 @@ export function AdminAccess({
       setDraftInterview(false);
       setDraftLiving([]);
       setDraftClass("");
+      setDraftRole(null);
+      setDraftTeacherClasses([]);
       startTransition(() => {
         router.refresh();
       });
@@ -689,8 +865,10 @@ export function AdminAccess({
         next.email,
         next.levelAccess,
         next.interviewAccess,
-        next.className ?? "",
+        next.role === "teacher" ? "" : (next.className ?? ""),
         next.livingAccess,
+        next.role,
+        next.role === "teacher" ? next.teacherClasses : [],
       );
       if (!result.ok) {
         setPendingRows((prev) =>
@@ -846,7 +1024,7 @@ export function AdminAccess({
       <TablePanel
         icon="mark_email_unread"
         title="Pre-unlock"
-        hint="Grant courses and a class to an email that has not signed up yet. When they sign in with Google using that address, those courses are already open and they join that class."
+        hint="Grant courses, a class, and a role to an email that has not signed up yet. When they sign in with Google using that address, those courses are already open, they join that class, and the role is already on the account."
       >
         <div className="flex flex-col gap-space-16 p-space-16 sm:p-space-20">
           {storeConfigured && !pendingReady ? (
@@ -856,7 +1034,7 @@ export function AdminAccess({
             </Notice>
           ) : null}
           <form
-            className="grid gap-space-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+            className="grid gap-space-12 md:grid-cols-[minmax(0,1.2fr)_9rem_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
             onSubmit={(event) => {
               event.preventDefault();
               void savePendingGrant();
@@ -876,13 +1054,42 @@ export function AdminAccess({
               />
             </label>
             <label className="flex min-w-0 flex-col gap-space-4">
-              <FieldLabel>Class</FieldLabel>
-              <ClassNameField
-                value={draftClass}
-                suggestions={classSuggestions}
+              <FieldLabel>Role</FieldLabel>
+              <RoleSelect
+                id="pending-role"
+                label="Role to pre-assign"
+                value={draftRole}
                 disabled={pendingDisabled}
-                onChange={setDraftClass}
+                canAssignStaff={canAssignStaff}
+                onChange={(role) => {
+                  setDraftRole(role);
+                  if (role !== "teacher") return;
+                  setDraftTeacherClasses((current) => {
+                    if (current.length > 0) return current;
+                    const name = draftClass.trim();
+                    return name ? [name] : [];
+                  });
+                }}
               />
+            </label>
+            <label className="flex min-w-0 flex-col gap-space-4">
+              <FieldLabel>{draftRole === "teacher" ? "Classes" : "Class"}</FieldLabel>
+              {draftRole === "teacher" ? (
+                <TeacherClassPicker
+                  label="Classes for this teacher"
+                  suggestions={classSuggestions}
+                  value={draftTeacherClasses}
+                  disabled={pendingDisabled}
+                  onChange={setDraftTeacherClasses}
+                />
+              ) : (
+                <ClassNameField
+                  value={draftClass}
+                  suggestions={classSuggestions}
+                  disabled={pendingDisabled}
+                  onChange={setDraftClass}
+                />
+              )}
             </label>
             <label className="flex min-w-0 flex-col gap-space-4">
               <FieldLabel>Courses</FieldLabel>
@@ -928,6 +1135,7 @@ export function AdminAccess({
                 <thead className={THEAD}>
                   <tr>
                     <th className={TH}>Email</th>
+                    <th className={TH}>Role</th>
                     <th className={TH}>Class</th>
                     <th className={TH}>Courses</th>
                     <th className={`${TH} w-28 text-right`}>
@@ -938,7 +1146,7 @@ export function AdminAccess({
                 <tbody>
                   {visiblePending.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted">
+                      <td colSpan={5} className="px-space-16 py-space-24 text-admin-body-sm text-admin-ink-muted">
                         No waiting emails in this class.
                       </td>
                     </tr>
@@ -950,14 +1158,97 @@ export function AdminAccess({
                         <td className="px-space-16 py-space-8">
                           <Mono className="block min-w-[12rem] text-admin-ink">{row.email}</Mono>
                         </td>
-                        <ClassCell
-                          userId={row.email}
-                          studentName={row.email}
-                          value={row.className}
-                          suggestions={classSuggestions}
-                          saving={busy}
-                          onSave={(next) => void savePendingRow(row, { ...row, className: next || null })}
-                        />
+                        <td className="min-w-[9rem] px-space-16 py-space-8">
+                          <RoleSelect
+                            id={`pending-role-${row.email}`}
+                            label={`Role for ${row.email}`}
+                            value={Object.hasOwn(teacherPick, row.email) ? "teacher" : row.role}
+                            disabled={busy}
+                            canAssignStaff={canAssignStaff}
+                            onChange={(role) => {
+                              if (role === "teacher") {
+                                const seeded =
+                                  row.teacherClasses.length > 0
+                                    ? row.teacherClasses
+                                    : row.className
+                                      ? [row.className]
+                                      : [];
+                                if (seeded.length === 0) {
+                                  setTeacherPick((current) => ({ ...current, [row.email]: [] }));
+                                  setAccessError("Choose at least one class for this teacher.");
+                                  return;
+                                }
+                                setTeacherPick((current) => {
+                                  const next = { ...current };
+                                  delete next[row.email];
+                                  return next;
+                                });
+                                void savePendingRow(row, {
+                                  ...row,
+                                  role: "teacher",
+                                  teacherClasses: seeded,
+                                  className: null,
+                                });
+                                return;
+                              }
+                              if (Object.hasOwn(teacherPick, row.email) && row.role !== "teacher") {
+                                setTeacherPick((current) => {
+                                  const next = { ...current };
+                                  delete next[row.email];
+                                  return next;
+                                });
+                                return;
+                              }
+                              void savePendingRow(row, {
+                                ...row,
+                                role,
+                                teacherClasses: [],
+                                className: row.className ?? row.teacherClasses[0] ?? null,
+                              });
+                            }}
+                          />
+                        </td>
+                        {row.role === "teacher" || Object.hasOwn(teacherPick, row.email) ? (
+                          <td className="min-w-[12rem] px-space-16 py-space-8">
+                            <TeacherClassPicker
+                              label={`Classes for ${row.email}`}
+                              suggestions={classSuggestions}
+                              value={
+                                Object.hasOwn(teacherPick, row.email)
+                                  ? teacherPick[row.email]
+                                  : pendingClassNames(row)
+                              }
+                              disabled={busy}
+                              onChange={(next) => {
+                                if (next.length === 0) {
+                                  setTeacherPick((current) => ({ ...current, [row.email]: [] }));
+                                  setAccessError("Choose at least one class for this teacher.");
+                                  return;
+                                }
+                                setTeacherPick((current) => {
+                                  const following = { ...current };
+                                  delete following[row.email];
+                                  return following;
+                                });
+                                void savePendingRow(row, {
+                                  ...row,
+                                  role: "teacher",
+                                  teacherClasses: next,
+                                  className: null,
+                                });
+                              }}
+                            />
+                          </td>
+                        ) : (
+                          <ClassCell
+                            userId={row.email}
+                            studentName={row.email}
+                            value={row.className}
+                            suggestions={classSuggestions}
+                            saving={busy}
+                            onSave={(next) => void savePendingRow(row, { ...row, className: next || null })}
+                          />
+                        )}
                         <td className="min-w-[14rem] px-space-16 py-space-8">
                           <CoursePicker
                             label={`Courses for ${row.email}`}
