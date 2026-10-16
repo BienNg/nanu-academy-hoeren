@@ -16,7 +16,7 @@ import {
   type DeckPreview,
   type StoreError,
 } from "@/lib/blitzrunde-store";
-import { isBlitzrundeId } from "@/lib/blitzrunde";
+import { BLITZRUNDE_ENABLED, isBlitzrundeId } from "@/lib/blitzrunde";
 import { getLevelChapters } from "@/lib/levels";
 import { getUserStaff } from "@/lib/progress-store";
 import { leaderboardClassKey } from "@/lib/xp";
@@ -33,6 +33,10 @@ async function requireTeacher(): Promise<string | null> {
 }
 
 const DENIED = { ok: false as const, error: "Only owners and staff can run a Blitzrunde." };
+const PAUSED = {
+  ok: false as const,
+  error: "Blitzrunde is paused. Set BLITZRUNDE_ENABLED in src/lib/blitzrunde.ts to turn it back on.",
+};
 const BAD_ID = { ok: false as const, error: "Unknown round." };
 
 /** Store messages are written for students (Vietnamese); the dashboard is English. */
@@ -62,6 +66,7 @@ export async function previewBlitzrundeDeck(
   levelSlug: string,
   chapterSlug: string,
 ): Promise<ActionResult<DeckPreview>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   if (!lektionExists(levelSlug, chapterSlug)) return { ok: false, error: "Unknown Lektion." };
   return { ok: true, value: previewDeck(levelSlug, chapterSlug) };
@@ -72,6 +77,7 @@ export async function createBlitzrunde(input: {
   levelSlug: string;
   chapterSlug: string;
 }): Promise<ActionResult<{ id: string }>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   const userId = await requireTeacher();
   if (!userId) return DENIED;
   const classLabel = normalizeClassName(String(input.classLabel ?? "")).slice(0, CLASS_NAME_MAX_LENGTH);
@@ -98,6 +104,7 @@ export async function createBlitzrunde(input: {
 }
 
 export async function startBlitzrunde(id: string): Promise<ActionResult<{ ranked: boolean }>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   if (!isBlitzrundeId(id)) return BAD_ID;
   const result = await startSession(id);
@@ -110,6 +117,7 @@ export async function startBlitzrunde(id: string): Promise<ActionResult<{ ranked
 }
 
 export async function endBlitzrunde(id: string): Promise<ActionResult<null>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   if (!isBlitzrundeId(id)) return BAD_ID;
   const result = await endSession(id);
@@ -117,6 +125,7 @@ export async function endBlitzrunde(id: string): Promise<ActionResult<null>> {
 }
 
 export async function cancelBlitzrunde(id: string): Promise<ActionResult<null>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   if (!isBlitzrundeId(id)) return BAD_ID;
   const result = await cancelSession(id);
@@ -128,6 +137,7 @@ export async function getBlitzrundeAdminRound(
   id: string,
   options: { deck?: boolean; haveAnswersFor?: string[] } = {},
 ): Promise<ActionResult<AdminRoundUpdate>> {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   if (!isBlitzrundeId(id)) return BAD_ID;
   const haveAnswersFor = Array.isArray(options?.haveAnswersFor)
@@ -140,6 +150,7 @@ export async function getBlitzrundeAdminRound(
 export async function listBlitzrundeRounds(): Promise<
   ActionResult<{ ready: boolean; hint?: string; rounds: AdminRoundSummary[] }>
 > {
+  if (!BLITZRUNDE_ENABLED) return PAUSED;
   if (!(await requireTeacher())) return DENIED;
   return { ok: true, value: await listAdminRounds() };
 }

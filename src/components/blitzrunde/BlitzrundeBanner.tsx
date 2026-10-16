@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
+import { BLITZRUNDE_ENABLED, BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { LiveRound } from "@/lib/blitzrunde-store";
 
 const POLL_MS = 5000;
@@ -89,6 +89,11 @@ function MaterialIcon({ name, className }: { name: string; className?: string })
 }
 
 export function BlitzrundeBanner({ initial = null }: { initial?: LiveRound | null }) {
+  if (!BLITZRUNDE_ENABLED) return null;
+  return <BlitzrundeBannerLive initial={initial} />;
+}
+
+function BlitzrundeBannerLive({ initial = null }: { initial?: LiveRound | null }) {
   const live = useLiveRound(initial);
   if (!live || live.submitted) return null;
   // Late arrivals cannot join a running round, so only show it to those already in.

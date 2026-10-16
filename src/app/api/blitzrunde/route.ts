@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { BLITZRUNDE_ENABLED } from "@/lib/blitzrunde";
 import { getLiveRoundForUser } from "@/lib/blitzrunde-store";
 import { isProgressStoreConfigured, resolveAccountAccess } from "@/lib/progress-store";
 
 /** The open Blitzrunde for the viewer's class, if any. The lesson page reads this when the tab returns, and every few seconds while a round is on screen. */
 export async function GET() {
+  if (!BLITZRUNDE_ENABLED) {
+    return NextResponse.json({ live: null }, { headers: { "Cache-Control": "no-store" } });
+  }
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

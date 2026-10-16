@@ -17,6 +17,15 @@ import { buildPairingSet, PAIRING_SET_SIZE } from "./pairing";
 /** Material Symbol for Blitzrunde. `bolt` stays reserved for XP. */
 export const BLITZRUNDE_ICON = "speed";
 
+/**
+ * Off since 2026-10-16. A class with this open was polling the live routes
+ * and using Fluid Active CPU. Set this back to true to turn Blitzrunde on.
+ * While false, lesson pages skip the live-round read, the banner and play
+ * screen do not poll, the admin page does not load rounds, and the APIs
+ * answer without reading Supabase. Past leaderboard results stay as they are.
+ */
+export const BLITZRUNDE_ENABLED = false;
+
 export const BLITZRUNDE_DURATION_MS = 7 * 60 * 1000;
 export const HEARTBEAT_MS = 15_000;
 /** Three missed heartbeats and a student counts as disconnected. */

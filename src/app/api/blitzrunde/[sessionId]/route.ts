@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isBlitzrundeId } from "@/lib/blitzrunde";
+import { BLITZRUNDE_ENABLED, isBlitzrundeId } from "@/lib/blitzrunde";
 import {
   getStudentRound,
   joinSession,
@@ -37,8 +37,13 @@ function failed(result: { error: StoreError; message?: string }) {
   return NextResponse.json({ error: result.error, message: result.message }, { status: STATUS[result.error] });
 }
 
+function paused() {
+  return NextResponse.json({ error: "paused" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+}
+
 /** `?deck=1` asks for the cards. The play screen asks until it has them, then polls without. */
 export async function GET(request: Request, context: Context) {
+  if (!BLITZRUNDE_ENABLED) return paused();
   const who = await viewer(context);
   if (who instanceof NextResponse) return who;
   const includeDeck = new URL(request.url).searchParams.get("deck") === "1";
@@ -51,6 +56,7 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
+  if (!BLITZRUNDE_ENABLED) return paused();
   const who = await viewer(context);
   if (who instanceof NextResponse) return who;
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  BLITZRUNDE_ENABLED,
   BLITZRUNDE_SCHEMA_HINT,
   buildBlitzrundeDeck,
   canStartRanked,
@@ -510,6 +511,7 @@ function openRoundFromRow(raw: unknown): OpenRoundRow | null {
 
 /** The open round for this learner's class, if any. The lesson page reads it once. */
 export async function getLiveRoundForUser(userId: string, now: Date = new Date()): Promise<LiveRound | null> {
+  if (!BLITZRUNDE_ENABLED) return null;
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
   const classKey = leaderboardClassKey(await getUserClassName(userId));
