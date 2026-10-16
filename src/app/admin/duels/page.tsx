@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin-overview";
 import { listCachedAdminDuels, listCachedUserProgress } from "@/lib/admin-list-cache";
 import { listAdminDuelSettled } from "@/lib/duel-store";
+import { isDuelId } from "@/lib/duels";
 import { requireDashboard } from "@/lib/auth-guard";
 import {
   isProgressStoreConfigured,
@@ -28,7 +29,10 @@ export default async function AdminDuelsPage({
   await connection();
   const access = await requireDashboard();
   const session = access.session;
-  const range = parseAdminRange((await searchParams).range);
+  const params = await searchParams;
+  const range = parseAdminRange(params.range);
+  const requestedDuel = typeof params.duel === "string" ? params.duel : "";
+  const focusId = isDuelId(requestedDuel) ? requestedDuel : null;
 
   const storeConfigured = isProgressStoreConfigured();
   if (storeConfigured && session.user.id) {
@@ -64,6 +68,7 @@ export default async function AdminDuelsPage({
       duels={visibleDuels}
       settled={settled.ready ? settled.rows : null}
       range={range}
+      focusId={focusId}
       storeConfigured={storeConfigured}
       duelsReady={duels.ready}
     />

@@ -2049,6 +2049,8 @@ export function buildAdminDuelBoard(
   range: AdminRange = DEFAULT_ADMIN_RANGE,
   now = new Date(),
   settled: readonly AdminDuelSettled[] | null = null,
+  /** Keep this duel in the question list even when it settled outside `range`. */
+  focusId: string | null = null,
 ): AdminDuelBoard {
   const daysNewestFirst = adminRangeVietnamDayKeys(range, now);
   const window = new Set(daysNewestFirst);
@@ -2161,7 +2163,7 @@ export function buildAdminDuelBoard(
       else openLive += 1;
       waiting.push(match);
     }
-    if (status !== "ended" || completedIn) {
+    if (status !== "ended" || completedIn || duel.id === focusId) {
       challenges.push({
         ...match,
         challengerId: duel.challengerId,

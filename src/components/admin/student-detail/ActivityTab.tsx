@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   listAdminStudentClicks,
   listAdminStudentDuelClipQuits,
   listAdminStudentDuelMatchFailures,
+  listAdminStudentDuelMatches,
   listAdminStudentJumpRuns,
   listAdminStudentRuns,
 } from "@/app/admin/actions";
@@ -41,11 +43,12 @@ import {
 } from "@/lib/admin-detail";
 import {
   describeDuelClipQuit,
-  DUEL_MATCH_FAILURE_SCHEMA_HINT,
+  isDuelId,
   placeDuelClipQuits,
   type DuelClipQuit,
   type DuelMatchFailure,
-  type StudentDuelMatchFailuresPage,
+  type StudentDuelMatch,
+  type StudentDuelMatchesPage,
 } from "@/lib/duels";
 import {
   JUMP_RUNS_SCHEMA_HINT,
@@ -1436,13 +1439,15 @@ function useVisitClicks(
   return visible;
 }
 
-function duelFailureEmptyMessage(range: AdminVisitRange): string {
-  if (range === "today") return "No failed duel matches today.";
-  if (range === "7d") return "No failed duel matches in the last 7 days.";
-  return "No failed duel matches yet.";
+const DUEL_MATCH_PAGE = 25;
+
+function duelMatchEmptyMessage(range: AdminVisitRange): string {
+  if (range === "today") return "No duel matches today.";
+  if (range === "7d") return "No duel matches in the last 7 days.";
+  return "No duel matches yet.";
 }
 
-function DuelMatchFailuresSection({
+function DuelMatchesSection({
   userId,
   revision,
   range,
@@ -1455,24 +1460,29 @@ function DuelMatchFailuresSection({
   timeZone: string | undefined;
   hideWhenEmpty?: boolean;
 }) {
-  const [page, setPage] = useState<StudentDuelMatchFailuresPage | null>(null);
+  const [page, setPage] = useState<StudentDuelMatchesPage | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const userIdRef = useRef(userId);
-  useEffect(() => {
-    userIdRef.current = userId;
-  }, [userId]);
+  const [shown, setShown] = useState(DUEL_MATCH_PAGE);
   const window = useMemo(() => visitRangeIso(range, new Date(), timeZone), [range, timeZone]);
   const requestKey = `${userId}:${revision}:${range}:${window?.fromIso ?? "all"}`;
   const visible = loadedFor === requestKey ? page : null;
 
   useEffect(() => {
     let cancelled = false;
-    void listAdminStudentDuelMatchFailures(userId, 0, window).then((result) => {
+    void listAdminStudentDuelMatches(userId, window).then((result) => {
       if (cancelled) return;
       setLoadedFor(requestKey);
+      setShown(DUEL_MATCH_PAGE);
       if (!result.ok) {
-        setPage({ status: "error", failures: [], total: 0 });
+        setPage({
+          status: "error",
+          matches: [],
+          total: 0,
+          failed: 0,
+          open: 0,
+          finished: 0,
+          truncated: false,
+        });
         return;
       }
       const { ok: _ok, ...loaded } = result;
@@ -1483,54 +1493,48 @@ function DuelMatchFailuresSection({
     };
   }, [requestKey, userId, window]);
 
-  async function loadMore() {
-    if (!visible || loadingMore || visible.failures.length >= visible.total) return;
-    const requestUser = userId;
-    setLoadingMore(true);
-    const result = await listAdminStudentDuelMatchFailures(requestUser, visible.failures.length, window);
-    setLoadingMore(false);
-    if (userIdRef.current !== requestUser || !result.ok || result.status !== "ready") return;
-    setPage((current) => {
-      if (!current) return current;
-      const seen = new Set(current.failures.map((failure) => failure.id));
-      const { ok: _ok, failures, ...counts } = result;
-      return {
-        ...current,
-        ...counts,
-        failures: [...current.failures, ...failures.filter((failure) => !seen.has(failure.id))],
-      };
-    });
-  }
-
-  const earlier = visible ? Math.max(0, visible.total - visible.failures.length) : 0;
   if (hideQuietSection(hideWhenEmpty, visible)) return null;
+  const rows = visible?.status === "ready" ? visible.matches.slice(0, shown) : [];
+  const earlier = visible?.status === "ready" ? Math.max(0, visible.matches.length - rows.length) : 0;
 
   return (
-    <section aria-label="Duel match failures" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
+    <section aria-label="Duel matches" aria-busy={visible == null} className="flex min-w-0 flex-col gap-space-12">
       <ColumnHeader
         title="Duel matches"
-        description="Each time a new duel showed “Chưa thể tìm đối thủ lúc này,” with the reason it failed."
+        description="Not started, in progress, finished with the score, expired, and times matchmaking found nobody."
       />
       {visible == null ? (
         <EmptyPanel>Loading duel matches…</EmptyPanel>
       ) : visible.status === "missing" ? (
-        <EmptyPanel>{DUEL_MATCH_FAILURE_SCHEMA_HINT}</EmptyPanel>
+        <EmptyPanel>Duel matches are not available yet. Run supabase/duels.sql once in the Supabase SQL editor.</EmptyPanel>
       ) : visible.status === "error" ? (
         <EmptyPanel>Duel matches could not be loaded.</EmptyPanel>
       ) : visible.total === 0 ? (
-        <EmptyPanel>{duelFailureEmptyMessage(range)}</EmptyPanel>
+        <EmptyPanel>{duelMatchEmptyMessage(range)}</EmptyPanel>
       ) : (
         <div className="flex flex-col gap-space-12">
-          <StatStrip items={[{ label: "Failed matches", value: String(visible.total) }]} />
+          <StatStrip
+            items={[
+              { label: "Matches", value: String(visible.total), icon: "swords", tone: "cobalt" },
+              { label: "Finished", value: String(visible.finished), icon: "emoji_events", tone: "emerald" },
+              { label: "Open", value: String(visible.open), icon: "hourglass_top", tone: "violet" },
+              { label: "No opponent", value: String(visible.failed), icon: "person_off", tone: "neutral" },
+            ]}
+          />
           <ul className="flex flex-col gap-space-8">
-            {visible.failures.map((failure) => (
-              <DuelMatchFailureRow key={failure.id} failure={failure} />
+            {rows.map((match) => (
+              <DuelMatchRow key={match.id} match={match} />
             ))}
           </ul>
           {earlier > 0 ? (
-            <Button className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
-              {loadingMore ? "Loading…" : `Show ${earlier} earlier ${earlier === 1 ? "failure" : "failures"}`}
+            <Button className="self-center" onClick={() => setShown((count) => count + DUEL_MATCH_PAGE)}>
+              {`Show ${Math.min(earlier, DUEL_MATCH_PAGE)} earlier ${earlier === 1 ? "match" : "matches"}`}
             </Button>
+          ) : null}
+          {visible.truncated ? (
+            <p className="text-center text-admin-body-sm text-admin-ink-muted">
+              Showing the latest matches in this period.
+            </p>
           ) : null}
         </div>
       )}
@@ -1538,23 +1542,52 @@ function DuelMatchFailuresSection({
   );
 }
 
-function DuelMatchFailureRow({ failure }: { failure: DuelMatchFailure }) {
-  const when = formatAbsoluteTime(failure.createdAt);
+const DUEL_MATCH_TONE: Record<StudentDuelMatch["status"] | "win" | "loss" | "tie", string> = {
+  failed: "bg-admin-crimson-wash text-admin-crimson",
+  "not-started": "bg-admin-subtle text-admin-ink-subtle",
+  started: "bg-admin-cobalt-wash text-admin-cobalt",
+  waiting: "bg-admin-amber-wash text-admin-amber",
+  completed: "bg-admin-emerald-wash text-admin-emerald",
+  expired: "bg-admin-amber-wash text-admin-amber",
+  win: "bg-admin-emerald-wash text-admin-emerald",
+  loss: "bg-admin-crimson-wash text-admin-crimson",
+  tie: "bg-admin-violet-wash text-admin-violet",
+};
+
+function DuelMatchRow({ match }: { match: StudentDuelMatch }) {
+  const when = formatAbsoluteTime(match.at);
+  const tone =
+    match.status === "completed" && match.outcome ? DUEL_MATCH_TONE[match.outcome] : DUEL_MATCH_TONE[match.status];
+  const href = isDuelId(match.id) ? `/admin/duels?duel=${match.id}` : null;
+  const body = (
+    <>
+      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-control ${tone}`}>
+        <MaterialIcon name="swords" className="text-[20px]" filled />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-admin-body-md font-semibold text-admin-ink">{match.title}</span>
+        {when ? (
+          <span className="mt-0.5 block text-admin-body-sm tabular-nums text-admin-ink-subtle">{when}</span>
+        ) : null}
+        <span className="mt-space-8 block text-admin-body-sm leading-relaxed text-admin-ink">{match.detail}</span>
+      </span>
+      {href ? <MaterialIcon name="chevron_right" className="mt-1 text-[20px] text-admin-ink-subtle" /> : null}
+    </>
+  );
   return (
     <li>
-      <Panel>
-        <div className="flex items-start gap-space-12 px-space-16 py-space-12">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-admin-control bg-admin-crimson-wash text-admin-crimson">
-            <MaterialIcon name="swords" className="text-[20px]" filled />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-admin-body-md font-semibold text-admin-ink">Could not find an opponent</span>
-            {when ? (
-              <span className="mt-0.5 block text-admin-body-sm tabular-nums text-admin-ink-subtle">{when}</span>
-            ) : null}
-            <span className="mt-space-8 block text-admin-body-sm leading-relaxed text-admin-ink">{failure.reason}</span>
-          </span>
-        </div>
+      <Panel className={href ? "transition-colors hover:border-admin-cobalt" : ""}>
+        {href ? (
+          <Link
+            href={href}
+            aria-label={`Open this duel on the duels dashboard. ${match.title}. ${match.detail}`}
+            className="flex items-start gap-space-12 px-space-16 py-space-12 outline-none focus-visible:shadow-admin-focus"
+          >
+            {body}
+          </Link>
+        ) : (
+          <div className="flex items-start gap-space-12 px-space-16 py-space-12">{body}</div>
+        )}
       </Panel>
     </li>
   );
@@ -1695,7 +1728,7 @@ export function ActivityTab({
         )}
       </section>
       <div className="flex min-w-0 flex-col gap-space-40">
-        <DuelMatchFailuresSection
+        <DuelMatchesSection
           userId={userId}
           revision={runsRevision}
           range={range}

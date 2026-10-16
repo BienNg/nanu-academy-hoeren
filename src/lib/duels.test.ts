@@ -14,11 +14,17 @@ import {
   placeOnReel,
   REEL_MIN_SLOTS,
   reelStop,
+  lastFinisher,
+  readDuelClaimCount,
   readIncomingChallenges,
+  resultNeedsClaim,
   type IncomingChallenge,
   incomingChallengeLabel,
   challengeLeftLabel,
   adminChallengeStatus,
+  isStalePausedDuel,
+  studentDuelMatchFromDuel,
+  studentDuelMatchFromFailure,
   challengeReleasedAt,
   completedAgoLabel,
   clipWinner,
@@ -700,6 +706,33 @@ test("incoming challenges are read from the badge response", () => {
   assert.deepEqual(readIncomingChallenges({ challenges: "x" }), []);
 });
 
+test("a claim is an unseen scored result closed after the feature started", () => {
+  const closed = "2026-10-16T06:00:00.000Z";
+  assert.equal(resultNeedsClaim({ completedAt: closed, expired: false, seenAt: null }), true);
+  assert.equal(resultNeedsClaim({ completedAt: closed, expired: false, seenAt: closed }), false);
+  assert.equal(resultNeedsClaim({ completedAt: closed, expired: true, seenAt: null }), false);
+  assert.equal(resultNeedsClaim({ completedAt: "2026-10-15T06:00:00.000Z", expired: false, seenAt: null }), false);
+  assert.equal(resultNeedsClaim({ completedAt: closed, expired: false, seenAt: undefined }), false);
+  assert.equal(resultNeedsClaim({ completedAt: null, expired: false, seenAt: null }), false);
+});
+
+test("the last finisher is whoever settled a clip latest", () => {
+  const plays = [
+    { userId: "ban", state: "done", finishedAt: "2026-10-16T06:00:00.000Z" },
+    { userId: "minh", state: "done", finishedAt: "2026-10-16T08:00:00.000Z" },
+    { userId: "ban", state: "forfeited", finishedAt: "2026-10-16T05:00:00.000Z" },
+  ];
+  assert.equal(lastFinisher(plays), "minh");
+  assert.equal(lastFinisher([{ userId: "ban", state: "active", finishedAt: null }]), null);
+});
+
+test("the badge reads how many results are waiting to be claimed", () => {
+  assert.equal(readDuelClaimCount({ claims: 2 }), 2);
+  assert.equal(readDuelClaimCount({ claims: 0 }), 0);
+  assert.equal(readDuelClaimCount({ claims: 1.8 }), 1);
+  assert.equal(readDuelClaimCount(null), 0);
+});
+
 test("the showdown day is kept per learner", () => {
   assert.notEqual(challengeIntroKey("a"), challengeIntroKey("b"));
 });
@@ -731,6 +764,87 @@ test("a picked opponent missing from the reel goes in out of view", () => {
   assert.equal(placed.index, 1);
   assert.equal(placed.reel[1], "Minh");
   assert.deepEqual(reel, ["An", "Bình", "Chi", "Dung", "Hà", "Lan"]);
+});
+
+test("a student duel match names the result, the open state, and a failed search", () => {
+  const base = {
+    id: "duel-1",
+    createdAt: "2026-10-10T01:00:00.000Z",
+    completedAt: null as string | null,
+    expired: false,
+    youAreChallenger: true,
+    opponentName: "Lan",
+    yourPoints: null as number | null,
+    opponentPoints: null as number | null,
+    outcome: null,
+    yourXp: null as number | null,
+    youStarted: false,
+    youSettled: 0,
+    opponentSettled: 0,
+    progressKnown: true,
+  };
+
+  assert.equal(studentDuelMatchFromDuel(base).title, "Not started");
+  assert.match(studentDuelMatchFromDuel(base).detail, /challenge sent/);
+
+  const started = studentDuelMatchFromDuel({ ...base, youStarted: true, youSettled: 4 });
+  assert.equal(started.status, "started");
+  assert.match(started.detail, /4\/15/);
+
+  const waiting = studentDuelMatchFromDuel({
+    ...base,
+    youStarted: true,
+    youSettled: DUEL_SIZE,
+  });
+  assert.equal(waiting.title, "Waiting");
+
+  const won = studentDuelMatchFromDuel({
+    ...base,
+    completedAt: "2026-10-12T01:00:00.000Z",
+    yourPoints: 9,
+    opponentPoints: 6,
+    outcome: "win",
+    yourXp: 50,
+    youStarted: true,
+    youSettled: DUEL_SIZE,
+    opponentSettled: DUEL_SIZE,
+  });
+  assert.equal(won.title, "Won");
+  assert.equal(won.at, "2026-10-12T01:00:00.000Z");
+  assert.match(won.detail, /9–6/);
+  assert.match(won.detail, /50 XP/);
+
+  const expired = studentDuelMatchFromDuel({
+    ...base,
+    youAreChallenger: false,
+    expired: true,
+    completedAt: "2026-10-13T01:00:00.000Z",
+    outcome: "loss",
+    yourXp: 0,
+  });
+  assert.equal(expired.status, "expired");
+  assert.match(expired.detail, /deadline missed/);
+
+  const failed = studentDuelMatchFromFailure({
+    id: "fail-1",
+    reason: "No classmate shares 15 clips.",
+    createdAt: "2026-10-14T01:00:00.000Z",
+  });
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.title, "No opponent");
+  assert.equal(failed.detail, "No classmate shares 15 clips.");
+});
+
+test("a paused challenge is deleted 3 days after it was sent", () => {
+  const createdAt = "2026-10-01T00:00:00.000Z";
+  const justBefore = new Date(Date.parse(createdAt) + DUEL_DEADLINE_MS - 1);
+  const onDeadline = new Date(Date.parse(createdAt) + DUEL_DEADLINE_MS);
+  const paused = { createdAt, completed: false, challengerSettled: 4 };
+  assert.equal(isStalePausedDuel({ ...paused, now: justBefore }), false);
+  assert.equal(isStalePausedDuel({ ...paused, challengerSettled: 0, now: onDeadline }), true);
+  assert.equal(isStalePausedDuel({ ...paused, challengerSettled: DUEL_SIZE, now: onDeadline }), false);
+  assert.equal(isStalePausedDuel({ ...paused, completed: true, now: onDeadline }), false);
+  assert.equal(isStalePausedDuel({ ...paused, createdAt: "nope", now: onDeadline }), false);
 });
 
 test("a challenge stays paused until the sender finishes every question", () => {

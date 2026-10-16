@@ -86,6 +86,54 @@ function opponentTime(clip: DuelClipView): string {
   return formatDuelTime(clip.opponent.elapsedMs);
 }
 
+/** One row per sentence: who was faster, and both times. */
+function ClipResults({ view }: { view: DuelView }) {
+  if (!view.complete || view.clips.length === 0) return null;
+  return (
+    <div className="mt-6 w-full text-left">
+      <p className="text-center text-[13px] font-semibold uppercase tracking-wider text-[#86868b]">Từng câu</p>
+      <ol className="mt-3 flex flex-col gap-2">
+        {view.clips.map((item) => (
+          <li key={item.position} className="rounded-2xl bg-white px-4 py-3 shadow-[0_3px_0_0_#dae2fd]">
+            <p className="text-[15px] font-extrabold text-[#131b2e]">{item.script ?? `Câu ${item.position + 1}`}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(
+                [
+                  { name: view.yourName, time: clipTime(item.you.state, item.you.elapsedMs), won: item.winner === "you" },
+                  { name: view.opponentName, time: opponentTime(item), won: item.winner === "opponent" },
+                ] as const
+              ).map((side) => (
+                <div
+                  key={side.name}
+                  className={`min-w-0 rounded-2xl px-2 py-2 text-center ${
+                    side.won ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]" : "bg-[#f8fafc]"
+                  }`}
+                >
+                  <p className={`truncate text-[12px] font-extrabold ${side.won ? "text-[#0284c7]" : "text-[#6e7881]"}`}>
+                    {side.name}
+                  </p>
+                  <p className={`mt-1 text-[18px] font-extrabold tabular-nums ${side.won ? "text-[#0284c7]" : "text-[#131b2e]"}`}>
+                    {side.time}
+                  </p>
+                  <p
+                    className={`mt-0.5 text-[11px] font-extrabold ${side.won ? "text-[#0284c7]" : "invisible"}`}
+                    aria-hidden={side.won ? undefined : true}
+                  >
+                    Nhanh hơn
+                  </p>
+                </div>
+              ))}
+            </div>
+            {clipNote(item) ? (
+              <p className="mt-2 text-center text-[13px] font-extrabold text-[#6e7881]">{clipNote(item)}</p>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function completedWhen(view: DuelView): string | null {
   if (!view.complete || !view.completedAt) return null;
   return completedAgoLabel(view.completedAt);
@@ -155,11 +203,16 @@ export function DuelEndCard({
         };
   const won = view.yourOutcome === "win";
   const lost = view.yourOutcome === "loss";
+  const showResults = step.score && view.clips.length > 0;
 
   return (
     <section className="fixed inset-0 z-10 flex flex-col bg-[#faf8ff]" aria-live="polite">
       <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(env(safe-area-inset-top)+3.5rem)]">
-        <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-center px-6 py-4 text-center">
+        <div
+          className={`mx-auto flex min-h-full w-full max-w-md flex-col items-center px-6 py-4 text-center ${
+            showResults ? "justify-start" : "justify-center"
+          }`}
+        >
           <motion.div
             className="flex h-[170px] items-end justify-center"
             initial={reduceMotion ? false : { opacity: 0, y: 24 }}
@@ -216,6 +269,12 @@ export function DuelEndCard({
                 <span className="pt-4 text-[12px] font-extrabold tracking-wide text-[#94a3b8]">VS</span>
                 <ScoreSide name={view.opponentName} points={view.opponentPoints} winner={lost} />
               </div>
+            </motion.div>
+          ) : null}
+
+          {showResults ? (
+            <motion.div className="w-full" {...rise(0.7)}>
+              <ClipResults view={view} />
             </motion.div>
           ) : null}
         </div>
@@ -1038,93 +1097,27 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             primaryLabel={moreEndSteps ? "Tiếp tục" : startingNext ? "Đang tìm đối thủ..." : "Đấu mới"}
             primaryBusy={!moreEndSteps && startingNext}
             onPrimary={moreEndSteps ? () => setEndStep(endIndex + 1) : () => void startNextDuel()}
-            secondaryLabel={moreEndSteps ? undefined : "Xem từng câu"}
-            onSecondary={moreEndSteps ? undefined : () => setPhase("review")}
+            secondaryLabel={moreEndSteps || view.complete ? undefined : "Xem từng câu"}
+            onSecondary={moreEndSteps || view.complete ? undefined : () => setPhase("review")}
           />
         ) : null}
-        {phase === "result" && syncError ? (
-          <p className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-20 px-6 text-center text-[14px] font-bold text-[#be123c]">
-            {syncError}
-          </p>
-        ) : null}
-
-        {phase === "review" && view ? (
+        {phase === "review" && view && !view.complete ? (
           <div className="flex flex-col gap-4">
             <p className="text-center text-[13px] font-semibold uppercase tracking-wider text-[#86868b]">
-              {view.complete && !view.expired
-                ? `${view.yourName} ${view.yourPoints}–${view.opponentPoints} ${view.opponentName}`
-                : `Đấu với ${view.opponentName}`}
+              {`Đấu với ${view.opponentName}`}
               {finishedAgo ? ` · ${finishedAgo}` : ""}
             </p>
             {syncError ? <p className="text-center text-[14px] font-bold text-[#be123c]">{syncError}</p> : null}
             <ol className="flex flex-col gap-2">
               {view.clips.map((item) => (
                 <li key={item.position} className="rounded-2xl bg-white px-4 py-3 shadow-[0_3px_0_0_#dae2fd]">
-                  <p className="text-[15px] font-extrabold text-[#131b2e]">
-                    {item.script ?? `Câu ${item.position + 1}`}
-                  </p>
-                  {view.expired && item.winner === "pending" ? (
-                    <p className="mt-1 text-[13px] font-semibold text-[#6e7881]">Hết hạn</p>
-                  ) : view.complete ? (
-                    <>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        {(
-                          [
-                            {
-                              name: view.yourName,
-                              time: clipTime(item.you.state, item.you.elapsedMs),
-                              won: item.winner === "you",
-                            },
-                            {
-                              name: view.opponentName,
-                              time: opponentTime(item),
-                              won: item.winner === "opponent",
-                            },
-                          ] as const
-                        ).map((side, index) => (
-                          <div
-                            key={index}
-                            className={`min-w-0 rounded-2xl px-2 py-2 text-center ${
-                              side.won ? "bg-[#e0f2fe] shadow-[0_3px_0_0_#7dd3fc]" : "bg-[#f8fafc]"
-                            }`}
-                          >
-                            <p
-                              className={`truncate text-[12px] font-extrabold ${
-                                side.won ? "text-[#0284c7]" : "text-[#6e7881]"
-                              }`}
-                            >
-                              {side.name}
-                            </p>
-                            <p
-                              className={`mt-1 text-[18px] font-extrabold tabular-nums ${
-                                side.won ? "text-[#0284c7]" : "text-[#131b2e]"
-                              }`}
-                            >
-                              {side.time}
-                            </p>
-                            <p
-                              className={`mt-0.5 text-[11px] font-extrabold ${
-                                side.won ? "text-[#0284c7]" : "invisible"
-                              }`}
-                              aria-hidden={side.won ? undefined : true}
-                            >
-                              Nhanh hơn
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      {clipNote(item) ? (
-                        <p className="mt-2 text-center text-[13px] font-extrabold text-[#6e7881]">{clipNote(item)}</p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#e0f2fe] px-3 py-2">
-                      <p className="min-w-0 truncate text-[12px] font-extrabold text-[#0284c7]">{view.yourName}</p>
-                      <p className="text-[18px] font-extrabold tabular-nums text-[#0284c7]">
-                        {clipTime(item.you.state, item.you.elapsedMs)}
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-[15px] font-extrabold text-[#131b2e]">{item.script ?? `Câu ${item.position + 1}`}</p>
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#e0f2fe] px-3 py-2">
+                    <p className="min-w-0 truncate text-[12px] font-extrabold text-[#0284c7]">{view.yourName}</p>
+                    <p className="text-[18px] font-extrabold tabular-nums text-[#0284c7]">
+                      {clipTime(item.you.state, item.you.elapsedMs)}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -1133,6 +1126,13 @@ export function DuelPlayScreen({ duelId }: { duelId: string }) {
             </button>
           </div>
         ) : null}
+
+        {phase === "result" && syncError ? (
+          <p className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-20 px-6 text-center text-[14px] font-bold text-[#be123c]">
+            {syncError}
+          </p>
+        ) : null}
+
       </main>
 
       {quitOpen ? (

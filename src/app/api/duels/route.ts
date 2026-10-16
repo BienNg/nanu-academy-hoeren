@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createDuel, getDuelHome, listUnstartedChallenges, logDuelMatchFailure } from "@/lib/duel-store";
+import {
+  countUnclaimedResults,
+  createDuel,
+  getDuelHome,
+  listUnstartedChallenges,
+  logDuelMatchFailure,
+} from "@/lib/duel-store";
 import { isAdminUser } from "@/lib/admins";
 import {
   getUserClassName,
@@ -33,14 +39,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (new URL(request.url).searchParams.get("badge") === "1") {
-    const [challenges, className] = await Promise.all([
+    const [challenges, className, claims] = await Promise.all([
       listUnstartedChallenges(gate.user.id),
       getUserClassName(gate.user.id),
+      countUnclaimedResults(gate.user.id),
     ]);
     // Duels need classmates. Open challenges still show the tab so they can be played.
     const available =
-      isAdminUser(gate.user) || Boolean(className) || challenges.length > 0;
-    return NextResponse.json({ count: challenges.length, challenges, available });
+      isAdminUser(gate.user) || Boolean(className) || challenges.length > 0 || claims > 0;
+    return NextResponse.json({
+      count: challenges.length + claims,
+      challenges,
+      claims,
+      available,
+    });
   }
   const home = await getDuelHome({ id: gate.user.id, email: gate.user.email });
   return NextResponse.json(home);

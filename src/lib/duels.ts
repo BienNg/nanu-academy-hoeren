@@ -198,6 +198,11 @@ export type DuelCard = {
   expired: boolean;
   /** When the challenged person's 3 days run out. Null before release or after the duel closes. */
   expiresAt: string | null;
+  /**
+   * The other person finished this duel, and this learner has not opened the result.
+   * The home card asks them to claim the XP, and the Đấu tab counts it.
+   */
+  claimXp?: boolean;
 };
 
 export type DuelRecord = { wins: number; losses: number; ties: number };
@@ -423,6 +428,159 @@ export type StudentDuelMatchFailuresPage = {
   failures: DuelMatchFailure[];
   total: number;
 };
+
+/** Where one duel sits for the student Activity tab. */
+export type StudentDuelMatchStatus =
+  | "failed"
+  | "not-started"
+  | "started"
+  | "waiting"
+  | "completed"
+  | "expired";
+
+/** One duel, or one time matchmaking found nobody, newest first in the Activity tab. */
+export type StudentDuelMatch = {
+  id: string;
+  at: string;
+  status: StudentDuelMatchStatus;
+  outcome: DuelOutcome | null;
+  title: string;
+  detail: string;
+};
+
+export type StudentDuelMatchesPage = {
+  status: "ready" | "missing" | "error";
+  matches: StudentDuelMatch[];
+  total: number;
+  failed: number;
+  open: number;
+  finished: number;
+  /** The newest rows were kept. Older ones in this period were left out. */
+  truncated: boolean;
+};
+
+export function compareStudentDuelMatches(left: StudentDuelMatch, right: StudentDuelMatch): number {
+  const byTime = right.at.localeCompare(left.at);
+  if (byTime !== 0) return byTime;
+  return right.id.localeCompare(left.id);
+}
+
+export function studentDuelMatchFromFailure(failure: DuelMatchFailure): StudentDuelMatch {
+  return {
+    id: `failure:${failure.id}`,
+    at: failure.createdAt,
+    status: "failed",
+    outcome: null,
+    title: "No opponent",
+    detail: failure.reason,
+  };
+}
+
+export function studentDuelMatchFromDuel(input: {
+  id: string;
+  createdAt: string;
+  completedAt: string | null;
+  expired: boolean;
+  youAreChallenger: boolean;
+  opponentName: string;
+  yourPoints: number | null;
+  opponentPoints: number | null;
+  outcome: DuelOutcome | null;
+  yourXp: number | null;
+  youStarted: boolean;
+  youSettled: number;
+  opponentSettled: number;
+  /** False when play rows could not be read, so sentence counts are unknown. */
+  progressKnown: boolean;
+}): StudentDuelMatch {
+  const name = input.opponentName.trim() || "Classmate";
+  const vs = `vs ${name}`;
+  const xpText = input.yourXp == null ? "" : ` · ${input.yourXp} XP`;
+
+  if (input.expired) {
+    return {
+      id: input.id,
+      at: input.completedAt ?? input.createdAt,
+      status: "expired",
+      outcome: input.outcome,
+      title: "Expired",
+      detail: input.youAreChallenger
+        ? `${vs} · they missed the deadline${xpText}`
+        : `${vs} · deadline missed${xpText}`,
+    };
+  }
+
+  const bothDone = input.youSettled >= DUEL_SIZE && input.opponentSettled >= DUEL_SIZE;
+  if (input.completedAt || (input.progressKnown && bothDone)) {
+    const score =
+      input.yourPoints != null && input.opponentPoints != null
+        ? `${input.yourPoints}–${input.opponentPoints}`
+        : null;
+    const title =
+      input.outcome === "win"
+        ? "Won"
+        : input.outcome === "loss"
+          ? "Lost"
+          : input.outcome === "tie"
+            ? "Tied"
+            : "Completed";
+    return {
+      id: input.id,
+      at: input.completedAt ?? input.createdAt,
+      status: "completed",
+      outcome: input.outcome,
+      title,
+      detail: `${vs}${score ? ` · ${score}` : ""}${xpText}`,
+    };
+  }
+
+  if (!input.progressKnown) {
+    return {
+      id: input.id,
+      at: input.createdAt,
+      status: "started",
+      outcome: null,
+      title: "In progress",
+      detail: `${vs} · still open`,
+    };
+  }
+
+  if (!input.youStarted) {
+    const notReleased = !input.youAreChallenger && input.opponentSettled < DUEL_SIZE;
+    return {
+      id: input.id,
+      at: input.createdAt,
+      status: "not-started",
+      outcome: null,
+      title: notReleased ? "Not open yet" : "Not started",
+      detail: notReleased
+        ? `${vs} · they have not finished the challenge`
+        : input.youAreChallenger
+          ? `${vs} · challenge sent`
+          : `${vs} · challenge received`,
+    };
+  }
+
+  if (input.youSettled >= DUEL_SIZE) {
+    return {
+      id: input.id,
+      at: input.createdAt,
+      status: "waiting",
+      outcome: null,
+      title: "Waiting",
+      detail: `${vs} · you finished, waiting for them`,
+    };
+  }
+
+  return {
+    id: input.id,
+    at: input.createdAt,
+    status: "started",
+    outcome: null,
+    title: "Started",
+    detail: `${vs} · ${input.youSettled}/${DUEL_SIZE} sentences done`,
+  };
+}
 
 /**
  * A duel sentence the student started and then left. The play is forfeited
@@ -705,6 +863,45 @@ export function isSettledState(state: string | undefined): boolean {
   return state === "done" || state === "forfeited";
 }
 
+/**
+ * Results closed before this were already sitting on the history list.
+ * Only a duel that closes after it can ask the earlier player to claim XP.
+ */
+export const DUEL_CLAIM_SINCE = "2026-10-16T05:00:00.000Z";
+
+/** The learner who settled a clip latest. They see the result as they finish. */
+export function lastFinisher(
+  plays: readonly { userId: string; state: string; finishedAt: string | null }[],
+): string | null {
+  let last: { userId: string; at: string } | null = null;
+  for (const play of plays) {
+    if (!isSettledState(play.state) || !play.finishedAt) continue;
+    if (!last || play.finishedAt >= last.at) last = { userId: play.userId, at: play.finishedAt };
+  }
+  return last?.userId ?? null;
+}
+
+/**
+ * A scored duel this learner has not opened since the other person finished it.
+ * `seenAt` undefined means the database has no seen column yet, so nothing is claimed.
+ */
+export function resultNeedsClaim(input: {
+  completedAt: string | null;
+  expired: boolean;
+  seenAt: string | null | undefined;
+}): boolean {
+  if (!input.completedAt || input.expired || input.seenAt !== null) return false;
+  return input.completedAt >= DUEL_CLAIM_SINCE;
+}
+
+/** Reads `claims` from a GET /api/duels?badge=1 body. */
+export function readDuelClaimCount(data: unknown): number {
+  if (!data || typeof data !== "object") return 0;
+  const claims = (data as { claims?: unknown }).claims;
+  if (typeof claims !== "number" || !Number.isFinite(claims) || claims <= 0) return 0;
+  return Math.min(99, Math.floor(claims));
+}
+
 export type LocalClipResult = { state: "done"; elapsedMs: number } | { state: "forfeited" };
 
 function recountView(view: DuelView, clips: readonly DuelClipView[]): DuelView {
@@ -873,6 +1070,31 @@ export function adminChallengeStatus(input: {
   if (input.completed) return "ended";
   const clipCount = input.clipCount ?? DUEL_SIZE;
   return input.challengerSettled >= clipCount ? "open" : "paused";
+}
+
+/** True once a paused challenge is old enough to delete. The 3 days start when it was sent. */
+export function pausedDuelPastDeadline(createdAt: string, now: Date): boolean {
+  const created = Date.parse(createdAt);
+  if (!Number.isFinite(created)) return false;
+  return now.getTime() >= created + DUEL_DEADLINE_MS;
+}
+
+/**
+ * A paused challenge (the sender has not finished every question) is deleted
+ * 3 days after it was created. An open challenge, where the other student
+ * can already play, is left for the usual deadline.
+ */
+export function isStalePausedDuel(input: {
+  createdAt: string;
+  completed: boolean;
+  challengerSettled: number;
+  now: Date;
+  clipCount?: number;
+}): boolean {
+  if (input.completed) return false;
+  const clipCount = input.clipCount ?? DUEL_SIZE;
+  if (input.challengerSettled >= clipCount) return false;
+  return pausedDuelPastDeadline(input.createdAt, input.now);
 }
 
 /**

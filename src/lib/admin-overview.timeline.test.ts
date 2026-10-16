@@ -20,6 +20,8 @@ import {
   rowsForClassScope,
   signedUpAt,
   sortAdminUsers,
+  buildAdminDuelBoard,
+  type AdminDuelRecord,
   type AdminUserRow,
 } from "./admin-overview.js";
 import {
@@ -608,4 +610,28 @@ test("signed up sort puts the newest account first", () => {
     progress: { ...DEFAULT_PROGRESS, practiceDates: ["2026-10-12"] },
   };
   assert.equal(signedUpAt(sameDay), "2026-10-12T10:33:00.000Z");
+});
+
+test("a focused duel stays in the question list after it leaves the date window", () => {
+  const duel: AdminDuelRecord = {
+    id: "11111111-1111-4111-8111-111111111111",
+    challengerId: "a",
+    opponentId: "b",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    completedAt: "2026-01-02T00:00:00.000Z",
+    challengerPoints: 9,
+    opponentPoints: 6,
+    expired: false,
+  };
+  const people = [row("a", null, "An"), row("b", null, "Binh")];
+  const hidden = buildAdminDuelBoard(people, [duel], "7d", NOW);
+  assert.equal(
+    hidden.challenges.some((item) => item.id === duel.id),
+    false,
+  );
+  const shown = buildAdminDuelBoard(people, [duel], "7d", NOW, null, duel.id);
+  assert.equal(
+    shown.challenges.some((item) => item.id === duel.id),
+    true,
+  );
 });

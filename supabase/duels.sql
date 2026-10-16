@@ -204,3 +204,7 @@ $$;
 revoke all on function public.duel_xp_leaderboard_totals(text) from public;
 revoke all on function public.duel_xp_leaderboard_totals(text) from anon, authenticated;
 grant execute on function public.duel_xp_leaderboard_totals(text) to service_role;
+
+-- The player who finished earlier has not seen the result until they open it.
+-- Null means unclaimed. The player who finished last is stamped when the duel closes.
+alter table public.duel_xp_awards add column if not exists result_seen_at timestamptz;

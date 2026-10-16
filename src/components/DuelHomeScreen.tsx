@@ -174,7 +174,7 @@ function outcomeLabel(card: Pick<DuelCard, "expired" | "yourOutcome">): string {
   return "Hòa";
 }
 
-function MatchupCard({ card }: { card: DuelCard }) {
+function MatchupCard({ card, href }: { card: DuelCard; href?: string }) {
   const yourName = card.yourName || "Bạn";
   const opponentName = card.opponentName || "Học viên";
   const age = completedAgoLabel(card.createdAt);
@@ -187,7 +187,7 @@ function MatchupCard({ card }: { card: DuelCard }) {
 
   return (
     <Link
-      href={`/duel/${card.id}`}
+      href={href ?? `/duel/${card.id}`}
       className="block rounded-[28px] bg-white px-4 py-4 shadow-[0_3px_0_0_#dae2fd] transition-transform active:translate-y-0.5"
     >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -198,23 +198,34 @@ function MatchupCard({ card }: { card: DuelCard }) {
         </span>
         <MatchupSide name={opponentName} points={card.opponentPoints} winner={card.yourOutcome === "loss"} />
       </div>
-      <div className="mt-3 flex items-center justify-center gap-2 text-[13px] font-extrabold">
-        <span className="text-[#6e7881]">{outcomeLabel(card)}</span>
-        {xp > 0 ? (
-          <span className="inline-flex items-center gap-0.5 text-[#f59e0b]">
-            <span
-              className="material-symbols-outlined text-[16px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-              aria-hidden="true"
-            >
-              bolt
+      {card.claimXp ? (
+        <span className="mt-3 flex h-11 items-center justify-center rounded-2xl bg-[#0284c7] text-[14px] font-extrabold uppercase tracking-[0.06em] text-white shadow-[0_3px_0_0_#0369a1]">
+          Nhận XP
+        </span>
+      ) : (
+        <div className="mt-3 flex items-center justify-center gap-2 text-[13px] font-extrabold">
+          <span className="text-[#6e7881]">{outcomeLabel(card)}</span>
+          {xp > 0 ? (
+            <span className="inline-flex items-center gap-0.5 text-[#f59e0b]">
+              <span
+                className="material-symbols-outlined text-[16px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                bolt
+              </span>
+              +{xp} XP
             </span>
-            +{xp} XP
-          </span>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      )}
     </Link>
   );
+}
+
+/** The history card, including the claim state, for the admin preview. */
+export function DuelHistoryCard({ card, href }: { card: DuelCard; href?: string }) {
+  return <MatchupCard card={card} href={href} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { loadAdminDuelQuestions, type AdminDuelQuestions } from "@/app/admin/actions";
 import {
   Bar,
@@ -86,7 +86,7 @@ function formatDuration(ms: number | null): string {
 const STATUS_LABEL: Record<AdminChallengeStatus, string> = {
   open: "Open",
   paused: "Paused",
-  ended: "Ended",
+  ended: "Finished",
 };
 
 const STATUS_TONE: Record<AdminChallengeStatus, "cobalt" | "amber" | "neutral"> = {
@@ -267,7 +267,13 @@ function ChallengeQuestions({
   );
 }
 
-function ChallengePanel({ rows }: { rows: readonly AdminDuelChallenge[] }) {
+function ChallengePanel({
+  rows,
+  focusId,
+}: {
+  rows: readonly AdminDuelChallenge[];
+  focusId: string | null;
+}) {
   const [filter, setFilter] = useState<"all" | AdminChallengeStatus>("all");
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -278,6 +284,38 @@ function ChallengePanel({ rows }: { rows: readonly AdminDuelChallenge[] }) {
   } | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const request = useRef(0);
+
+  useEffect(() => {
+    if (!focusId) return;
+    const index = rows.findIndex((row) => row.id === focusId);
+    if (index < 0) return;
+    setFilter("all");
+    setPage(Math.floor(index / ADMIN_PAGE_SIZE) + 1);
+    setOpenId(focusId);
+    const ticket = request.current + 1;
+    request.current = ticket;
+    setLoadingId(focusId);
+    void loadAdminDuelQuestions(focusId)
+      .then((result) => {
+        if (request.current !== ticket) return;
+        setLoaded({
+          id: focusId,
+          detail: result.ok ? result.detail : null,
+          error: result.ok ? null : result.error,
+        });
+        setLoadingId(null);
+      })
+      .catch(() => {
+        if (request.current !== ticket) return;
+        setLoaded({ id: focusId, detail: null, error: "Could not load this challenge." });
+        setLoadingId(null);
+      });
+  }, [focusId, rows]);
+
+  useEffect(() => {
+    if (!focusId || openId !== focusId) return;
+    document.getElementById(`admin-duel-${focusId}`)?.scrollIntoView({ block: "start" });
+  }, [focusId, openId, loaded, page]);
 
   const filtered = useMemo(
     () => (filter === "all" ? rows : rows.filter((row) => row.status === filter)),
@@ -316,7 +354,7 @@ function ChallengePanel({ rows }: { rows: readonly AdminDuelChallenge[] }) {
     <TablePanel
       icon="quiz"
       title="Questions and answer times"
-      hint="Paused means the sender has not finished every question, so the other student cannot play yet. Open means they can. Times are Vietnam time. A duration is how long the answer took."
+      hint="Paused means the sender has not finished every question, so the other student cannot play yet. A paused challenge is deleted 3 days after it was sent. Open means the other student can play. Times are Vietnam time. A duration is how long the answer took."
       color={ADMIN_COLORS.cobalt}
       trailing={
         <Segmented
@@ -367,12 +405,16 @@ function ChallengePanel({ rows }: { rows: readonly AdminDuelChallenge[] }) {
             <tbody className="text-admin-body-md text-admin-ink">
               {windowed.pageItems.map((row) => {
                 const expanded = openId === row.id;
+                const focused = focusId === row.id;
                 const detail = loaded?.id === row.id ? loaded.detail : null;
                 const error = loaded?.id === row.id ? loaded.error : null;
                 const loading = loadingId === row.id && !detail;
                 return (
                   <Fragment key={row.id}>
-                    <tr className={TR}>
+                    <tr
+                      id={focused ? `admin-duel-${row.id}` : undefined}
+                      className={`${TR} scroll-mt-24 ${focused ? "bg-admin-cobalt-wash" : ""}`}
+                    >
                       <td className="px-space-16">
                         <span className="font-semibold">{row.challengerName}</span>
                         <span className="text-admin-ink-subtle"> vs </span>
@@ -386,7 +428,7 @@ function ChallengePanel({ rows }: { rows: readonly AdminDuelChallenge[] }) {
                       </td>
                       <td className="px-space-16">
                         <Badge tone={row.expired ? "crimson" : STATUS_TONE[row.status]}>
-                          {row.expired ? "Ended" : STATUS_LABEL[row.status]}
+                          {row.expired ? "Expired" : STATUS_LABEL[row.status]}
                         </Badge>
                       </td>
                       <td className="whitespace-nowrap px-space-16 text-admin-body-sm tabular-nums text-admin-ink-muted">
@@ -446,6 +488,7 @@ export function AdminDuels({
   duels,
   settled,
   range: serverRange,
+  focusId,
   storeConfigured,
   duelsReady,
 }: {
@@ -453,13 +496,14 @@ export function AdminDuels({
   duels: readonly AdminDuelRecord[];
   settled: readonly AdminDuelSettled[] | null;
   range: AdminRange;
+  focusId: string | null;
   storeConfigured: boolean;
   duelsReady: boolean;
 }) {
   const range = useAdminRange(serverRange);
   const board = useMemo(
-    () => buildAdminDuelBoard(people, duels, range, new Date(), settled),
-    [people, duels, range, settled],
+    () => buildAdminDuelBoard(people, duels, range, new Date(), settled, focusId),
+    [people, duels, range, settled, focusId],
   );
   const window =
     range === "today" ? "today" : `in the last ${adminRangeLabel(range).toLowerCase()}`;
@@ -521,7 +565,7 @@ export function AdminDuels({
           icon="pause"
           label="Paused"
           value={settled ? formatCount(board.paused) : "—"}
-          caption={settled ? "Sender has not finished the questions" : "Answer progress unavailable"}
+          caption={settled ? "Sender has not finished. Removed after 3 days." : "Answer progress unavailable"}
           color={ADMIN_COLORS.amber}
         />
         <KpiTile
@@ -545,7 +589,7 @@ export function AdminDuels({
 
       <LeadersTable rows={board.leaders} />
 
-      <ChallengePanel rows={board.challenges} />
+      <ChallengePanel rows={board.challenges} focusId={focusId} />
     </main>
   );
 }

@@ -1,4 +1,7 @@
+import { updateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { ADMIN_DUELS_TAG } from "@/lib/admin-list-cache";
+import { deleteStalePausedDuels } from "@/lib/duel-store";
 import { sendDueStreakReminders } from "@/lib/push-store";
 
 export const maxDuration = 60;
@@ -14,7 +17,14 @@ export async function GET(request: Request) {
   }
   try {
     const result = await sendDueStreakReminders();
-    return NextResponse.json(result);
+    let removedPaused = 0;
+    try {
+      removedPaused = await deleteStalePausedDuels();
+      if (removedPaused > 0) updateTag(ADMIN_DUELS_TAG);
+    } catch (error) {
+      console.error("paused duel cleanup", error);
+    }
+    return NextResponse.json({ ...result, removedPaused });
   } catch (error) {
     console.error("GET /api/push/remind", error);
     return NextResponse.json({ ready: false, sent: 0, skipped: 0, removed: 0, failed: 0 }, { status: 500 });

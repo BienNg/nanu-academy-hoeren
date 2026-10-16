@@ -7,6 +7,7 @@ import { BadgeUnlockSheet } from "@/components/BadgeParts";
 import { ShowdownOverlay } from "@/components/DuelChallengeIntro";
 import { DuelMatchmaking, type MatchedDuel } from "@/components/DuelMatchmaking";
 import { DuelOnboarding } from "@/components/DuelOnboarding";
+import { DuelHistoryCard } from "@/components/DuelHomeScreen";
 import { DuelEndCard, OpeningCountdown } from "@/components/DuelPlayScreen";
 import { BlitzrundeCountdown, BlitzrundeLobby } from "@/components/blitzrunde/BlitzrundeLobby";
 import { BlitzrundeResults } from "@/components/blitzrunde/BlitzrundeResults";
@@ -29,7 +30,7 @@ import { LessonPathIcon, LessonStartCard } from "@/app/learn/[levelSlug]/LevelVi
 import { freshBadge, type FreshBadge } from "@/lib/badges";
 import { BLITZRUNDE_ICON } from "@/lib/blitzrunde";
 import type { ParticipantView, StudentRoundView } from "@/lib/blitzrunde-store";
-import { duelEndSteps, type DuelEndStep, type DuelView, type IncomingChallenge } from "@/lib/duels";
+import { duelEndSteps, type DuelCard, type DuelClipView, type DuelEndStep, type DuelView, type IncomingChallenge } from "@/lib/duels";
 import type { McResult } from "@/lib/multiple-choice";
 import { planClassRankClimb, planRankClimb } from "@/lib/rank-climb";
 import { CLASS_QUEST_DAILY_XP, CLASS_QUEST_WEEKLY_XP, type ClassQuestView } from "@/lib/class-quests";
@@ -573,6 +574,14 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     detail: "The second card: Minh still has time to play.",
   },
   {
+    id: "duel-claim",
+    category: "duels",
+    group: "How it ended",
+    icon: "redeem",
+    title: "Claim XP",
+    detail: "You finished first. Minh has played, and you have not opened the result. The Đấu tab counts it.",
+  },
+  {
     id: "duel-win",
     category: "duels",
     group: "How it ended",
@@ -594,7 +603,7 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     group: "How it ended",
     icon: "handshake",
     title: "Tie",
-    detail: "8–8.",
+    detail: "7–7. One sentence was a dead heat.",
   },
   {
     id: "duel-expired-win",
@@ -915,6 +924,7 @@ function OpenPreview({ id, onClose }: { id: string; onClose: () => void }) {
       </PreviewChrome>
     );
   }
+  if (id === "duel-claim") return <ClaimXpPreview onClose={onClose} />;
   if (id.startsWith("duel-")) return <DuelPreview id={id} onClose={onClose} />;
   if (id === "blitz-lobby") {
     return (
@@ -1735,6 +1745,48 @@ const SAMPLE_CHALLENGE: IncomingChallenge = {
   expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
+const SAMPLE_SCRIPTS = [
+  "Ich komme aus Vietnam.",
+  "Das ist mein Bruder.",
+  "Ich wohne in Berlin.",
+  "Wie geht es dir?",
+  "Ich lerne Deutsch.",
+  "Der Kaffee ist heiß.",
+  "Wir gehen ins Kino.",
+  "Hast du Zeit?",
+  "Ich arbeite im Büro.",
+  "Das Wetter ist schön.",
+  "Kannst du mir helfen?",
+  "Ich esse gern Reis.",
+  "Wo ist der Bahnhof?",
+  "Sie heißt Minh.",
+  "Bis morgen!",
+];
+
+/** 15 sentences whose winners add up to the score on the card. */
+function sampleDuelClips(yourWins: number, opponentWins: number): DuelClipView[] {
+  const winners: DuelClipView["winner"][] = [
+    ...Array.from({ length: yourWins }, () => "you" as const),
+    ...Array.from({ length: opponentWins }, () => "opponent" as const),
+  ];
+  while (winners.length < SAMPLE_SCRIPTS.length) winners.push("neither");
+  return winners.slice(0, SAMPLE_SCRIPTS.length).map((winner, position) => {
+    const youMs = winner === "you" ? 3800 + position * 210 : winner === "neither" ? 6200 : 9100 - position * 80;
+    const opponentMs = winner === "opponent" ? 3600 + position * 160 : winner === "neither" ? 6200 : 8700 - position * 70;
+    return {
+      position,
+      kind: "listening",
+      script: SAMPLE_SCRIPTS[position] ?? null,
+      audioPath: null,
+      translationVi: null,
+      options: null,
+      you: { state: "done", elapsedMs: youMs },
+      opponent: { state: "done", elapsedMs: opponentMs },
+      winner,
+    };
+  });
+}
+
 function duelView(patch: Partial<DuelView>): DuelView {
   return {
     id: "preview",
@@ -1769,9 +1821,27 @@ function duelCase(id: string): { step: DuelEndStep; view: DuelView } | null {
   const views: Record<string, DuelView> = {
     "duel-finished": open,
     "duel-waiting": open,
-    "duel-win": duelView({ yourOutcome: "win", yourPoints: 9, opponentPoints: 6, yourXp: 20 }),
-    "duel-loss": duelView({ yourOutcome: "loss", yourPoints: 6, opponentPoints: 9, yourXp: 10 }),
-    "duel-tie": duelView({ yourOutcome: "tie", yourPoints: 8, opponentPoints: 8, yourXp: 15 }),
+    "duel-win": duelView({
+      yourOutcome: "win",
+      yourPoints: 9,
+      opponentPoints: 6,
+      yourXp: 20,
+      clips: sampleDuelClips(9, 6),
+    }),
+    "duel-loss": duelView({
+      yourOutcome: "loss",
+      yourPoints: 6,
+      opponentPoints: 9,
+      yourXp: 10,
+      clips: sampleDuelClips(6, 9),
+    }),
+    "duel-tie": duelView({
+      yourOutcome: "tie",
+      yourPoints: 7,
+      opponentPoints: 7,
+      yourXp: 15,
+      clips: sampleDuelClips(7, 7),
+    }),
     "duel-expired-win": duelView({
       expired: true,
       yourOutcome: "win",
@@ -1792,6 +1862,87 @@ function duelCase(id: string): { step: DuelEndStep; view: DuelView } | null {
   const steps = duelEndSteps(view, DUEL_NOW);
   const step = id === "duel-waiting" ? steps[1] : steps[0];
   return step ? { step, view } : null;
+}
+
+const CLAIM_NAV = [
+  { href: "/", label: "Học", icon: "/nav/learn.svg" },
+  { href: "/quests", label: "Nhiệm vụ", icon: "/nav/quests.svg" },
+  { href: "/duel", label: "Đấu", icon: "/nav/duel.svg", badge: 1 },
+  { href: "/leaderboard", label: "Xếp hạng", icon: "/nav/ranking.svg" },
+  { href: "/badges", label: "Huy hiệu", icon: "/nav/badges.svg" },
+  { href: "/account", label: "Hồ sơ", icon: "/nav/profile.svg" },
+] as const;
+
+function claimCard(): DuelCard {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    yourName: "Bạn",
+    opponentName: "Minh",
+    createdAt: new Date().toISOString(),
+    challenged: false,
+    youSettled: 15,
+    opponentStarted: true,
+    yourOutcome: "win",
+    yourXp: 50,
+    yourPoints: 9,
+    opponentPoints: 6,
+    expired: false,
+    expiresAt: null,
+    claimXp: true,
+  };
+}
+
+/** The home card for a result the earlier player has not opened, with the tab count. */
+function ClaimXpPreview({ onClose }: { onClose: () => void }) {
+  return (
+    <PreviewChrome onClose={onClose}>
+      <div className="flex h-full flex-col bg-[#faf8ff] text-[#131b2e]">
+        <header className="border-b border-black/[0.04] bg-[#faf8ff]/90 pt-[calc(env(safe-area-inset-top)+3.5rem)] backdrop-blur-xl">
+          <div className="mx-auto flex h-14 w-full max-w-md items-center px-4">
+            <h1 className="font-headline-md text-headline-md font-extrabold tracking-tight">Đấu</h1>
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-4 pt-4 pb-28">
+          <h2 className="mb-3 text-[13px] font-extrabold uppercase tracking-wider text-[#6e7881]">Đã xong</h2>
+          <DuelHistoryCard card={claimCard()} href="#claim" />
+        </main>
+        <nav
+          aria-label="Điều hướng chính"
+          className="absolute inset-x-0 bottom-0 border-t border-[#dae2fd] bg-white/95 pb-safe backdrop-blur-xl"
+        >
+          <div className="mx-auto flex w-full max-w-lg items-end justify-around px-1 py-1.5">
+            {CLAIM_NAV.map((item) => {
+              const active = item.href === "/duel";
+              return (
+                <span
+                  key={item.href}
+                  className={`flex min-w-0 flex-col items-center gap-px rounded-2xl border-2 px-0.5 py-1 ${
+                    active ? "border-[#0071E3] bg-[#E3EEFB]" : "border-transparent"
+                  }`}
+                >
+                  <span className="relative flex h-7 w-7 items-center justify-center">
+                    <img src={item.icon} alt="" width={28} height={28} className="h-7 w-7" />
+                    {"badge" in item ? (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-extrabold leading-none text-white">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span
+                    className={`whitespace-nowrap text-[11px] font-semibold leading-4 ${
+                      active ? "text-[#0059B5]" : "text-[#6E6E73]"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+    </PreviewChrome>
+  );
 }
 
 function DuelPreview({ id, onClose }: { id: string; onClose: () => void }) {

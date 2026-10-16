@@ -28,6 +28,7 @@ import {
   weekKey,
 } from "@/lib/xp";
 import {
+  DUEL_DEADLINE_MS,
   DUEL_EXPIRE_CHALLENGER_XP,
   DUEL_EXPIRE_OPPONENT_XP,
   DUEL_SIZE,
@@ -38,6 +39,9 @@ import {
   MAX_ANSWER_CHARS,
   MAX_OPEN_WITH_CLASSMATE,
   awardForPoints,
+  compareStudentDuelMatches,
+  studentDuelMatchFromDuel,
+  studentDuelMatchFromFailure,
   challengeExpiresAt,
   challengeReleasedAt,
   addToRecord,
@@ -49,6 +53,10 @@ import {
   isDuelId,
   isDuelSchemaMissing,
   isSettledState,
+  lastFinisher,
+  resultNeedsClaim,
+  isStalePausedDuel,
+  pausedDuelPastDeadline,
   matchPool,
   opponentCanSeeDuel,
   pointsFromPlays,
@@ -64,6 +72,8 @@ import {
   type DuelClipQuit,
   type DuelMatchFailure,
   type DuelOutcome,
+  type StudentDuelMatch,
+  type StudentDuelMatchesPage,
   type IncomingChallenge,
   type DuelView,
   type MatchBlock,
@@ -88,6 +98,23 @@ let skipExpiredColumnUntil = 0;
 let loggedMissingExpiredColumn = false;
 let skipKindColumnUntil = 0;
 let loggedMissingKindColumn = false;
+/** While this is in the future, reads omit `result_seen_at` because that column is not in the database yet. */
+let skipResultSeenUntil = 0;
+let loggedMissingResultSeen = false;
+
+function missingResultSeenColumn(message: string): boolean {
+  return /result_seen_at/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+function rememberMissingResultSeen(): void {
+  skipResultSeenUntil = Date.now() + 5 * 60 * 1000;
+  if (loggedMissingResultSeen) return;
+  loggedMissingResultSeen = true;
+  console.error(
+    "Supabase duel",
+    "Run the new statement at the bottom of supabase/duels.sql so an earlier finisher can claim XP.",
+  );
+}
 
 function missingExpiredColumn(message: string): boolean {
   return /expired/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
@@ -183,6 +210,8 @@ type XpRow = {
   user_id: string;
   xp: number;
   outcome: DuelOutcome;
+  /** Null when this learner has not opened the result. Undefined when the column is absent. */
+  result_seen_at?: string | null;
 };
 
 export type DuelActionResult =
@@ -1077,10 +1106,10 @@ export async function getDuelHome(user: {
   if (!Array.isArray(duels)) return { ...emptyDuelHome(false), viewerIsAdmin: context.viewerIsAdmin };
 
   const onboardingPromise = shouldShowDuelOnboarding(user.id);
-  const plays = await playsForDuels(
+  const plays = (await playsForDuels(
     supabase,
     duels.map((duel) => duel.id),
-  );
+  )).rows;
   const awards = await awardsForDuels(
     supabase,
     duels.filter((duel) => duel.completed_at).map((duel) => duel.id),
@@ -1125,7 +1154,10 @@ export async function getDuelHome(user: {
       home.record = addToRecord(home.record, card.yourOutcome);
     }
   }
-  home.history.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  home.history.sort((left, right) => {
+    if (Boolean(left.claimXp) !== Boolean(right.claimXp)) return left.claimXp ? -1 : 1;
+    return right.createdAt.localeCompare(left.createdAt);
+  });
   home.history = home.history.slice(0, 40);
   home.onboarding = await onboardingPromise;
   return home;
@@ -1216,6 +1248,11 @@ function toCard(
     yourPoints: duel.expired ? null : (storedYours ?? live.left),
     opponentPoints: duel.expired ? null : (storedTheirs ?? live.right),
     expired: duel.expired,
+    claimXp: resultNeedsClaim({
+      completedAt: duel.completed_at,
+      expired: duel.expired,
+      seenAt: award?.result_seen_at,
+    }),
     expiresAt: duel.completed_at
       ? null
       : challengeExpiresAt(
@@ -1229,8 +1266,9 @@ function toCard(
 async function playsForDuels(
   supabase: SupabaseClient,
   duelIds: readonly string[],
-): Promise<(PlayRow & { duel_id: string })[]> {
+): Promise<{ rows: (PlayRow & { duel_id: string })[]; complete: boolean }> {
   const rows: (PlayRow & { duel_id: string })[] = [];
+  let complete = true;
   for (const page of chunks(duelIds, 80)) {
     const { data, error } = await supabase
       .from(PLAYS_TABLE)
@@ -1238,6 +1276,7 @@ async function playsForDuels(
       .in("duel_id", [...page]);
     if (error) {
       schemaGone(error.message);
+      complete = false;
       continue;
     }
     for (const raw of data ?? []) {
@@ -1247,7 +1286,23 @@ async function playsForDuels(
       rows.push({ ...play, duel_id: record.duel_id });
     }
   }
-  return rows;
+  return { rows, complete };
+}
+
+function awardFromRow(raw: {
+  duel_id?: unknown;
+  user_id?: unknown;
+  xp?: unknown;
+  outcome?: unknown;
+  result_seen_at?: unknown;
+}): (XpRow & { duel_id: string }) | null {
+  const outcome = asOutcome(raw.outcome);
+  if (typeof raw.duel_id !== "string" || typeof raw.user_id !== "string" || typeof raw.xp !== "number" || !outcome) {
+    return null;
+  }
+  const seen =
+    "result_seen_at" in raw ? (typeof raw.result_seen_at === "string" ? raw.result_seen_at : null) : undefined;
+  return { duel_id: raw.duel_id, user_id: raw.user_id, xp: raw.xp, outcome, result_seen_at: seen };
 }
 
 async function awardsForDuels(
@@ -1255,12 +1310,19 @@ async function awardsForDuels(
   duelIds: readonly string[],
 ): Promise<(XpRow & { duel_id: string })[]> {
   const rows: (XpRow & { duel_id: string })[] = [];
+  const awardColumns = "duel_id, user_id, xp, outcome";
+  const seenColumns = `${awardColumns}, result_seen_at` as typeof awardColumns;
   for (const page of chunks(duelIds, 80)) {
     if (page.length === 0) continue;
-    const { data, error } = await supabase
+    const includeSeen = Date.now() >= skipResultSeenUntil;
+    let { data, error } = await supabase
       .from(XP_TABLE)
-      .select("duel_id, user_id, xp, outcome")
+      .select(includeSeen ? seenColumns : awardColumns)
       .in("duel_id", [...page]);
+    if (error && includeSeen && missingResultSeenColumn(error.message)) {
+      rememberMissingResultSeen();
+      ({ data, error } = await supabase.from(XP_TABLE).select(awardColumns).in("duel_id", [...page]));
+    }
     if (error) {
       schemaGone(error.message);
       continue;
@@ -1270,12 +1332,10 @@ async function awardsForDuels(
       user_id?: unknown;
       xp?: unknown;
       outcome?: unknown;
+      result_seen_at?: unknown;
     }[]) {
-      const outcome = asOutcome(raw.outcome);
-      if (typeof raw.duel_id !== "string" || typeof raw.user_id !== "string" || typeof raw.xp !== "number" || !outcome) {
-        continue;
-      }
-      rows.push({ duel_id: raw.duel_id, user_id: raw.user_id, xp: raw.xp, outcome });
+      const award = awardFromRow(raw);
+      if (award) rows.push(award);
     }
   }
   return rows;
@@ -1447,6 +1507,235 @@ export async function listStudentDuelMatchFailures(
   return { status: "ready", failures, total: total.count ?? failures.length };
 }
 
+const STUDENT_DUEL_MATCH_CAP = 80;
+
+/**
+ * Duels this student played, plus matchmaking that found nobody.
+ * One admin opening one student: up to 4 lean duel reads (80 rows, no clips),
+ * one failure read, then one play-count read, one XP read, and one name read.
+ */
+export async function listStudentDuelMatches(
+  userId: string,
+  window: { fromIso: string; toIso: string } | null = null,
+): Promise<StudentDuelMatchesPage> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return emptyStudentDuelMatches("error");
+
+  const sides = (["challenger_id", "opponent_id"] as const).flatMap((playerColumn) => {
+    const created = selectStudentDuels(supabase, userId, playerColumn, "created_at", window);
+    if (!window) return [created];
+    return [created, selectStudentDuels(supabase, userId, playerColumn, "completed_at", window)];
+  });
+  const [failurePage, ...duelPages] = await Promise.all([
+    selectStudentMatchFailures(supabase, userId, window),
+    ...sides,
+  ]);
+
+  const duelError = duelPages.find((page) => page.error)?.error ?? null;
+  if (duelError) {
+    if (isDuelSchemaMissing(duelError)) return emptyStudentDuelMatches("missing");
+    logDuel(duelError);
+    return emptyStudentDuelMatches("error");
+  }
+
+  const seen = new Set<string>();
+  const duels: DuelRow[] = [];
+  let truncated = duelPages.some((page) => page.truncated) || failurePage.truncated;
+  for (const page of duelPages) {
+    for (const duel of page.rows) {
+      if (seen.has(duel.id)) continue;
+      seen.add(duel.id);
+      duels.push(duel);
+    }
+  }
+  duels.sort((left, right) => (right.completed_at ?? right.created_at).localeCompare(left.completed_at ?? left.created_at));
+  if (duels.length > STUDENT_DUEL_MATCH_CAP) {
+    truncated = true;
+    duels.length = STUDENT_DUEL_MATCH_CAP;
+  }
+
+  const duelIds = duels.map((duel) => duel.id);
+  const completedIds = duels.filter((duel) => duel.completed_at || duel.expired).map((duel) => duel.id);
+  const opponentIds = [
+    ...new Set(duels.map((duel) => (duel.challenger_id === userId ? duel.opponent_id : duel.challenger_id))),
+  ];
+  const [plays, awards, names] = await Promise.all([
+    matchPlayCounts(supabase, duelIds),
+    awardsForStudent(supabase, userId, completedIds),
+    namesFor(supabase, opponentIds),
+  ]);
+
+  const matches: StudentDuelMatch[] = failurePage.rows.map(studentDuelMatchFromFailure);
+  for (const duel of duels) {
+    const youAreChallenger = duel.challenger_id === userId;
+    const opponentId = youAreChallenger ? duel.opponent_id : duel.challenger_id;
+    const yours = plays?.get(duel.id)?.get(userId);
+    const theirs = plays?.get(duel.id)?.get(opponentId);
+    const award = awards.get(duel.id);
+    const storedPoints = youAreChallenger
+      ? { yours: duel.challenger_points, theirs: duel.opponent_points }
+      : { yours: duel.opponent_points, theirs: duel.challenger_points };
+    const finished = Boolean(duel.completed_at) || duel.expired;
+    matches.push(
+      studentDuelMatchFromDuel({
+        id: duel.id,
+        createdAt: duel.created_at,
+        completedAt: duel.completed_at,
+        expired: duel.expired,
+        youAreChallenger,
+        opponentName: names.get(opponentId) ?? "Classmate",
+        yourPoints: duel.expired ? null : storedPoints.yours,
+        opponentPoints: duel.expired ? null : storedPoints.theirs,
+        outcome: award?.outcome ?? (finished ? outcomeFromStored(duel, userId) : null),
+        yourXp:
+          award?.xp ??
+          (duel.expired ? (youAreChallenger ? DUEL_EXPIRE_CHALLENGER_XP : DUEL_EXPIRE_OPPONENT_XP) : null),
+        youStarted: (yours?.started ?? 0) > 0,
+        youSettled: yours?.settled ?? 0,
+        opponentSettled: theirs?.settled ?? 0,
+        progressKnown: plays != null,
+      }),
+    );
+  }
+  matches.sort(compareStudentDuelMatches);
+
+  let failed = 0;
+  let open = 0;
+  let finished = 0;
+  for (const match of matches) {
+    if (match.status === "failed") failed += 1;
+    else if (match.status === "completed" || match.status === "expired") finished += 1;
+    else open += 1;
+  }
+  return {
+    status: "ready",
+    matches,
+    total: matches.length,
+    failed,
+    open,
+    finished,
+    truncated,
+  };
+}
+
+function emptyStudentDuelMatches(status: "missing" | "error"): StudentDuelMatchesPage {
+  return { status, matches: [], total: 0, failed: 0, open: 0, finished: 0, truncated: false };
+}
+
+async function selectStudentDuels(
+  supabase: SupabaseClient,
+  userId: string,
+  playerColumn: "challenger_id" | "opponent_id",
+  timeColumn: "created_at" | "completed_at",
+  window: { fromIso: string; toIso: string } | null,
+): Promise<{ rows: DuelRow[]; error: string | null; truncated: boolean }> {
+  const run = (columns: string) => {
+    let query = supabase
+      .from(DUELS_TABLE)
+      .select(columns)
+      .eq(playerColumn, userId)
+      .order(timeColumn, { ascending: false })
+      .limit(STUDENT_DUEL_MATCH_CAP);
+    if (window) query = query.gte(timeColumn, window.fromIso).lt(timeColumn, window.toIso);
+    return query;
+  };
+
+  let result = await run(duelColumns());
+  if (result.error && missingExpiredColumn(result.error.message)) {
+    rememberMissingExpiredColumn();
+    result = await run(DUEL_COLUMNS_BASE);
+  }
+  if (result.error) return { rows: [], error: result.error.message, truncated: false };
+  const rows = (result.data ?? []).flatMap((raw) => {
+    const duel = duelFromRow(raw);
+    return duel ? [duel] : [];
+  });
+  return { rows, error: null, truncated: rows.length >= STUDENT_DUEL_MATCH_CAP };
+}
+
+async function selectStudentMatchFailures(
+  supabase: SupabaseClient,
+  userId: string,
+  window: { fromIso: string; toIso: string } | null,
+): Promise<{ rows: DuelMatchFailure[]; truncated: boolean }> {
+  let list = supabase
+    .from(FAILURES_TABLE)
+    .select("id, reason, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(STUDENT_DUEL_MATCH_CAP);
+  if (window) list = list.gte("created_at", window.fromIso).lt("created_at", window.toIso);
+  const rows = await list;
+  if (rows.error) {
+    if (!duelMatchFailureSchemaMissing(rows.error.message)) logDuel(rows.error.message);
+    return { rows: [], truncated: false };
+  }
+  const failures = (rows.data ?? []).flatMap((row): DuelMatchFailure[] => {
+    const record = row as { id?: unknown; reason?: unknown; created_at?: unknown };
+    if (typeof record.id !== "string" || typeof record.reason !== "string" || typeof record.created_at !== "string") {
+      return [];
+    }
+    return [{ id: record.id, reason: record.reason, createdAt: record.created_at }];
+  });
+  return { rows: failures, truncated: failures.length >= STUDENT_DUEL_MATCH_CAP };
+}
+
+async function matchPlayCounts(
+  supabase: SupabaseClient,
+  duelIds: readonly string[],
+): Promise<Map<string, Map<string, { started: number; settled: number }>> | null> {
+  const counts = new Map<string, Map<string, { started: number; settled: number }>>();
+  if (duelIds.length === 0) return counts;
+  for (const page of chunks(duelIds, 80)) {
+    const { data, error } = await supabase
+      .from(PLAYS_TABLE)
+      .select("duel_id, user_id, state")
+      .in("duel_id", [...page]);
+    if (error) {
+      schemaGone(error.message);
+      return null;
+    }
+    for (const raw of (data ?? []) as { duel_id?: unknown; user_id?: unknown; state?: unknown }[]) {
+      const state = asPlayState(raw.state);
+      if (typeof raw.duel_id !== "string" || typeof raw.user_id !== "string" || !state) continue;
+      const byUser = counts.get(raw.duel_id) ?? new Map<string, { started: number; settled: number }>();
+      const current = byUser.get(raw.user_id) ?? { started: 0, settled: 0 };
+      current.started += 1;
+      if (isSettledState(state)) current.settled += 1;
+      byUser.set(raw.user_id, current);
+      counts.set(raw.duel_id, byUser);
+    }
+  }
+  return counts;
+}
+
+async function awardsForStudent(
+  supabase: SupabaseClient,
+  userId: string,
+  duelIds: readonly string[],
+): Promise<Map<string, { xp: number; outcome: DuelOutcome }>> {
+  const awards = new Map<string, { xp: number; outcome: DuelOutcome }>();
+  for (const page of chunks(duelIds, 80)) {
+    if (page.length === 0) continue;
+    const { data, error } = await supabase
+      .from(XP_TABLE)
+      .select("duel_id, xp, outcome")
+      .eq("user_id", userId)
+      .in("duel_id", [...page]);
+    if (error) {
+      schemaGone(error.message);
+      return awards;
+    }
+    for (const raw of (data ?? []) as { duel_id?: unknown; xp?: unknown; outcome?: unknown }[]) {
+      const outcome = asOutcome(raw.outcome);
+      if (typeof raw.duel_id !== "string" || typeof raw.xp !== "number" || !outcome) continue;
+      awards.set(raw.duel_id, { xp: raw.xp, outcome });
+    }
+  }
+  return awards;
+}
+
 const QUIT_LIST_CAP = 200;
 
 /** Sentences this student started and then left, newest first. */
@@ -1542,6 +1831,63 @@ function challengeDeadline(
   return challengeExpiresAt(challengeReleased(plays, duel));
 }
 
+/** The earlier finisher has opened the result, so the Đấu tab can drop this claim. */
+async function markResultSeen(
+  supabase: SupabaseClient,
+  userId: string,
+  duelId: string,
+  now: Date,
+): Promise<void> {
+  if (Date.now() < skipResultSeenUntil) return;
+  const { error } = await supabase
+    .from(XP_TABLE)
+    .update({ result_seen_at: now.toISOString() })
+    .eq("duel_id", duelId)
+    .eq("user_id", userId)
+    .is("result_seen_at", null);
+  if (!error) return;
+  if (missingResultSeenColumn(error.message)) {
+    rememberMissingResultSeen();
+    return;
+  }
+  schemaGone(error.message);
+}
+
+/**
+ * Scored duels this learner finished before the other person, and has not opened since.
+ * One id list, then one duel read, and only when something is unclaimed.
+ */
+export async function countUnclaimedResults(userId: string): Promise<number> {
+  if (Date.now() < skipResultSeenUntil) return 0;
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return 0;
+  const awards = await supabase.from(XP_TABLE).select("duel_id").eq("user_id", userId).is("result_seen_at", null);
+  if (awards.error) {
+    if (missingResultSeenColumn(awards.error.message)) rememberMissingResultSeen();
+    else schemaGone(awards.error.message);
+    return 0;
+  }
+  const ids = (awards.data ?? []).flatMap((row) => {
+    const id = (row as { duel_id?: unknown }).duel_id;
+    return typeof id === "string" ? [id] : [];
+  });
+  if (ids.length === 0) return 0;
+  const duels = await supabase.from(DUELS_TABLE).select("id, completed_at, expired").in("id", ids);
+  if (duels.error) {
+    if (missingExpiredColumn(duels.error.message)) rememberMissingExpiredColumn();
+    schemaGone(duels.error.message);
+    return 0;
+  }
+  return (duels.data ?? []).filter((row) => {
+    const record = row as { completed_at?: unknown; expired?: unknown };
+    return resultNeedsClaim({
+      completedAt: typeof record.completed_at === "string" ? record.completed_at : null,
+      expired: record.expired === true,
+      seenAt: null,
+    });
+  }).length;
+}
+
 /** Challenges the viewer has been sent and has not opened yet. Soonest deadline first. */
 export async function listUnstartedChallenges(userId: string): Promise<IncomingChallenge[]> {
   const supabase = getSupabaseAdmin();
@@ -1568,10 +1914,10 @@ export async function listUnstartedChallenges(userId: string): Promise<IncomingC
   if (duels.length === 0) return [];
   const now = new Date();
   const expired = await expireOverdueDuels(supabase, duels, now);
-  const plays = await playsForDuels(
+  const plays = (await playsForDuels(
     supabase,
     duels.map((duel) => duel.id),
-  );
+  )).rows;
   const open = duels
     .filter((duel) => {
       if (duel.opponent_id !== userId || expired.has(duel.id)) return false;
@@ -1631,9 +1977,11 @@ export async function actOnDuel(input: {
     }
   }
 
-  await expireOverdueDuels(supabase, [duel], now);
-  const current = (await readDuel(supabase, input.duelId)) ?? duel;
+  const closed = await expireOverdueDuels(supabase, [duel], now);
+  const current = (await readDuel(supabase, input.duelId)) ?? (closed.has(duel.id) ? null : duel);
+  if (!current) return { ok: false, status: 404, error: "Not found" };
   if (current.completed_at) {
+    if (!current.expired) await markResultSeen(supabase, input.userId, input.duelId, now);
     const finished = await readView(supabase, input.userId, input.duelId);
     if (!finished) return { ok: false, status: 503, error: "Unavailable" };
     return { ok: true, view: finished, feedback: null };
@@ -2052,11 +2400,26 @@ async function expireOverdueDuels(
   if (Date.now() < skipExpiredColumnUntil) return closed;
   const open = duels.filter((duel) => !duel.completed_at && !duel.expired);
   if (open.length === 0) return closed;
-  const plays = await playsForDuels(
+  const playRead = await playsForDuels(
     supabase,
     open.map((duel) => duel.id),
   );
+  const plays = playRead.rows;
+  const staleIds: string[] = [];
   for (const duel of open) {
+    const challengerSettled = settledFor(plays, duel.id, duel.challenger_id);
+    if (
+      playRead.complete &&
+      isStalePausedDuel({
+        createdAt: duel.created_at,
+        completed: false,
+        challengerSettled,
+        now,
+      })
+    ) {
+      staleIds.push(duel.id);
+      continue;
+    }
     const expiresAt = challengeExpiresAt(
       challengeReleasedAt(
         plays
@@ -2067,7 +2430,98 @@ async function expireOverdueDuels(
     if (!isChallengeExpired(expiresAt, now)) continue;
     if (await closeExpiredDuel(supabase, duel.id, now)) closed.add(duel.id);
   }
+  for (const id of await deleteOpenDuels(supabase, staleIds)) closed.add(id);
   return closed;
+}
+
+async function deleteOpenDuels(supabase: SupabaseClient, duelIds: readonly string[]): Promise<string[]> {
+  const removed: string[] = [];
+  for (const page of chunks(duelIds, 80)) {
+    if (page.length === 0) continue;
+    const { data, error } = await supabase
+      .from(DUELS_TABLE)
+      .delete()
+      .in("id", [...page])
+      .is("completed_at", null)
+      .select("id");
+    if (error) {
+      schemaGone(error.message);
+      continue;
+    }
+    for (const row of (data ?? []) as { id?: unknown }[]) {
+      if (typeof row.id === "string") removed.push(row.id);
+    }
+  }
+  return removed;
+}
+
+/**
+ * Drop paused challenges older than 3 days.
+ * One settled-count read for the old incomplete duels, then one delete per 80 ids.
+ * A failed count read deletes nothing, so an open challenge is not removed by mistake.
+ */
+async function deleteStalePausedAmong(
+  supabase: SupabaseClient,
+  rows: readonly { id: string; createdAt: string; completedAt: string | null; challengerId: string }[],
+  now: Date,
+): Promise<Set<string>> {
+  const candidates = rows.filter((row) => !row.completedAt && pausedDuelPastDeadline(row.createdAt, now));
+  if (candidates.length === 0) return new Set();
+  const settled = await listAdminDuelSettled(candidates.map((row) => row.id));
+  if (!settled.ready) return new Set();
+  const settledByPair = new Map(settled.rows.map((row) => [`${row.duelId}\0${row.userId}`, row.settled]));
+  const ids = candidates
+    .filter((row) =>
+      isStalePausedDuel({
+        createdAt: row.createdAt,
+        completed: false,
+        challengerSettled: settledByPair.get(`${row.id}\0${row.challengerId}`) ?? 0,
+        now,
+      }),
+    )
+    .map((row) => row.id);
+  return new Set(await deleteOpenDuels(supabase, ids));
+}
+
+/**
+ * Daily cleanup for paused challenges nobody opens.
+ * One lean scan of incomplete duels older than 3 days, one settled-count read,
+ * then one delete per 80 ids.
+ */
+export async function deleteStalePausedDuels(now = new Date()): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return 0;
+  const cutoff = new Date(now.getTime() - DUEL_DEADLINE_MS).toISOString();
+  const rows: AdminDuelRecord[] = [];
+  let from = 0;
+  let columns = duelColumns();
+  for (;;) {
+    const { data, error } = await supabase
+      .from(DUELS_TABLE)
+      .select(columns)
+      .is("completed_at", null)
+      .lt("created_at", cutoff)
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (missingExpiredColumn(error.message) && columns !== DUEL_COLUMNS_BASE) {
+        rememberMissingExpiredColumn();
+        columns = DUEL_COLUMNS_BASE;
+        continue;
+      }
+      schemaGone(error.message);
+      return 0;
+    }
+    const page = (data ?? []) as unknown[];
+    for (const raw of page) {
+      const duel = duelFromRow(raw);
+      if (duel) rows.push(toAdminDuelRecord(duel));
+    }
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  const removed = await deleteStalePausedAmong(supabase, rows, now);
+  return removed.size;
 }
 
 async function closeExpiredDuel(supabase: SupabaseClient, duelId: string, now: Date): Promise<boolean> {
@@ -2154,25 +2608,43 @@ async function finalizeIfReady(supabase: SupabaseClient, duelId: string, now: Da
     week_key: weekKey(now),
     day_key: dayKey(now),
   };
-  const { error } = await supabase.from(XP_TABLE).upsert(
-    [
-      {
-        duel_id: duelId,
-        user_id: duel.challenger_id,
-        xp: award.leftXp,
-        outcome: award.leftOutcome,
-        ...stamp,
-      },
-      {
-        duel_id: duelId,
-        user_id: duel.opponent_id,
-        xp: award.rightXp,
-        outcome: award.rightOutcome,
-        ...stamp,
-      },
-    ],
-    { onConflict: "duel_id,user_id", ignoreDuplicates: true },
+  const seenAt = now.toISOString();
+  const last = lastFinisher(
+    plays.map((play) => ({ userId: play.user_id, state: play.state, finishedAt: play.finished_at })),
   );
+  const awardRows = [
+    {
+      duel_id: duelId,
+      user_id: duel.challenger_id,
+      xp: award.leftXp,
+      outcome: award.leftOutcome,
+      result_seen_at: duel.challenger_id === last ? seenAt : null,
+      ...stamp,
+    },
+    {
+      duel_id: duelId,
+      user_id: duel.opponent_id,
+      xp: award.rightXp,
+      outcome: award.rightOutcome,
+      result_seen_at: duel.opponent_id === last ? seenAt : null,
+      ...stamp,
+    },
+  ];
+  let { error } = await supabase.from(XP_TABLE).upsert(awardRows, {
+    onConflict: "duel_id,user_id",
+    ignoreDuplicates: true,
+  });
+  if (error && missingResultSeenColumn(error.message)) {
+    rememberMissingResultSeen();
+    ({ error } = await supabase.from(XP_TABLE).upsert(
+      awardRows.map((row) => {
+        const { result_seen_at: seen, ...rest } = row;
+        void seen;
+        return rest;
+      }),
+      { onConflict: "duel_id,user_id", ignoreDuplicates: true },
+    ));
+  }
   if (error) {
     schemaGone(error.message);
     return;
@@ -2399,9 +2871,11 @@ export async function listAdminDuels(): Promise<{
       const duel = duelFromRow(raw);
       if (duel) rows.push(toAdminDuelRecord(duel));
     }
-    if (page.length < PAGE_SIZE) return { ready: true, rows };
+    if (page.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
   }
+  const removed = await deleteStalePausedAmong(supabase, rows, new Date());
+  return { ready: true, rows: removed.size === 0 ? rows : rows.filter((row) => !removed.has(row.id)) };
 }
 
 export type AdminDuelSettled = {

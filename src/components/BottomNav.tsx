@@ -8,7 +8,7 @@ import { BadgeUnlockSheet, markBadgesSeenRemote } from "@/components/BadgeParts"
 import { DuelChallengeIntro, requestChallengeShowdown } from "@/components/DuelChallengeIntro";
 import { badgeCheckDue, clearBadgeBoardCache, markBadgeCheck } from "@/lib/badge-unseen";
 import { readFreshBadges, type FreshBadge } from "@/lib/badges";
-import { readIncomingChallenges, type IncomingChallenge } from "@/lib/duels";
+import { readDuelClaimCount, readIncomingChallenges, type IncomingChallenge } from "@/lib/duels";
 import {
   clearQuestBoardCache,
   publishQuestBadge,
@@ -86,11 +86,13 @@ const NAV_FRESH_MS = 60_000;
 let questsCheckedAt = 0;
 let questsInflight = false;
 let duelsCheckedAt = 0;
-let duelBadgeSnapshot: IncomingChallenge[] | null = null;
-let duelBadgeRequest: Promise<IncomingChallenge[] | null> | null = null;
+type DuelBadge = { challenges: IncomingChallenge[]; claims: number };
+
+let duelBadgeSnapshot: DuelBadge | null = null;
+let duelBadgeRequest: Promise<DuelBadge | null> | null = null;
 
 /** One duel-badge read, shared by a nav that remounts while it is still running. */
-function requestDuelBadge(force: boolean): Promise<IncomingChallenge[] | null> | "fresh" {
+function requestDuelBadge(force: boolean): Promise<DuelBadge | null> | "fresh" {
   if (duelBadgeRequest) return duelBadgeRequest;
   if (!force && !navCheckDue(duelsCheckedAt)) return "fresh";
   const started = Date.now();
@@ -102,14 +104,14 @@ function requestDuelBadge(force: boolean): Promise<IncomingChallenge[] | null> |
     })
     .then((data: unknown) => {
       if (!data || typeof data !== "object") throw new Error("duels");
-      const next = readIncomingChallenges(data);
+      const next = { challenges: readIncomingChallenges(data), claims: readDuelClaimCount(data) };
       duelBadgeSnapshot = next;
       writeDuelTab((data as { available?: unknown }).available !== false);
       return next;
     })
     .catch(() => {
       if (duelsCheckedAt === started) duelsCheckedAt = 0;
-      duelBadgeSnapshot = [];
+      duelBadgeSnapshot = { challenges: [], claims: 0 };
       return null;
     })
     .finally(() => {
@@ -156,6 +158,7 @@ export function BottomNav() {
   }, [livePath]);
   const pathname = pendingPath ?? livePath;
   const [challenges, setChallenges] = useState<IncomingChallenge[]>([]);
+  const [claims, setClaims] = useState(0);
   const duelTab = useSyncExternalStore(subscribeDuelTab, readDuelTab, () => true);
   const questsLeft = useSyncExternalStore(subscribeQuestBadge, readQuestBadge, () => 0);
   const [freshBadges, setFreshBadges] = useState<FreshBadge[]>([]);
@@ -180,7 +183,9 @@ export function BottomNav() {
   }, []);
 
   useLayoutEffect(() => {
-    if (duelBadgeSnapshot) setChallenges(duelBadgeSnapshot);
+    if (!duelBadgeSnapshot) return;
+    setChallenges(duelBadgeSnapshot.challenges);
+    setClaims(duelBadgeSnapshot.claims);
   }, []);
 
   useEffect(() => {
@@ -234,15 +239,20 @@ export function BottomNav() {
     const load = (force: boolean) => {
       const result = requestDuelBadge(force);
       if (result === "fresh") {
-        if (duelBadgeSnapshot) setChallenges(duelBadgeSnapshot);
+        if (duelBadgeSnapshot) {
+          setChallenges(duelBadgeSnapshot.challenges);
+          setClaims(duelBadgeSnapshot.claims);
+        }
         return;
       }
       void result.then((next) => {
         if (cancelled) return;
-        setChallenges(next ?? []);
+        setChallenges(next?.challenges ?? []);
+        setClaims(next?.claims ?? 0);
       });
     };
-    load(false);
+    // Opening a finished duel marks the claim seen, so the tab recounts on that visit.
+    load(pathname.startsWith("/duel"));
     const onFocus = () => load(true);
     const onVisible = () => {
       if (document.visibilityState === "visible") load(true);
@@ -272,9 +282,15 @@ export function BottomNav() {
           {ITEMS.filter((item) => item.href !== "/duel" || duelTab || pathname.startsWith("/duel")).map((item) => {
             const active = isCurrent(pathname, item.href);
             const badge =
-              item.href === "/duel" ? challenges.length : item.href === "/quests" ? questsLeft : 0;
+              item.href === "/duel" ? challenges.length + claims : item.href === "/quests" ? questsLeft : 0;
             const badgeNote =
-              item.href === "/quests" ? "nhiệm vụ chưa xong" : "lời thách đấu chưa chơi";
+              item.href === "/quests"
+                ? "nhiệm vụ chưa xong"
+                : claims > 0 && challenges.length > 0
+                  ? "lời thách đấu và XP chưa nhận"
+                  : claims > 0
+                    ? "XP chưa nhận"
+                    : "lời thách đấu chưa chơi";
             const label = badge > 0 ? `${item.label}, ${badge} ${badgeNote}` : item.label;
             return (
               <Link
