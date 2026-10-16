@@ -2,14 +2,17 @@
 -- One row per learner per class session (docs/SESSION_RATINGS.md). Sessions
 -- are never stored: a session is a class day from class_schedules, named by
 -- (class_key, session_date). "dismissed" means the learner tapped "Để sau".
--- The Next.js API writes these with the service role key. The primary key
--- means one answer per learner per session.
+-- "absent" means they tapped "Mình vắng buổi này": the class was held, they
+-- were not there. "not_held" means they tapped "Buổi học không diễn ra":
+-- the scheduled class did not take place. Either way they are not asked to
+-- rate it. The Next.js API writes these with the service role key. The
+-- primary key means one answer per learner per session.
 
 create table if not exists public.session_ratings (
   class_key text not null,
   session_date date not null,
   user_id text not null,
-  status text not null check (status in ('rated', 'dismissed')),
+  status text not null check (status in ('rated', 'dismissed', 'absent', 'not_held')),
   stars smallint check (stars between 1 and 5),
   tags text[] not null default '{}',
   comment text check (comment is null or char_length(comment) <= 300),
@@ -17,8 +20,20 @@ create table if not exists public.session_ratings (
   primary key (class_key, session_date, user_id),
   constraint session_ratings_status_fields check (
     (status = 'rated' and stars is not null)
-    or (status = 'dismissed' and stars is null and comment is null and cardinality(tags) = 0)
+    or (status in ('dismissed', 'absent', 'not_held') and stars is null and comment is null and cardinality(tags) = 0)
   )
+);
+
+-- create table does not change a table that already exists. Re-running this
+-- file still has to allow "absent" and "not_held" on an older database.
+alter table public.session_ratings drop constraint if exists session_ratings_status_check;
+alter table public.session_ratings add constraint session_ratings_status_check
+  check (status in ('rated', 'dismissed', 'absent', 'not_held'));
+
+alter table public.session_ratings drop constraint if exists session_ratings_status_fields;
+alter table public.session_ratings add constraint session_ratings_status_fields check (
+  (status = 'rated' and stars is not null)
+  or (status in ('dismissed', 'absent', 'not_held') and stars is null and comment is null and cardinality(tags) = 0)
 );
 
 -- Account deletion and a learner's own ratings on the teacher's student page.

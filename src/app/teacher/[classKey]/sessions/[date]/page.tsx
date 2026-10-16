@@ -46,6 +46,8 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
   if (!session) notFound();
   const ratings = (await readTeacherSessionRatings(data.key, date)) ?? [];
   const commentCount = ratings.filter((rating) => rating.comment).length;
+  const absentCount = ratings.filter((rating) => rating.absent).length;
+  const notHeldCount = ratings.filter((rating) => rating.notHeld).length;
   const enough = session.average != null;
   const studentCount = data.students.length;
 
@@ -73,6 +75,8 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
           sub={studentCount > 0 ? `${Math.round((session.ratedCount / studentCount) * 100)}%` : undefined}
         />
         <StatCard label="Bình luận" value={commentCount} />
+        <StatCard label="Vắng buổi" value={absentCount} />
+        <StatCard label="Không có buổi học" value={notHeldCount} />
       </div>
 
       {!enough && session.ratedCount > 0 ? (
@@ -138,7 +142,13 @@ export default async function SessionPage({ params }: { params: Promise<{ classK
                     >
                       {rating.name}
                     </Link>
-                    <Stars value={rating.stars} size={15} />
+                    {rating.absent || rating.notHeld ? (
+                      <span className="flex h-6 items-center rounded-full bg-[#f0edef] px-2.5 text-[12px] font-semibold text-[#414753]">
+                        {rating.notHeld ? "Không có buổi học" : "Vắng buổi"}
+                      </span>
+                    ) : rating.stars != null ? (
+                      <Stars value={rating.stars} size={15} />
+                    ) : null}
                     <span className="text-[12px] text-[#6e6e73]">{timeLabel(rating.createdAt)}</span>
                   </div>
                   {rating.tags.length > 0 ? (

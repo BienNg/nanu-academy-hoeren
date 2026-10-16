@@ -51,7 +51,10 @@ export default async function StudentPage({ params }: { params: Promise<{ classK
   const ratingByDay = new Map(ratings.map((rating) => [rating.day, rating]));
   const gap = student.lektion !== null && data.classLektion !== null ? student.lektion - data.classLektion : null;
   const behind = student.reasons.length > 0;
-  const rated = data.sessions.filter((session) => ratingByDay.has(session.day));
+  const rated = data.sessions.filter((session) => {
+    const rating = ratingByDay.get(session.day);
+    return rating != null && !rating.absent && !rating.notHeld && rating.stars != null;
+  });
   const ratedAverage = rated.length
     ? Math.round((rated.reduce((sum, session) => sum + (ratingByDay.get(session.day)?.stars ?? 0), 0) / rated.length) * 10) / 10
     : null;
@@ -151,7 +154,11 @@ export default async function StudentPage({ params }: { params: Promise<{ classK
                       <span className="block text-[15px] font-semibold">{viDay(session.day)}</span>
                       <span className="block text-[13px] text-[#6e6e73]">Lektion {session.lektion}</span>
                     </span>
-                    {rating ? (
+                    {rating?.absent || rating?.notHeld ? (
+                      <span className="flex-[1_1_320px] text-[14px] font-semibold text-[#414753]">
+                        {rating.notHeld ? "Không có buổi học" : "Vắng buổi"}
+                      </span>
+                    ) : rating && rating.stars != null ? (
                       <span className="min-w-0 flex-[1_1_320px]">
                         <Stars value={rating.stars} size={16} />
                         {rating.tags.length > 0 ? (

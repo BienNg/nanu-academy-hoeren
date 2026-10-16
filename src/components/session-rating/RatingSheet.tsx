@@ -21,6 +21,22 @@ import {
 export type RatingSheetExit = "done" | "soft";
 
 const STAR_PATH = "M12 2.6l2.85 5.9 6.45.8-4.75 4.45 1.2 6.4L12 17l-5.75 3.15 1.2-6.4L2.7 9.3l6.45-.8z";
+
+/** A reason not to rate: the learner missed a class that was held, or the class did not take place. */
+type SkipKind = "absent" | "not_held";
+
+const SKIP_COPY: Record<SkipKind, { title: string; stay: string; confirm: string }> = {
+  absent: {
+    title: "Bạn vắng buổi này?",
+    stay: "Mình có học",
+    confirm: "Đúng, mình vắng",
+  },
+  not_held: {
+    title: "Buổi học không diễn ra?",
+    stay: "Buổi học có diễn ra",
+    confirm: "Đúng, không diễn ra",
+  },
+};
 const THANKS_MS = 2000;
 const SWIPE_CLOSE_PX = 100;
 
@@ -67,7 +83,9 @@ function StarRow({ stars, size, onPick }: { stars: number; size: number; onPick:
 /**
  * The session rating sheet (S1 stars, S2 details, S3 thanks). Focus stays
  * inside, Escape and the backdrop close it softly, and the handle can be
- * swiped down. Sending or "Để sau" ends it for this session.
+ * swiped down. "Để sau", "Mình vắng buổi này" and "Buổi học không diễn ra"
+ * each ask for confirmation first. Sending, or confirming one of those,
+ * ends it for this session.
  */
 export function RatingSheet({
   pending,
@@ -87,10 +105,16 @@ export function RatingSheet({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thanks, setThanks] = useState<{ xp: number } | null>(null);
+  const [laterOpen, setLaterOpen] = useState(false);
+  const [skipKind, setSkipKind] = useState<SkipKind | null>(null);
+  const [skipSending, setSkipSending] = useState(false);
+  const [skipError, setSkipError] = useState<string | null>(null);
   const exit = useEffectEvent(onExit);
   const step = thanks ? "thanks" : stars === 0 ? "stars" : "details";
+  const confirmOpen = laterOpen || skipKind !== null;
 
   useEffect(() => {
+    if (confirmOpen) return;
     const opener = document.activeElement;
     dialogRef.current?.querySelector<HTMLElement>("button")?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -121,7 +145,7 @@ export function RatingSheet({
       window.removeEventListener("keydown", handleKeyDown, true);
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, [thanks]);
+  }, [thanks, confirmOpen]);
 
   useEffect(() => {
     if (!thanks) return;
@@ -140,7 +164,7 @@ export function RatingSheet({
     setTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
   }
 
-  function later() {
+  function confirmLater() {
     void fetch("/api/session-rating", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -150,6 +174,34 @@ export function RatingSheet({
       // Asked again on the next visit at worst.
     });
     onExit("done");
+  }
+
+  async function confirmSkip() {
+    if (skipSending || !skipKind) return;
+    setSkipSending(true);
+    setSkipError(null);
+    try {
+      const response = await fetch("/api/session-rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classKey: pending.classKey,
+          sessionDate: pending.day,
+          absent: skipKind === "absent" ? true : undefined,
+          notHeld: skipKind === "not_held" ? true : undefined,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { denial?: unknown } | null;
+      if (response.ok || data?.denial === "answered" || data?.denial === "closed") {
+        onExit("done");
+        return;
+      }
+      setSkipError("Chưa gửi được. Thử lại nhé.");
+    } catch {
+      setSkipError("Chưa gửi được. Kiểm tra mạng rồi thử lại nhé.");
+    } finally {
+      setSkipSending(false);
+    }
   }
 
   async function send() {
@@ -182,7 +234,9 @@ export function RatingSheet({
 
   const high = stars >= 4;
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <motion.div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45"
       role="presentation"
@@ -193,7 +247,9 @@ export function RatingSheet({
       <motion.div
         ref={dialogRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={confirmOpen ? undefined : true}
+        aria-hidden={confirmOpen || undefined}
+        inert={confirmOpen}
         aria-labelledby={titleId}
         className="w-full max-w-md rounded-t-[28px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
         style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
@@ -228,7 +284,7 @@ export function RatingSheet({
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
               >
-                <RatingPingu mood={0} size={124} />
+                <RatingPingu mood={0} size={100} />
                 <h2 id={titleId} className="mt-2 text-[23px] font-extrabold leading-[30px] tracking-[-0.015em] text-[#1b1b1d]">
                   {ratingTitle(pending.day, localToday())}
                 </h2>
@@ -241,10 +297,30 @@ export function RatingSheet({
                 <p className="mt-1 h-5 text-[14px] font-bold text-[#6e6e73]">Chạm vào một ngôi sao</p>
                 <button
                   type="button"
-                  onClick={later}
+                  onClick={() => setLaterOpen(true)}
                   className={`mt-3 h-11 rounded-2xl px-5 text-[14px] font-extrabold uppercase tracking-[0.08em] text-[#0066cc] ${FOCUS_RING}`}
                 >
                   Để sau
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSkipError(null);
+                    setSkipKind("absent");
+                  }}
+                  className={`mt-1 h-10 rounded-2xl px-5 font-[family-name:var(--font-be-vietnam-pro)] text-[14px] font-semibold text-[#5e5e63] ${FOCUS_RING}`}
+                >
+                  Mình vắng buổi này
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSkipError(null);
+                    setSkipKind("not_held");
+                  }}
+                  className={`h-10 rounded-2xl px-5 font-[family-name:var(--font-be-vietnam-pro)] text-[14px] font-semibold text-[#5e5e63] ${FOCUS_RING}`}
+                >
+                  Buổi học không diễn ra
                 </button>
               </motion.div>
             ) : null}
@@ -361,5 +437,210 @@ export function RatingSheet({
       </motion.div>
     </motion.div>,
     document.body,
+    )}
+    {laterOpen
+      ? createPortal(
+          <LaterConfirm onStay={() => setLaterOpen(false)} onLater={confirmLater} />,
+          document.body,
+        )
+      : null}
+    {skipKind
+      ? createPortal(
+          <SkipConfirm
+            copy={SKIP_COPY[skipKind]}
+            sending={skipSending}
+            error={skipError}
+            onStay={() => {
+              if (skipSending) return;
+              setSkipKind(null);
+            }}
+            onConfirm={() => void confirmSkip()}
+          />,
+          document.body,
+        )
+      : null}
+    </>
+  );
+}
+
+/**
+ * Shown when the learner taps "Để sau". Explains why the rating is asked,
+ * then lets them rate now or skip this session for good. Escape and the
+ * backdrop return to the sheet.
+ */
+function LaterConfirm({ onStay, onLater }: { onStay: () => void; onLater: () => void }) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const stayRef = useRef<HTMLButtonElement>(null);
+  const stay = useEffectEvent(onStay);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    stayRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        stay();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      const inside = dialogRef.current?.contains(document.activeElement) ?? false;
+      if (event.shiftKey && (!inside || document.activeElement === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-6"
+      role="presentation"
+      onClick={onStay}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-sm rounded-[28px] bg-white px-6 pt-6 pb-5 text-center shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
+        style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex justify-center">
+          <RatingPingu mood={3} size={96} />
+        </div>
+        <h2 id={titleId} className="mt-2 text-balance text-[22px] font-extrabold leading-7 tracking-[-0.015em] text-[#1b1b1d]">
+          Đánh giá giúp mình hỗ trợ bạn
+        </h2>
+        <p className="mt-2 font-[family-name:var(--font-be-vietnam-pro)] text-[15px] leading-[22px] text-[#5e5e63]">
+          Câu trả lời giúp cải thiện bài học, và cho thấy chỗ các bạn đang gặp khó để mình hỗ trợ thêm.
+        </p>
+        <ChunkyButton ref={stayRef} className="mt-5 w-full" onClick={onStay}>
+          Đánh giá ngay
+        </ChunkyButton>
+        <button
+          type="button"
+          onClick={onLater}
+          className={`mt-2 h-11 w-full rounded-2xl text-[14px] font-extrabold uppercase tracking-[0.08em] text-[#0066cc] ${FOCUS_RING}`}
+        >
+        Vẫn để sau
+      </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confirms a reason not to rate. Escape and the backdrop return to the sheet.
+ */
+function SkipConfirm({
+  copy,
+  sending,
+  error,
+  onStay,
+  onConfirm,
+}: {
+  copy: (typeof SKIP_COPY)[SkipKind];
+  sending: boolean;
+  error: string | null;
+  onStay: () => void;
+  onConfirm: () => void;
+}) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const stayRef = useRef<HTMLButtonElement>(null);
+  const stay = useEffectEvent(onStay);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    stayRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        stay();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      const inside = dialogRef.current?.contains(document.activeElement) ?? false;
+      if (event.shiftKey && (!inside || document.activeElement === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-6"
+      role="presentation"
+      onClick={onStay}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-sm rounded-[28px] bg-white px-6 pt-6 pb-5 text-center shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
+        style={{ fontFamily: "var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', sans-serif" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex justify-center">
+          <RatingPingu mood={0} size={96} />
+        </div>
+        <h2 id={titleId} className="mt-2 text-balance text-[22px] font-extrabold leading-7 tracking-[-0.015em] text-[#1b1b1d]">
+          {copy.title}
+        </h2>
+        <p className="mt-2 font-[family-name:var(--font-be-vietnam-pro)] text-[15px] leading-[22px] text-[#5e5e63]">
+          Mình sẽ không hỏi đánh giá buổi học này nữa.
+        </p>
+        {error ? (
+          <p role="alert" className="mt-3 font-[family-name:var(--font-be-vietnam-pro)] text-[14px] font-semibold text-[#c4261d]">
+            {error}
+          </p>
+        ) : null}
+        <ChunkyButton ref={stayRef} className="mt-5 w-full" onClick={onStay} disabled={sending} variant={sending ? "disabled" : "primary"}>
+          {copy.stay}
+        </ChunkyButton>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={sending}
+          className={`mt-2 h-11 w-full rounded-2xl text-[14px] font-extrabold uppercase tracking-[0.08em] text-[#0066cc] disabled:opacity-50 ${FOCUS_RING}`}
+        >
+          {sending ? "Đang gửi…" : copy.confirm}
+        </button>
+      </div>
+    </div>
   );
 }

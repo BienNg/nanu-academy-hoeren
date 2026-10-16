@@ -90,10 +90,23 @@ export type TeacherRating = {
   userId: string;
   name: string;
   image: string | null;
-  stars: number;
+  /** True when the learner missed a class that was held. */
+  absent: boolean;
+  /** True when the learner reported that the scheduled class did not take place. */
+  notHeld: boolean;
+  stars: number | null;
   tags: RatingTag[];
   comment: string | null;
   createdAt: string;
+};
+
+export type TeacherStudentRating = {
+  day: string;
+  absent: boolean;
+  notHeld: boolean;
+  stars: number | null;
+  tags: RatingTag[];
+  comment: string | null;
 };
 
 const VI_SHORT_WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"] as const;
@@ -357,10 +370,10 @@ async function loadSessionRatings(key: string, day: string): Promise<TeacherRati
   if (!supabase) return null;
   const { data, error } = await supabase
     .from(RATINGS_TABLE)
-    .select("user_id, stars, tags, comment, created_at")
+    .select("user_id, status, stars, tags, comment, created_at")
     .eq("class_key", key)
     .eq("session_date", day)
-    .eq("status", "rated")
+    .in("status", ["rated", "absent", "not_held"])
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) {
@@ -370,17 +383,29 @@ async function loadSessionRatings(key: string, day: string): Promise<TeacherRati
   const board = (await cachedWeekBoard()) ?? [];
   const people = new Map(board.map((person) => [person.userId, person]));
   const rows = (data ?? []).flatMap((row) => {
-    const record = row as { user_id?: unknown; stars?: unknown; tags?: unknown; comment?: unknown; created_at?: unknown };
-    if (typeof record.user_id !== "string" || typeof record.stars !== "number") return [];
+    const record = row as {
+      user_id?: unknown;
+      status?: unknown;
+      stars?: unknown;
+      tags?: unknown;
+      comment?: unknown;
+      created_at?: unknown;
+    };
+    const absent = record.status === "absent";
+    const notHeld = record.status === "not_held";
+    const unmarked = absent || notHeld;
+    if (typeof record.user_id !== "string" || (!unmarked && typeof record.stars !== "number")) return [];
     const person = people.get(record.user_id);
     return [
       {
         userId: record.user_id,
         name: person?.name ?? "Học viên",
         image: person?.image ?? null,
-        stars: record.stars,
-        tags: Array.isArray(record.tags) ? record.tags.filter(isRatingTag) : [],
-        comment: typeof record.comment === "string" ? record.comment : null,
+        absent,
+        notHeld,
+        stars: unmarked ? null : (record.stars as number),
+        tags: unmarked || !Array.isArray(record.tags) ? [] : record.tags.filter(isRatingTag),
+        comment: unmarked || typeof record.comment !== "string" ? null : record.comment,
         createdAt: typeof record.created_at === "string" ? record.created_at : "",
       },
     ];
@@ -397,35 +422,36 @@ export function readTeacherSessionRatings(key: string, day: string): Promise<Tea
   return cachedSessionRatings(key, day);
 }
 
-async function loadStudentRatings(
-  key: string,
-  userId: string,
-): Promise<{ day: string; stars: number; tags: RatingTag[]; comment: string | null }[] | null> {
+async function loadStudentRatings(key: string, userId: string): Promise<TeacherStudentRating[] | null> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from(RATINGS_TABLE)
-    .select("session_date, stars, tags, comment")
+    .select("session_date, status, stars, tags, comment")
     .eq("class_key", key)
     .eq("user_id", userId)
-    .eq("status", "rated")
+    .in("status", ["rated", "absent", "not_held"])
     .limit(500);
   if (error) {
     if (!missing(error.message)) console.error("Supabase teacher student ratings", error.message);
     return null;
   }
   return (data ?? []).flatMap((row) => {
-    const record = row as { session_date?: unknown; stars?: unknown; tags?: unknown; comment?: unknown };
-    return typeof record.session_date === "string" && typeof record.stars === "number"
-      ? [
-          {
-            day: record.session_date,
-            stars: record.stars,
-            tags: Array.isArray(record.tags) ? record.tags.filter(isRatingTag) : [],
-            comment: typeof record.comment === "string" ? record.comment : null,
-          },
-        ]
-      : [];
+    const record = row as { session_date?: unknown; status?: unknown; stars?: unknown; tags?: unknown; comment?: unknown };
+    const absent = record.status === "absent";
+    const notHeld = record.status === "not_held";
+    const unmarked = absent || notHeld;
+    if (typeof record.session_date !== "string" || (!unmarked && typeof record.stars !== "number")) return [];
+    return [
+      {
+        day: record.session_date,
+        absent,
+        notHeld,
+        stars: unmarked ? null : (record.stars as number),
+        tags: unmarked || !Array.isArray(record.tags) ? [] : record.tags.filter(isRatingTag),
+        comment: unmarked || typeof record.comment !== "string" ? null : record.comment,
+      },
+    ];
   });
 }
 

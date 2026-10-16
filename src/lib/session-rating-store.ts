@@ -16,7 +16,7 @@ import { dayKey, weekKey } from "@/lib/xp";
 const TABLE = "session_ratings";
 const CLAIMS_TABLE = "quest_claims";
 
-/** Set after a rating or "Để sau", so later Home loads skip the database. */
+/** Set after a rating, "Để sau", or an absence, so later Home loads skip the database. */
 export const RATING_DONE_COOKIE = "nr_rated";
 
 export type PendingRating = OpenRatingSession & { classKey: string };
@@ -52,18 +52,22 @@ function levelOrder() {
 }
 
 /**
- * The learner's class session that is open for rating right now, before
- * checking whether they answered it. No database read beyond the cached
- * schedules and the per-request access row. Admins, staff and teachers are
- * never asked, and neither is anyone without a class or class timetable.
+ * The class session that is open for rating right now, before checking
+ * whether they answered it. Admins and staff are asked when their
+ * `class_name` maps to a class with a timetable. Teachers are not, and
+ * neither is anyone without a class. The class name shares the learn page's
+ * access read, except for admins, who skip that read and pay one small
+ * `class_name` lookup here. The staff/teacher flags are read only for
+ * non-admins.
  */
 async function openSessionFor(user: RatingUser, now: Date): Promise<PendingRating | null> {
-  if (isAdminUser(user)) return null;
   const className = await getUserClassName(user.id);
   const key = classKey(className);
   if (!key) return null;
-  const flags = await getUserDashboardFlags(user.id);
-  if (flags.staff || flags.teacher) return null;
+  if (!isAdminUser(user)) {
+    const flags = await getUserDashboardFlags(user.id);
+    if (flags.teacher && !flags.staff) return null;
+  }
   const schedules = await listCachedClassSchedules();
   const schedule = schedules?.find((entry) => entry.classKey === key);
   if (!schedule) return null;
@@ -102,18 +106,23 @@ export async function readPendingRating(
 }
 
 /**
- * Stores a rating (`{ classKey, sessionDate, stars, tags, comment }`) or a
- * "Để sau" (`{ classKey, sessionDate, dismiss: true }`). The session must be
- * the learner's open one right now. A second answer is refused by the primary
- * key. A rating then pays RATING_XP as a quest claim.
+ * Stores a rating (`{ classKey, sessionDate, stars, tags, comment }`), a
+ * "Để sau" (`{ dismiss: true }`), an absence (`{ absent: true }`), or a class
+ * that did not take place (`{ notHeld: true }`). The session must be the
+ * learner's open one right now. A second answer is refused by the primary
+ * key. Only a rating pays RATING_XP as a quest claim.
  */
 export async function answerRating(user: RatingUser, body: unknown, now = new Date()): Promise<RatingResult> {
   if (!body || typeof body !== "object") return { ok: false, denial: "invalid" };
   const raw = body as Record<string, unknown>;
   if (typeof raw.classKey !== "string" || !isScheduleDay(raw.sessionDate)) return { ok: false, denial: "invalid" };
   const dismiss = raw.dismiss === true;
-  const rating = dismiss ? null : normalizeRatingInput(raw);
-  if (!dismiss && !rating) return { ok: false, denial: "invalid" };
+  const absent = raw.absent === true;
+  const notHeld = raw.notHeld === true;
+  const unmarked = [dismiss, absent, notHeld].filter(Boolean).length;
+  if (unmarked > 1 || (unmarked === 1 && raw.stars !== undefined)) return { ok: false, denial: "invalid" };
+  const rating = unmarked === 1 ? null : normalizeRatingInput(raw);
+  if (unmarked === 0 && !rating) return { ok: false, denial: "invalid" };
 
   const session = await openSessionFor(user, now);
   if (!session || session.classKey !== raw.classKey || session.day !== raw.sessionDate) {
@@ -124,7 +133,7 @@ export async function answerRating(user: RatingUser, body: unknown, now = new Da
   if (!supabase) return { ok: false, denial: "unavailable" };
   const row = rating
     ? { status: "rated", stars: rating.stars, tags: rating.tags, comment: rating.comment }
-    : { status: "dismissed", stars: null, tags: [], comment: null };
+    : { status: absent ? "absent" : notHeld ? "not_held" : "dismissed", stars: null, tags: [], comment: null };
   const { data, error } = await supabase
     .from(TABLE)
     .upsert(

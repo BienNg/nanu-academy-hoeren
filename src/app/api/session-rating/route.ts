@@ -7,7 +7,9 @@ const STATUS = { invalid: 400, closed: 409, answered: 409, unavailable: 503 } as
 
 /**
  * `{ classKey, sessionDate, stars, tags, comment }` rates the learner's open
- * class session; `{ classKey, sessionDate, dismiss: true }` is "Để sau".
+ * class session; `{ classKey, sessionDate, dismiss: true }` is "Để sau";
+ * `{ classKey, sessionDate, absent: true }` is "Mình vắng buổi này";
+ * `{ classKey, sessionDate, notHeld: true }` is "Buổi học không diễn ra".
  * There is no GET: Home reads the pending session while it renders.
  */
 export async function POST(request: Request) {

@@ -13,11 +13,11 @@ Runs on the free tiers of Supabase and Vercel. See "Free-tier budget" before add
 | --- | --- |
 | Sessions | Never stored or logged by hand. A class's session days come from `class_schedules` (weekdays, level start dates, skipped dates), the same rules as `classProgress`: one class day is one Lektion. A session is identified by `(class_key, session_date)`. |
 | Session end | New columns on `class_schedules`: start time and length in minutes, in the class's time zone (`CLASS_FORMAT_TIME_ZONE`). Without a start time, the session ends at 23:59 that day. |
-| Who is asked | Learners whose `user_progress.class_name` maps to the class (`classKey`). Not admins, staff or teachers. Learners without a class are never asked. |
+| Who is asked | Anyone whose `user_progress.class_name` maps to the class (`classKey`), including admins and staff. Teachers are not asked. Anyone without a class is never asked. |
 | Window | From session end to 48 hours later. One prompt per session, only the newest open session. |
 | Where it shows | Only on Home (`LevelViewClient`). Never during a session, exercise or video. |
 | Dismiss | "Để sau" closes it for good for that session (stored). Swiping down or tapping outside only closes the sheet, and the Home card (S4) stays until the window ends. |
-| Rating | 1–5 stars, tags from a fixed list (positive set for 4–5★, negative set for 1–3★), optional comment of up to 300 characters. One rating per student per session. A sent rating cannot be edited. |
+| Rating | 1–5 stars, tags from a fixed list (positive set for 4–5★, negative set for 1–3★), optional comment of up to 300 characters. One rating per student per session. A sent rating cannot be edited. "Mình vắng buổi này" stores `absent`, and "Buổi học không diễn ra" stores `not_held`. Neither has stars or XP, and both end the prompt. |
 | Named | Teachers see who wrote each rating (T3) and each student's own ratings (T5). The student sheet says nothing about who reads it. |
 | Under 3 ratings | The session's average, star breakdown and tag totals are hidden ("Chưa đủ đánh giá để hiển thị kết quả"). Single ratings still show on T3. |
 | Reward | +10 XP per sent rating, stored in `quest_claims` with `quest_id = rating:<class_key>:<session_date>`, so it counts on every board. No new XP table. |
@@ -36,7 +36,7 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
   - If no session of the learner's class is open, stop there. 0 rows.
   - After a rating or "Để sau", a cookie (`nr_rated=<user_id>|<class_key>|<date>`, expires when the window closes) marks the session as done, and the server skips the lookup. 0 rows. The learner is in the value so a shared phone never skips a classmate.
   - Otherwise one primary-key lookup on `session_ratings`, selecting only `status`. Under 100 bytes.
-  - The learner's `class_name` comes from a read the learn page already makes: add the column to the `level_access` select in `getUserLevelAccess` (`progress-store.ts`, called by `requireLevelAccess`), not a second query. Admins skip that read, but they are never asked anyway.
+  - The learner's `class_name` comes from a read the learn page already makes: the `level_access, class_name` select in `getUserAccessRow` (`progress-store.ts`, called by `requireLevelAccess`). Admins skip that access check, so their Home load pays one extra lookup of those two columns. Staff and learners reuse the access read. The staff/teacher flag read runs only for non-admins. |
 - **Writes:** one `POST` per rating or dismiss. The XP claim is written in the same server call.
 - **Teacher pages aggregate in Postgres.** T1 and T2 read `session_rating_summary(p_class_key)`, one row per session (about 200 bytes each, about 6 KB for a 30-session course), never every rating row. T3 reads the rows of one session only (at most class size).
 - **Never read the whole progress document.** T4 and T5 select only the JSON paths they need, for the roster only (`.in("user_id", ids)`), as `rejectCopiedInitialProgress` already does: `learn:data->learn`, `videos:data->videos`, `activity:data->activity`. Parts per day come from `activity` (`studyRuns + practiceRuns`, kept 120 days), so no `xp_awards` scan. T5 reads one student.
@@ -48,8 +48,8 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 ## Part 1: Schema
 - `supabase/class_schedules.sql`: add `session_start time` and `session_minutes smallint` (nullable, idempotent `add column if not exists`).
 - New `supabase/session_ratings.sql`:
-  - `session_ratings (class_key text, session_date date, user_id text, status text check in ('rated','dismissed'), stars smallint null check 1–5, tags text[] default '{}', comment text null check length ≤ 300, created_at timestamptz default now(), primary key (class_key, session_date, user_id))`.
-  - Check: `status = 'rated'` requires `stars`. `dismissed` rows have no stars, tags or comment.
+  - `session_ratings (class_key text, session_date date, user_id text, status text check in ('rated','dismissed','absent','not_held'), stars smallint null check 1–5, tags text[] default '{}', comment text null check length ≤ 300, created_at timestamptz default now(), primary key (class_key, session_date, user_id))`.
+  - Check: `status = 'rated'` requires `stars`. `dismissed`, `absent` and `not_held` rows have no stars, tags or comment. `absent` is a student who missed a class that was held. `not_held` is a student reporting that the scheduled class did not take place. A holiday marked on the schedule is still not a session, so nobody is asked.
   - RLS on, no policies for `anon` or `authenticated`. Only the service role reads and writes, like every other table.
   - `session_rating_summary(p_class_key text)`: per session date, rated count, average (null under 3), star counts and tag counts (null under 3). Granted to `service_role` only.
 - Account deletion also deletes the student's `session_ratings` rows (`deleteUserSessionRatings`). A full progress wipe keeps them: a rating is feedback on a session, not progress. The wipe already removes the rating XP with the rest of `quest_claims`.
@@ -65,12 +65,12 @@ The tight limits are Supabase egress and Vercel function invocations. Rules for 
 - `src/lib/session-rating-store.ts`:
   - `readPendingRating(userId, className, doneCookie)`: the rules in "Free-tier budget". Returns `null` or `{ classKey, sessionDate, level, lektion, closesAt }`.
   - `submitRating(userId, input)`: checks that the session is open and belongs to the learner's class right now, inserts the `rated` row (the primary key blocks a second one), then writes the XP claim.
-  - `dismissRating(userId, session)`: inserts a `dismissed` row.
-- `src/app/api/session-rating/route.ts`: `POST` only. `{ classKey, sessionDate, stars, tags, comment }` or `{ classKey, sessionDate, dismiss: true }`. Sets the done cookie. A second rating returns 409.
+  - `dismissRating(userId, session)`: inserts a `dismissed` row. `{ absent: true }` inserts an `absent` row, and `{ notHeld: true }` inserts a `not_held` row. Neither pays XP.
+- `src/app/api/session-rating/route.ts`: `POST` only. `{ classKey, sessionDate, stars, tags, comment }`, `{ dismiss: true }`, `{ absent: true }`, or `{ notHeld: true }`. Sets the done cookie. A second answer returns 409.
 - `quest-store.ts` and `admin-quests.ts` skip `rating:` claim ids, like they skip class quest ids (add `isRatingClaimId`).
 
 ## Part 4: Student UI
-- `src/components/session-rating/RatingSheet.tsx`: S1 (stars), S2 (tags and comment), S3 (thank you, closes after 2 s). Stars and buttons follow `ChunkyButton`. Respects reduced motion.
+- `src/components/session-rating/RatingSheet.tsx`: S1 (stars), S2 (tags and comment), S3 (thank you, closes after 2 s). S1 also offers "Mình vắng buổi này" and "Buổi học không diễn ra", each confirmed before it is stored. Stars and buttons follow `ChunkyButton`. Respects reduced motion.
 - `src/components/session-rating/SessionRatingPrompt.tsx`: the S4 Home card, and which of sheet or card shows. The sheet opens once per session per device (`localStorage` key `nr-rating-seen:<class_key>|<date>`); after that, or after a soft close, only the card shows until the window ends. No request.
 - Home sheets take turns through `src/lib/overlay-gate.ts`: the daily quest intro and the rating sheet each register while open, and the other waits. The rating sheet also waits for the first-run tour and the streak flame.
 - Pingu: `RatingPingu({ mood: 0–5 })` in `src/components/session/Pingu.tsx` with the six faces from the canvas. SVG only for now; a `rating` artboard in `pingu.riv` can replace it later (`docs/PINGU_RIVE.md`).
