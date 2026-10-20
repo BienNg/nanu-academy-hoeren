@@ -51,6 +51,7 @@ import {
   usersInClass,
   type AdminLevelOption,
   type AdminUserRow,
+  type AdminWaitingClassMember,
 } from "@/lib/admin-overview";
 import { ADMIN_COLORS } from "@/lib/admin-tokens";
 import type { PendingAccountRole, PendingLevelGrant } from "@/lib/progress-store";
@@ -595,7 +596,7 @@ export function AdminAccess({
 
   const waitingMembers = useMemo(
     () =>
-      pendingRows.flatMap((row) => {
+      pendingRows.flatMap((row): AdminWaitingClassMember[] => {
         const names = pendingClassNames(row);
         const shared = {
           levelAccess: row.levelAccess,
