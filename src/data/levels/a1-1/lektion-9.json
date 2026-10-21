@@ -1,3 +1,314 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag9-02-mich.mp3",
+      "script": "mich",
+      "translationVi": "tôi (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-03-dich.mp3",
+      "script": "dich",
+      "translationVi": "bạn (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-04-ihn.mp3",
+      "script": "ihn",
+      "translationVi": "anh ấy (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-05-sie.mp3",
+      "script": "sie",
+      "translationVi": "cô ấy / họ (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-06-euch.mp3",
+      "script": "euch",
+      "translationVi": "các bạn (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-07-uns.mp3",
+      "script": "uns",
+      "translationVi": "chúng tôi (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-08-ich-liebe-dich.mp3",
+      "script": "Ich liebe dich.",
+      "translationVi": "Tôi yêu bạn."
+    },
+    {
+      "filename": "a11-tag9-09-du-liebst-mich.mp3",
+      "script": "Du liebst mich.",
+      "translationVi": "Bạn yêu tôi."
+    },
+    {
+      "filename": "a11-tag9-10-sie-liebt-ihn.mp3",
+      "script": "Sie liebt ihn.",
+      "translationVi": "Cô ấy yêu anh ấy."
+    },
+    {
+      "filename": "a11-tag9-11-brauchen.mp3",
+      "script": "brauchen",
+      "translationVi": "cần"
+    },
+    {
+      "filename": "a11-tag9-12-er-braucht-mich.mp3",
+      "script": "Er braucht mich.",
+      "translationVi": "Anh ấy cần tôi."
+    },
+    {
+      "filename": "a11-tag9-13-kennen.mp3",
+      "script": "kennen",
+      "translationVi": "quen biết"
+    },
+    {
+      "filename": "a11-tag9-14-wir-kennen-sie.mp3",
+      "script": "Wir kennen sie.",
+      "translationVi": "Chúng tôi biết bà ấy."
+    },
+    {
+      "filename": "a11-tag9-15-fragen.mp3",
+      "script": "fragen",
+      "translationVi": "hỏi"
+    },
+    {
+      "filename": "a11-tag9-16-wen.mp3",
+      "script": "wen",
+      "translationVi": "ai (tân ngữ – Akkusativ)"
+    },
+    {
+      "filename": "a11-tag9-17-wer-fragt-dich.mp3",
+      "script": "Wer fragt dich?",
+      "translationVi": "Ai hỏi bạn?"
+    },
+    {
+      "filename": "a11-tag9-18-wen-fragst-du.mp3",
+      "script": "Wen fragst du?",
+      "translationVi": "Bạn hỏi ai?"
+    },
+    {
+      "filename": "a11-tag9-19-kennt-sie-dich.mp3",
+      "script": "Kennt sie dich?",
+      "translationVi": "Cô ấy quen bạn không?"
+    },
+    {
+      "filename": "a11-tag9-20-ja-sie-kennt-mich.mp3",
+      "script": "Ja, sie kennt mich.",
+      "translationVi": "Vâng, cô ấy quen tôi."
+    },
+    {
+      "filename": "a11-tag9-21-wen-fragt-er.mp3",
+      "script": "Wen fragt er?",
+      "translationVi": "Anh ấy hỏi ai?"
+    },
+    {
+      "filename": "a11-tag9-22-wer-fragt-ihn.mp3",
+      "script": "Wer fragt ihn?",
+      "translationVi": "Ai hỏi anh ấy?"
+    },
+    {
+      "filename": "a11-tag9-23-fragst-du-mich.mp3",
+      "script": "Fragst du mich?",
+      "translationVi": "Bạn hỏi tôi à?"
+    },
+    {
+      "filename": "a11-tag9-24-ich-frage-dich-nicht.mp3",
+      "script": "Nein, ich frage dich nicht, ich frage ihn.",
+      "translationVi": "Không, tôi không hỏi bạn, tôi hỏi anh ấy."
+    },
+    {
+      "filename": "a11-tag9-25-wohnt-ihr-in-deutschland.mp3",
+      "script": "Wohnt ihr in Deutschland?",
+      "translationVi": "Các bạn sống ở Đức à?"
+    },
+    {
+      "filename": "a11-tag9-26-wir-wohnen-in-muenchen.mp3",
+      "script": "Ja, wir wohnen in München.",
+      "translationVi": "Vâng, chúng tôi sống ở München."
+    },
+    {
+      "filename": "a11-tag9-27-wir-brauchen-dich.mp3",
+      "script": "Wir brauchen dich.",
+      "translationVi": "Chúng tôi cần bạn."
+    },
+    {
+      "filename": "a11-tag9-28-brauchst-du-uns.mp3",
+      "script": "Brauchst du uns?",
+      "translationVi": "Bạn cần chúng tôi không?"
+    },
+    {
+      "filename": "a11-tag9-29-wir-lieben-euch.mp3",
+      "script": "Wir lieben euch.",
+      "translationVi": "Ba mẹ yêu các con. (Chúng tôi yêu các bạn.)"
+    },
+    {
+      "filename": "a11-tag9-30-sie-fragen-uns.mp3",
+      "script": "Sie fragen uns.",
+      "translationVi": "Họ hỏi chúng tôi."
+    },
+    {
+      "filename": "a11-tag9-31-wir-fragen-sie-nicht.mp3",
+      "script": "Wir fragen sie nicht.",
+      "translationVi": "Chúng tôi không hỏi họ."
+    },
+    {
+      "filename": "a11-tag9-32-er-braucht-sie.mp3",
+      "script": "Er braucht sie.",
+      "translationVi": "Anh ấy cần cô ấy."
+    },
+    {
+      "filename": "a11-tag9-33-sie-braucht-ihn-auch.mp3",
+      "script": "Sie braucht ihn auch.",
+      "translationVi": "Cô ấy cũng cần anh ấy."
+    },
+    {
+      "filename": "a11-tag9-35-der-tisch.mp3",
+      "script": "der Tisch",
+      "translationVi": "cái bàn"
+    },
+    {
+      "filename": "a11-tag9-36-der-mann-kauft-den-tisch.mp3",
+      "script": "Der Mann kauft den Tisch.",
+      "translationVi": "Người đàn ông này mua cái bàn."
+    },
+    {
+      "filename": "a11-tag9-38-die-frau-fragt-das-kind.mp3",
+      "script": "Die Frau fragt das Kind.",
+      "translationVi": "Người phụ nữ này hỏi đứa trẻ này."
+    },
+    {
+      "filename": "a11-tag9-39-der-vater-fragt-die-mutter.mp3",
+      "script": "Der Vater fragt die Mutter.",
+      "translationVi": "Ông bố này hỏi bà mẹ này."
+    },
+    {
+      "filename": "a11-tag9-40-die-mutter-fragt-den-vater.mp3",
+      "script": "Die Mutter fragt den Vater.",
+      "translationVi": "Bà mẹ này hỏi ông bố này."
+    },
+    {
+      "filename": "a11-tag9-42-das-maedchen-fragt-den-mann.mp3",
+      "script": "Das Mädchen fragt den Mann.",
+      "translationVi": "Cô gái hỏi người đàn ông."
+    },
+    {
+      "filename": "a11-tag9-43-der-termin.mp3",
+      "script": "der Termin",
+      "translationVi": "lịch hẹn"
+    },
+    {
+      "filename": "a11-tag9-44-leider.mp3",
+      "script": "leider",
+      "translationVi": "tiếc là"
+    },
+    {
+      "filename": "a11-tag9-45-leider-habe-ich-einen-termin.mp3",
+      "script": "Leider habe ich am Donnerstag einen Termin.",
+      "translationVi": "Tiếc là tôi có một lịch hẹn vào thứ Năm."
+    },
+    {
+      "filename": "a11-tag9-46-denn.mp3",
+      "script": "denn",
+      "translationVi": "vì"
+    },
+    {
+      "filename": "a11-tag9-47-billig.mp3",
+      "script": "billig",
+      "translationVi": "rẻ"
+    },
+    {
+      "filename": "a11-tag9-48-das-moped.mp3",
+      "script": "das Moped",
+      "translationVi": "xe máy"
+    },
+    {
+      "filename": "a11-tag9-49-ich-kaufe-ein-moped.mp3",
+      "script": "Ich kaufe ein Moped, denn es ist billig.",
+      "translationVi": "Tôi mua một cái xe máy vì nó rẻ."
+    },
+    {
+      "filename": "a11-tag9-50-treffen.mp3",
+      "script": "treffen",
+      "translationVi": "gặp"
+    },
+    {
+      "filename": "a11-tag9-52-treffen-wir-uns.mp3",
+      "script": "Treffen wir uns im Starbucks?",
+      "translationVi": "Chúng mình gặp nhau ở Starbucks à?"
+    },
+    {
+      "filename": "a11-tag9-53-die-frage.mp3",
+      "script": "die Frage",
+      "translationVi": "câu hỏi"
+    },
+    {
+      "filename": "a11-tag9-54-ich-habe-eine-frage.mp3",
+      "script": "Entschuldigung, ich habe eine Frage.",
+      "translationVi": "Xin lỗi, tôi có một câu hỏi."
+    },
+    {
+      "filename": "a11-tag9-55-beim-arzt.mp3",
+      "script": "beim Arzt",
+      "translationVi": "ở chỗ bác sĩ"
+    },
+    {
+      "filename": "a11-tag9-56-am-freitag-termin-beim-arzt.mp3",
+      "script": "Am Freitag habe ich einen Termin beim Arzt.",
+      "translationVi": "Thứ Sáu tôi có một lịch hẹn ở chỗ bác sĩ rồi."
+    },
+    {
+      "filename": "a11-tag9-57-ich-habe-am-freitag-einen-termin.mp3",
+      "script": "Ich habe am Freitag einen Termin beim Arzt.",
+      "translationVi": "Tôi có một lịch hẹn ở chỗ bác sĩ vào thứ Sáu."
+    },
+    {
+      "filename": "a11-tag9-58-das-buch.mp3",
+      "script": "das Buch",
+      "translationVi": "quyển sách"
+    },
+    {
+      "filename": "a11-tag9-59-ich-kaufe-ein-buch.mp3",
+      "script": "Ich kaufe ein Buch. Ist es ok für dich?",
+      "translationVi": "Tôi mua một quyển sách. Nó ok cho bạn không?"
+    },
+    {
+      "filename": "a11-tag9-60-der-kuchen.mp3",
+      "script": "der Kuchen",
+      "translationVi": "bánh ngọt"
+    },
+    {
+      "filename": "a11-tag9-61-backen.mp3",
+      "script": "backen",
+      "translationVi": "nướng"
+    },
+    {
+      "filename": "a11-tag9-62-wir-backen-einen-kuchen.mp3",
+      "script": "Wir backen einen Kuchen.",
+      "translationVi": "Chúng tôi nướng một cái bánh ngọt."
+    },
+    {
+      "filename": "a11-tag9-63-er-hat-eine-freundin.mp3",
+      "script": "Er hat eine Freundin in München.",
+      "translationVi": "Anh ấy có một người bạn gái ở München."
+    },
+    {
+      "filename": "a11-tag9-64-die-jacke.mp3",
+      "script": "die Jacke",
+      "translationVi": "áo khoác"
+    },
+    {
+      "filename": "a11-tag9-65-finden.mp3",
+      "script": "finden",
+      "translationVi": "thấy"
+    },
+    {
+      "filename": "a11-tag9-66-ich-kaufe-diese-jacke.mp3",
+      "script": "Ich kaufe diese Jacke. Wie findest du sie?",
+      "translationVi": "Tôi mua cái áo khoác này. Bạn thấy sao?"
+    },
+    {
+      "filename": "a11-tag9-67-sie-hat-einen-freund.mp3",
+      "script": "Sie hat einen Freund in Hannover.",
+      "translationVi": "Cô ấy có một người bạn trai ở Hannover."
+    }
+  ]
 }
