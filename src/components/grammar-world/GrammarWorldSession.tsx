@@ -24,8 +24,9 @@ import { useProgress } from "@/lib/useProgress";
 
 /**
  * One part of a grammar world node, or a stage's review. The same practice
- * session as a Lektion's grammar node; a finished part returns to the
- * mountain, where the next stop lights up.
+ * session as a Lektion's grammar node. A first pass returns to the mountain
+ * so the next stop can light up. Reviewing a finished node continues through
+ * its remaining parts, then returns.
  */
 export function GrammarWorldSession({
   topic,
@@ -72,17 +73,33 @@ export function GrammarWorldSession({
     key: string | null;
     partCount: number;
     run: number;
+    /** The node was already finished when this part opened. */
+    replaying: boolean;
   } | null>(null);
   const ready = useMemo(() => {
     if (!progressReady || !worldStageOpen(gate, progress)) return null;
     if (review) {
-      return { cards: worldReviewCards(tables, topic, stage.reviewRuns), key: null, partCount: 1, run: stage.reviewRuns };
+      return {
+        cards: worldReviewCards(tables, topic, stage.reviewRuns),
+        key: null,
+        partCount: 1,
+        run: stage.reviewRuns,
+        replaying: false,
+      };
     }
     const found = worldNodes(tables, topic, stage.nodeEnds).find(
       (entry) => entry.node === node && (entry.ready || freePlay),
     );
     const target = found?.parts.find((entry) => entry.part === part);
-    return target ? { cards: target.cards, key: target.key, partCount: found!.parts.length, run: 0 } : null;
+    return target
+      ? {
+          cards: target.cards,
+          key: target.key,
+          partCount: found!.parts.length,
+          run: 0,
+          replaying: found!.sealed,
+        }
+      : null;
   }, [freePlay, gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
   if (!deal && ready) setDeal(ready);
   const missing = progressReady && !ready && !deal;
@@ -141,13 +158,37 @@ export function GrammarWorldSession({
           finishRun={false}
           failed={summary.failed}
           skipBoard
-          title={summary.failed ? undefined : review ? "Ôn tập xong!" : summary.nodeDone ? "Nút hoàn thành!" : undefined}
-          continueLabel={returnHref ? "Về lộ trình" : "Về núi ngữ pháp"}
-          onContinue={() =>
+          title={
+            summary.failed
+              ? undefined
+              : review
+                ? "Ôn tập xong!"
+                : summary.nodeDone || (deal.replaying && part >= deal.partCount)
+                  ? "Nút hoàn thành!"
+                  : undefined
+          }
+          continueLabel={
+            deal.replaying && !summary.failed && part < deal.partCount
+              ? "Phần tiếp theo"
+              : returnHref
+                ? "Về lộ trình"
+                : "Về núi ngữ pháp"
+          }
+          onContinue={() => {
+            if (deal.replaying && !summary.failed && part < deal.partCount) {
+              const next = new URLSearchParams({
+                topic: topic.id,
+                node: String(node),
+                part: String(part + 1),
+              });
+              if (returnHref) next.set("from", returnHref);
+              leave(`/grammar/practice?${next.toString()}`);
+              return;
+            }
             leave(
               summary.failed || returnHref ? mountainHref : `${mountainHref}&lit=${encodeURIComponent(topic.id)}`,
-            )
-          }
+            );
+          }}
         />
       </GrammarPage>
     );

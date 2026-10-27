@@ -290,8 +290,8 @@ export function LearnSession({
       if (!practiceNode || !pathNodes || !nodeDecks) return;
       const first = practiceNode.firstPart;
       const last = first + practiceNode.parts.length - 1;
-      // A finished node is replayed part by part inside this visit. Nothing about
-      // the replay is stored, so leaving starts the next replay at part 1 again.
+      // A finished node replays from part 1. Later parts of this visit stay in
+      // replayPart. Leaving does not store them, so the next review starts over.
       const open = replayPart == null ? nextNodePart(practiceNode, absorbedCompleted) : null;
       const replaying = replayPart != null || open == null;
       const playPart = replaying ? (replayPart ?? first) : open.partNumber;
@@ -778,9 +778,26 @@ export function LearnSession({
     });
   };
 
-  const continueAfterPart = () => {
+  const leavePractice = () => {
     setPhase("leaving");
     router.push(pathHref);
+  };
+
+  const continueAfterPart = () => {
+    const last = nodeRange?.last ?? partCount;
+    if (!failedRun && replayPart != null && partNumber < last) {
+      setPartCards(null);
+      setClipIndex(0);
+      setScoreResult(null);
+      setMcResult(null);
+      setPairingResult(null);
+      setDraft("");
+      setSummary(null);
+      setPhase("practice");
+      setReplayPart(partNumber + 1);
+      return;
+    }
+    leavePractice();
   };
 
   const resetCardResults = () => {
@@ -944,7 +961,11 @@ export function LearnSession({
           celebrateStreak={!failedRun}
           finishRun={isLastPart && !failedRun}
           failed={failedRun}
-          continueLabel="Về bài học"
+          continueLabel={
+            !failedRun && replayPart != null && nodeRange != null && partNumber < nodeRange.last
+              ? "Phần tiếp theo"
+              : "Về bài học"
+          }
           lessonKey={chapterProgressKey}
           finishSide="practice"
           sideFinished={learnChapterCompleted(chapterProgressKey)}

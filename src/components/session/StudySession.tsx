@@ -219,6 +219,8 @@ export function StudySession({
   const [viewMode, setViewMode] = useState<StudyViewMode>(initialViewMode);
   /** This visit replays a finished node. Fixed when the visit starts. */
   const [nodeReplay, setNodeReplay] = useState(false);
+  /** This visit replays a finished lesson that is still one study activity. */
+  const [lessonReplay, setLessonReplay] = useState(false);
   const [visitPart, setVisitPart] = useState<number | "done" | null>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [phase, setPhase] = useState<StudyCardPhase>("study");
@@ -279,6 +281,7 @@ export function StudySession({
     if (nodeMode && (authStatus === "loading" || (!studyNode && allClips.length > 0))) return;
     if (!nodeMode && startReplay && studyFinished && storedReviewedIds.length > 0) {
       resetLearnStudyProgress(chapterProgressKey);
+      setLessonReplay(true);
       setVisitPart(1);
       partStartedAtRef.current = Date.now();
       committedRef.current = false;
@@ -478,6 +481,7 @@ export function StudySession({
 
   const beginReview = () => {
     resetLearnStudyProgress(chapterProgressKey);
+    setLessonReplay(true);
     committedRef.current = false;
     leftRecordedRef.current = false;
     xpRequestedRef.current = false;
@@ -800,11 +804,36 @@ export function StudySession({
           celebrateStreak={!openedFinishedLesson && summary != null}
           finishRun={nodeMode ? false : (summary?.finishRun ?? visitPart === "done")}
           failed={false}
-          continueLabel="Về bài học"
+          continueLabel={
+            (nodeReplay || lessonReplay) && activePart < (nodeMode ? nodeLastPart : partCount)
+              ? "Phần tiếp theo"
+              : "Về bài học"
+          }
           lessonKey={chapterProgressKey}
           finishSide="study"
           sideFinished={studyFinished}
-          onContinue={() => router.push(pathHref)}
+          onContinue={() => {
+            const lastPartOfReview = nodeMode ? nodeLastPart : partCount;
+            if (!((nodeReplay || lessonReplay) && activePart < lastPartOfReview)) {
+              router.push(pathHref);
+              return;
+            }
+            setSummary(null);
+            setXpGrant(null);
+            xpRequestedRef.current = false;
+            committedRef.current = false;
+            leftRecordedRef.current = false;
+            partStartedAtRef.current = Date.now();
+            scoresRef.current = [];
+            setFurthest(0);
+            setClipIndex(0);
+            setPhase("study");
+            setShownPhase("study");
+            setScoreResult(null);
+            setDraft("");
+            setQuitOpen(false);
+            setVisitPart(activePart + 1);
+          }}
           secondaryLabel={openedFinishedLesson ? "Xem lại" : undefined}
           onSecondary={openedFinishedLesson ? beginReview : undefined}
         />

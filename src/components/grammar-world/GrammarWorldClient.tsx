@@ -93,7 +93,9 @@ function buildStops(view: WorldAreaView, freePlay: boolean): Stop[] {
           ? null
           : {
               title: node.done ? `Nút ${node.node} · Luyện lại` : `Nút ${node.node} · Phần ${playPart}/${node.parts.length}`,
-              detail: `${topic.titleVi} · ${node.parts[playPart - 1]?.cards.length ?? worldPartSize(node.node)} thẻ`,
+              detail: node.done
+                ? `${topic.titleVi} · ôn ${node.parts.length} phần`
+                : `${topic.titleVi} · ${node.parts[playPart - 1]?.cards.length ?? worldPartSize(node.node)} thẻ`,
               href: partHref(topic.id, node.node, playPart),
               label: node.done ? "LUYỆN LẠI" : "BẮT ĐẦU",
             },
