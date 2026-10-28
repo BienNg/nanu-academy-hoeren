@@ -44,6 +44,7 @@ import {
   clearReviewedClips,
   mergeProgress,
   migrateLegacyProgress,
+  noteLearnReplayPart as writeLearnReplayPart,
   normalizeProgress,
   parseProgress,
   recordVisitClip,
@@ -583,6 +584,7 @@ function getServerSnapshot(): StoredProgress {
 
 const EMPTY_RUN_ORDER: readonly string[] = [];
 const EMPTY_PART_KEYS: readonly string[] = [];
+const EMPTY_REPLAY_PARTS: Record<string, number> = {};
 const EMPTY_TOTALS: Record<string, number> = {};
 const EMPTY_LEVEL_CATALOG: ContinueLevelCatalogEntry[] = [];
 
@@ -1309,6 +1311,14 @@ export function useProgress(
       progress.learn[chapterSlug]?.practicePartKeys ?? EMPTY_PART_KEYS,
     learnGrammarPartKeysFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.grammarPartKeys ?? EMPTY_PART_KEYS,
+    learnReplayPartsFor: (chapterSlug: string) =>
+      progress.learn[chapterSlug]?.replayParts ?? EMPTY_REPLAY_PARTS,
+    noteLearnReplayPart: (chapterSlug: string, key: string, part: number | null) => {
+      const current = readProgressSnapshot();
+      const next = writeLearnReplayPart(current, chapterSlug, key, part);
+      if (next === current) return;
+      persist(next, true);
+    },
     learnRunClipOrderFor: (chapterSlug: string) =>
       progress.learn[chapterSlug]?.runClipOrder ?? EMPTY_RUN_ORDER,
     learnRunCountFor: (chapterSlug: string) => learnRunCount(progress, chapterSlug),

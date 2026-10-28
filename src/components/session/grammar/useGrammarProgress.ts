@@ -1,6 +1,7 @@
 "use client";
 
 import { grammarLessonDone, grammarPartStorageKey, type GrammarNodeLayout } from "@/lib/grammar-node";
+import { useRef } from "react";
 import type { SessionCourse } from "@/lib/session-course";
 import { useProgress } from "@/lib/useProgress";
 
@@ -27,4 +28,16 @@ export function useGrammarProgress(course: SessionCourse, lesson: LessonGrammar)
   };
 
   return { finishPart, streakDays };
+}
+
+/** True once this visit opened a grammar node whose parts were already finished. */
+export function useGrammarReplay(course: SessionCourse, storageKeys: readonly string[]) {
+  const { learnGrammarPartKeysFor, progressReady } = useProgress();
+  const doneKeys = learnGrammarPartKeysFor(course.progressKey);
+  const replaying = useRef<boolean | null>(null);
+  if (progressReady && replaying.current === null) {
+    const have = new Set(doneKeys);
+    replaying.current = storageKeys.length > 0 && storageKeys.every((key) => have.has(key));
+  }
+  return replaying.current === true;
 }

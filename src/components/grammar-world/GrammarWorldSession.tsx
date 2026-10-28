@@ -25,8 +25,8 @@ import { useProgress } from "@/lib/useProgress";
 /**
  * One part of a grammar world node, or a stage's review. The same practice
  * session as a Lektion's grammar node. A first pass returns to the mountain
- * so the next stop can light up. Reviewing a finished node continues through
- * its remaining parts, then returns.
+ * so the next stop can light up. Reviewing a finished node plays every part from
+ * the one that opened, then the next review starts at part 1 again.
  */
 export function GrammarWorldSession({
   topic,
@@ -91,13 +91,18 @@ export function GrammarWorldSession({
       (entry) => entry.node === node && (entry.ready || freePlay),
     );
     const target = found?.parts.find((entry) => entry.part === part);
+    const doneKeys = new Set(stage.partKeys);
     return target
       ? {
           cards: target.cards,
           key: target.key,
           partCount: found!.parts.length,
           run: 0,
-          replaying: found!.sealed,
+          // A node can read as finished from its part keys before its end is sealed.
+          replaying: Boolean(
+            found!.sealed ||
+              (found!.parts.length > 0 && found!.parts.every((entry) => doneKeys.has(entry.key))),
+          ),
         }
       : null;
   }, [freePlay, gate, node, part, progress, progressReady, review, stage.nodeEnds, stage.reviewRuns, tables, topic]);
@@ -229,11 +234,11 @@ export function GrammarWorldSession({
           });
           return;
         }
-        const next = deal.key
+        const progressed = deal.key
           ? withWorldPartDone(tables, topic, stage, deal.key)
           : withWorldReviewDone(stage);
-        commitWorldStageDone(topic.id, next, result.questionCount);
-        setSummary({ ...result, nodeDone: next.nodeEnds.length > stage.nodeEnds.length });
+        commitWorldStageDone(topic.id, progressed, result.questionCount);
+        setSummary({ ...result, nodeDone: progressed.nodeEnds.length > stage.nodeEnds.length });
         setXpGrant({ xp: null, kind: null, pending: true, quests: null, total: null });
         setPhase("complete");
         void fetch("/api/grammar-world-xp", {

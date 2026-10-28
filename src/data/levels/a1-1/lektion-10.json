@@ -1,3 +1,259 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag10-03-koennen.mp3",
+      "script": "können",
+      "translationVi": "có thể"
+    },
+    {
+      "filename": "a11-tag10-04-muessen.mp3",
+      "script": "müssen",
+      "translationVi": "phải"
+    },
+    {
+      "filename": "a11-tag10-05-moechten.mp3",
+      "script": "möchten",
+      "translationVi": "muốn (lịch sự)"
+    },
+    {
+      "filename": "a11-tag10-06-wollen.mp3",
+      "script": "wollen",
+      "translationVi": "muốn (ý muốn mạnh)"
+    },
+    {
+      "filename": "a11-tag10-07-moegen.mp3",
+      "script": "mögen",
+      "translationVi": "thích"
+    },
+    {
+      "filename": "a11-tag10-08-duerfen.mp3",
+      "script": "dürfen",
+      "translationVi": "được phép"
+    },
+    {
+      "filename": "a11-tag10-09-sollen.mp3",
+      "script": "sollen",
+      "translationVi": "nên; phải theo lời yêu cầu"
+    },
+    {
+      "filename": "a11-tag10-10-kann.mp3",
+      "script": "kann",
+      "translationVi": "có thể (ich / er / sie / es)"
+    },
+    {
+      "filename": "a11-tag10-11-muss.mp3",
+      "script": "muss",
+      "translationVi": "phải (ich / er / sie / es)"
+    },
+    {
+      "filename": "a11-tag10-37-ich-muss-deutsch-lernen.mp3",
+      "script": "Ich muss Deutsch lernen.",
+      "translationVi": "Tôi phải học tiếng Đức."
+    },
+    {
+      "filename": "a11-tag10-47-ich-muss-schoen-sein.mp3",
+      "script": "Ich muss schön sein.",
+      "translationVi": "Tôi phải xinh đẹp."
+    },
+    {
+      "filename": "a11-tag10-48-ich-moechte-curry-am-samstag-kochen.mp3",
+      "script": "Ich möchte Curry am Samstag kochen.",
+      "translationVi": "Tôi muốn nấu cà ri vào thứ Bảy."
+    },
+    {
+      "filename": "a11-tag10-50-heute-muss-ich-arbeiten.mp3",
+      "script": "Heute muss ich arbeiten.",
+      "translationVi": "Hôm nay tôi phải làm việc."
+    },
+    {
+      "filename": "a11-tag10-51-er-moechte-mich-zur-party-einladen.mp3",
+      "script": "Er möchte mich zur Party einladen.",
+      "translationVi": "Anh ấy muốn mời tôi tới bữa tiệc."
+    },
+    {
+      "filename": "a11-tag10-52-treffen.mp3",
+      "script": "treffen",
+      "translationVi": "gặp"
+    },
+    {
+      "filename": "a11-tag10-53-moechtest-du-mich-am-freitag-im-starbucks-treffen.mp3",
+      "script": "Möchtest du mich am Freitag im Starbucks treffen?",
+      "translationVi": "Bạn muốn gặp tôi vào thứ Sáu ở Starbucks không?"
+    },
+    {
+      "filename": "a11-tag10-54-zum-starbucks.mp3",
+      "script": "zum Starbucks",
+      "translationVi": "đến Starbucks"
+    },
+    {
+      "filename": "a11-tag10-55-ich-moechte-am-samstag-zum-starbucks-gehen.mp3",
+      "script": "Ich möchte am Samstag zum Starbucks gehen.",
+      "translationVi": "Tôi muốn thứ Bảy đi Starbucks."
+    },
+    {
+      "filename": "a11-tag10-56-die-lust.mp3",
+      "script": "die Lust",
+      "translationVi": "hứng; sự hứng thú"
+    },
+    {
+      "filename": "a11-tag10-57-hast-du-lust.mp3",
+      "script": "Hast du Lust?",
+      "translationVi": "Bạn có hứng không?"
+    },
+    {
+      "filename": "a11-tag10-58-an-dem-tag.mp3",
+      "script": "an dem Tag",
+      "translationVi": "hôm đó"
+    },
+    {
+      "filename": "a11-tag10-59-nach-hause.mp3",
+      "script": "nach Hause",
+      "translationVi": "về nhà"
+    },
+    {
+      "filename": "a11-tag10-60-krank.mp3",
+      "script": "krank",
+      "translationVi": "ốm; bị bệnh (tính từ)"
+    },
+    {
+      "filename": "a11-tag10-61-denn.mp3",
+      "script": "denn",
+      "translationVi": "vì; bởi vì"
+    },
+    {
+      "filename": "a11-tag10-62-an-dem-tag-muss-ich-leider-nach-hause-gehen-denn-mein-vater-ist-krank.mp3",
+      "script": "An dem Tag muss ich leider nach Hause gehen, denn mein Vater ist krank.",
+      "translationVi": "Hôm đó tiếc là tôi phải đi về nhà vì bố của tôi ốm."
+    },
+    {
+      "filename": "a11-tag10-63-eine-party-machen.mp3",
+      "script": "eine Party machen",
+      "translationVi": "tổ chức một bữa tiệc"
+    },
+    {
+      "filename": "a11-tag10-65-der-garten.mp3",
+      "script": "der Garten",
+      "translationVi": "vườn"
+    },
+    {
+      "filename": "a11-tag10-64-im-garten.mp3",
+      "script": "im Garten",
+      "translationVi": "ở ngoài vườn"
+    },
+    {
+      "filename": "a11-tag10-66-wir-moechten-eine-party-im-garten-machen-denn-mein-garten-ist-sehr-gross.mp3",
+      "script": "Wir möchten eine Party im Garten machen, denn mein Garten ist sehr groß.",
+      "translationVi": "Chúng tôi muốn tổ chức một bữa tiệc ở ngoài vườn vì vườn của tôi rất rộng."
+    },
+    {
+      "filename": "a11-tag10-67-finden.mp3",
+      "script": "finden",
+      "translationVi": "thấy; nhận xét; cảm thấy"
+    },
+    {
+      "filename": "a11-tag10-68-wie-findest-du-es.mp3",
+      "script": "Wie findest du es?",
+      "translationVi": "Bạn thấy sao?"
+    },
+    {
+      "filename": "a11-tag10-69-das-klingt-gut.mp3",
+      "script": "Das klingt gut.",
+      "translationVi": "Nghe có vẻ hay đó."
+    },
+    {
+      "filename": "a11-tag10-70-uns.mp3",
+      "script": "uns",
+      "translationVi": "nhau (đại từ chỉ quan hệ qua lại)"
+    },
+    {
+      "filename": "a11-tag10-71-wann-moechten-wir-uns-treffen.mp3",
+      "script": "Wann möchten wir uns treffen?",
+      "translationVi": "Khi nào chúng ta muốn gặp nhau?"
+    },
+    {
+      "filename": "a11-tag10-72-gegen.mp3",
+      "script": "gegen",
+      "translationVi": "khoảng (dùng với giờ)"
+    },
+    {
+      "filename": "a11-tag10-73-moechten-wir-uns-am-samstag-gegen-16-uhr-treffen.mp3",
+      "script": "Möchten wir uns am Samstag, gegen 16 Uhr treffen?",
+      "translationVi": "Chúng ta muốn gặp nhau vào thứ Bảy, khoảng 16 giờ không nhỉ?"
+    },
+    {
+      "filename": "a11-tag10-74-die-zeit.mp3",
+      "script": "die Zeit",
+      "translationVi": "thời gian"
+    },
+    {
+      "filename": "a11-tag10-75-denn-da-habe-ich-zeit.mp3",
+      "script": "Denn da habe ich Zeit.",
+      "translationVi": "Bởi vì lúc đó tôi có thời gian."
+    },
+    {
+      "filename": "a11-tag10-77-wo-treffen-wir-uns.mp3",
+      "script": "Wo treffen wir uns?",
+      "translationVi": "Chúng mình gặp nhau ở đâu nhỉ?"
+    },
+    {
+      "filename": "a11-tag10-78-glauben.mp3",
+      "script": "glauben",
+      "translationVi": "nghĩ; tin rằng"
+    },
+    {
+      "filename": "a11-tag10-79-bei-mir-zu-hause.mp3",
+      "script": "bei mir zu Hause",
+      "translationVi": "ở nhà của tôi"
+    },
+    {
+      "filename": "a11-tag10-80-ich-glaube-wir-koennen-uns-bei-mir-zu-hause-treffen.mp3",
+      "script": "Ich glaube, wir können uns bei mir zu Hause treffen.",
+      "translationVi": "Tôi nghĩ, chúng mình có thể gặp nhau ở nhà của tôi."
+    },
+    {
+      "filename": "a11-tag10-82-ok-abgemacht.mp3",
+      "script": "Ok, abgemacht.",
+      "translationVi": "Được, chốt nhé."
+    },
+    {
+      "filename": "a11-tag10-83-etwas.mp3",
+      "script": "etwas",
+      "translationVi": "cái gì đó"
+    },
+    {
+      "filename": "a11-tag10-84-soll-ich-etwas-kaufen.mp3",
+      "script": "Soll ich etwas kaufen?",
+      "translationVi": "Tôi nên mua cái gì đó không?"
+    },
+    {
+      "filename": "a11-tag10-85-die-getraenke.mp3",
+      "script": "die Getränke",
+      "translationVi": "đồ uống (số nhiều)"
+    },
+    {
+      "filename": "a11-tag10-86-kannst-du-die-getraenke-kaufen.mp3",
+      "script": "Kannst du die Getränke kaufen?",
+      "translationVi": "Bạn có thể mua đồ uống được không?"
+    },
+    {
+      "filename": "a11-tag10-90-koennen-wir-lin-fragen.mp3",
+      "script": "Können wir Lin fragen?",
+      "translationVi": "Chúng ta có thể hỏi Lin không?"
+    },
+    {
+      "filename": "a11-tag10-91-vielleicht.mp3",
+      "script": "vielleicht",
+      "translationVi": "có lẽ; có thể"
+    },
+    {
+      "filename": "a11-tag10-92-mitgehen.mp3",
+      "script": "mitgehen",
+      "translationVi": "đi cùng"
+    },
+    {
+      "filename": "a11-tag10-93-sie-moechte-vielleicht-mitgehen.mp3",
+      "script": "Sie möchte vielleicht mitgehen.",
+      "translationVi": "Cô ấy có lẽ cũng muốn đi cùng."
+    }
+  ]
 }

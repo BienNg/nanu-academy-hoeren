@@ -571,6 +571,8 @@ export type WorldNodeView = WorldNode & {
   partDone: boolean[];
   partsDone: number;
   done: boolean;
+  /** A finished node opens on part 1. The session plays every part, then the next review starts over. */
+  reviewPart: number;
 };
 
 export type WorldStageView = {
@@ -599,7 +601,7 @@ export function worldStageView(
   const nodes = worldNodes(tables, topic, progress.nodeEnds).map((node): WorldNodeView => {
     const partDone = node.parts.map((part) => node.sealed || done.has(part.key));
     const partsDone = partDone.filter(Boolean).length;
-    return { ...node, partDone, partsDone, done: node.sealed || (partDone.length > 0 && partsDone === partDone.length) };
+    return { ...node, partDone, partsDone, done: node.sealed || (partDone.length > 0 && partsDone === partDone.length), reviewPart: 1 };
   });
   const allNodesDone = nodes.every((node) => node.done);
   const runs = progress.reviewRuns;

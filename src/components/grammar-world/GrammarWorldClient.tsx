@@ -76,7 +76,7 @@ function buildStops(view: WorldAreaView, freePlay: boolean): Stop[] {
       const soon = !node.ready;
       const locked = !freePlay && (soon || (!node.done && !previousDone));
       const nextPart = node.partDone.findIndex((done) => !done) + 1;
-      const playPart = node.done || nextPart === 0 ? 1 : nextPart;
+      const playPart = node.done ? node.reviewPart : nextPart === 0 ? 1 : nextPart;
       stops.push({
         id: `${topic.id}-n${node.node}`,
         kind: "node",
@@ -92,9 +92,9 @@ function buildStops(view: WorldAreaView, freePlay: boolean): Stop[] {
         start: locked
           ? null
           : {
-              title: node.done ? `Nút ${node.node} · Luyện lại` : `Nút ${node.node} · Phần ${playPart}/${node.parts.length}`,
+              title: `Nút ${node.node} · Phần ${playPart}/${node.parts.length}`,
               detail: node.done
-                ? `${topic.titleVi} · ôn ${node.parts.length} phần`
+                ? `${topic.titleVi} · Ôn lại`
                 : `${topic.titleVi} · ${node.parts[playPart - 1]?.cards.length ?? worldPartSize(node.node)} thẻ`,
               href: partHref(topic.id, node.node, playPart),
               label: node.done ? "LUYỆN LẠI" : "BẮT ĐẦU",

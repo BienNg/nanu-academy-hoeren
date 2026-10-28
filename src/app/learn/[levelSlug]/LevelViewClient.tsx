@@ -399,8 +399,8 @@ function lessonHasVocab(lesson: AdminLessonDetail | undefined, open: boolean): b
 
 /**
  * Start card for one Study or Practice node of a CEFR Lektion.
- * An unfinished node offers its next part. A finished node starts over at
- * part 1 and the session then walks every part of that node.
+ * An unfinished node offers its next part. A finished node always starts
+ * again at part 1; the session then plays every part, and the next review does too.
  */
 function nodeStartOffer(
   node: LessonPathNode<{ id: string; script?: string }>,
@@ -416,9 +416,7 @@ function nodeStartOffer(
   const unit = clipUnit(clips);
   return {
     title: study ? "Học từ vựng" : "Luyện tập",
-    exercise: replay
-      ? `Ôn lại ${node.parts.length} phần`
-      : `Phần ${localPart} / ${node.parts.length}`,
+    exercise: `Phần ${localPart} / ${node.parts.length}`,
     detail: replay ? `Ôn ${clips.length} ${unit}` : `Học ${clips.length} ${unit} mới`,
     xp: study
       ? replay
@@ -432,8 +430,8 @@ function nodeStartOffer(
 }
 
 /**
- * Start card for a grammar node: the first unfinished part, or a replay from
- * part 1 once every part is done. The session then continues through the rest.
+ * Start card for a grammar node: the first unfinished part, or part 1 once
+ * every part is done. The session plays the rest, then the next review starts over.
  */
 function grammarStartOffer(
   layout: GrammarNodeLayout,
@@ -447,7 +445,7 @@ function grammarStartOffer(
   const part = open < 0 ? 1 : open + 1;
   return {
     title: kind === "study" ? "Học ngữ pháp" : "Luyện ngữ pháp",
-    exercise: open < 0 ? `Ôn lại ${keys.length} phần` : `Phần ${part} / ${keys.length}`,
+    exercise: `Phần ${part} / ${keys.length}`,
     detail: open < 0 ? `Ôn: ${layout.titleVi}` : layout.titleVi,
     xp: null,
     href: `${lessonHref}/grammar/${kind}?topic=${encodeURIComponent(layout.topicId)}&part=${part}`,

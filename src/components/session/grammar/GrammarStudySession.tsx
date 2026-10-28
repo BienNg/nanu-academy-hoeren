@@ -6,6 +6,7 @@ import type { SessionCourse } from "@/lib/session-course";
 import type { GrammarTopicContent, TenseTables } from "@/lib/grammar-lessons";
 import {
   checkStudyTranslate,
+  grammarPartStorageKey,
   grammarStudyParts,
   isStudyTask,
   type GrammarStudyScreen,
@@ -20,7 +21,7 @@ import { PartCompleteScreen } from "@/components/session/PartCompleteScreen";
 import { SessionContentSkeleton } from "@/components/RouteLoading";
 import { ContinueBar, GrammarHeader, GrammarPage } from "@/components/session/grammar/GrammarSessionFrame";
 import { CueText, GrammarReadScreen } from "@/components/session/grammar/GrammarStudyScreens";
-import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
+import { useGrammarProgress, useGrammarReplay, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 
 type GrammarStudySessionProps = {
   course: SessionCourse;
@@ -101,6 +102,10 @@ export function GrammarStudySession({
   const partIndex = Math.min(Math.max(partNumber, 1), Math.max(parts.length, 1)) - 1;
   const part = parts[partIndex];
   const shownPart = partIndex + 1;
+  const replaying = useGrammarReplay(
+    course,
+    parts.map((entry) => grammarPartStorageKey(topic.id, entry.key)),
+  );
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   /** True when this step opens a different slide. A later step of the same slide does not. */
@@ -222,8 +227,14 @@ export function GrammarStudySession({
                 continueLabel: "Phần tiếp theo",
                 onContinue: () =>
                   leave(`${grammarHref}/${node}?topic=${encodeURIComponent(topic.id)}&part=${shownPart + 1}`),
-                secondaryLabel: "Về bài học",
-                onSecondary: () => leave(course.pathHref),
+                // The last ranking step treats "Về bài học" as the way out.
+                // A review has to keep "Phần tiếp theo" through that step.
+                ...(replaying
+                  ? {}
+                  : {
+                      secondaryLabel: "Về bài học" as const,
+                      onSecondary: () => leave(course.pathHref),
+                    }),
               }
             : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
         />

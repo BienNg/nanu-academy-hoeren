@@ -180,6 +180,8 @@ export function LearnSession({
     progress,
   } = useProgress();
   const chapterProgressKey = course.progressKey;
+  /** Set when "Phần tiếp theo" is pressed, so the reload cannot keep part 1. */
+  const advancePartRef = useRef<number | null>(null);
   const lessonKey = course.lessonKey;
   const pathHref = course.pathHref;
   const completedIds = completedLearnClipIdsFor(chapterProgressKey);
@@ -290,11 +292,13 @@ export function LearnSession({
       if (!practiceNode || !pathNodes || !nodeDecks) return;
       const first = practiceNode.firstPart;
       const last = first + practiceNode.parts.length - 1;
-      // A finished node replays from part 1. Later parts of this visit stay in
-      // replayPart. Leaving does not store them, so the next review starts over.
+      // A finished node starts at part 1 every time. Later parts of this visit
+      // stay in replayPart. The next review starts at part 1 again.
       const open = replayPart == null ? nextNodePart(practiceNode, absorbedCompleted) : null;
       const replaying = replayPart != null || open == null;
-      const playPart = replaying ? (replayPart ?? first) : open.partNumber;
+      const advanced = advancePartRef.current;
+      const playPart = replaying ? (advanced ?? replayPart ?? first) : open.partNumber;
+      if (advanced != null && advanced === playPart) advancePartRef.current = null;
       const partIndex = playPart - first;
       const layoutPart = practiceNode.practiceParts?.[partIndex];
       const nextPartClips = practiceNode.parts[partIndex] ?? [];
@@ -786,6 +790,8 @@ export function LearnSession({
   const continueAfterPart = () => {
     const last = nodeRange?.last ?? partCount;
     if (!failedRun && replayPart != null && partNumber < last) {
+      const nextPart = partNumber + 1;
+      advancePartRef.current = nextPart;
       setPartCards(null);
       setClipIndex(0);
       setScoreResult(null);
@@ -794,7 +800,7 @@ export function LearnSession({
       setDraft("");
       setSummary(null);
       setPhase("practice");
-      setReplayPart(partNumber + 1);
+      setReplayPart(nextPart);
       return;
     }
     leavePractice();

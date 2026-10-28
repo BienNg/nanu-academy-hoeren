@@ -248,7 +248,100 @@ export type LearnProgress = InterviewProgress & {
    * already finished. Absent on skips saved before this was stored.
    */
   jumpSkip?: JumpSkip;
+  /**
+   * Next part of a replay, once a finished node has been started again.
+   * Part 1 is omitted. Keys are `s`/`p` plus the node number, or `gs`/`gp`
+   * plus a grammar topic id.
+   */
+  replayParts?: Record<string, number>;
 };
+
+const REPLAY_PART_KEY = /^(?:[sp]\d{1,2}|(?:gs|gp):[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+export function studyReplayKey(node: number): string {
+  return `s${node}`;
+}
+
+export function practiceReplayKey(node: number): string {
+  return `p${node}`;
+}
+
+export function grammarReplayKey(kind: "study" | "practice", topicId: string): string {
+  return `${kind === "study" ? "gs" : "gp"}:${topicId}`;
+}
+
+/** 1-based part a finished node should open. Missing or stale values start at part 1. */
+export function replayPartOf(
+  parts: Record<string, number> | undefined,
+  key: string,
+  partCount: number,
+): number {
+  const count = Math.max(1, partCount);
+  const value = parts?.[key];
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 2) return 1;
+  return Math.min(value, count);
+}
+
+function normalizeReplayParts(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const out: Record<string, number> = {};
+  for (const [key, part] of Object.entries(value as Record<string, unknown>)) {
+    if (!REPLAY_PART_KEY.test(key)) continue;
+    if (typeof part !== "number" || !Number.isInteger(part) || part < 2 || part > 99) continue;
+    out[key] = part;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function replayPartsField(
+  parts: Record<string, number> | undefined,
+): { replayParts: Record<string, number> } | Record<string, never> {
+  return parts ? { replayParts: parts } : {};
+}
+
+function withoutReplayKeys(
+  parts: Record<string, number> | undefined,
+  drop: (key: string) => boolean,
+): Record<string, number> | undefined {
+  if (!parts) return undefined;
+  const next: Record<string, number> = {};
+  for (const [key, value] of Object.entries(parts)) {
+    if (!drop(key)) next[key] = value;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function mergeReplayParts(
+  left: Record<string, number> | undefined,
+  right: Record<string, number> | undefined,
+): Record<string, number> | undefined {
+  return normalizeReplayParts({ ...left, ...right, ...Object.fromEntries(
+    [...new Set([...Object.keys(left ?? {}), ...Object.keys(right ?? {})])].map((key) => [
+      key,
+      Math.max(left?.[key] ?? 1, right?.[key] ?? 1),
+    ]),
+  ) });
+}
+
+/** Remember the next part of a replay, or clear it when the review finishes. Part 1 is not stored. */
+export function noteLearnReplayPart(
+  progress: StoredProgress,
+  chapterSlug: string,
+  key: string,
+  part: number | null,
+): StoredProgress {
+  const entry = progress.learn[chapterSlug];
+  if (!entry || !REPLAY_PART_KEY.test(key)) return progress;
+  const replayParts = { ...(entry.replayParts ?? {}) };
+  if (part == null || part <= 1) delete replayParts[key];
+  else replayParts[key] = part;
+  const nextParts = Object.keys(replayParts).length > 0 ? replayParts : undefined;
+  if (!nextParts && !entry.replayParts) return progress;
+  const next: LearnProgress = { ...entry };
+  if (nextParts) next.replayParts = nextParts;
+  else delete next.replayParts;
+  return withLearnEntry(progress, chapterSlug, next);
+}
 
 /** What a passed jump filled in. Nodes built from these clips are the ones it skipped. */
 export type JumpSkip = {
@@ -542,6 +635,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     studyCompletedAt?: unknown;
     practicePartKeys?: unknown;
     grammarPartKeys?: unknown;
+    replayParts?: unknown;
     skippedAt?: unknown;
     jumpSkip?: unknown;
   };
@@ -602,6 +696,7 @@ function normalizeLearnEntry(entry: InterviewProgress): LearnProgress {
     ...(studyCompletedAt ? { studyCompletedAt } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
     ...(grammarPartKeys.length > 0 ? { grammarPartKeys } : {}),
+    ...replayPartsField(normalizeReplayParts(record.replayParts)),
     ...(skippedAt ? { skippedAt } : {}),
     ...jumpSkipField(skippedAt ? normalizeJumpSkip(record.jumpSkip) : undefined),
   };
@@ -1003,6 +1098,7 @@ function mergeLearnEntry(
     ...(runClipOrder && runClipOrder.length > 0 ? { runClipOrder } : {}),
     ...(practicePartKeys.length > 0 ? { practicePartKeys } : {}),
     ...(grammarPartKeys.length > 0 ? { grammarPartKeys } : {}),
+    ...replayPartsField(mergeReplayParts(left?.replayParts, right?.replayParts)),
     ...(skippedAt ? { skippedAt } : {}),
     ...jumpSkipField(jumpSkip),
   };
@@ -1138,6 +1234,7 @@ function learnSliceIsEmpty(entry: LearnProgress): boolean {
     entry.reviewedClipIds.length === 0 &&
     (entry.practicePartKeys?.length ?? 0) === 0 &&
     (entry.grammarPartKeys?.length ?? 0) === 0 &&
+    !entry.replayParts &&
     entry.runCount === 0 &&
     entry.studyRunCount === 0 &&
     !entry.completedAt &&
@@ -1163,6 +1260,11 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     // Part keys do not name their clips, so erased practice drops every finished part.
     delete nextEntry.practicePartKeys;
     delete nextEntry.grammarPartKeys;
+    const practiceReplay = withoutReplayKeys(nextEntry.replayParts, (key) =>
+      /^p\d/.test(key) || key.startsWith("gp:"),
+    );
+    if (practiceReplay) nextEntry.replayParts = practiceReplay;
+    else delete nextEntry.replayParts;
     nextEntry.runCount = 0;
     nextEntry.currentClipIndex = nextEntry.runCompletedClipIds.length;
   }
@@ -1170,6 +1272,11 @@ function eraseLearnSlice(progress: StoredProgress, slice: AdminLearnErase): Stor
     nextEntry.reviewedClipIds = withoutIds(current.reviewedClipIds, drop);
     delete nextEntry.studyCompletedAt;
     nextEntry.studyRunCount = 0;
+    const studyReplay = withoutReplayKeys(nextEntry.replayParts, (key) =>
+      /^s\d/.test(key) || key.startsWith("gs:"),
+    );
+    if (studyReplay) nextEntry.replayParts = studyReplay;
+    else delete nextEntry.replayParts;
   }
   const learn = { ...progress.learn };
   if (learnSliceIsEmpty(nextEntry)) delete learn[slice.key];
@@ -3360,6 +3467,7 @@ function withoutRunCursor(entry: LearnProgress): LearnProgress {
   if (entry.studyCompletedAt) next.studyCompletedAt = entry.studyCompletedAt;
   if (entry.practicePartKeys?.length) next.practicePartKeys = entry.practicePartKeys;
   if (entry.grammarPartKeys?.length) next.grammarPartKeys = entry.grammarPartKeys;
+  if (entry.replayParts) next.replayParts = entry.replayParts;
   if (entry.skippedAt) next.skippedAt = entry.skippedAt;
   if (entry.jumpSkip) next.jumpSkip = entry.jumpSkip;
   return next;
@@ -3763,6 +3871,7 @@ export function resetLearnProgress(
         ...(existing?.grammarPartKeys?.length
           ? { grammarPartKeys: existing.grammarPartKeys }
           : {}),
+        ...replayPartsField(existing?.replayParts),
         ...(completedAt ? { completedAt } : {}),
         ...(existing?.studyCompletedAt
           ? { studyCompletedAt: existing.studyCompletedAt }

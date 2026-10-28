@@ -8,6 +8,7 @@ import {
   checkErrorCheck,
   checkGrammarOrder,
   checkTableFill,
+  grammarPartStorageKey,
   grammarPracticeParts,
   type GrammarCard,
   type GrammarCardKind,
@@ -17,7 +18,7 @@ import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
-import { useGrammarProgress, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
+import { useGrammarProgress, useGrammarReplay } from "@/components/session/grammar/useGrammarProgress";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { FeedbackSheet, praiseFor, SheetLine } from "@/components/session/FeedbackSheet";
 import { McCard } from "@/components/session/McCard";
@@ -457,6 +458,10 @@ export function GrammarPracticeSession({
     [course.lessonKey, topic, tables],
   );
   const part = parts[partNumber - 1];
+  const replaying = useGrammarReplay(
+    course,
+    parts.map((entry) => grammarPartStorageKey(topic.id, entry.key)),
+  );
   const [summary, setSummary] = useState<Summary | null>(null);
   const [phase, setPhase] = useState<"cards" | "complete" | "leaving">("cards");
   const isLastPart = partNumber >= parts.length;
@@ -499,8 +504,12 @@ export function GrammarPracticeSession({
                 continueLabel: "Phần tiếp theo",
                 onContinue: () =>
                   leave(`${grammarHref}/practice?topic=${encodeURIComponent(topic.id)}&part=${partNumber + 1}`),
-                secondaryLabel: "Về bài học",
-                onSecondary: () => leave(course.pathHref),
+                ...(replaying
+                  ? {}
+                  : {
+                      secondaryLabel: "Về bài học" as const,
+                      onSecondary: () => leave(course.pathHref),
+                    }),
               }
             : { continueLabel: "Về bài học", onContinue: () => leave(course.pathHref) })}
         />
@@ -514,7 +523,9 @@ export function GrammarPracticeSession({
       tables={tables}
       onLeave={() => leave(course.pathHref)}
       onFinish={(result) => {
-        if (!result.failed) finishPart(topic.id, part.key, result.questionCount);
+        if (!result.failed) {
+          finishPart(topic.id, part.key, result.questionCount);
+        }
         setSummary(result);
         setPhase("complete");
       }}
