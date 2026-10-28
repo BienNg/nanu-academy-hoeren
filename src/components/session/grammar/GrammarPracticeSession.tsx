@@ -18,7 +18,7 @@ import { GAP_BLANK } from "@/lib/grammar-gaps";
 import { checkMc, type McOption, type McResult } from "@/lib/multiple-choice";
 import { playHeartLostSound, playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
-import { useGrammarProgress, useGrammarReplay } from "@/components/session/grammar/useGrammarProgress";
+import { useGrammarProgress, useGrammarReplay, type LessonGrammar } from "@/components/session/grammar/useGrammarProgress";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { FeedbackSheet, praiseFor, SheetLine } from "@/components/session/FeedbackSheet";
 import { McCard } from "@/components/session/McCard";
