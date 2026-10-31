@@ -12,18 +12,29 @@ import type { GrammarGap } from "./grammar-gaps";
  * Duel and Blitzrunde kinds plus the cards that only appear in regular
  * practice: "reply-choice" (pick the reply that fits), "number-input" (type
  * the price or time heard, in place of dictation), both Leben in Deutschland,
- * and "grammar-gap" (pick the form that fills the blank).
+ * "grammar-gap" (pick the form that fills the blank), and the two conjugation
+ * cards of a verb clip: "conjugation-table" (fill the blank forms) and
+ * "conjugation-pairing" (match pronouns to forms).
  */
-export type PracticeCardKind = CardKind | "reply-choice" | "number-input" | "grammar-gap";
+export type PracticeCardKind =
+  | CardKind
+  | "reply-choice"
+  | "number-input"
+  | "grammar-gap"
+  | "conjugation-table"
+  | "conjugation-pairing";
 
 /**
  * Kind recorded in run stats. The stored miss kinds only know the shared card
- * kinds, so a Zahlen-Ohr miss counts as listening, and a reply or grammar gap
- * miss as multiple choice.
+ * kinds, so a Zahlen-Ohr miss counts as listening, a reply or grammar gap
+ * miss as multiple choice, a conjugation table as order (both place chips)
+ * and a conjugation pairing as pairing.
  */
 export function statsCardKind(kind: PracticeCardKind): CardKind {
   if (kind === "number-input") return "listening";
   if (kind === "reply-choice" || kind === "grammar-gap") return "multiple-choice";
+  if (kind === "conjugation-table") return "order";
+  if (kind === "conjugation-pairing") return "pairing";
   return kind;
 }
 
@@ -51,6 +62,8 @@ export type OrderSourceClip = {
   imageUrl?: string;
   /** Level lessons: words that can be blanked on a grammar gap card. */
   gaps?: readonly GrammarGap[];
+  /** Level lessons: the verb's Präsens forms. The script is the infinitive. */
+  conjugation?: readonly { person: string; form: string }[];
 };
 
 export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
@@ -65,6 +78,10 @@ export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {
   pairItems?: C[];
   /** The blanked sentence and topic name. Only on grammar gap cards. */
   gap?: { prompt: string; labelVi: string };
+  /** The verb's rows, null text where the student fills in. Only on conjugation-table cards, whose chips are `bank`. */
+  tableRows?: { personLabel: string; text: string | null; answer: string }[];
+  /** Pronouns with distinct forms. Only on conjugation-pairing cards. */
+  formPairs?: { id: string; person: string; form: string }[];
 };
 
 /** Same shape as ScoreResult in scoring.ts, so the feedback card can show it. */

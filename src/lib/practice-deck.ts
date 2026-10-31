@@ -25,6 +25,19 @@ import {
 } from "./multiple-choice";
 import { buildPairingSet, isPairingItemEligible } from "./pairing";
 import { blankScript, buildGapOptions, type GrammarGap } from "./grammar-gaps";
+import { pickTableFillBlanks, TABLE_FILL_BLANK_MIN } from "./grammar-node";
+
+/**
+ * Fewest pronouns with distinct forms on a conjugation-pairing card, and the
+ * most it shows. Same range as the grammar world's pronoun pairing.
+ */
+export const CONJUGATION_PAIRING_MIN = 4;
+export const CONJUGATION_PAIRING_MAX = 5;
+
+/**
+ * Wrong forms added to a conjugation table's chips.
+ */
+export const CONJUGATION_TABLE_TRAPS = 2;
 
 /**
  * Target card cap for one practice part, including after a shuffle.
@@ -113,12 +126,13 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
     const listeningOrder = isListeningOrderEligible(clip);
     const meaningDrill =
       !replyChoice && (multipleChoice || (viDrills && hasTranslation) || listeningOrder) ? 1 : 0;
-    const base = clip.answer
-      ? 1 + meaningDrill
-      : 1 +
-        (clip.sentenceOrder && hasTranslation ? 1 : 0) +
-        meaningDrill +
-        (replyChoice ? 1 : 0);
+    const base =
+      (clip.answer
+        ? 1 + meaningDrill
+        : 1 +
+          (clip.sentenceOrder && hasTranslation ? 1 : 0) +
+          meaningDrill +
+          (replyChoice ? 1 : 0)) + (hasConjugationCard(clip) ? 1 : 0);
     return {
       clip,
       base,
@@ -161,8 +175,8 @@ export function maxClipsPerPracticePart<C extends OrderSourceClip>(
  * One practice part, in three blocks:
  * 1. A listening card per clip, with each clip's meaning or reply card at a
  *    random later slot. Some meaning cards then become grammar gap cards,
- *    and LISTENING_CHOICE_SHARE of the listening cards become
- *    listening-choice cards.
+ *    a verb clip adds its conjugation card, and LISTENING_CHOICE_SHARE of
+ *    the listening cards become listening-choice cards.
  * 2. The pairing card, when the part has five short clips.
  * 3. Up to MAX_ORDER_CARDS Vietnamese → German order cards, shuffled.
  */
@@ -173,9 +187,14 @@ export function dealPracticePart<C extends OrderSourceClip>(
   random: () => number = Math.random,
 ): PracticeCard<C>[] {
   const front = mixListeningChoice(
-    insertGrammarCards(
-      insertDiscreteCards(buildPracticeDeck(partClips), partClips, lessonClips, levelClips, random),
+    insertConjugationCards(
+      insertGrammarCards(
+        insertDiscreteCards(buildPracticeDeck(partClips), partClips, lessonClips, levelClips, random),
+        partClips,
+        random,
+      ),
       partClips,
+      lessonClips,
       random,
     ),
     lessonClips,
@@ -251,6 +270,89 @@ export function insertGrammarCards<C extends OrderSourceClip>(
     };
     next.splice(meaningIndex(clip.id), 1);
     insertAfterAnchor(next, card, GRAMMAR_CARD_WINDOW, random);
+  }
+  return next;
+}
+
+/** A verb clip with enough Präsens rows for a table gets one conjugation card. */
+export function hasConjugationCard(clip: OrderSourceClip): boolean {
+  return (clip.conjugation?.length ?? 0) >= TABLE_FILL_BLANK_MIN;
+}
+
+/** The forms in row order, each first person with a form kept: ich kann and er kann share one. */
+function distinctFormRows(clip: OrderSourceClip): { id: string; person: string; form: string }[] {
+  const seen = new Set<string>();
+  return (clip.conjugation ?? []).flatMap((row, index) => {
+    const key = row.form.toLocaleLowerCase("de");
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{ id: `${clip.id}:form:${index}`, person: row.person, form: row.form }];
+  });
+}
+
+/**
+ * One conjugation card for a verb clip. The lesson's verb clips take turns:
+ * the 1st, 3rd, … fill a table, the 2nd, 4th, … pair pronouns with forms.
+ * A verb with too few distinct forms to pair fills a table instead.
+ */
+export function conjugationCard<C extends OrderSourceClip>(
+  clip: C,
+  lessonClips: readonly C[],
+  random: () => number,
+): PracticeCard<C> | null {
+  if (!hasConjugationCard(clip)) return null;
+  const rows = clip.conjugation ?? [];
+  const turn = lessonClips.filter(hasConjugationCard).findIndex((entry) => entry.id === clip.id);
+  const pairs = distinctFormRows(clip);
+  if (turn % 2 === 1 && pairs.length >= CONJUGATION_PAIRING_MIN) {
+    return {
+      key: `${clip.id}:conj-pairing`,
+      kind: "conjugation-pairing",
+      clip,
+      formPairs: shuffled(pairs, random).slice(0, CONJUGATION_PAIRING_MAX),
+    };
+  }
+  const blanks = pickTableFillBlanks(
+    rows.map((_, index) => ({ personId: String(index) })),
+    random,
+  );
+  if (!blanks) return null;
+  const tableRows = rows.map((row, index) => ({
+    personLabel: row.person,
+    text: blanks.has(String(index)) ? null : row.form,
+    answer: row.form,
+  }));
+  const answers = tableRows.filter((row) => row.text === null).map((row) => row.answer);
+  const isAnswer = (form: string) => answers.some((answer) => answer.toLocaleLowerCase("de") === form.toLocaleLowerCase("de"));
+  // Traps: the verb's forms no blank needs, then the infinitive.
+  const traps = [...shuffled(pairs.map((pair) => pair.form), random), clip.script.trim()]
+    .filter((form) => form && !isAnswer(form))
+    .filter((form, index, all) => all.indexOf(form) === index)
+    .slice(0, CONJUGATION_TABLE_TRAPS);
+  return {
+    key: `${clip.id}:conj-table:${[...blanks].sort().join("+")}`,
+    kind: "conjugation-table",
+    clip,
+    tableRows,
+    bank: shuffled([...answers, ...traps], random).map((text, index) => ({ id: `c${index}`, text })),
+  };
+}
+
+/**
+ * Adds each verb clip's conjugation card a few cards after its listening
+ * card, so it stays in that clip's practice part. A deck without verb clips
+ * draws no random numbers here, so its cards and keys stay as they were.
+ */
+export function insertConjugationCards<C extends OrderSourceClip>(
+  deck: readonly PracticeCard<C>[],
+  partClips: readonly C[],
+  lessonClips: readonly C[],
+  random: () => number = Math.random,
+): PracticeCard<C>[] {
+  const next = [...deck];
+  for (const clip of partClips) {
+    const card = conjugationCard(clip, lessonClips, random);
+    if (card) insertAfterAnchor(next, card, GRAMMAR_CARD_WINDOW, random);
   }
   return next;
 }

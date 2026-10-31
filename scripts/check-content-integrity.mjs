@@ -107,6 +107,7 @@ function checkContentFile(jsonPath, audioDir) {
     }
 
     checkClipGaps(clip, `${jsonRel} clips[${index}]`);
+    checkClipConjugation(clip, `${jsonRel} clips[${index}]`, audioDir, listedFilenames);
 
     listedFilenames.add(nfc(clip.filename));
     const audioPath = join(audioDir, clip.filename);
@@ -943,6 +944,41 @@ function checkGrammarAudio() {
 }
 
 /** A clip's "gaps" must name words in its script and known topics; "noGaps" is true or a word list. */
+/**
+ * A conjugation clip (see src/lib/conjugation.ts): its script is the
+ * infinitive, and each row is a person, the form and the row's MP3.
+ */
+function checkClipConjugation(clip, where, audioDir, listedFilenames) {
+  if (clip.conjugation === undefined) return;
+  if (!Array.isArray(clip.conjugation) || clip.conjugation.length === 0) {
+    errors.push(`${where} "conjugation" must be a non-empty array`);
+    return;
+  }
+  const persons = new Set();
+  clip.conjugation.forEach((row, index) => {
+    const rowWhere = `${where} conjugation[${index}]`;
+    if (!isRecord(row)) {
+      errors.push(`${rowWhere} must be an object`);
+      return;
+    }
+    for (const key of ["person", "form", "filename"]) {
+      if (typeof row[key] !== "string" || row[key].trim() === "") {
+        errors.push(`${rowWhere} is missing a non-empty "${key}" string`);
+      }
+    }
+    if (typeof row.person === "string") {
+      if (persons.has(row.person)) errors.push(`${rowWhere} repeats person "${row.person}"`);
+      persons.add(row.person);
+    }
+    if (typeof row.filename !== "string" || row.filename.trim() === "") return;
+    if (!row.filename.endsWith(".mp3")) errors.push(`${rowWhere} "filename" must be an .mp3`);
+    if (listedFilenames.has(nfc(row.filename))) errors.push(`${rowWhere} "filename" is listed twice in the Lektion`);
+    listedFilenames.add(nfc(row.filename));
+    const audioPath = join(audioDir, row.filename);
+    if (!existsSync(audioPath)) skippedMissingAudio.push(`${rel(audioPath)} (listed in ${rowWhere})`);
+  });
+}
+
 function checkClipGaps(clip, where) {
   if (clip.noGaps !== undefined) {
     const valid =

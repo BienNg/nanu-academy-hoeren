@@ -46,6 +46,8 @@
     "src/lib/multiple-choice.ts",
     "src/lib/multiple-choice.test.ts",
     "src/lib/pairing.ts",
+    "src/lib/conjugation.ts",
+    "src/lib/conjugation.test.ts",
     "src/lib/pairing.test.ts",
     "src/lib/practice-deck.ts",
     "src/lib/practice-deck.test.ts",

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import ausbildungsberufeFile from "@/data/ausbildungsberufe.json";
 import commonFile from "@/data/ausbildung/common.json";
 import mediaFilesFile from "@/data/media-files.json";
+import type { ConjugationRow } from "@/lib/conjugation";
 import type { GrammarGap } from "@/lib/grammar-gaps";
 import type { LivingReply } from "@/lib/living-content";
 
@@ -32,6 +33,8 @@ export type SessionClip = {
   imageUrl?: string;
   /** Words a grammar gap card can blank. Only on level lessons. */
   gaps?: GrammarGap[];
+  /** The verb's forms: the study card shows a conjugation table. Only on level lessons. */
+  conjugation?: ConjugationRow[];
 };
 
 export type Ausbildungsberuf = {

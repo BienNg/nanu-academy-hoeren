@@ -4011,6 +4011,7 @@ function asOrderClip(clip: {
   replies?: OrderSourceClip["replies"];
   imageUrl?: string;
   gaps?: OrderSourceClip["gaps"];
+  conjugation?: OrderSourceClip["conjugation"];
 }): OrderSourceClip {
   return {
     id: clip.id,
@@ -4021,6 +4022,7 @@ function asOrderClip(clip: {
     ...(clip.replies !== undefined ? { replies: clip.replies } : {}),
     ...(clip.imageUrl !== undefined ? { imageUrl: clip.imageUrl } : {}),
     ...(clip.gaps !== undefined ? { gaps: clip.gaps } : {}),
+    ...(clip.conjugation !== undefined ? { conjugation: clip.conjugation } : {}),
   };
 }
 

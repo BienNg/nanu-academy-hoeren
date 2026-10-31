@@ -27,6 +27,7 @@ import {
   type StoredGrammarTopic,
   type TenseTables,
 } from "@/lib/grammar-lessons";
+import { conjugationSegments, type StoredConjugationRow } from "@/lib/conjugation";
 import { grammarNodeLayout, type GrammarNodeLayout } from "@/lib/grammar-node";
 import { isSentenceOrderEligible } from "@/lib/sentence-order";
 import { parseYouTubeUrl } from "@/lib/youtube";
@@ -53,6 +54,8 @@ type StoredClip = {
   gaps?: ClipGapRequest[];
   /** True keeps the clip off grammar gap cards; a list skips just those words. */
   noGaps?: boolean | string[];
+  /** The verb's Präsens forms. The clip's script is the infinitive. See conjugation.ts. */
+  conjugation?: StoredConjugationRow[];
 };
 
 type StoredVideo = {
@@ -135,6 +138,15 @@ function toSessionClip(
   topics: readonly GrammarTopic[],
 ): SessionClip {
   const gaps = findClipGaps(clip, topics, grammarVerbs, `${levelSlug}/${chapterSlug}`);
+  const conjugation = clip.conjugation?.map((row) => {
+    const audioPath = `${levelSlug}/${chapterSlug}/${row.filename}`;
+    return {
+      person: row.person,
+      form: row.form,
+      segments: conjugationSegments(clip.script, row.person, row.form),
+      audioPath: publicMediaExists(`audio/${audioPath}`) ? audioPath : null,
+    };
+  });
   return {
     id: stripExtension(clip.filename),
     filename: clip.filename,
@@ -143,6 +155,7 @@ function toSessionClip(
     audioPath: `${levelSlug}/${chapterSlug}/${clip.filename}`,
     sentenceOrder: isSentenceOrderEligible(clip),
     ...(gaps.length > 0 ? { gaps } : {}),
+    ...(conjugation && conjugation.length > 0 ? { conjugation } : {}),
   };
 }
 

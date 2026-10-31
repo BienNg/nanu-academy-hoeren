@@ -28,7 +28,7 @@ export const CARD_KIND_LABEL: Record<CardKind, string> = {
   pairing: "Pairing",
 };
 
-/** Practice cards whose first wrong try is stored on the clip. Reply, number and grammar gap stay separate from the stats kinds they roll up into. */
+/** Practice cards whose first wrong try is stored on the clip. Reply, number, grammar gap and conjugation stay separate from the stats kinds they roll up into. */
 export const MISSED_ATTEMPT_KINDS = [
   "listening",
   "listening-choice",
@@ -41,6 +41,8 @@ export const MISSED_ATTEMPT_KINDS = [
   "vi-input",
   "pairing",
   "grammar-gap",
+  "conjugation-table",
+  "conjugation-pairing",
 ] as const;
 
 export type MissedAttemptKind = (typeof MISSED_ATTEMPT_KINDS)[number];
@@ -57,4 +59,6 @@ export const MISSED_ATTEMPT_LABEL: Record<MissedAttemptKind, string> = {
   "vi-input": "Vietnamese → type German",
   pairing: "Pairing",
   "grammar-gap": "Grammar gap",
+  "conjugation-table": "Conjugation table",
+  "conjugation-pairing": "Conjugation pairing",
 };

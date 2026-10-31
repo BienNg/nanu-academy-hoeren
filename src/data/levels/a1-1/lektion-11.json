@@ -1,3 +1,215 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag11-m1-koennen.mp3",
+      "script": "können",
+      "translationVi": "có thể",
+      "conjugation": [
+        { "person": "ich", "form": "kann", "filename": "a11-tag11-m1-ich-kann.mp3" },
+        { "person": "du", "form": "kannst", "filename": "a11-tag11-m1-du-kannst.mp3" },
+        { "person": "er/sie/es", "form": "kann", "filename": "a11-tag11-m1-er-kann.mp3" },
+        { "person": "wir", "form": "können", "filename": "a11-tag11-m1-wir-koennen.mp3" },
+        { "person": "ihr", "form": "könnt", "filename": "a11-tag11-m1-ihr-koennt.mp3" },
+        { "person": "sie/Sie", "form": "können", "filename": "a11-tag11-m1-sie-koennen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m2-muessen.mp3",
+      "script": "müssen",
+      "translationVi": "phải",
+      "conjugation": [
+        { "person": "ich", "form": "muss", "filename": "a11-tag11-m2-ich-muss.mp3" },
+        { "person": "du", "form": "musst", "filename": "a11-tag11-m2-du-musst.mp3" },
+        { "person": "er/sie/es", "form": "muss", "filename": "a11-tag11-m2-er-muss.mp3" },
+        { "person": "wir", "form": "müssen", "filename": "a11-tag11-m2-wir-muessen.mp3" },
+        { "person": "ihr", "form": "müsst", "filename": "a11-tag11-m2-ihr-muesst.mp3" },
+        { "person": "sie/Sie", "form": "müssen", "filename": "a11-tag11-m2-sie-muessen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m3-wollen.mp3",
+      "script": "wollen",
+      "translationVi": "muốn",
+      "conjugation": [
+        { "person": "ich", "form": "will", "filename": "a11-tag11-m3-ich-will.mp3" },
+        { "person": "du", "form": "willst", "filename": "a11-tag11-m3-du-willst.mp3" },
+        { "person": "er/sie/es", "form": "will", "filename": "a11-tag11-m3-er-will.mp3" },
+        { "person": "wir", "form": "wollen", "filename": "a11-tag11-m3-wir-wollen.mp3" },
+        { "person": "ihr", "form": "wollt", "filename": "a11-tag11-m3-ihr-wollt.mp3" },
+        { "person": "sie/Sie", "form": "wollen", "filename": "a11-tag11-m3-sie-wollen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m4-duerfen.mp3",
+      "script": "dürfen",
+      "translationVi": "được phép",
+      "conjugation": [
+        { "person": "ich", "form": "darf", "filename": "a11-tag11-m4-ich-darf.mp3" },
+        { "person": "du", "form": "darfst", "filename": "a11-tag11-m4-du-darfst.mp3" },
+        { "person": "er/sie/es", "form": "darf", "filename": "a11-tag11-m4-er-darf.mp3" },
+        { "person": "wir", "form": "dürfen", "filename": "a11-tag11-m4-wir-duerfen.mp3" },
+        { "person": "ihr", "form": "dürft", "filename": "a11-tag11-m4-ihr-duerft.mp3" },
+        { "person": "sie/Sie", "form": "dürfen", "filename": "a11-tag11-m4-sie-duerfen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m5-sollen.mp3",
+      "script": "sollen",
+      "translationVi": "nên",
+      "conjugation": [
+        { "person": "ich", "form": "soll", "filename": "a11-tag11-m5-ich-soll.mp3" },
+        { "person": "du", "form": "sollst", "filename": "a11-tag11-m5-du-sollst.mp3" },
+        { "person": "er/sie/es", "form": "soll", "filename": "a11-tag11-m5-er-soll.mp3" },
+        { "person": "wir", "form": "sollen", "filename": "a11-tag11-m5-wir-sollen.mp3" },
+        { "person": "ihr", "form": "sollt", "filename": "a11-tag11-m5-ihr-sollt.mp3" },
+        { "person": "sie/Sie", "form": "sollen", "filename": "a11-tag11-m5-sie-sollen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m6-moegen.mp3",
+      "script": "mögen",
+      "translationVi": "thích",
+      "conjugation": [
+        { "person": "ich", "form": "mag", "filename": "a11-tag11-m6-ich-mag.mp3" },
+        { "person": "du", "form": "magst", "filename": "a11-tag11-m6-du-magst.mp3" },
+        { "person": "er/sie/es", "form": "mag", "filename": "a11-tag11-m6-er-mag.mp3" },
+        { "person": "wir", "form": "mögen", "filename": "a11-tag11-m6-wir-moegen.mp3" },
+        { "person": "ihr", "form": "mögt", "filename": "a11-tag11-m6-ihr-moegt.mp3" },
+        { "person": "sie/Sie", "form": "mögen", "filename": "a11-tag11-m6-sie-moegen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-m7-moechten.mp3",
+      "script": "möchten",
+      "translationVi": "muốn (lịch sự)",
+      "conjugation": [
+        { "person": "ich", "form": "möchte", "filename": "a11-tag11-m7-ich-moechte.mp3" },
+        { "person": "du", "form": "möchtest", "filename": "a11-tag11-m7-du-moechtest.mp3" },
+        { "person": "er/sie/es", "form": "möchte", "filename": "a11-tag11-m7-er-moechte.mp3" },
+        { "person": "wir", "form": "möchten", "filename": "a11-tag11-m7-wir-moechten.mp3" },
+        { "person": "ihr", "form": "möchtet", "filename": "a11-tag11-m7-ihr-moechtet.mp3" },
+        { "person": "sie/Sie", "form": "möchten", "filename": "a11-tag11-m7-sie-moechten.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag11-01-die-farbe.mp3",
+      "script": "die Farbe",
+      "translationVi": "màu sắc"
+    },
+    {
+      "filename": "a11-tag11-02-welche-farbe-ist-das.mp3",
+      "script": "Welche Farbe ist das?",
+      "translationVi": "Đây là màu gì?"
+    },
+    {
+      "filename": "a11-tag11-03-blau.mp3",
+      "script": "blau",
+      "translationVi": "màu xanh dương"
+    },
+    {
+      "filename": "a11-tag11-04-das-ist-blau.mp3",
+      "script": "Das ist blau.",
+      "translationVi": "Đây là màu xanh dương."
+    },
+    {
+      "filename": "a11-tag11-05-hellgruen.mp3",
+      "script": "hellgrün",
+      "translationVi": "màu xanh lá nhạt"
+    },
+    {
+      "filename": "a11-tag11-06-das-ist-hellgruen.mp3",
+      "script": "Das ist hellgrün.",
+      "translationVi": "Đây là màu xanh lá nhạt."
+    },
+    {
+      "filename": "a11-tag11-07-rot.mp3",
+      "script": "rot",
+      "translationVi": "màu đỏ"
+    },
+    {
+      "filename": "a11-tag11-08-das-ist-rot.mp3",
+      "script": "Das ist rot.",
+      "translationVi": "Đây là màu đỏ."
+    },
+    {
+      "filename": "a11-tag11-09-schwarz.mp3",
+      "script": "schwarz",
+      "translationVi": "màu đen"
+    },
+    {
+      "filename": "a11-tag11-10-das-ist-schwarz.mp3",
+      "script": "Das ist schwarz.",
+      "translationVi": "Đây là màu đen."
+    },
+    {
+      "filename": "a11-tag11-11-weiss.mp3",
+      "script": "weiß",
+      "translationVi": "màu trắng"
+    },
+    {
+      "filename": "a11-tag11-12-das-ist-weiss.mp3",
+      "script": "Das ist weiß.",
+      "translationVi": "Đây là màu trắng."
+    },
+    {
+      "filename": "a11-tag11-13-pink.mp3",
+      "script": "pink",
+      "translationVi": "màu hồng"
+    },
+    {
+      "filename": "a11-tag11-14-der-kuehlschrank-ist-pink.mp3",
+      "script": "Der Kühlschrank ist pink.",
+      "translationVi": "Cái tủ lạnh màu hồng."
+    },
+    {
+      "filename": "a11-tag11-15-gelb.mp3",
+      "script": "gelb",
+      "translationVi": "màu vàng"
+    },
+    {
+      "filename": "a11-tag11-16-er-ist-gelb.mp3",
+      "script": "Er ist gelb.",
+      "translationVi": "Nó màu vàng (cái tủ lạnh)."
+    },
+    {
+      "filename": "a11-tag11-17-die-waschmaschine-ist-neu.mp3",
+      "script": "Die Waschmaschine ist neu.",
+      "translationVi": "Cái máy giặt mới."
+    },
+    {
+      "filename": "a11-tag11-19-sie-ist-nicht-neu-sie-ist-alt.mp3",
+      "script": "Sie ist nicht neu, sie ist alt.",
+      "translationVi": "Nó không mới, nó cũ."
+    },
+    {
+      "filename": "a11-tag11-20-dunkel.mp3",
+      "script": "dunkel",
+      "translationVi": "tối"
+    },
+    {
+      "filename": "a11-tag11-21-das-schlafzimmer-ist-sehr-dunkel.mp3",
+      "script": "Das Schlafzimmer ist sehr dunkel.",
+      "translationVi": "Phòng ngủ rất tối."
+    },
+    {
+      "filename": "a11-tag11-23-hell.mp3",
+      "script": "hell",
+      "translationVi": "sáng"
+    },
+    {
+      "filename": "a11-tag11-24-es-ist-nicht-dunkel-es-ist-hell.mp3",
+      "script": "Es ist nicht dunkel, es ist hell.",
+      "translationVi": "Nó không tối, nó sáng."
+    },
+    {
+      "filename": "a11-tag11-25-der-herd.mp3",
+      "script": "der Herd",
+      "translationVi": "bếp nấu ăn"
+    },
+    {
+      "filename": "a11-tag11-27-er-ist-neu.mp3",
+      "script": "Er ist neu.",
+      "translationVi": "Nó mới (cái bếp)."
+    }
+  ]
 }

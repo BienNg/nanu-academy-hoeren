@@ -13,6 +13,9 @@ import { SentenceOrderCard } from "@/components/session/SentenceOrderCard";
 import { McCard } from "@/components/session/McCard";
 import { McFeedbackCard } from "@/components/session/McFeedbackCard";
 import { PairingCard } from "@/components/session/PairingCard";
+import { TableFillCard } from "@/components/session/grammar/TableFillCard";
+import { FeedbackSheet, SheetLine, praiseFor } from "@/components/session/FeedbackSheet";
+import { checkTableFill } from "@/lib/grammar-node";
 import { NumberInputCard } from "@/components/session/NumberInputCard";
 import { checkNumberAnswer } from "@/lib/living-content";
 import {
@@ -123,6 +126,7 @@ export function LearnSession({
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [mcResult, setMcResult] = useState<McResult | null>(null);
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
+  const [tableResult, setTableResult] = useState<ReturnType<typeof checkTableFill> | null>(null);
   const [draft, setDraft] = useState("");
   /** Bumped per card attempt so a requeued card that lands on the same index still remounts. */
   const [attempt, setAttempt] = useState(0);
@@ -257,6 +261,7 @@ export function LearnSession({
       scoreResult !== null ||
       mcResult !== null ||
       pairingResult !== null ||
+      tableResult !== null ||
       draft.length > 0
     ) {
       return;
@@ -347,6 +352,7 @@ export function LearnSession({
       setScoreResult(null);
       setMcResult(null);
       setPairingResult(null);
+      setTableResult(null);
       setDraft("");
       return;
     }
@@ -434,6 +440,7 @@ export function LearnSession({
     setScoreResult(null);
     setMcResult(null);
     setPairingResult(null);
+    setTableResult(null);
     setDraft("");
   }, [
     status,
@@ -442,6 +449,7 @@ export function LearnSession({
     scoreResult,
     mcResult,
     pairingResult,
+    tableResult,
     draft,
     clipKey,
     chapterProgressKey,
@@ -470,7 +478,10 @@ export function LearnSession({
   const cardKey = `${currentCard?.key ?? currentClip?.id}-${attempt}`;
   const ready = partCards !== null;
   const isPerfect =
-    scoreResult?.accuracy === 100 || mcResult?.accuracy === 100 || pairingResult?.accuracy === 100;
+    scoreResult?.accuracy === 100 ||
+    mcResult?.accuracy === 100 ||
+    pairingResult?.accuracy === 100 ||
+    tableResult?.accuracy === 100;
   const isLastPart = nodeMode ? partFinishesLesson : partCount > 0 && partNumber >= partCount;
   const failedRun = summary?.failed === true;
   const showHearts = Boolean(partCards && partCards.length > 0 && phase === "practice");
@@ -666,13 +677,14 @@ export function LearnSession({
   };
 
   const handlePairingSolved = () => {
-    if (!currentCard?.pairItems) return;
+    const ids = currentCard?.pairItems?.map((clip) => clip.id) ?? currentCard?.formPairs?.map((pair) => pair.id);
+    if (!currentCard || !ids) return;
     if (pairingSolvedKeyRef.current === currentCard.key) return;
     pairingSolvedKeyRef.current = currentCard.key;
     const milestone = countCombo();
-    const pairs = currentCard.pairItems.map((clip) => ({
-      viClipId: clip.id,
-      deClipId: clip.id,
+    const pairs = ids.map((id) => ({
+      viClipId: id,
+      deClipId: id,
       correct: true,
     }));
     setPairingResult({
@@ -683,6 +695,15 @@ export function LearnSession({
     });
     if (milestone) playCelebrationSound();
     else playSuccessSound();
+  };
+
+  const handleTableSubmit = (placed: (string | null)[]) => {
+    const rows = currentCard?.tableRows;
+    if (!rows) return;
+    const result = checkTableFill(rows, placed);
+    setTableResult(result);
+    const miss = result.blanks.find((blank) => !blank.correct);
+    applyResult(result.accuracy, miss ? missedAttempt(miss.placed ?? "", miss.answer) : null);
   };
 
   const commitPart = () => {
@@ -797,6 +818,7 @@ export function LearnSession({
       setScoreResult(null);
       setMcResult(null);
       setPairingResult(null);
+      setTableResult(null);
       setDraft("");
       setSummary(null);
       setPhase("practice");
@@ -811,6 +833,7 @@ export function LearnSession({
     setScoreResult(null);
     setMcResult(null);
     setPairingResult(null);
+    setTableResult(null);
     setDraft("");
   };
 
@@ -868,7 +891,8 @@ export function LearnSession({
                     heartsLeft === LISTENING_HEARTS &&
                     !scoreResult &&
                     !mcResult &&
-                    !pairingResult;
+                    !pairingResult &&
+                    !tableResult;
                   if (nothingToLose) {
                     noteLeftSession();
                     router.push(pathHref);
@@ -1092,6 +1116,35 @@ export function LearnSession({
                 onNext={handleNext}
                 nextLabel="Tiếp theo"
               />
+            ) : currentCard?.kind === "conjugation-table" ? (
+              <TableFillCard
+                key={`conj-table-${cardKey}`}
+                verb={currentClip.script}
+                translation={currentClip.translationVi}
+                tense="praesens"
+                tenseLabel="Präsens"
+                rows={currentCard.tableRows ?? []}
+                bank={currentCard.bank ?? []}
+                result={tableResult}
+                onSubmit={handleTableSubmit}
+              />
+            ) : currentCard?.kind === "conjugation-pairing" ? (
+              <PairingCard
+                key={`conj-pairing-${cardKey}`}
+                heading={
+                  <div className="flex items-center gap-2">
+                    <span className="text-[20px] font-semibold tracking-tight text-[#1d1d1f]">{currentClip.script}</span>
+                    {currentClip.translationVi ? (
+                      <span className="text-[15px] font-medium text-[#86868b] italic">“{currentClip.translationVi}”</span>
+                    ) : null}
+                  </div>
+                }
+                items={(currentCard.formPairs ?? []).map((pair) => ({ id: pair.id, vi: pair.person, de: pair.form }))}
+                onMistake={handlePairingMistake}
+                onSolved={handlePairingSolved}
+                onNext={handleNext}
+                nextLabel="Tiếp theo"
+              />
             ) : currentCard?.kind === "vi-input" ? (
               <>
                 <DictationInputCard
@@ -1138,6 +1191,19 @@ export function LearnSession({
                 nextLabel="Tiếp theo"
                 revealSentence={currentCard?.kind === "grammar-gap"}
               />
+            ) : null}
+            {tableResult && currentCard?.tableRows ? (
+              <FeedbackSheet
+                tone={tableResult.accuracy === 100 ? "correct" : "wrong"}
+                title={tableResult.accuracy === 100 ? praiseFor(currentCard.key) : "Đáp án đúng:"}
+                actionLabel="Tiếp theo"
+                onAction={handleNext}
+              >
+                <SheetLine
+                  script={currentCard.tableRows.map((row) => `${row.personLabel} ${row.answer}`).join(" · ")}
+                  translation={currentClip.translationVi}
+                />
+              </FeedbackSheet>
             ) : null}
             {scoreResult ? (
               <FeedbackResultCard

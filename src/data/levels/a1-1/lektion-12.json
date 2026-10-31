@@ -1,3 +1,212 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag12-01-fahren.mp3",
+      "script": "fahren",
+      "translationVi": "đi bằng xe; lái xe",
+      "conjugation": [
+        { "person": "ich", "form": "fahre", "filename": "a11-tag12-01-ich-fahre.mp3" },
+        { "person": "du", "form": "fährst", "filename": "a11-tag12-01-du-faehrst.mp3" },
+        { "person": "er/sie/es", "form": "fährt", "filename": "a11-tag12-01-er-faehrt.mp3" },
+        { "person": "wir", "form": "fahren", "filename": "a11-tag12-01-wir-fahren.mp3" },
+        { "person": "ihr", "form": "fahrt", "filename": "a11-tag12-01-ihr-fahrt.mp3" },
+        { "person": "sie/Sie", "form": "fahren", "filename": "a11-tag12-01-sie-fahren.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-04-schlafen.mp3",
+      "script": "schlafen",
+      "translationVi": "ngủ",
+      "conjugation": [
+        { "person": "ich", "form": "schlafe", "filename": "a11-tag12-04-ich-schlafe.mp3" },
+        { "person": "du", "form": "schläfst", "filename": "a11-tag12-04-du-schlaefst.mp3" },
+        { "person": "er/sie/es", "form": "schläft", "filename": "a11-tag12-04-er-schlaeft.mp3" },
+        { "person": "wir", "form": "schlafen", "filename": "a11-tag12-04-wir-schlafen.mp3" },
+        { "person": "ihr", "form": "schlaft", "filename": "a11-tag12-04-ihr-schlaft.mp3" },
+        { "person": "sie/Sie", "form": "schlafen", "filename": "a11-tag12-04-sie-schlafen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-07-lesen.mp3",
+      "script": "lesen",
+      "translationVi": "đọc",
+      "conjugation": [
+        { "person": "ich", "form": "lese", "filename": "a11-tag12-07-ich-lese.mp3" },
+        { "person": "du", "form": "liest", "filename": "a11-tag12-07-du-liest.mp3" },
+        { "person": "er/sie/es", "form": "liest", "filename": "a11-tag12-07-er-liest.mp3" },
+        { "person": "wir", "form": "lesen", "filename": "a11-tag12-07-wir-lesen.mp3" },
+        { "person": "ihr", "form": "lest", "filename": "a11-tag12-07-ihr-lest.mp3" },
+        { "person": "sie/Sie", "form": "lesen", "filename": "a11-tag12-07-sie-lesen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-09-essen.mp3",
+      "script": "essen",
+      "translationVi": "ăn",
+      "conjugation": [
+        { "person": "ich", "form": "esse", "filename": "a11-tag12-09-ich-esse.mp3" },
+        { "person": "du", "form": "isst", "filename": "a11-tag12-09-du-isst.mp3" },
+        { "person": "er/sie/es", "form": "isst", "filename": "a11-tag12-09-er-isst.mp3" },
+        { "person": "wir", "form": "essen", "filename": "a11-tag12-09-wir-essen.mp3" },
+        { "person": "ihr", "form": "esst", "filename": "a11-tag12-09-ihr-esst.mp3" },
+        { "person": "sie/Sie", "form": "essen", "filename": "a11-tag12-09-sie-essen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-11-geben.mp3",
+      "script": "geben",
+      "translationVi": "đưa, cho",
+      "conjugation": [
+        { "person": "ich", "form": "gebe", "filename": "a11-tag12-11-ich-gebe.mp3" },
+        { "person": "du", "form": "gibst", "filename": "a11-tag12-11-du-gibst.mp3" },
+        { "person": "er/sie/es", "form": "gibt", "filename": "a11-tag12-11-er-gibt.mp3" },
+        { "person": "wir", "form": "geben", "filename": "a11-tag12-11-wir-geben.mp3" },
+        { "person": "ihr", "form": "gebt", "filename": "a11-tag12-11-ihr-gebt.mp3" },
+        { "person": "sie/Sie", "form": "geben", "filename": "a11-tag12-11-sie-geben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-14-sehen.mp3",
+      "script": "sehen",
+      "translationVi": "nhìn, thấy",
+      "conjugation": [
+        { "person": "ich", "form": "sehe", "filename": "a11-tag12-14-ich-sehe.mp3" },
+        { "person": "du", "form": "siehst", "filename": "a11-tag12-14-du-siehst.mp3" },
+        { "person": "er/sie/es", "form": "sieht", "filename": "a11-tag12-14-er-sieht.mp3" },
+        { "person": "wir", "form": "sehen", "filename": "a11-tag12-14-wir-sehen.mp3" },
+        { "person": "ihr", "form": "seht", "filename": "a11-tag12-14-ihr-seht.mp3" },
+        { "person": "sie/Sie", "form": "sehen", "filename": "a11-tag12-14-sie-sehen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag12-17-zu.mp3",
+      "script": "zu",
+      "translationVi": "quá (chỉ mức độ)"
+    },
+    {
+      "filename": "a11-tag12-18-schnell.mp3",
+      "script": "schnell",
+      "translationVi": "nhanh"
+    },
+    {
+      "filename": "a11-tag12-19-sie-faehrt-zu-schnell.mp3",
+      "script": "Sie fährt zu schnell.",
+      "translationVi": "Cô ấy lái ô tô quá nhanh."
+    },
+    {
+      "filename": "a11-tag12-20-ziemlich.mp3",
+      "script": "ziemlich",
+      "translationVi": "tương đối, khá"
+    },
+    {
+      "filename": "a11-tag12-21-langsam.mp3",
+      "script": "langsam",
+      "translationVi": "chậm"
+    },
+    {
+      "filename": "a11-tag12-23-gern.mp3",
+      "script": "gern",
+      "translationVi": "thích (làm việc gì đó)"
+    },
+    {
+      "filename": "a11-tag12-24-seine-oma-liest-sehr-gern-buecher.mp3",
+      "script": "Seine Oma liest sehr gern Bücher.",
+      "translationVi": "Bà của anh ấy rất thích đọc sách."
+    },
+    {
+      "filename": "a11-tag12-25-ich-denke-wir-kaufen-buecher-fuer-sie.mp3",
+      "script": "Ich denke, wir kaufen Bücher für sie.",
+      "translationVi": "Tôi nghĩ là chúng ta mua sách cho bà ấy."
+    },
+    {
+      "filename": "a11-tag12-30-das-ehepaar.mp3",
+      "script": "das Ehepaar",
+      "translationVi": "cặp vợ chồng"
+    },
+    {
+      "filename": "a11-tag12-34-der-quadratmeter.mp3",
+      "script": "der Quadratmeter",
+      "translationVi": "mét vuông (m²)"
+    },
+    {
+      "filename": "a11-tag12-35-das-apartment.mp3",
+      "script": "das Apartment",
+      "translationVi": "căn hộ"
+    },
+    {
+      "filename": "a11-tag12-36-der-wohnraum.mp3",
+      "script": "der Wohnraum",
+      "translationVi": "không gian sinh hoạt, diện tích ở"
+    },
+    {
+      "filename": "a11-tag12-37-die-nebenkosten.mp3",
+      "script": "die Nebenkosten",
+      "translationVi": "chi phí phụ (danh từ số nhiều)"
+    },
+    {
+      "filename": "a11-tag12-38-die-kaution.mp3",
+      "script": "die Kaution",
+      "translationVi": "tiền đặt cọc khi thuê nhà"
+    },
+    {
+      "filename": "a11-tag12-40-der-stock.mp3",
+      "script": "der Stock",
+      "translationVi": "tầng (trong tòa nhà)"
+    },
+    {
+      "filename": "a11-tag12-41-circa.mp3",
+      "script": "circa",
+      "translationVi": "khoảng, xấp xỉ (viết tắt: ca.)"
+    },
+    {
+      "filename": "a11-tag12-43-ab-sofort.mp3",
+      "script": "ab sofort",
+      "translationVi": "ngay lập tức, kể từ bây giờ"
+    },
+    {
+      "filename": "a11-tag12-45-die-warmmiete.mp3",
+      "script": "die Warmmiete",
+      "translationVi": "tiền thuê nhà đã bao gồm chi phí phụ"
+    },
+    {
+      "filename": "a11-tag12-47-der-anruf.mp3",
+      "script": "der Anruf",
+      "translationVi": "cuộc gọi điện thoại"
+    },
+    {
+      "filename": "a11-tag12-49-moebliert.mp3",
+      "script": "möbliert",
+      "translationVi": "có sẵn nội thất"
+    },
+    {
+      "filename": "a11-tag12-50-die-einbaukueche.mp3",
+      "script": "die Einbauküche",
+      "translationVi": "bếp lắp đặt sẵn"
+    },
+    {
+      "filename": "a11-tag12-51-die-garage.mp3",
+      "script": "die Garage",
+      "translationVi": "nhà để xe, gara"
+    },
+    {
+      "filename": "a11-tag12-53-wie-gross-ist-die-wohnung.mp3",
+      "script": "Wie groß ist die Wohnung?",
+      "translationVi": "Căn hộ rộng bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag12-54-was-kostet-sie-im-monat.mp3",
+      "script": "Was kostet sie im Monat?",
+      "translationVi": "Tiền thuê căn hộ mỗi tháng là bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag12-55-sie-moechten-eine-wohnung-mit-balkon.mp3",
+      "script": "Sie möchten eine Wohnung mit Balkon.",
+      "translationVi": "Quý vị muốn một căn hộ có ban công."
+    },
+    {
+      "filename": "a11-tag12-57-sie-brauchen-drei-zimmer.mp3",
+      "script": "Sie brauchen drei Zimmer.",
+      "translationVi": "Quý vị cần ba phòng."
+    }
+  ]
 }

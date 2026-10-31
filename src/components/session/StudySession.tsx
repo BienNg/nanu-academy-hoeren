@@ -18,6 +18,7 @@ import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
+import { ConjugationRecallCard, ConjugationStudyCard } from "@/components/session/ConjugationCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
@@ -37,6 +38,7 @@ import { isAdminUser } from "@/lib/admins";
 import { clearQuestBoardCache } from "@/lib/quest-badge";
 import { questZoneHeaders, readQuestUpdate, type QuestUpdate } from "@/lib/quests";
 import { scoreAttempt, type ScoreResult } from "@/lib/scoring";
+import { conjugationAnswerMatches } from "@/lib/conjugation";
 import { playSuccessSound } from "@/lib/sfx";
 import { useProgress } from "@/lib/useProgress";
 import { ChunkyButton } from "@/components/chunkyButton";
@@ -227,6 +229,9 @@ export function StudySession({
   const [shownPhase, setShownPhase] = useState<StudyCardPhase>("study");
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [draft, setDraft] = useState("");
+  /** Typed forms on a conjugation card's recall, one per row. */
+  const [formDrafts, setFormDrafts] = useState<string[]>([]);
+  const [formChecked, setFormChecked] = useState<boolean[] | null>(null);
   const [ready, setReady] = useState(false);
   const [quitOpen, setQuitOpen] = useState(false);
   const [xpGrant, setXpGrant] = useState<{
@@ -409,6 +414,8 @@ export function StudySession({
   const clearAttempt = useCallback(() => {
     setScoreResult(null);
     setDraft("");
+    setFormDrafts([]);
+    setFormChecked(null);
   }, []);
 
   const openRecall = useCallback(() => {
@@ -427,6 +434,27 @@ export function StudySession({
     },
     [currentClip],
   );
+
+  /** Checks every row. Rows already right stay right; the card is done when all are. */
+  const handleFormsSubmit = useCallback(() => {
+    const rows = currentClip?.conjugation;
+    if (!rows) return;
+    const checked = rows.map(
+      (row, index) => formChecked?.[index] === true || conjugationAnswerMatches(row, formDrafts[index] ?? ""),
+    );
+    setFormChecked(checked);
+    const correct = checked.filter(Boolean).length;
+    const result: ScoreResult = {
+      accuracy: Math.round((correct / rows.length) * 100),
+      words: rows.map((row, index) => ({
+        word: row.form,
+        status: checked[index] ? "correct" : "incorrect",
+        typed: formDrafts[index] ?? "",
+      })),
+    };
+    setScoreResult(result);
+    if (result.accuracy === 100) playSuccessSound();
+  }, [currentClip, formChecked, formDrafts]);
 
   const finishRecall = useCallback(() => {
     if (!currentClip) return;
@@ -637,6 +665,19 @@ export function StudySession({
   };
 
   const recallPerfect = scoreResult?.accuracy === 100;
+  // Every row still to answer has something typed in it.
+  const formsReady =
+    currentClip?.conjugation?.every(
+      (_, index) => formChecked?.[index] === true || (formDrafts[index] ?? "").trim().length > 0,
+    ) ?? false;
+  const reviewedBadge = isReviewed ? (
+    <div className="flex items-center">
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
+        <span className="material-symbols-outlined text-[16px]">check_circle</span>
+        <span>Đã xem</span>
+      </div>
+    </div>
+  ) : undefined;
   const openedFinishedLesson = visitPart === "done" && summary == null;
   const handleModeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const next =
@@ -878,21 +919,20 @@ export function StudySession({
                   animate={cardTurn}
                   style={{ transformOrigin: "center center", backfaceVisibility: "hidden" }}
                 >
-                  {shownPhase === "study" ? (
-                    <ClipContentCard
+                  {shownPhase === "study" && currentClip.conjugation ? (
+                    <ConjugationStudyCard key={currentClip.id} clip={currentClip} badge={reviewedBadge} />
+                  ) : shownPhase === "study" ? (
+                    <ClipContentCard clip={currentClip} badge={reviewedBadge} />
+                  ) : currentClip.conjugation ? (
+                    <ConjugationRecallCard
+                      key={`forms-${currentClip.id}`}
                       clip={currentClip}
-                      badge={
-                        isReviewed ? (
-                          <div className="flex items-center">
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#34C759]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-wider text-[#34C759]">
-                              <span className="material-symbols-outlined text-[16px]">
-                                check_circle
-                              </span>
-                              <span>Đã xem</span>
-                            </div>
-                          </div>
-                        ) : undefined
-                      }
+                      values={formDrafts}
+                      onChange={setFormDrafts}
+                      checked={formChecked}
+                      onSubmit={() => {
+                        if (formsReady && !recallPerfect) handleFormsSubmit();
+                      }}
                     />
                   ) : (
                     <div className="-mt-4">
@@ -910,7 +950,7 @@ export function StudySession({
               </div>
             </div>
 
-            {shownPhase === "recall" && scoreResult ? (
+            {shownPhase === "recall" && scoreResult && (recallPerfect || !currentClip.conjugation) ? (
               <FeedbackResultCard
                 result={scoreResult}
                 clip={currentClip}
@@ -933,8 +973,8 @@ export function StudySession({
                 onBack={goPrev}
                 backLabel="Xem lại thẻ"
                 actionLabel="Kiểm tra · Prüfen"
-                actionDisabled={draft.trim().length === 0}
-                onAction={() => handleRecallSubmit(draft)}
+                actionDisabled={currentClip.conjugation ? !formsReady : draft.trim().length === 0}
+                onAction={() => (currentClip.conjugation ? handleFormsSubmit() : handleRecallSubmit(draft))}
               />
             )}
           </div>

@@ -3,6 +3,7 @@ import test from "node:test";
 import { buildPracticeDeck, type PracticeCard } from "./sentence-order.js";
 import {
   capOrderCards,
+  conjugationCard,
   dealPracticePart,
   insertDiscreteCards,
   maxClipsPerPracticePart,
@@ -393,4 +394,68 @@ test("about VI_INPUT_SHARE of meaning drills become vi-input cards, and the card
   }
   const share = viInput / meaning;
   assert.ok(share > VI_INPUT_SHARE / 2 && share < VI_INPUT_SHARE * 2, `share ${share}`);
+});
+
+const kannRows = [
+  { person: "ich", form: "kann" },
+  { person: "du", form: "kannst" },
+  { person: "er/sie/es", form: "kann" },
+  { person: "wir", form: "können" },
+  { person: "ihr", form: "könnt" },
+  { person: "sie/Sie", form: "können" },
+];
+const mussRows = [
+  { person: "ich", form: "muss" },
+  { person: "du", form: "musst" },
+  { person: "er/sie/es", form: "muss" },
+  { person: "wir", form: "müssen" },
+  { person: "ihr", form: "müsst" },
+  { person: "sie/Sie", form: "müssen" },
+];
+const verbClips = [
+  { id: "v1", script: "können", translationVi: "có thể", conjugation: kannRows },
+  { id: "v2", script: "müssen", translationVi: "phải", conjugation: mussRows },
+];
+
+test("each verb clip adds one conjugation card, and the count says so", () => {
+  for (const seed of [1, 2, 3, 4, 5]) {
+    const plain = verbClips.map(({ conjugation: _rows, ...clip }) => clip);
+    const deck = dealPracticePart(verbClips, verbClips, [], seeded(seed));
+    const without = dealPracticePart(plain, plain, [], seeded(seed));
+    assert.equal(deck.length, without.length + verbClips.length);
+    assert.equal(practiceCardCount(verbClips, verbClips), deck.length);
+    for (const clip of verbClips) {
+      const cards = deck.filter((card) => card.kind.startsWith("conjugation-") && card.clip.id === clip.id);
+      assert.equal(cards.length, 1);
+      const anchor = deck.findIndex((card) => card.clip.id === clip.id && (card.kind === "listening" || card.kind === "listening-choice"));
+      assert.ok(deck.indexOf(cards[0]!) >= anchor + 2);
+    }
+  }
+});
+
+test("verb clips take turns: the first fills a table, the second pairs pronouns", () => {
+  const table = conjugationCard(verbClips[0]!, verbClips, seeded(7));
+  assert.equal(table?.kind, "conjugation-table");
+  const rows = table!.tableRows!;
+  const answers = rows.filter((row) => row.text === null).map((row) => row.answer);
+  assert.ok(answers.length >= 3 && answers.length <= 5);
+  assert.deepEqual(rows.map((row) => row.answer), kannRows.map((row) => row.form));
+  const chips = table!.bank!.map((chip) => chip.text);
+  for (const answer of answers) assert.ok(chips.includes(answer));
+  assert.ok(chips.length <= answers.length + 2);
+
+  const pairing = conjugationCard(verbClips[1]!, verbClips, seeded(7));
+  assert.equal(pairing?.kind, "conjugation-pairing");
+  // ich muss and er muss share a form, so only the first of each form is paired.
+  assert.deepEqual(
+    pairing!.formPairs!.map((pair) => `${pair.person} ${pair.form}`).sort(),
+    ["du musst", "ich muss", "ihr müsst", "wir müssen"],
+  );
+});
+
+test("a deck without verb clips deals the same cards as before", () => {
+  const before = dealPracticePart(partClips, partClips, [], seeded(11)).map((card) => card.key);
+  const withVerbsElsewhere = dealPracticePart(partClips, [...partClips, ...verbClips], [], seeded(11)).map((card) => card.key);
+  assert.equal(before.length, withVerbsElsewhere.length);
+  assert.ok(!withVerbsElsewhere.some((key) => key.includes(":conj-")));
 });
