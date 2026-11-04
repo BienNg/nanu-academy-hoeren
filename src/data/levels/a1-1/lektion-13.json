@@ -1,3 +1,723 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag13-01-wie-spaet-ist-es.mp3",
+      "script": "Wie spät ist es?",
+      "translationVi": "Bây giờ là mấy giờ?"
+    },
+    {
+      "filename": "a11-tag13-02-vor.mp3",
+      "script": "vor",
+      "translationVi": "kém; trước (khi nói giờ)"
+    },
+    {
+      "filename": "a11-tag13-03-nach.mp3",
+      "script": "nach",
+      "translationVi": "hơn; sau (khi nói giờ)"
+    },
+    {
+      "filename": "a11-tag13-04-es-ist-8-uhr.mp3",
+      "script": "Es ist 8 Uhr.",
+      "translationVi": "Bây giờ là 8 giờ."
+    },
+    {
+      "filename": "a11-tag13-05-es-ist-8-uhr-5.mp3",
+      "script": "Es ist 8 Uhr 5.",
+      "translationVi": "Bây giờ là 8 giờ 5 phút."
+    },
+    {
+      "filename": "a11-tag13-06-es-ist-kurz-nach-8.mp3",
+      "script": "Es ist kurz nach 8.",
+      "translationVi": "Bây giờ là hơn 8 giờ một chút."
+    },
+    {
+      "filename": "a11-tag13-07-es-ist-5-nach-8.mp3",
+      "script": "Es ist 5 nach 8.",
+      "translationVi": "Bây giờ là 8 giờ 5 phút."
+    },
+    {
+      "filename": "a11-tag13-08-es-ist-8-uhr-15.mp3",
+      "script": "Es ist 8 Uhr 15.",
+      "translationVi": "Bây giờ là 8 giờ 15 phút."
+    },
+    {
+      "filename": "a11-tag13-09-es-ist-viertel-nach-8.mp3",
+      "script": "Es ist Viertel nach 8.",
+      "translationVi": "Bây giờ là 8 giờ 15 phút."
+    },
+    {
+      "filename": "a11-tag13-10-es-ist-8-uhr-30.mp3",
+      "script": "Es ist 8 Uhr 30.",
+      "translationVi": "Bây giờ là 8 giờ 30 phút."
+    },
+    {
+      "filename": "a11-tag13-11-es-ist-halb-9.mp3",
+      "script": "Es ist halb 9.",
+      "translationVi": "Bây giờ là 8 giờ rưỡi."
+    },
+    {
+      "filename": "a11-tag13-12-es-ist-8-uhr-25.mp3",
+      "script": "Es ist 8 Uhr 25.",
+      "translationVi": "Bây giờ là 8 giờ 25 phút."
+    },
+    {
+      "filename": "a11-tag13-13-es-ist-5-vor-halb-9.mp3",
+      "script": "Es ist 5 vor halb 9.",
+      "translationVi": "Bây giờ là 8 giờ 25 phút."
+    },
+    {
+      "filename": "a11-tag13-14-es-ist-8-uhr-35.mp3",
+      "script": "Es ist 8 Uhr 35.",
+      "translationVi": "Bây giờ là 8 giờ 35 phút."
+    },
+    {
+      "filename": "a11-tag13-15-es-ist-5-nach-halb-9.mp3",
+      "script": "Es ist 5 nach halb 9.",
+      "translationVi": "Bây giờ là 8 giờ 35 phút."
+    },
+    {
+      "filename": "a11-tag13-16-es-ist-8-uhr-45.mp3",
+      "script": "Es ist 8 Uhr 45.",
+      "translationVi": "Bây giờ là 8 giờ 45 phút."
+    },
+    {
+      "filename": "a11-tag13-17-es-ist-viertel-vor-9.mp3",
+      "script": "Es ist Viertel vor 9.",
+      "translationVi": "Bây giờ là 9 giờ kém 15 phút."
+    },
+    {
+      "filename": "a11-tag13-18-es-ist-8-uhr-55.mp3",
+      "script": "Es ist 8 Uhr 55.",
+      "translationVi": "Bây giờ là 8 giờ 55 phút."
+    },
+    {
+      "filename": "a11-tag13-19-es-ist-5-vor-9.mp3",
+      "script": "Es ist 5 vor 9.",
+      "translationVi": "Bây giờ là 9 giờ kém 5 phút."
+    },
+    {
+      "filename": "a11-tag13-20-es-ist-kurz-vor-9.mp3",
+      "script": "Es ist kurz vor 9.",
+      "translationVi": "Bây giờ là gần 9 giờ."
+    },
+    {
+      "filename": "a11-tag13-21-es-ist-gleich-9.mp3",
+      "script": "Es ist gleich 9.",
+      "translationVi": "Bây giờ là sắp 9 giờ."
+    },
+    {
+      "filename": "a11-tag13-22-es-ist-5-vor-7.mp3",
+      "script": "Es ist 5 vor 7.",
+      "translationVi": "Bây giờ là 7 giờ kém 5 phút."
+    },
+    {
+      "filename": "a11-tag13-23-es-ist-4-nach-4.mp3",
+      "script": "Es ist 4 nach 4.",
+      "translationVi": "Bây giờ là 4 giờ 4 phút."
+    },
+    {
+      "filename": "a11-tag13-24-es-ist-18-uhr-10.mp3",
+      "script": "Es ist 18 Uhr 10.",
+      "translationVi": "Bây giờ là 18 giờ 10 phút."
+    },
+    {
+      "filename": "a11-tag13-25-es-ist-4-vor-halb-9.mp3",
+      "script": "Es ist 4 vor halb 9.",
+      "translationVi": "Bây giờ là 8 giờ 26 phút."
+    },
+    {
+      "filename": "a11-tag13-26-es-ist-5-nach-halb-8.mp3",
+      "script": "Es ist 5 nach halb 8.",
+      "translationVi": "Bây giờ là 7 giờ 35 phút."
+    },
+    {
+      "filename": "a11-tag13-27-um.mp3",
+      "script": "um",
+      "translationVi": "vào lúc; đúng lúc (giờ cụ thể)"
+    },
+    {
+      "filename": "a11-tag13-28-gegen.mp3",
+      "script": "gegen",
+      "translationVi": "vào khoảng (giờ)"
+    },
+    {
+      "filename": "a11-tag13-29-am.mp3",
+      "script": "am",
+      "translationVi": "vào (thứ hoặc ngày)"
+    },
+    {
+      "filename": "a11-tag13-30-der-wochentag.mp3",
+      "script": "der Wochentag",
+      "translationVi": "thứ trong tuần"
+    },
+    {
+      "filename": "a11-tag13-31-welcher-wochentag-ist-heute.mp3",
+      "script": "Welcher Wochentag ist heute?",
+      "translationVi": "Hôm nay là thứ mấy?"
+    },
+    {
+      "filename": "a11-tag13-32-der-montag.mp3",
+      "script": "der Montag",
+      "translationVi": "thứ Hai"
+    },
+    {
+      "filename": "a11-tag13-33-der-dienstag.mp3",
+      "script": "der Dienstag",
+      "translationVi": "thứ Ba"
+    },
+    {
+      "filename": "a11-tag13-34-der-mittwoch.mp3",
+      "script": "der Mittwoch",
+      "translationVi": "thứ Tư"
+    },
+    {
+      "filename": "a11-tag13-35-der-donnerstag.mp3",
+      "script": "der Donnerstag",
+      "translationVi": "thứ Năm"
+    },
+    {
+      "filename": "a11-tag13-36-der-freitag.mp3",
+      "script": "der Freitag",
+      "translationVi": "thứ Sáu"
+    },
+    {
+      "filename": "a11-tag13-37-der-samstag.mp3",
+      "script": "der Samstag",
+      "translationVi": "thứ Bảy"
+    },
+    {
+      "filename": "a11-tag13-38-der-sonntag.mp3",
+      "script": "der Sonntag",
+      "translationVi": "Chủ nhật"
+    },
+    {
+      "filename": "a11-tag13-39-das-wochenende.mp3",
+      "script": "das Wochenende",
+      "translationVi": "cuối tuần"
+    },
+    {
+      "filename": "a11-tag13-40-am-morgen.mp3",
+      "script": "Am Morgen",
+      "translationVi": "vào buổi sáng sớm"
+    },
+    {
+      "filename": "a11-tag13-41-am-vormittag.mp3",
+      "script": "Am Vormittag",
+      "translationVi": "vào buổi sáng (trước buổi trưa)"
+    },
+    {
+      "filename": "a11-tag13-42-am-mittag.mp3",
+      "script": "Am Mittag",
+      "translationVi": "vào buổi trưa"
+    },
+    {
+      "filename": "a11-tag13-43-am-nachmittag.mp3",
+      "script": "Am Nachmittag",
+      "translationVi": "vào buổi chiều"
+    },
+    {
+      "filename": "a11-tag13-44-am-abend.mp3",
+      "script": "Am Abend",
+      "translationVi": "vào buổi tối"
+    },
+    {
+      "filename": "a11-tag13-45-in-der-nacht.mp3",
+      "script": "In der Nacht",
+      "translationVi": "vào ban đêm"
+    },
+    {
+      "filename": "a11-tag13-46-rufen.mp3",
+      "script": "rufen",
+      "translationVi": "gọi (bằng miệng)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "rufe",
+          "filename": "a11-tag13-46-ich-rufe.mp3"
+        },
+        {
+          "person": "du",
+          "form": "rufst",
+          "filename": "a11-tag13-46-du-rufst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "ruft",
+          "filename": "a11-tag13-46-er-ruft.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "rufen",
+          "filename": "a11-tag13-46-wir-rufen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "ruft",
+          "filename": "a11-tag13-46-ihr-ruft.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "rufen",
+          "filename": "a11-tag13-46-sie-rufen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-47-ich-rufe-dich.mp3",
+      "script": "Ich rufe dich.",
+      "translationVi": "Tôi gọi bạn (bằng miệng)."
+    },
+    {
+      "filename": "a11-tag13-48-anrufen.mp3",
+      "script": "anrufen",
+      "translationVi": "gọi điện thoại",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "rufe an",
+          "filename": "a11-tag13-48-ich-rufe-an.mp3"
+        },
+        {
+          "person": "du",
+          "form": "rufst an",
+          "filename": "a11-tag13-48-du-rufst-an.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "ruft an",
+          "filename": "a11-tag13-48-er-ruft-an.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "rufen an",
+          "filename": "a11-tag13-48-wir-rufen-an.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "ruft an",
+          "filename": "a11-tag13-48-ihr-ruft-an.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "rufen an",
+          "filename": "a11-tag13-48-sie-rufen-an.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-49-ich-rufe-dich-an.mp3",
+      "script": "Ich rufe dich an.",
+      "translationVi": "Tôi gọi điện thoại cho bạn."
+    },
+    {
+      "filename": "a11-tag13-52-ich-muss-dich-anrufen.mp3",
+      "script": "Ich muss dich anrufen.",
+      "translationVi": "Tôi phải gọi điện thoại cho bạn."
+    },
+    {
+      "filename": "a11-tag13-53-aufraeumen.mp3",
+      "script": "aufräumen",
+      "translationVi": "dọn dẹp",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "räume auf",
+          "filename": "a11-tag13-53-ich-raeume-auf.mp3"
+        },
+        {
+          "person": "du",
+          "form": "räumst auf",
+          "filename": "a11-tag13-53-du-raeumst-auf.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "räumt auf",
+          "filename": "a11-tag13-53-er-raeumt-auf.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "räumen auf",
+          "filename": "a11-tag13-53-wir-raeumen-auf.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "räumt auf",
+          "filename": "a11-tag13-53-ihr-raeumt-auf.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "räumen auf",
+          "filename": "a11-tag13-53-sie-raeumen-auf.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-54-ich-raeume-mein-zimmer-auf.mp3",
+      "script": "Ich räume mein Zimmer auf.",
+      "translationVi": "Tôi dọn dẹp phòng của tôi."
+    },
+    {
+      "filename": "a11-tag13-55-aufmachen.mp3",
+      "script": "aufmachen",
+      "translationVi": "mở (cửa, ...)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "mache auf",
+          "filename": "a11-tag13-55-ich-mache-auf.mp3"
+        },
+        {
+          "person": "du",
+          "form": "machst auf",
+          "filename": "a11-tag13-55-du-machst-auf.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "macht auf",
+          "filename": "a11-tag13-55-er-macht-auf.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "machen auf",
+          "filename": "a11-tag13-55-wir-machen-auf.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "macht auf",
+          "filename": "a11-tag13-55-ihr-macht-auf.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "machen auf",
+          "filename": "a11-tag13-55-sie-machen-auf.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-56-einkaufen.mp3",
+      "script": "einkaufen",
+      "translationVi": "mua đồ (ở siêu thị, chợ, ...)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "kaufe ein",
+          "filename": "a11-tag13-56-ich-kaufe-ein.mp3"
+        },
+        {
+          "person": "du",
+          "form": "kaufst ein",
+          "filename": "a11-tag13-56-du-kaufst-ein.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "kauft ein",
+          "filename": "a11-tag13-56-er-kauft-ein.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "kaufen ein",
+          "filename": "a11-tag13-56-wir-kaufen-ein.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "kauft ein",
+          "filename": "a11-tag13-56-ihr-kauft-ein.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "kaufen ein",
+          "filename": "a11-tag13-56-sie-kaufen-ein.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-57-heute-kaufe-ich-im-edeka-ein.mp3",
+      "script": "Heute kaufe ich im Edeka ein.",
+      "translationVi": "Hôm nay tôi mua đồ ở trong Edeka."
+    },
+    {
+      "filename": "a11-tag13-58-ich-rufe-sie-an.mp3",
+      "script": "Ich rufe sie an.",
+      "translationVi": "Tôi gọi điện thoại cho cô ấy."
+    },
+    {
+      "filename": "a11-tag13-59-fernsehen.mp3",
+      "script": "fernsehen",
+      "translationVi": "xem ti vi",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "sehe fern",
+          "filename": "a11-tag13-59-ich-sehe-fern.mp3"
+        },
+        {
+          "person": "du",
+          "form": "siehst fern",
+          "filename": "a11-tag13-59-du-siehst-fern.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "sieht fern",
+          "filename": "a11-tag13-59-er-sieht-fern.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "sehen fern",
+          "filename": "a11-tag13-59-wir-sehen-fern.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "seht fern",
+          "filename": "a11-tag13-59-ihr-seht-fern.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "sehen fern",
+          "filename": "a11-tag13-59-sie-sehen-fern.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-60-wir-sehen-heute-abend-fern.mp3",
+      "script": "Wir sehen heute Abend fern.",
+      "translationVi": "Tối nay chúng tôi xem ti vi."
+    },
+    {
+      "filename": "a11-tag13-61-zumachen.mp3",
+      "script": "zumachen",
+      "translationVi": "đóng (cửa, ...)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "mache zu",
+          "filename": "a11-tag13-61-ich-mache-zu.mp3"
+        },
+        {
+          "person": "du",
+          "form": "machst zu",
+          "filename": "a11-tag13-61-du-machst-zu.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "macht zu",
+          "filename": "a11-tag13-61-er-macht-zu.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "machen zu",
+          "filename": "a11-tag13-61-wir-machen-zu.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "macht zu",
+          "filename": "a11-tag13-61-ihr-macht-zu.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "machen zu",
+          "filename": "a11-tag13-61-sie-machen-zu.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-62-ich-mache-die-tuer-zu.mp3",
+      "script": "Ich mache die Tür zu.",
+      "translationVi": "Tôi đóng cửa vào."
+    },
+    {
+      "filename": "a11-tag13-63-mitfahren.mp3",
+      "script": "mitfahren",
+      "translationVi": "đi cùng (bằng xe)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "fahre mit",
+          "filename": "a11-tag13-63-ich-fahre-mit.mp3"
+        },
+        {
+          "person": "du",
+          "form": "fährst mit",
+          "filename": "a11-tag13-63-du-faehrst-mit.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "fährt mit",
+          "filename": "a11-tag13-63-er-faehrt-mit.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "fahren mit",
+          "filename": "a11-tag13-63-wir-fahren-mit.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "fahrt mit",
+          "filename": "a11-tag13-63-ihr-fahrt-mit.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "fahren mit",
+          "filename": "a11-tag13-63-sie-fahren-mit.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-64-sie-faehrt-mit.mp3",
+      "script": "Sie fährt mit.",
+      "translationVi": "Cô ấy đi cùng."
+    },
+    {
+      "filename": "a11-tag13-65-abfahren.mp3",
+      "script": "abfahren",
+      "translationVi": "khởi hành",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "fahre ab",
+          "filename": "a11-tag13-65-ich-fahre-ab.mp3"
+        },
+        {
+          "person": "du",
+          "form": "fährst ab",
+          "filename": "a11-tag13-65-du-faehrst-ab.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "fährt ab",
+          "filename": "a11-tag13-65-er-faehrt-ab.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "fahren ab",
+          "filename": "a11-tag13-65-wir-fahren-ab.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "fahrt ab",
+          "filename": "a11-tag13-65-ihr-fahrt-ab.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "fahren ab",
+          "filename": "a11-tag13-65-sie-fahren-ab.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-66-der-zug-faehrt-um-10-uhr-ab.mp3",
+      "script": "Der Zug fährt um 10 Uhr ab.",
+      "translationVi": "Tàu khởi hành lúc 10 giờ."
+    },
+    {
+      "filename": "a11-tag13-67-aufstehen.mp3",
+      "script": "aufstehen",
+      "translationVi": "ngủ dậy; đứng dậy",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "stehe auf",
+          "filename": "a11-tag13-67-ich-stehe-auf.mp3"
+        },
+        {
+          "person": "du",
+          "form": "stehst auf",
+          "filename": "a11-tag13-67-du-stehst-auf.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "steht auf",
+          "filename": "a11-tag13-67-er-steht-auf.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "stehen auf",
+          "filename": "a11-tag13-67-wir-stehen-auf.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "steht auf",
+          "filename": "a11-tag13-67-ihr-steht-auf.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "stehen auf",
+          "filename": "a11-tag13-67-sie-stehen-auf.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-68-anfangen.mp3",
+      "script": "anfangen",
+      "translationVi": "bắt đầu",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "fange an",
+          "filename": "a11-tag13-68-ich-fange-an.mp3"
+        },
+        {
+          "person": "du",
+          "form": "fängst an",
+          "filename": "a11-tag13-68-du-faengst-an.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "fängt an",
+          "filename": "a11-tag13-68-er-faengt-an.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "fangen an",
+          "filename": "a11-tag13-68-wir-fangen-an.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "fangt an",
+          "filename": "a11-tag13-68-ihr-fangt-an.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "fangen an",
+          "filename": "a11-tag13-68-sie-fangen-an.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag13-69-einladen.mp3",
+      "script": "einladen",
+      "translationVi": "mời",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "lade ein",
+          "filename": "a11-tag13-69-ich-lade-ein.mp3"
+        },
+        {
+          "person": "du",
+          "form": "lädst ein",
+          "filename": "a11-tag13-69-du-laedst-ein.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "lädt ein",
+          "filename": "a11-tag13-69-er-laedt-ein.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "laden ein",
+          "filename": "a11-tag13-69-wir-laden-ein.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "ladet ein",
+          "filename": "a11-tag13-69-ihr-ladet-ein.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "laden ein",
+          "filename": "a11-tag13-69-sie-laden-ein.mp3"
+        }
+      ]
+    }
+  ]
 }
