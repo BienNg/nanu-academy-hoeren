@@ -1,3 +1,320 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag14-01-normalerweise.mp3",
+      "script": "normalerweise",
+      "translationVi": "thường thường; thông thường"
+    },
+    {
+      "filename": "a11-tag14-02-wann-stehst-du-normalerweise-auf.mp3",
+      "script": "Wann stehst du normalerweise auf?",
+      "translationVi": "Bạn thường thường dậy khi nào?"
+    },
+    {
+      "filename": "a11-tag14-03-ich-stehe-normalerweise-um-sieben-uhr-auf.mp3",
+      "script": "Ich stehe normalerweise um sieben Uhr auf.",
+      "translationVi": "Tôi thường dậy lúc bảy giờ."
+    },
+    {
+      "filename": "a11-tag14-04-heute-abend.mp3",
+      "script": "heute Abend",
+      "translationVi": "tối nay"
+    },
+    {
+      "filename": "a11-tag14-05-was-essen-wir-heute-abend.mp3",
+      "script": "Was essen wir heute Abend?",
+      "translationVi": "Tối nay chúng ta ăn gì nhỉ?"
+    },
+    {
+      "filename": "a11-tag14-06-wir-essen-heute-abend-pizza.mp3",
+      "script": "Wir essen heute Abend Pizza.",
+      "translationVi": "Tối nay chúng ta ăn pizza."
+    },
+    {
+      "filename": "a11-tag14-07-die-musik.mp3",
+      "script": "die Musik",
+      "translationVi": "âm nhạc"
+    },
+    {
+      "filename": "a11-tag14-08-ich-hoere-gern-musik.mp3",
+      "script": "Ich höre gern Musik.",
+      "translationVi": "Tôi thích nghe nhạc."
+    },
+    {
+      "filename": "a11-tag14-09-hoerst-du-auch-gern-musik.mp3",
+      "script": "Hörst du auch gern Musik?",
+      "translationVi": "Bạn cũng thích nghe nhạc chứ?"
+    },
+    {
+      "filename": "a11-tag14-10-ich-mag-musik-hoeren.mp3",
+      "script": "Ich mag Musik hören.",
+      "translationVi": "Tôi thích nghe nhạc."
+    },
+    {
+      "filename": "a11-tag14-11-magst-du-auch-musik-hoeren.mp3",
+      "script": "Magst du auch Musik hören?",
+      "translationVi": "Bạn cũng thích nghe nhạc chứ?"
+    },
+    {
+      "filename": "a11-tag14-12-ja-ich-hoere-auch-gern-musik.mp3",
+      "script": "Ja, ich höre auch gern Musik.",
+      "translationVi": "Có, tôi cũng thích nghe nhạc."
+    },
+    {
+      "filename": "a11-tag14-13-arbeitet-deine-mutter-viel.mp3",
+      "script": "Arbeitet deine Mutter viel?",
+      "translationVi": "Mẹ bạn làm việc nhiều không?"
+    },
+    {
+      "filename": "a11-tag14-14-ja-meine-mutter-arbeitet-viel.mp3",
+      "script": "Ja, meine Mutter arbeitet viel.",
+      "translationVi": "Có, mẹ tôi làm việc nhiều."
+    },
+    {
+      "filename": "a11-tag14-15-das-abendessen.mp3",
+      "script": "das Abendessen",
+      "translationVi": "bữa tối"
+    },
+    {
+      "filename": "a11-tag14-16-kochen.mp3",
+      "script": "kochen",
+      "translationVi": "nấu ăn",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "koche",
+          "filename": "a11-tag14-16-ich-koche.mp3"
+        },
+        {
+          "person": "du",
+          "form": "kochst",
+          "filename": "a11-tag14-16-du-kochst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "kocht",
+          "filename": "a11-tag14-16-er-kocht.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "kochen",
+          "filename": "a11-tag14-16-wir-kochen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "kocht",
+          "filename": "a11-tag14-16-ihr-kocht.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "kochen",
+          "filename": "a11-tag14-16-sie-kochen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag14-17-wer-kocht-das-abendessen.mp3",
+      "script": "Wer kocht das Abendessen?",
+      "translationVi": "Ai nấu bữa tối?"
+    },
+    {
+      "filename": "a11-tag14-18-meine-mutter-kocht-das-abendessen.mp3",
+      "script": "Meine Mutter kocht das Abendessen.",
+      "translationVi": "Mẹ tôi nấu bữa tối."
+    },
+    {
+      "filename": "a11-tag14-19-wer-raeumt-das-zimmer-denn-auf.mp3",
+      "script": "Wer räumt das Zimmer denn auf?",
+      "translationVi": "Ai dọn phòng vậy?"
+    },
+    {
+      "filename": "a11-tag14-20-faehrt-lili-mit.mp3",
+      "script": "Fährt Lili mit?",
+      "translationVi": "Lili đi cùng không?"
+    },
+    {
+      "filename": "a11-tag14-21-ja-lili-faehrt-mit.mp3",
+      "script": "Ja, Lili fährt mit.",
+      "translationVi": "Có, Lili đi cùng."
+    },
+    {
+      "filename": "a11-tag14-22-kaufst-du-die-sachen-im-edeka-ein.mp3",
+      "script": "Kaufst du die Sachen im Edeka ein?",
+      "translationVi": "Bạn mua đồ trong Edeka à?"
+    },
+    {
+      "filename": "a11-tag14-23-fleissig.mp3",
+      "script": "fleißig",
+      "translationVi": "chăm chỉ"
+    },
+    {
+      "filename": "a11-tag14-24-bist-du-fleissig.mp3",
+      "script": "Bist du fleißig?",
+      "translationVi": "Bạn chăm chỉ không?"
+    },
+    {
+      "filename": "a11-tag14-25-wie-viele-personen-sind-auf-dem-foto.mp3",
+      "script": "Wie viele Personen sind auf dem Foto?",
+      "translationVi": "Có bao nhiêu người trong ảnh?"
+    },
+    {
+      "filename": "a11-tag14-28-im-kurs.mp3",
+      "script": "im Kurs",
+      "translationVi": "trong giờ học; trong lớp học"
+    },
+    {
+      "filename": "a11-tag14-29-ist-lara-zu-hause-oder-im-kurs.mp3",
+      "script": "Ist Lara zu Hause oder im Kurs?",
+      "translationVi": "Lara đang ở nhà hay trong lớp học?"
+    },
+    {
+      "filename": "a11-tag14-30-ich-denke-sie-ist-im-kurs.mp3",
+      "script": "Ich denke, sie ist im Kurs.",
+      "translationVi": "Tôi nghĩ cô ấy đang trong lớp học."
+    },
+    {
+      "filename": "a11-tag14-32-in-der-kueche.mp3",
+      "script": "in der Küche",
+      "translationVi": "trong nhà bếp"
+    },
+    {
+      "filename": "a11-tag14-33-lara-ist-in-der-kueche.mp3",
+      "script": "Lara ist in der Küche.",
+      "translationVi": "Lara ở trong nhà bếp."
+    },
+    {
+      "filename": "a11-tag14-34-und-was-macht-sie.mp3",
+      "script": "Und was macht sie?",
+      "translationVi": "Và cô ấy đang làm gì?"
+    },
+    {
+      "filename": "a11-tag14-35-sie-kocht-das-abendessen.mp3",
+      "script": "Sie kocht das Abendessen.",
+      "translationVi": "Cô ấy nấu bữa tối."
+    },
+    {
+      "filename": "a11-tag14-36-fruehstuecken.mp3",
+      "script": "frühstücken",
+      "translationVi": "ăn sáng",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "frühstücke",
+          "filename": "a11-tag14-36-ich-fruehstuecke.mp3"
+        },
+        {
+          "person": "du",
+          "form": "frühstückst",
+          "filename": "a11-tag14-36-du-fruehstueckst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "frühstückt",
+          "filename": "a11-tag14-36-er-fruehstueckt.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "frühstücken",
+          "filename": "a11-tag14-36-wir-fruehstuecken.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "frühstückt",
+          "filename": "a11-tag14-36-ihr-fruehstueckt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "frühstücken",
+          "filename": "a11-tag14-36-sie-fruehstuecken.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag14-37-spazieren-gehen.mp3",
+      "script": "spazieren gehen",
+      "translationVi": "đi dạo bộ",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "gehe spazieren",
+          "filename": "a11-tag14-37-ich-gehe-spazieren.mp3"
+        },
+        {
+          "person": "du",
+          "form": "gehst spazieren",
+          "filename": "a11-tag14-37-du-gehst-spazieren.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "geht spazieren",
+          "filename": "a11-tag14-37-er-geht-spazieren.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "gehen spazieren",
+          "filename": "a11-tag14-37-wir-gehen-spazieren.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "geht spazieren",
+          "filename": "a11-tag14-37-ihr-geht-spazieren.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "gehen spazieren",
+          "filename": "a11-tag14-37-sie-gehen-spazieren.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag14-38-die-praesentation.mp3",
+      "script": "die Präsentation",
+      "translationVi": "bài thuyết trình"
+    },
+    {
+      "filename": "a11-tag14-39-der-deutschkurs.mp3",
+      "script": "der Deutschkurs",
+      "translationVi": "khóa học tiếng Đức"
+    },
+    {
+      "filename": "a11-tag14-40-lara-steht-um-viertel-nach-sieben-auf.mp3",
+      "script": "Lara steht um Viertel nach sieben auf.",
+      "translationVi": "Lara dậy lúc bảy giờ mười lăm."
+    },
+    {
+      "filename": "a11-tag14-42-lara-raeumt-die-kueche-auf.mp3",
+      "script": "Lara räumt die Küche auf.",
+      "translationVi": "Lara dọn nhà bếp."
+    },
+    {
+      "filename": "a11-tag14-43-lara-geht-zum-deutschkurs.mp3",
+      "script": "Lara geht zum Deutschkurs.",
+      "translationVi": "Lara đi tới lớp học tiếng Đức."
+    },
+    {
+      "filename": "a11-tag14-44-lara-geht-am-nachmittag-spazieren-oder-kauft-ein.mp3",
+      "script": "Lara geht am Nachmittag spazieren oder kauft ein.",
+      "translationVi": "Buổi chiều Lara đi dạo hoặc đi mua đồ."
+    },
+    {
+      "filename": "a11-tag14-45-lara-kocht-das-abendessen.mp3",
+      "script": "Lara kocht das Abendessen.",
+      "translationVi": "Lara nấu bữa tối."
+    },
+    {
+      "filename": "a11-tag14-46-muede.mp3",
+      "script": "müde",
+      "translationVi": "mệt; buồn ngủ"
+    },
+    {
+      "filename": "a11-tag14-47-sofia-arbeitet-sehr-viel-und-ist-am-abend-muede.mp3",
+      "script": "Sofia arbeitet sehr viel und ist am Abend müde.",
+      "translationVi": "Sofia làm việc rất nhiều và mệt vào buổi tối."
+    },
+    {
+      "filename": "a11-tag14-49-lara-ruft-ihre-familie-an.mp3",
+      "script": "Lara ruft ihre Familie an.",
+      "translationVi": "Lara gọi điện cho gia đình mình."
+    }
+  ]
 }
