@@ -1,3 +1,667 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag15-01-am-samstag.mp3",
+      "script": "am Samstag",
+      "translationVi": "vào thứ Bảy"
+    },
+    {
+      "filename": "a11-tag15-02-verdienen.mp3",
+      "script": "verdienen",
+      "translationVi": "kiếm được (tiền)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "verdiene",
+          "filename": "a11-tag15-02-ich-verdiene.mp3"
+        },
+        {
+          "person": "du",
+          "form": "verdienst",
+          "filename": "a11-tag15-02-du-verdienst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "verdient",
+          "filename": "a11-tag15-02-er-verdient.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "verdienen",
+          "filename": "a11-tag15-02-wir-verdienen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "verdient",
+          "filename": "a11-tag15-02-ihr-verdient.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "verdienen",
+          "filename": "a11-tag15-02-sie-verdienen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-03-ja-ich-muss-geld-verdienen.mp3",
+      "script": "Ja, ich muss Geld verdienen.",
+      "translationVi": "Ừ, tôi phải kiếm tiền."
+    },
+    {
+      "filename": "a11-tag15-04-darf-ich-das-fenster-aufmachen.mp3",
+      "script": "Darf ich das Fenster aufmachen?",
+      "translationVi": "Tôi được phép mở cửa sổ không?"
+    },
+    {
+      "filename": "a11-tag15-05-bringen.mp3",
+      "script": "bringen",
+      "translationVi": "mang, đem",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "bringe",
+          "filename": "a11-tag15-05-ich-bringe.mp3"
+        },
+        {
+          "person": "du",
+          "form": "bringst",
+          "filename": "a11-tag15-05-du-bringst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "bringt",
+          "filename": "a11-tag15-05-er-bringt.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "bringen",
+          "filename": "a11-tag15-05-wir-bringen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "bringt",
+          "filename": "a11-tag15-05-ihr-bringt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "bringen",
+          "filename": "a11-tag15-05-sie-bringen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-06-muss-ich-das-buch-bringen.mp3",
+      "script": "Muss ich das Buch bringen?",
+      "translationVi": "Tôi có phải mang quyển sách đến không?"
+    },
+    {
+      "filename": "a11-tag15-07-fliegen.mp3",
+      "script": "fliegen",
+      "translationVi": "bay; đi máy bay",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "fliege",
+          "filename": "a11-tag15-07-ich-fliege.mp3"
+        },
+        {
+          "person": "du",
+          "form": "fliegst",
+          "filename": "a11-tag15-07-du-fliegst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "fliegt",
+          "filename": "a11-tag15-07-er-fliegt.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "fliegen",
+          "filename": "a11-tag15-07-wir-fliegen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "fliegt",
+          "filename": "a11-tag15-07-ihr-fliegt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "fliegen",
+          "filename": "a11-tag15-07-sie-fliegen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-08-kannst-du-um-10-uhr-fliegen.mp3",
+      "script": "Kannst du um 10 Uhr fliegen?",
+      "translationVi": "Bạn có thể bay lúc 10 giờ không?"
+    },
+    {
+      "filename": "a11-tag15-09-der-muelleimer.mp3",
+      "script": "der Mülleimer",
+      "translationVi": "thùng rác"
+    },
+    {
+      "filename": "a11-tag15-10-rausbringen.mp3",
+      "script": "rausbringen",
+      "translationVi": "mang ra ngoài",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "bringe raus",
+          "filename": "a11-tag15-10-ich-bringe-raus.mp3"
+        },
+        {
+          "person": "du",
+          "form": "bringst raus",
+          "filename": "a11-tag15-10-du-bringst-raus.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "bringt raus",
+          "filename": "a11-tag15-10-er-bringt-raus.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "bringen raus",
+          "filename": "a11-tag15-10-wir-bringen-raus.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "bringt raus",
+          "filename": "a11-tag15-10-ihr-bringt-raus.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "bringen raus",
+          "filename": "a11-tag15-10-sie-bringen-raus.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-11-kannst-du-den-muelleimer-rausbringen.mp3",
+      "script": "Kannst du den Mülleimer rausbringen?",
+      "translationVi": "Bạn có thể mang thùng rác ra ngoài không?"
+    },
+    {
+      "filename": "a11-tag15-12-was-willst-du-essen.mp3",
+      "script": "Was willst du essen?",
+      "translationVi": "Bạn muốn ăn gì?"
+    },
+    {
+      "filename": "a11-tag15-13-gut.mp3",
+      "script": "gut",
+      "translationVi": "tốt; giỏi"
+    },
+    {
+      "filename": "a11-tag15-14-verdienst-du-gut.mp3",
+      "script": "Verdienst du gut?",
+      "translationVi": "Bạn kiếm được nhiều tiền không?"
+    },
+    {
+      "filename": "a11-tag15-15-die-beziehung.mp3",
+      "script": "die Beziehung",
+      "translationVi": "mối quan hệ (tình cảm)"
+    },
+    {
+      "filename": "a11-tag15-16-laufen.mp3",
+      "script": "laufen",
+      "translationVi": "chạy; diễn ra, tiến triển",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "laufe",
+          "filename": "a11-tag15-16-ich-laufe.mp3"
+        },
+        {
+          "person": "du",
+          "form": "läufst",
+          "filename": "a11-tag15-16-du-laeufst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "läuft",
+          "filename": "a11-tag15-16-er-laeuft.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "laufen",
+          "filename": "a11-tag15-16-wir-laufen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "lauft",
+          "filename": "a11-tag15-16-ihr-lauft.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "laufen",
+          "filename": "a11-tag15-16-sie-laufen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-17-laeuft-deine-beziehung-gut.mp3",
+      "script": "Läuft deine Beziehung gut?",
+      "translationVi": "Mối quan hệ tình cảm của bạn có tốt đẹp không?"
+    },
+    {
+      "filename": "a11-tag15-18-dumm.mp3",
+      "script": "dumm",
+      "translationVi": "ngốc; dốt"
+    },
+    {
+      "filename": "a11-tag15-19-er-muss-echt-dumm-sein.mp3",
+      "script": "Er muss echt dumm sein!",
+      "translationVi": "Ông này chắc phải dốt lắm!"
+    },
+    {
+      "filename": "a11-tag15-20-spaet.mp3",
+      "script": "spät",
+      "translationVi": "muộn"
+    },
+    {
+      "filename": "a11-tag15-21-darf-ich-heute-spaet-kommen.mp3",
+      "script": "Darf ich heute spät kommen?",
+      "translationVi": "Hôm nay tôi được phép đến muộn không?"
+    },
+    {
+      "filename": "a11-tag15-22-stornieren.mp3",
+      "script": "stornieren",
+      "translationVi": "hủy (đặt chỗ, đơn hàng)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "storniere",
+          "filename": "a11-tag15-22-ich-storniere.mp3"
+        },
+        {
+          "person": "du",
+          "form": "stornierst",
+          "filename": "a11-tag15-22-du-stornierst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "storniert",
+          "filename": "a11-tag15-22-er-storniert.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "stornieren",
+          "filename": "a11-tag15-22-wir-stornieren.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "storniert",
+          "filename": "a11-tag15-22-ihr-storniert.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "stornieren",
+          "filename": "a11-tag15-22-sie-stornieren.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-23-was-moechten-sie-stornieren.mp3",
+      "script": "Was möchten Sie stornieren?",
+      "translationVi": "Ông/bà muốn hủy gì ạ?"
+    },
+    {
+      "filename": "a11-tag15-24-senden.mp3",
+      "script": "senden",
+      "translationVi": "gửi",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "sende",
+          "filename": "a11-tag15-24-ich-sende.mp3"
+        },
+        {
+          "person": "du",
+          "form": "sendest",
+          "filename": "a11-tag15-24-du-sendest.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "sendet",
+          "filename": "a11-tag15-24-er-sendet.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "senden",
+          "filename": "a11-tag15-24-wir-senden.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "sendet",
+          "filename": "a11-tag15-24-ihr-sendet.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "senden",
+          "filename": "a11-tag15-24-sie-senden.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-25-kannst-du-mir-eine-e-mail-senden.mp3",
+      "script": "Kannst du mir eine E-Mail senden?",
+      "translationVi": "Bạn có thể gửi cho tôi một email không?"
+    },
+    {
+      "filename": "a11-tag15-26-darf-ich-sie-etwas-fragen.mp3",
+      "script": "Darf ich Sie etwas fragen?",
+      "translationVi": "Tôi có thể hỏi ông/bà một điều được không ạ?"
+    },
+    {
+      "filename": "a11-tag15-27-was-muss-ich-wissen.mp3",
+      "script": "Was muss ich wissen?",
+      "translationVi": "Tôi phải biết những gì?"
+    },
+    {
+      "filename": "a11-tag15-28-ueberlegen.mp3",
+      "script": "überlegen",
+      "translationVi": "suy nghĩ, cân nhắc",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "überlege",
+          "filename": "a11-tag15-28-ich-ueberlege.mp3"
+        },
+        {
+          "person": "du",
+          "form": "überlegst",
+          "filename": "a11-tag15-28-du-ueberlegst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "überlegt",
+          "filename": "a11-tag15-28-er-ueberlegt.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "überlegen",
+          "filename": "a11-tag15-28-wir-ueberlegen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "überlegt",
+          "filename": "a11-tag15-28-ihr-ueberlegt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "überlegen",
+          "filename": "a11-tag15-28-sie-ueberlegen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-29-was-ueberlegst-du.mp3",
+      "script": "Was überlegst du?",
+      "translationVi": "Bạn đang suy nghĩ điều gì?"
+    },
+    {
+      "filename": "a11-tag15-30-am-see.mp3",
+      "script": "am See",
+      "translationVi": "ở bên hồ"
+    },
+    {
+      "filename": "a11-tag15-31-moechtest-du-am-samstag-an-den-see-fahren.mp3",
+      "script": "Möchtest du am Samstag an den See fahren?",
+      "translationVi": "Bạn có muốn đi đến hồ bằng xe vào thứ Bảy không?"
+    },
+    {
+      "filename": "a11-tag15-32-morgen.mp3",
+      "script": "morgen",
+      "translationVi": "ngày mai"
+    },
+    {
+      "filename": "a11-tag15-33-freinehmen.mp3",
+      "script": "freinehmen",
+      "translationVi": "xin nghỉ (làm)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "nehme frei",
+          "filename": "a11-tag15-33-ich-nehme-frei.mp3"
+        },
+        {
+          "person": "du",
+          "form": "nimmst frei",
+          "filename": "a11-tag15-33-du-nimmst-frei.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "nimmt frei",
+          "filename": "a11-tag15-33-er-nimmt-frei.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "nehmen frei",
+          "filename": "a11-tag15-33-wir-nehmen-frei.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "nehmt frei",
+          "filename": "a11-tag15-33-ihr-nehmt-frei.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "nehmen frei",
+          "filename": "a11-tag15-33-sie-nehmen-frei.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag15-34-darf-ich-morgen-freinehmen.mp3",
+      "script": "Darf ich morgen freinehmen?",
+      "translationVi": "Ngày mai tôi được phép nghỉ làm không?"
+    },
+    {
+      "filename": "a11-tag15-35-lernst-du-um-10-uhr.mp3",
+      "script": "Lernst du um 10 Uhr?",
+      "translationVi": "Bạn học lúc 10 giờ à?"
+    },
+    {
+      "filename": "a11-tag15-36-kannst-du-das-wort-wiederholen.mp3",
+      "script": "Kannst du das Wort wiederholen?",
+      "translationVi": "Bạn có thể nhắc lại từ đó không?"
+    },
+    {
+      "filename": "a11-tag15-37-hast-du-10-euro.mp3",
+      "script": "Hast du 10 Euro?",
+      "translationVi": "Bạn có 10 euro không?"
+    },
+    {
+      "filename": "a11-tag15-38-wo-ist-kaufland.mp3",
+      "script": "Wo ist Kaufland?",
+      "translationVi": "Siêu thị Kaufland ở đâu?"
+    },
+    {
+      "filename": "a11-tag15-39-ledig.mp3",
+      "script": "ledig",
+      "translationVi": "chưa kết hôn"
+    },
+    {
+      "filename": "a11-tag15-40-bist-du-ledig.mp3",
+      "script": "Bist du ledig?",
+      "translationVi": "Bạn chưa kết hôn phải không?"
+    },
+    {
+      "filename": "a11-tag15-41-verheiratet.mp3",
+      "script": "verheiratet",
+      "translationVi": "đã kết hôn"
+    },
+    {
+      "filename": "a11-tag15-42-bist-du-verheiratet.mp3",
+      "script": "Bist du verheiratet?",
+      "translationVi": "Bạn đã kết hôn chưa?"
+    },
+    {
+      "filename": "a11-tag15-43-getrennt.mp3",
+      "script": "getrennt",
+      "translationVi": "đã chia tay; sống ly thân"
+    },
+    {
+      "filename": "a11-tag15-44-lebt-ihr-getrennt.mp3",
+      "script": "Lebt ihr getrennt?",
+      "translationVi": "Hai bạn đang sống ly thân à?"
+    },
+    {
+      "filename": "a11-tag15-45-verwitwet.mp3",
+      "script": "verwitwet",
+      "translationVi": "góa vợ/chồng"
+    },
+    {
+      "filename": "a11-tag15-46-ist-sie-verwitwet.mp3",
+      "script": "Ist sie verwitwet?",
+      "translationVi": "Cô ấy góa chồng phải không?"
+    },
+    {
+      "filename": "a11-tag15-47-bist-du-single.mp3",
+      "script": "Bist du Single?",
+      "translationVi": "Bạn đang độc thân à?"
+    },
+    {
+      "filename": "a11-tag15-48-die-kinder-raeumen-auf.mp3",
+      "script": "Die Kinder räumen auf.",
+      "translationVi": "Các em nhỏ dọn dẹp."
+    },
+    {
+      "filename": "a11-tag15-49-die-kinder-fahren-mit-dem-bus.mp3",
+      "script": "Die Kinder fahren mit dem Bus.",
+      "translationVi": "Các em nhỏ đi bằng xe buýt."
+    },
+    {
+      "filename": "a11-tag15-50-klein.mp3",
+      "script": "klein",
+      "translationVi": "nhỏ"
+    },
+    {
+      "filename": "a11-tag15-51-gross.mp3",
+      "script": "groß",
+      "translationVi": "to; lớn"
+    },
+    {
+      "filename": "a11-tag15-52-haesslich.mp3",
+      "script": "hässlich",
+      "translationVi": "xấu"
+    },
+    {
+      "filename": "a11-tag15-53-schoen.mp3",
+      "script": "schön",
+      "translationVi": "đẹp"
+    },
+    {
+      "filename": "a11-tag15-54-neu.mp3",
+      "script": "neu",
+      "translationVi": "mới"
+    },
+    {
+      "filename": "a11-tag15-55-alt.mp3",
+      "script": "alt",
+      "translationVi": "cũ; già"
+    },
+    {
+      "filename": "a11-tag15-56-breit.mp3",
+      "script": "breit",
+      "translationVi": "rộng"
+    },
+    {
+      "filename": "a11-tag15-57-schmal.mp3",
+      "script": "schmal",
+      "translationVi": "hẹp"
+    },
+    {
+      "filename": "a11-tag15-58-das-haus-ist-klein-und-schoen.mp3",
+      "script": "Das Haus ist klein und schön.",
+      "translationVi": "Ngôi nhà nhỏ và đẹp."
+    },
+    {
+      "filename": "a11-tag15-59-der-kuehlschrank.mp3",
+      "script": "der Kühlschrank",
+      "translationVi": "tủ lạnh"
+    },
+    {
+      "filename": "a11-tag15-60-der-kuehlschrank-ist-gross.mp3",
+      "script": "Der Kühlschrank ist groß.",
+      "translationVi": "Chiếc tủ lạnh lớn."
+    },
+    {
+      "filename": "a11-tag15-61-der-schrank.mp3",
+      "script": "der Schrank",
+      "translationVi": "cái tủ"
+    },
+    {
+      "filename": "a11-tag15-62-der-ehemann.mp3",
+      "script": "der Ehemann",
+      "translationVi": "người chồng"
+    },
+    {
+      "filename": "a11-tag15-63-die-ehefrau.mp3",
+      "script": "die Ehefrau",
+      "translationVi": "người vợ"
+    },
+    {
+      "filename": "a11-tag15-64-der-apfel.mp3",
+      "script": "der Apfel",
+      "translationVi": "quả táo"
+    },
+    {
+      "filename": "a11-tag15-65-die-birne.mp3",
+      "script": "die Birne",
+      "translationVi": "quả lê"
+    },
+    {
+      "filename": "a11-tag15-66-die-orange.mp3",
+      "script": "die Orange",
+      "translationVi": "quả cam"
+    },
+    {
+      "filename": "a11-tag15-67-das-mineralwasser-mit-kohlensaeure.mp3",
+      "script": "das Mineralwasser mit Kohlensäure",
+      "translationVi": "nước khoáng có ga"
+    },
+    {
+      "filename": "a11-tag15-68-die-wurst.mp3",
+      "script": "die Wurst",
+      "translationVi": "xúc xích"
+    },
+    {
+      "filename": "a11-tag15-69-die-kartoffel.mp3",
+      "script": "die Kartoffel",
+      "translationVi": "khoai tây"
+    },
+    {
+      "filename": "a11-tag15-70-der-flur.mp3",
+      "script": "der Flur",
+      "translationVi": "hành lang"
+    },
+    {
+      "filename": "a11-tag15-71-das-wohnzimmer.mp3",
+      "script": "das Wohnzimmer",
+      "translationVi": "phòng khách"
+    },
+    {
+      "filename": "a11-tag15-72-das-schlafzimmer.mp3",
+      "script": "das Schlafzimmer",
+      "translationVi": "phòng ngủ"
+    },
+    {
+      "filename": "a11-tag15-73-das-bett.mp3",
+      "script": "das Bett",
+      "translationVi": "cái giường"
+    },
+    {
+      "filename": "a11-tag15-74-der-teppich.mp3",
+      "script": "der Teppich",
+      "translationVi": "cái thảm"
+    },
+    {
+      "filename": "a11-tag15-75-die-kueche.mp3",
+      "script": "die Küche",
+      "translationVi": "phòng bếp"
+    }
+  ]
 }
