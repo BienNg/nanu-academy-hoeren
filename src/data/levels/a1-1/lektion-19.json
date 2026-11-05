@@ -1,3 +1,461 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag19-01-diese.mp3",
+      "script": "diese",
+      "translationVi": "này (dùng với danh từ giống cái ở Nominativ)"
+    },
+    {
+      "filename": "a11-tag19-02-wie-heisst-diese-frau.mp3",
+      "script": "Wie heißt diese Frau?",
+      "translationVi": "Người phụ nữ này tên là gì?"
+    },
+    {
+      "filename": "a11-tag19-03-diese-frau-heisst-lara.mp3",
+      "script": "Diese Frau heißt Lara.",
+      "translationVi": "Người phụ nữ này tên là Lara."
+    },
+    {
+      "filename": "a11-tag19-04-woher-kommt-diese-frau.mp3",
+      "script": "Woher kommt diese Frau?",
+      "translationVi": "Người phụ nữ này đến từ đâu?"
+    },
+    {
+      "filename": "a11-tag19-05-polen.mp3",
+      "script": "Polen",
+      "translationVi": "Ba Lan"
+    },
+    {
+      "filename": "a11-tag19-06-sie-kommt-aus-polen.mp3",
+      "script": "Sie kommt aus Polen.",
+      "translationVi": "Cô ấy đến từ Ba Lan."
+    },
+    {
+      "filename": "a11-tag19-07-dieses.mp3",
+      "script": "dieses",
+      "translationVi": "này (dùng với danh từ giống trung ở Nominativ hoặc Akkusativ)"
+    },
+    {
+      "filename": "a11-tag19-08-das-maedchen.mp3",
+      "script": "das Mädchen",
+      "translationVi": "cô bé; cô gái"
+    },
+    {
+      "filename": "a11-tag19-09-wie-heisst-dieses-maedchen.mp3",
+      "script": "Wie heißt dieses Mädchen?",
+      "translationVi": "Cô bé này tên là gì?"
+    },
+    {
+      "filename": "a11-tag19-10-dieses-maedchen-heisst-lili.mp3",
+      "script": "Dieses Mädchen heißt Lili.",
+      "translationVi": "Cô bé này tên là Lili."
+    },
+    {
+      "filename": "a11-tag19-11-diese-frau-heisst-sofia.mp3",
+      "script": "Diese Frau heißt Sofia.",
+      "translationVi": "Người phụ nữ này tên là Sofia."
+    },
+    {
+      "filename": "a11-tag19-12-kannst-du-lili-wecken.mp3",
+      "script": "Kannst du Lili wecken?",
+      "translationVi": "Bạn có thể đánh thức Lili không?"
+    },
+    {
+      "filename": "a11-tag19-13-das-fruehstueck-ist-fertig.mp3",
+      "script": "Das Frühstück ist fertig!",
+      "translationVi": "Bữa sáng đã sẵn sàng rồi!"
+    },
+    {
+      "filename": "a11-tag19-14-was-ist-los.mp3",
+      "script": "Was ist los?",
+      "translationVi": "Có chuyện gì vậy?"
+    },
+    {
+      "filename": "a11-tag19-15-ich-denke-lara-sagt-das.mp3",
+      "script": "Ich denke, Lara sagt das.",
+      "translationVi": "Tôi nghĩ Lara nói câu đó."
+    },
+    {
+      "filename": "a11-tag19-16-ich-habe-bauchschmerzen.mp3",
+      "script": "Ich habe Bauchschmerzen!",
+      "translationVi": "Tôi bị đau bụng!"
+    },
+    {
+      "filename": "a11-tag19-17-ihr-schreibt-also-einen-mathetest.mp3",
+      "script": "Ihr schreibt also einen Mathetest.",
+      "translationVi": "Vậy là các bạn làm một bài kiểm tra toán."
+    },
+    {
+      "filename": "a11-tag19-18-puenktlich.mp3",
+      "script": "pünktlich",
+      "translationVi": "đúng giờ"
+    },
+    {
+      "filename": "a11-tag19-19-das-viertel.mp3",
+      "script": "das Viertel",
+      "translationVi": "một phần tư"
+    },
+    {
+      "filename": "a11-tag19-20-puenktlich-um-viertel-nach-zehn-ist-sie-da.mp3",
+      "script": "Pünktlich um Viertel nach zehn ist sie da.",
+      "translationVi": "Cô ấy có mặt đúng lúc 10 giờ 15 phút."
+    },
+    {
+      "filename": "a11-tag19-21-auf-jeden-fall.mp3",
+      "script": "auf jeden Fall",
+      "translationVi": "nhất định; chắc chắn"
+    },
+    {
+      "filename": "a11-tag19-23-sie-will-auf-jeden-fall-noch-zum-deutschkurs-gehen.mp3",
+      "script": "Sie will auf jeden Fall noch zum Deutschkurs gehen.",
+      "translationVi": "Cô ấy nhất định vẫn muốn đi học khóa tiếng Đức."
+    },
+    {
+      "filename": "a11-tag19-24-ich-glaube.mp3",
+      "script": "Ich glaube.",
+      "translationVi": "Tôi nghĩ vậy."
+    },
+    {
+      "filename": "a11-tag19-25-alles.mp3",
+      "script": "alles",
+      "translationVi": "mọi thứ"
+    },
+    {
+      "filename": "a11-tag19-26-ich-glaube-ich-habe-alles-richtig-gemacht.mp3",
+      "script": "Ich glaube, ich habe alles richtig gemacht.",
+      "translationVi": "Tôi nghĩ tôi đã làm đúng mọi thứ."
+    },
+    {
+      "filename": "a11-tag19-27-hmm-das-schmeckt-so-lecker.mp3",
+      "script": "Hmm! Das schmeckt so lecker!",
+      "translationVi": "Ừm! Món này ngon quá!"
+    },
+    {
+      "filename": "a11-tag19-28-was-moechtest-du-mich-fragen.mp3",
+      "script": "Was möchtest du mich fragen?",
+      "translationVi": "Bạn muốn hỏi tôi điều gì?"
+    },
+    {
+      "filename": "a11-tag19-29-nichts.mp3",
+      "script": "nichts",
+      "translationVi": "không có gì; không gì cả"
+    },
+    {
+      "filename": "a11-tag19-30-ich-moechte-dich-nichts-fragen.mp3",
+      "script": "Ich möchte dich nichts fragen.",
+      "translationVi": "Tôi không muốn hỏi bạn gì cả."
+    },
+    {
+      "filename": "a11-tag19-31-was-hast-du-gesagt.mp3",
+      "script": "Was hast du gesagt?",
+      "translationVi": "Bạn vừa nói gì?"
+    },
+    {
+      "filename": "a11-tag19-32-kannst-du-das-bitte-wiederholen.mp3",
+      "script": "Kannst du das bitte wiederholen?",
+      "translationVi": "Bạn có thể vui lòng nhắc lại điều đó không?"
+    },
+    {
+      "filename": "a11-tag19-33-ich-moechte-deutsch-in-stuttgart-lernen.mp3",
+      "script": "Ich möchte Deutsch in Stuttgart lernen.",
+      "translationVi": "Tôi muốn học tiếng Đức tại Stuttgart."
+    },
+    {
+      "filename": "a11-tag19-34-wie-viel-muss-ich-bezahlen.mp3",
+      "script": "Wie viel muss ich bezahlen?",
+      "translationVi": "Tôi phải trả bao nhiêu tiền?"
+    },
+    {
+      "filename": "a11-tag19-35-ich-habe-heute-zeit-moechtest-du-essen-gehen.mp3",
+      "script": "Ich habe heute Zeit, möchtest du essen gehen?",
+      "translationVi": "Hôm nay tôi rảnh, bạn có muốn đi ăn không?"
+    },
+    {
+      "filename": "a11-tag19-36-es-tut-mir-sehr-leid-aber-heute-muss-ich-deutsch-lernen.mp3",
+      "script": "Es tut mir sehr leid, aber heute muss ich Deutsch lernen.",
+      "translationVi": "Rất lấy làm tiếc, nhưng hôm nay tôi phải học tiếng Đức."
+    },
+    {
+      "filename": "a11-tag19-37-der-kurs-beginnt-immer-um-9-00-uhr.mp3",
+      "script": "Der Kurs beginnt immer um neun Uhr.",
+      "translationVi": "Khóa học luôn bắt đầu lúc 9 giờ."
+    },
+    {
+      "filename": "a11-tag19-39-moechtest-du-etwas-trinken.mp3",
+      "script": "Möchtest du etwas trinken?",
+      "translationVi": "Bạn có muốn uống gì đó không?"
+    },
+    {
+      "filename": "a11-tag19-40-nein-danke.mp3",
+      "script": "Nein, danke.",
+      "translationVi": "Không, cảm ơn."
+    },
+    {
+      "filename": "a11-tag19-41-ich-bin-sehr-muede.mp3",
+      "script": "Ich bin sehr müde.",
+      "translationVi": "Tôi rất mệt."
+    },
+    {
+      "filename": "a11-tag19-42-ich-muss-jetzt-schlafen-tschues.mp3",
+      "script": "Ich muss jetzt schlafen, tschüs.",
+      "translationVi": "Bây giờ tôi phải đi ngủ, tạm biệt bạn."
+    },
+    {
+      "filename": "a11-tag19-43-leer.mp3",
+      "script": "leer",
+      "translationVi": "trống; trống rỗng"
+    },
+    {
+      "filename": "a11-tag19-44-der-kuehlschrank-ist-leer.mp3",
+      "script": "Der Kühlschrank ist leer.",
+      "translationVi": "Tủ lạnh trống rồi."
+    },
+    {
+      "filename": "a11-tag19-45-moechtest-du-einkaufen-gehen.mp3",
+      "script": "Möchtest du einkaufen gehen?",
+      "translationVi": "Bạn có muốn đi mua đồ không?"
+    },
+    {
+      "filename": "a11-tag19-46-besucht-dein-opa-dich-heute.mp3",
+      "script": "Besucht dein Opa dich heute?",
+      "translationVi": "Hôm nay ông của bạn đến thăm bạn à?"
+    },
+    {
+      "filename": "a11-tag19-47-abholen.mp3",
+      "script": "abholen",
+      "translationVi": "đón"
+    },
+    {
+      "filename": "a11-tag19-48-um-wie-viel-uhr-holst-du-ihn-ab.mp3",
+      "script": "Um wie viel Uhr holst du ihn ab?",
+      "translationVi": "Bạn đón ông ấy lúc mấy giờ?"
+    },
+    {
+      "filename": "a11-tag19-49-ich-hole-sie-um-19-00-uhr-am-bahnhof-ab.mp3",
+      "script": "Ich hole sie um neunzehn Uhr am Bahnhof ab.",
+      "translationVi": "Tôi đón họ ở nhà ga lúc 19 giờ."
+    },
+    {
+      "filename": "a11-tag19-50-moechtest-du-mitkommen.mp3",
+      "script": "Möchtest du mitkommen?",
+      "translationVi": "Bạn có muốn đi cùng không?"
+    },
+    {
+      "filename": "a11-tag19-51-wann-hast-du-zeit.mp3",
+      "script": "Wann hast du Zeit?",
+      "translationVi": "Khi nào bạn rảnh?"
+    },
+    {
+      "filename": "a11-tag19-52-ich-habe-nur-am-samstag-zeit.mp3",
+      "script": "Ich habe nur am Samstag Zeit.",
+      "translationVi": "Tôi chỉ rảnh vào thứ Bảy thôi."
+    },
+    {
+      "filename": "a11-tag19-53-hast-du-geld.mp3",
+      "script": "Hast du Geld?",
+      "translationVi": "Bạn có tiền không?"
+    },
+    {
+      "filename": "a11-tag19-55-hi-lin-am-wochenende-moechten-wir-zusammen-deutsch-lernen.mp3",
+      "script": "Hi Lin, am Wochenende möchten wir zusammen Deutsch lernen.",
+      "translationVi": "Chào Lin, cuối tuần chúng tôi muốn học tiếng Đức cùng nhau."
+    },
+    {
+      "filename": "a11-tag19-56-moechtest-du-mitlernen.mp3",
+      "script": "Möchtest du mitlernen?",
+      "translationVi": "Bạn có muốn học cùng không?"
+    },
+    {
+      "filename": "a11-tag19-57-ja-natuerlich.mp3",
+      "script": "Ja, natürlich.",
+      "translationVi": "Có chứ, tất nhiên rồi."
+    },
+    {
+      "filename": "a11-tag19-58-ich-muss-viele-hausaufgaben-machen.mp3",
+      "script": "Ich muss viele Hausaufgaben machen.",
+      "translationVi": "Tôi phải làm nhiều bài tập về nhà."
+    },
+    {
+      "filename": "a11-tag19-59-wo-moechtet-ihr-lernen.mp3",
+      "script": "Wo möchtet ihr lernen?",
+      "translationVi": "Mọi người muốn học ở đâu?"
+    },
+    {
+      "filename": "a11-tag19-60-bei-lin-zu-hause.mp3",
+      "script": "bei Lin zu Hause",
+      "translationVi": "ở nhà Lin"
+    },
+    {
+      "filename": "a11-tag19-61-in-einem-caf.mp3",
+      "script": "in einem Café",
+      "translationVi": "ở trong một quán cà phê"
+    },
+    {
+      "filename": "a11-tag19-62-bei-lin-zu-hause-oder-in-einem-caf.mp3",
+      "script": "Bei Lin zu Hause oder in einem Café?",
+      "translationVi": "Ở nhà Lin hay ở trong một quán cà phê?"
+    },
+    {
+      "filename": "a11-tag19-64-wir-werden-zu-starbucks-gehen.mp3",
+      "script": "Wir werden zu Starbucks gehen.",
+      "translationVi": "Chúng tôi sẽ đến Starbucks."
+    },
+    {
+      "filename": "a11-tag19-65-teuer.mp3",
+      "script": "teuer",
+      "translationVi": "đắt"
+    },
+    {
+      "filename": "a11-tag19-66-lecker.mp3",
+      "script": "lecker",
+      "translationVi": "ngon"
+    },
+    {
+      "filename": "a11-tag19-68-die-getraenke-dort-sind-ein-bisschen-teuer-aber-sehr-lecker.mp3",
+      "script": "Die Getränke dort sind ein bisschen teuer, aber sehr lecker.",
+      "translationVi": "Đồ uống ở đó hơi đắt nhưng rất ngon."
+    },
+    {
+      "filename": "a11-tag19-69-reservieren.mp3",
+      "script": "reservieren",
+      "translationVi": "đặt trước (bàn, chỗ, ...)"
+    },
+    {
+      "filename": "a11-tag19-70-kannst-du-einen-tisch-reservieren.mp3",
+      "script": "Kannst du einen Tisch reservieren?",
+      "translationVi": "Bạn có thể đặt một bàn không?"
+    },
+    {
+      "filename": "a11-tag19-71-ja-klar.mp3",
+      "script": "Ja, klar.",
+      "translationVi": "Được chứ."
+    },
+    {
+      "filename": "a11-tag19-73-kannst-du-mir-bitte-die-telefonnummer-senden.mp3",
+      "script": "Kannst du mir bitte die Telefonnummer senden?",
+      "translationVi": "Bạn có thể vui lòng gửi cho tôi số điện thoại không?"
+    },
+    {
+      "filename": "a11-tag19-74-ok-mache-ich.mp3",
+      "script": "Ok, mache ich.",
+      "translationVi": "Được, tôi sẽ làm vậy."
+    },
+    {
+      "filename": "a11-tag19-75-losfahren.mp3",
+      "script": "losfahren",
+      "translationVi": "xuất phát; khởi hành",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "fahre los",
+          "filename": "a11-tag19-75-ich-fahre-los.mp3"
+        },
+        {
+          "person": "du",
+          "form": "fährst los",
+          "filename": "a11-tag19-75-du-faehrst-los.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "fährt los",
+          "filename": "a11-tag19-75-er-faehrt-los.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "fahren los",
+          "filename": "a11-tag19-75-wir-fahren-los.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "fahrt los",
+          "filename": "a11-tag19-75-ihr-fahrt-los.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "fahren los",
+          "filename": "a11-tag19-75-sie-fahren-los.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag19-76-wann-fahren-wir-los.mp3",
+      "script": "Wann fahren wir los?",
+      "translationVi": "Khi nào chúng ta xuất phát?"
+    },
+    {
+      "filename": "a11-tag19-77-weit-weg.mp3",
+      "script": "weit weg",
+      "translationVi": "ở xa; xa"
+    },
+    {
+      "filename": "a11-tag19-78-ich-muss-40-minuten-fahren-denn-ich-wohne-weit-weg.mp3",
+      "script": "Ich muss 40 Minuten fahren, denn ich wohne weit weg.",
+      "translationVi": "Tôi phải đi xe 40 phút vì tôi sống ở xa."
+    },
+    {
+      "filename": "a11-tag19-79-ich-fahre-um-16-uhr-los.mp3",
+      "script": "Ich fahre um sechzehn Uhr los.",
+      "translationVi": "Tôi xuất phát lúc 16 giờ."
+    },
+    {
+      "filename": "a11-tag19-82-gegen-17-uhr.mp3",
+      "script": "Gegen siebzehn Uhr.",
+      "translationVi": "Khoảng 17 giờ."
+    },
+    {
+      "filename": "a11-tag19-83-ist-es-ok-fuer-dich.mp3",
+      "script": "Ist es ok für dich?",
+      "translationVi": "Như vậy có được với bạn không?"
+    },
+    {
+      "filename": "a11-tag19-84-ok.mp3",
+      "script": "Ok.",
+      "translationVi": "Được."
+    },
+    {
+      "filename": "a11-tag19-86-aber-kannst-du-mir-die-adresse-senden.mp3",
+      "script": "Aber kannst du mir die Adresse senden?",
+      "translationVi": "Nhưng bạn có thể gửi cho tôi địa chỉ không?"
+    },
+    {
+      "filename": "a11-tag19-87-gerne.mp3",
+      "script": "Gerne.",
+      "translationVi": "Sẵn lòng."
+    },
+    {
+      "filename": "a11-tag19-88-ueber-zalo.mp3",
+      "script": "über Zalo",
+      "translationVi": "qua Zalo"
+    },
+    {
+      "filename": "a11-tag19-89-kann-ich-dir-die-adresse-ueber-zalo-senden.mp3",
+      "script": "Kann ich dir die Adresse über Zalo senden?",
+      "translationVi": "Tôi có thể gửi địa chỉ cho bạn qua Zalo không?"
+    },
+    {
+      "filename": "a11-tag19-90-die-nummer.mp3",
+      "script": "die Nummer",
+      "translationVi": "số"
+    },
+    {
+      "filename": "a11-tag19-91-wie-ist-deine-zalo-nummer.mp3",
+      "script": "Wie ist deine Zalo-Nummer?",
+      "translationVi": "Số Zalo của bạn là gì?"
+    },
+    {
+      "filename": "a11-tag19-92-meine-zalo-nummer-ist-0862-934-989.mp3",
+      "script": "Meine Zalo-Nummer ist 0862 934 989.",
+      "translationVi": "Số Zalo của tôi là 0862 934 989."
+    },
+    {
+      "filename": "a11-tag19-93-ja-ich-habe-es.mp3",
+      "script": "Ja, ich habe es.",
+      "translationVi": "Rồi, tôi có rồi."
+    },
+    {
+      "filename": "a11-tag19-94-bis-dahin.mp3",
+      "script": "Bis dahin!",
+      "translationVi": "Hẹn gặp bạn lúc đó!"
+    }
+  ]
 }
