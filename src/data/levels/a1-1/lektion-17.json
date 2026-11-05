@@ -1,3 +1,689 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag17-01-moechtest-du-auch-currywurst-essen.mp3",
+      "script": "Möchtest du auch Currywurst essen?",
+      "translationVi": "Bạn cũng muốn ăn xúc xích cà ri à?"
+    },
+    {
+      "filename": "a11-tag17-02-hast-du-schon-mal-bratwurst-gegessen.mp3",
+      "script": "Hast du schon mal Bratwurst gegessen?",
+      "translationVi": "Bạn đã từng ăn xúc xích nướng chưa?"
+    },
+    {
+      "filename": "a11-tag17-03-musst-du-heute-noch-die-hausaufgaben-machen.mp3",
+      "script": "Musst du heute noch die Hausaufgaben machen?",
+      "translationVi": "Hôm nay bạn còn phải làm bài tập về nhà không?"
+    },
+    {
+      "filename": "a11-tag17-04-hast-du-gestern-die-hausaufgaben-gemacht.mp3",
+      "script": "Hast du gestern die Hausaufgaben gemacht?",
+      "translationVi": "Hôm qua bạn đã làm bài tập về nhà chưa?"
+    },
+    {
+      "filename": "a11-tag17-p01-machen.mp3",
+      "script": "machen",
+      "translationVi": "làm"
+    },
+    {
+      "filename": "a11-tag17-05-wann-musst-du-gehen.mp3",
+      "script": "Wann musst du gehen?",
+      "translationVi": "Khi nào bạn phải đi?"
+    },
+    {
+      "filename": "a11-tag17-06-wann-bist-du-gegangen.mp3",
+      "script": "Wann bist du gegangen?",
+      "translationVi": "Bạn đã đi lúc nào?"
+    },
+    {
+      "filename": "a11-tag17-07-wann-kann-er-kommen.mp3",
+      "script": "Wann kann er kommen?",
+      "translationVi": "Khi nào anh ấy có thể đến?"
+    },
+    {
+      "filename": "a11-tag17-08-wann-ist-er-gekommen.mp3",
+      "script": "Wann ist er gekommen?",
+      "translationVi": "Anh ấy đã đến lúc nào?"
+    },
+    {
+      "filename": "a11-tag17-09-musst-du-heute-mathe-lernen.mp3",
+      "script": "Musst du heute Mathe lernen?",
+      "translationVi": "Hôm nay bạn có phải học toán không?"
+    },
+    {
+      "filename": "a11-tag17-10-wo-hast-du-mathe-gelernt.mp3",
+      "script": "Wo hast du Mathe gelernt?",
+      "translationVi": "Bạn đã học toán ở đâu?"
+    },
+    {
+      "filename": "a11-tag17-p02-lernen.mp3",
+      "script": "lernen",
+      "translationVi": "học"
+    },
+    {
+      "filename": "a11-tag17-11-kannst-du-deutsch-sprechen.mp3",
+      "script": "Kannst du Deutsch sprechen?",
+      "translationVi": "Bạn có nói được tiếng Đức không?"
+    },
+    {
+      "filename": "a11-tag17-12-hast-du-heute-deutsch-gesprochen.mp3",
+      "script": "Hast du heute Deutsch gesprochen?",
+      "translationVi": "Hôm nay bạn đã nói tiếng Đức chưa?"
+    },
+    {
+      "filename": "a11-tag17-p03-sprechen.mp3",
+      "script": "sprechen",
+      "translationVi": "nói",
+      "conjugation": [
+        { "person": "ich", "form": "spreche", "filename": "a11-tag17-p03-ich-spreche.mp3" },
+        { "person": "du", "form": "sprichst", "filename": "a11-tag17-p03-du-sprichst.mp3" },
+        { "person": "er/sie/es", "form": "spricht", "filename": "a11-tag17-p03-er-spricht.mp3" },
+        { "person": "wir", "form": "sprechen", "filename": "a11-tag17-p03-wir-sprechen.mp3" },
+        { "person": "ihr", "form": "sprecht", "filename": "a11-tag17-p03-ihr-sprecht.mp3" },
+        { "person": "sie/Sie", "form": "sprechen", "filename": "a11-tag17-p03-sie-sprechen.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-k01-gesprochen.mp3",
+      "script": "gesprochen",
+      "translationVi": "đã nói (Partizip II của sprechen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gesprochen", "filename": "a11-tag17-k01-ich-habe.mp3" },
+        { "person": "du", "form": "hast gesprochen", "filename": "a11-tag17-k01-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gesprochen", "filename": "a11-tag17-k01-er-hat.mp3" },
+        { "person": "wir", "form": "haben gesprochen", "filename": "a11-tag17-k01-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gesprochen", "filename": "a11-tag17-k01-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gesprochen", "filename": "a11-tag17-k01-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-13-moechtest-du-in-deutschland-leben.mp3",
+      "script": "Möchtest du in Deutschland leben?",
+      "translationVi": "Bạn có muốn sống ở Đức không?"
+    },
+    {
+      "filename": "a11-tag17-14-wo-hat-deine-familie-gelebt.mp3",
+      "script": "Wo hat deine Familie gelebt?",
+      "translationVi": "Gia đình bạn đã sống ở đâu?"
+    },
+    {
+      "filename": "a11-tag17-p04-leben.mp3",
+      "script": "leben",
+      "translationVi": "sống"
+    },
+    {
+      "filename": "a11-tag17-k02-gelebt.mp3",
+      "script": "gelebt",
+      "translationVi": "đã sống (Partizip II của leben – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gelebt", "filename": "a11-tag17-k02-ich-habe.mp3" },
+        { "person": "du", "form": "hast gelebt", "filename": "a11-tag17-k02-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gelebt", "filename": "a11-tag17-k02-er-hat.mp3" },
+        { "person": "wir", "form": "haben gelebt", "filename": "a11-tag17-k02-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gelebt", "filename": "a11-tag17-k02-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gelebt", "filename": "a11-tag17-k02-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-15-trinken.mp3",
+      "script": "trinken",
+      "translationVi": "uống"
+    },
+    {
+      "filename": "a11-tag17-16-darf-ich-wasser-trinken.mp3",
+      "script": "Darf ich Wasser trinken?",
+      "translationVi": "Tôi được phép uống nước không?"
+    },
+    {
+      "filename": "a11-tag17-17-hast-du-heute-wasser-getrunken.mp3",
+      "script": "Hast du heute Wasser getrunken?",
+      "translationVi": "Hôm nay bạn đã uống nước chưa?"
+    },
+    {
+      "filename": "a11-tag17-k03-getrunken.mp3",
+      "script": "getrunken",
+      "translationVi": "đã uống (Partizip II của trinken – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe getrunken", "filename": "a11-tag17-k03-ich-habe.mp3" },
+        { "person": "du", "form": "hast getrunken", "filename": "a11-tag17-k03-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat getrunken", "filename": "a11-tag17-k03-er-hat.mp3" },
+        { "person": "wir", "form": "haben getrunken", "filename": "a11-tag17-k03-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt getrunken", "filename": "a11-tag17-k03-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben getrunken", "filename": "a11-tag17-k03-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-18-moechtest-du-den-film-sehen.mp3",
+      "script": "Möchtest du den Film sehen?",
+      "translationVi": "Bạn có muốn xem bộ phim đó không?"
+    },
+    {
+      "filename": "a11-tag17-19-hast-du-den-film-gesehen.mp3",
+      "script": "Hast du den Film gesehen?",
+      "translationVi": "Bạn đã xem bộ phim đó chưa?"
+    },
+    {
+      "filename": "a11-tag17-20-ankommen.mp3",
+      "script": "ankommen",
+      "translationVi": "đến nơi"
+    },
+    {
+      "filename": "a11-tag17-21-kannst-du-um-10-uhr-in-berlin-ankommen.mp3",
+      "script": "Kannst du um zehn Uhr in Berlin ankommen?",
+      "translationVi": "Bạn có thể đến Berlin lúc 10 giờ không?"
+    },
+    {
+      "filename": "a11-tag17-22-wann-bist-du-in-berlin-angekommen.mp3",
+      "script": "Wann bist du in Berlin angekommen?",
+      "translationVi": "Bạn đã đến Berlin lúc nào?"
+    },
+    {
+      "filename": "a11-tag17-k04-angekommen.mp3",
+      "script": "angekommen",
+      "translationVi": "đã đến nơi (Partizip II của ankommen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin angekommen", "filename": "a11-tag17-k04-ich-bin.mp3" },
+        { "person": "du", "form": "bist angekommen", "filename": "a11-tag17-k04-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist angekommen", "filename": "a11-tag17-k04-er-ist.mp3" },
+        { "person": "wir", "form": "sind angekommen", "filename": "a11-tag17-k04-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid angekommen", "filename": "a11-tag17-k04-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind angekommen", "filename": "a11-tag17-k04-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-23-wann-kommst-du-in-berlin-an.mp3",
+      "script": "Wann kommst du in Berlin an?",
+      "translationVi": "Khi nào bạn đến Berlin?"
+    },
+    {
+      "filename": "a11-tag17-24-moechtest-du-das-buch-lesen.mp3",
+      "script": "Möchtest du das Buch lesen?",
+      "translationVi": "Bạn có muốn đọc quyển sách đó không?"
+    },
+    {
+      "filename": "a11-tag17-25-hast-du-das-buch-gelesen.mp3",
+      "script": "Hast du das Buch gelesen?",
+      "translationVi": "Bạn đã đọc quyển sách đó chưa?"
+    },
+    {
+      "filename": "a11-tag17-26-musst-du-morgen-arbeiten.mp3",
+      "script": "Musst du morgen arbeiten?",
+      "translationVi": "Ngày mai bạn có phải làm việc không?"
+    },
+    {
+      "filename": "a11-tag17-27-hast-du-gestern-gearbeitet.mp3",
+      "script": "Hast du gestern gearbeitet?",
+      "translationVi": "Hôm qua bạn có làm việc không?"
+    },
+    {
+      "filename": "a11-tag17-p05-arbeiten.mp3",
+      "script": "arbeiten",
+      "translationVi": "làm việc"
+    },
+    {
+      "filename": "a11-tag17-28-spielen.mp3",
+      "script": "spielen",
+      "translationVi": "chơi"
+    },
+    {
+      "filename": "a11-tag17-29-kannst-du-fussball-spielen.mp3",
+      "script": "Kannst du Fußball spielen?",
+      "translationVi": "Bạn có biết chơi bóng đá không?"
+    },
+    {
+      "filename": "a11-tag17-30-hast-du-gestern-fussball-gespielt.mp3",
+      "script": "Hast du gestern Fußball gespielt?",
+      "translationVi": "Hôm qua bạn có chơi bóng đá không?"
+    },
+    {
+      "filename": "a11-tag17-31-darf-ich-musik-hoeren.mp3",
+      "script": "Darf ich Musik hören?",
+      "translationVi": "Tôi được phép nghe nhạc không?"
+    },
+    {
+      "filename": "a11-tag17-32-hast-du-musik-gehoert.mp3",
+      "script": "Hast du Musik gehört?",
+      "translationVi": "Bạn đã nghe nhạc chưa?"
+    },
+    {
+      "filename": "a11-tag17-p06-hoeren.mp3",
+      "script": "hören",
+      "translationVi": "nghe"
+    },
+    {
+      "filename": "a11-tag17-p07-brauchen.mp3",
+      "script": "brauchen",
+      "translationVi": "cần"
+    },
+    {
+      "filename": "a11-tag17-k05-gebraucht.mp3",
+      "script": "gebraucht",
+      "translationVi": "đã cần (Partizip II của brauchen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gebraucht", "filename": "a11-tag17-k05-ich-habe.mp3" },
+        { "person": "du", "form": "hast gebraucht", "filename": "a11-tag17-k05-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gebraucht", "filename": "a11-tag17-k05-er-hat.mp3" },
+        { "person": "wir", "form": "haben gebraucht", "filename": "a11-tag17-k05-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gebraucht", "filename": "a11-tag17-k05-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gebraucht", "filename": "a11-tag17-k05-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-35-kannst-du-den-schluessel-finden.mp3",
+      "script": "Kannst du den Schlüssel finden?",
+      "translationVi": "Bạn có thể tìm thấy chìa khóa không?"
+    },
+    {
+      "filename": "a11-tag17-36-hast-du-den-schluessel-gefunden.mp3",
+      "script": "Hast du den Schlüssel gefunden?",
+      "translationVi": "Bạn đã tìm thấy chìa khóa chưa?"
+    },
+    {
+      "filename": "a11-tag17-p08-finden.mp3",
+      "script": "finden",
+      "translationVi": "tìm thấy"
+    },
+    {
+      "filename": "a11-tag17-k06-gefunden.mp3",
+      "script": "gefunden",
+      "translationVi": "đã tìm thấy (Partizip II của finden – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gefunden", "filename": "a11-tag17-k06-ich-habe.mp3" },
+        { "person": "du", "form": "hast gefunden", "filename": "a11-tag17-k06-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gefunden", "filename": "a11-tag17-k06-er-hat.mp3" },
+        { "person": "wir", "form": "haben gefunden", "filename": "a11-tag17-k06-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gefunden", "filename": "a11-tag17-k06-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gefunden", "filename": "a11-tag17-k06-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-37-moechtest-du-brot-kaufen.mp3",
+      "script": "Möchtest du Brot kaufen?",
+      "translationVi": "Bạn có muốn mua bánh mì không?"
+    },
+    {
+      "filename": "a11-tag17-38-hast-du-brot-gekauft.mp3",
+      "script": "Hast du Brot gekauft?",
+      "translationVi": "Bạn đã mua bánh mì chưa?"
+    },
+    {
+      "filename": "a11-tag17-p09-kaufen.mp3",
+      "script": "kaufen",
+      "translationVi": "mua"
+    },
+    {
+      "filename": "a11-tag17-39-antworten.mp3",
+      "script": "antworten",
+      "translationVi": "trả lời"
+    },
+    {
+      "filename": "a11-tag17-40-kannst-du-mir-antworten.mp3",
+      "script": "Kannst du mir antworten?",
+      "translationVi": "Bạn có thể trả lời tôi không?"
+    },
+    {
+      "filename": "a11-tag17-41-hast-du-mir-geantwortet.mp3",
+      "script": "Hast du mir geantwortet?",
+      "translationVi": "Bạn đã trả lời tôi chưa?"
+    },
+    {
+      "filename": "a11-tag17-k07-geantwortet.mp3",
+      "script": "geantwortet",
+      "translationVi": "đã trả lời (Partizip II của antworten – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe geantwortet", "filename": "a11-tag17-k07-ich-habe.mp3" },
+        { "person": "du", "form": "hast geantwortet", "filename": "a11-tag17-k07-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat geantwortet", "filename": "a11-tag17-k07-er-hat.mp3" },
+        { "person": "wir", "form": "haben geantwortet", "filename": "a11-tag17-k07-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt geantwortet", "filename": "a11-tag17-k07-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben geantwortet", "filename": "a11-tag17-k07-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-42-koennen-wir-jetzt-beginnen.mp3",
+      "script": "Können wir jetzt beginnen?",
+      "translationVi": "Bây giờ chúng ta có thể bắt đầu không?"
+    },
+    {
+      "filename": "a11-tag17-43-hat-der-kurs-schon-begonnen.mp3",
+      "script": "Hat der Kurs schon begonnen?",
+      "translationVi": "Khóa học đã bắt đầu chưa?"
+    },
+    {
+      "filename": "a11-tag17-p10-beginnen.mp3",
+      "script": "beginnen",
+      "translationVi": "bắt đầu"
+    },
+    {
+      "filename": "a11-tag17-k08-begonnen.mp3",
+      "script": "begonnen",
+      "translationVi": "đã bắt đầu (Partizip II của beginnen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe begonnen", "filename": "a11-tag17-k08-ich-habe.mp3" },
+        { "person": "du", "form": "hast begonnen", "filename": "a11-tag17-k08-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat begonnen", "filename": "a11-tag17-k08-er-hat.mp3" },
+        { "person": "wir", "form": "haben begonnen", "filename": "a11-tag17-k08-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt begonnen", "filename": "a11-tag17-k08-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben begonnen", "filename": "a11-tag17-k08-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-44-kannst-du-heute-hier-bleiben.mp3",
+      "script": "Kannst du heute hier bleiben?",
+      "translationVi": "Hôm nay bạn có thể ở lại đây không?"
+    },
+    {
+      "filename": "a11-tag17-45-bist-du-gestern-zu-hause-geblieben.mp3",
+      "script": "Bist du gestern zu Hause geblieben?",
+      "translationVi": "Hôm qua bạn có ở nhà không?"
+    },
+    {
+      "filename": "a11-tag17-p11-bleiben.mp3",
+      "script": "bleiben",
+      "translationVi": "ở lại"
+    },
+    {
+      "filename": "a11-tag17-46-kannst-du-mir-das-buch-bringen.mp3",
+      "script": "Kannst du mir das Buch bringen?",
+      "translationVi": "Bạn có thể mang quyển sách đến cho tôi không?"
+    },
+    {
+      "filename": "a11-tag17-47-hast-du-mir-das-buch-gebracht.mp3",
+      "script": "Hast du mir das Buch gebracht?",
+      "translationVi": "Bạn đã mang quyển sách đến cho tôi chưa?"
+    },
+    {
+      "filename": "a11-tag17-k09-gebracht.mp3",
+      "script": "gebracht",
+      "translationVi": "đã mang (Partizip II của bringen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gebracht", "filename": "a11-tag17-k09-ich-habe.mp3" },
+        { "person": "du", "form": "hast gebracht", "filename": "a11-tag17-k09-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gebracht", "filename": "a11-tag17-k09-er-hat.mp3" },
+        { "person": "wir", "form": "haben gebracht", "filename": "a11-tag17-k09-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gebracht", "filename": "a11-tag17-k09-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gebracht", "filename": "a11-tag17-k09-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-48-nehmen.mp3",
+      "script": "nehmen",
+      "translationVi": "lấy; chọn; đi (phương tiện)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "nehme",
+          "filename": "a11-tag17-48-ich-nehme.mp3"
+        },
+        {
+          "person": "du",
+          "form": "nimmst",
+          "filename": "a11-tag17-48-du-nimmst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "nimmt",
+          "filename": "a11-tag17-48-er-nimmt.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "nehmen",
+          "filename": "a11-tag17-48-wir-nehmen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "nehmt",
+          "filename": "a11-tag17-48-ihr-nehmt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "nehmen",
+          "filename": "a11-tag17-48-sie-nehmen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag17-49-koennen-wir-den-bus-nehmen.mp3",
+      "script": "Können wir den Bus nehmen?",
+      "translationVi": "Chúng ta có thể đi xe buýt không?"
+    },
+    {
+      "filename": "a11-tag17-50-hast-du-den-bus-genommen.mp3",
+      "script": "Hast du den Bus genommen?",
+      "translationVi": "Bạn đã đi xe buýt à?"
+    },
+    {
+      "filename": "a11-tag17-k10-genommen.mp3",
+      "script": "genommen",
+      "translationVi": "đã lấy/đi (Partizip II của nehmen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe genommen", "filename": "a11-tag17-k10-ich-habe.mp3" },
+        { "person": "du", "form": "hast genommen", "filename": "a11-tag17-k10-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat genommen", "filename": "a11-tag17-k10-er-hat.mp3" },
+        { "person": "wir", "form": "haben genommen", "filename": "a11-tag17-k10-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt genommen", "filename": "a11-tag17-k10-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben genommen", "filename": "a11-tag17-k10-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-51-musst-du-heute-einkaufen.mp3",
+      "script": "Musst du heute einkaufen?",
+      "translationVi": "Hôm nay bạn có phải đi mua sắm không?"
+    },
+    {
+      "filename": "a11-tag17-52-hast-du-heute-eingekauft.mp3",
+      "script": "Hast du heute eingekauft?",
+      "translationVi": "Hôm nay bạn đã đi mua sắm chưa?"
+    },
+    {
+      "filename": "a11-tag17-53-wann-kaufst-du-ein.mp3",
+      "script": "Wann kaufst du ein?",
+      "translationVi": "Khi nào bạn đi mua sắm?"
+    },
+    {
+      "filename": "a11-tag17-54-aufhoeren.mp3",
+      "script": "aufhören",
+      "translationVi": "dừng lại; kết thúc"
+    },
+    {
+      "filename": "a11-tag17-55-kannst-du-jetzt-aufhoeren.mp3",
+      "script": "Kannst du jetzt aufhören?",
+      "translationVi": "Bây giờ bạn có thể dừng lại không?"
+    },
+    {
+      "filename": "a11-tag17-56-wann-hast-du-aufgehoert.mp3",
+      "script": "Wann hast du aufgehört?",
+      "translationVi": "Bạn đã dừng lại lúc nào?"
+    },
+    {
+      "filename": "a11-tag17-k11-aufgehoert.mp3",
+      "script": "aufgehört",
+      "translationVi": "đã dừng lại (Partizip II của aufhören – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe aufgehört", "filename": "a11-tag17-k11-ich-habe.mp3" },
+        { "person": "du", "form": "hast aufgehört", "filename": "a11-tag17-k11-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat aufgehört", "filename": "a11-tag17-k11-er-hat.mp3" },
+        { "person": "wir", "form": "haben aufgehört", "filename": "a11-tag17-k11-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt aufgehört", "filename": "a11-tag17-k11-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben aufgehört", "filename": "a11-tag17-k11-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-57-wann-hoerst-du-auf.mp3",
+      "script": "Wann hörst du auf?",
+      "translationVi": "Khi nào bạn dừng lại?"
+    },
+    {
+      "filename": "a11-tag17-58-koennen-wir-jetzt-anfangen.mp3",
+      "script": "Können wir jetzt anfangen?",
+      "translationVi": "Bây giờ chúng ta có thể bắt đầu không?"
+    },
+    {
+      "filename": "a11-tag17-59-wann-hast-du-angefangen.mp3",
+      "script": "Wann hast du angefangen?",
+      "translationVi": "Bạn đã bắt đầu lúc nào?"
+    },
+    {
+      "filename": "a11-tag17-k12-angefangen.mp3",
+      "script": "angefangen",
+      "translationVi": "đã bắt đầu (Partizip II của anfangen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe angefangen", "filename": "a11-tag17-k12-ich-habe.mp3" },
+        { "person": "du", "form": "hast angefangen", "filename": "a11-tag17-k12-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat angefangen", "filename": "a11-tag17-k12-er-hat.mp3" },
+        { "person": "wir", "form": "haben angefangen", "filename": "a11-tag17-k12-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt angefangen", "filename": "a11-tag17-k12-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben angefangen", "filename": "a11-tag17-k12-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-60-wann-faengst-du-an.mp3",
+      "script": "Wann fängst du an?",
+      "translationVi": "Khi nào bạn bắt đầu?"
+    },
+    {
+      "filename": "a11-tag17-61-kannst-du-mich-morgen-anrufen.mp3",
+      "script": "Kannst du mich morgen anrufen?",
+      "translationVi": "Ngày mai bạn có thể gọi điện cho tôi không?"
+    },
+    {
+      "filename": "a11-tag17-62-hast-du-mich-gestern-angerufen.mp3",
+      "script": "Hast du mich gestern angerufen?",
+      "translationVi": "Hôm qua bạn có gọi điện cho tôi không?"
+    },
+    {
+      "filename": "a11-tag17-k13-angerufen.mp3",
+      "script": "angerufen",
+      "translationVi": "đã gọi điện (Partizip II của anrufen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe angerufen", "filename": "a11-tag17-k13-ich-habe.mp3" },
+        { "person": "du", "form": "hast angerufen", "filename": "a11-tag17-k13-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat angerufen", "filename": "a11-tag17-k13-er-hat.mp3" },
+        { "person": "wir", "form": "haben angerufen", "filename": "a11-tag17-k13-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt angerufen", "filename": "a11-tag17-k13-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben angerufen", "filename": "a11-tag17-k13-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-63-wann-rufst-du-mich-an.mp3",
+      "script": "Wann rufst du mich an?",
+      "translationVi": "Khi nào bạn gọi điện cho tôi?"
+    },
+    {
+      "filename": "a11-tag17-64-aussteigen.mp3",
+      "script": "aussteigen",
+      "translationVi": "xuống xe"
+    },
+    {
+      "filename": "a11-tag17-65-muessen-wir-hier-aussteigen.mp3",
+      "script": "Müssen wir hier aussteigen?",
+      "translationVi": "Chúng ta có phải xuống xe ở đây không?"
+    },
+    {
+      "filename": "a11-tag17-66-wo-bist-du-ausgestiegen.mp3",
+      "script": "Wo bist du ausgestiegen?",
+      "translationVi": "Bạn đã xuống xe ở đâu?"
+    },
+    {
+      "filename": "a11-tag17-k14-ausgestiegen.mp3",
+      "script": "ausgestiegen",
+      "translationVi": "đã xuống xe (Partizip II của aussteigen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin ausgestiegen", "filename": "a11-tag17-k14-ich-bin.mp3" },
+        { "person": "du", "form": "bist ausgestiegen", "filename": "a11-tag17-k14-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist ausgestiegen", "filename": "a11-tag17-k14-er-ist.mp3" },
+        { "person": "wir", "form": "sind ausgestiegen", "filename": "a11-tag17-k14-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid ausgestiegen", "filename": "a11-tag17-k14-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind ausgestiegen", "filename": "a11-tag17-k14-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-67-wo-steigst-du-aus.mp3",
+      "script": "Wo steigst du aus?",
+      "translationVi": "Bạn xuống xe ở đâu?"
+    },
+    {
+      "filename": "a11-tag17-68-die-lampe.mp3",
+      "script": "die Lampe",
+      "translationVi": "cái đèn"
+    },
+    {
+      "filename": "a11-tag17-69-bezahlen.mp3",
+      "script": "bezahlen",
+      "translationVi": "trả tiền"
+    },
+    {
+      "filename": "a11-tag17-70-schreiben.mp3",
+      "script": "schreiben",
+      "translationVi": "viết"
+    },
+    {
+      "filename": "a11-tag17-71-suchen.mp3",
+      "script": "suchen",
+      "translationVi": "tìm kiếm"
+    },
+    {
+      "filename": "a11-tag17-72-ich-habe-die-hausaufgaben-gemacht.mp3",
+      "script": "Ich habe die Hausaufgaben gemacht.",
+      "translationVi": "Tôi đã làm bài tập về nhà."
+    },
+    {
+      "filename": "a11-tag17-73-ich-habe-brot-gekauft.mp3",
+      "script": "Ich habe Brot gekauft.",
+      "translationVi": "Tôi đã mua bánh mì."
+    },
+    {
+      "filename": "a11-tag17-74-ich-habe-deutsch-gelernt.mp3",
+      "script": "Ich habe Deutsch gelernt.",
+      "translationVi": "Tôi đã học tiếng Đức."
+    },
+    {
+      "filename": "a11-tag17-75-ich-habe-bratwurst-gegessen.mp3",
+      "script": "Ich habe Bratwurst gegessen.",
+      "translationVi": "Tôi đã ăn xúc xích nướng."
+    },
+    {
+      "filename": "a11-tag17-76-ich-habe-wasser-getrunken.mp3",
+      "script": "Ich habe Wasser getrunken.",
+      "translationVi": "Tôi đã uống nước."
+    },
+    {
+      "filename": "a11-tag17-77-ich-habe-eine-e-mail-geschrieben.mp3",
+      "script": "Ich habe eine E-Mail geschrieben.",
+      "translationVi": "Tôi đã viết một email."
+    },
+    {
+      "filename": "a11-tag17-k15-geschrieben.mp3",
+      "script": "geschrieben",
+      "translationVi": "đã viết (Partizip II của schreiben – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe geschrieben", "filename": "a11-tag17-k15-ich-habe.mp3" },
+        { "person": "du", "form": "hast geschrieben", "filename": "a11-tag17-k15-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat geschrieben", "filename": "a11-tag17-k15-er-hat.mp3" },
+        { "person": "wir", "form": "haben geschrieben", "filename": "a11-tag17-k15-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt geschrieben", "filename": "a11-tag17-k15-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben geschrieben", "filename": "a11-tag17-k15-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag17-78-ich-bin-nach-berlin-gefahren.mp3",
+      "script": "Ich bin nach Berlin gefahren.",
+      "translationVi": "Tôi đã đi Berlin bằng xe."
+    },
+    {
+      "filename": "a11-tag17-79-ich-bin-nach-hause-gegangen.mp3",
+      "script": "Ich bin nach Hause gegangen.",
+      "translationVi": "Tôi đã đi về nhà."
+    },
+    {
+      "filename": "a11-tag17-80-ich-bin-um-7-uhr-aufgestanden.mp3",
+      "script": "Ich bin um sieben Uhr aufgestanden.",
+      "translationVi": "Tôi đã thức dậy lúc 7 giờ."
+    },
+    {
+      "filename": "a11-tag17-81-ich-bin-zu-hause-geblieben.mp3",
+      "script": "Ich bin zu Hause geblieben.",
+      "translationVi": "Tôi đã ở nhà."
+    }
+  ]
 }

@@ -1,3 +1,391 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag18-01-wie-ist-das-wetter.mp3",
+      "script": "Wie ist das Wetter?",
+      "translationVi": "Thời tiết thế nào?"
+    },
+    {
+      "filename": "a11-tag18-02-es-ist-schoen.mp3",
+      "script": "Es ist schön.",
+      "translationVi": "Trời đẹp."
+    },
+    {
+      "filename": "a11-tag18-03-warm.mp3",
+      "script": "warm",
+      "translationVi": "ấm"
+    },
+    {
+      "filename": "a11-tag18-04-es-ist-warm.mp3",
+      "script": "Es ist warm.",
+      "translationVi": "Trời ấm."
+    },
+    {
+      "filename": "a11-tag18-05-bewoelkt.mp3",
+      "script": "bewölkt",
+      "translationVi": "âm u; có mây"
+    },
+    {
+      "filename": "a11-tag18-06-es-ist-bewoelkt.mp3",
+      "script": "Es ist bewölkt.",
+      "translationVi": "Trời có mây."
+    },
+    {
+      "filename": "a11-tag18-07-klar.mp3",
+      "script": "klar",
+      "translationVi": "quang đãng"
+    },
+    {
+      "filename": "a11-tag18-08-es-ist-klar.mp3",
+      "script": "Es ist klar.",
+      "translationVi": "Trời quang đãng."
+    },
+    {
+      "filename": "a11-tag18-09-kalt.mp3",
+      "script": "kalt",
+      "translationVi": "lạnh"
+    },
+    {
+      "filename": "a11-tag18-10-es-ist-kalt.mp3",
+      "script": "Es ist kalt.",
+      "translationVi": "Trời lạnh."
+    },
+    {
+      "filename": "a11-tag18-11-sonnig.mp3",
+      "script": "sonnig",
+      "translationVi": "có nắng"
+    },
+    {
+      "filename": "a11-tag18-12-es-ist-sonnig.mp3",
+      "script": "Es ist sonnig.",
+      "translationVi": "Trời có nắng."
+    },
+    {
+      "filename": "a11-tag18-14-es-regnet.mp3",
+      "script": "Es regnet.",
+      "translationVi": "Trời mưa."
+    },
+    {
+      "filename": "a11-tag18-16-es-schneit.mp3",
+      "script": "Es schneit.",
+      "translationVi": "Trời có tuyết rơi."
+    },
+    {
+      "filename": "a11-tag18-17-der-schnee.mp3",
+      "script": "der Schnee",
+      "translationVi": "tuyết"
+    },
+    {
+      "filename": "a11-tag18-18-es-gibt-schnee.mp3",
+      "script": "Es gibt Schnee.",
+      "translationVi": "Có tuyết."
+    },
+    {
+      "filename": "a11-tag18-19-die-wolken.mp3",
+      "script": "die Wolken",
+      "translationVi": "những đám mây (số nhiều)"
+    },
+    {
+      "filename": "a11-tag18-20-es-gibt-wolken.mp3",
+      "script": "Es gibt Wolken.",
+      "translationVi": "Có mây."
+    },
+    {
+      "filename": "a11-tag18-21-die-jahreszeit.mp3",
+      "script": "die Jahreszeit",
+      "translationVi": "mùa trong năm"
+    },
+    {
+      "filename": "a11-tag18-22-welche-jahreszeit-ist-es-jetzt.mp3",
+      "script": "Welche Jahreszeit ist es jetzt?",
+      "translationVi": "Bây giờ là mùa nào?"
+    },
+    {
+      "filename": "a11-tag18-23-der-fruehling.mp3",
+      "script": "der Frühling",
+      "translationVi": "mùa xuân"
+    },
+    {
+      "filename": "a11-tag18-24-der-sommer.mp3",
+      "script": "der Sommer",
+      "translationVi": "mùa hè"
+    },
+    {
+      "filename": "a11-tag18-25-der-herbst.mp3",
+      "script": "der Herbst",
+      "translationVi": "mùa thu"
+    },
+    {
+      "filename": "a11-tag18-26-der-winter.mp3",
+      "script": "der Winter",
+      "translationVi": "mùa đông"
+    },
+    {
+      "filename": "a11-tag18-29-das-picknick.mp3",
+      "script": "das Picknick",
+      "translationVi": "buổi picnic; bữa ăn ngoài trời"
+    },
+    {
+      "filename": "a11-tag18-30-ich-denke-sie-machen-ein-picknick.mp3",
+      "script": "Ich denke, sie machen ein Picknick.",
+      "translationVi": "Tôi nghĩ họ đang ăn picnic."
+    },
+    {
+      "filename": "a11-tag18-31-der-ausflug.mp3",
+      "script": "der Ausflug",
+      "translationVi": "chuyến dã ngoại"
+    },
+    {
+      "filename": "a11-tag18-32-lara-lili-sofia-und-walter-machen-einen-ausflug.mp3",
+      "script": "Lara, Lili, Sofia und Walter machen einen Ausflug.",
+      "translationVi": "Lara, Lili, Sofia và Walter đi dã ngoại."
+    },
+    {
+      "filename": "a11-tag18-33-sie-fahren-auto.mp3",
+      "script": "Sie fahren Auto.",
+      "translationVi": "Họ đi ô tô."
+    },
+    {
+      "filename": "a11-tag18-34-wandern.mp3",
+      "script": "wandern",
+      "translationVi": "đi bộ đường dài; đi bộ leo núi",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "wandere",
+          "filename": "a11-tag18-34-ich-wandere.mp3"
+        },
+        {
+          "person": "du",
+          "form": "wanderst",
+          "filename": "a11-tag18-34-du-wanderst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "wandert",
+          "filename": "a11-tag18-34-er-wandert.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "wandern",
+          "filename": "a11-tag18-34-wir-wandern.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "wandert",
+          "filename": "a11-tag18-34-ihr-wandert.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "wandern",
+          "filename": "a11-tag18-34-sie-wandern.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag18-35-sie-wandern.mp3",
+      "script": "Sie wandern.",
+      "translationVi": "Họ đi bộ đường dài."
+    },
+    {
+      "filename": "a11-tag18-36-die-nachrichten.mp3",
+      "script": "die Nachrichten",
+      "translationVi": "những tin nhắn (số nhiều)"
+    },
+    {
+      "filename": "a11-tag18-37-sie-schreibt-nachrichten.mp3",
+      "script": "Sie schreibt Nachrichten.",
+      "translationVi": "Cô ấy viết tin nhắn."
+    },
+    {
+      "filename": "a11-tag18-38-die-gitarre.mp3",
+      "script": "die Gitarre",
+      "translationVi": "đàn ghi ta"
+    },
+    {
+      "filename": "a11-tag18-39-die-mundharmonika.mp3",
+      "script": "die Mundharmonika",
+      "translationVi": "khẩu cầm; kèn harmonica"
+    },
+    {
+      "filename": "a11-tag18-40-sie-spielen-gitarre-und-mundharmonika.mp3",
+      "script": "Sie spielen Gitarre und Mundharmonika.",
+      "translationVi": "Họ chơi đàn ghi ta và khẩu cầm."
+    },
+    {
+      "filename": "a11-tag18-41-telefonieren.mp3",
+      "script": "telefonieren",
+      "translationVi": "gọi điện"
+    },
+    {
+      "filename": "a11-tag18-42-tim-telefoniert.mp3",
+      "script": "Tim telefoniert.",
+      "translationVi": "Tim đang gọi điện."
+    },
+    {
+      "filename": "a11-tag18-55-was-hast-du-gestern-gemacht.mp3",
+      "script": "Was hast du gestern gemacht?",
+      "translationVi": "Hôm qua bạn đã làm gì?"
+    },
+    {
+      "filename": "a11-tag18-56-hast-du-deine-hausaufgaben-gemacht.mp3",
+      "script": "Hast du deine Hausaufgaben gemacht?",
+      "translationVi": "Bạn đã làm bài tập về nhà chưa?"
+    },
+    {
+      "filename": "a11-tag18-57-bist-du-bereit-fuer-den-unterricht.mp3",
+      "script": "Bist du bereit für den Unterricht?",
+      "translationVi": "Bạn sẵn sàng vào học chưa?"
+    },
+    {
+      "filename": "a11-tag18-58-was-hast-du-in-der-letzten-stunde-gelernt.mp3",
+      "script": "Was hast du in der letzten Stunde gelernt?",
+      "translationVi": "Buổi học trước bạn đã học gì?"
+    },
+    {
+      "filename": "a11-tag18-59-was-ist-heute-das-datum.mp3",
+      "script": "Was ist heute das Datum?",
+      "translationVi": "Hôm nay là ngày bao nhiêu?"
+    },
+    {
+      "filename": "a11-tag18-60-welcher-tag-ist-heute.mp3",
+      "script": "Welcher Tag ist heute?",
+      "translationVi": "Hôm nay là thứ mấy?"
+    },
+    {
+      "filename": "a11-tag18-61-wie-ist-das-wetter-heute.mp3",
+      "script": "Wie ist das Wetter heute?",
+      "translationVi": "Thời tiết hôm nay thế nào?"
+    },
+    {
+      "filename": "a11-tag18-62-was-machst-du-heute-nach-dem-lernen.mp3",
+      "script": "Was machst du heute nach dem Lernen?",
+      "translationVi": "Hôm nay sau khi học bạn làm gì?"
+    },
+    {
+      "filename": "a11-tag18-63-was-ist-dein-lieblingsessen.mp3",
+      "script": "Was ist dein Lieblingsessen?",
+      "translationVi": "Món ăn yêu thích của bạn là gì?"
+    },
+    {
+      "filename": "a11-tag18-64-ich-heisse-anna.mp3",
+      "script": "Ich heiße Anna.",
+      "translationVi": "Tôi tên là Anna."
+    },
+    {
+      "filename": "a11-tag18-65-ich-bin-25-jahre-alt-und-wohne-in-berlin.mp3",
+      "script": "Ich bin fünfundzwanzig Jahre alt und wohne in Berlin.",
+      "translationVi": "Tôi 25 tuổi và sống ở Berlin."
+    },
+    {
+      "filename": "a11-tag18-66-ich-bin-ledig.mp3",
+      "script": "Ich bin ledig.",
+      "translationVi": "Tôi độc thân."
+    },
+    {
+      "filename": "a11-tag18-67-ich-habe-keine-kinder.mp3",
+      "script": "Ich habe keine Kinder.",
+      "translationVi": "Tôi chưa có con."
+    },
+    {
+      "filename": "a11-tag18-68-ich-finde-das-deutschlernen-interessant.mp3",
+      "script": "Ich finde das Deutschlernen interessant.",
+      "translationVi": "Tôi thấy việc học tiếng Đức thú vị."
+    },
+    {
+      "filename": "a11-tag18-69-ich-habe-bis-12-uhr-gelernt.mp3",
+      "script": "Ich habe bis zwölf Uhr gelernt.",
+      "translationVi": "Tôi đã học đến 12 giờ."
+    },
+    {
+      "filename": "a11-tag18-70-was-hast-du-gegessen.mp3",
+      "script": "Was hast du gegessen?",
+      "translationVi": "Bạn đã ăn gì?"
+    },
+    {
+      "filename": "a11-tag18-71-hast-du-schon-etwas-gegessen.mp3",
+      "script": "Hast du schon etwas gegessen?",
+      "translationVi": "Bạn đã ăn gì chưa?"
+    },
+    {
+      "filename": "a11-tag18-73-meine-mutter-hat-es-gekocht.mp3",
+      "script": "Meine Mutter hat es gekocht.",
+      "translationVi": "Mẹ tôi đã nấu món đó."
+    },
+    {
+      "filename": "a11-tag18-74-habt-ihr-die-hausaufgaben-gemacht.mp3",
+      "script": "Habt ihr die Hausaufgaben gemacht?",
+      "translationVi": "Các bạn đã làm bài tập về nhà chưa?"
+    },
+    {
+      "filename": "a11-tag18-75-ja-ich-habe-sie-fertig-gemacht.mp3",
+      "script": "Ja, ich habe sie fertig gemacht.",
+      "translationVi": "Rồi, tôi đã làm xong chúng."
+    },
+    {
+      "filename": "a11-tag18-76-wo-habt-ihr-deutsch-gelernt.mp3",
+      "script": "Wo habt ihr Deutsch gelernt?",
+      "translationVi": "Các bạn đã học tiếng Đức ở đâu?"
+    },
+    {
+      "filename": "a11-tag18-77-ich-habe-deutsch-bei-nanu-nana-gelernt.mp3",
+      "script": "Ich habe Deutsch bei NaNu NaNa gelernt.",
+      "translationVi": "Tôi đã học tiếng Đức ở NaNu NaNa."
+    },
+    {
+      "filename": "a11-tag18-78-ich-habe-ihn-gefragt-aber-er-hat-nicht-geantwortet.mp3",
+      "script": "Ich habe ihn gefragt, aber er hat nicht geantwortet.",
+      "translationVi": "Tôi đã hỏi anh ấy, nhưng anh ấy không trả lời."
+    },
+    {
+      "filename": "a11-tag18-79-gestern-bin-ich-um-19-uhr-nach-hause-gegangen.mp3",
+      "script": "Gestern bin ich um neunzehn Uhr nach Hause gegangen.",
+      "translationVi": "Hôm qua tôi đã về nhà lúc 19 giờ."
+    },
+    {
+      "filename": "a11-tag18-80-wir-sind-am-dienstag-nach-vietnam-geflogen.mp3",
+      "script": "Wir sind am Dienstag nach Vietnam geflogen.",
+      "translationVi": "Chúng tôi đã bay về Việt Nam hôm thứ Ba."
+    },
+    {
+      "filename": "a11-tag18-81-wo-bist-du-gerade.mp3",
+      "script": "Wo bist du gerade?",
+      "translationVi": "Bây giờ bạn đang ở đâu?"
+    },
+    {
+      "filename": "a11-tag18-82-wo-bist-du-gewesen.mp3",
+      "script": "Wo bist du gewesen?",
+      "translationVi": "Bạn đã ở đâu?"
+    },
+    {
+      "filename": "a11-tag18-83-heute-morgen.mp3",
+      "script": "heute Morgen",
+      "translationVi": "sáng nay"
+    },
+    {
+      "filename": "a11-tag18-84-ich-bin-heute-morgen-zu-hause-gewesen.mp3",
+      "script": "Ich bin heute Morgen zu Hause gewesen.",
+      "translationVi": "Sáng nay tôi đã ở nhà."
+    },
+    {
+      "filename": "a11-tag18-85-ist-er-schon-nach-hause-gegangen.mp3",
+      "script": "Ist er schon nach Hause gegangen?",
+      "translationVi": "Anh ấy đã về nhà rồi à?"
+    },
+    {
+      "filename": "a11-tag18-86-ja-er-ist-um-6-uhr-nach-hause-gegangen.mp3",
+      "script": "Ja, er ist um sechs Uhr nach Hause gegangen.",
+      "translationVi": "Đúng, anh ấy đã về nhà lúc 6 giờ."
+    },
+    {
+      "filename": "a11-tag18-87-leben-deine-grosseltern-noch.mp3",
+      "script": "Leben deine Großeltern noch?",
+      "translationVi": "Ông bà bạn còn sống không?"
+    },
+    {
+      "filename": "a11-tag18-88-nein-sie-sind-schon-gestorben.mp3",
+      "script": "Nein, sie sind schon gestorben.",
+      "translationVi": "Không, họ đã mất rồi."
+    }
+  ]
 }
