@@ -31,7 +31,9 @@ import {
   type StoredJumpRun,
   type StudentJumpRunsPage,
 } from "@/lib/lesson-jump";
-import { workplaceFromAccessSlug } from "@/lib/living-content";
+import chaptersFile from "@/data/chapters.json";
+import workplacesFile from "@/data/living/workplaces.json";
+import { parseLivingWorkplaces, workplaceFromAccessSlug } from "@/lib/living-content";
 import {
   DEFAULT_PROGRESS,
   completedChapterStamps,
@@ -1296,7 +1298,19 @@ export async function recordUserSignIn(
   if (wroteAccount && pending && profile.email) {
     await forgetPendingLevelGrant(profile.email);
   }
-  if (isNewAccount) await notifyNewUser(profile);
+  if (isNewAccount) {
+    await notifyNewUser(
+      profile,
+      pending
+        ? {
+            className: pending.className,
+            slugs: pending.slugs,
+            role: pending.role,
+            teacherClasses: pending.teacherClasses,
+          }
+        : null,
+    );
+  }
   return imageSaved;
 }
 
@@ -1326,23 +1340,80 @@ export async function rememberUserImage(userId: string, image: string): Promise<
   return Boolean(data);
 }
 
+const CEFR_LEVEL_LABELS = new Map(
+  (chaptersFile as { level?: unknown; slug?: unknown }[]).flatMap((entry) =>
+    typeof entry.slug === "string" && typeof entry.level === "string"
+      ? [[entry.slug, entry.level] as const]
+      : [],
+  ),
+);
+
+const LIVING_WORKPLACE_LABELS = new Map(
+  parseLivingWorkplaces(workplacesFile).map((place) => [place.slug, place.label]),
+);
+
+type NewUserSlackAccess = {
+  className: string | null;
+  slugs: readonly string[];
+  role: PendingAccountRole | null;
+  teacherClasses: readonly string[];
+};
+
+function slackLevelName(slug: string): string {
+  if (slug === INTERVIEW_ACCESS_SLUG) return "Interview";
+  const workplace = workplaceFromAccessSlug(slug);
+  if (workplace) {
+    const label = LIVING_WORKPLACE_LABELS.get(workplace) ?? workplace;
+    return `Leben in Deutschland (${label})`;
+  }
+  return CEFR_LEVEL_LABELS.get(slug) ?? slug;
+}
+
+function slackClassLabel(access: NewUserSlackAccess): string {
+  if (access.role === "teacher" && access.teacherClasses.length > 0) {
+    return access.teacherClasses.join(", ");
+  }
+  return access.className?.trim() || "none";
+}
+
+/** Text posted when an account is created, or when a deleted account signs in again. */
+export function newUserSlackText(
+  profile: UserProfileTouch,
+  access: NewUserSlackAccess | null,
+): string {
+  const name = profile.name?.trim() || "Unknown";
+  const email = profile.email?.trim() || "no email";
+  const lines = [`New account: ${name} (${email})`];
+  if (!access) {
+    lines.push("Pre-unlocked: no");
+    return lines.join("\n");
+  }
+  const role =
+    access.role === "staff" ? "staff" : access.role === "teacher" ? "teacher" : null;
+  lines.push(role ? `Pre-unlocked: yes (${role})` : "Pre-unlocked: yes");
+  lines.push(`Class: ${slackClassLabel(access)}`);
+  const levels = access.slugs.map(slackLevelName);
+  lines.push(`Levels: ${levels.length > 0 ? levels.join(", ") : "none"}`);
+  return lines.join("\n");
+}
+
 /** Posts when an account is created, or when a deleted account signs in again. */
-async function notifyNewUser(profile: UserProfileTouch): Promise<void> {
+async function notifyNewUser(
+  profile: UserProfileTouch,
+  access: NewUserSlackAccess | null,
+): Promise<void> {
   const url = process.env.SLACK_NEW_USER_WEBHOOK_URL?.trim();
   if (!url) {
     console.error("Slack new-user webhook is not configured");
     return;
   }
 
-  const name = profile.name?.trim() || "Unknown";
-  const email = profile.email?.trim() || "no email";
-
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: `New account: ${name} (${email})`,
+        text: newUserSlackText(profile, access),
       }),
     });
     if (!response.ok) {
