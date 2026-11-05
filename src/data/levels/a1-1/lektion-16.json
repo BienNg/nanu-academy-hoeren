@@ -1,3 +1,613 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a11-tag16-01-gekommen.mp3",
+      "script": "gekommen",
+      "translationVi": "đã đến (Partizip II của kommen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin gekommen", "filename": "a11-tag16-01-ich-bin.mp3" },
+        { "person": "du", "form": "bist gekommen", "filename": "a11-tag16-01-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist gekommen", "filename": "a11-tag16-01-er-ist.mp3" },
+        { "person": "wir", "form": "sind gekommen", "filename": "a11-tag16-01-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid gekommen", "filename": "a11-tag16-01-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind gekommen", "filename": "a11-tag16-01-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-02-ich-bin-um-6-uhr-gekommen.mp3",
+      "script": "Ich bin um sechs Uhr gekommen.",
+      "translationVi": "Tôi đã đến lúc 6 giờ."
+    },
+    {
+      "filename": "a11-tag16-03-gegangen.mp3",
+      "script": "gegangen",
+      "translationVi": "đã đi (Partizip II của gehen – đi với sein)",
+      "perfectConjugation": [
+        {
+          "person": "ich",
+          "form": "bin gegangen",
+          "filename": "a11-tag16-03-ich-bin-gegangen.mp3"
+        },
+        {
+          "person": "du",
+          "form": "bist gegangen",
+          "filename": "a11-tag16-03-du-bist-gegangen.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "ist gegangen",
+          "filename": "a11-tag16-03-er-ist-gegangen.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "sind gegangen",
+          "filename": "a11-tag16-03-wir-sind-gegangen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "seid gegangen",
+          "filename": "a11-tag16-03-ihr-seid-gegangen.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "sind gegangen",
+          "filename": "a11-tag16-03-sie-sind-gegangen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag16-04-ich-bin-nach-hause-gegangen.mp3",
+      "script": "Ich bin nach Hause gegangen.",
+      "translationVi": "Tôi đã đi về nhà."
+    },
+    {
+      "filename": "a11-tag16-05-geflogen.mp3",
+      "script": "geflogen",
+      "translationVi": "đã bay (Partizip II của fliegen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin geflogen", "filename": "a11-tag16-05-ich-bin.mp3" },
+        { "person": "du", "form": "bist geflogen", "filename": "a11-tag16-05-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist geflogen", "filename": "a11-tag16-05-er-ist.mp3" },
+        { "person": "wir", "form": "sind geflogen", "filename": "a11-tag16-05-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid geflogen", "filename": "a11-tag16-05-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind geflogen", "filename": "a11-tag16-05-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-06-er-ist-nach-vietnam-geflogen.mp3",
+      "script": "Er ist nach Vietnam geflogen.",
+      "translationVi": "Anh ấy đã bay về Việt Nam."
+    },
+    {
+      "filename": "a11-tag16-07-gefahren.mp3",
+      "script": "gefahren",
+      "translationVi": "đã đi (bằng phương tiện) (Partizip II của fahren – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin gefahren", "filename": "a11-tag16-07-ich-bin.mp3" },
+        { "person": "du", "form": "bist gefahren", "filename": "a11-tag16-07-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist gefahren", "filename": "a11-tag16-07-er-ist.mp3" },
+        { "person": "wir", "form": "sind gefahren", "filename": "a11-tag16-07-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid gefahren", "filename": "a11-tag16-07-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind gefahren", "filename": "a11-tag16-07-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-08-sie-ist-mit-dem-bus-gefahren.mp3",
+      "script": "Sie ist mit dem Bus gefahren.",
+      "translationVi": "Cô ấy đã đi bằng xe buýt."
+    },
+    {
+      "filename": "a11-tag16-09-eingeschlafen.mp3",
+      "script": "eingeschlafen",
+      "translationVi": "đã rơi vào giấc ngủ (Partizip II của einschlafen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin eingeschlafen", "filename": "a11-tag16-09-ich-bin.mp3" },
+        { "person": "du", "form": "bist eingeschlafen", "filename": "a11-tag16-09-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist eingeschlafen", "filename": "a11-tag16-09-er-ist.mp3" },
+        { "person": "wir", "form": "sind eingeschlafen", "filename": "a11-tag16-09-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid eingeschlafen", "filename": "a11-tag16-09-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind eingeschlafen", "filename": "a11-tag16-09-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-10-geschlafen.mp3",
+      "script": "geschlafen",
+      "translationVi": "đã ngủ (Partizip II của schlafen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe geschlafen", "filename": "a11-tag16-10-ich-habe.mp3" },
+        { "person": "du", "form": "hast geschlafen", "filename": "a11-tag16-10-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat geschlafen", "filename": "a11-tag16-10-er-hat.mp3" },
+        { "person": "wir", "form": "haben geschlafen", "filename": "a11-tag16-10-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt geschlafen", "filename": "a11-tag16-10-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben geschlafen", "filename": "a11-tag16-10-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-11-aufgewacht.mp3",
+      "script": "aufgewacht",
+      "translationVi": "đã tỉnh ngủ (chưa ra khỏi giường) (Partizip II của aufwachen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin aufgewacht", "filename": "a11-tag16-11-ich-bin.mp3" },
+        { "person": "du", "form": "bist aufgewacht", "filename": "a11-tag16-11-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist aufgewacht", "filename": "a11-tag16-11-er-ist.mp3" },
+        { "person": "wir", "form": "sind aufgewacht", "filename": "a11-tag16-11-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid aufgewacht", "filename": "a11-tag16-11-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind aufgewacht", "filename": "a11-tag16-11-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-12-aufgestanden.mp3",
+      "script": "aufgestanden",
+      "translationVi": "đã ngủ dậy (ra khỏi giường) (Partizip II của aufstehen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin aufgestanden", "filename": "a11-tag16-12-ich-bin.mp3" },
+        { "person": "du", "form": "bist aufgestanden", "filename": "a11-tag16-12-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist aufgestanden", "filename": "a11-tag16-12-er-ist.mp3" },
+        { "person": "wir", "form": "sind aufgestanden", "filename": "a11-tag16-12-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid aufgestanden", "filename": "a11-tag16-12-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind aufgestanden", "filename": "a11-tag16-12-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-13-ausgeschlafen.mp3",
+      "script": "ausgeschlafen",
+      "translationVi": "đã ngủ nướng (Partizip II của ausschlafen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe ausgeschlafen", "filename": "a11-tag16-13-ich-habe.mp3" },
+        { "person": "du", "form": "hast ausgeschlafen", "filename": "a11-tag16-13-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat ausgeschlafen", "filename": "a11-tag16-13-er-hat.mp3" },
+        { "person": "wir", "form": "haben ausgeschlafen", "filename": "a11-tag16-13-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt ausgeschlafen", "filename": "a11-tag16-13-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben ausgeschlafen", "filename": "a11-tag16-13-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-14-verschlafen.mp3",
+      "script": "verschlafen",
+      "translationVi": "đã ngủ quên (Partizip II của verschlafen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe verschlafen", "filename": "a11-tag16-14-ich-habe.mp3" },
+        { "person": "du", "form": "hast verschlafen", "filename": "a11-tag16-14-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat verschlafen", "filename": "a11-tag16-14-er-hat.mp3" },
+        { "person": "wir", "form": "haben verschlafen", "filename": "a11-tag16-14-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt verschlafen", "filename": "a11-tag16-14-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben verschlafen", "filename": "a11-tag16-14-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-15-gestorben.mp3",
+      "script": "gestorben",
+      "translationVi": "đã chết (Partizip II của sterben – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin gestorben", "filename": "a11-tag16-15-ich-bin.mp3" },
+        { "person": "du", "form": "bist gestorben", "filename": "a11-tag16-15-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist gestorben", "filename": "a11-tag16-15-er-ist.mp3" },
+        { "person": "wir", "form": "sind gestorben", "filename": "a11-tag16-15-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid gestorben", "filename": "a11-tag16-15-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind gestorben", "filename": "a11-tag16-15-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-16-aufgewachsen.mp3",
+      "script": "aufgewachsen",
+      "translationVi": "đã lớn lên (Partizip II của aufwachsen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin aufgewachsen", "filename": "a11-tag16-16-ich-bin.mp3" },
+        { "person": "du", "form": "bist aufgewachsen", "filename": "a11-tag16-16-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist aufgewachsen", "filename": "a11-tag16-16-er-ist.mp3" },
+        { "person": "wir", "form": "sind aufgewachsen", "filename": "a11-tag16-16-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid aufgewachsen", "filename": "a11-tag16-16-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind aufgewachsen", "filename": "a11-tag16-16-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-17-ich-bin-in-berlin.mp3",
+      "script": "Ich bin in Berlin.",
+      "translationVi": "Tôi đang ở Berlin."
+    },
+    {
+      "filename": "a11-tag16-18-gewesen.mp3",
+      "script": "gewesen",
+      "translationVi": "đã là, đã ở (Partizip II của sein – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin gewesen", "filename": "a11-tag16-18-ich-bin.mp3" },
+        { "person": "du", "form": "bist gewesen", "filename": "a11-tag16-18-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist gewesen", "filename": "a11-tag16-18-er-ist.mp3" },
+        { "person": "wir", "form": "sind gewesen", "filename": "a11-tag16-18-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid gewesen", "filename": "a11-tag16-18-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind gewesen", "filename": "a11-tag16-18-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-19-ich-bin-in-berlin-gewesen.mp3",
+      "script": "Ich bin in Berlin gewesen.",
+      "translationVi": "Tôi đã ở Berlin."
+    },
+    {
+      "filename": "a11-tag16-20-ich-bleibe-bei-philip.mp3",
+      "script": "Ich bleibe bei Philip.",
+      "translationVi": "Tôi ở lại chỗ Philip."
+    },
+    {
+      "filename": "a11-tag16-21-geblieben.mp3",
+      "script": "geblieben",
+      "translationVi": "đã ở lại (Partizip II của bleiben – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin geblieben", "filename": "a11-tag16-21-ich-bin.mp3" },
+        { "person": "du", "form": "bist geblieben", "filename": "a11-tag16-21-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist geblieben", "filename": "a11-tag16-21-er-ist.mp3" },
+        { "person": "wir", "form": "sind geblieben", "filename": "a11-tag16-21-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid geblieben", "filename": "a11-tag16-21-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind geblieben", "filename": "a11-tag16-21-sie-sind.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-22-ich-bin-bei-philip-geblieben.mp3",
+      "script": "Ich bin bei Philip geblieben.",
+      "translationVi": "Tôi đã ở lại chỗ Philip."
+    },
+    {
+      "filename": "a11-tag16-23-haben.mp3",
+      "script": "haben",
+      "translationVi": "có (trợ động từ Perfekt)",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "habe",
+          "filename": "a11-tag16-23-ich-habe.mp3"
+        },
+        {
+          "person": "du",
+          "form": "hast",
+          "filename": "a11-tag16-23-du-hast.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "hat",
+          "filename": "a11-tag16-23-er-hat.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "haben",
+          "filename": "a11-tag16-23-wir-haben.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "habt",
+          "filename": "a11-tag16-23-ihr-habt.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "haben",
+          "filename": "a11-tag16-23-sie-haben.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a11-tag16-24-gemacht.mp3",
+      "script": "gemacht",
+      "translationVi": "đã làm (Partizip II của machen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gemacht", "filename": "a11-tag16-24-ich-habe.mp3" },
+        { "person": "du", "form": "hast gemacht", "filename": "a11-tag16-24-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gemacht", "filename": "a11-tag16-24-er-hat.mp3" },
+        { "person": "wir", "form": "haben gemacht", "filename": "a11-tag16-24-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gemacht", "filename": "a11-tag16-24-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gemacht", "filename": "a11-tag16-24-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-25-gelernt.mp3",
+      "script": "gelernt",
+      "translationVi": "đã học (Partizip II của lernen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gelernt", "filename": "a11-tag16-25-ich-habe.mp3" },
+        { "person": "du", "form": "hast gelernt", "filename": "a11-tag16-25-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gelernt", "filename": "a11-tag16-25-er-hat.mp3" },
+        { "person": "wir", "form": "haben gelernt", "filename": "a11-tag16-25-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gelernt", "filename": "a11-tag16-25-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gelernt", "filename": "a11-tag16-25-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-26-gehabt.mp3",
+      "script": "gehabt",
+      "translationVi": "đã có (Partizip II của haben – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gehabt", "filename": "a11-tag16-26-ich-habe.mp3" },
+        { "person": "du", "form": "hast gehabt", "filename": "a11-tag16-26-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gehabt", "filename": "a11-tag16-26-er-hat.mp3" },
+        { "person": "wir", "form": "haben gehabt", "filename": "a11-tag16-26-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gehabt", "filename": "a11-tag16-26-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gehabt", "filename": "a11-tag16-26-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-27-gesagt.mp3",
+      "script": "gesagt",
+      "translationVi": "đã nói (Partizip II của sagen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gesagt", "filename": "a11-tag16-27-ich-habe.mp3" },
+        { "person": "du", "form": "hast gesagt", "filename": "a11-tag16-27-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gesagt", "filename": "a11-tag16-27-er-hat.mp3" },
+        { "person": "wir", "form": "haben gesagt", "filename": "a11-tag16-27-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gesagt", "filename": "a11-tag16-27-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gesagt", "filename": "a11-tag16-27-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-28-gesehen.mp3",
+      "script": "gesehen",
+      "translationVi": "đã nhìn, đã thấy (Partizip II của sehen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gesehen", "filename": "a11-tag16-28-ich-habe.mp3" },
+        { "person": "du", "form": "hast gesehen", "filename": "a11-tag16-28-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gesehen", "filename": "a11-tag16-28-er-hat.mp3" },
+        { "person": "wir", "form": "haben gesehen", "filename": "a11-tag16-28-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gesehen", "filename": "a11-tag16-28-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gesehen", "filename": "a11-tag16-28-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-29-gelesen.mp3",
+      "script": "gelesen",
+      "translationVi": "đã đọc (Partizip II của lesen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gelesen", "filename": "a11-tag16-29-ich-habe.mp3" },
+        { "person": "du", "form": "hast gelesen", "filename": "a11-tag16-29-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gelesen", "filename": "a11-tag16-29-er-hat.mp3" },
+        { "person": "wir", "form": "haben gelesen", "filename": "a11-tag16-29-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gelesen", "filename": "a11-tag16-29-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gelesen", "filename": "a11-tag16-29-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-30-gegessen.mp3",
+      "script": "gegessen",
+      "translationVi": "đã ăn (Partizip II của essen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gegessen", "filename": "a11-tag16-30-ich-habe.mp3" },
+        { "person": "du", "form": "hast gegessen", "filename": "a11-tag16-30-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gegessen", "filename": "a11-tag16-30-er-hat.mp3" },
+        { "person": "wir", "form": "haben gegessen", "filename": "a11-tag16-30-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gegessen", "filename": "a11-tag16-30-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gegessen", "filename": "a11-tag16-30-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-31-sie-kaufen-das-buch.mp3",
+      "script": "Sie kaufen das Buch.",
+      "translationVi": "Anh/chị mua quyển sách."
+    },
+    {
+      "filename": "a11-tag16-32-gekauft.mp3",
+      "script": "gekauft",
+      "translationVi": "đã mua (Partizip II của kaufen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gekauft", "filename": "a11-tag16-32-ich-habe.mp3" },
+        { "person": "du", "form": "hast gekauft", "filename": "a11-tag16-32-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gekauft", "filename": "a11-tag16-32-er-hat.mp3" },
+        { "person": "wir", "form": "haben gekauft", "filename": "a11-tag16-32-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gekauft", "filename": "a11-tag16-32-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gekauft", "filename": "a11-tag16-32-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-33-sie-haben-das-buch-gekauft.mp3",
+      "script": "Sie haben das Buch gekauft.",
+      "translationVi": "Anh/chị đã mua quyển sách."
+    },
+    {
+      "filename": "a11-tag16-34-kaufen-sie-das-buch.mp3",
+      "script": "Kaufen Sie das Buch?",
+      "translationVi": "Anh/chị mua quyển sách à?"
+    },
+    {
+      "filename": "a11-tag16-35-haben-sie-das-buch-gekauft.mp3",
+      "script": "Haben Sie das Buch gekauft?",
+      "translationVi": "Anh/chị đã mua quyển sách chưa?"
+    },
+    {
+      "filename": "a11-tag16-36-was-kaufen-sie.mp3",
+      "script": "Was kaufen Sie?",
+      "translationVi": "Anh/chị mua gì?"
+    },
+    {
+      "filename": "a11-tag16-37-was-haben-sie-gekauft.mp3",
+      "script": "Was haben Sie gekauft?",
+      "translationVi": "Anh/chị đã mua gì?"
+    },
+    {
+      "filename": "a11-tag16-38-wo-kaufen-sie-ein.mp3",
+      "script": "Wo kaufen Sie ein?",
+      "translationVi": "Anh/chị đi mua sắm ở đâu?"
+    },
+    {
+      "filename": "a11-tag16-39-eingekauft.mp3",
+      "script": "eingekauft",
+      "translationVi": "đã mua sắm (Partizip II của einkaufen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe eingekauft", "filename": "a11-tag16-39-ich-habe.mp3" },
+        { "person": "du", "form": "hast eingekauft", "filename": "a11-tag16-39-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat eingekauft", "filename": "a11-tag16-39-er-hat.mp3" },
+        { "person": "wir", "form": "haben eingekauft", "filename": "a11-tag16-39-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt eingekauft", "filename": "a11-tag16-39-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben eingekauft", "filename": "a11-tag16-39-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-40-was-haben-sie-eingekauft.mp3",
+      "script": "Was haben Sie eingekauft?",
+      "translationVi": "Anh/chị đã mua sắm những gì?"
+    },
+    {
+      "filename": "a11-tag16-41-ich-habe-ein-haus.mp3",
+      "script": "Ich habe ein Haus.",
+      "translationVi": "Tôi có một ngôi nhà."
+    },
+    {
+      "filename": "a11-tag16-42-ich-habe-ein-haus-gekauft.mp3",
+      "script": "Ich habe ein Haus gekauft.",
+      "translationVi": "Tôi đã mua một ngôi nhà."
+    },
+    {
+      "filename": "a11-tag16-43-ich-bin-in-hamburg.mp3",
+      "script": "Ich bin in Hamburg.",
+      "translationVi": "Tôi ở Hamburg."
+    },
+    {
+      "filename": "a11-tag16-44-ich-bin-in-hamburg-gewesen.mp3",
+      "script": "Ich bin in Hamburg gewesen.",
+      "translationVi": "Tôi đã ở Hamburg."
+    },
+    {
+      "filename": "a11-tag16-45-ich-bin-thinh.mp3",
+      "script": "Ich bin Thịnh.",
+      "translationVi": "Tôi là Thịnh."
+    },
+    {
+      "filename": "a11-tag16-46-ich-bin-thinh-gewesen.mp3",
+      "script": "Ich bin Thịnh gewesen.",
+      "translationVi": "Tôi đã từng là Thịnh."
+    },
+    {
+      "filename": "a11-tag16-47-ich-habe-ein-brot-gekauft.mp3",
+      "script": "Ich habe ein Brot gekauft.",
+      "translationVi": "Tôi đã mua một ổ bánh mì."
+    },
+    {
+      "filename": "a11-tag16-48-er-ist-nach-hanoi-geflogen.mp3",
+      "script": "Er ist nach Hanoi geflogen.",
+      "translationVi": "Anh ấy đã bay đến Hà Nội."
+    },
+    {
+      "filename": "a11-tag16-49-gefragt.mp3",
+      "script": "gefragt",
+      "translationVi": "đã hỏi (Partizip II của fragen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gefragt", "filename": "a11-tag16-49-ich-habe.mp3" },
+        { "person": "du", "form": "hast gefragt", "filename": "a11-tag16-49-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gefragt", "filename": "a11-tag16-49-er-hat.mp3" },
+        { "person": "wir", "form": "haben gefragt", "filename": "a11-tag16-49-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gefragt", "filename": "a11-tag16-49-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gefragt", "filename": "a11-tag16-49-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-50-ich-habe-meine-lehrerin-gefragt.mp3",
+      "script": "Ich habe meine Lehrerin gefragt.",
+      "translationVi": "Tôi đã hỏi cô giáo của tôi."
+    },
+    {
+      "filename": "a11-tag16-51-er-hat-die-hausaufgaben-gemacht.mp3",
+      "script": "Er hat die Hausaufgaben gemacht.",
+      "translationVi": "Anh ấy đã làm bài tập về nhà."
+    },
+    {
+      "filename": "a11-tag16-52-bist-du-nach-bonn-gefahren.mp3",
+      "script": "Bist du nach Bonn gefahren?",
+      "translationVi": "Bạn đã đi đến Bonn à?"
+    },
+    {
+      "filename": "a11-tag16-53-hat-er-das-buch-gelesen.mp3",
+      "script": "Hat er das Buch gelesen?",
+      "translationVi": "Anh ấy đã đọc quyển sách chưa?"
+    },
+    {
+      "filename": "a11-tag16-54-wo-hat-er-das-buch-gekauft.mp3",
+      "script": "Wo hat er das Buch gekauft?",
+      "translationVi": "Anh ấy đã mua quyển sách ở đâu?"
+    },
+    {
+      "filename": "a11-tag16-55-gespielt.mp3",
+      "script": "gespielt",
+      "translationVi": "đã chơi (Partizip II của spielen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gespielt", "filename": "a11-tag16-55-ich-habe.mp3" },
+        { "person": "du", "form": "hast gespielt", "filename": "a11-tag16-55-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gespielt", "filename": "a11-tag16-55-er-hat.mp3" },
+        { "person": "wir", "form": "haben gespielt", "filename": "a11-tag16-55-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gespielt", "filename": "a11-tag16-55-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gespielt", "filename": "a11-tag16-55-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-56-gearbeitet.mp3",
+      "script": "gearbeitet",
+      "translationVi": "đã làm việc (Partizip II của arbeiten – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gearbeitet", "filename": "a11-tag16-56-ich-habe.mp3" },
+        { "person": "du", "form": "hast gearbeitet", "filename": "a11-tag16-56-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gearbeitet", "filename": "a11-tag16-56-er-hat.mp3" },
+        { "person": "wir", "form": "haben gearbeitet", "filename": "a11-tag16-56-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gearbeitet", "filename": "a11-tag16-56-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gearbeitet", "filename": "a11-tag16-56-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-57-gekocht.mp3",
+      "script": "gekocht",
+      "translationVi": "đã nấu ăn (Partizip II của kochen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gekocht", "filename": "a11-tag16-57-ich-habe.mp3" },
+        { "person": "du", "form": "hast gekocht", "filename": "a11-tag16-57-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gekocht", "filename": "a11-tag16-57-er-hat.mp3" },
+        { "person": "wir", "form": "haben gekocht", "filename": "a11-tag16-57-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gekocht", "filename": "a11-tag16-57-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gekocht", "filename": "a11-tag16-57-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-58-gehoert.mp3",
+      "script": "gehört",
+      "translationVi": "đã nghe (Partizip II của hören – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gehört", "filename": "a11-tag16-58-ich-habe.mp3" },
+        { "person": "du", "form": "hast gehört", "filename": "a11-tag16-58-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gehört", "filename": "a11-tag16-58-er-hat.mp3" },
+        { "person": "wir", "form": "haben gehört", "filename": "a11-tag16-58-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gehört", "filename": "a11-tag16-58-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gehört", "filename": "a11-tag16-58-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-59-gesucht.mp3",
+      "script": "gesucht",
+      "translationVi": "đã tìm kiếm (Partizip II của suchen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gesucht", "filename": "a11-tag16-59-ich-habe.mp3" },
+        { "person": "du", "form": "hast gesucht", "filename": "a11-tag16-59-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gesucht", "filename": "a11-tag16-59-er-hat.mp3" },
+        { "person": "wir", "form": "haben gesucht", "filename": "a11-tag16-59-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gesucht", "filename": "a11-tag16-59-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gesucht", "filename": "a11-tag16-59-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-60-gewohnt.mp3",
+      "script": "gewohnt",
+      "translationVi": "đã sống (Partizip II của wohnen – đi với haben)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe gewohnt", "filename": "a11-tag16-60-ich-habe.mp3" },
+        { "person": "du", "form": "hast gewohnt", "filename": "a11-tag16-60-du-hast.mp3" },
+        { "person": "er/sie/es", "form": "hat gewohnt", "filename": "a11-tag16-60-er-hat.mp3" },
+        { "person": "wir", "form": "haben gewohnt", "filename": "a11-tag16-60-wir-haben.mp3" },
+        { "person": "ihr", "form": "habt gewohnt", "filename": "a11-tag16-60-ihr-habt.mp3" },
+        { "person": "sie/Sie", "form": "haben gewohnt", "filename": "a11-tag16-60-sie-haben.mp3" }
+      ]
+    },
+    {
+      "filename": "a11-tag16-61-gereist.mp3",
+      "script": "gereist",
+      "translationVi": "đã du lịch (Partizip II của reisen – đi với sein)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "bin gereist", "filename": "a11-tag16-61-ich-bin.mp3" },
+        { "person": "du", "form": "bist gereist", "filename": "a11-tag16-61-du-bist.mp3" },
+        { "person": "er/sie/es", "form": "ist gereist", "filename": "a11-tag16-61-er-ist.mp3" },
+        { "person": "wir", "form": "sind gereist", "filename": "a11-tag16-61-wir-sind.mp3" },
+        { "person": "ihr", "form": "seid gereist", "filename": "a11-tag16-61-ihr-seid.mp3" },
+        { "person": "sie/Sie", "form": "sind gereist", "filename": "a11-tag16-61-sie-sind.mp3" }
+      ]
+    }
+  ]
 }

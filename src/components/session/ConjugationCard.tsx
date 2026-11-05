@@ -87,12 +87,28 @@ function FormText({ segments }: { segments: readonly ConjugationSegment[] }) {
   );
 }
 
-function CardHeader({ clip, badge }: { clip: SessionClip; badge?: ReactNode }) {
+type ConjugationMode = "present" | "perfect";
+
+function cardRows(clip: SessionClip, mode: ConjugationMode): ConjugationRow[] {
+  return mode === "perfect" ? (clip.perfectConjugation ?? []) : (clip.conjugation ?? []);
+}
+
+function CardHeader({
+  clip,
+  badge,
+  mode,
+}: {
+  clip: SessionClip;
+  badge?: ReactNode;
+  mode: ConjugationMode;
+}) {
   return (
     <>
       {badge}
       <div className="flex flex-col gap-1">
-        <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">Chia động từ</span>
+        <span className="text-[12px] font-bold uppercase tracking-wider text-[#86868b]">
+          {mode === "perfect" ? "Chia Perfekt" : "Chia động từ"}
+        </span>
         <p className="text-[26px] font-bold leading-tight text-[#1d1d1f]">{clip.script}</p>
         {clip.translationVi ? <p className="text-[15px] italic text-[#86868b]">“{clip.translationVi}”</p> : null}
       </div>
@@ -101,12 +117,20 @@ function CardHeader({ clip, badge }: { clip: SessionClip; badge?: ReactNode }) {
 }
 
 /** Study face: the forms of the verb, tap a row to hear it. */
-export function ConjugationStudyCard({ clip, badge }: { clip: SessionClip; badge?: ReactNode }) {
-  const rows = clip.conjugation ?? [];
+function ConjugationStudyCardBody({
+  clip,
+  badge,
+  mode,
+}: {
+  clip: SessionClip;
+  badge?: ReactNode;
+  mode: ConjugationMode;
+}) {
+  const rows = cardRows(clip, mode);
   const player = useRowPlayer(rows);
   return (
     <div className="flex w-full flex-col gap-4 rounded-[24px] border border-white/20 bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:p-6">
-      <CardHeader clip={clip} badge={badge} />
+      <CardHeader clip={clip} badge={badge} mode={mode} />
       <ul className="overflow-hidden rounded-[16px] border border-black/[0.05] bg-[#f5f5f7]/80">
         {rows.map((row, index) => {
           const isPlaying = player.playing === index;
@@ -139,12 +163,16 @@ export function ConjugationStudyCard({ clip, badge }: { clip: SessionClip; badge
         })}
       </ul>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#86868b]">
-          <span className={`font-semibold ${SEGMENT_CLASS.ending}`}>đuôi</span>
-          {rows.some((row) => row.segments.some((segment) => segment.tone === "change")) ? (
-            <span className={`font-semibold ${SEGMENT_CLASS.change}`}>nguyên âm thay đổi</span>
-          ) : null}
-        </p>
+        {mode === "present" ? (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#86868b]">
+            <span className={`font-semibold ${SEGMENT_CLASS.ending}`}>đuôi</span>
+            {rows.some((row) => row.segments.some((segment) => segment.tone === "change")) ? (
+              <span className={`font-semibold ${SEGMENT_CLASS.change}`}>nguyên âm thay đổi</span>
+            ) : null}
+          </p>
+        ) : (
+          <p className="text-[13px] text-[#86868b]">Mỗi ngôi dùng trợ động từ + Partizip II.</p>
+        )}
         {player.canPlayAll ? (
           <button
             type="button"
@@ -160,24 +188,36 @@ export function ConjugationStudyCard({ clip, badge }: { clip: SessionClip; badge
   );
 }
 
+/** Study face for present-tense conjugation rows. */
+export function ConjugationStudyCard({ clip, badge }: { clip: SessionClip; badge?: ReactNode }) {
+  return <ConjugationStudyCardBody clip={clip} badge={badge} mode="present" />;
+}
+
+/** Study face for Perfekt rows (ich bin gegangen, du bist gegangen, ...). */
+export function PerfectConjugationStudyCard({ clip, badge }: { clip: SessionClip; badge?: ReactNode }) {
+  return <ConjugationStudyCardBody clip={clip} badge={badge} mode="perfect" />;
+}
+
 /**
  * Recall face: type every form. `checked` holds each row's result after
  * Kiểm tra; a wrong row shows its form and is typed again.
  */
-export function ConjugationRecallCard({
+function ConjugationRecallCardBody({
   clip,
   values,
   onChange,
   checked,
   onSubmit,
+  mode,
 }: {
   clip: SessionClip;
   values: readonly string[];
   onChange: (values: string[]) => void;
   checked: readonly boolean[] | null;
   onSubmit: () => void;
+  mode: ConjugationMode;
 }) {
-  const rows = clip.conjugation ?? [];
+  const rows = cardRows(clip, mode);
   const player = useRowPlayer(rows);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const lastFocusedRef = useRef(0);
@@ -219,8 +259,10 @@ export function ConjugationRecallCard({
 
   return (
     <div className="flex w-full flex-col gap-4 rounded-[24px] border border-white/20 bg-white/80 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl md:p-6">
-      <CardHeader clip={clip} />
-      <p className="text-[20px] font-extrabold leading-tight text-[#1d1d1f]">Gõ dạng đúng của động từ</p>
+      <CardHeader clip={clip} mode={mode} />
+      <p className="text-[20px] font-extrabold leading-tight text-[#1d1d1f]">
+        {mode === "perfect" ? "Gõ cụm Perfekt đúng" : "Gõ dạng đúng của động từ"}
+      </p>
       <ul className="flex flex-col gap-2">
         {rows.map((row, index) => {
           const result = checked?.[index];
@@ -316,4 +358,24 @@ export function ConjugationRecallCard({
       </div>
     </div>
   );
+}
+
+export function ConjugationRecallCard(props: {
+  clip: SessionClip;
+  values: readonly string[];
+  onChange: (values: string[]) => void;
+  checked: readonly boolean[] | null;
+  onSubmit: () => void;
+}) {
+  return <ConjugationRecallCardBody {...props} mode="present" />;
+}
+
+export function PerfectConjugationRecallCard(props: {
+  clip: SessionClip;
+  values: readonly string[];
+  onChange: (values: string[]) => void;
+  checked: readonly boolean[] | null;
+  onSubmit: () => void;
+}) {
+  return <ConjugationRecallCardBody {...props} mode="perfect" />;
 }

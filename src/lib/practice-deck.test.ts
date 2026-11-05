@@ -417,6 +417,26 @@ const verbClips = [
   { id: "v2", script: "müssen", translationVi: "phải", conjugation: mussRows },
 ];
 
+const perfektRows = [
+  { person: "ich", form: "bin gegangen" },
+  { person: "du", form: "bist gegangen" },
+  { person: "er/sie/es", form: "ist gegangen" },
+  { person: "wir", form: "sind gegangen" },
+  { person: "ihr", form: "seid gegangen" },
+  { person: "sie/Sie", form: "sind gegangen" },
+];
+const perfectVerbClips = [
+  { id: "p1", script: "gegangen", translationVi: "đã đi", perfectConjugation: perfektRows },
+  { id: "p2", script: "gemacht", translationVi: "đã làm", perfectConjugation: [
+    { person: "ich", form: "habe gemacht" },
+    { person: "du", form: "hast gemacht" },
+    { person: "er/sie/es", form: "hat gemacht" },
+    { person: "wir", form: "haben gemacht" },
+    { person: "ihr", form: "habt gemacht" },
+    { person: "sie/Sie", form: "haben gemacht" },
+  ] },
+];
+
 test("each verb clip adds one conjugation card, and the count says so", () => {
   for (const seed of [1, 2, 3, 4, 5]) {
     const plain = verbClips.map(({ conjugation: _rows, ...clip }) => clip);
@@ -451,6 +471,19 @@ test("verb clips take turns: the first fills a table, the second pairs pronouns"
     pairing!.formPairs!.map((pair) => `${pair.person} ${pair.form}`).sort(),
     ["du musst", "ich muss", "ihr müsst", "wir müssen"],
   );
+});
+
+test("Perfekt clips also deal conjugation cards in practice", () => {
+  const table = conjugationCard(perfectVerbClips[0]!, perfectVerbClips, seeded(7));
+  assert.equal(table?.kind, "conjugation-table");
+  assert.deepEqual(table?.tableRows?.map((row) => row.answer), perfektRows.map((row) => row.form));
+
+  const pairing = conjugationCard(perfectVerbClips[1]!, perfectVerbClips, seeded(7));
+  assert.equal(pairing?.kind, "conjugation-pairing");
+  assert.ok((pairing?.formPairs?.length ?? 0) >= 4);
+
+  const deck = dealPracticePart(perfectVerbClips, perfectVerbClips, [], seeded(5));
+  assert.equal(deck.filter((card) => card.kind.startsWith("conjugation-")).length, 2);
 });
 
 test("a deck without verb clips deals the same cards as before", () => {

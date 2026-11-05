@@ -56,6 +56,8 @@ type StoredClip = {
   noGaps?: boolean | string[];
   /** The verb's Präsens forms. The clip's script is the infinitive. See conjugation.ts. */
   conjugation?: StoredConjugationRow[];
+  /** Perfekt forms with person labels, e.g. "ich" + "bin gegangen". */
+  perfectConjugation?: StoredConjugationRow[];
 };
 
 type StoredVideo = {
@@ -147,6 +149,16 @@ function toSessionClip(
       audioPath: publicMediaExists(`audio/${audioPath}`) ? audioPath : null,
     };
   });
+  const perfectConjugation = clip.perfectConjugation?.map((row) => {
+    const audioPath = `${levelSlug}/${chapterSlug}/${row.filename}`;
+    return {
+      person: row.person,
+      form: row.form,
+      // Full Perfekt phrase is authored already (auxiliary + Partizip II).
+      segments: [{ text: row.form, tone: "stem" as const }],
+      audioPath: publicMediaExists(`audio/${audioPath}`) ? audioPath : null,
+    };
+  });
   return {
     id: stripExtension(clip.filename),
     filename: clip.filename,
@@ -156,6 +168,7 @@ function toSessionClip(
     sentenceOrder: isSentenceOrderEligible(clip),
     ...(gaps.length > 0 ? { gaps } : {}),
     ...(conjugation && conjugation.length > 0 ? { conjugation } : {}),
+    ...(perfectConjugation && perfectConjugation.length > 0 ? { perfectConjugation } : {}),
   };
 }
 

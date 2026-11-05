@@ -35,6 +35,8 @@ export type SessionClip = {
   gaps?: GrammarGap[];
   /** The verb's forms: the study card shows a conjugation table. Only on level lessons. */
   conjugation?: ConjugationRow[];
+  /** Perfekt full forms: "ich bin gegangen", "du bist gegangen", ... */
+  perfectConjugation?: ConjugationRow[];
 };
 
 export type Ausbildungsberuf = {

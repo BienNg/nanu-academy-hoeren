@@ -18,7 +18,12 @@ import type { SessionCourse } from "@/lib/session-course";
 import type { SessionClip } from "@/lib/content";
 import { AudioPlayerCard } from "@/components/session/AudioPlayerCard";
 import { ClipContentCard } from "@/components/session/ClipContentCard";
-import { ConjugationRecallCard, ConjugationStudyCard } from "@/components/session/ConjugationCard";
+import {
+  ConjugationRecallCard,
+  ConjugationStudyCard,
+  PerfectConjugationRecallCard,
+  PerfectConjugationStudyCard,
+} from "@/components/session/ConjugationCard";
 import { DictationInputCard } from "@/components/session/DictationInputCard";
 import { FeedbackResultCard } from "@/components/session/FeedbackResultCard";
 import { StudyClipList } from "@/components/session/StudyClipList";
@@ -331,6 +336,9 @@ export function StudySession({
 
   const [furthest, setFurthest] = useState(0);
   const currentClip = clips[clipIndex];
+  const activeFormRows = currentClip?.conjugation ?? currentClip?.perfectConjugation;
+  const hasConjugationCard = Boolean(activeFormRows && activeFormRows.length > 0);
+  const isPerfectConjugationCard = !currentClip?.conjugation && Boolean(currentClip?.perfectConjugation);
   const complete =
     visitPart === "done" || (ready && clips.length > 0 && clipIndex >= clips.length);
   const lastPart = partCount > 0 && activePart >= partCount;
@@ -437,7 +445,7 @@ export function StudySession({
 
   /** Checks every row. Rows already right stay right; the card is done when all are. */
   const handleFormsSubmit = useCallback(() => {
-    const rows = currentClip?.conjugation;
+    const rows = currentClip?.conjugation ?? currentClip?.perfectConjugation;
     if (!rows) return;
     const checked = rows.map(
       (row, index) => formChecked?.[index] === true || conjugationAnswerMatches(row, formDrafts[index] ?? ""),
@@ -667,7 +675,7 @@ export function StudySession({
   const recallPerfect = scoreResult?.accuracy === 100;
   // Every row still to answer has something typed in it.
   const formsReady =
-    currentClip?.conjugation?.every(
+    activeFormRows?.every(
       (_, index) => formChecked?.[index] === true || (formDrafts[index] ?? "").trim().length > 0,
     ) ?? false;
   const reviewedBadge = isReviewed ? (
@@ -919,21 +927,42 @@ export function StudySession({
                   animate={cardTurn}
                   style={{ transformOrigin: "center center", backfaceVisibility: "hidden" }}
                 >
-                  {shownPhase === "study" && currentClip.conjugation ? (
-                    <ConjugationStudyCard key={currentClip.id} clip={currentClip} badge={reviewedBadge} />
+                  {shownPhase === "study" && hasConjugationCard ? (
+                    isPerfectConjugationCard ? (
+                      <PerfectConjugationStudyCard
+                        key={currentClip.id}
+                        clip={currentClip}
+                        badge={reviewedBadge}
+                      />
+                    ) : (
+                      <ConjugationStudyCard key={currentClip.id} clip={currentClip} badge={reviewedBadge} />
+                    )
                   ) : shownPhase === "study" ? (
                     <ClipContentCard clip={currentClip} badge={reviewedBadge} />
-                  ) : currentClip.conjugation ? (
-                    <ConjugationRecallCard
-                      key={`forms-${currentClip.id}`}
-                      clip={currentClip}
-                      values={formDrafts}
-                      onChange={setFormDrafts}
-                      checked={formChecked}
-                      onSubmit={() => {
-                        if (formsReady && !recallPerfect) handleFormsSubmit();
-                      }}
-                    />
+                  ) : hasConjugationCard ? (
+                    isPerfectConjugationCard ? (
+                      <PerfectConjugationRecallCard
+                        key={`forms-${currentClip.id}`}
+                        clip={currentClip}
+                        values={formDrafts}
+                        onChange={setFormDrafts}
+                        checked={formChecked}
+                        onSubmit={() => {
+                          if (formsReady && !recallPerfect) handleFormsSubmit();
+                        }}
+                      />
+                    ) : (
+                      <ConjugationRecallCard
+                        key={`forms-${currentClip.id}`}
+                        clip={currentClip}
+                        values={formDrafts}
+                        onChange={setFormDrafts}
+                        checked={formChecked}
+                        onSubmit={() => {
+                          if (formsReady && !recallPerfect) handleFormsSubmit();
+                        }}
+                      />
+                    )
                   ) : (
                     <div className="-mt-4">
                       <DictationInputCard
@@ -950,7 +979,7 @@ export function StudySession({
               </div>
             </div>
 
-            {shownPhase === "recall" && scoreResult && (recallPerfect || !currentClip.conjugation) ? (
+            {shownPhase === "recall" && scoreResult && (recallPerfect || !hasConjugationCard) ? (
               <FeedbackResultCard
                 result={scoreResult}
                 clip={currentClip}
@@ -973,8 +1002,8 @@ export function StudySession({
                 onBack={goPrev}
                 backLabel="Xem lại thẻ"
                 actionLabel="Kiểm tra · Prüfen"
-                actionDisabled={currentClip.conjugation ? !formsReady : draft.trim().length === 0}
-                onAction={() => (currentClip.conjugation ? handleFormsSubmit() : handleRecallSubmit(draft))}
+                actionDisabled={hasConjugationCard ? !formsReady : draft.trim().length === 0}
+                onAction={() => (hasConjugationCard ? handleFormsSubmit() : handleRecallSubmit(draft))}
               />
             )}
           </div>

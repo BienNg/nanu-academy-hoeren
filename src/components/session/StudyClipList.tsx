@@ -16,9 +16,10 @@ type StudyClipListProps = {
   playableIds?: ReadonlySet<string>;
 };
 
-/** "ich fahre · du fährst · …" for a conjugation clip. */
+/** "ich fahre · du fährst · …" for a conjugation or Perfekt card clip. */
 function conjugationLine(clip: SessionClip): string {
-  return (clip.conjugation ?? []).map((row) => `${row.person} ${row.form}`).join(" · ");
+  const rows = clip.conjugation ?? clip.perfectConjugation ?? [];
+  return rows.map((row) => `${row.person} ${row.form}`).join(" · ");
 }
 
 export function StudyClipList({ clips, variant = "rows", playableIds }: StudyClipListProps) {
@@ -96,7 +97,7 @@ export function StudyClipList({ clips, variant = "rows", playableIds }: StudyCli
                   >
                     {clip.script}
                   </span>
-                  {clip.conjugation ? (
+                  {clip.conjugation || clip.perfectConjugation ? (
                     <span className={`text-[15px] leading-snug ${locked ? "text-[#c8c8c8]" : "text-[#3c3c3c]"}`}>
                       {conjugationLine(clip)}
                     </span>
@@ -149,7 +150,7 @@ export function StudyClipList({ clips, variant = "rows", playableIds }: StudyCli
               </span>
               <span className="min-w-0 flex-1 text-[16px] font-medium leading-snug text-[#1d1d1f]">
                 {clip.script}
-                {clip.conjugation ? (
+                {clip.conjugation || clip.perfectConjugation ? (
                   <span className="block text-[14px] font-normal text-[#86868b]">{conjugationLine(clip)}</span>
                 ) : null}
               </span>

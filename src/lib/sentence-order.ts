@@ -64,6 +64,8 @@ export type OrderSourceClip = {
   gaps?: readonly GrammarGap[];
   /** Level lessons: the verb's Präsens forms. The script is the infinitive. */
   conjugation?: readonly { person: string; form: string }[];
+  /** Level lessons: Perfekt forms, e.g. "ich bin gegangen". */
+  perfectConjugation?: readonly { person: string; form: string }[];
 };
 
 export type PracticeCard<C extends OrderSourceClip = OrderSourceClip> = {

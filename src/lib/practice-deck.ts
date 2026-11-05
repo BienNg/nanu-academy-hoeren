@@ -274,15 +274,19 @@ export function insertGrammarCards<C extends OrderSourceClip>(
   return next;
 }
 
-/** A verb clip with enough Präsens rows for a table gets one conjugation card. */
+function conjugationRows(clip: OrderSourceClip) {
+  return clip.conjugation ?? clip.perfectConjugation ?? [];
+}
+
+/** A verb clip with enough forms for a table gets one conjugation card. */
 export function hasConjugationCard(clip: OrderSourceClip): boolean {
-  return (clip.conjugation?.length ?? 0) >= TABLE_FILL_BLANK_MIN;
+  return conjugationRows(clip).length >= TABLE_FILL_BLANK_MIN;
 }
 
 /** The forms in row order, each first person with a form kept: ich kann and er kann share one. */
 function distinctFormRows(clip: OrderSourceClip): { id: string; person: string; form: string }[] {
   const seen = new Set<string>();
-  return (clip.conjugation ?? []).flatMap((row, index) => {
+  return conjugationRows(clip).flatMap((row, index) => {
     const key = row.form.toLocaleLowerCase("de");
     if (seen.has(key)) return [];
     seen.add(key);
@@ -301,7 +305,7 @@ export function conjugationCard<C extends OrderSourceClip>(
   random: () => number,
 ): PracticeCard<C> | null {
   if (!hasConjugationCard(clip)) return null;
-  const rows = clip.conjugation ?? [];
+  const rows = conjugationRows(clip);
   const turn = lessonClips.filter(hasConjugationCard).findIndex((entry) => entry.id === clip.id);
   const pairs = distinctFormRows(clip);
   if (turn % 2 === 1 && pairs.length >= CONJUGATION_PAIRING_MIN) {

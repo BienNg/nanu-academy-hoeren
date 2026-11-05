@@ -1121,8 +1121,8 @@ export function LearnSession({
                 key={`conj-table-${cardKey}`}
                 verb={currentClip.script}
                 translation={currentClip.translationVi}
-                tense="praesens"
-                tenseLabel="Präsens"
+                tense={currentClip.perfectConjugation && !currentClip.conjugation ? "perfekt" : "praesens"}
+                tenseLabel={currentClip.perfectConjugation && !currentClip.conjugation ? "Perfekt" : "Präsens"}
                 rows={currentCard.tableRows ?? []}
                 bank={currentCard.bank ?? []}
                 result={tableResult}
@@ -1134,6 +1134,9 @@ export function LearnSession({
                 heading={
                   <div className="flex items-center gap-2">
                     <span className="text-[20px] font-semibold tracking-tight text-[#1d1d1f]">{currentClip.script}</span>
+                    <span className="rounded-md bg-[#0066cc]/10 px-2 py-0.5 text-[12px] font-bold text-[#0066cc]">
+                      {currentClip.perfectConjugation && !currentClip.conjugation ? "Perfekt" : "Präsens"}
+                    </span>
                     {currentClip.translationVi ? (
                       <span className="text-[15px] font-medium text-[#86868b] italic">“{currentClip.translationVi}”</span>
                     ) : null}
