@@ -945,18 +945,18 @@ function checkGrammarAudio() {
 
 /** A clip's "gaps" must name words in its script and known topics; "noGaps" is true or a word list. */
 /**
- * A conjugation clip (see src/lib/conjugation.ts): its script is the
- * infinitive, and each row is a person, the form and the row's MP3.
+ * A conjugation row (Präsens `conjugation` or Perfekt `perfectConjugation`):
+ * person, form, and the row's MP3. Perfekt rows are full phrases
+ * ("ich bin gegangen") and still count as listed audio.
  */
-function checkClipConjugation(clip, where, audioDir, listedFilenames) {
-  if (clip.conjugation === undefined) return;
-  if (!Array.isArray(clip.conjugation) || clip.conjugation.length === 0) {
-    errors.push(`${where} "conjugation" must be a non-empty array`);
+function checkConjugationRows(rows, field, where, audioDir, listedFilenames) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    errors.push(`${where} "${field}" must be a non-empty array`);
     return;
   }
   const persons = new Set();
-  clip.conjugation.forEach((row, index) => {
-    const rowWhere = `${where} conjugation[${index}]`;
+  rows.forEach((row, index) => {
+    const rowWhere = `${where} ${field}[${index}]`;
     if (!isRecord(row)) {
       errors.push(`${rowWhere} must be an object`);
       return;
@@ -977,6 +977,15 @@ function checkClipConjugation(clip, where, audioDir, listedFilenames) {
     const audioPath = join(audioDir, row.filename);
     if (!existsSync(audioPath)) skippedMissingAudio.push(`${rel(audioPath)} (listed in ${rowWhere})`);
   });
+}
+
+function checkClipConjugation(clip, where, audioDir, listedFilenames) {
+  if (clip.conjugation !== undefined) {
+    checkConjugationRows(clip.conjugation, "conjugation", where, audioDir, listedFilenames);
+  }
+  if (clip.perfectConjugation !== undefined) {
+    checkConjugationRows(clip.perfectConjugation, "perfectConjugation", where, audioDir, listedFilenames);
+  }
 }
 
 function checkClipGaps(clip, where) {
