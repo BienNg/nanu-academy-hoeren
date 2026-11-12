@@ -526,6 +526,38 @@ const EXTRA_ITEMS: readonly CatalogItem[] = [
     detail: "Fill the Präteritum blanks for haben.",
   },
   {
+    id: "card-conjugation-table-praesens",
+    category: "cards",
+    group: "Conjugation",
+    icon: "table",
+    title: "Präsens table",
+    detail: "Fill the blanks for verdienen.",
+  },
+  {
+    id: "card-conjugation-pairing-praesens",
+    category: "cards",
+    group: "Conjugation",
+    icon: "join_inner",
+    title: "Präsens pairing",
+    detail: "Match pronouns to the forms of verdienen.",
+  },
+  {
+    id: "card-conjugation-table",
+    category: "cards",
+    group: "Conjugation",
+    icon: "table",
+    title: "Perfekt table",
+    detail: "Fill the blanks for eingeschlafen.",
+  },
+  {
+    id: "card-conjugation-pairing",
+    category: "cards",
+    group: "Conjugation",
+    icon: "join_inner",
+    title: "Perfekt pairing",
+    detail: "Match pronouns to the forms of eingeschlafen.",
+  },
+  {
     id: "duel-challenge",
     category: "duels",
     group: "Before the clips",
@@ -894,6 +926,9 @@ function OpenPreview({ id, onClose }: { id: string; onClose: () => void }) {
   if (id === "card-type") return <DictationPreview onClose={onClose} />;
   if (id === "card-number") return <NumberPreview onClose={onClose} />;
   if (id === "card-table") return <TablePreview onClose={onClose} />;
+  const conjugation = CONJUGATION_SAMPLES[id];
+  if (conjugation && id.includes("table")) return <ConjugationTablePreview sample={conjugation} onClose={onClose} />;
+  if (conjugation) return <ConjugationPairingPreview sample={conjugation} onClose={onClose} />;
   if (id === "duel-challenge") {
     return (
       <ShowdownOverlay
@@ -1718,6 +1753,158 @@ function TablePreview({ onClose }: { onClose: () => void }) {
           <p className="font-bold">ich hatte · du hattest · wir hatten</p>
         </GradeBand>
       ) : null}
+    </CardStage>
+  );
+}
+
+type ConjugationSample = {
+  verb: string;
+  gloss: string;
+  tense: "praesens" | "perfekt";
+  tenseLabel: string;
+  rows: { personLabel: string; text: string | null; answer: string }[];
+  bank: { id: string; text: string }[];
+  answerLine: string;
+  pairs: { id: string; vi: string; de: string }[];
+};
+
+const CONJUGATION_SAMPLES: Record<string, ConjugationSample> = {
+  "card-conjugation-table-praesens": {
+    verb: "verdienen",
+    gloss: "kiếm được (tiền)",
+    tense: "praesens",
+    tenseLabel: "Präsens",
+    rows: [
+      { personLabel: "ich", text: "verdiene", answer: "verdiene" },
+      { personLabel: "du", text: null, answer: "verdienst" },
+      { personLabel: "er/sie/es", text: null, answer: "verdient" },
+      { personLabel: "wir", text: null, answer: "verdienen" },
+      { personLabel: "ihr", text: "verdient", answer: "verdient" },
+      { personLabel: "sie/Sie", text: null, answer: "verdienen" },
+    ],
+    bank: [
+      { id: "1", text: "verdienst" },
+      { id: "2", text: "verdient" },
+      { id: "3", text: "verdienen" },
+      { id: "4", text: "verdienen" },
+      { id: "5", text: "verdiene" },
+    ],
+    answerLine: "du verdienst · er verdient · wir verdienen · sie verdienen",
+    pairs: [],
+  },
+  "card-conjugation-pairing-praesens": {
+    verb: "verdienen",
+    gloss: "kiếm được (tiền)",
+    tense: "praesens",
+    tenseLabel: "Präsens",
+    rows: [],
+    bank: [],
+    answerLine: "",
+    pairs: [
+      { id: "ich", vi: "ich", de: "verdiene" },
+      { id: "du", vi: "du", de: "verdienst" },
+      { id: "er", vi: "er/sie/es", de: "verdient" },
+      { id: "wir", vi: "wir", de: "verdienen" },
+    ],
+  },
+  "card-conjugation-table": {
+    verb: "eingeschlafen",
+    gloss: "đã rơi vào giấc ngủ (Partizip II của einschlafen – đi với sein)",
+    tense: "perfekt",
+    tenseLabel: "Perfekt",
+    rows: [
+      { personLabel: "ich", text: "bin eingeschlafen", answer: "bin eingeschlafen" },
+      { personLabel: "du", text: null, answer: "bist eingeschlafen" },
+      { personLabel: "er/sie/es", text: null, answer: "ist eingeschlafen" },
+      { personLabel: "wir", text: null, answer: "sind eingeschlafen" },
+      { personLabel: "ihr", text: "seid eingeschlafen", answer: "seid eingeschlafen" },
+      { personLabel: "sie/Sie", text: null, answer: "sind eingeschlafen" },
+    ],
+    bank: [
+      { id: "1", text: "bist eingeschlafen" },
+      { id: "2", text: "ist eingeschlafen" },
+      { id: "3", text: "sind eingeschlafen" },
+      { id: "4", text: "sind eingeschlafen" },
+      { id: "5", text: "seid eingeschlafen" },
+      { id: "6", text: "eingeschlafen" },
+    ],
+    answerLine: "du bist eingeschlafen · er ist eingeschlafen · wir sind eingeschlafen · sie sind eingeschlafen",
+    pairs: [],
+  },
+  "card-conjugation-pairing": {
+    verb: "eingeschlafen",
+    gloss: "đã rơi vào giấc ngủ (Partizip II của einschlafen – đi với sein)",
+    tense: "perfekt",
+    tenseLabel: "Perfekt",
+    rows: [],
+    bank: [],
+    answerLine: "",
+    pairs: [
+      { id: "ich", vi: "ich", de: "bin eingeschlafen" },
+      { id: "du", vi: "du", de: "bist eingeschlafen" },
+      { id: "er", vi: "er/sie/es", de: "ist eingeschlafen" },
+      { id: "wir", vi: "wir", de: "sind eingeschlafen" },
+      { id: "ihr", vi: "ihr", de: "seid eingeschlafen" },
+    ],
+  },
+};
+
+function ConjugationTablePreview({ sample, onClose }: { sample: ConjugationSample; onClose: () => void }) {
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<{ blanks: { correct: boolean }[] } | null>(null);
+  const blanks = sample.rows.filter((row) => row.text === null);
+  const correct = result?.blanks.every((blank) => blank.correct) ?? false;
+  return (
+    <CardStage onClose={onClose}>
+      <TableFillCard
+        key={attempt}
+        verb={sample.verb}
+        translation={sample.gloss}
+        tense={sample.tense}
+        tenseLabel={sample.tenseLabel}
+        rows={sample.rows}
+        bank={sample.bank}
+        result={result}
+        onSubmit={(placed) => {
+          setResult({
+            blanks: blanks.map((row, index) => ({ correct: placed[index] === row.answer })),
+          });
+        }}
+      />
+      {result ? (
+        <GradeBand
+          correct={correct}
+          title={correct ? "Chính xác!" : "Các dạng đúng"}
+          onAgain={() => {
+            setResult(null);
+            setAttempt((value) => value + 1);
+          }}
+        >
+          <p className="font-bold">{sample.answerLine}</p>
+        </GradeBand>
+      ) : null}
+    </CardStage>
+  );
+}
+
+function ConjugationPairingPreview({ sample, onClose }: { sample: ConjugationSample; onClose: () => void }) {
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <CardStage key={attempt} onClose={onClose}>
+      <PairingCard
+        heading={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[20px] font-semibold tracking-tight text-[#1d1d1f]">{sample.verb}</span>
+            <span className="rounded-md bg-[#0066cc]/10 px-2 py-0.5 text-[12px] font-bold text-[#0066cc]">{sample.tenseLabel}</span>
+            <span className="text-[15px] font-medium text-[#86868b] italic">“{sample.gloss}”</span>
+          </div>
+        }
+        items={sample.pairs}
+        onMistake={() => {}}
+        onSolved={() => {}}
+        onNext={() => setAttempt((value) => value + 1)}
+        nextLabel="Tiếp theo"
+      />
     </CardStage>
   );
 }
