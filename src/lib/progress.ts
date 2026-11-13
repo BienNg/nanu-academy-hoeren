@@ -4142,6 +4142,117 @@ export type LessonClipCatalog = {
 };
 
 /**
+ * A1.1 Lektion 3 Block A/B: stand-alone person-form clips became five
+ * conjugation host cards. Mid-lesson users who already cleared any of a
+ * host's old person ids get that host marked done. Stamps stay as-is.
+ */
+const LEKTION_3_BLOCK_AB_HOST_REMAP: ReadonlyArray<{
+  hostId: string;
+  legacyIds: readonly string[];
+}> = [
+  {
+    hostId: "a11-tag3-machen",
+    legacyIds: [
+      "a11-tag3-01-ich-mache",
+      "a11-tag3-04-du-machst",
+      "a11-tag3-07-er-macht",
+      "a11-tag3-10-sie-macht",
+      "a11-tag3-13-es-macht",
+      "a11-tag3-16-wir-machen",
+      "a11-tag3-19-ihr-macht",
+      "a11-tag3-22-sie-Sie-machen",
+    ],
+  },
+  {
+    hostId: "a11-tag3-kommen",
+    legacyIds: [
+      "a11-tag3-02-ich-komme",
+      "a11-tag3-05-du-kommst",
+      "a11-tag3-08-er-kommt",
+      "a11-tag3-11-sie-kommt",
+      "a11-tag3-14-es-kommt",
+      "a11-tag3-17-wir-kommen",
+      "a11-tag3-20-ihr-kommt",
+      "a11-tag3-23-sie-Sie-kommen",
+    ],
+  },
+  {
+    hostId: "a11-tag3-gehen",
+    legacyIds: [
+      "a11-tag3-03-ich-gehe",
+      "a11-tag3-06-du-gehst",
+      "a11-tag3-09-er-geht",
+      "a11-tag3-12-sie-geht",
+      "a11-tag3-15-es-geht",
+      "a11-tag3-18-wir-gehen",
+      "a11-tag3-21-ihr-geht",
+      "a11-tag3-24-sie-Sie-gehen",
+    ],
+  },
+  {
+    hostId: "a11-tag3-sein",
+    legacyIds: [
+      "a11-tag3-25-ich-bin",
+      "a11-tag3-27-du-bist",
+      "a11-tag3-29-er-ist",
+      "a11-tag3-31-sie-ist",
+      "a11-tag3-33-es-ist",
+      "a11-tag3-35-wir-sind",
+      "a11-tag3-37-ihr-seid",
+      "a11-tag3-39-sie-Sie-sind",
+    ],
+  },
+  {
+    hostId: "a11-tag3-haben",
+    legacyIds: [
+      "a11-tag3-26-ich-habe",
+      "a11-tag3-28-du-hast",
+      "a11-tag3-30-er-hat",
+      "a11-tag3-32-sie-hat",
+      "a11-tag3-34-es-hat",
+      "a11-tag3-36-wir-haben",
+      "a11-tag3-38-ihr-habt",
+      "a11-tag3-40-sie-Sie-haben",
+    ],
+  },
+];
+
+const LEKTION_3_BLOCK_AB_LEGACY_IDS = new Set(
+  LEKTION_3_BLOCK_AB_HOST_REMAP.flatMap((row) => row.legacyIds),
+);
+
+function remapLektion3BlockAbHosts(entry: LearnProgress): LearnProgress {
+  const addCompleted: string[] = [];
+  const addReviewed: string[] = [];
+  const addRun: string[] = [];
+  for (const { hostId, legacyIds } of LEKTION_3_BLOCK_AB_HOST_REMAP) {
+    if (legacyIds.some((id) => entry.completedClipIds.includes(id))) {
+      addCompleted.push(hostId);
+    }
+    if (legacyIds.some((id) => entry.reviewedClipIds.includes(id))) {
+      addReviewed.push(hostId);
+    }
+    if (legacyIds.some((id) => entry.runCompletedClipIds.includes(id))) {
+      addRun.push(hostId);
+    }
+  }
+  const drop = LEKTION_3_BLOCK_AB_LEGACY_IDS;
+  const hadLegacy =
+    entry.completedClipIds.some((id) => drop.has(id)) ||
+    entry.reviewedClipIds.some((id) => drop.has(id)) ||
+    entry.runCompletedClipIds.some((id) => drop.has(id));
+  if (!hadLegacy) return entry;
+  const completedClipIds = unionIds(withoutIds(entry.completedClipIds, drop), addCompleted);
+  return {
+    ...entry,
+    completedClipIds,
+    reviewedClipIds: unionIds(withoutIds(entry.reviewedClipIds, drop), addReviewed),
+    runCompletedClipIds: unionIds(withoutIds(entry.runCompletedClipIds, drop), addRun),
+    currentClipIndex: completedClipIds.length,
+  };
+}
+
+/**
  * Mark clips added to a finished lesson, or inserted into an already finished
  * stretch of one, as completed and studied. Appended clips in an unfinished
  * lesson stay unfinished.
@@ -4153,8 +4264,15 @@ export function absorbAddedLessonClips(
   let next = progress;
   for (const lesson of lessons) {
     if (lesson.clipIds.length === 0) continue;
-    const entry = next.learn[lesson.chapterSlug];
+    let entry = next.learn[lesson.chapterSlug];
     if (!entry) continue;
+    if (lesson.chapterSlug === "lektion-3") {
+      const remapped = remapLektion3BlockAbHosts(entry);
+      if (remapped !== entry) {
+        next = withLearnEntry(next, lesson.chapterSlug, remapped);
+        entry = remapped;
+      }
+    }
     const completedClipIds = withFinishedCatalogClips(
       lesson.clipIds,
       entry.completedClipIds,

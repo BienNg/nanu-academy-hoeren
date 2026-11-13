@@ -716,6 +716,46 @@ test("a practice day follows the device's local calendar", () => {
   assert.equal(activeStreakDays(practiced, missed), 0);
 });
 
+test("Lektion 3 Block A/B person forms remap onto conjugation hosts", () => {
+  const progress = normalizeProgress({
+    learn: {
+      "lektion-3": {
+        currentClipIndex: 2,
+        completedClipIds: ["a11-tag3-01-ich-mache", "a11-tag3-04-du-machst"],
+        reviewedClipIds: ["a11-tag3-01-ich-mache", "a11-tag3-02-ich-komme"],
+        runCompletedClipIds: ["a11-tag3-01-ich-mache"],
+        runCount: 0,
+        studyRunCount: 0,
+      },
+    },
+  });
+  const next = absorbAddedLessonClips(progress, [
+    {
+      chapterSlug: "lektion-3",
+      clipIds: [
+        "a11-tag3-machen",
+        "a11-tag3-kommen",
+        "a11-tag3-gehen",
+        "a11-tag3-sein",
+        "a11-tag3-haben",
+        "a11-tag3-41-ich-komme-aus-vietnam",
+      ],
+    },
+  ]);
+  const entry = next.learn["lektion-3"];
+  assert.ok(entry);
+  assert.equal(entry.completedClipIds.includes("a11-tag3-machen"), true);
+  assert.equal(entry.completedClipIds.includes("a11-tag3-kommen"), false);
+  assert.equal(entry.completedClipIds.includes("a11-tag3-sein"), false);
+  assert.equal(entry.completedClipIds.includes("a11-tag3-01-ich-mache"), false);
+  assert.equal(entry.reviewedClipIds.includes("a11-tag3-machen"), true);
+  assert.equal(entry.reviewedClipIds.includes("a11-tag3-kommen"), true);
+  assert.equal(entry.reviewedClipIds.includes("a11-tag3-sein"), false);
+  assert.equal(entry.runCompletedClipIds.includes("a11-tag3-machen"), true);
+  assert.equal(entry.completedAt, undefined);
+  assert.equal(entry.studyCompletedAt, undefined);
+});
+
 test("clips added to a finished lesson are marked completed and studied", () => {
   const progress = normalizeProgress({
     learn: {
