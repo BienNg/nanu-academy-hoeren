@@ -1,633 +1,263 @@
 {
-  "clips": [],
-  "grammar": [
+  "clips": [
     {
-      "id": "vergangenheit-haben-sein",
-      "titleVi": "Quá khứ của haben và sein",
-      "verbs": ["haben", "sein"],
-      "tips": [
-        {
-          "id": "satzklammer",
-          "tense": "perfekt",
-          "titleVi": "Khung câu Perfekt",
-          "textVi": "Trợ động từ đứng ở vị trí 2, Partizip II đứng cuối câu: Ich habe gestern keine Zeit gehabt."
-        },
-        {
-          "id": "partizip-haben",
-          "tense": "perfekt",
-          "titleVi": "Partizip II của haben",
-          "textVi": "haben → gehabt. Perfekt của haben đi với haben: ich habe … gehabt.",
-          "verb": "haben"
-        },
-        {
-          "id": "partizip-sein",
-          "tense": "perfekt",
-          "titleVi": "Partizip II của sein",
-          "textVi": "sein → gewesen. Perfekt của sein đi với sein, không đi với haben: ich bin … gewesen.",
-          "verb": "sein"
-        },
-        {
-          "id": "endungen",
-          "tense": "praeteritum",
-          "titleVi": "Đuôi Präteritum",
-          "textVi": "ich và er/sie/es giống nhau (ich hatte – er hatte, ich war – er war). du thêm -st, ihr thêm -t, wir và sie/Sie thêm -n hoặc -en."
-        }
-      ],
-      "examples": [
-        {
-          "filename": "a12-l1-gram-01-ich-hatte-gestern-keine-zeit.mp3",
-          "script": "Ich hatte gestern keine Zeit.",
-          "translationVi": "Hôm qua tôi không có thời gian.",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "person": "ich"
-        },
-        {
-          "filename": "a12-l1-gram-02-hattest-du-am-wochenende-besuch.mp3",
-          "script": "Hattest du am Wochenende Besuch?",
-          "translationVi": "Cuối tuần bạn có khách đến chơi không?",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "person": "du"
-        },
-        {
-          "filename": "a12-l1-gram-03-er-hatte-kopfschmerzen.mp3",
-          "script": "Er hatte Kopfschmerzen.",
-          "translationVi": "Anh ấy đã bị đau đầu.",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "person": "er"
-        },
-        {
-          "filename": "a12-l1-gram-04-ihr-hattet-glueck.mp3",
-          "script": "Ihr hattet Glück.",
-          "translationVi": "Các bạn đã gặp may.",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "person": "ihr"
-        },
-        {
-          "filename": "a12-l1-gram-05-wir-hatten-viel-spass.mp3",
-          "script": "Wir hatten viel Spaß.",
-          "translationVi": "Chúng tôi đã rất vui.",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "person": "wir"
-        },
-        {
-          "filename": "a12-l1-gram-06-ich-habe-gestern-fieber-gehabt.mp3",
-          "script": "Ich habe gestern Fieber gehabt.",
-          "translationVi": "Hôm qua tôi đã bị sốt.",
-          "verb": "haben",
-          "tense": "perfekt",
-          "person": "ich"
-        },
-        {
-          "filename": "a12-l1-gram-07-hast-du-gestern-unterricht-gehabt.mp3",
-          "script": "Hast du gestern Unterricht gehabt?",
-          "translationVi": "Hôm qua bạn có tiết học không?",
-          "verb": "haben",
-          "tense": "perfekt",
-          "person": "du"
-        },
-        {
-          "filename": "a12-l1-gram-08-ich-war-gestern-zu-hause.mp3",
-          "script": "Ich war gestern zu Hause.",
-          "translationVi": "Hôm qua tôi ở nhà.",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "person": "ich"
-        },
-        {
-          "filename": "a12-l1-gram-09-wo-warst-du-am-montag.mp3",
-          "script": "Wo warst du am Montag?",
-          "translationVi": "Thứ Hai bạn đã ở đâu?",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "person": "du"
-        },
-        {
-          "filename": "a12-l1-gram-10-das-wetter-war-schoen.mp3",
-          "script": "Das Wetter war schön.",
-          "translationVi": "Thời tiết đã rất đẹp.",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "person": "er"
-        },
-        {
-          "filename": "a12-l1-gram-11-wart-ihr-schon-in-deutschland.mp3",
-          "script": "Wart ihr schon in Deutschland?",
-          "translationVi": "Các bạn đã từng đến Đức chưa?",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "person": "ihr"
-        },
-        {
-          "filename": "a12-l1-gram-12-wir-waren-in-berlin.mp3",
-          "script": "Wir waren in Berlin.",
-          "translationVi": "Chúng tôi đã ở Berlin.",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "person": "wir"
-        },
-        {
-          "filename": "a12-l1-gram-13-ich-bin-krank-gewesen.mp3",
-          "script": "Ich bin krank gewesen.",
-          "translationVi": "Tôi đã bị ốm.",
-          "verb": "sein",
-          "tense": "perfekt",
-          "person": "ich"
-        },
-        {
-          "filename": "a12-l1-gram-14-sie-ist-im-urlaub-gewesen.mp3",
-          "script": "Sie ist im Urlaub gewesen.",
-          "translationVi": "Cô ấy đã đi nghỉ.",
-          "verb": "sein",
-          "tense": "perfekt",
-          "person": "er"
-        }
-      ],
-      "drills": [
-        {
-          "type": "transform",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "from": "Du hast Zeit.",
-          "to": "Du hattest Zeit.",
-          "translationVi": "Bạn đã có thời gian."
-        },
-        {
-          "type": "transform",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "from": "Er hat Hunger.",
-          "to": "Er hatte Hunger.",
-          "translationVi": "Anh ấy đã đói."
-        },
-        {
-          "type": "transform",
-          "verb": "haben",
-          "tense": "praeteritum",
-          "from": "Wir haben keine Zeit.",
-          "to": "Wir hatten keine Zeit.",
-          "translationVi": "Chúng tôi đã không có thời gian."
-        },
-        {
-          "type": "transform",
-          "verb": "haben",
-          "tense": "perfekt",
-          "from": "Ich habe Fieber.",
-          "to": "Ich habe Fieber gehabt.",
-          "translationVi": "Tôi đã bị sốt."
-        },
-        {
-          "type": "transform",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "from": "Ich bin müde.",
-          "to": "Ich war müde.",
-          "translationVi": "Tôi đã mệt."
-        },
-        {
-          "type": "transform",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "from": "Ihr seid im Kurs.",
-          "to": "Ihr wart im Kurs.",
-          "translationVi": "Các bạn đã ở trong lớp học."
-        },
-        {
-          "type": "transform",
-          "verb": "sein",
-          "tense": "praeteritum",
-          "from": "Das ist gut.",
-          "to": "Das war gut.",
-          "translationVi": "Cái đó đã tốt."
-        },
-        {
-          "type": "transform",
-          "verb": "sein",
-          "tense": "perfekt",
-          "from": "Er ist krank.",
-          "to": "Er ist krank gewesen.",
-          "translationVi": "Anh ấy đã bị ốm."
-        },
-        {
-          "type": "error",
-          "verb": "haben",
-          "script": "Ihr hattest Durst.",
-          "fix": "Ihr hattet Durst.",
-          "whyVi": "ihr đi với đuôi -t: ihr hattet."
-        },
-        {
-          "type": "error",
-          "verb": "haben",
-          "script": "Wir hatte keine Zeit.",
-          "fix": "Wir hatten keine Zeit.",
-          "whyVi": "wir đi với đuôi -n: wir hatten."
-        },
-        {
-          "type": "error",
-          "verb": "haben",
-          "script": "Ich habe Hunger gehabt."
-        },
-        {
-          "type": "error",
-          "verb": "sein",
-          "script": "Er ist krank gehabt.",
-          "fix": "Er ist krank gewesen.",
-          "whyVi": "Partizip II của sein là gewesen, không phải gehabt."
-        },
-        {
-          "type": "error",
-          "verb": "sein",
-          "script": "Du warst müde."
-        },
-        {
-          "type": "error",
-          "verb": "sein",
-          "script": "Ich habe in Berlin gewesen.",
-          "fix": "Ich bin in Berlin gewesen.",
-          "whyVi": "Perfekt của sein đi với sein: ich bin … gewesen."
-        }
-      ],
-      "study": [
-        {
-          "key": "study",
-          "titleVi": "Quá khứ của haben và sein",
-          "screens": [
-            { "kind": "overview" },
-            {
-              "kind": "known",
-              "rows": [
-                { "praesens": "machen", "perfekt": "haben … gemacht", "today": false },
-                { "praesens": "haben", "perfekt": "haben … gehabt", "today": true },
-                { "praesens": "sind", "perfekt": "sind … gewesen", "today": true }
-              ]
-            },
-            { "kind": "table", "verb": "sein" },
-            { "kind": "table", "verb": "haben" },
-            {
-              "kind": "beispiele",
-              "reveal": "step",
-              "rows": [
-                {
-                  "tense": "praesens",
-                  "vi": "Tôi đang ở Berlin.",
-                  "markerVi": "đang",
-                  "de": "Ich bin in Berlin.",
-                  "verbWords": ["bin"],
-                  "filename": "a12-l1-gram-15-ich-bin-in-berlin.mp3"
-                },
-                {
-                  "tense": "perfekt",
-                  "vi": "Tôi đã ở Berlin.",
-                  "markerVi": "đã",
-                  "de": "Ich bin in Berlin gewesen.",
-                  "verbWords": ["bin", "gewesen"],
-                  "filename": "a12-l1-gram-16-ich-bin-in-berlin-gewesen.mp3"
-                },
-                {
-                  "tense": "praeteritum",
-                  "vi": "Tôi đã ở Berlin.",
-                  "markerVi": "đã",
-                  "de": "Ich war in Berlin.",
-                  "verbWords": ["war"],
-                  "filename": "a12-l1-gram-17-ich-war-in-berlin.mp3"
-                }
-              ]
-            },
-            {
-              "kind": "beispiele",
-              "reveal": "step",
-              "rows": [
-                {
-                  "tense": "praesens",
-                  "vi": "Tôi (đang) có 10€.",
-                  "markerVi": "đang",
-                  "de": "Ich habe 10€.",
-                  "verbWords": ["habe"],
-                  "filename": "a12-l1-gram-18-ich-habe-10-euro.mp3",
-                  "say": "Ich habe zehn Euro."
-                },
-                {
-                  "tense": "perfekt",
-                  "vi": "Tôi đã có 10€.",
-                  "markerVi": "đã",
-                  "de": "Ich habe 10€ gehabt.",
-                  "verbWords": ["habe", "gehabt"],
-                  "filename": "a12-l1-gram-19-ich-habe-10-euro-gehabt.mp3",
-                  "say": "Ich habe zehn Euro gehabt."
-                },
-                {
-                  "tense": "praeteritum",
-                  "vi": "Tôi đã có 10€.",
-                  "markerVi": "đã",
-                  "de": "Ich hatte 10€.",
-                  "verbWords": ["hatte"],
-                  "filename": "a12-l1-gram-20-ich-hatte-10-euro.mp3",
-                  "say": "Ich hatte zehn Euro."
-                }
-              ]
-            },
-            {
-              "kind": "choice",
-              "tense": "praesens",
-              "vi": "Cô ấy đang ở đâu?",
-              "markerVi": "đang",
-              "prompt": "Wo ____ sie?",
-              "options": ["ist", "war"],
-              "answer": "ist",
-              "script": "Wo ist sie?",
-              "filename": "a12-l1-gram-21-wo-ist-sie.mp3",
-              "whyVi": "đang → Präsens (ist) · đã → Präteritum (war)"
-            },
-            {
-              "kind": "choice",
-              "tense": "praeteritum",
-              "vi": "Cô ấy đã ở đâu?",
-              "markerVi": "đã",
-              "prompt": "Wo ____ sie?",
-              "options": ["ist", "war"],
-              "answer": "war",
-              "script": "Wo war sie?",
-              "filename": "a12-l1-gram-22-wo-war-sie.mp3",
-              "whyVi": "đang → Präsens (ist) · đã → Präteritum (war)"
-            },
-            {
-              "kind": "choice",
-              "tense": "praeteritum",
-              "vi": "Bạn đã ở đâu đấy?",
-              "markerVi": "đã",
-              "options": ["Wo bist du?", "Wo warst du?"],
-              "answer": "Wo warst du?",
-              "script": "Wo warst du?",
-              "filename": "a12-l1-gram-23-wo-warst-du.mp3",
-              "whyVi": "đã → Präteritum. du đi với đuôi -st: du warst."
-            },
-            {
-              "kind": "translate",
-              "tense": "praeteritum",
-              "vi": "Hôm qua tôi ở nhà.",
-              "markerVi": "Hôm qua",
-              "answers": ["Gestern war ich zu Hause."],
-              "distractors": ["bin"],
-              "filename": "a12-l1-gram-24-gestern-war-ich-zu-hause.mp3",
-              "whyVi": "Hôm qua là quá khứ → ich war. Động từ đứng ở vị trí 2: Gestern war ich zu Hause."
-            },
-            {
-              "kind": "translate",
-              "tense": "praeteritum",
-              "vi": "Tháng trước tôi (đã) có một công việc ở Berlin.",
-              "markerVi": "đã",
-              "answers": [
-                "Letzten Monat hatte ich in Berlin eine Arbeit.",
-                "Ich hatte letzten Monat in Berlin eine Arbeit."
-              ],
-              "distractors": ["habe"],
-              "hints": [
-                { "de": "letzten Monat", "vi": "tháng trước" },
-                { "de": "eine Arbeit", "vi": "một công việc" }
-              ],
-              "filename": "a12-l1-gram-25-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
-              "moreFilenames": ["a12-l1-gram-26-ich-hatte-letzten-monat-in-berlin-eine-arbeit.mp3"],
-              "whyVi": "đã có → Präteritum của haben: ich hatte. Động từ đứng ở vị trí 2."
-            }
-          ]
-        }
+      "filename": "a12-tag1-01-sein.mp3",
+      "script": "sein",
+      "translationVi": "đã là; đã ở (Präteritum)",
+      "praeteritumConjugation": [
+        { "person": "ich", "form": "war", "filename": "a12-tag1-01-ich-war.mp3" },
+        { "person": "du", "form": "warst", "filename": "a12-tag1-01-du-warst.mp3" },
+        { "person": "er/sie/es", "form": "war", "filename": "a12-tag1-01-er-war.mp3" },
+        { "person": "wir", "form": "waren", "filename": "a12-tag1-01-wir-waren.mp3" },
+        { "person": "ihr", "form": "wart", "filename": "a12-tag1-01-ihr-wart.mp3" },
+        { "person": "sie/Sie", "form": "waren", "filename": "a12-tag1-01-sie-waren.mp3" }
       ]
     },
     {
-      "id": "temporale-praepositionen",
-      "titleVi": "Giới từ chỉ thời gian",
-      "verbs": [],
-      "tips": [],
-      "examples": [],
-      "drills": [],
-      "study": [
-        {
-          "key": "study",
-          "titleVi": "Giới từ chỉ thời gian",
-          "screens": [
-            {
-              "kind": "hook",
-              "title": "Nếu chúng ta muốn nói:",
-              "lines": [
-                {
-                  "text": "Một năm trước bạn đã ở Heidelberg à?",
-                  "mark": "Một năm trước",
-                  "tone": "vor"
-                },
-                {
-                  "text": "Một năm nữa tôi đến Heidelberg.",
-                  "mark": "Một năm nữa",
-                  "tone": "in-spaeter"
-                },
-                {
-                  "text": "Một năm nữa tôi đến Heidelberg một năm.",
-                  "mark": "một năm",
-                  "tone": "fuer",
-                  "markAt": "end"
-                }
-              ]
-            },
-            {
-              "kind": "timeline",
-              "title": "Temporale Präpositionen – Giới từ chỉ thời gian",
-              "marks": [
-                {
-                  "id": "seit",
-                  "label": "seit: kể từ... đến nay",
-                  "note": "bắt đầu ở quá khứ,\nchưa kết thúc ở hiện tại"
-                },
-                {
-                  "id": "vor",
-                  "label": "vor: (1 năm) trước",
-                  "note": "bắt đầu và kết thúc\ntrong quá khứ"
-                },
-                {
-                  "id": "in",
-                  "label": "in: trong / trong vòng",
-                  "note": "bắt đầu ở hiện tại, kết thúc ở\ntương lai"
-                },
-                {
-                  "id": "in-spaeter",
-                  "label": "in: nữa",
-                  "note": "bắt đầu ở tương lai, kết thúc chưa rõ"
-                },
-                {
-                  "id": "fuer",
-                  "label": "für: cho",
-                  "note": "bắt đầu và kết thúc\ntrong tương lai"
-                }
-              ]
-            },
-            {
-              "kind": "gloss",
-              "tone": "seit",
-              "label": "seit: kể từ... đến nay",
-              "aside": "Tại sao lại 'einem', 'einer': lớp chúng ta sẽ có 1 bài riêng! Hôm nay chỉ học thuộc lòng thôi.",
-              "pairs": [
-                { "de": "Seit einem Monat/ Jahr", "vi": "Kể từ một tháng nay", "markDe": "Monat", "markVi": "nay" },
-                { "de": "Seit einer Woche", "vi": "Kể từ một tuần nay", "markDe": "Woche", "markVi": "nay" },
-                { "de": "Seit zwei Jahren", "vi": "Kể từ 2 năm nay", "markDe": "Jahren", "markVi": "nay" }
-              ],
-              "sentence": {
-                "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
-                "de": "Ich lebe/wohne seit einem Monat in Deutschland.",
-                "mark": "seit einem Monat",
-                "note": "Động từ chia ở thì hiện tại. Das Verb wird im Präsens konjugiert."
-              }
-            },
-            {
-              "kind": "gloss",
-              "tone": "vor",
-              "label": "vor: (1 năm) trước",
-              "pairs": [
-                { "de": "Vor einem Monat/ Jahr", "vi": "Một năm trước", "markDe": "Monat", "markVi": "trước" },
-                { "de": "Vor einer Woche", "vi": "Một tuần trước", "markDe": "Woche", "markVi": "trước" },
-                { "de": "Vor zwei Jahren", "vi": "Hai năm trước", "markDe": "Jahren", "markVi": "trước" }
-              ],
-              "sentence": {
-                "vi": "Một tháng trước tôi đã sống ở Đức.",
-                "de": "Vor einem Monat habe ich in Deutschland gelebt.",
-                "mark": "Vor einem Monat"
-              }
-            },
-            {
-              "kind": "gloss",
-              "tone": "in",
-              "label": "in: trong / trong vòng",
-              "pairs": [
-                { "de": "In einem Monat/ Jahr", "vi": "Trong vòng 1 tháng nữa", "markDe": "Monat", "markVi": "nữa" },
-                { "de": "In einer Woche", "vi": "Trong vòng 1 tuần nữa", "markDe": "Woche", "markVi": "nữa" },
-                { "de": "In zwei Jahren", "vi": "Trong vòng 2 năm nữa", "markDe": "Jahren", "markVi": "nữa" }
-              ],
-              "sentence": {
-                "vi": "Trong vòng 10 Phút là tôi xong.",
-                "de": "In 10 Minuten bin ich fertig.",
-                "mark": "In 10 Minuten"
-              }
-            },
-            {
-              "kind": "gloss",
-              "tone": "in-spaeter",
-              "label": "in: nữa",
-              "pairs": [
-                { "de": "In einem Monat/ Jahr", "vi": "Trong vòng 1 tháng nữa", "markDe": "Monat", "markVi": "nữa" },
-                { "de": "In einer Woche", "vi": "Trong vòng 1 tuần nữa", "markDe": "Woche", "markVi": "nữa" },
-                { "de": "In zwei Jahren", "vi": "Trong vòng 2 năm nữa", "markDe": "Jahren", "markVi": "nữa" }
-              ],
-              "sentence": {
-                "vi": "Một tháng nữa tôi bay qua Đức.",
-                "de": "In einem Monat fliege ich nach Deutschland.",
-                "mark": "In einem Monat"
-              }
-            },
-            {
-              "kind": "gloss",
-              "tone": "fuer",
-              "label": "für: cho",
-              "aside": "Cái này hơi khó hiểu hơn vì không dịch được từ phù hợp trong tiếng Việt. Các bạn cố gắng hiểu nha! Für + Akkusativ: der (ein) → den (einen). Tiếng Việt không cần chữ 'cho'. Nhưng tiếng Đức thì cần.",
-              "pairs": [
-                { "de": "Für einen Monat", "vi": "cho 1 tháng", "markDe": "einen", "markVi": "cho" },
-                { "de": "Für ein Jahr", "vi": "cho 1 năm", "markDe": "ein", "markVi": "cho" },
-                { "de": "Für eine Woche", "vi": "cho 1 tuần", "markDe": "eine", "markVi": "cho" },
-                { "de": "Für zwei Jahre", "vi": "cho 2 năm", "markDe": "zwei", "markVi": "cho" }
-              ],
-              "sentence": {
-                "vi": "Trong vòng 1 tháng nữa tôi bay về Vietnam (cho) 1 tháng.",
-                "de": "In einem Monat fliege ich für einen Monat nach Vietnam.",
-                "mark": "für einen Monat"
-              }
-            }
-          ]
-        }
-      ],
-      "practice": [
-        {
-          "key": "practice",
-          "titleVi": "Luyện giới từ chỉ thời gian",
-          "screens": [
-            {
-              "kind": "choice",
-              "tone": "seit",
-              "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
-              "markerVi": "nay",
-              "options": ["quá khứ", "hiện tại"],
-              "answer": "hiện tại",
-              "script": "Ich lebe seit einem Monat in Deutschland.",
-              "filename": "a12-l1-gram-27-ich-lebe-seit-einem-monat.mp3",
-              "whyVi": "Động từ chia ở thì hiện tại. Das Verb wird im Präsens konjugiert."
-            },
-            {
-              "kind": "translate",
-              "tone": "seit",
-              "vi": "Tôi sống ở Đức kể từ 1 tháng nay.",
-              "markerVi": "nay",
-              "answers": ["Ich lebe seit einem Monat in Deutschland."],
-              "distractors": ["vor", "wohne"],
-              "filename": "a12-l1-gram-28-ich-lebe-seit-einem-monat.mp3",
-              "whyVi": "kể từ... đến nay → seit. Động từ ở hiện tại: Ich lebe. Ich wohne cũng đúng."
-            },
-            {
-              "kind": "translate",
-              "tone": "vor",
-              "vi": "Một tháng trước tôi đã sống ở Đức.",
-              "markerVi": "trước",
-              "answers": ["Vor einem Monat habe ich in Deutschland gelebt."],
-              "distractors": ["seit"],
-              "filename": "a12-l1-gram-29-vor-einem-monat-habe-ich-gelebt.mp3",
-              "whyVi": "vor: bắt đầu và kết thúc trong quá khứ. Vor einem Monat habe ich in Deutschland gelebt."
-            },
-            {
-              "kind": "translate",
-              "tone": "in",
-              "vi": "Trong vòng 10 Phút là tôi xong.",
-              "markerVi": "Trong vòng",
-              "answers": ["In 10 Minuten bin ich fertig."],
-              "distractors": ["seit"],
-              "filename": "a12-l1-gram-30-in-10-minuten-bin-ich-fertig.mp3",
-              "whyVi": "in: trong / trong vòng. In 10 Minuten bin ich fertig."
-            },
-            {
-              "kind": "translate",
-              "tone": "in-spaeter",
-              "vi": "Một tháng nữa tôi bay qua Đức.",
-              "markerVi": "nữa",
-              "answers": ["In einem Monat fliege ich nach Deutschland."],
-              "distractors": ["seit"],
-              "filename": "a12-l1-gram-31-in-einem-monat-fliege-ich.mp3",
-              "whyVi": "in: nữa. Một tháng nữa → In einem Monat fliege ich nach Deutschland."
-            },
-            {
-              "kind": "choice",
-              "tone": "fuer",
-              "vi": "Trong vòng 1 tháng nữa tôi bay về Vietnam (cho) 1 tháng.",
-              "markerVi": "cho",
-              "prompt": "In einem Monat fliege ich ____ nach Vietnam.",
-              "options": ["für einen Monat", "für einem Monat"],
-              "answer": "für einen Monat",
-              "script": "In einem Monat fliege ich für einen Monat nach Vietnam.",
-              "filename": "a12-l1-gram-32-fuer-einen-monat-nach-vietnam.mp3",
-              "whyVi": "Für + Akkusativ: der (ein) → den (einen). Tiếng Việt không cần chữ 'cho', nhưng tiếng Đức thì cần."
-            },
-            {
-              "kind": "choice",
-              "tone": "seit",
-              "vi": "Seit wann lebst du in Deutschland?",
-              "options": [
-                "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
-                "Vor einem Monat habe ich in Deutschland gelebt."
-              ],
-              "answer": "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
-              "script": "Ich lebe seit ... Jahren/ Monaten/ Tagen in Deutschland.",
-              "filename": "a12-l1-gram-33-ich-lebe-seit-jahren.mp3",
-              "whyVi": "Seit wann → kể từ... đến nay, động từ ở hiện tại: Ich lebe seit ... Jahren/ Monaten/ Tagen."
-            }
-          ]
-        }
+      "filename": "a12-tag1-09-ich-war-in-berlin.mp3",
+      "script": "Ich war in Berlin.",
+      "translationVi": "Tôi đã ở Berlin."
+    },
+    {
+      "filename": "a12-tag1-t02-haben.mp3",
+      "script": "haben",
+      "translationVi": "đã có (Präteritum)",
+      "praeteritumConjugation": [
+        { "person": "ich", "form": "hatte", "filename": "a12-tag1-t02-ich-hatte.mp3" },
+        { "person": "du", "form": "hattest", "filename": "a12-tag1-t02-du-hattest.mp3" },
+        { "person": "er/sie/es", "form": "hatte", "filename": "a12-tag1-t02-er-hatte.mp3" },
+        { "person": "wir", "form": "hatten", "filename": "a12-tag1-t02-wir-hatten.mp3" },
+        { "person": "ihr", "form": "hattet", "filename": "a12-tag1-t02-ihr-hattet.mp3" },
+        { "person": "sie/Sie", "form": "hatten", "filename": "a12-tag1-t02-sie-hatten.mp3" }
       ]
+    },
+    {
+      "filename": "a12-tag1-10-ich-hatte-10euro.mp3",
+      "script": "Ich hatte zehn Euro.",
+      "translationVi": "Tôi đã có 10 euro."
+    },
+    {
+      "filename": "a12-tag1-11-wo-war-sie.mp3",
+      "script": "Wo war sie?",
+      "translationVi": "Cô ấy đã ở đâu?"
+    },
+    {
+      "filename": "a12-tag1-12-wo-warst-du.mp3",
+      "script": "Wo warst du?",
+      "translationVi": "Bạn đã ở đâu đấy?"
+    },
+    {
+      "filename": "a12-tag1-13-gestern-war-ich-zu-hause.mp3",
+      "script": "Gestern war ich zu Hause.",
+      "translationVi": "Hôm qua tôi ở nhà."
+    },
+    {
+      "filename": "a12-tag1-14-letzten-monat.mp3",
+      "script": "letzten Monat",
+      "translationVi": "tháng trước"
+    },
+    {
+      "filename": "a12-tag1-16-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
+      "script": "Letzten Monat hatte ich in Berlin eine Arbeit.",
+      "translationVi": "Tháng trước tôi đã có một công việc ở Berlin."
+    },
+    {
+      "filename": "a12-tag1-18-seit.mp3",
+      "script": "seit",
+      "translationVi": "kể từ … đến nay"
+    },
+    {
+      "filename": "a12-tag1-19-seit-einem-monat.mp3",
+      "script": "seit einem Monat",
+      "translationVi": "kể từ một tháng nay"
+    },
+    {
+      "filename": "a12-tag1-20-seit-einer-woche.mp3",
+      "script": "seit einer Woche",
+      "translationVi": "kể từ một tuần nay"
+    },
+    {
+      "filename": "a12-tag1-21-seit-zwei-jahren.mp3",
+      "script": "seit zwei Jahren",
+      "translationVi": "kể từ hai năm nay"
+    },
+    {
+      "filename": "a12-tag1-22-ich-lebe-seit-einem-monat-in-deutschland.mp3",
+      "script": "Ich lebe seit einem Monat in Deutschland.",
+      "translationVi": "Tôi sống ở Đức được một tháng nay."
+    },
+    {
+      "filename": "a12-tag1-24-vor-einem-monat.mp3",
+      "script": "vor einem Monat",
+      "translationVi": "một tháng trước"
+    },
+    {
+      "filename": "a12-tag1-25-vor-einer-woche.mp3",
+      "script": "vor einer Woche",
+      "translationVi": "một tuần trước"
+    },
+    {
+      "filename": "a12-tag1-26-vor-zwei-jahren.mp3",
+      "script": "vor zwei Jahren",
+      "translationVi": "hai năm trước"
+    },
+    {
+      "filename": "a12-tag1-27-vor-einem-monat-habe-ich-in-deutschland-gelebt.mp3",
+      "script": "Vor einem Monat habe ich in Deutschland gelebt.",
+      "translationVi": "Một tháng trước tôi đã sống ở Đức."
+    },
+    {
+      "filename": "a12-tag1-29-in-einem-monat.mp3",
+      "script": "in einem Monat",
+      "translationVi": "một tháng nữa"
+    },
+    {
+      "filename": "a12-tag1-30-in-einer-woche.mp3",
+      "script": "in einer Woche",
+      "translationVi": "một tuần nữa"
+    },
+    {
+      "filename": "a12-tag1-31-in-zwei-jahren.mp3",
+      "script": "in zwei Jahren",
+      "translationVi": "hai năm nữa"
+    },
+    {
+      "filename": "a12-tag1-32-in-10-minuten-bin-ich-fertig.mp3",
+      "script": "In 10 Minuten bin ich fertig.",
+      "translationVi": "Mười phút nữa là tôi xong."
+    },
+    {
+      "filename": "a12-tag1-33-in-einem-monat-fliege-ich-nach-deutschland.mp3",
+      "script": "In einem Monat fliege ich nach Deutschland.",
+      "translationVi": "Một tháng nữa tôi bay sang Đức."
+    },
+    {
+      "filename": "a12-tag1-35-fuer-einen-monat.mp3",
+      "script": "für einen Monat",
+      "translationVi": "trong thời gian một tháng"
+    },
+    {
+      "filename": "a12-tag1-36-fuer-ein-jahr.mp3",
+      "script": "für ein Jahr",
+      "translationVi": "trong thời gian một năm"
+    },
+    {
+      "filename": "a12-tag1-37-fuer-eine-woche.mp3",
+      "script": "für eine Woche",
+      "translationVi": "trong thời gian một tuần"
+    },
+    {
+      "filename": "a12-tag1-38-fuer-zwei-jahre.mp3",
+      "script": "für zwei Jahre",
+      "translationVi": "trong thời gian hai năm"
+    },
+    {
+      "filename": "a12-tag1-39-in-einem-monat-fliege-ich-fuer-einen-monat-nach-vietnam.mp3",
+      "script": "In einem Monat fliege ich für einen Monat nach Vietnam.",
+      "translationVi": "Một tháng nữa tôi bay về Việt Nam trong một tháng."
+    },
+    {
+      "filename": "a12-tag1-40-seit-wann-lebst-du-in-deutschland.mp3",
+      "script": "Seit wann lebst du in Deutschland?",
+      "translationVi": "Bạn sống ở Đức từ khi nào?"
+    },
+    {
+      "filename": "a12-tag1-41-ich-lebe-seit-zwei-jahren-in-deutschland.mp3",
+      "script": "Ich lebe seit zwei Jahren in Deutschland.",
+      "translationVi": "Tôi sống ở Đức được hai năm nay."
+    },
+    {
+      "filename": "a12-tag1-42-frueher.mp3",
+      "script": "früher",
+      "translationVi": "ngày xưa; trước đây"
+    },
+    {
+      "filename": "a12-tag1-45-vor-einem-jahr-habe-ich-in-einem-cafe-gearbeitet.mp3",
+      "script": "Vor einem Jahr habe ich in einem Café gearbeitet.",
+      "translationVi": "Một năm trước tôi đã làm việc ở một quán cà phê."
+    },
+    {
+      "filename": "a12-tag1-47-oft.mp3",
+      "script": "oft",
+      "translationVi": "thường xuyên"
+    },
+    {
+      "filename": "a12-tag1-48-ich-hatte-richtig-viel-arbeit-und-oft-stress.mp3",
+      "script": "Ich hatte richtig viel Arbeit und oft Stress.",
+      "translationVi": "Tôi đã có rất nhiều việc và thường xuyên bị căng thẳng."
+    },
+    {
+      "filename": "a12-tag1-49-immer.mp3",
+      "script": "immer",
+      "translationVi": "luôn luôn"
+    },
+    {
+      "filename": "a12-tag1-50-nie.mp3",
+      "script": "nie",
+      "translationVi": "không bao giờ"
+    },
+    {
+      "filename": "a12-tag1-53-mein-chef-war-gar-nicht-nett.mp3",
+      "script": "Mein Chef war gar nicht nett.",
+      "translationVi": "Sếp của tôi trước đây chẳng tốt bụng chút nào."
+    },
+    {
+      "filename": "a12-tag1-55-mein-deutsch-war-schlecht.mp3",
+      "script": "Mein Deutsch war schlecht.",
+      "translationVi": "Tiếng Đức của tôi trước đây rất kém."
+    },
+    {
+      "filename": "a12-tag1-59-manchmal.mp3",
+      "script": "manchmal",
+      "translationVi": "thỉnh thoảng"
+    },
+    {
+      "filename": "a12-tag1-k01-verstanden.mp3",
+      "script": "verstanden",
+      "translationVi": "đã hiểu (Partizip II của verstehen)",
+      "perfectConjugation": [
+        { "person": "ich", "form": "habe verstanden", "filename": "a12-tag1-k01-ich-habe-verstanden.mp3" },
+        { "person": "du", "form": "hast verstanden", "filename": "a12-tag1-k01-du-hast-verstanden.mp3" },
+        { "person": "er/sie/es", "form": "hat verstanden", "filename": "a12-tag1-k01-er-hat-verstanden.mp3" },
+        { "person": "wir", "form": "haben verstanden", "filename": "a12-tag1-k01-wir-haben-verstanden.mp3" },
+        { "person": "ihr", "form": "habt verstanden", "filename": "a12-tag1-k01-ihr-habt-verstanden.mp3" },
+        { "person": "sie/Sie", "form": "haben verstanden", "filename": "a12-tag1-k01-sie-haben-verstanden.mp3" }
+      ]
+    },
+    {
+      "filename": "a12-tag1-61-ich-habe-die-kunden-manchmal-nicht-verstanden.mp3",
+      "script": "Ich habe die Kunden manchmal nicht verstanden.",
+      "translationVi": "Thỉnh thoảng tôi đã không hiểu khách hàng nói gì."
+    },
+    {
+      "filename": "a12-tag1-65-ich-glaube-ich-war-keine-gute-kellnerin.mp3",
+      "script": "Ich glaube, ich war keine gute Kellnerin.",
+      "translationVi": "Tôi nghĩ trước đây tôi không phải là một nhân viên phục vụ bàn giỏi."
+    },
+    {
+      "filename": "a12-tag1-70-toll.mp3",
+      "script": "toll",
+      "translationVi": "tuyệt vời"
+    },
+    {
+      "filename": "a12-tag1-71-und-meine-chefin-ist-toll.mp3",
+      "script": "Und meine Chefin ist toll!",
+      "translationVi": "Và sếp nữ của tôi rất tuyệt vời!"
+    },
+    {
+      "filename": "a12-tag1-78-nicht-so-viel-arbeit.mp3",
+      "script": "nicht so viel Arbeit",
+      "translationVi": "không có nhiều việc như vậy"
+    },
+    {
+      "filename": "a12-tag1-82-ich-werde-curry-kochen.mp3",
+      "script": "Ich werde Curry kochen.",
+      "translationVi": "Tôi sẽ nấu cà ri."
+    },
+    {
+      "filename": "a12-tag1-83-was-moechtest-du-werden.mp3",
+      "script": "Was möchtest du werden?",
+      "translationVi": "Bạn muốn trở thành gì?"
     }
   ]
 }
