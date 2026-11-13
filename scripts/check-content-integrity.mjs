@@ -945,9 +945,9 @@ function checkGrammarAudio() {
 
 /** A clip's "gaps" must name words in its script and known topics; "noGaps" is true or a word list. */
 /**
- * A conjugation row (Präsens `conjugation` or Perfekt `perfectConjugation`):
- * person, form, and the row's MP3. Perfekt rows are full phrases
- * ("ich bin gegangen") and still count as listed audio.
+ * A conjugation row (Präsens `conjugation`, Perfekt `perfectConjugation`,
+ * or Präteritum `praeteritumConjugation`): person, form, and the row's MP3.
+ * Perfekt rows are full phrases ("ich bin gegangen") and still count as listed audio.
  */
 function checkConjugationRows(rows, field, where, audioDir, listedFilenames) {
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -985,6 +985,9 @@ function checkClipConjugation(clip, where, audioDir, listedFilenames) {
   }
   if (clip.perfectConjugation !== undefined) {
     checkConjugationRows(clip.perfectConjugation, "perfectConjugation", where, audioDir, listedFilenames);
+  }
+  if (clip.praeteritumConjugation !== undefined) {
+    checkConjugationRows(clip.praeteritumConjugation, "praeteritumConjugation", where, audioDir, listedFilenames);
   }
 }
 
