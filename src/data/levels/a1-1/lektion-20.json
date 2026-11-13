@@ -315,16 +315,6 @@
       "translationVi": "Bây giờ là 6 giờ 34 phút."
     },
     {
-      "filename": "a11-tag20-51-wie-heissen-sie.mp3",
-      "script": "Wie heißen Sie?",
-      "translationVi": "Ông/bà tên là gì?"
-    },
-    {
-      "filename": "a11-tag20-52-mueller.mp3",
-      "script": "Müller",
-      "translationVi": "Müller (họ)"
-    },
-    {
       "filename": "a11-tag20-53-was-machen-sie-heute.mp3",
       "script": "Was machen Sie heute?",
       "translationVi": "Hôm nay ông/bà làm gì?"
@@ -385,21 +375,6 @@
       "translationVi": "Không, từ Pháp."
     },
     {
-      "filename": "a11-tag20-65-hast-du-hunger.mp3",
-      "script": "Hast du Hunger?",
-      "translationVi": "Bạn có đói không?"
-    },
-    {
-      "filename": "a11-tag20-66-ja-ich-habe-noch-nichts-gegessen.mp3",
-      "script": "Ja, ich habe noch nichts gegessen.",
-      "translationVi": "Có, tôi vẫn chưa ăn gì cả."
-    },
-    {
-      "filename": "a11-tag20-67-hallo-lin.mp3",
-      "script": "Hallo Lin,",
-      "translationVi": "Chào Lin,"
-    },
-    {
       "filename": "a11-tag20-68-mein-zug-faehrt-um-8-05-uhr-von-leipzig-ab-und-der-kommt-in-berlin-um-14-26-uhr-an.mp3",
       "script": "Mein Zug fährt um acht Uhr fünf von Leipzig ab und der kommt in Berlin um vierzehn Uhr sechsundzwanzig an.",
       "translationVi": "Tàu của tôi khởi hành từ Leipzig lúc 8 giờ 5 phút và đến Berlin lúc 14 giờ 26 phút."
@@ -425,11 +400,6 @@
       "translationVi": "liên lạc được với; đạt tới"
     },
     {
-      "filename": "a11-tag20-73-du-kannst-mich-den-ganzen-vormittag-auf-meinem-handy-49-17676784801-erreichen.mp3",
-      "script": "Du kannst mich den ganzen Vormittag auf meinem Handy (plus vier neun eins sieben sechs sieben sechs sieben acht vier acht null eins) erreichen.",
-      "translationVi": "Bạn có thể liên lạc với tôi suốt buổi sáng qua điện thoại di động (+49 17676784801)."
-    },
-    {
       "filename": "a11-tag20-74-liebe-gruesse.mp3",
       "script": "Liebe Grüße",
       "translationVi": "Thân mến"
@@ -448,11 +418,6 @@
       "filename": "a11-tag20-77-thomas-wartet-den-ganzen-vormittag-vor-der-auskunft.mp3",
       "script": "Thomas wartet den ganzen Vormittag vor der Auskunft.",
       "translationVi": "Thomas đợi suốt buổi sáng ở phía trước quầy thông tin."
-    },
-    {
-      "filename": "a11-tag20-78-hallo-karin.mp3",
-      "script": "Hallo Karin,",
-      "translationVi": "Chào Karin,"
     },
     {
       "filename": "a11-tag20-79-ich-moechte-dich-herzlich-zu-meiner-geburtstagsfeier-einladen.mp3",
@@ -552,11 +517,6 @@
       "translationVi": "Tôi rất mong được gặp bạn!"
     },
     {
-      "filename": "a11-tag20-92-min-hat-am-letzten-wochenende-geburtstag-gehabt.mp3",
-      "script": "Min hat am letzten Wochenende Geburtstag gehabt.",
-      "translationVi": "Min đã có sinh nhật vào cuối tuần trước."
-    },
-    {
       "filename": "a11-tag20-93-sie-haben-getraenke-im-supermarkt-gekauft.mp3",
       "script": "Sie haben Getränke im Supermarkt gekauft.",
       "translationVi": "Họ đã mua đồ uống ở siêu thị."
@@ -565,16 +525,6 @@
       "filename": "a11-tag20-94-die-party-findet-draussen-statt.mp3",
       "script": "Die Party findet draußen statt.",
       "translationVi": "Bữa tiệc diễn ra ở ngoài trời."
-    },
-    {
-      "filename": "a11-tag20-95-karin-kennt-mayer.mp3",
-      "script": "Karin kennt Mayer.",
-      "translationVi": "Karin biết Mayer."
-    },
-    {
-      "filename": "a11-tag20-96-min-muss-eine-jacke-mitbringen.mp3",
-      "script": "Min muss eine Jacke mitbringen.",
-      "translationVi": "Min phải mang theo một chiếc áo khoác."
     },
     {
       "filename": "a11-tag20-97-kostenlos.mp3",
@@ -590,11 +540,6 @@
       "filename": "a11-tag20-99-in-der-sprachschule-muessen-sie-etwas-zu-trinken-kaufen.mp3",
       "script": "In der Sprachschule müssen Sie etwas zu trinken kaufen.",
       "translationVi": "Ở trường ngoại ngữ, ông/bà phải mua đồ uống."
-    },
-    {
-      "filename": "a11-tag20-100-oeffnungszeiten-montags-freitags-9-00-12-00-und-13-00-17-00-samstags-9-00-12-00.mp3",
-      "script": "Öffnungszeiten: montags–freitags neun Uhr bis zwölf Uhr und dreizehn Uhr bis siebzehn Uhr; samstags neun Uhr bis zwölf Uhr",
-      "translationVi": "Giờ mở cửa: thứ Hai đến thứ Sáu, 9–12 giờ và 13–17 giờ; thứ Bảy, 9–12 giờ."
     },
     {
       "filename": "a11-tag20-101-der-samstagnachmittag.mp3",
@@ -615,11 +560,6 @@
       "filename": "a11-tag20-104-wir-sind-umgezogen.mp3",
       "script": "Wir sind umgezogen.",
       "translationVi": "Chúng tôi đã chuyển nhà."
-    },
-    {
-      "filename": "a11-tag20-105-wir-sind-jetzt-in-der-senestr-23.mp3",
-      "script": "Wir sind jetzt in der Senestr. dreiundzwanzig.",
-      "translationVi": "Hiện nay chúng tôi ở số 23 đường Senestr."
     },
     {
       "filename": "a11-tag20-106-sie-werden-umziehen.mp3",
@@ -650,11 +590,6 @@
       "filename": "a11-tag20-111-ich-habe-eine-lange-hose-gefunden.mp3",
       "script": "Ich habe eine lange Hose gefunden.",
       "translationVi": "Tôi đã tìm thấy một chiếc quần dài."
-    },
-    {
-      "filename": "a11-tag20-112-nicht-genug-geld-fuer-die-hose.mp3",
-      "script": "nicht genug Geld für die Hose",
-      "translationVi": "không đủ tiền để mua chiếc quần"
     },
     {
       "filename": "a11-tag20-113-sie-ist-sehr-schoen-gewesen-aber-ich-habe-nicht-genug-geld-fuer-die-hose-gehabt.mp3",
