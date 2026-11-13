@@ -1,3 +1,229 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a12-tag4-01-das-amt.mp3",
+      "script": "das Amt",
+      "translationVi": "cơ quan hành chính; công sở"
+    },
+    {
+      "filename": "a12-tag4-02-die-behoerde.mp3",
+      "script": "die Behörde",
+      "translationVi": "cơ quan nhà nước; cơ quan chức năng"
+    },
+    {
+      "filename": "a12-tag4-03-jung.mp3",
+      "script": "jung",
+      "translationVi": "trẻ"
+    },
+    {
+      "filename": "a12-tag4-04-wie-heisst-der-junge-mann.mp3",
+      "script": "Wie heißt der junge Mann?",
+      "translationVi": "Chàng trai trẻ tên là gì?"
+    },
+    {
+      "filename": "a12-tag4-05-wie-heisst-die-junge-frau.mp3",
+      "script": "Wie heißt die junge Frau?",
+      "translationVi": "Cô gái trẻ tên là gì?"
+    },
+    {
+      "filename": "a12-tag4-06-der-fuehrerschein.mp3",
+      "script": "der Führerschein",
+      "translationVi": "bằng lái xe"
+    },
+    {
+      "filename": "a12-tag4-07-haben-sie-einen-fuehrerschein.mp3",
+      "script": "Haben Sie einen Führerschein?",
+      "translationVi": "Ngài có bằng lái xe không?"
+    },
+    {
+      "filename": "a12-tag4-08-haben-sie-ein-auto.mp3",
+      "script": "Haben Sie ein Auto?",
+      "translationVi": "Ngài có ô tô không?"
+    },
+    {
+      "filename": "a12-tag4-09-ich-habe-seit-fuenf-jahren-einen-fuehrerschein.mp3",
+      "script": "Ich habe seit fünf Jahren einen Führerschein.",
+      "translationVi": "Tôi đã có bằng lái xe được năm năm nay."
+    },
+    {
+      "filename": "a12-tag4-10-ich-brauche-kein-auto-und-ich-kann-nicht-auto-fahren.mp3",
+      "script": "Ich brauche kein Auto und ich kann nicht Auto fahren.",
+      "translationVi": "Tôi không cần ô tô và tôi không biết lái ô tô."
+    },
+    {
+      "filename": "a12-tag4-11-erzaehlen.mp3",
+      "script": "erzählen",
+      "translationVi": "kể chuyện; kể lại"
+    },
+    {
+      "filename": "a12-tag4-12-zob.mp3",
+      "script": "Zentraler Omnibusbahnhof",
+      "translationVi": "bến xe buýt trung tâm"
+    },
+    {
+      "filename": "a12-tag4-13-sie-sind-am-zentralen-omnibusbahnhof.mp3",
+      "script": "Sie sind am Zentralen Omnibusbahnhof.",
+      "translationVi": "Họ đang ở bến xe buýt trung tâm."
+    },
+    {
+      "filename": "a12-tag4-16-gueltig.mp3",
+      "script": "gültig",
+      "translationVi": "có giá trị; hợp lệ"
+    },
+    {
+      "filename": "a12-tag4-17-sie-wollen-wissen-ist-der-fuehrerschein-gueltig.mp3",
+      "script": "Ist der Führerschein gültig?",
+      "translationVi": "Bằng lái xe có hợp lệ không?"
+    },
+    {
+      "filename": "a12-tag4-19-mieten.mp3",
+      "script": "mieten",
+      "translationVi": "thuê"
+    },
+    {
+      "filename": "a12-tag4-21-vermieten.mp3",
+      "script": "vermieten",
+      "translationVi": "cho thuê"
+    },
+    {
+      "filename": "a12-tag4-23-tim-moechte-ein-auto-mieten-und-nach-salzburg-fahren.mp3",
+      "script": "Tim möchte ein Auto mieten und nach Salzburg fahren.",
+      "translationVi": "Tim muốn thuê một chiếc ô tô và đi đến Salzburg."
+    },
+    {
+      "filename": "a12-tag4-24-auslaendisch.mp3",
+      "script": "ausländisch",
+      "translationVi": "thuộc nước ngoài; nước ngoài"
+    },
+    {
+      "filename": "a12-tag4-25-aber-mit-einem-auslaendischen-fuehrerschein-kann-man-nur-sechs-monate-in-deutschland-fahren.mp3",
+      "script": "Aber mit einem ausländischen Führerschein kann man nur sechs Monate in Deutschland fahren.",
+      "translationVi": "Nhưng với bằng lái xe nước ngoài, người ta chỉ có thể lái xe ở Đức trong sáu tháng."
+    },
+    {
+      "filename": "a12-tag4-26-international.mp3",
+      "script": "international",
+      "translationVi": "quốc tế"
+    },
+    {
+      "filename": "a12-tag4-27-tim-hat-keinen-internationalen-fuehrerschein.mp3",
+      "script": "Tim hat keinen internationalen Führerschein.",
+      "translationVi": "Tim không có bằng lái xe quốc tế."
+    },
+    {
+      "filename": "a12-tag4-28-die-europaeische-union.mp3",
+      "script": "die Europäische Union",
+      "translationVi": "Liên minh châu Âu (EU)"
+    },
+    {
+      "filename": "a12-tag4-29-lara-kommt-aus-der-eu.mp3",
+      "script": "Lara kommt aus der EU.",
+      "translationVi": "Lara đến từ Liên minh châu Âu."
+    },
+    {
+      "filename": "a12-tag4-30-sie-braucht-keinen-internationalen-fuehrerschein.mp3",
+      "script": "Sie braucht keinen internationalen Führerschein.",
+      "translationVi": "Cô ấy không cần bằng lái xe quốc tế."
+    },
+    {
+      "filename": "a12-tag4-31-lara-moechte-ein-auto-mieten.mp3",
+      "script": "Lara möchte ein Auto mieten.",
+      "translationVi": "Lara muốn thuê một chiếc ô tô."
+    },
+    {
+      "filename": "a12-tag4-32-aber-sie-bekommt-kein-auto.mp3",
+      "script": "Aber sie bekommt kein Auto.",
+      "translationVi": "Nhưng cô ấy không thuê được ô tô."
+    },
+    {
+      "filename": "a12-tag4-33-erst.mp3",
+      "script": "erst",
+      "translationVi": "mới; chỉ mới"
+    },
+    {
+      "filename": "a12-tag4-34-erst-einundzwanzig-jahre-alt.mp3",
+      "script": "erst einundzwanzig Jahre alt",
+      "translationVi": "mới hai mươi mốt tuổi"
+    },
+    {
+      "filename": "a12-tag4-35-sie-ist-zu-jung-sie-ist-erst-zwanzig-jahre-alt.mp3",
+      "script": "Sie ist zu jung, sie ist erst zwanzig Jahre alt.",
+      "translationVi": "Cô ấy còn quá trẻ, cô ấy mới hai mươi tuổi."
+    },
+    {
+      "filename": "a12-tag4-36-den-bus-nehmen.mp3",
+      "script": "den Bus nehmen",
+      "translationVi": "đi xe buýt"
+    },
+    {
+      "filename": "a12-tag4-37-sie-koennen-den-bus-nehmen.mp3",
+      "script": "Sie können den Bus nehmen.",
+      "translationVi": "Họ có thể đi xe buýt."
+    },
+    {
+      "filename": "a12-tag4-39-die-fahrt-dauert-nur-zwei-stunden.mp3",
+      "script": "Die Fahrt dauert nur zwei Stunden.",
+      "translationVi": "Chuyến đi chỉ kéo dài hai tiếng."
+    },
+    {
+      "filename": "a12-tag4-40-die-fahrkarte.mp3",
+      "script": "die Fahrkarte",
+      "translationVi": "vé xe"
+    },
+    {
+      "filename": "a12-tag4-42-ausmachen.mp3",
+      "script": "ausmachen",
+      "translationVi": "tắt; dập tắt"
+    },
+    {
+      "filename": "a12-tag4-43-achtung-du-musst-das-handy-ausmachen.mp3",
+      "script": "Achtung! Du musst das Handy ausmachen.",
+      "translationVi": "Chú ý! Bạn phải tắt điện thoại di động."
+    },
+    {
+      "filename": "a12-tag4-44-warum-denn.mp3",
+      "script": "Warum denn?",
+      "translationVi": "Tại sao vậy?"
+    },
+    {
+      "filename": "a12-tag4-45-hier-darf-man-nicht-telefonieren.mp3",
+      "script": "Hier darf man nicht telefonieren.",
+      "translationVi": "Ở đây không được phép gọi điện thoại."
+    },
+    {
+      "filename": "a12-tag4-46-anmachen.mp3",
+      "script": "anmachen",
+      "translationVi": "bật; mở (thiết bị)"
+    },
+    {
+      "filename": "a12-tag4-47-achtung-ihr-muesst-die-zigaretten-ausmachen.mp3",
+      "script": "Achtung! Ihr müsst die Zigaretten ausmachen.",
+      "translationVi": "Chú ý! Các bạn phải dập tắt thuốc lá."
+    },
+    {
+      "filename": "a12-tag4-48-hier-darf-man-nicht-rauchen.mp3",
+      "script": "Hier darf man nicht rauchen.",
+      "translationVi": "Ở đây không được phép hút thuốc."
+    },
+    {
+      "filename": "a12-tag4-49-achtung-du-musst-langsam-fahren.mp3",
+      "script": "Achtung! Du musst langsam fahren.",
+      "translationVi": "Chú ý! Bạn phải lái xe chậm."
+    },
+    {
+      "filename": "a12-tag4-50-hier-darf-man-nur-einhundert-fahren.mp3",
+      "script": "Hier darf man nur einhundert fahren.",
+      "translationVi": "Ở đây chỉ được phép chạy tối đa một trăm ki lô mét mỗi giờ."
+    },
+    {
+      "filename": "a12-tag4-51-wir-muessen-einen-neuen-parkplatz-suchen.mp3",
+      "script": "Wir müssen einen neuen Parkplatz suchen.",
+      "translationVi": "Chúng ta phải tìm một chỗ đỗ xe mới."
+    },
+    {
+      "filename": "a12-tag4-52-hier-darf-man-nicht-parken.mp3",
+      "script": "Hier darf man nicht parken.",
+      "translationVi": "Ở đây không được phép đỗ xe."
+    }
+  ]
 }

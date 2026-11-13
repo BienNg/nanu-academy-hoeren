@@ -1,3 +1,668 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a12-tag2-01-wie-viele-leute-sind-auf-dem-foto-drei.mp3",
+      "script": "Wie viele Leute sind auf dem Foto drei?",
+      "translationVi": "Có bao nhiêu người trong bức ảnh số 3?"
+    },
+    {
+      "filename": "a12-tag2-02-hier-sind-drei-leute.mp3",
+      "script": "Hier sind drei Leute.",
+      "translationVi": "Ở đây có 3 người"
+    },
+    {
+      "filename": "a12-tag2-03-wie-heisst-der-mann.mp3",
+      "script": "Wie heißt der Mann?",
+      "translationVi": "Người đàn ông tên là gì?"
+    },
+    {
+      "filename": "a12-tag2-04-er-heisst-tim.mp3",
+      "script": "Er heißt Tim.",
+      "translationVi": "Anh ấy tên là Tim."
+    },
+    {
+      "filename": "a12-tag2-05-woher-kommt-tim.mp3",
+      "script": "Woher kommt Tim?",
+      "translationVi": "Tim đến từ đâu?"
+    },
+    {
+      "filename": "a12-tag2-06-er-kommt-aus-kanada.mp3",
+      "script": "Er kommt aus Kanada.",
+      "translationVi": "Anh ấy đến từ Canada."
+    },
+    {
+      "filename": "a12-tag2-07-wie-heisst-die-frau.mp3",
+      "script": "Wie heißt die Frau?",
+      "translationVi": "Người phụ nữ tên là gì?"
+    },
+    {
+      "filename": "a12-tag2-08-sie-heisst-lara.mp3",
+      "script": "Sie heißt Lara.",
+      "translationVi": "Cô ấy tên là Lara."
+    },
+    {
+      "filename": "a12-tag2-09-sie-heisst-sofia.mp3",
+      "script": "Sie heißt Sofia.",
+      "translationVi": "Cô ấy tên là Sofia."
+    },
+    {
+      "filename": "a12-tag2-10-total.mp3",
+      "script": "total",
+      "translationVi": "hoàn toàn"
+    },
+    {
+      "filename": "a12-tag2-11-fotogen.mp3",
+      "script": "fotogen",
+      "translationVi": "ăn ảnh"
+    },
+    {
+      "filename": "a12-tag2-12-die-geschichte.mp3",
+      "script": "die Geschichte",
+      "translationVi": "câu chuyện; lịch sử"
+    },
+    {
+      "filename": "a12-tag2-13-wo-spielt-die-geschichte.mp3",
+      "script": "Wo spielt die Geschichte?",
+      "translationVi": "Câu chuyện diễn ra ở đâu?"
+    },
+    {
+      "filename": "a12-tag2-14-die-praxis.mp3",
+      "script": "die Praxis",
+      "translationVi": "phòng khám"
+    },
+    {
+      "filename": "a12-tag2-15-ich-denke-die-geschichte-spielt-in-sofias-praxis.mp3",
+      "script": "Ich denke, die Geschichte spielt in Sofias Praxis.",
+      "translationVi": "Tôi nghĩ câu chuyện diễn ra tại phòng khám của Sofia."
+    },
+    {
+      "filename": "a12-tag2-16-das-krankenhaus.mp3",
+      "script": "das Krankenhaus",
+      "translationVi": "bệnh viện"
+    },
+    {
+      "filename": "a12-tag2-17-was-machen-lara-und-tim.mp3",
+      "script": "Was machen Lara und Tim?",
+      "translationVi": "Lara và Tim đang làm gì?"
+    },
+    {
+      "filename": "a12-tag2-18-das-interview.mp3",
+      "script": "das Interview",
+      "translationVi": "buổi phỏng vấn"
+    },
+    {
+      "filename": "a12-tag2-19-ich-denke-tim-und-lara-machen-ein-interview-fuer-den-deutschkurs.mp3",
+      "script": "Ich denke, Tim und Lara machen ein Interview für den Deutschkurs.",
+      "translationVi": "Tôi nghĩ Tim và Lara đang thực hiện một cuộc phỏng vấn cho khóa học tiếng Đức."
+    },
+    {
+      "filename": "a12-tag2-20-die-zeitung.mp3",
+      "script": "die Zeitung",
+      "translationVi": "tờ báo"
+    },
+    {
+      "filename": "a12-tag2-21-das-fernsehen.mp3",
+      "script": "das Fernsehen",
+      "translationVi": "truyền hình"
+    },
+    {
+      "filename": "a12-tag2-22-ueber.mp3",
+      "script": "über",
+      "translationVi": "về; liên quan đến"
+    },
+    {
+      "filename": "a12-tag2-23-die-ausbildung.mp3",
+      "script": "die Ausbildung",
+      "translationVi": "việc đào tạo nghề; chương trình học nghề"
+    },
+    {
+      "filename": "a12-tag2-24-eine-ausbildung-machen.mp3",
+      "script": "eine Ausbildung machen",
+      "translationVi": "học nghề"
+    },
+    {
+      "filename": "a12-tag2-25-der-beruf.mp3",
+      "script": "der Beruf",
+      "translationVi": "nghề nghiệp"
+    },
+    {
+      "filename": "a12-tag2-26-ich-denke-sie-sprechen-mit-sofia-ueber-ausbildung-und-beruf.mp3",
+      "script": "Ich denke, sie sprechen mit Sofia über Ausbildung und Beruf.",
+      "translationVi": "Tôi nghĩ họ nói chuyện với Sofia về việc học nghề và nghề nghiệp."
+    },
+    {
+      "filename": "a12-tag2-27-wer-ist-der-mann-auf-foto-eins.mp3",
+      "script": "Wer ist der Mann auf Foto eins?",
+      "translationVi": "Người đàn ông trong bức ảnh số 1 là ai?"
+    },
+    {
+      "filename": "a12-tag2-28-der-patient.mp3",
+      "script": "der Patient",
+      "translationVi": "bệnh nhân nam"
+    },
+    {
+      "filename": "a12-tag2-29-ich-denke-der-mann-auf-foto-eins-ist-sofias-patient.mp3",
+      "script": "Ich denke, der Mann auf Foto eins ist Sofias Patient.",
+      "translationVi": "Tôi nghĩ người đàn ông trong bức ảnh số 1 là bệnh nhân của Sofia."
+    },
+    {
+      "filename": "a12-tag2-30-der-journalist.mp3",
+      "script": "der Journalist",
+      "translationVi": "nhà báo nam"
+    },
+    {
+      "filename": "a12-tag2-31-was-ist-der-mann-von-beruf.mp3",
+      "script": "Was ist der Mann von Beruf?",
+      "translationVi": "Người đàn ông làm nghề gì?"
+    },
+    {
+      "filename": "a12-tag2-32-der-hausmeister.mp3",
+      "script": "der Hausmeister",
+      "translationVi": "người quản lý và bảo trì tòa nhà"
+    },
+    {
+      "filename": "a12-tag2-33-er-ist-hausmeister-von-beruf.mp3",
+      "script": "Er ist Hausmeister von Beruf.",
+      "translationVi": "Ông ấy làm nghề quản lý và bảo trì tòa nhà."
+    },
+    {
+      "filename": "a12-tag2-34-die-physiotherapeutin.mp3",
+      "script": "die Physiotherapeutin",
+      "translationVi": "nữ chuyên viên vật lý trị liệu"
+    },
+    {
+      "filename": "a12-tag2-35-lara-will-ein-interview-fuer-den-deutschkurs-machen.mp3",
+      "script": "Lara will ein Interview für den Deutschkurs machen.",
+      "translationVi": "Lara muốn thực hiện một cuộc phỏng vấn cho khóa học tiếng Đức."
+    },
+    {
+      "filename": "a12-tag2-36-das-thema-ist-arbeit-und-beruf.mp3",
+      "script": "Das Thema ist „Arbeit und Beruf“.",
+      "translationVi": "Chủ đề là “Công việc và nghề nghiệp”."
+    },
+    {
+      "filename": "a12-tag2-37-herr-koch-ist-hausmeister-von-beruf.mp3",
+      "script": "Herr Koch ist Hausmeister von Beruf.",
+      "translationVi": "Ông Koch làm nghề quản lý và bảo trì tòa nhà."
+    },
+    {
+      "filename": "a12-tag2-38-er-kommt-auch-zum-interview.mp3",
+      "script": "Er kommt auch zum Interview.",
+      "translationVi": "Ông ấy cũng đến buổi phỏng vấn."
+    },
+    {
+      "filename": "a12-tag2-39-sofia-ist-physiotherapeutin-von-beruf.mp3",
+      "script": "Sofia ist Physiotherapeutin von Beruf.",
+      "translationVi": "Sofia làm nghề vật lý trị liệu."
+    },
+    {
+      "filename": "a12-tag2-40-sie-hat-eine-ausbildung-gemacht.mp3",
+      "script": "Sie hat eine Ausbildung gemacht.",
+      "translationVi": "Cô ấy đã học nghề."
+    },
+    {
+      "filename": "a12-tag2-41-sofia-hat-zuerst-drei-jahre-in-einer-praxis-gearbeitet.mp3",
+      "script": "Sofia hat zuerst drei Jahre in einer Praxis gearbeitet.",
+      "translationVi": "Đầu tiên Sofia đã làm việc tại một phòng khám trong ba năm."
+    },
+    {
+      "filename": "a12-tag2-42-sofias-chef-war-sehr-gut.mp3",
+      "script": "Sofias Chef war sehr gut.",
+      "translationVi": "Sếp của Sofia trước đây rất tốt."
+    },
+    {
+      "filename": "a12-tag2-43-aber-nun-hat-sofia-eine-eigene-praxis.mp3",
+      "script": "Aber nun hat Sofia eine eigene Praxis.",
+      "translationVi": "Nhưng giờ đây Sofia có phòng khám riêng."
+    },
+    {
+      "filename": "a12-tag2-44-herr-koch-ist-der-patient-von-sofia.mp3",
+      "script": "Herr Koch ist der Patient von Sofia.",
+      "translationVi": "Ông Koch là bệnh nhân của Sofia."
+    },
+    {
+      "filename": "a12-tag2-45-herr-koch-arbeitet-seit-fuenfunddreissig-jahren-als-hausmeister.mp3",
+      "script": "Herr Koch arbeitet seit fünfunddreißig Jahren als Hausmeister.",
+      "translationVi": "Ông Koch đã làm nghề quản lý và bảo trì tòa nhà được 35 năm."
+    },
+    {
+      "filename": "a12-tag2-46-herr-koch-denkt-lara-und-tim-sind-journalisten-bei-einer-zeitung.mp3",
+      "script": "Herr Koch denkt, Lara und Tim sind Journalisten bei einer Zeitung.",
+      "translationVi": "Ông Koch nghĩ Lara và Tim là nhà báo của một tờ báo."
+    },
+    {
+      "filename": "a12-tag2-47-was-haben-die-leute-frueher-gemacht.mp3",
+      "script": "Was haben die Leute früher gemacht?",
+      "translationVi": "Trước đây những người này đã làm gì?"
+    },
+    {
+      "filename": "a12-tag2-48-wann-koennen-die-leute-arbeiten.mp3",
+      "script": "Wann können die Leute arbeiten?",
+      "translationVi": "Khi nào những người này có thể làm việc?"
+    },
+    {
+      "filename": "a12-tag2-49-heute-hier-morgen-dort.mp3",
+      "script": "Heute hier, morgen dort",
+      "translationVi": "nay đây mai đó"
+    },
+    {
+      "filename": "a12-tag2-50-im-ausland.mp3",
+      "script": "im Ausland",
+      "translationVi": "ở nước ngoài"
+    },
+    {
+      "filename": "a12-tag2-51-studieren.mp3",
+      "script": "studieren",
+      "translationVi": "học đại học"
+    },
+    {
+      "filename": "a12-tag2-52-im-ausland-studieren.mp3",
+      "script": "im Ausland studieren",
+      "translationVi": "du học"
+    },
+    {
+      "filename": "a12-tag2-53-leicht.mp3",
+      "script": "leicht",
+      "translationVi": "dễ; nhẹ"
+    },
+    {
+      "filename": "a12-tag2-54-einfach.mp3",
+      "script": "einfach",
+      "translationVi": "dễ; đơn giản"
+    },
+    {
+      "filename": "a12-tag2-55-es-gibt.mp3",
+      "script": "Es gibt",
+      "translationVi": "có (diễn tả sự tồn tại)"
+    },
+    {
+      "filename": "a12-tag2-56-es-gibt-zehn-leute-in-der-klasse.mp3",
+      "script": "Es gibt zehn Leute in der Klasse.",
+      "translationVi": "Có 10 người trong lớp."
+    },
+    {
+      "filename": "a12-tag2-57-die-klasse-hat-zehn-leute.mp3",
+      "script": "Die Klasse hat zehn Leute.",
+      "translationVi": "Lớp có 10 người."
+    },
+    {
+      "filename": "a12-tag2-58-im-ausland-arbeiten-oder-studieren.mp3",
+      "script": "Im Ausland arbeiten oder studieren?",
+      "translationVi": "Làm việc hay học đại học ở nước ngoài?"
+    },
+    {
+      "filename": "a12-tag2-59-frueher-war-das-in-europa-nicht-leicht.mp3",
+      "script": "Früher war das in Europa nicht leicht.",
+      "translationVi": "Trước đây việc đó ở châu Âu không dễ."
+    },
+    {
+      "filename": "a12-tag2-60-auch-heute-gibt-es-noch-das-eine-oder-andere-problem.mp3",
+      "script": "Auch heute gibt es noch das eine oder andere Problem.",
+      "translationVi": "Ngay cả bây giờ vẫn còn một vài vấn đề."
+    },
+    {
+      "filename": "a12-tag2-61-hallo-ich-bin-marie-kovalska.mp3",
+      "script": "Hallo, ich bin Marie Kovalská.",
+      "translationVi": "Xin chào, tôi là Marie Kovalská."
+    },
+    {
+      "filename": "a12-tag2-62-ich-bin-achtundzwanzig-und-komme-aus-tschechien.mp3",
+      "script": "Ich bin achtundzwanzig und komme aus Tschechien.",
+      "translationVi": "Tôi 28 tuổi và đến từ Séc."
+    },
+    {
+      "filename": "a12-tag2-63-die-krankenschwester.mp3",
+      "script": "die Krankenschwester",
+      "translationVi": "nữ y tá"
+    },
+    {
+      "filename": "a12-tag2-64-von-beruf-bin-ich-krankenschwester.mp3",
+      "script": "Von Beruf bin ich Krankenschwester.",
+      "translationVi": "Tôi làm nghề y tá."
+    },
+    {
+      "filename": "a12-tag2-65-ich-bin-vor-drei-jahren-nach-hamburg-gekommen.mp3",
+      "script": "Ich bin vor drei Jahren nach Hamburg gekommen.",
+      "translationVi": "Tôi đã đến Hamburg cách đây ba năm."
+    },
+    {
+      "filename": "a12-tag2-66-die-schulfreundin.mp3",
+      "script": "die Schulfreundin",
+      "translationVi": "bạn nữ học cùng trường"
+    },
+    {
+      "filename": "a12-tag2-67-prag.mp3",
+      "script": "Prag",
+      "translationVi": "Praha"
+    },
+    {
+      "filename": "a12-tag2-68-die-mobile-altenpflegerin.mp3",
+      "script": "die mobile Altenpflegerin",
+      "translationVi": "nữ nhân viên chăm sóc người cao tuổi tại nhà"
+    },
+    {
+      "filename": "a12-tag2-69-die-firma.mp3",
+      "script": "die Firma",
+      "translationVi": "công ty"
+    },
+    {
+      "filename": "a12-tag2-70-die-arbeitskraft.mp3",
+      "script": "die Arbeitskraft",
+      "translationVi": "người lao động; nhân lực"
+    },
+    {
+      "filename": "a12-tag2-71-eine-schulfreundin-aus-prag-hat-dort-als-mobile-altenpflegerin-gearbeitet-und-ihre-fi.mp3",
+      "script": "Eine Schulfreundin aus Prag hat dort als mobile Altenpflegerin gearbeitet und ihre Firma hat Arbeitskräfte gesucht.",
+      "translationVi": "Một người bạn nữ học cùng trường đến từ Praha đã làm nhân viên chăm sóc người cao tuổi tại nhà ở đó, và công ty của cô ấy đã tìm nhân lực."
+    },
+    {
+      "filename": "a12-tag2-72-die-altenpflege.mp3",
+      "script": "die Altenpflege",
+      "translationVi": "việc chăm sóc người cao tuổi"
+    },
+    {
+      "filename": "a12-tag2-73-altenpflege-war-neu-fuer-mich.mp3",
+      "script": "Altenpflege war neu für mich.",
+      "translationVi": "Việc chăm sóc người cao tuổi lúc đó còn mới mẻ với tôi."
+    },
+    {
+      "filename": "a12-tag2-74-der-arbeitsplatz.mp3",
+      "script": "der Arbeitsplatz",
+      "translationVi": "chỗ làm; vị trí việc làm"
+    },
+    {
+      "filename": "a12-tag2-75-bekommen.mp3",
+      "script": "bekommen",
+      "translationVi": "đã nhận được (Partizip II của bekommen – đi với haben)",
+      "perfectConjugation": [
+        {
+          "person": "ich",
+          "form": "habe bekommen",
+          "filename": "a12-tag2-75-ich-habe-bekommen.mp3"
+        },
+        {
+          "person": "du",
+          "form": "hast bekommen",
+          "filename": "a12-tag2-75-du-hast-bekommen.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "hat bekommen",
+          "filename": "a12-tag2-75-er-hat-bekommen.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "haben bekommen",
+          "filename": "a12-tag2-75-wir-haben-bekommen.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "habt bekommen",
+          "filename": "a12-tag2-75-ihr-habt-bekommen.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "haben bekommen",
+          "filename": "a12-tag2-75-sie-haben-bekommen.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a12-tag2-76-fuer-die-firma-war-das-aber-kein-problem-und-ich-habe-sofort-einen-arbeitsplatz-bekom.mp3",
+      "script": "Für die Firma war das aber kein Problem und ich habe sofort einen Arbeitsplatz bekommen.",
+      "translationVi": "Nhưng đối với công ty, đó không phải là vấn đề, và tôi đã có ngay một chỗ làm."
+    },
+    {
+      "filename": "a12-tag2-77-der-spass.mp3",
+      "script": "der Spaß",
+      "translationVi": "niềm vui"
+    },
+    {
+      "filename": "a12-tag2-78-die-arbeit-macht-spass.mp3",
+      "script": "Die Arbeit macht Spaß.",
+      "translationVi": "Công việc rất vui."
+    },
+    {
+      "filename": "a12-tag2-79-leider-ist-mein-deutsch-noch-nicht-so-gut.mp3",
+      "script": "Leider ist mein Deutsch noch nicht so gut.",
+      "translationVi": "Tiếc là tiếng Đức của tôi vẫn chưa tốt lắm."
+    },
+    {
+      "filename": "a12-tag2-80-besuchen.mp3",
+      "script": "besuchen",
+      "translationVi": "thăm; tham gia khóa học"
+    },
+    {
+      "filename": "a12-tag2-81-ich-moechte-am-vormittag-einen-deutschkurs-besuchen-und-kann-nur-am-nachmittag-arbeit.mp3",
+      "script": "Ich möchte am Vormittag einen Deutschkurs besuchen und kann nur am Nachmittag arbeiten.",
+      "translationVi": "Tôi muốn tham gia một khóa học tiếng Đức vào buổi sáng và chỉ có thể làm việc vào buổi chiều."
+    },
+    {
+      "filename": "a12-tag2-82-der-krankenpfleger.mp3",
+      "script": "der Krankenpfleger",
+      "translationVi": "nam điều dưỡng"
+    },
+    {
+      "filename": "a12-tag2-85-der-laden.mp3",
+      "script": "der Laden",
+      "translationVi": "cửa hàng"
+    },
+    {
+      "filename": "a12-tag2-86-ich-hatte-einen-laden-in-thessaloniki.mp3",
+      "script": "Ich hatte einen Laden in Thessaloniki.",
+      "translationVi": "Trước đây tôi có một cửa hàng ở Thessaloniki."
+    },
+    {
+      "filename": "a12-tag2-87-die-arbeitskleidung.mp3",
+      "script": "die Arbeitskleidung",
+      "translationVi": "quần áo lao động"
+    },
+    {
+      "filename": "a12-tag2-88-verkauft.mp3",
+      "script": "verkauft",
+      "translationVi": "đã bán (Partizip II của verkaufen – đi với haben)",
+      "perfectConjugation": [
+        {
+          "person": "ich",
+          "form": "habe verkauft",
+          "filename": "a12-tag2-88-ich-habe-verkauft.mp3"
+        },
+        {
+          "person": "du",
+          "form": "hast verkauft",
+          "filename": "a12-tag2-88-du-hast-verkauft.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "hat verkauft",
+          "filename": "a12-tag2-88-er-hat-verkauft.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "haben verkauft",
+          "filename": "a12-tag2-88-wir-haben-verkauft.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "habt verkauft",
+          "filename": "a12-tag2-88-ihr-habt-verkauft.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "haben verkauft",
+          "filename": "a12-tag2-88-sie-haben-verkauft.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a12-tag2-89-dort-habe-ich-arbeitskleidung-verkauft.mp3",
+      "script": "Dort habe ich Arbeitskleidung verkauft.",
+      "translationVi": "Ở đó tôi đã bán quần áo lao động."
+    },
+    {
+      "filename": "a12-tag2-90-ploetzlich.mp3",
+      "script": "plötzlich",
+      "translationVi": "đột nhiên"
+    },
+    {
+      "filename": "a12-tag2-91-die-krise.mp3",
+      "script": "die Krise",
+      "translationVi": "cuộc khủng hoảng"
+    },
+    {
+      "filename": "a12-tag2-92-fast.mp3",
+      "script": "fast",
+      "translationVi": "hầu như; gần như"
+    },
+    {
+      "filename": "a12-tag2-93-aber-ploetzlich-war-die-krise-da-und-ich-hatte-fast-keine-kunden-mehr.mp3",
+      "script": "Aber plötzlich war die Krise da und ich hatte fast keine Kunden mehr.",
+      "translationVi": "Nhưng đột nhiên khủng hoảng xảy ra và tôi gần như không còn khách hàng nữa."
+    },
+    {
+      "filename": "a12-tag2-94-jetzt-bin-ich-schon-seit-zwei-jahren-hier-in-hamburg.mp3",
+      "script": "Jetzt bin ich schon seit zwei Jahren hier in Hamburg.",
+      "translationVi": "Đến nay tôi đã ở Hamburg được hai năm."
+    },
+    {
+      "filename": "a12-tag2-95-zurzeit.mp3",
+      "script": "zurzeit",
+      "translationVi": "hiện tại; thời gian này"
+    },
+    {
+      "filename": "a12-tag2-96-der-paketdienst.mp3",
+      "script": "der Paketdienst",
+      "translationVi": "dịch vụ chuyển phát bưu kiện"
+    },
+    {
+      "filename": "a12-tag2-97-zurzeit-arbeite-ich-als-fahrer-bei-einem-paketdienst.mp3",
+      "script": "Zurzeit arbeite ich als Fahrer bei einem Paketdienst.",
+      "translationVi": "Hiện tại tôi làm tài xế cho một dịch vụ chuyển phát bưu kiện."
+    },
+    {
+      "filename": "a12-tag2-98-der-traumjob.mp3",
+      "script": "der Traumjob",
+      "translationVi": "công việc mơ ước"
+    },
+    {
+      "filename": "a12-tag2-99-das-ist-nicht-mein-traumjob.mp3",
+      "script": "Das ist nicht mein Traumjob.",
+      "translationVi": "Đó không phải là công việc mơ ước của tôi."
+    },
+    {
+      "filename": "a12-tag2-100-ich-moechte-sehr-gern-wieder-als-verkaeufer-arbeiten.mp3",
+      "script": "Ich möchte sehr gern wieder als Verkäufer arbeiten.",
+      "translationVi": "Tôi rất muốn lại làm nhân viên bán hàng."
+    },
+    {
+      "filename": "a12-tag2-101-tagsueber.mp3",
+      "script": "tagsüber",
+      "translationVi": "vào ban ngày"
+    },
+    {
+      "filename": "a12-tag2-102-ich-habe-tagsueber-immer-zeit.mp3",
+      "script": "Ich habe tagsüber immer Zeit.",
+      "translationVi": "Tôi luôn có thời gian vào ban ngày."
+    },
+    {
+      "filename": "a12-tag2-103-am-abend-gehe-ich-seit-einem-jahr-dreimal-pro-woche-in-den-deutschkurs.mp3",
+      "script": "Am Abend gehe ich seit einem Jahr dreimal pro Woche in den Deutschkurs.",
+      "translationVi": "Một năm nay, vào buổi tối tôi đi học tiếng Đức ba lần mỗi tuần."
+    },
+    {
+      "filename": "a12-tag2-104-das-hilft-ich-kann-die-leute-jetzt-schon-viel-besser-verstehen.mp3",
+      "script": "Das hilft, ich kann die Leute jetzt schon viel besser verstehen.",
+      "translationVi": "Điều đó có ích, giờ tôi đã có thể hiểu mọi người tốt hơn nhiều."
+    },
+    {
+      "filename": "a12-tag2-105-die-fremdsprache.mp3",
+      "script": "die Fremdsprache",
+      "translationVi": "ngoại ngữ"
+    },
+    {
+      "filename": "a12-tag2-106-die-sekretaerin.mp3",
+      "script": "die Sekretärin",
+      "translationVi": "nữ thư ký"
+    },
+    {
+      "filename": "a12-tag2-107-ich-heisse-mihaela-pricope-bin-einundzwanzig-jahre-alt-und-komme-aus-rumaenien.mp3",
+      "script": "Ich heiße Mihaela Pricope, bin einundzwanzig Jahre alt und komme aus Rumänien.",
+      "translationVi": "Tôi tên là Mihaela Pricope, 21 tuổi và đến từ Romania."
+    },
+    {
+      "filename": "a12-tag2-108-die-fremdsprachensekretaerin.mp3",
+      "script": "die Fremdsprachensekretärin",
+      "translationVi": "nữ thư ký ngoại ngữ"
+    },
+    {
+      "filename": "a12-tag2-109-ich-habe-eine-ausbildung-als-fremdsprachensekretaerin-gemacht.mp3",
+      "script": "Ich habe eine Ausbildung als Fremdsprachensekretärin gemacht.",
+      "translationVi": "Tôi đã học nghề thư ký ngoại ngữ."
+    },
+    {
+      "filename": "a12-tag2-110-dabei-habe-ich-sehr-gut-englisch-und-franzoesisch-gelernt.mp3",
+      "script": "Dabei habe ich sehr gut Englisch und Französisch gelernt.",
+      "translationVi": "Trong quá trình đó tôi đã học tiếng Anh và tiếng Pháp rất tốt."
+    },
+    {
+      "filename": "a12-tag2-111-aber-leider-hatte-ich-kein-deutsch.mp3",
+      "script": "Aber leider hatte ich kein Deutsch.",
+      "translationVi": "Nhưng tiếc là khi đó tôi không được học tiếng Đức."
+    },
+    {
+      "filename": "a12-tag2-112-der-intensivsprachkurs.mp3",
+      "script": "der Intensivsprachkurs",
+      "translationVi": "khóa học ngoại ngữ cấp tốc"
+    },
+    {
+      "filename": "a12-tag2-113-seit-januar-mache-ich-einen-intensivsprachkurs-montag-bis-freitag-von-neun-bis-fuenfz.mp3",
+      "script": "Seit Januar mache ich einen Intensivsprachkurs, Montag bis Freitag von neun bis fünfzehn Uhr.",
+      "translationVi": "Từ tháng Một tôi tham gia một khóa ngoại ngữ cấp tốc, từ thứ Hai đến thứ Sáu, từ chín giờ đến mười lăm giờ."
+    },
+    {
+      "filename": "a12-tag2-114-die-pharmazie.mp3",
+      "script": "die Pharmazie",
+      "translationVi": "ngành dược"
+    },
+    {
+      "filename": "a12-tag2-115-ich-moechte-naemlich-hier-an-der-universitaet-in-hamburg-pharmazie-studieren.mp3",
+      "script": "Ich möchte nämlich hier an der Universität in Hamburg Pharmazie studieren.",
+      "translationVi": "Vì tôi muốn học ngành dược tại trường đại học ở Hamburg."
+    },
+    {
+      "filename": "a12-tag2-116-zurzeit-suche-ich-einen-job-am-nachmittag-oder-am-abend.mp3",
+      "script": "Zurzeit suche ich einen Job am Nachmittag oder am Abend.",
+      "translationVi": "Hiện tại tôi đang tìm một công việc vào buổi chiều hoặc buổi tối."
+    },
+    {
+      "filename": "a12-tag2-117-er-hat-arbeitskleidung-verkauft.mp3",
+      "script": "Er hat Arbeitskleidung verkauft.",
+      "translationVi": "Anh ấy đã bán quần áo lao động."
+    },
+    {
+      "filename": "a12-tag2-118-er-arbeitet-als-fahrer-bei-einem-paketdienst.mp3",
+      "script": "Er arbeitet als Fahrer bei einem Paketdienst.",
+      "translationVi": "Anh ấy làm tài xế cho một dịch vụ chuyển phát bưu kiện."
+    },
+    {
+      "filename": "a12-tag2-119-er-kann-tagsueber-arbeiten.mp3",
+      "script": "Er kann tagsüber arbeiten.",
+      "translationVi": "Anh ấy có thể làm việc vào ban ngày."
+    },
+    {
+      "filename": "a12-tag2-120-sie-hat-eine-ausbildung-als-fremdsprachensekretaerin-gemacht.mp3",
+      "script": "Sie hat eine Ausbildung als Fremdsprachensekretärin gemacht.",
+      "translationVi": "Cô ấy đã học nghề thư ký ngoại ngữ."
+    },
+    {
+      "filename": "a12-tag2-121-sie-macht-einen-intensivsprachkurs.mp3",
+      "script": "Sie macht einen Intensivsprachkurs.",
+      "translationVi": "Cô ấy tham gia một khóa ngoại ngữ cấp tốc."
+    },
+    {
+      "filename": "a12-tag2-122-sie-kann-am-nachmittag-oder-am-abend-arbeiten.mp3",
+      "script": "Sie kann am Nachmittag oder am Abend arbeiten.",
+      "translationVi": "Cô ấy có thể làm việc vào buổi chiều hoặc buổi tối."
+    }
+  ]
 }

@@ -5,257 +5,476 @@
       "script": "sein",
       "translationVi": "đã là; đã ở (Präteritum)",
       "praeteritumConjugation": [
-        { "person": "ich", "form": "war", "filename": "a12-tag1-01-ich-war.mp3" },
-        { "person": "du", "form": "warst", "filename": "a12-tag1-01-du-warst.mp3" },
-        { "person": "er/sie/es", "form": "war", "filename": "a12-tag1-01-er-war.mp3" },
-        { "person": "wir", "form": "waren", "filename": "a12-tag1-01-wir-waren.mp3" },
-        { "person": "ihr", "form": "wart", "filename": "a12-tag1-01-ihr-wart.mp3" },
-        { "person": "sie/Sie", "form": "waren", "filename": "a12-tag1-01-sie-waren.mp3" }
+        {
+          "person": "ich",
+          "form": "war",
+          "filename": "a12-tag1-01-ich-war.mp3"
+        },
+        {
+          "person": "du",
+          "form": "warst",
+          "filename": "a12-tag1-01-du-warst.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "war",
+          "filename": "a12-tag1-01-er-war.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "waren",
+          "filename": "a12-tag1-01-wir-waren.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "wart",
+          "filename": "a12-tag1-01-ihr-wart.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "waren",
+          "filename": "a12-tag1-01-sie-waren.mp3"
+        }
       ]
     },
     {
-      "filename": "a12-tag1-09-ich-war-in-berlin.mp3",
+      "filename": "a12-tag1-02-ich-war-in-berlin.mp3",
       "script": "Ich war in Berlin.",
       "translationVi": "Tôi đã ở Berlin."
     },
     {
-      "filename": "a12-tag1-t02-haben.mp3",
+      "filename": "a12-tag1-03-ich-habe-zehn-euro.mp3",
+      "script": "Ich habe zehn Euro.",
+      "translationVi": "Tôi (đang) có 10 euro."
+    },
+    {
+      "filename": "a12-tag1-04-ich-habe-zehn-euro-gehabt.mp3",
+      "script": "Ich habe zehn Euro gehabt.",
+      "translationVi": "Tôi đã có 10 euro."
+    },
+    {
+      "filename": "a12-tag1-05-haben.mp3",
       "script": "haben",
       "translationVi": "đã có (Präteritum)",
       "praeteritumConjugation": [
-        { "person": "ich", "form": "hatte", "filename": "a12-tag1-t02-ich-hatte.mp3" },
-        { "person": "du", "form": "hattest", "filename": "a12-tag1-t02-du-hattest.mp3" },
-        { "person": "er/sie/es", "form": "hatte", "filename": "a12-tag1-t02-er-hatte.mp3" },
-        { "person": "wir", "form": "hatten", "filename": "a12-tag1-t02-wir-hatten.mp3" },
-        { "person": "ihr", "form": "hattet", "filename": "a12-tag1-t02-ihr-hattet.mp3" },
-        { "person": "sie/Sie", "form": "hatten", "filename": "a12-tag1-t02-sie-hatten.mp3" }
+        {
+          "person": "ich",
+          "form": "hatte",
+          "filename": "a12-tag1-05-ich-hatte.mp3"
+        },
+        {
+          "person": "du",
+          "form": "hattest",
+          "filename": "a12-tag1-05-du-hattest.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "hatte",
+          "filename": "a12-tag1-05-er-hatte.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "hatten",
+          "filename": "a12-tag1-05-wir-hatten.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "hattet",
+          "filename": "a12-tag1-05-ihr-hattet.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "hatten",
+          "filename": "a12-tag1-05-sie-hatten.mp3"
+        }
       ]
     },
     {
-      "filename": "a12-tag1-10-ich-hatte-10euro.mp3",
+      "filename": "a12-tag1-06-ich-hatte-zehn-euro.mp3",
       "script": "Ich hatte zehn Euro.",
       "translationVi": "Tôi đã có 10 euro."
     },
     {
-      "filename": "a12-tag1-11-wo-war-sie.mp3",
+      "filename": "a12-tag1-07-wo-ist-sie.mp3",
+      "script": "Wo ist sie?",
+      "translationVi": "Cô ấy đang ở đâu?"
+    },
+    {
+      "filename": "a12-tag1-08-wo-war-sie.mp3",
       "script": "Wo war sie?",
       "translationVi": "Cô ấy đã ở đâu?"
     },
     {
-      "filename": "a12-tag1-12-wo-warst-du.mp3",
+      "filename": "a12-tag1-09-wo-warst-du.mp3",
       "script": "Wo warst du?",
       "translationVi": "Bạn đã ở đâu đấy?"
     },
     {
-      "filename": "a12-tag1-13-gestern-war-ich-zu-hause.mp3",
+      "filename": "a12-tag1-10-gestern-war-ich-zu-hause.mp3",
       "script": "Gestern war ich zu Hause.",
       "translationVi": "Hôm qua tôi ở nhà."
     },
     {
-      "filename": "a12-tag1-14-letzten-monat.mp3",
+      "filename": "a12-tag1-11-letzten-monat.mp3",
       "script": "letzten Monat",
       "translationVi": "tháng trước"
     },
     {
-      "filename": "a12-tag1-16-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
-      "script": "Letzten Monat hatte ich in Berlin eine Arbeit.",
-      "translationVi": "Tháng trước tôi đã có một công việc ở Berlin."
+      "filename": "a12-tag1-12-eine-arbeit.mp3",
+      "script": "eine Arbeit",
+      "translationVi": "một công việc"
     },
     {
-      "filename": "a12-tag1-18-seit.mp3",
+      "filename": "a12-tag1-13-letzten-monat-hatte-ich-in-berlin-eine-arbeit.mp3",
+      "script": "Letzten Monat hatte ich in Berlin eine Arbeit.",
+      "translationVi": "Tháng trước tôi (đã) có một công việc ở Berlin."
+    },
+    {
+      "filename": "a12-tag1-14-ich-hatte-letzten-monat-in-berlin-eine-arbeit.mp3",
+      "script": "Ich hatte letzten Monat in Berlin eine Arbeit.",
+      "translationVi": "Tháng trước tôi (đã) có một công việc ở Berlin."
+    },
+    {
+      "filename": "a12-tag1-15-seit.mp3",
       "script": "seit",
       "translationVi": "kể từ … đến nay"
     },
     {
-      "filename": "a12-tag1-19-seit-einem-monat.mp3",
+      "filename": "a12-tag1-16-seit-einem-monat.mp3",
       "script": "seit einem Monat",
       "translationVi": "kể từ một tháng nay"
     },
     {
-      "filename": "a12-tag1-20-seit-einer-woche.mp3",
+      "filename": "a12-tag1-17-seit-einer-woche.mp3",
       "script": "seit einer Woche",
       "translationVi": "kể từ một tuần nay"
     },
     {
-      "filename": "a12-tag1-21-seit-zwei-jahren.mp3",
+      "filename": "a12-tag1-18-seit-zwei-jahren.mp3",
       "script": "seit zwei Jahren",
       "translationVi": "kể từ hai năm nay"
     },
     {
-      "filename": "a12-tag1-22-ich-lebe-seit-einem-monat-in-deutschland.mp3",
+      "filename": "a12-tag1-19-ich-lebe-seit-einem-monat-in-deutschland.mp3",
       "script": "Ich lebe seit einem Monat in Deutschland.",
-      "translationVi": "Tôi sống ở Đức được một tháng nay."
+      "translationVi": "Tôi sống ở Đức kể từ một tháng nay."
     },
     {
-      "filename": "a12-tag1-24-vor-einem-monat.mp3",
+      "filename": "a12-tag1-20-vor-einem-monat.mp3",
       "script": "vor einem Monat",
       "translationVi": "một tháng trước"
     },
     {
-      "filename": "a12-tag1-25-vor-einer-woche.mp3",
+      "filename": "a12-tag1-21-vor-einer-woche.mp3",
       "script": "vor einer Woche",
       "translationVi": "một tuần trước"
     },
     {
-      "filename": "a12-tag1-26-vor-zwei-jahren.mp3",
+      "filename": "a12-tag1-22-vor-zwei-jahren.mp3",
       "script": "vor zwei Jahren",
       "translationVi": "hai năm trước"
     },
     {
-      "filename": "a12-tag1-27-vor-einem-monat-habe-ich-in-deutschland-gelebt.mp3",
+      "filename": "a12-tag1-23-vor-einem-monat-habe-ich-in-deutschland-gelebt.mp3",
       "script": "Vor einem Monat habe ich in Deutschland gelebt.",
       "translationVi": "Một tháng trước tôi đã sống ở Đức."
     },
     {
-      "filename": "a12-tag1-29-in-einem-monat.mp3",
+      "filename": "a12-tag1-24-in.mp3",
+      "script": "in",
+      "translationVi": "trong / trong vòng; nữa (chỉ thời gian)"
+    },
+    {
+      "filename": "a12-tag1-25-in-einem-monat.mp3",
       "script": "in einem Monat",
-      "translationVi": "một tháng nữa"
+      "translationVi": "trong vòng một tháng nữa"
     },
     {
-      "filename": "a12-tag1-30-in-einer-woche.mp3",
+      "filename": "a12-tag1-26-in-einer-woche.mp3",
       "script": "in einer Woche",
-      "translationVi": "một tuần nữa"
+      "translationVi": "trong vòng một tuần nữa"
     },
     {
-      "filename": "a12-tag1-31-in-zwei-jahren.mp3",
+      "filename": "a12-tag1-27-in-zwei-jahren.mp3",
       "script": "in zwei Jahren",
-      "translationVi": "hai năm nữa"
+      "translationVi": "trong vòng hai năm nữa"
     },
     {
-      "filename": "a12-tag1-32-in-10-minuten-bin-ich-fertig.mp3",
-      "script": "In 10 Minuten bin ich fertig.",
-      "translationVi": "Mười phút nữa là tôi xong."
+      "filename": "a12-tag1-28-in-zehn-minuten-bin-ich-fertig.mp3",
+      "script": "In zehn Minuten bin ich fertig.",
+      "translationVi": "Trong vòng 10 phút là tôi xong."
     },
     {
-      "filename": "a12-tag1-33-in-einem-monat-fliege-ich-nach-deutschland.mp3",
+      "filename": "a12-tag1-29-in-einem-monat-fliege-ich-nach-deutschland.mp3",
       "script": "In einem Monat fliege ich nach Deutschland.",
-      "translationVi": "Một tháng nữa tôi bay sang Đức."
+      "translationVi": "Một tháng nữa tôi bay qua Đức."
     },
     {
-      "filename": "a12-tag1-35-fuer-einen-monat.mp3",
+      "filename": "a12-tag1-30-fuer.mp3",
+      "script": "für",
+      "translationVi": "cho (chỉ khoảng thời gian trong tương lai)"
+    },
+    {
+      "filename": "a12-tag1-31-fuer-einen-monat.mp3",
       "script": "für einen Monat",
-      "translationVi": "trong thời gian một tháng"
+      "translationVi": "(cho) một tháng"
     },
     {
-      "filename": "a12-tag1-36-fuer-ein-jahr.mp3",
+      "filename": "a12-tag1-32-fuer-ein-jahr.mp3",
       "script": "für ein Jahr",
-      "translationVi": "trong thời gian một năm"
+      "translationVi": "(cho) một năm"
     },
     {
-      "filename": "a12-tag1-37-fuer-eine-woche.mp3",
+      "filename": "a12-tag1-33-fuer-eine-woche.mp3",
       "script": "für eine Woche",
-      "translationVi": "trong thời gian một tuần"
+      "translationVi": "(cho) một tuần"
     },
     {
-      "filename": "a12-tag1-38-fuer-zwei-jahre.mp3",
+      "filename": "a12-tag1-34-fuer-zwei-jahre.mp3",
       "script": "für zwei Jahre",
-      "translationVi": "trong thời gian hai năm"
+      "translationVi": "(cho) hai năm"
     },
     {
-      "filename": "a12-tag1-39-in-einem-monat-fliege-ich-fuer-einen-monat-nach-vietnam.mp3",
+      "filename": "a12-tag1-35-in-einem-monat-fliege-ich-fuer-einen-monat-nach-vietnam.mp3",
       "script": "In einem Monat fliege ich für einen Monat nach Vietnam.",
-      "translationVi": "Một tháng nữa tôi bay về Việt Nam trong một tháng."
+      "translationVi": "Trong vòng một tháng nữa tôi bay về Việt Nam (cho) một tháng."
     },
     {
-      "filename": "a12-tag1-40-seit-wann-lebst-du-in-deutschland.mp3",
+      "filename": "a12-tag1-36-seit-wann-lebst-du-in-deutschland.mp3",
       "script": "Seit wann lebst du in Deutschland?",
       "translationVi": "Bạn sống ở Đức từ khi nào?"
     },
     {
-      "filename": "a12-tag1-41-ich-lebe-seit-zwei-jahren-in-deutschland.mp3",
+      "filename": "a12-tag1-37-ich-lebe-seit-zwei-jahren-in-deutschland.mp3",
       "script": "Ich lebe seit zwei Jahren in Deutschland.",
-      "translationVi": "Tôi sống ở Đức được hai năm nay."
+      "translationVi": "Tôi sống ở Đức kể từ hai năm nay."
     },
     {
-      "filename": "a12-tag1-42-frueher.mp3",
+      "filename": "a12-tag1-38-frueher.mp3",
       "script": "früher",
       "translationVi": "ngày xưa; trước đây"
     },
     {
-      "filename": "a12-tag1-45-vor-einem-jahr-habe-ich-in-einem-cafe-gearbeitet.mp3",
+      "filename": "a12-tag1-39-vorlesen.mp3",
+      "script": "vorlesen",
+      "translationVi": "đọc to",
+      "conjugation": [
+        {
+          "person": "ich",
+          "form": "lese vor",
+          "filename": "a12-tag1-39-ich-lese-vor.mp3"
+        },
+        {
+          "person": "du",
+          "form": "liest vor",
+          "filename": "a12-tag1-39-du-liest-vor.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "liest vor",
+          "filename": "a12-tag1-39-er-liest-vor.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "lesen vor",
+          "filename": "a12-tag1-39-wir-lesen-vor.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "lest vor",
+          "filename": "a12-tag1-39-ihr-lest-vor.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "lesen vor",
+          "filename": "a12-tag1-39-sie-lesen-vor.mp3"
+        }
+      ]
+    },
+    {
+      "filename": "a12-tag1-40-vor-einem-jahr-habe-ich-in-einem-caf-gearbeitet.mp3",
       "script": "Vor einem Jahr habe ich in einem Café gearbeitet.",
       "translationVi": "Một năm trước tôi đã làm việc ở một quán cà phê."
     },
     {
-      "filename": "a12-tag1-47-oft.mp3",
+      "filename": "a12-tag1-41-richtig.mp3",
+      "script": "richtig",
+      "translationVi": "đúng; thật sự"
+    },
+    {
+      "filename": "a12-tag1-42-oft.mp3",
       "script": "oft",
       "translationVi": "thường xuyên"
     },
     {
-      "filename": "a12-tag1-48-ich-hatte-richtig-viel-arbeit-und-oft-stress.mp3",
+      "filename": "a12-tag1-43-ich-hatte-richtig-viel-arbeit-und-oft-stress.mp3",
       "script": "Ich hatte richtig viel Arbeit und oft Stress.",
-      "translationVi": "Tôi đã có rất nhiều việc và thường xuyên bị căng thẳng."
+      "translationVi": "Tôi đã có thật sự nhiều việc và thường xuyên bị căng thẳng."
     },
     {
-      "filename": "a12-tag1-49-immer.mp3",
+      "filename": "a12-tag1-44-immer.mp3",
       "script": "immer",
       "translationVi": "luôn luôn"
     },
     {
-      "filename": "a12-tag1-50-nie.mp3",
+      "filename": "a12-tag1-45-nie.mp3",
       "script": "nie",
       "translationVi": "không bao giờ"
     },
     {
-      "filename": "a12-tag1-53-mein-chef-war-gar-nicht-nett.mp3",
+      "filename": "a12-tag1-46-der-chef.mp3",
+      "script": "der Chef",
+      "translationVi": "ông sếp"
+    },
+    {
+      "filename": "a12-tag1-47-nett.mp3",
+      "script": "nett",
+      "translationVi": "tốt bụng"
+    },
+    {
+      "filename": "a12-tag1-48-mein-chef-war-gar-nicht-nett.mp3",
       "script": "Mein Chef war gar nicht nett.",
-      "translationVi": "Sếp của tôi trước đây chẳng tốt bụng chút nào."
+      "translationVi": "Sếp của tôi đã chẳng tốt bụng chút nào."
     },
     {
-      "filename": "a12-tag1-55-mein-deutsch-war-schlecht.mp3",
+      "filename": "a12-tag1-49-schlecht.mp3",
+      "script": "schlecht",
+      "translationVi": "tệ; kém"
+    },
+    {
+      "filename": "a12-tag1-50-mein-deutsch-war-schlecht.mp3",
       "script": "Mein Deutsch war schlecht.",
-      "translationVi": "Tiếng Đức của tôi trước đây rất kém."
+      "translationVi": "Tiếng Đức của tôi đã rất kém."
     },
     {
-      "filename": "a12-tag1-59-manchmal.mp3",
+      "filename": "a12-tag1-51-manchmal.mp3",
       "script": "manchmal",
       "translationVi": "thỉnh thoảng"
     },
     {
-      "filename": "a12-tag1-k01-verstanden.mp3",
+      "filename": "a12-tag1-52-die-kunden.mp3",
+      "script": "die Kunden",
+      "translationVi": "các khách hàng (nam + nữ)"
+    },
+    {
+      "filename": "a12-tag1-53-verstanden.mp3",
       "script": "verstanden",
-      "translationVi": "đã hiểu (Partizip II của verstehen)",
+      "translationVi": "đã hiểu (Partizip II của verstehen – đi với haben)",
       "perfectConjugation": [
-        { "person": "ich", "form": "habe verstanden", "filename": "a12-tag1-k01-ich-habe-verstanden.mp3" },
-        { "person": "du", "form": "hast verstanden", "filename": "a12-tag1-k01-du-hast-verstanden.mp3" },
-        { "person": "er/sie/es", "form": "hat verstanden", "filename": "a12-tag1-k01-er-hat-verstanden.mp3" },
-        { "person": "wir", "form": "haben verstanden", "filename": "a12-tag1-k01-wir-haben-verstanden.mp3" },
-        { "person": "ihr", "form": "habt verstanden", "filename": "a12-tag1-k01-ihr-habt-verstanden.mp3" },
-        { "person": "sie/Sie", "form": "haben verstanden", "filename": "a12-tag1-k01-sie-haben-verstanden.mp3" }
+        {
+          "person": "ich",
+          "form": "habe verstanden",
+          "filename": "a12-tag1-53-ich-habe-verstanden.mp3"
+        },
+        {
+          "person": "du",
+          "form": "hast verstanden",
+          "filename": "a12-tag1-53-du-hast-verstanden.mp3"
+        },
+        {
+          "person": "er/sie/es",
+          "form": "hat verstanden",
+          "filename": "a12-tag1-53-er-hat-verstanden.mp3"
+        },
+        {
+          "person": "wir",
+          "form": "haben verstanden",
+          "filename": "a12-tag1-53-wir-haben-verstanden.mp3"
+        },
+        {
+          "person": "ihr",
+          "form": "habt verstanden",
+          "filename": "a12-tag1-53-ihr-habt-verstanden.mp3"
+        },
+        {
+          "person": "sie/Sie",
+          "form": "haben verstanden",
+          "filename": "a12-tag1-53-sie-haben-verstanden.mp3"
+        }
       ]
     },
     {
-      "filename": "a12-tag1-61-ich-habe-die-kunden-manchmal-nicht-verstanden.mp3",
+      "filename": "a12-tag1-54-ich-habe-die-kunden-manchmal-nicht-verstanden.mp3",
       "script": "Ich habe die Kunden manchmal nicht verstanden.",
-      "translationVi": "Thỉnh thoảng tôi đã không hiểu khách hàng nói gì."
+      "translationVi": "Thỉnh thoảng tôi đã không hiểu khách hàng."
     },
     {
-      "filename": "a12-tag1-65-ich-glaube-ich-war-keine-gute-kellnerin.mp3",
+      "filename": "a12-tag1-55-die-kellnerin.mp3",
+      "script": "die Kellnerin",
+      "translationVi": "cô bồi bàn"
+    },
+    {
+      "filename": "a12-tag1-56-ich-glaube-ich-war-keine-gute-kellnerin.mp3",
       "script": "Ich glaube, ich war keine gute Kellnerin.",
-      "translationVi": "Tôi nghĩ trước đây tôi không phải là một nhân viên phục vụ bàn giỏi."
+      "translationVi": "Tôi nghĩ là tôi đã không phải là một cô bồi bàn giỏi."
     },
     {
-      "filename": "a12-tag1-70-toll.mp3",
+      "filename": "a12-tag1-57-das-restaurant.mp3",
+      "script": "das Restaurant",
+      "translationVi": "nhà hàng"
+    },
+    {
+      "filename": "a12-tag1-58-heute-arbeite-ich-in-einem-restaurant.mp3",
+      "script": "Heute arbeite ich in einem Restaurant.",
+      "translationVi": "Ngày nay tôi làm việc ở một nhà hàng."
+    },
+    {
+      "filename": "a12-tag1-59-ich-habe-nicht-so-viel-arbeit.mp3",
+      "script": "Ich habe nicht so viel Arbeit.",
+      "translationVi": "Tôi không có nhiều việc như vậy."
+    },
+    {
+      "filename": "a12-tag1-60-toll.mp3",
       "script": "toll",
       "translationVi": "tuyệt vời"
     },
     {
-      "filename": "a12-tag1-71-und-meine-chefin-ist-toll.mp3",
+      "filename": "a12-tag1-61-und-meine-chefin-ist-toll.mp3",
       "script": "Und meine Chefin ist toll!",
-      "translationVi": "Và sếp nữ của tôi rất tuyệt vời!"
+      "translationVi": "Và bà sếp của tôi thì tuyệt vời!"
     },
     {
-      "filename": "a12-tag1-78-nicht-so-viel-arbeit.mp3",
+      "filename": "a12-tag1-62-mein-deutsch-ist-jetzt-sehr-gut.mp3",
+      "script": "Mein Deutsch ist jetzt sehr gut.",
+      "translationVi": "Tiếng Đức của tôi bây giờ rất tốt."
+    },
+    {
+      "filename": "a12-tag1-63-heute-bin-ich-eine-super-kellnerin.mp3",
+      "script": "Heute bin ich eine super Kellnerin.",
+      "translationVi": "Ngày nay tôi là một cô bồi bàn siêu giỏi."
+    },
+    {
+      "filename": "a12-tag1-64-ergaenzen.mp3",
+      "script": "ergänzen",
+      "translationVi": "điền (vào bảng); bổ sung"
+    },
+    {
+      "filename": "a12-tag1-65-viel-arbeit.mp3",
+      "script": "viel Arbeit",
+      "translationVi": "nhiều việc"
+    },
+    {
+      "filename": "a12-tag1-66-nicht-so-viel-arbeit.mp3",
       "script": "nicht so viel Arbeit",
-      "translationVi": "không có nhiều việc như vậy"
+      "translationVi": "không nhiều việc như vậy"
     },
     {
-      "filename": "a12-tag1-82-ich-werde-curry-kochen.mp3",
+      "filename": "a12-tag1-67-nicht-nett.mp3",
+      "script": "nicht nett",
+      "translationVi": "không tốt bụng"
+    },
+    {
+      "filename": "a12-tag1-68-sehr-gut.mp3",
+      "script": "sehr gut",
+      "translationVi": "rất tốt"
+    },
+    {
+      "filename": "a12-tag1-69-ich-werde-curry-kochen.mp3",
       "script": "Ich werde Curry kochen.",
       "translationVi": "Tôi sẽ nấu cà ri."
     },
     {
-      "filename": "a12-tag1-83-was-moechtest-du-werden.mp3",
+      "filename": "a12-tag1-70-was-moechtest-du-werden.mp3",
       "script": "Was möchtest du werden?",
       "translationVi": "Bạn muốn trở thành gì?"
     }
