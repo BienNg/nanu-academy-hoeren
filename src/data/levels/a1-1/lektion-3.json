@@ -85,8 +85,11 @@
       "translationVi": "hỏi",
       "conjugation": [
         { "person": "ich", "form": "frage", "filename": "a11-tag3-50-ich-frage.mp3" },
+        { "person": "du", "form": "fragst", "filename": "a11-tag3-60-du-fragst.mp3" },
         { "person": "er/sie/es", "form": "fragt", "filename": "a11-tag3-51-er-fragt.mp3" },
-        { "person": "wir", "form": "fragen", "filename": "a11-tag3-52-wir-fragen.mp3" }
+        { "person": "wir", "form": "fragen", "filename": "a11-tag3-52-wir-fragen.mp3" },
+        { "person": "ihr", "form": "fragt", "filename": "a11-tag3-64-ihr-fragt.mp3" },
+        { "person": "sie/Sie", "form": "fragen", "filename": "a11-tag3-68-sie-Sie-fragen.mp3" }
       ]
     },
 
@@ -95,9 +98,12 @@
       "script": "hören",
       "translationVi": "nghe",
       "conjugation": [
+        { "person": "ich", "form": "höre", "filename": "a11-tag3-70-ich-hoere.mp3" },
         { "person": "du", "form": "hörst", "filename": "a11-tag3-54-du-hoerst.mp3" },
         { "person": "er/sie/es", "form": "hört", "filename": "a11-tag3-55-sie-hoert.mp3" },
-        { "person": "ihr", "form": "hört", "filename": "a11-tag3-56-ihr-hoert.mp3" }
+        { "person": "wir", "form": "hören", "filename": "a11-tag3-74-wir-hoeren.mp3" },
+        { "person": "ihr", "form": "hört", "filename": "a11-tag3-56-ihr-hoert.mp3" },
+        { "person": "sie/Sie", "form": "hören", "filename": "a11-tag3-80-sie-Sie-hoeren.mp3" }
       ]
     },
 
@@ -107,7 +113,11 @@
       "translationVi": "lặp lại",
       "conjugation": [
         { "person": "ich", "form": "wiederhole", "filename": "a11-tag3-58-ich-wiederhole.mp3" },
-        { "person": "er/sie/es", "form": "wiederholt", "filename": "a11-tag3-59-er-wiederholt.mp3" }
+        { "person": "du", "form": "wiederholst", "filename": "a11-tag3-82-du-wiederholst.mp3" },
+        { "person": "er/sie/es", "form": "wiederholt", "filename": "a11-tag3-59-er-wiederholt.mp3" },
+        { "person": "wir", "form": "wiederholen", "filename": "a11-tag3-88-wir-wiederholen.mp3" },
+        { "person": "ihr", "form": "wiederholt", "filename": "a11-tag3-90-ihr-wiederholt.mp3" },
+        { "person": "sie/Sie", "form": "wiederholen", "filename": "a11-tag3-95-sie-Sie-wiederholen.mp3" }
       ]
     },
 
@@ -117,7 +127,11 @@
       "translationVi": "nói (ngôn ngữ...)",
       "conjugation": [
         { "person": "ich", "form": "spreche", "filename": "a11-tag3-62-ich-spreche.mp3" },
-        { "person": "du", "form": "sprichst", "filename": "a11-tag3-63-du-sprichst.mp3" }
+        { "person": "du", "form": "sprichst", "filename": "a11-tag3-63-du-sprichst.mp3" },
+        { "person": "er/sie/es", "form": "spricht", "filename": "a11-tag3-96-er-spricht.mp3" },
+        { "person": "wir", "form": "sprechen", "filename": "a11-tag3-102-wir-sprechen.mp3" },
+        { "person": "ihr", "form": "sprecht", "filename": "a11-tag3-103-ihr-sprecht.mp3" },
+        { "person": "sie/Sie", "form": "sprechen", "filename": "a11-tag3-104-sie-Sie-sprechen.mp3" }
       ]
     },
 
@@ -126,8 +140,12 @@
       "script": "sagen",
       "translationVi": "nói (= say)",
       "conjugation": [
+        { "person": "ich", "form": "sage", "filename": "a11-tag3-106-ich-sage.mp3" },
+        { "person": "du", "form": "sagst", "filename": "a11-tag3-107-du-sagst.mp3" },
         { "person": "er/sie/es", "form": "sagt", "filename": "a11-tag3-66-er-sagt.mp3" },
-        { "person": "wir", "form": "sagen", "filename": "a11-tag3-67-wir-sagen.mp3" }
+        { "person": "wir", "form": "sagen", "filename": "a11-tag3-67-wir-sagen.mp3" },
+        { "person": "ihr", "form": "sagt", "filename": "a11-tag3-108-ihr-sagt.mp3" },
+        { "person": "sie/Sie", "form": "sagen", "filename": "a11-tag3-168-sie-Sie-sagen.mp3" }
       ]
     },
 
@@ -136,7 +154,11 @@
       "script": "kaufen",
       "translationVi": "mua",
       "conjugation": [
+        { "person": "ich", "form": "kaufe", "filename": "a11-tag3-169-ich-kaufe.mp3" },
         { "person": "du", "form": "kaufst", "filename": "a11-tag3-71-du-kaufst.mp3" },
+        { "person": "er/sie/es", "form": "kauft", "filename": "a11-tag3-170-er-kauft.mp3" },
+        { "person": "wir", "form": "kaufen", "filename": "a11-tag3-171-wir-kaufen.mp3" },
+        { "person": "ihr", "form": "kauft", "filename": "a11-tag3-172-ihr-kauft.mp3" },
         { "person": "sie/Sie", "form": "kaufen", "filename": "a11-tag3-72-sie-Sie-kaufen.mp3" }
       ]
     },
@@ -146,8 +168,12 @@
       "script": "verkaufen",
       "translationVi": "bán",
       "conjugation": [
+        { "person": "ich", "form": "verkaufe", "filename": "a11-tag3-173-ich-verkaufe.mp3" },
+        { "person": "du", "form": "verkaufst", "filename": "a11-tag3-174-du-verkaufst.mp3" },
+        { "person": "er/sie/es", "form": "verkauft", "filename": "a11-tag3-175-er-verkauft.mp3" },
         { "person": "wir", "form": "verkaufen", "filename": "a11-tag3-75-wir-verkaufen.mp3" },
-        { "person": "ihr", "form": "verkauft", "filename": "a11-tag3-76-ihr-verkauft.mp3" }
+        { "person": "ihr", "form": "verkauft", "filename": "a11-tag3-76-ihr-verkauft.mp3" },
+        { "person": "sie/Sie", "form": "verkaufen", "filename": "a11-tag3-176-sie-Sie-verkaufen.mp3" }
       ]
     },
 
@@ -157,7 +183,11 @@
       "translationVi": "hiểu",
       "conjugation": [
         { "person": "ich", "form": "verstehe", "filename": "a11-tag3-78-ich-verstehe.mp3" },
-        { "person": "du", "form": "verstehst", "filename": "a11-tag3-79-du-verstehst.mp3" }
+        { "person": "du", "form": "verstehst", "filename": "a11-tag3-79-du-verstehst.mp3" },
+        { "person": "er/sie/es", "form": "versteht", "filename": "a11-tag3-177-er-versteht.mp3" },
+        { "person": "wir", "form": "verstehen", "filename": "a11-tag3-178-wir-verstehen.mp3" },
+        { "person": "ihr", "form": "versteht", "filename": "a11-tag3-179-ihr-versteht.mp3" },
+        { "person": "sie/Sie", "form": "verstehen", "filename": "a11-tag3-181-sie-Sie-verstehen.mp3" }
       ]
     },
 
@@ -166,8 +196,12 @@
       "script": "brauchen",
       "translationVi": "cần",
       "conjugation": [
+        { "person": "ich", "form": "brauche", "filename": "a11-tag3-182-ich-brauche.mp3" },
+        { "person": "du", "form": "brauchst", "filename": "a11-tag3-183-du-brauchst.mp3" },
+        { "person": "er/sie/es", "form": "braucht", "filename": "a11-tag3-184-er-braucht.mp3" },
         { "person": "wir", "form": "brauchen", "filename": "a11-tag3-83-wir-brauchen.mp3" },
-        { "person": "ihr", "form": "braucht", "filename": "a11-tag3-84-ihr-braucht.mp3" }
+        { "person": "ihr", "form": "braucht", "filename": "a11-tag3-84-ihr-braucht.mp3" },
+        { "person": "sie/Sie", "form": "brauchen", "filename": "a11-tag3-185-sie-Sie-brauchen.mp3" }
       ]
     },
 
@@ -177,7 +211,11 @@
       "translationVi": "sống / ở",
       "conjugation": [
         { "person": "ich", "form": "wohne", "filename": "a11-tag3-86-ich-wohne.mp3" },
-        { "person": "er/sie/es", "form": "wohnt", "filename": "a11-tag3-87-er-wohnt.mp3" }
+        { "person": "du", "form": "wohnst", "filename": "a11-tag3-186-du-wohnst.mp3" },
+        { "person": "er/sie/es", "form": "wohnt", "filename": "a11-tag3-87-er-wohnt.mp3" },
+        { "person": "wir", "form": "wohnen", "filename": "a11-tag3-187-wir-wohnen.mp3" },
+        { "person": "ihr", "form": "wohnt", "filename": "a11-tag3-188-ihr-wohnt.mp3" },
+        { "person": "sie/Sie", "form": "wohnen", "filename": "a11-tag3-189-sie-Sie-wohnen.mp3" }
       ]
     },
 
@@ -186,8 +224,12 @@
       "script": "leben",
       "translationVi": "sống",
       "conjugation": [
+        { "person": "ich", "form": "lebe", "filename": "a11-tag3-190-ich-lebe.mp3" },
+        { "person": "du", "form": "lebst", "filename": "a11-tag3-191-du-lebst.mp3" },
+        { "person": "er/sie/es", "form": "lebt", "filename": "a11-tag3-192-er-lebt.mp3" },
         { "person": "wir", "form": "leben", "filename": "a11-tag3-91-wir-leben.mp3" },
-        { "person": "ihr", "form": "lebt", "filename": "a11-tag3-92-ihr-lebt.mp3" }
+        { "person": "ihr", "form": "lebt", "filename": "a11-tag3-92-ihr-lebt.mp3" },
+        { "person": "sie/Sie", "form": "leben", "filename": "a11-tag3-193-sie-Sie-leben.mp3" }
       ]
     },
 
@@ -196,7 +238,12 @@
       "script": "lesen",
       "translationVi": "đọc (sách...)",
       "conjugation": [
-        { "person": "ich", "form": "lese", "filename": "a11-tag3-94-ich-lese.mp3" }
+        { "person": "ich", "form": "lese", "filename": "a11-tag3-94-ich-lese.mp3" },
+        { "person": "du", "form": "liest", "filename": "a11-tag3-194-du-liest.mp3" },
+        { "person": "er/sie/es", "form": "liest", "filename": "a11-tag3-195-er-liest.mp3" },
+        { "person": "wir", "form": "lesen", "filename": "a11-tag3-196-wir-lesen.mp3" },
+        { "person": "ihr", "form": "lest", "filename": "a11-tag3-197-ihr-lest.mp3" },
+        { "person": "sie/Sie", "form": "lesen", "filename": "a11-tag3-198-sie-Sie-lesen.mp3" }
       ]
     },
 
@@ -206,21 +253,40 @@
       "translationVi": "biết",
       "conjugation": [
         { "person": "ich", "form": "weiß", "filename": "a11-tag3-98-ich-weiss.mp3" },
+        { "person": "du", "form": "weißt", "filename": "a11-tag3-199-du-weisst.mp3" },
         { "person": "er/sie/es", "form": "weiß", "filename": "a11-tag3-99-er-weiss.mp3" },
-        { "person": "wir", "form": "wissen", "filename": "a11-tag3-100-wir-wissen.mp3" }
+        { "person": "wir", "form": "wissen", "filename": "a11-tag3-100-wir-wissen.mp3" },
+        { "person": "ihr", "form": "wisst", "filename": "a11-tag3-200-ihr-wisst.mp3" },
+        { "person": "sie/Sie", "form": "wissen", "filename": "a11-tag3-201-sie-Sie-wissen.mp3" }
       ]
     },
 
     {
       "filename": "a11-tag3-101-intro-schlafen.mp3",
       "script": "schlafen",
-      "translationVi": "ngủ"
+      "translationVi": "ngủ",
+      "conjugation": [
+        { "person": "ich", "form": "schlafe", "filename": "a11-tag3-202-ich-schlafe.mp3" },
+        { "person": "du", "form": "schläfst", "filename": "a11-tag3-203-du-schlaefst.mp3" },
+        { "person": "er/sie/es", "form": "schläft", "filename": "a11-tag3-204-er-schlaeft.mp3" },
+        { "person": "wir", "form": "schlafen", "filename": "a11-tag3-205-wir-schlafen.mp3" },
+        { "person": "ihr", "form": "schlaft", "filename": "a11-tag3-206-ihr-schlaft.mp3" },
+        { "person": "sie/Sie", "form": "schlafen", "filename": "a11-tag3-207-sie-Sie-schlafen.mp3" }
+      ]
     },
 
     {
       "filename": "a11-tag3-105-intro-beginnen.mp3",
       "script": "beginnen",
-      "translationVi": "bắt đầu"
+      "translationVi": "bắt đầu",
+      "conjugation": [
+        { "person": "ich", "form": "beginne", "filename": "a11-tag3-208-ich-beginne.mp3" },
+        { "person": "du", "form": "beginnst", "filename": "a11-tag3-209-du-beginnst.mp3" },
+        { "person": "er/sie/es", "form": "beginnt", "filename": "a11-tag3-210-er-beginnt.mp3" },
+        { "person": "wir", "form": "beginnen", "filename": "a11-tag3-211-wir-beginnen.mp3" },
+        { "person": "ihr", "form": "beginnt", "filename": "a11-tag3-212-ihr-beginnt.mp3" },
+        { "person": "sie/Sie", "form": "beginnen", "filename": "a11-tag3-213-sie-Sie-beginnen.mp3" }
+      ]
     },
 
     {
@@ -230,6 +296,9 @@
       "conjugation": [
         { "person": "ich", "form": "bleibe", "filename": "a11-tag3-110-ich-bleibe.mp3" },
         { "person": "du", "form": "bleibst", "filename": "a11-tag3-111-du-bleibst.mp3" },
+        { "person": "er/sie/es", "form": "bleibt", "filename": "a11-tag3-214-er-bleibt.mp3" },
+        { "person": "wir", "form": "bleiben", "filename": "a11-tag3-215-wir-bleiben.mp3" },
+        { "person": "ihr", "form": "bleibt", "filename": "a11-tag3-216-ihr-bleibt.mp3" },
         { "person": "sie/Sie", "form": "bleiben", "filename": "a11-tag3-112-sie-Sie-bleiben.mp3" }
       ]
     },
@@ -241,7 +310,10 @@
       "conjugation": [
         { "person": "ich", "form": "arbeite", "filename": "a11-tag3-114-ich-arbeite.mp3" },
         { "person": "du", "form": "arbeitest", "filename": "a11-tag3-115-du-arbeitest.mp3" },
-        { "person": "wir", "form": "arbeiten", "filename": "a11-tag3-116-wir-arbeiten.mp3" }
+        { "person": "er/sie/es", "form": "arbeitet", "filename": "a11-tag3-217-er-arbeitet.mp3" },
+        { "person": "wir", "form": "arbeiten", "filename": "a11-tag3-116-wir-arbeiten.mp3" },
+        { "person": "ihr", "form": "arbeitet", "filename": "a11-tag3-218-ihr-arbeitet.mp3" },
+        { "person": "sie/Sie", "form": "arbeiten", "filename": "a11-tag3-219-sie-Sie-arbeiten.mp3" }
       ]
     },
 
@@ -252,7 +324,10 @@
       "conjugation": [
         { "person": "ich", "form": "esse", "filename": "a11-tag3-118-ich-esse.mp3" },
         { "person": "du", "form": "isst", "filename": "a11-tag3-119-du-isst.mp3" },
-        { "person": "wir", "form": "essen", "filename": "a11-tag3-120-wir-essen.mp3" }
+        { "person": "er/sie/es", "form": "isst", "filename": "a11-tag3-220-er-isst.mp3" },
+        { "person": "wir", "form": "essen", "filename": "a11-tag3-120-wir-essen.mp3" },
+        { "person": "ihr", "form": "esst", "filename": "a11-tag3-221-ihr-esst.mp3" },
+        { "person": "sie/Sie", "form": "essen", "filename": "a11-tag3-222-sie-Sie-essen.mp3" }
       ]
     },
 
@@ -262,6 +337,9 @@
       "translationVi": "nói chuyện",
       "conjugation": [
         { "person": "ich", "form": "rede", "filename": "a11-tag3-122-ich-rede.mp3" },
+        { "person": "du", "form": "redest", "filename": "a11-tag3-223-du-redest.mp3" },
+        { "person": "er/sie/es", "form": "redet", "filename": "a11-tag3-224-er-redet.mp3" },
+        { "person": "wir", "form": "reden", "filename": "a11-tag3-225-wir-reden.mp3" },
         { "person": "ihr", "form": "redet", "filename": "a11-tag3-123-ihr-redet.mp3" },
         { "person": "sie/Sie", "form": "reden", "filename": "a11-tag3-124-sie-Sie-reden.mp3" }
       ]
@@ -274,7 +352,10 @@
       "conjugation": [
         { "person": "ich", "form": "vergesse", "filename": "a11-tag3-126-ich-vergesse.mp3" },
         { "person": "du", "form": "vergisst", "filename": "a11-tag3-127-du-vergisst.mp3" },
-        { "person": "wir", "form": "vergessen", "filename": "a11-tag3-128-wir-vergessen.mp3" }
+        { "person": "er/sie/es", "form": "vergisst", "filename": "a11-tag3-226-er-vergisst.mp3" },
+        { "person": "wir", "form": "vergessen", "filename": "a11-tag3-128-wir-vergessen.mp3" },
+        { "person": "ihr", "form": "vergesst", "filename": "a11-tag3-227-ihr-vergesst.mp3" },
+        { "person": "sie/Sie", "form": "vergessen", "filename": "a11-tag3-228-sie-Sie-vergessen.mp3" }
       ]
     },
 
@@ -285,7 +366,10 @@
       "conjugation": [
         { "person": "ich", "form": "finde", "filename": "a11-tag3-130-ich-finde.mp3" },
         { "person": "du", "form": "findest", "filename": "a11-tag3-131-du-findest.mp3" },
-        { "person": "wir", "form": "finden", "filename": "a11-tag3-132-wir-finden.mp3" }
+        { "person": "er/sie/es", "form": "findet", "filename": "a11-tag3-229-er-findet.mp3" },
+        { "person": "wir", "form": "finden", "filename": "a11-tag3-132-wir-finden.mp3" },
+        { "person": "ihr", "form": "findet", "filename": "a11-tag3-230-ihr-findet.mp3" },
+        { "person": "sie/Sie", "form": "finden", "filename": "a11-tag3-231-sie-Sie-finden.mp3" }
       ]
     },
 
