@@ -1,3 +1,374 @@
 {
-  "clips": []
+  "clips": [
+    {
+      "filename": "a12-tag3-01-du-gehst-nach-hause.mp3",
+      "script": "Du gehst nach Hause.",
+      "translationVi": "Bạn đi về nhà."
+    },
+    {
+      "filename": "a12-tag3-02-geh-nach-hause.mp3",
+      "script": "Geh nach Hause!",
+      "translationVi": "Đi về nhà đi! (du)"
+    },
+    {
+      "filename": "a12-tag3-03-geh-bitte-nach-hause.mp3",
+      "script": "Geh bitte nach Hause!",
+      "translationVi": "Vui lòng đi về nhà đi! (du)"
+    },
+    {
+      "filename": "a12-tag3-04-ihr-geht-nach-hause.mp3",
+      "script": "Ihr geht nach Hause.",
+      "translationVi": "Các bạn đi về nhà."
+    },
+    {
+      "filename": "a12-tag3-05-geht-nach-hause.mp3",
+      "script": "Geht nach Hause!",
+      "translationVi": "Các bạn đi về nhà đi!"
+    },
+    {
+      "filename": "a12-tag3-06-geht-bitte-nach-hause.mp3",
+      "script": "Geht bitte nach Hause!",
+      "translationVi": "Các bạn vui lòng đi về nhà đi!"
+    },
+    {
+      "filename": "a12-tag3-07-sie-gehen-nach-hause.mp3",
+      "script": "Sie gehen nach Hause.",
+      "translationVi": "Ngài đi về nhà."
+    },
+    {
+      "filename": "a12-tag3-08-gehen-sie-nach-hause.mp3",
+      "script": "Gehen Sie nach Hause!",
+      "translationVi": "Ngài đi về nhà đi!"
+    },
+    {
+      "filename": "a12-tag3-09-gehen-sie-bitte-nach-hause.mp3",
+      "script": "Gehen Sie bitte nach Hause!",
+      "translationVi": "Ngài vui lòng đi về nhà đi!"
+    },
+    {
+      "filename": "a12-tag3-10-ruf-deine-mutter-an.mp3",
+      "script": "Ruf deine Mutter an!",
+      "translationVi": "Gọi mẹ của bạn đi!"
+    },
+    {
+      "filename": "a12-tag3-11-ruft-eure-mutter-an.mp3",
+      "script": "Ruft eure Mutter an!",
+      "translationVi": "Các bạn gọi mẹ của mình đi!"
+    },
+    {
+      "filename": "a12-tag3-12-rufen-sie-ihre-mutter-an.mp3",
+      "script": "Rufen Sie Ihre Mutter an!",
+      "translationVi": "Ngài gọi mẹ của mình đi!"
+    },
+    {
+      "filename": "a12-tag3-13-du-machst-die-hausaufgaben.mp3",
+      "script": "Du machst die Hausaufgaben.",
+      "translationVi": "Bạn làm bài tập về nhà."
+    },
+    {
+      "filename": "a12-tag3-14-mach-die-hausaufgaben.mp3",
+      "script": "Mach die Hausaufgaben!",
+      "translationVi": "Làm bài tập về nhà đi! (du)"
+    },
+    {
+      "filename": "a12-tag3-15-ihr-macht-die-hausaufgaben.mp3",
+      "script": "Ihr macht die Hausaufgaben.",
+      "translationVi": "Các bạn làm bài tập về nhà."
+    },
+    {
+      "filename": "a12-tag3-16-macht-die-hausaufgaben.mp3",
+      "script": "Macht die Hausaufgaben!",
+      "translationVi": "Các bạn làm bài tập về nhà đi!"
+    },
+    {
+      "filename": "a12-tag3-17-frag.mp3",
+      "script": "Frag!",
+      "translationVi": "Hỏi đi!"
+    },
+    {
+      "filename": "a12-tag3-18-frag-einfach.mp3",
+      "script": "Frag einfach!",
+      "translationVi": "Cứ hỏi đi!"
+    },
+    {
+      "filename": "a12-tag3-19-frag-doch-einfach.mp3",
+      "script": "Frag doch einfach!",
+      "translationVi": "Cứ mạnh dạn hỏi đi!"
+    },
+    {
+      "filename": "a12-tag3-20-frag-doch-mal.mp3",
+      "script": "Frag doch mal!",
+      "translationVi": "Thử hỏi đi!"
+    },
+    {
+      "filename": "a12-tag3-21-sag.mp3",
+      "script": "Sag!",
+      "translationVi": "Nói đi!"
+    },
+    {
+      "filename": "a12-tag3-22-sag-es-einfach.mp3",
+      "script": "Sag es einfach!",
+      "translationVi": "Cứ nói điều đó đi!"
+    },
+    {
+      "filename": "a12-tag3-23-sag-es-doch-einfach.mp3",
+      "script": "Sag es doch einfach!",
+      "translationVi": "Cứ mạnh dạn nói điều đó đi!"
+    },
+    {
+      "filename": "a12-tag3-24-sag-es-doch-mal.mp3",
+      "script": "Sag es doch mal!",
+      "translationVi": "Thử nói điều đó đi!"
+    },
+    {
+      "filename": "a12-tag3-25-geht.mp3",
+      "script": "Geht!",
+      "translationVi": "Các bạn đi đi!"
+    },
+    {
+      "filename": "a12-tag3-26-sagt.mp3",
+      "script": "Sagt!",
+      "translationVi": "Các bạn nói đi!"
+    },
+    {
+      "filename": "a12-tag3-27-fragt.mp3",
+      "script": "Fragt!",
+      "translationVi": "Các bạn hỏi đi!"
+    },
+    {
+      "filename": "a12-tag3-28-du-bist-fleissig.mp3",
+      "script": "Du bist fleißig.",
+      "translationVi": "Bạn chăm chỉ."
+    },
+    {
+      "filename": "a12-tag3-29-sei-fleissig.mp3",
+      "script": "Sei fleißig!",
+      "translationVi": "Chăm chỉ lên nhé! (du)"
+    },
+    {
+      "filename": "a12-tag3-30-sei-bitte-fleissig.mp3",
+      "script": "Sei bitte fleißig!",
+      "translationVi": "Vui lòng chăm chỉ lên nhé! (du)"
+    },
+    {
+      "filename": "a12-tag3-31-ihr-seid-fleissig.mp3",
+      "script": "Ihr seid fleißig.",
+      "translationVi": "Các bạn chăm chỉ."
+    },
+    {
+      "filename": "a12-tag3-32-seid-fleissig.mp3",
+      "script": "Seid fleißig!",
+      "translationVi": "Các bạn chăm chỉ lên nhé!"
+    },
+    {
+      "filename": "a12-tag3-33-seid-bitte-fleissig.mp3",
+      "script": "Seid bitte fleißig!",
+      "translationVi": "Các bạn vui lòng chăm chỉ lên nhé!"
+    },
+    {
+      "filename": "a12-tag3-34-sie-sind-fleissig.mp3",
+      "script": "Sie sind fleißig.",
+      "translationVi": "Ngài chăm chỉ."
+    },
+    {
+      "filename": "a12-tag3-35-seien-sie-fleissig.mp3",
+      "script": "Seien Sie fleißig!",
+      "translationVi": "Ngài chăm chỉ lên nhé!"
+    },
+    {
+      "filename": "a12-tag3-36-seien-sie-bitte-fleissig.mp3",
+      "script": "Seien Sie bitte fleißig!",
+      "translationVi": "Ngài vui lòng chăm chỉ lên nhé!"
+    },
+    {
+      "filename": "a12-tag3-37-du-gibst-mir-zehn-euro.mp3",
+      "script": "Du gibst mir zehn Euro.",
+      "translationVi": "Bạn đưa cho tôi mười euro."
+    },
+    {
+      "filename": "a12-tag3-38-gib-mir-zehn-euro.mp3",
+      "script": "Gib mir zehn Euro!",
+      "translationVi": "Đưa cho tôi mười euro đi!"
+    },
+    {
+      "filename": "a12-tag3-39-du-gibst.mp3",
+      "script": "Du gibst.",
+      "translationVi": "Bạn đưa."
+    },
+    {
+      "filename": "a12-tag3-40-gib-her.mp3",
+      "script": "Gib her!",
+      "translationVi": "Đưa đây! (du)"
+    },
+    {
+      "filename": "a12-tag3-41-ihr-gebt.mp3",
+      "script": "Ihr gebt.",
+      "translationVi": "Các bạn đưa."
+    },
+    {
+      "filename": "a12-tag3-42-gebt-her.mp3",
+      "script": "Gebt her!",
+      "translationVi": "Các bạn đưa đây!"
+    },
+    {
+      "filename": "a12-tag3-43-sie-geben.mp3",
+      "script": "Sie geben.",
+      "translationVi": "Ngài đưa."
+    },
+    {
+      "filename": "a12-tag3-44-geben-sie-her.mp3",
+      "script": "Geben Sie her!",
+      "translationVi": "Ngài đưa đây!"
+    },
+    {
+      "filename": "a12-tag3-45-du-siehst.mp3",
+      "script": "Du siehst.",
+      "translationVi": "Bạn nhìn thấy."
+    },
+    {
+      "filename": "a12-tag3-46-sieh-mal.mp3",
+      "script": "Sieh mal!",
+      "translationVi": "Nhìn kìa!"
+    },
+    {
+      "filename": "a12-tag3-47-mitkommen.mp3",
+      "script": "mitkommen",
+      "translationVi": "đi cùng"
+    },
+    {
+      "filename": "a12-tag3-48-du-kommst-mit.mp3",
+      "script": "Du kommst mit.",
+      "translationVi": "Bạn đi cùng."
+    },
+    {
+      "filename": "a12-tag3-49-komm-mit.mp3",
+      "script": "Komm mit!",
+      "translationVi": "Đi cùng đi!"
+    },
+    {
+      "filename": "a12-tag3-50-du-sieh-mal.mp3",
+      "script": "Du, sieh mal!",
+      "translationVi": "Này bạn, nhìn kìa!"
+    },
+    {
+      "filename": "a12-tag3-51-da-vorne.mp3",
+      "script": "da vorne",
+      "translationVi": "ở đằng trước kia"
+    },
+    {
+      "filename": "a12-tag3-52-die-autovermietung.mp3",
+      "script": "die Autovermietung",
+      "translationVi": "chỗ cho thuê ô tô"
+    },
+    {
+      "filename": "a12-tag3-53-da-vorne-ist-eine-autovermietung.mp3",
+      "script": "Da vorne ist eine Autovermietung.",
+      "translationVi": "Ở đằng trước kia có một chỗ cho thuê ô tô."
+    },
+    {
+      "filename": "a12-tag3-54-da-gehen-wir-jetzt-hin-und-fragen.mp3",
+      "script": "Da gehen wir jetzt hin und fragen.",
+      "translationVi": "Bây giờ chúng ta đến đó hỏi nhé."
+    },
+    {
+      "filename": "a12-tag3-55-na-los.mp3",
+      "script": "Na los",
+      "translationVi": "thôi nào"
+    },
+    {
+      "filename": "a12-tag3-56-na-los-komm-mit.mp3",
+      "script": "Na los, komm mit!",
+      "translationVi": "Thôi nào, đi cùng đi!"
+    },
+    {
+      "filename": "a12-tag3-58-geh-du-schon.mp3",
+      "script": "Geh du schon!",
+      "translationVi": "Bạn cứ đi trước đi!"
+    },
+    {
+      "filename": "a12-tag3-59-ich-will-noch-schnell-in-den-laden-da.mp3",
+      "script": "Ich will noch schnell in den Laden da.",
+      "translationVi": "Tôi còn muốn ghé nhanh vào cửa hàng đằng kia."
+    },
+    {
+      "filename": "a12-tag3-60-ich-habe-so-einen-hunger.mp3",
+      "script": "Ich habe so einen Hunger.",
+      "translationVi": "Tôi đói quá."
+    },
+    {
+      "filename": "a12-tag3-61-okay-tim-warte-mal.mp3",
+      "script": "Okay, Tim, warte mal!",
+      "translationVi": "Được rồi, Tim, đợi một chút nhé!"
+    },
+    {
+      "filename": "a12-tag3-62-mitbringen.mp3",
+      "script": "mitbringen",
+      "translationVi": "mang theo; mang đến"
+    },
+    {
+      "filename": "a12-tag3-63-bring-ein-wasser-fuer-mich-mit.mp3",
+      "script": "Bring ein Wasser für mich mit!",
+      "translationVi": "Mang cho tôi một chai nước nhé!"
+    },
+    {
+      "filename": "a12-tag3-64-fahr-bitte-zu-walter-und-hol-lili-ab.mp3",
+      "script": "Fahr bitte zu Walter und hol Lili ab!",
+      "translationVi": "Vui lòng đi tới chỗ Walter và đón Lili!"
+    },
+    {
+      "filename": "a12-tag3-65-mach-bitte-die-hausaufgaben.mp3",
+      "script": "Mach bitte die Hausaufgaben!",
+      "translationVi": "Vui lòng làm bài tập về nhà đi! (du)"
+    },
+    {
+      "filename": "a12-tag3-66-bringt-bitte-einen-kaffee-mit.mp3",
+      "script": "Bringt bitte einen Kaffee mit!",
+      "translationVi": "Các bạn vui lòng mang theo một cốc cà phê!"
+    },
+    {
+      "filename": "a12-tag3-67-leise.mp3",
+      "script": "leise",
+      "translationVi": "khẽ; nhỏ tiếng"
+    },
+    {
+      "filename": "a12-tag3-68-sei-leise-bitte.mp3",
+      "script": "Sei leise bitte!",
+      "translationVi": "Khẽ thôi nhé!"
+    },
+    {
+      "filename": "a12-tag3-69-sei-bitte-leise.mp3",
+      "script": "Sei bitte leise!",
+      "translationVi": "Vui lòng nhỏ tiếng thôi!"
+    },
+    {
+      "filename": "a12-tag3-70-erklaeren.mp3",
+      "script": "erklären",
+      "translationVi": "giải thích"
+    },
+    {
+      "filename": "a12-tag3-71-die-matheuebung.mp3",
+      "script": "die Matheübung",
+      "translationVi": "bài tập toán"
+    },
+    {
+      "filename": "a12-tag3-72-erklaer-lili-die-matheuebung.mp3",
+      "script": "Erklär Lili die Matheübung!",
+      "translationVi": "Giải thích cho Lili bài tập toán đi!"
+    },
+    {
+      "filename": "a12-tag3-73-die-e-mail.mp3",
+      "script": "die E-Mail",
+      "translationVi": "thư điện tử; email"
+    },
+    {
+      "filename": "a12-tag3-74-die-lehrerin.mp3",
+      "script": "die Lehrerin",
+      "translationVi": "cô giáo"
+    },
+    {
+      "filename": "a12-tag3-75-schreib-bitte-eine-e-mail-an-die-lehrerin.mp3",
+      "script": "Schreib bitte eine E-Mail an die Lehrerin!",
+      "translationVi": "Vui lòng viết một email cho cô giáo đi!"
+    }
+  ]
 }
