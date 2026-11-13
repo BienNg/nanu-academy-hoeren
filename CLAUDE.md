@@ -1,5 +1,9 @@
 @AGENTS.md
 
+# Clip index
+
+`src/data/clip-index/<level>.md` lists every clip and verb card a level teaches; new Lektionen are checked against it (`node scripts/check-clip-duplicates.mjs <draft.json>`). After adding or editing anything in `src/data/levels/`, run `npm run index:clips` and commit the index with the lesson. The content check (and so `npm run build`) fails while an index is out of date.
+
 # Blitzrunde is paused
 
 `BLITZRUNDE_ENABLED` in `src/lib/blitzrunde.ts` is `false` (since 2026-10-16). Leave it off until asked to turn Blitzrunde back on. While it is false, do not add live-round reads or polls.

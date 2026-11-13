@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { staleIndexFiles } from "./lib/clip-index.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ausbildungDataDir = join(repoRoot, "src/data/ausbildung");
@@ -1258,6 +1259,11 @@ const levelCount = checkLevels();
 const livingCount = checkLiving();
 checkGrammarAudio();
 checkWorld();
+
+// src/data/clip-index/ lists what each level already teaches; new Lektionen are checked against it.
+for (const { path, reason } of staleIndexFiles()) {
+  errors.push(`Clip index ${rel(path)} is ${reason}: run \`npm run index:clips\``);
+}
 
 if (errors.length > 0) {
   console.error("Content integrity check failed:\n");

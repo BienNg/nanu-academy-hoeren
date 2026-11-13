@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "check:content": "node scripts/check-content-integrity.mjs",
+    "index:clips": "node scripts/build-clip-index.mjs",
+    "check:clip-duplicates": "node scripts/check-clip-duplicates.mjs",
     "build": "node scripts/check-content-integrity.mjs && next build",
     "start": "next start",
     "lint": "eslint",
